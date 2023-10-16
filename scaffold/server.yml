@@ -1,0 +1,7 @@
+# Optional nameserver to use for SRV lookups
+# nameserver: 1.1.1.1:53
+
+# Server configuration
+server:
+  # Address and port to listen on
+  listen: http://127.0.0.1:3000

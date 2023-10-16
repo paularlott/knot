@@ -1,0 +1,7 @@
+knot
+Copyright 2023 Paul Arlott
+
+Licensed under the terms of the Apache License, Version 2.0.
+A copy of this license can be found later in this text or online
+at https://www.apache.org/licenses/LICENSE-2.0
+
