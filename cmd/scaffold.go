@@ -12,8 +12,6 @@ func init() {
   scaffoldCmd.Flags().BoolP("server", "", false, "Generate a server configuration file")
   scaffoldCmd.Flags().BoolP("client", "", false, "Generate a client configuration file")
 
-  RootCmd.PersistentFlags().MarkHidden("config")
-
   RootCmd.AddCommand(scaffoldCmd)
 }
 
@@ -22,6 +20,9 @@ var scaffoldCmd = &cobra.Command{
   Short: "Generate configuration files",
   Long:  `Generates example configuration files for use with knot.`,
   Args: cobra.NoArgs,
+  PreRun: func(cmd *cobra.Command, args []string) {
+    RootCmd.PersistentFlags().MarkHidden("config")
+  },
   Run: func(cmd *cobra.Command, args []string) {
     if cmd.Flag("server").Value.String() == "true" {
       fmt.Println(scaffold.ServerScaffold)
