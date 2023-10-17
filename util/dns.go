@@ -13,12 +13,12 @@ func GetTargetFromSRV(service string, nameserver string) (string, string, error)
   var port string = ""
   var err error = nil
   var srvAddrs []*net.SRV
+  var resolver *net.Resolver
 
   if nameserver == "" {
-    _, srvAddrs, err = net.LookupSRV("", "", service)
+    resolver = net.DefaultResolver
   } else {
-    // Look up against a specific consul host
-    resolver := &net.Resolver{
+    resolver = &net.Resolver{
       PreferGo: true,
       Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
         dialer := &net.Dialer{
@@ -27,16 +27,16 @@ func GetTargetFromSRV(service string, nameserver string) (string, string, error)
         return dialer.DialContext(ctx, "udp", nameserver)
       },
     }
-
-    _, srvAddrs, err = resolver.LookupSRV(context.Background(), "", "", service)
   }
 
+  _, srvAddrs, err = resolver.LookupSRV(context.Background(), "", "", service)
+
   if err == nil && len(srvAddrs) > 0 {
-    ip, err := GetIP(srvAddrs[0].Target, nameserver)
-    if err != nil {
+    ips, err := resolver.LookupIP(context.Background(), "ip4", srvAddrs[0].Target)
+    if err != nil || len(ips) == 0 {
       host = srvAddrs[0].Target
     } else {
-      host = ip
+      host = ips[0].String()
     }
     port = strconv.Itoa(int(srvAddrs[0].Port))
   } else {
@@ -50,12 +50,12 @@ func GetIP(service string, nameserver string) (string, error) {
   var ip string = ""
   var err error = nil
   var ips []net.IP
+  var resolver *net.Resolver
 
   if nameserver == "" {
-    ips, err = net.LookupIP(service)
+    resolver = net.DefaultResolver
   } else {
-    // Look up against a specific consul host
-    resolver := &net.Resolver{
+    resolver = &net.Resolver{
       PreferGo: true,
       Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
         dialer := &net.Dialer{
@@ -64,9 +64,9 @@ func GetIP(service string, nameserver string) (string, error) {
         return dialer.DialContext(ctx, "udp", nameserver)
       },
     }
-
-    ips, err = resolver.LookupIP(context.Background(), "ip4", service)
   }
+
+  ips, err = resolver.LookupIP(context.Background(), "ip4", service)
 
   if err == nil && len(ips) > 0 {
     ip = ips[0].String()
