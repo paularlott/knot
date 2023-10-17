@@ -16,8 +16,6 @@ const CONFIG_FILE_TYPE = "yaml"
 const CONFIG_ENV_PREFIX = "KNOT"
 
 var (
-  cfgFile string
-
   RootCmd = &cobra.Command{
     Use:   "knot",
     Short: "knot is a proxy server using WebSockets to tunnel SSH and TCP connections",
@@ -34,10 +32,14 @@ It also helps with direct access to services identified by SRV records.`,
 func init() {
   cobra.OnInitialize(initConfig)
 
-  RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file (default is " + CONFIG_FILE_NAME + "." + CONFIG_FILE_TYPE + " in the current directory or $HOME/).")
+  RootCmd.PersistentFlags().StringP("config", "c", "", "Config file (default is " + CONFIG_FILE_NAME + "." + CONFIG_FILE_TYPE + " in the current directory or $HOME/).\nOverrides the " + CONFIG_ENV_PREFIX + "_CONFIG environment variable if set.")
+  viper.BindPFlag("config", RootCmd.PersistentFlags().Lookup("config"))
+  viper.BindEnv("config", CONFIG_ENV_PREFIX + "_CONFIG")
 }
 
 func initConfig() {
+  cfgFile := viper.GetString("config")
+
   if cfgFile != "" {
     // Use config file from the flag
     viper.SetConfigFile(cfgFile)
