@@ -13,6 +13,14 @@ BUILD_FLAGS := -ldflags="-s -w -X github.com/paularlott/knot/build.Date=$(BUILT_
 # Set the output directory
 OUTPUT_DIR := bin
 
+default: all
+
+.PHONY: build
+
+## Build the binary for the current platform
+build: legal/license.txt legal/notice.txt
+	go build $(BUILD_FLAGS) -o $(OUTPUT_DIR)/$(PROJECT_NAME) .
+
 .PHONY: all
 
 ## Build the binary for all platforms
