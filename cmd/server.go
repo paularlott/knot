@@ -64,9 +64,9 @@ var serverCmd = &cobra.Command{
       if ws := upgradeToWS(w, r); ws != nil {
         proxy.HandleWSProxyServer(w, r, ws, viper.GetString("nameserver"))
       }
-    })
-    router.HandleFunc("/ping", web.HandlePing)
-    router.HandleFunc("/lookup/{service}", web.HandleLookup)
+    }).Methods("GET")
+    router.HandleFunc("/ping", web.HandlePing).Methods(http.MethodGet)
+    router.HandleFunc("/lookup/{service}", web.HandleLookup).Methods(http.MethodGet)
 
     // Run the http server
     server := &http.Server{

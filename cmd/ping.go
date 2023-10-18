@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
-	"time"
 
+	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/web"
 
 	"github.com/spf13/cobra"
@@ -33,18 +31,13 @@ var pingCmd = &cobra.Command{
 
     fmt.Println("Pinging server: ", server)
 
-    http.DefaultClient.Timeout = 10 * time.Second
-    resp, err := http.Get(fmt.Sprintf("%s/ping", server))
-    if err != nil || resp.StatusCode != http.StatusOK {
-      fmt.Println("Failed to ping server")
-      os.Exit(1)
-    }
-    defer resp.Body.Close()
+    client := rest.NewClient(server)
 
     ping := web.PingResponse{}
-    err = json.NewDecoder(resp.Body).Decode(&ping)
+
+    err := client.Get("/ping", &ping)
     if err != nil || ping.Status != true {
-      fmt.Println("Failed to parse response")
+      fmt.Println("Failed to ping server")
       os.Exit(1)
     }
 

@@ -1,10 +1,10 @@
 package web
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/util/rest"
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
@@ -39,7 +39,6 @@ func HandleLookup(w http.ResponseWriter, r *http.Request) {
     response.Port = port
   }
 
-  w.Header().Set("Content-Type", "application/json")
   w.WriteHeader(http.StatusOK)
-  json.NewEncoder(w).Encode(response)
+  rest.SendJSON(w, response)
 }

@@ -1,10 +1,10 @@
 package web
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/util/rest"
 )
 
 type PingResponse struct {
@@ -13,12 +13,9 @@ type PingResponse struct {
 }
 
 func HandlePing(w http.ResponseWriter, r *http.Request) {
-  w.Header().Set("Content-Type", "application/json")
   w.WriteHeader(http.StatusOK)
-
-  response := PingResponse{
+  rest.SendJSON(w, PingResponse{
     Status: true,
     Version: build.Version + " (" + build.Date + ")",
-  }
-  json.NewEncoder(w).Encode(response)
+  })
 }

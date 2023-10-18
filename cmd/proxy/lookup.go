@@ -1,12 +1,10 @@
 package cmd_proxy
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
-	"time"
 
+	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/web"
 
 	"github.com/spf13/cobra"
@@ -23,16 +21,11 @@ The request is passed to the proxy server to be processed rather than run agains
     service := args[0]
     proxyCmdCfg := getCmdProxyFlags()
 
-    http.DefaultClient.Timeout = 10 * time.Second
-    resp, err := http.Get(fmt.Sprintf("%s/lookup/%s", proxyCmdCfg.server, service))
-    if err != nil || resp.StatusCode != http.StatusOK {
-      fmt.Println("Failed to lookup service")
-      os.Exit(1)
-    }
-    defer resp.Body.Close()
+    client := rest.NewClient(proxyCmdCfg.server)
 
     lookup := web.LookupResponse{}
-    err = json.NewDecoder(resp.Body).Decode(&lookup)
+
+    err := client.Get(fmt.Sprintf("/lookup/%s", service), &lookup)
     if err != nil || lookup.Status != true {
       fmt.Println("Failed to parse response")
       os.Exit(1)
