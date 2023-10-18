@@ -2,13 +2,13 @@ package cmd_forward
 
 import (
 	"io"
-	"log"
 	"net"
 	"os"
 	"strconv"
 
 	"github.com/paularlott/knot/util"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -46,19 +46,19 @@ If <port> is not given then the port is found via a DNS SRV lookup against the s
       cobra.CheckErr("Failed to find service")
     }
 
-    log.Printf("Forwarding to %s (%s:%s)", args[0], host, port)
+    log.Info().Msgf("Forwarding to %s (%s:%s)", args[0], host, port)
 
     for {
       remoteConn, err := net.Dial("tcp", net.JoinHostPort(host, port))
       if err != nil {
-        log.Fatalln("Can't connect to remote")
+        log.Fatal().Msg("Can't connect to remote")
       }
 
       go func() { io.Copy(os.Stdout, remoteConn) }()
       _, err = io.Copy(remoteConn, os.Stdin)
       if err != nil {
         remoteConn.Close()
-        log.Fatalln("Lost connection to remote")
+        log.Fatal().Msg("Lost connection to remote")
       }
     }
   },

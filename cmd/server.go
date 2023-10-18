@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -55,7 +55,7 @@ var serverCmd = &cobra.Command{
       },
     }
 
-    log.Println("Starting server on", listen)
+    log.Info().Msgf("Starting server on: %s", listen)
 
     router := mux.NewRouter()
 
@@ -79,7 +79,7 @@ var serverCmd = &cobra.Command{
 
     go func() {
       if err := server.ListenAndServe(); err != nil {
-        log.Println(err)
+        log.Fatal().Msg(err.Error())
       }
     }()
 
@@ -92,7 +92,7 @@ var serverCmd = &cobra.Command{
     ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
     defer cancel()
     server.Shutdown(ctx)
-    log.Println("Shut down")
+    log.Info().Msg("Server Shutdown")
     os.Exit(0)
   },
 }
@@ -103,7 +103,7 @@ func upgradeToWS(w http.ResponseWriter, r *http.Request) *websocket.Conn {
   ws, err := upgrader.Upgrade(w, r, nil)
   if err != nil {
     w.WriteHeader(http.StatusInternalServerError)
-    log.Printf("Error while upgrading: %s", err)
+    log.Error().Msgf("Error while upgrading: %s", err)
     return nil
   }
 

@@ -1,12 +1,13 @@
 package cmd
 
 import (
-	"log"
 	"os"
 	"strings"
 
 	"github.com/paularlott/knot/build"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -23,6 +24,20 @@ var (
 
 It also helps with direct access to services identified by SRV records.`,
     Version: build.Version + " (" + build.Date + ")",
+    PersistentPreRun: func(cmd *cobra.Command, args []string) {
+      switch viper.GetString("log.level") {
+      case "debug":
+        zerolog.SetGlobalLevel(zerolog.DebugLevel)
+      case "info":
+        zerolog.SetGlobalLevel(zerolog.InfoLevel)
+      case "warn":
+        zerolog.SetGlobalLevel(zerolog.WarnLevel)
+      case "error":
+        zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+      default:
+        zerolog.SetGlobalLevel(zerolog.WarnLevel)
+      }
+    },
     Run: func(cmd *cobra.Command, args []string) {
       cmd.Help()
     },
@@ -35,6 +50,10 @@ func init() {
   RootCmd.PersistentFlags().StringP("config", "c", "", "Config file (default is " + CONFIG_FILE_NAME + "." + CONFIG_FILE_TYPE + " in the current directory or $HOME/).\nOverrides the " + CONFIG_ENV_PREFIX + "_CONFIG environment variable if set.")
   viper.BindPFlag("config", RootCmd.PersistentFlags().Lookup("config"))
   viper.BindEnv("config", CONFIG_ENV_PREFIX + "_CONFIG")
+
+  RootCmd.PersistentFlags().StringP("loglevel", "", "info", "Log level (debug, info, warn, error, fatal, panic).\nOverrides the " + CONFIG_ENV_PREFIX + "_LOGLEVEL environment variable if set.")
+  viper.BindPFlag("log.level", RootCmd.PersistentFlags().Lookup("loglevel"))
+  viper.BindEnv("log.level", CONFIG_ENV_PREFIX + "_LOGLEVEL")
 }
 
 func initConfig() {
@@ -45,7 +64,7 @@ func initConfig() {
     viper.SetConfigFile(cfgFile)
 
     if err := viper.ReadInConfig(); err != nil {
-      log.Fatalln("ERROR: Missing config file:", viper.ConfigFileUsed())
+      log.Fatal().Msgf("Missing config file: %s", viper.ConfigFileUsed())
     }
   } else {
     // Find home directory.

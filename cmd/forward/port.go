@@ -2,13 +2,12 @@ package cmd_forward
 
 import (
 	"io"
-	"log"
 	"net"
-	"os"
 	"strconv"
 
 	"github.com/paularlott/knot/util"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -48,28 +47,26 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
       cobra.CheckErr("Failed to find service")
     }
 
-    log.Printf("Listening on %s", listen)
-    log.Printf("Forwarding to %s (%s:%s)", args[0], host, port)
+    log.Info().Msgf("Listening on %s", listen)
+    log.Info().Msgf("Forwarding ro %s (%s:%s)", args[0], host, port)
 
     listener, err := net.Listen("tcp", listen)
     if err != nil {
-      log.Fatal("Error while opening local port: ", err)
-      os.Exit(1)
+      log.Fatal().Msgf("Error while opening local port: %s", err.Error())
     }
     defer listener.Close()
 
     for {
       localConn, err := listener.Accept()
       if err != nil {
-        log.Printf("Error: could not accept the connection: %s", err)
-        log.Fatalln("Error while accepting connection")
+        log.Error().Msgf("Could not accept the connection: %s", err.Error())
       }
 
       go func() {
         remoteConn, err := net.Dial("tcp", net.JoinHostPort(host, port))
         if err != nil {
           localConn.Close()
-          log.Fatalln("Can't connect to remote")
+          log.Fatal().Msg("Can't connect to remote")
         }
         defer remoteConn.Close()
 
@@ -78,7 +75,7 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
         if err != nil {
           localConn.Close()
           remoteConn.Close()
-          log.Fatalln("Lost connection to remote")
+          log.Fatal().Msg("Lost connection to remote")
         }
       }()
     }

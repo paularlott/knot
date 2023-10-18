@@ -2,14 +2,14 @@ package proxy
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 )
 
 func RunSSHForwarder(proxyServerURL string, service string, port int) {
-  log.Println("Connecting to proxy server at", proxyServerURL)
+  log.Info().Msgf("Connecting to proxy server at: %s", proxyServerURL)
 
   // Build dial address
   dialURL := fmt.Sprintf("%s/forward-port/%s/%d", proxyServerURL, service, port)
@@ -18,11 +18,9 @@ func RunSSHForwarder(proxyServerURL string, service string, port int) {
     // Create websocket connection
     wsConn, _, err := websocket.DefaultDialer.Dial(dialURL, nil)
     if err != nil {
-      log.Fatal("Error while dialing:", err)
+      log.Fatal().Msgf("Error while dialing: %s", err.Error())
       os.Exit(1)
     }
-
-    log.Println("about to start copy process!!!")
 
     copier := NewCopier(nil, wsConn)
     copier.Run()
