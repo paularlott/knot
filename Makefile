@@ -33,13 +33,15 @@ $(PLATFORMS): legal/license.txt legal/notice.txt
 .PHONY: legal
 ## Make the application licence and notice file
 legal: legal/license.txt legal/notice.txt
+	rm -rf ./legal/licenses
+	~/go/bin/go-licenses save --save_path ./legal/licenses/ --skip_copy_source --ignore github.com/paularlott/knot .
 
 ## Make the application licence file
-legal/license.txt: LICENSE.txt NOTICE.txt
+legal/license.txt: LICENSE.txt
 	cat LICENSE.txt > legal/license.txt
 
 ## Make the application notice file
-legal/notice.txt: LICENSE.txt NOTICE.txt
+legal/notice.txt: NOTICE.txt
 	cat NOTICE.txt > legal/notice.txt
 
 .PHONY: clean

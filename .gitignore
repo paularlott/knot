@@ -1,5 +1,6 @@
 /bin/*
 !/bin/.gitignore
 .knot.yml
-legal/license.txt
-legal/notice.txt
+/legal/license.txt
+/legal/notice.txt
+/NOTES.md
