@@ -10,15 +10,10 @@ import (
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/web"
 
-	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-)
-
-var (
-	upgrader websocket.Upgrader
 )
 
 func init() {
@@ -45,28 +40,14 @@ var serverCmd = &cobra.Command{
   Run: func(cmd *cobra.Command, args []string) {
     listen := viper.GetString("server.listen")
 
-    // Websocket upgrader
-    upgrader = websocket.Upgrader{
-      ReadBufferSize:   1024,
-      WriteBufferSize:  1024,
-      HandshakeTimeout: 10 * time.Second,
-      CheckOrigin: func(r *http.Request) bool {
-        return true
-      },
-    }
-
     log.Info().Msgf("Starting server on: %s", listen)
 
-    router := mux.NewRouter()
+    router := chi.NewRouter()
 
     // Define endpoints
-    router.HandleFunc("/forward-port/{host}/{port:\\d+}", func(w http.ResponseWriter, r *http.Request) {
-      if ws := upgradeToWS(w, r); ws != nil {
-        proxy.HandleWSProxyServer(w, r, ws, viper.GetString("nameserver"))
-      }
-    }).Methods("GET")
-    router.HandleFunc("/ping", web.HandlePing).Methods(http.MethodGet)
-    router.HandleFunc("/lookup/{service}", web.HandleLookup).Methods(http.MethodGet)
+    router.Get("/forward-port/{host}/{port:\\d+}", proxy.HandleWSProxyServer)
+    router.Get("/ping", web.HandlePing)
+    router.Get("/lookup/{service}", web.HandleLookup)
 
     // Run the http server
     server := &http.Server{
@@ -95,17 +76,4 @@ var serverCmd = &cobra.Command{
     log.Info().Msg("Server Shutdown")
     os.Exit(0)
   },
-}
-
-// Upgrade the connection to a websocket connection
-func upgradeToWS(w http.ResponseWriter, r *http.Request) *websocket.Conn {
-  // Upgrade the connection to a websocket
-  ws, err := upgrader.Upgrade(w, r, nil)
-  if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    log.Error().Msgf("Error while upgrading: %s", err)
-    return nil
-  }
-
-  return ws
 }

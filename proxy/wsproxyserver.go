@@ -6,16 +6,23 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/web"
+	"github.com/spf13/viper"
 
-	"github.com/gorilla/mux"
-	"github.com/gorilla/websocket"
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
-func HandleWSProxyServer(w http.ResponseWriter, r *http.Request, ws *websocket.Conn, dns string) {
-	vars := mux.Vars(r)
-	host := vars["host"]
-	port := vars["port"]
+func HandleWSProxyServer(w http.ResponseWriter, r *http.Request) {
+  ws :=web.UpgradeToWS(w, r);
+  if ws == nil {
+    log.Error().Msg("Error while upgrading to websocket")
+    return
+  }
+
+  dns := viper.GetString("nameserver")
+  host := chi.URLParam(r, "host")
+  port := chi.URLParam(r, "port")
 
   // If port is 0 then use SRV lookup to find port
   if port == "0" {
@@ -27,7 +34,7 @@ func HandleWSProxyServer(w http.ResponseWriter, r *http.Request, ws *websocket.C
       return
     }
 
-    log.Info().Msgf("Proxying to %s via %s:%s", vars["host"], host, port)
+    log.Info().Msgf("Proxying to %s via %s:%s", chi.URLParam(r, "host"), host, port)
   } else {
     log.Info().Msgf("Proxying to %s:%s", host, port)
   }

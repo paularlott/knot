@@ -5,8 +5,9 @@ import (
 
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/rest"
+	"github.com/rs/zerolog/log"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
 	"github.com/spf13/viper"
 )
 
@@ -21,8 +22,9 @@ func HandleLookup(w http.ResponseWriter, r *http.Request) {
   var port string
   var err error
 
-  vars := mux.Vars(r)
-  service := vars["service"]
+  service := chi.URLParam(r, "service")
+
+  log.Debug().Msgf("Looking up %s", service)
 
   response := LookupResponse{Status: true, Host: "", Port: ""}
 
