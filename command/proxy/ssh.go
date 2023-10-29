@@ -23,7 +23,7 @@ If <port> is not given then the port is found via a DNS SRV lookup against the s
     var port int
     var err error
 
-    proxyCmdCfg := command.GetProxyFlags()
+    cfg := command.GetServerAddr()
 
     if len(args) == 2 {
       port, err = strconv.Atoi(args[1])
@@ -34,6 +34,6 @@ If <port> is not given then the port is found via a DNS SRV lookup against the s
       port = 0
     }
 
-    proxy.RunSSHForwarderViaProxy(proxyCmdCfg.WsServer, args[0], port)
+    proxy.RunSSHForwarderViaProxy(cfg.WsServer, args[0], port)
   },
 }

@@ -24,7 +24,7 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
     var port int
     var err error
 
-    proxyCmdCfg := command.GetProxyFlags()
+    cfg := command.GetServerAddr()
 
     if len(args) == 3 {
       port, err = strconv.Atoi(args[2])
@@ -35,6 +35,6 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
       port = 0
     }
 
-    proxy.RunTCPForwarderViaProxy(proxyCmdCfg.WsServer, args[0], args[1], port)
+    proxy.RunTCPForwarderViaProxy(cfg.WsServer, args[0], args[1], port)
   },
 }

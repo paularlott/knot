@@ -15,7 +15,7 @@ var sshCmd = &cobra.Command{
   box   The name of the box to connect to e.g. mybox`,
   Args: cobra.ExactArgs(1),
   Run: func(cmd *cobra.Command, args []string) {
-    forwardCmdCfg := command.GetProxyFlags()
-    proxy.RunSSHForwarderViaAgent(forwardCmdCfg.WsServer, args[0])
+    cfg := command.GetServerAddr()
+    proxy.RunSSHForwarderViaAgent(cfg.WsServer, args[0])
   },
 }

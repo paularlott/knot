@@ -1,4 +1,4 @@
-package api_v1
+package apiv1
 
 import (
 	"github.com/go-chi/chi/v5"

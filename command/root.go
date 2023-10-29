@@ -91,28 +91,28 @@ func Execute() {
   }
 }
 
-type ProxyFlags struct {
-  Server string
+type ServerAddr struct {
+  HttpServer string
   WsServer string
 }
 
 // Read the server configuration information and generate the websocket address
-func GetProxyFlags() ProxyFlags {
-  flags := ProxyFlags{}
+func GetServerAddr() ServerAddr {
+  flags := ServerAddr{}
 
-  flags.Server = viper.GetString("client.server")
+  flags.HttpServer = viper.GetString("client.server")
 
   // If flags.server empty then throw and error
-  if flags.Server == "" {
+  if flags.HttpServer == "" {
     cobra.CheckErr("Missing proxy server address")
   }
 
   // Fix up the address to a websocket address
-  flags.Server = strings.TrimSuffix(flags.Server, "/")
-  if strings.HasPrefix(flags.Server, "http") {
-    flags.WsServer = "ws" + flags.Server[4:]
+  flags.HttpServer = strings.TrimSuffix(flags.HttpServer, "/")
+  if strings.HasPrefix(flags.HttpServer, "http") {
+    flags.WsServer = "ws" + flags.HttpServer[4:]
   } else {
-    flags.WsServer = "ws://" + flags.Server
+    flags.WsServer = "ws://" + flags.HttpServer
   }
 
   return flags

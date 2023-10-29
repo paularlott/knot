@@ -13,9 +13,9 @@ func RunTCPForwarderViaProxy(proxyServerURL string, listen string, service strin
   forwardTCP(fmt.Sprintf("%s/proxy/port/%s/%d", proxyServerURL, service, port), listen)
 }
 
-func RunTCPForwarderViaAgent(proxyServerURL string, box string, port int) {
+func RunTCPForwarderViaAgent(proxyServerURL string, listen string, box string, port int) {
   log.Info().Msgf("Connecting to agent via server at: %s", proxyServerURL)
-  forwardSSH(fmt.Sprintf("%s/%s/port/%d", proxyServerURL, box, port))
+  forwardTCP(fmt.Sprintf("%s/%s/port/%d", proxyServerURL, box, port), listen)
 }
 
 func forwardTCP(dialURL string, listen string) {

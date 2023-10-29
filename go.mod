@@ -4,7 +4,6 @@ go 1.21
 
 require (
 	github.com/go-chi/chi/v5 v5.0.10
-	github.com/go-chi/hostrouter v0.2.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/rs/zerolog v1.31.0
 	github.com/spf13/cobra v1.7.0

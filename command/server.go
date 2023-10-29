@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	api_v1 "github.com/paularlott/knot/api/v1"
+	"github.com/paularlott/knot/api/apiv1"
 	"github.com/paularlott/knot/proxy"
 
 	"github.com/go-chi/chi/v5"
@@ -48,11 +48,14 @@ var serverCmd = &cobra.Command{
 
     router := chi.NewRouter()
 
-    router.Mount("/api/v1", api_v1.ApiRoutes())
+    router.Mount("/api/v1", apiv1.ApiRoutes())
     router.Mount("/proxy", proxy.Routes())
 
-
+// TODO /proxy/agent/{user}/{box}/code-server
+// TODO /proxy/agent/{user}/{box}/ssh
+// TODO /proxy/agent/{user}/{box}/port/{port}
     router.HandleFunc("/{box}/code-server/*", proxyCodeServer);
+    router.HandleFunc("/{box}/port/{port}", proxyTCP);
     router.Get("/{box}/ssh/*", proxySSH);
 
 
@@ -91,19 +94,36 @@ func proxyCodeServer(w http.ResponseWriter, r *http.Request) {
   target, _ := url.Parse("http://127.0.0.1:3001/code-server/")
   proxy := httputil.NewSingleHostReverseProxy(target)
 
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, "/code-server")
+  box := chi.URLParam(r, "box")
+
+  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/%s/code-server", box))
 
   proxy.ServeHTTP(w, r)
 }
 
 func proxySSH(w http.ResponseWriter, r *http.Request) {
-    log.Info().Msg("proxySSH")
-
   // TODO Change this to look up the IP + Port from consul / DNS
   target, _ := url.Parse("http://127.0.0.1:3001/ssh/")
   proxy := httputil.NewSingleHostReverseProxy(target)
 
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, "/ssh")
+  box := chi.URLParam(r, "box")
+
+  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/%s/ssh", box))
+
+  proxy.ServeHTTP(w, r)
+}
+
+
+func proxyTCP(w http.ResponseWriter, r *http.Request) {
+  port := chi.URLParam(r, "port")
+
+  // TODO Change this to look up the IP + Port from consul / DNS
+  target, _ := url.Parse("http://127.0.0.1:3001/tcp/" + port)
+  proxy := httputil.NewSingleHostReverseProxy(target)
+
+  box := chi.URLParam(r, "box")
+
+  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/%s/port/%s", box, port))
 
   proxy.ServeHTTP(w, r)
 }

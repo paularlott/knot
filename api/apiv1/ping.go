@@ -1,4 +1,4 @@
-package api_v1
+package apiv1
 
 import (
 	"net/http"
@@ -18,4 +18,10 @@ func HandlePing(w http.ResponseWriter, r *http.Request) {
     Status: true,
     Version: build.Version + " (" + build.Date + ")",
   })
+}
+
+func CallPing(client *rest.RESTClient) (PingResponse, error) {
+  ping := PingResponse{}
+  err := client.Get("/api/v1/ping", &ping)
+  return ping, err
 }

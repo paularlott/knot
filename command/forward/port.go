@@ -16,18 +16,15 @@ var portCmd = &cobra.Command{
   listen    The local port to listen on e.g. :8080
   box       The name of the box to connect to e.g. mybox
   port      The remote port to connect to e.g. 80`,
-  Args: cobra.ExactArgs(2),
+  Args: cobra.ExactArgs(3),
   Run: func(cmd *cobra.Command, args []string) {
-    var port int
-    var err error
+    cfg := command.GetServerAddr()
 
-    forwardCmdCfg := command.GetProxyFlags()
-
-    port, err = strconv.Atoi(args[1])
+    port, err := strconv.Atoi(args[2])
     if err != nil || port < 1 || port > 65535 {
       cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")
     }
 
-    proxy.RunTCPForwarderViaAgent(forwardCmdCfg.WsServer, args[0], port)
+    proxy.RunTCPForwarderViaAgent(cfg.WsServer, args[0], args[1], port)
   },
 }

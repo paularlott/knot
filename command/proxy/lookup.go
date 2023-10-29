@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	api_v1 "github.com/paularlott/knot/api/v1"
+	"github.com/paularlott/knot/api/apiv1"
 	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/util/rest"
 
@@ -20,13 +20,10 @@ The request is passed to the proxy server to be processed rather than run agains
   Args: cobra.ExactArgs(1),
   Run: func(cmd *cobra.Command, args []string) {
     service := args[0]
-    proxyCmdCfg := command.GetProxyFlags()
+    cfg := command.GetServerAddr()
+    client := rest.NewClient(cfg.HttpServer)
 
-    client := rest.NewClient(proxyCmdCfg.Server)
-
-    lookup := api_v1.LookupResponse{}
-
-    err := client.Get(fmt.Sprintf("/api/v1/lookup/%s", service), &lookup)
+    lookup, err := apiv1.CallLookup(client, service)
     if err != nil || !lookup.Status {
       fmt.Println("Failed to parse response")
       os.Exit(1)

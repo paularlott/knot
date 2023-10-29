@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	api_v1 "github.com/paularlott/knot/api/v1"
+	"github.com/paularlott/knot/api/apiv1"
 	"github.com/paularlott/knot/util/rest"
 
 	"github.com/spf13/cobra"
@@ -27,15 +27,12 @@ var pingCmd = &cobra.Command{
     viper.BindEnv("client.server", CONFIG_ENV_PREFIX + "_SERVER")
   },
   Run: func(cmd *cobra.Command, args []string) {
-    server := viper.GetString("client.server")
+    cfg := GetServerAddr()
+    fmt.Println("Pinging server: ", cfg.HttpServer)
 
-    fmt.Println("Pinging server: ", server)
+    client := rest.NewClient(cfg.HttpServer)
 
-    client := rest.NewClient(server)
-
-    ping := api_v1.PingResponse{}
-
-    err := client.Get("/api/v1/ping", &ping)
+    ping, err := apiv1.CallPing(client)
     if err != nil || !ping.Status {
       fmt.Println("Failed to ping server")
       os.Exit(1)

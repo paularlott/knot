@@ -1,6 +1,7 @@
-package api_v1
+package apiv1
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/paularlott/knot/util"
@@ -44,3 +45,10 @@ func HandleLookup(w http.ResponseWriter, r *http.Request) {
   w.WriteHeader(http.StatusOK)
   rest.SendJSON(w, response)
 }
+
+func CallLookup(client *rest.RESTClient, service string) (LookupResponse, error) {
+  lookup := LookupResponse{}
+  err := client.Get(fmt.Sprintf("/api/v1/lookup/%s", service), &lookup)
+  return lookup, err
+}
+
