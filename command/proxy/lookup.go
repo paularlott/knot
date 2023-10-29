@@ -26,7 +26,7 @@ The request is passed to the proxy server to be processed rather than run agains
 
     lookup := api_v1.LookupResponse{}
 
-    err := client.Get(fmt.Sprintf("/lookup/%s", service), &lookup)
+    err := client.Get(fmt.Sprintf("/api/v1/lookup/%s", service), &lookup)
     if err != nil || !lookup.Status {
       fmt.Println("Failed to parse response")
       os.Exit(1)

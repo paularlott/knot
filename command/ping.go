@@ -35,7 +35,7 @@ var pingCmd = &cobra.Command{
 
     ping := api_v1.PingResponse{}
 
-    err := client.Get("/ping", &ping)
+    err := client.Get("/api/v1/ping", &ping)
     if err != nil || !ping.Status {
       fmt.Println("Failed to ping server")
       os.Exit(1)
