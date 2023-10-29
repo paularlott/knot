@@ -1,8 +1,9 @@
-package cmd_proxy
+package command_proxy
 
 import (
 	"strconv"
 
+	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/proxy"
 
 	"github.com/spf13/cobra"
@@ -22,7 +23,7 @@ If <port> is not given then the port is found via a DNS SRV lookup against the s
     var port int
     var err error
 
-    proxyCmdCfg := getCmdProxyFlags()
+    proxyCmdCfg := command.GetProxyFlags()
 
     if len(args) == 2 {
       port, err = strconv.Atoi(args[1])
@@ -33,6 +34,6 @@ If <port> is not given then the port is found via a DNS SRV lookup against the s
       port = 0
     }
 
-    proxy.RunSSHForwarder(proxyCmdCfg.wsServer, args[0], port)
+    proxy.RunSSHForwarderViaProxy(proxyCmdCfg.WsServer, args[0], port)
   },
 }

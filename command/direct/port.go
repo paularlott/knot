@@ -1,4 +1,4 @@
-package cmd_forward
+package commands_direct
 
 import (
 	"io"
@@ -14,7 +14,7 @@ import (
 
 var portCmd = &cobra.Command{
   Use:   "port <listen> <service> <port> [flags]",
-  Short: "Forward a port direct to the service",
+  Short: "Forward a local port to the service",
   Long:  `Forwards a local port to a remote server and port via a direct connection.
 
 If <port> is not given then the remote port is found via a DNS SRV lookup against the service name.
@@ -32,7 +32,9 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
     service := args[1]
 
     if len(args) == 3 {
-      portInt, err := strconv.Atoi(args[2])
+      var portInt int
+
+      portInt, err = strconv.Atoi(args[2])
       port = strconv.Itoa(portInt)
       if err != nil || portInt < 1 || portInt > 65535 {
         cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")

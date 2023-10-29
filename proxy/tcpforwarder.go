@@ -8,13 +8,17 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func RunTCPForwarder(proxyServerURL string, listen string, service string, port int) {
-  log.Info().Msgf("Listening on %s", listen)
-  log.Info().Msgf("Forwarding to %s", service)
+func RunTCPForwarderViaProxy(proxyServerURL string, listen string, service string, port int) {
+  log.Info().Msgf("Listening on %s forwarding to %s via %s", listen, service, proxyServerURL)
+  forwardTCP(fmt.Sprintf("%s/proxy/port/%s/%d", proxyServerURL, service, port), listen)
+}
 
-  // Build dial address
-  dialURL := fmt.Sprintf("%s/forward-port/%s/%d", proxyServerURL, service, port)
+func RunTCPForwarderViaAgent(proxyServerURL string, box string, port int) {
+  log.Info().Msgf("Connecting to agent via server at: %s", proxyServerURL)
+  forwardSSH(fmt.Sprintf("%s/%s/port/%d", proxyServerURL, box, port))
+}
 
+func forwardTCP(dialURL string, listen string) {
 	tcpConnection, err := net.Listen("tcp", listen)
 	if err != nil {
     log.Fatal().Msgf("Error while opening local port: %s", err.Error())

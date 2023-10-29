@@ -1,4 +1,4 @@
-package cmd
+package command
 
 import (
 	"os"
@@ -89,4 +89,31 @@ func Execute() {
   if err := RootCmd.Execute(); err != nil {
     os.Exit(1)
   }
+}
+
+type ProxyFlags struct {
+  Server string
+  WsServer string
+}
+
+// Read the server configuration information and generate the websocket address
+func GetProxyFlags() ProxyFlags {
+  flags := ProxyFlags{}
+
+  flags.Server = viper.GetString("client.server")
+
+  // If flags.server empty then throw and error
+  if flags.Server == "" {
+    cobra.CheckErr("Missing proxy server address")
+  }
+
+  // Fix up the address to a websocket address
+  flags.Server = strings.TrimSuffix(flags.Server, "/")
+  if strings.HasPrefix(flags.Server, "http") {
+    flags.WsServer = "ws" + flags.Server[4:]
+  } else {
+    flags.WsServer = "ws://" + flags.Server
+  }
+
+  return flags
 }

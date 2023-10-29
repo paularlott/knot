@@ -1,14 +1,18 @@
-package cmd
+package command
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
+	api_v1 "github.com/paularlott/knot/api/v1"
 	"github.com/paularlott/knot/proxy"
-	"github.com/paularlott/knot/web"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -44,10 +48,13 @@ var serverCmd = &cobra.Command{
 
     router := chi.NewRouter()
 
-    // Define endpoints
-    router.Get("/forward-port/{host}/{port:\\d+}", proxy.HandleWSProxyServer)
-    router.Get("/ping", web.HandlePing)
-    router.Get("/lookup/{service}", web.HandleLookup)
+    router.Mount("/api/v1", api_v1.ApiRoutes())
+    router.Mount("/proxy", proxy.Routes())
+
+
+    router.HandleFunc("/{box}/code-server/*", proxyCodeServer);
+    router.Get("/{box}/ssh/*", proxySSH);
+
 
     // Run the http server
     server := &http.Server{
@@ -55,11 +62,10 @@ var serverCmd = &cobra.Command{
       Handler:        router,
       ReadTimeout:    10 * time.Second,
       WriteTimeout:   10 * time.Second,
-      MaxHeaderBytes: 1 << 20,
     }
 
     go func() {
-      if err := server.ListenAndServe(); err != nil {
+      if err := server.ListenAndServe(); err != http.ErrServerClosed {
         log.Fatal().Msg(err.Error())
       }
     }()
@@ -73,7 +79,31 @@ var serverCmd = &cobra.Command{
     ctx, cancel := context.WithTimeout(context.Background(), 30 * time.Second)
     defer cancel()
     server.Shutdown(ctx)
+    fmt.Println("\r")
     log.Info().Msg("Server Shutdown")
     os.Exit(0)
   },
+}
+
+func proxyCodeServer(w http.ResponseWriter, r *http.Request) {
+
+  // TODO Change this to look up the IP + Port from consul / DNS
+  target, _ := url.Parse("http://127.0.0.1:3001/code-server/")
+  proxy := httputil.NewSingleHostReverseProxy(target)
+
+  r.URL.Path = strings.TrimPrefix(r.URL.Path, "/code-server")
+
+  proxy.ServeHTTP(w, r)
+}
+
+func proxySSH(w http.ResponseWriter, r *http.Request) {
+    log.Info().Msg("proxySSH")
+
+  // TODO Change this to look up the IP + Port from consul / DNS
+  target, _ := url.Parse("http://127.0.0.1:3001/ssh/")
+  proxy := httputil.NewSingleHostReverseProxy(target)
+
+  r.URL.Path = strings.TrimPrefix(r.URL.Path, "/ssh")
+
+  proxy.ServeHTTP(w, r)
 }

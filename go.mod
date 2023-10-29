@@ -4,9 +4,9 @@ go 1.21
 
 require (
 	github.com/go-chi/chi/v5 v5.0.10
+	github.com/go-chi/hostrouter v0.2.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/rs/zerolog v1.31.0
-	github.com/segmentio/encoding v0.3.6
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.17.0
 )
@@ -22,7 +22,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.10.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect

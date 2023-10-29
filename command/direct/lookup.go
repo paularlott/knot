@@ -1,8 +1,9 @@
-package cmd
+package commands_direct
 
 import (
 	"fmt"
 
+	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/util"
 
 	"github.com/spf13/cobra"
@@ -10,8 +11,8 @@ import (
 )
 
 func init() {
-  lookupCmd.Flags().StringP("nameserver", "n", "", "The nameserver to use for SRV lookups (default use system resolver).\nOverrides the " + CONFIG_ENV_PREFIX + "_NAMESERVER environment variable if set.")
-  RootCmd.AddCommand(lookupCmd)
+  lookupCmd.Flags().StringP("nameserver", "n", "", "The nameserver to use for SRV lookups (default use system resolver).\nOverrides the " + command.CONFIG_ENV_PREFIX + "_NAMESERVER environment variable if set.")
+  command.RootCmd.AddCommand(lookupCmd)
 }
 
 var lookupCmd = &cobra.Command{
@@ -21,7 +22,7 @@ var lookupCmd = &cobra.Command{
   Args: cobra.ExactArgs(1),
   PreRun: func(cmd *cobra.Command, args []string) {
     viper.BindPFlag("nameserver", cmd.Flags().Lookup("nameserver"))
-    viper.BindEnv("nameserver", CONFIG_ENV_PREFIX + "_NAMESERVER")
+    viper.BindEnv("nameserver", command.CONFIG_ENV_PREFIX + "_NAMESERVER")
     viper.SetDefault("nameserver", "")
   },
   Run: func(cmd *cobra.Command, args []string) {

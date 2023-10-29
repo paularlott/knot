@@ -1,10 +1,9 @@
 package rest
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
-
-	"github.com/segmentio/encoding/json"
 )
 
 // Bind JSON from request body to a struct

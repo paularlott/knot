@@ -2,24 +2,17 @@ package rest
 
 import (
 	"bytes"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/segmentio/encoding/json"
 )
 
 type RESTClient struct {
     baseURL    string
     token      string
     HTTPClient *http.Client
-}
-
-type responseSuccess struct {
-  Code int         `json:"code"`
-  Data interface{} `json:"data"`
 }
 
 func NewClient(baseURL string) *RESTClient {
@@ -55,7 +48,7 @@ func (c *RESTClient) Get(path string, response interface{}) (error) {
   }
 
   if resp.StatusCode != http.StatusOK {
-    return errors.New(fmt.Sprintf("Unexpected status code: %d", resp.StatusCode))
+    return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
   }
 
   defer resp.Body.Close()
@@ -87,7 +80,7 @@ func (c *RESTClient) SendData(method string, path string, request interface{}, r
   }
 
   if resp.StatusCode != http.StatusOK {
-    return errors.New(fmt.Sprintf("Unexpected status code: %d", resp.StatusCode))
+    return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
   }
 
   defer resp.Body.Close()

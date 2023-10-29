@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/web"
 	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
@@ -14,7 +13,7 @@ import (
 )
 
 func HandleWSProxyServer(w http.ResponseWriter, r *http.Request) {
-  ws :=web.UpgradeToWS(w, r);
+  ws := util.UpgradeToWS(w, r);
   if ws == nil {
     log.Error().Msg("Error while upgrading to websocket")
     return

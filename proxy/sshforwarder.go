@@ -8,12 +8,17 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func RunSSHForwarder(proxyServerURL string, service string, port int) {
+func RunSSHForwarderViaProxy(proxyServerURL string, service string, port int) {
   log.Info().Msgf("Connecting to proxy server at: %s", proxyServerURL)
+  forwardSSH(fmt.Sprintf("%s/proxy/port/%s/%d", proxyServerURL, service, port))
+}
 
-  // Build dial address
-  dialURL := fmt.Sprintf("%s/forward-port/%s/%d", proxyServerURL, service, port)
+func RunSSHForwarderViaAgent(proxyServerURL string, box string) {
+  log.Info().Msgf("Connecting to agent via server at: %s", proxyServerURL)
+  forwardSSH(fmt.Sprintf("%s/%s/ssh/", proxyServerURL, box))
+}
 
+func forwardSSH(dialURL string) {
   for {
     // Create websocket connection
     wsConn, _, err := websocket.DefaultDialer.Dial(dialURL, nil)

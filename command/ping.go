@@ -1,11 +1,11 @@
-package cmd
+package command
 
 import (
 	"fmt"
 	"os"
 
+	api_v1 "github.com/paularlott/knot/api/v1"
 	"github.com/paularlott/knot/util/rest"
-	"github.com/paularlott/knot/web"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -33,10 +33,10 @@ var pingCmd = &cobra.Command{
 
     client := rest.NewClient(server)
 
-    ping := web.PingResponse{}
+    ping := api_v1.PingResponse{}
 
     err := client.Get("/ping", &ping)
-    if err != nil || ping.Status != true {
+    if err != nil || !ping.Status {
       fmt.Println("Failed to ping server")
       os.Exit(1)
     }

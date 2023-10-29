@@ -1,4 +1,4 @@
-package web
+package api_v1
 
 import (
 	"net/http"

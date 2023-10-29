@@ -1,4 +1,4 @@
-package cmd_forward
+package commands_direct
 
 import (
 	"io"
@@ -15,7 +15,7 @@ import (
 
 var sshCmd = &cobra.Command{
   Use:   "ssh <service> <port> [flags]",
-  Short: "Forward a SSH connection direct to the service",
+  Short: "Forward a SSH connection to the service",
   Long:  `Forwards a SSH connection to a remote SSH server via a direct connection.
 
 If <port> is not given then the port is found via a DNS SRV lookup against the service name.
@@ -31,7 +31,9 @@ If <port> is not given then the port is found via a DNS SRV lookup against the s
     service := args[0]
 
     if len(args) == 2 {
-      portInt, err := strconv.Atoi(args[1])
+      var portInt int
+
+      portInt, err = strconv.Atoi(args[1])
       port = strconv.Itoa(portInt)
       if err != nil || portInt < 1 || portInt > 65535 {
         cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")
