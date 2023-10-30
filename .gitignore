@@ -1,6 +1,8 @@
 /bin/*
 !/bin/.gitignore
 .knot.yml
+/web/public_html/api-docs/*
+!/web/public_html/api-docs/.gitignore
 /legal/license.txt
 /legal/notice.txt
 /NOTES.md

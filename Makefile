@@ -16,18 +16,16 @@ OUTPUT_DIR := bin
 default: all
 
 .PHONY: build
-
 ## Build the binary for the current platform
 build: legal/license.txt legal/notice.txt
 	go build $(BUILD_FLAGS) -o $(OUTPUT_DIR)/$(PROJECT_NAME) .
 
 .PHONY: all
-
 ## Build the binary for all platforms
 all: $(PLATFORMS)
 
 .PHONY: $(PLATFORMS)
-$(PLATFORMS): legal/license.txt legal/notice.txt
+$(PLATFORMS): legal apidocs
 	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) go build $(BUILD_FLAGS) -o $(OUTPUT_DIR)/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,) .
 
 .PHONY: legal
@@ -44,16 +42,19 @@ legal/license.txt: LICENSE.txt
 legal/notice.txt: NOTICE.txt
 	cat NOTICE.txt > legal/notice.txt
 
-.PHONY: clean
+## Make the API documentation
+apidocs:
+	apidoc -c ./apidoc.json -i ./api/ -o ./web/public_html/api-docs/
 
+.PHONY: clean
 ## Remove the previous build
 clean:
 	rm -rf $(OUTPUT_DIR)/*
 	rm -rf legal/license.txt
 	rm -rf legal/notice.txt
+	rm -rf web/public_html/api-docs/*
 
 .PHONY: help
-
 ## This help screen
 help:
 	@printf "Available targets:\n\n"

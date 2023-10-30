@@ -13,6 +13,7 @@ import (
 
 	"github.com/paularlott/knot/api/apiv1"
 	"github.com/paularlott/knot/proxy"
+	"github.com/paularlott/knot/web"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -50,6 +51,7 @@ var serverCmd = &cobra.Command{
 
     router.Mount("/api/v1", apiv1.ApiRoutes())
     router.Mount("/proxy", proxy.Routes())
+    router.Mount("/", web.Routes())
 
 // TODO /proxy/agent/{user}/{box}/code-server
 // TODO /proxy/agent/{user}/{box}/ssh
