@@ -2,7 +2,10 @@ post:
   tags:
     - Users
   summary: Create User
-  description: Create a new user.
+  description: |
+    Create a new user.
+
+    Only admin users can create users.
   operaionId: CreateUser
   requestBody:
     required: true
@@ -23,6 +26,10 @@ post:
               type: string
               example: "password"
               description: The password of the user
+            is_admin:
+              type: boolean
+              example: false
+              description: Whether the user is an admin user or not
           required:
             - username
             - password
@@ -44,6 +51,9 @@ post:
                 description: The ID of the user
     '400':
       $ref: "../responses/bad-request.yaml"
+
+    '403':
+      $ref: "../responses/forbidden.yaml"
 
   security:
     - BearerAuth: []

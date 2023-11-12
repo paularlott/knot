@@ -14,17 +14,19 @@ type User struct {
   Email string `json:"email"`
   Password string `json:"password"`
   Active bool `json:"active"`
+  IsAdmin bool `json:"is_admin"`
   LastLoginAt time.Time `json:"last_login_at"`
   UpdatedAt time.Time `json:"updated_at"`
   CreatedAt time.Time `json:"created_at"`
 }
 
-func NewUser(username string, email string, password string) *User {
+func NewUser(username string, email string, password string, isAdmin bool) *User {
   user := &User{
     Id: uuid.New().String(),
     Username: username,
     Email: email,
     Active: true,
+    IsAdmin: isAdmin,
   }
 
   user.SetPassword(password)

@@ -46,6 +46,7 @@ func Routes() chi.Router {
 
   router.Get("/initial-system-setup", HandleInitialSystemSetupPage)
   router.Get("/login", HandleLoginPage)
+  router.Get("/logout", HandleLogoutPage)
 
   return router
 }

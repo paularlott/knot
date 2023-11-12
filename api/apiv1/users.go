@@ -14,6 +14,7 @@ type CreateUserRequest struct {
   Username string `json:"username"`
   Password string `json:"password"`
   Email string `json:"email"`
+  IsAdmin bool `json:"is_admin"`
 }
 
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -35,8 +36,15 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  // If users in the system then only admins can create users
+  if middleware.HasUsers && !middleware.User.IsAdmin {
+    w.WriteHeader(http.StatusForbidden)
+    rest.SendJSON(w, ErrorResponse{Error: "Users can only be created by admins"})
+    return
+  }
+
   // Create the user
-  user := model.NewUser(request.Username, request.Email, request.Password)
+  user := model.NewUser(request.Username, request.Email, request.Password, request.IsAdmin)
   err = database.GetInstance().SaveUser(user)
 
   if err != nil {

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/middleware"
 	"github.com/rs/zerolog/log"
 )
@@ -36,4 +37,11 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
       log.Fatal().Msg(err.Error())
     }
   }
+}
+
+func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
+  middleware.DeleteSessionCookie(w)
+  db := database.GetInstance()
+  db.DeleteSession(middleware.Session)
+  http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
