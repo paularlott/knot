@@ -28,8 +28,12 @@ INDEX active (active)
   log.Debug().Msg("db: creating session table")
   _, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS sessions (
 session_id CHAR(36) PRIMARY KEY,
+user_id CHAR(36),
+ip VARCHAR(15),
 data TEXT,
-expires_after TIMESTAMP
+expires_after TIMESTAMP,
+INDEX expires_after (expires_after),
+INDEX user_id (user_id)
 )`)
   if err != nil {
     return err

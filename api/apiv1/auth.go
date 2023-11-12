@@ -53,9 +53,14 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
   // If web auth then create a session
   var session *model.Session
   if r.URL.Path == "/api/v1/auth/web" {
-    session = model.NewSession()
-    session.Values["user_id"] = user.Id
 
+    // Get the users IP
+    ip := r.Header.Get("X-Forwarded-For")
+    if ip == "" {
+        ip = r.RemoteAddr
+    }
+
+    session = model.NewSession(ip, user.Id)
     err = db.SaveSession(session)
     if err != nil {
       w.WriteHeader(http.StatusInternalServerError)

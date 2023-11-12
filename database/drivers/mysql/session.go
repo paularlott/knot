@@ -34,7 +34,7 @@ func (db *MySQLDriver) SaveSession(session *model.Session) error {
 
   // If no rows were updated then do an insert
   if rows, _ := result.RowsAffected(); rows == 0 {
-    _, err = tx.Exec("INSERT INTO sessions (session_id, data, expires_after) VALUES (?, ?, ?)", session.Id, string(values), session.ExpiresAfter.UTC())
+    _, err = tx.Exec("INSERT INTO sessions (session_id, data, expires_after, ip, user_id) VALUES (?, ?, ?, ?, ?)", session.Id, string(values), session.ExpiresAfter.UTC(), session.Ip, session.UserId)
     if err != nil {
       tx.Rollback()
       return err
@@ -56,12 +56,12 @@ func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
   var expiresAfter string
   var values string
 
-  row := db.connection.QueryRow("SELECT session_id, data, expires_after FROM sessions where session_id = ?", id)
+  row := db.connection.QueryRow("SELECT session_id, data, expires_after, ip, user_id FROM sessions where session_id = ?", id)
   if row == nil {
     return nil, fmt.Errorf("user not found")
   }
 
-  err := row.Scan(&session.Id, &values, &expiresAfter)
+  err := row.Scan(&session.Id, &values, &expiresAfter, &session.Ip, &session.UserId)
   if err != nil {
     return nil, err
   }

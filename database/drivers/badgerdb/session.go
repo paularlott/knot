@@ -20,8 +20,12 @@ func (db *BadgerDbDriver) SaveSession(session *model.Session) error {
     }
 
     e := badger.NewEntry([]byte(fmt.Sprintf("Sessions:%s", session.Id)), data).WithTTL(time.Hour * 2)
-    err = txn.SetEntry(e)
-    if err != nil {
+    if err = txn.SetEntry(e); err != nil {
+      return err
+    }
+
+    e = badger.NewEntry([]byte(fmt.Sprintf("SessionsByUserId:%s:%s", session.UserId, session.Id)), []byte(session.Id)).WithTTL(time.Hour * 2)
+    if err = txn.SetEntry(e); err != nil {
       return err
     }
 
@@ -37,6 +41,12 @@ func (db *BadgerDbDriver) DeleteSession(session *model.Session) error {
     if err != nil {
       return err
     }
+
+    err = txn.Delete([]byte(fmt.Sprintf("SessionsByUserId:%s:%s", session.UserId, session.Id)))
+    if err != nil {
+      return err
+    }
+
     return nil
   })
 
