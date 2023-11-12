@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/paularlott/knot/agent"
@@ -58,7 +59,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     }()
 
     c := make(chan os.Signal, 1)
-    signal.Notify(c, os.Interrupt)
+    signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
     // Block until we receive our signal.
     <-c

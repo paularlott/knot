@@ -6,6 +6,7 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util/rest"
 )
 
 var (
@@ -26,22 +27,54 @@ func Initialize() {
   }
 }
 
+func returnUnauthorized(w http.ResponseWriter) {
+  w.WriteHeader(http.StatusUnauthorized)
+  rest.SendJSON(w, struct {
+    Error string `json:"error"`
+  }{
+    Error: "Authentication token is not valid",
+  })
+}
+
 func ApiAuth(next http.Handler) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+    // If there's no users in the system then we don't check for authentication
     if(HasUsers) {
-      fmt.Println("Users are present in the system so we should be checking for authentication")
 
-    // Check if the user is authenticated
-/*    // If not authenticated, redirect to login
-      http.Redirect(w, r, "/login", http.StatusSeeOther)
-      return
-    } */
+      // Get the auth token
+      var token string
+      fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &token)
 
-    } else {
-      fmt.Println("No users are present in the system so we should not be checking for authentication")
+      // If no token then fail
+      if token == "" {
+        returnUnauthorized(w)
+        return
+      }
+
+      db := database.GetInstance()
+
+      // If token starts session- then it's a session token
+      if token[0:8] == "session-" {
+        token = token[8:]
+
+        Session, _ = db.GetSession(token)
+        if Session == nil {
+          returnUnauthorized(w)
+          return
+        }
+
+        var err error
+        User, err = db.GetUser(Session.Values["user_id"].(string))
+        if err != nil || !User.Active {
+          returnUnauthorized(w)
+          return
+        }
+      } else {
+        // TODO Implement API tokens and check them here
+        fmt.Println("Token is an API token")
+      }
     }
-
-    fmt.Println("AuthMiddleware", r.URL.Path, r.Header.Get("Authorization"))
 
     // If authenticated, continue
     next.ServeHTTP(w, r)
