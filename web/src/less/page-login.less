@@ -1,0 +1,26 @@
+.login-box {
+  width: 80%;
+  max-width: 900px;
+  margin: 5rem auto;
+
+  .logo {
+    max-width: 150px;
+    margin-bottom: 1rem;
+  }
+
+  @media (min-width: @breakpoint-s) {
+    .col-sm-6:last-child {
+      border-left: 1px solid @darkBorderColor;
+    }
+  }
+}
+
+body.light {
+  .login-box {
+    @media (min-width: @breakpoint-s) {
+      .col-sm-6:last-child {
+        border-left: 1px solid @lightBorderColor;
+      }
+    }
+  }
+}

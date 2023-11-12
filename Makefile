@@ -25,26 +25,31 @@ build: legal/license.txt legal/notice.txt
 all: $(PLATFORMS)
 
 .PHONY: $(PLATFORMS)
-$(PLATFORMS): legal apidocs
+$(PLATFORMS): legal apidocs webassets
 	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) go build $(BUILD_FLAGS) -o $(OUTPUT_DIR)/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,) .
 
 .PHONY: legal
-## Make the application licence and notice file
+## Collect the licence files from dependancies and copy them to the legal directory
 legal: legal/license.txt legal/notice.txt
 	rm -rf ./legal/licenses
 	~/go/bin/go-licenses save --save_path ./legal/licenses/ --skip_copy_source --ignore github.com/paularlott/knot .
 
-## Make the application licence file
+## Copy the application licence file fpr inclusion in the binary
 legal/license.txt: LICENSE.txt
 	cat LICENSE.txt > legal/license.txt
 
-## Make the application notice file
+## Copy the application notice file for inclusion in the binary
 legal/notice.txt: NOTICE.txt
 	cat NOTICE.txt > legal/notice.txt
 
-## Make the API documentation
+## Generate the API documentation
 apidocs:
-	apidoc -c ./apidoc.json -i ./api/ -o ./web/public_html/api-docs/
+	npx @redocly/cli build-docs --output ./web/public_html/api-docs/index.html --config ./redocly-config.yaml --disableGoogleFont
+	sed -i '' 's|<script src="https.*</script>||g' ./web/public_html/api-docs/index.html
+
+## Compile LESS and JavaScript
+webassets:
+	npx mix --production
 
 .PHONY: clean
 ## Remove the previous build
@@ -52,7 +57,7 @@ clean:
 	rm -rf $(OUTPUT_DIR)/*
 	rm -rf legal/license.txt
 	rm -rf legal/notice.txt
-	rm -rf web/public_html/api-docs/*
+	rm -rf web/public_html/api-docs/index.html
 
 .PHONY: help
 ## This help screen

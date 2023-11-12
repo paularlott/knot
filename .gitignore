@@ -1,8 +1,14 @@
+.DS_Store
 /bin/*
 !/bin/.gitignore
+/node_modules
 .knot.yml
 /web/public_html/api-docs/*
 !/web/public_html/api-docs/.gitignore
+!/web/public_html/api-docs/redoc.standalone.js
 /legal/license.txt
 /legal/notice.txt
 /NOTES.md
+/badgerdb
+/web/public_html/app.js
+/web/public_html/app.css

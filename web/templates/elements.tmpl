@@ -1,0 +1,24 @@
+{{ define "head-meta" }}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- base href="/" / need to get this from Go -->
+<title>{{ .PageTitle }}</title>
+
+<script src="app.js" defer></script>
+<link rel="stylesheet" type="text/css" href="app.css" />
+{{ end }}
+
+{{ define "init-theme" }}
+x-data="{ 'darkMode': true }"
+x-init="darkMode = JSON.parse(localStorage.getItem('darkMode'));
+        if(darkMode == null) darkMode = true;
+        $watch('darkMode', val => localStorage.setItem('darkMode', val))"
+:class="darkMode ? 'dark' : 'light'"
+{{ end }}
+
+{{ define "alerts" }}
+<div x-data="{ showAlert: false, exposedType: '', type: '', alertMessage: '', timeoutId: null }">
+  <div id="toast" :class="showAlert ? exposedType : type" x-text="alertMessage" @show-alert.window="clearTimeout(timeoutId); showAlert = true; type = $event.detail.type; exposedType = 'exposed ' + type; alertMessage = $event.detail.msg; timeoutId = setTimeout(() => showAlert = false, 10000)">
+  </div>
+</div>
+{{ end }}

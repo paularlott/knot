@@ -1,0 +1,32 @@
+get:
+  tags:
+    - Core
+  summary: Lookup
+  description: Lookup a service via DNS SRV or A record.
+  parameters:
+    - name: service
+      in: path
+      description: The name of the service to lookup
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Service found successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+                description: True if the service was found
+              host:
+                type: string
+                example: "host.service.consul"
+                description: The host of the service
+              port:
+                type: integer
+                format: int32
+                example: 8080
+                description: The port of the service

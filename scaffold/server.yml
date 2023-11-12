@@ -5,3 +5,18 @@
 server:
   # Address and port to listen on
   listen: http://127.0.0.1:3000
+
+  mysql:
+    enabled: false
+    host: localhost
+    port: 3306
+    user: root
+    password: ""
+    database: knot
+    connection_max_idle: 2
+    connection_max_open: 10
+    connection_max_lifetime: 5
+
+  badgerdb:
+    enabled: false
+    path: ./badgerdb/

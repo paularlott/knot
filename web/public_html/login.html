@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- base href="/" / need to get this from Go -->
+    <title>Knot</title>
+
+    <script src="app.js" defer></script>
+    <link rel="stylesheet" type="text/css" href="app.css" />
+
+  </head>
+  <body
+    x-data="{ 'darkMode': true }"
+    x-init="darkMode = JSON.parse(localStorage.getItem('darkMode'));
+            if(darkMode == null) darkMode = true;
+            $watch('darkMode', val => localStorage.setItem('darkMode', val))"
+    :class="darkMode ? 'dark' : 'light'"
+  >
+
+    <div class="box login-box">
+      <div class="row align-items-center">
+        <div class="col-sm-6">
+          <div style="text-align: center; padding: 2rem 0">
+            <img src="images/knot-logo.webp" alt="Knot Logo" class="logo" />
+            <h1>Knot</h1>
+            <p>This instance has not been initialized.<br /> Please create the administration user now by completing the form.</p>
+          </div>
+        </div>
+        <div class="col-sm-6">
+
+          <div x-data="createUserForm()">
+            <form action="/register" method="POST" @submit.prevent="submitData">
+              <dl>
+                <dt><label for="fname">Username:</label></dt>
+                <dd><input type="text" id="fname" name="username" placeholder="Test input"></dd>
+                <dt><label for="fname">Email:</label></dt>
+                <dd><input type="text" id="fname" name="email" placeholder="Test input" x-model="formData.email"></dd>
+                <dt><label for="fname">Password:</label></dt>
+                <dd><input type="password" id="fname" name="password" placeholder="Test input" x-model="formData.password"></dd>
+                <dt><label for="fname">Confirm Password:</label></dt>
+                <dd><input type="password" id="fname" name="confirm-password" placeholder="Test input" x-model="formData.password_confirm"></dd>
+                <dt></dt>
+                <dd><input type="submit" value="Create Account" x-text="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
+              </dl>
+            </form>
+          </div>
+
+
+        </div>
+      </div>
+    </div>
+
+
+  </body>
+</html>

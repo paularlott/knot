@@ -1,0 +1,51 @@
+post:
+  tags:
+    - Users
+  summary: Create User
+  description: Create a new user.
+  operaionId: CreateUser
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            username:
+              type: string
+              example: "user1"
+              description: The username of the user
+            password:
+              type: string
+              example: "password"
+              description: The password of the user
+            email:
+              type: string
+              example: user1@example.com
+              description: The email address of the user
+          required:
+            - username
+            - password
+            - email
+  responses:
+    '201':
+      description: User created successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+                description: True if the user was created
+              user_id:
+                type: string
+                format: uuid
+                description: The ID of the user
+    '400':
+      $ref: "../responses/bad-request.yaml"
+    '401':
+      $ref: "../responses/unauthorized.yaml"
+
+  security:
+    - BearerAuth: []

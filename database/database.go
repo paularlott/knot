@@ -1,0 +1,60 @@
+package database
+
+import (
+	"sync"
+
+	driver_badgerdb "github.com/paularlott/knot/database/drivers/badgerdb"
+	driver_mysql "github.com/paularlott/knot/database/drivers/mysql"
+	"github.com/paularlott/knot/database/model"
+
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
+)
+
+var (
+  once sync.Once
+  dbInstance IDbDriver
+)
+
+// IDbDriver is the interface for the database drivers
+type IDbDriver interface {
+  Connect() error
+
+  // Users
+  SaveUser(user *model.User) error
+  DeleteUser(user *model.User) error
+  GetUser(id string) (*model.User, error)
+  GetUserByEmail(email string) (*model.User, error)
+  GetUsers() ([]*model.User, error)
+  GetUserCount() (int, error)
+}
+
+// Get returns the database driver and on first call initializes it
+func GetInstance() IDbDriver {
+  once.Do(func() {
+    if viper.GetBool("server.mysql.enabled") {
+      // Connect to and use MySQL
+      log.Debug().Msg("MySQL enabled")
+
+      dbInstance = &driver_mysql.MySQLDriver{}
+
+    } else if viper.GetBool("server.badgerdb.enabled") {
+      // Connect to and use BadgerDB
+      log.Debug().Msg("BadgerDB enabled")
+
+      dbInstance = &driver_badgerdb.BadgerDbDriver{}
+
+    } else {
+      // Fail with no database
+      log.Fatal().Msg("No database enabled")
+    }
+
+    // Initialize the database
+    err := dbInstance.Connect()
+    if err != nil {
+      log.Fatal().Err(err).Msg("Failed to connect to database")
+    }
+  })
+
+  return dbInstance
+}

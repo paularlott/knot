@@ -1,0 +1,90 @@
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url(/fonts/nunito.woff2) format('woff2');
+}
+
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+  font-family: 'Nunito', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  .fontSizeClamp(1, 1.25);
+  .lineHeightClamp(1.25, 1.5);
+}
+
+html, body {
+	-webkit-tap-highlight-color: rgba(0,0,0,0); // Stop bleed on android
+}
+
+body {
+  color: @darkFontColor;
+  background-color: @darkBodyColor;
+
+  a {
+    color: @darkFontColor;
+  }
+}
+
+body.light {
+  color: @lightFontColor;
+  background-color: @lightBodyColor;
+
+  a {
+    color: @lightFontColor;
+  }
+}
+
+h1, h2, h3, h4, h5, h6 {
+	font-weight: 600;
+  .sizeClamp(margin-top, .5, .75);
+  .sizeClamp(margin-bottom, 1, 1.25);
+}
+
+h1 {
+  .fontSizeClamp(2.5, 2.75);
+}
+h2 {
+  .fontSizeClamp(1.5, 2);
+}
+h3 {
+  .fontSizeClamp(1.25, 1.75);
+}
+
+p {
+	margin-top: 0;
+  .sizeClamp(margin-bottom, 1, 1.25);
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+// Alignment
+.text-left {
+	text-align: left;
+}
+.text-right {
+	text-align: right;
+}
+.text-center {
+	text-align: center;
+}
+.text-justify {
+	text-align: justify;
+}
+.text-nowrap {
+	white-space: nowrap;
+}
+
+ul, ol {
+	margin: 0;
+  .sizeClamp(margin-left, 2, 2.5);
+  .sizeClamp(margin-bottom, 1, 1.25);
+}
+dt { font-weight: bold; }
+dd { .sizeClamp(margin-bottom, 1, 1.25); }

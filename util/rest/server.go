@@ -8,7 +8,7 @@ import (
 
 // Bind JSON from request body to a struct
 func BindJSON(w http.ResponseWriter, r *http.Request, v interface{}) error {
-   if r.Header.Get("Content-Type") != "" && r.Header.Get("Content-Type") != "application/json" {
+  if r.Header.Get("Content-Type") != "" && r.Header.Get("Content-Type") != "application/json" {
     w.WriteHeader(http.StatusUnsupportedMediaType)
     return errors.New("Content-Type header is not application/json")
   }

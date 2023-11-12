@@ -51,8 +51,8 @@ func init() {
   viper.BindPFlag("config", RootCmd.PersistentFlags().Lookup("config"))
   viper.BindEnv("config", CONFIG_ENV_PREFIX + "_CONFIG")
 
-  RootCmd.PersistentFlags().StringP("loglevel", "", "info", "Log level (debug, info, warn, error, fatal, panic).\nOverrides the " + CONFIG_ENV_PREFIX + "_LOGLEVEL environment variable if set.")
-  viper.BindPFlag("log.level", RootCmd.PersistentFlags().Lookup("loglevel"))
+  RootCmd.PersistentFlags().StringP("log-level", "", "info", "Log level (debug, info, warn, error, fatal, panic).\nOverrides the " + CONFIG_ENV_PREFIX + "_LOGLEVEL environment variable if set.")
+  viper.BindPFlag("log.level", RootCmd.PersistentFlags().Lookup("log-level"))
   viper.BindEnv("log.level", CONFIG_ENV_PREFIX + "_LOGLEVEL")
 }
 

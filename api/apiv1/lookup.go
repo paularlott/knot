@@ -12,28 +12,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-/**
-* @api {get} /api/v1/lookup/:service Lookup
-* @apiVersion 1.0.0
-* @apiName Lookup
-* @apiGroup General
-* @apiDescription Lookup a service via DNS SRV or A record.
-*
-* @apiParam {String} service The name of the service to lookup
-*
-* @apiSuccess {Boolean} status True if the service was found
-* @apiSuccess {String} host The host of the service
-* @apiSuccess {String} port The port of the service
-*
-* @apiSuccessExample Success-Response:
-*     HTTP/1.1 200 OK
-*     {
-*       "status": true,
-*       "host": "example.com",
-*       "port": "80"
-*     }
- */
-
 type LookupResponse struct {
   Status bool `json:"status"`
   Host string `json:"host"`

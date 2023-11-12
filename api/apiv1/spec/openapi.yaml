@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  version: 1.0.0
+  title: Knot API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  x-logo:
+    url: ../images/knot-logo.webp
+  description: >
+    # Introduction
+
+    The REST API is used for the CLI, Web interface and 3rd party integrations.
+
+    # Authentication
+
+    This API is authenticated using a bearer token. The token is passed in the Authorization header as a Bearer token.
+
+    A token can be obtained by logging in with the login endpoint and providing a valid username and password, or by creating a token with the create token endpoint.
+
+tags:
+  - name: Core
+    description: |
+      Core API endpoints.
+  - name: Users
+    description: |
+      These operations are for working with users.
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+paths:
+  /api/v1/users:
+    $ref: paths/users.yaml
+
+  /api/v1/lookup/{service}:
+    $ref: paths/lookup.yaml
+
+  /api/v1/ping:
+    $ref: paths/ping.yaml
+

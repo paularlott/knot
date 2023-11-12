@@ -1,0 +1,19 @@
+apis:
+  knot@v1:
+    root: ./api/apiv1/spec/openapi.yaml
+    theme:
+      openapi:
+        hideLogo: true
+extends:
+  - recommended
+rules:
+  no-unused-components: error
+theme:
+  openapi:
+    htmlTemplate: ./web/redocly-template/index.html
+    schemaExpansionLevel: 2
+    theme:
+      typography:
+        fontFamily: "'Nunito', sans-serif"
+        headings:
+          fontFamily: "'Nunito', sans-serif"
