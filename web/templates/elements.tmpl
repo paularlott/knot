@@ -18,7 +18,7 @@ x-init="darkMode = JSON.parse(localStorage.getItem('darkMode'));
 
 {{ define "alerts" }}
 <div x-data="{ showAlert: false, exposedType: '', type: '', alertMessage: '', timeoutId: null }">
-  <div id="toast" :class="showAlert ? exposedType : type" x-text="alertMessage" @show-alert.window="clearTimeout(timeoutId); showAlert = true; type = $event.detail.type; exposedType = 'exposed ' + type; alertMessage = $event.detail.msg; timeoutId = setTimeout(() => showAlert = false, 10000)">
+  <div id="toast" :class="showAlert ? exposedType : type" x-text="alertMessage" @show-alert.window="clearTimeout(timeoutId); showAlert = true; type = $event.detail.type; exposedType = 'exposed ' + type; alertMessage = $event.detail.msg; timeoutId = setTimeout(() => showAlert = false, 8000)">
   </div>
 </div>
 {{ end }}

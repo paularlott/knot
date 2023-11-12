@@ -1,30 +1,26 @@
 <!DOCTYPE html>
 <html>
   <head>
-    {{ template "head-meta" (map "PageTitle" "Initialize System") }}
+    {{ template "head-meta" (map "PageTitle" "Login") }}
   </head>
   <body {{ template "init-theme" . }}>
 
     <div class="box-wrapper">
+
       <div class="box login-box">
         <div class="row align-items-center">
           <div class="col-sm-6">
             <div style="text-align: center; padding: 2rem 0">
               <img src="images/knot-logo.webp" alt="Knot Logo" class="logo" />
               <h1>Knot</h1>
-              <p>This instance has not been initialized.<br /> Create the first user.</p>
+              <p class="version">Version: {{ .version }}</p>
             </div>
           </div>
           <div class="col-sm-6">
 
-            <div x-data="createUserForm()">
+            <div x-data="loginUserForm()">
               <form action="" method="POST" @submit.prevent="submitData">
                 <dl>
-                  <dt><label for="username">Username <em>*</em></label></dt>
-                  <dd>
-                    <input type="text" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'error': !usernameValid}" placeholder="Username (all lowercase)" x-model="formData.username">
-                    <div x-show="!usernameValid" class="error-message">Username must be all lowercase, can only contain the letters a - z and 0 - 9, and must be no longer than 32 characters.</div>
-                  </dd>
                   <dt><label for="email">Email <em>*</em></label></dt>
                   <dd>
                     <input type="text" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'error': !emailValid}" placeholder="Email address" x-model="formData.email">
@@ -33,12 +29,7 @@
                   <dt><label for="password">Password <em>*</em></label></dt>
                   <dd>
                     <input type="password" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'error': !passwordValid}" placeholder="Password" x-model="formData.password">
-                    <div x-show="!passwordValid" class="error-message">Password must be at least 8 characters.</div>
-                  </dd>
-                  <dt><label for="confirm_password">Confirm Password <em>*</em></label></dt>
-                  <dd>
-                    <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
-                    <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
+                    <div x-show="!passwordValid" class="error-message">Enter your password.</div>
                   </dd>
                   <dt></dt>
                   <dd><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
@@ -53,52 +44,39 @@
 
 <script>
 
-function createUserForm() {
+function loginUserForm() {
   return {
     formData: {
-      username: "",
       email: "",
       password: "",
-      password_confirm: ""
     },
     loading: false,
-    buttonLabel: 'Create User',
-    usernameValid: true,
+    buttonLabel: 'Login',
     emailValid: true,
     passwordValid: true,
-    confirmPasswordValid: true,
-    checkUsername() {
-      return this.usernameValid = validate.username(this.formData.username);
-    },
     checkEmail() {
       return this.emailValid = validate.email(this.formData.email);
     },
     checkPassword() {
-      return this.passwordValid = validate.password(this.formData.password);
-    },
-    checkConfirmPassword() {
-      return this.confirmPasswordValid = this.formData.password == this.formData.password_confirm;
+      return this.passwordValid = this.formData.password.length > 0;
     },
     submitData() {
       var err = false;
-      err = !this.checkUsername() || err;
       err = !this.checkEmail() || err;
       err = !this.checkPassword() || err;
-      err = !this.checkConfirmPassword() || err;
       if(err) {
         return;
       }
 
-      this.buttonLabel = 'Initializing system...'
+      this.buttonLabel = 'Logging in...'
       this.loading = true;
 
       var data = {
-        username: this.formData.username,
         email: this.formData.email,
         password: this.formData.password,
       }
 
-      fetch('/api/v1/users', {
+      fetch('/api/v1/auth/web', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -106,19 +84,23 @@ function createUserForm() {
           body: JSON.stringify(data)
         })
         .then((response) => {
-          if (response.status === 201) {
-            window.location.href = '/';
-          } else {
+          if (response.status === 200) {
+
+            // Save the token in session storage then redirect to the dashboard
             response.json().then(function(data) {
-              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: data.error, type: 'error' } }));
+              sessionStorage.setItem('token', data.token);
             });
+
+            window.location.href = '/dashboard';
+          } else {
+            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Invalid email or password", type: 'error' } }));
           }
         })
         .catch((error) => {
           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
         })
         .finally(() => {
-          this.buttonLabel = 'Create User';
+          this.buttonLabel = 'Login';
           this.loading = false;
         })
     },

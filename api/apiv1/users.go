@@ -36,7 +36,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
   }
 
   // Create the user
-  user := model.NewUser(request.Username, request.Password, request.Email)
+  user := model.NewUser(request.Username, request.Email, request.Password)
   err = database.GetInstance().SaveUser(user)
 
   if err != nil {
@@ -46,7 +46,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
   }
 
   // Tell the middleware that users are present
-  middleware.SetHasUsers()
+  middleware.HasUsers = true
 
   // Return the user ID
   w.WriteHeader(http.StatusCreated)
@@ -58,4 +58,3 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
     UserID: user.Id,
   })
 }
-

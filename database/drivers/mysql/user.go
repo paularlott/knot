@@ -1,6 +1,7 @@
 package driver_mysql
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -15,24 +16,20 @@ func (db *MySQLDriver) SaveUser(user *model.User) error {
     return err
   }
 
-  // Test if the user_id exists
-  var count int
-  row := tx.QueryRow("SELECT COUNT(*) FROM users WHERE user_id = ?", user.Id)
-  err = row.Scan(&count)
+  // Assume update
+  result, err := tx.Exec("UPDATE users SET username=?, email=?, password=?, active=?, updated_at=?, last_login_at=? WHERE user_id=?", user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.Id)
   if err != nil {
     tx.Rollback()
     return err
   }
 
-  // If exists then update
-  if count > 0 {
-    _, err = tx.Exec("UPDATE users SET user_id=?, username=?, email=?, password=?, active=?, updated_at=?", user.Id, user.Username, user.Email, user.Password, user.Active, time.Now().UTC())
-  } else {
+  // If no rows were updated then do an insert
+  if rows, _ := result.RowsAffected(); rows == 0 {
     _, err = tx.Exec("INSERT INTO users (user_id, username, email, password, active, updated_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)", user.Id, user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), time.Now().UTC())
-  }
-  if err != nil {
-    tx.Rollback()
-    return err
+    if err != nil {
+      tx.Rollback()
+      return err
+    }
   }
 
   tx.Commit()
@@ -49,13 +46,14 @@ func (db *MySQLDriver) getUser(by string, value string) (*model.User, error) {
   var user model.User
   var updatedAt string
   var createdAt string
+  var lastLoginAt sql.NullString
 
-  row := db.connection.QueryRow(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at FROM users where %s = ?", by), value)
+  row := db.connection.QueryRow(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at FROM users where %s = ?", by), value)
   if row == nil {
     return nil, fmt.Errorf("user not found")
   }
 
-  err := row.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt)
+  err := row.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt)
   if err != nil {
     return nil, err
   }
@@ -68,6 +66,13 @@ func (db *MySQLDriver) getUser(by string, value string) (*model.User, error) {
   user.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
   if err != nil {
     return nil, err
+  }
+
+  if lastLoginAt.Valid {
+    user.LastLoginAt, err = time.Parse("2006-01-02 15:04:05", lastLoginAt.String)
+    if err != nil {
+      return nil, err
+    }
   }
 
   return &user, nil
@@ -84,7 +89,7 @@ func (db *MySQLDriver) GetUserByEmail(email string) (*model.User, error) {
 func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
   var users []*model.User
 
-  rows, err := db.connection.Query("SELECT user_id, username, email, password, active, updated_at, created_at FROM users ORDER BY username ASC")
+  rows, err := db.connection.Query("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at FROM users ORDER BY username ASC")
   if err != nil {
     return nil, err
   }
@@ -93,8 +98,9 @@ func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
     var user model.User
     var updatedAt string
     var createdAt string
+    var lastLoginAt sql.NullString
 
-    err = rows.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt)
+    err = rows.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt)
     if err != nil {
       return nil, err
     }
@@ -107,6 +113,12 @@ func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
     user.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
     if err != nil {
       return nil, err
+    }
+    if lastLoginAt.Valid {
+      user.LastLoginAt, err = time.Parse("2006-01-02 15:04:05", lastLoginAt.String)
+      if err != nil {
+        return nil, err
+      }
     }
 
     users = append(users, &user)

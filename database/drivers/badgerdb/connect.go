@@ -1,7 +1,6 @@
 package driver_badgerdb
 
 import (
-	"fmt"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
@@ -48,7 +47,7 @@ func (db *BadgerDbDriver) Connect() error {
       defer ticker.Stop()
       for range ticker.C {
       again:
-        fmt.Println("Running GC")
+        log.Debug().Msg("db: running GC")
         err := db.connection.RunValueLogGC(0.7)
         if err == nil {
           goto again

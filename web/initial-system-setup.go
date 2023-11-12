@@ -3,20 +3,19 @@ package web
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/middleware"
 	"github.com/rs/zerolog/log"
 )
 
 func HandleInitialSystemSetupPage(w http.ResponseWriter, r *http.Request) {
 
   // If there's users then don't allow this to run, redirect to login
-  db := database.GetInstance()
-  userCount, err := db.GetUserCount()
-  if userCount > 0 || err != nil {
+  if middleware.HasUsers {
     http.Redirect(w, r, "/login", http.StatusSeeOther)
   } else {
     tmpl, err := newTemplate("page-initial-system-setup.tmpl")
     if err != nil {
+      log.Error().Msg(err.Error())
       w.WriteHeader(http.StatusInternalServerError)
       return
     }

@@ -1,9 +1,12 @@
 post:
   tags:
-    - Users
-  summary: Create User
-  description: Create a new user.
-  operaionId: CreateUser
+    - Authorization
+  summary: Login Web User
+  description: |
+    Authenticate a user with the server and create a web access token.
+
+    A session is also opened and session cookie set within the response.
+  operaionId: LoginUser
   requestBody:
     required: true
     content:
@@ -15,10 +18,6 @@ post:
               type: string
               example: user1@example.com
               description: The email address of the user
-            username:
-              type: string
-              example: "user1"
-              description: The username of the user
             password:
               type: string
               example: "password"
@@ -29,7 +28,7 @@ post:
             - email
   responses:
     '201':
-      description: User created successfully
+      description: User authenticated successfully
       content:
         application/json:
           schema:
@@ -37,13 +36,15 @@ post:
             properties:
               status:
                 type: boolean
-                description: True if the user was created
-              user_id:
+                description: True if the user was authenticated; else false
+              token:
                 type: string
                 format: uuid
-                description: The ID of the user
+                description: The access token for the user session
     '400':
       $ref: "../responses/bad-request.yaml"
+    '401':
+      $ref: "../responses/unauthorized.yaml"
 
   security:
     - BearerAuth: []

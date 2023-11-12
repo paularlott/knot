@@ -11,7 +11,7 @@ func ApiRoutes() chi.Router {
 
   // Group routes that require authentication
   router.Group(func(router chi.Router) {
-    router.Use(middleware.Auth)
+    router.Use(middleware.ApiAuth)
 
     // Users
     router.Route("/users", func(router chi.Router) {
@@ -20,6 +20,7 @@ func ApiRoutes() chi.Router {
   })
 
   // Unauthenticated routes
+  router.Post("/auth/web", HandleAuthorization)
   router.Get("/ping", HandlePing)
   router.Get("/lookup/{service}", HandleLookup)
 

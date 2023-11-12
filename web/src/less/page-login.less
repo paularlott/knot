@@ -1,11 +1,23 @@
+.box-wrapper {
+  @media (min-width: @breakpoint-s) {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+  }
+}
+
 .login-box {
   width: 80%;
   max-width: 900px;
-  margin: 5rem auto;
+  margin: 0 auto;
 
   .logo {
     max-width: 150px;
     margin-bottom: 1rem;
+  }
+
+  .version {
+    font-size: .85rem;
   }
 
   @media (min-width: @breakpoint-s) {

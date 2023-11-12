@@ -1,14 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <base href="/" />
-    <title>Knot</title>
-
-    <script src="app.js" defer></script>
-    <link rel="stylesheet" type="text/css" href="app.css" />
-
+    {{ template "head-meta" (map "PageTitle" "Dashboard") }}
   </head>
   <body
     x-data="{ 'darkMode': true }"
@@ -26,7 +19,7 @@
         <div class="menu">
           <nav>
             <ul>
-              <li><a href="/"><i class="bx bxs-dashboard"></i> Dashboard</a></li>
+              <li><a href="/dashboard"><i class="bx bxs-dashboard"></i> Dashboard</a></li>
               <li><a href="/"><i class="bx bx-server"></i> Boxes</a></li>
               <li><a href="/"><i class="bx bx-list-ul"></i> Templates</a></li>
               <li><a href="api-docs/"><i class="bx bx-code-alt"></i> API Docs</a></li>
@@ -40,6 +33,8 @@
           <form>
             <input type="checkbox" :value="darkMode" @change="darkMode = !darkMode" name="theme" class="light-dark">
           </form>
+
+          <div>{{ .username }}</div>
         </header>
         <div class="content">
 
@@ -224,10 +219,7 @@ function createUserForm() {
       </div>
     </div>
 
-<div x-data="{ showAlert: false, exposedType: '', type: '', alertMessage: '', timeoutId: null }">
-  <div id="toast" :class="showAlert ? exposedType : type" x-text="alertMessage" @show-alert.window="clearTimeout(timeoutId); showAlert = true; type = $event.detail.type; exposedType = 'exposed ' + type; alertMessage = $event.detail.msg; timeoutId = setTimeout(() => showAlert = false, 10000)">
-  </div>
-</div>
+{{ template "alerts" . }}
 
   </body>
 </html>

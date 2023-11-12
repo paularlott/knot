@@ -106,7 +106,7 @@ var serverCmd = &cobra.Command{
     log.Info().Msgf("server: starting on: %s", listen)
 
     // Initialize the middleware, test if users are present
-    middleware.InitializeAuth()
+    middleware.Initialize()
 
     router := chi.NewRouter()
 

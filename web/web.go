@@ -39,7 +39,9 @@ func Routes() chi.Router {
 
   // Group routes that require authentication
   router.Group(func(router chi.Router) {
-    router.Use(middleware.Auth)
+    router.Use(middleware.WebAuth)
+
+    router.Get("/dashboard", HandleDashboardPage)
   })
 
   router.Get("/initial-system-setup", HandleInitialSystemSetupPage)

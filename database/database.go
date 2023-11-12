@@ -27,6 +27,11 @@ type IDbDriver interface {
   GetUserByEmail(email string) (*model.User, error)
   GetUsers() ([]*model.User, error)
   GetUserCount() (int, error)
+
+  // Sessions
+  SaveSession(session *model.Session) error
+  DeleteSession(session *model.Session) error
+  GetSession(id string) (*model.Session, error)
 }
 
 // Get returns the database driver and on first call initializes it
