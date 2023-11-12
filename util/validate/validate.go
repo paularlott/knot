@@ -7,6 +7,11 @@ func Email(email string) bool {
   return re.MatchString(email)
 }
 
+func Uri(uri string) bool {
+  re := regexp.MustCompile(`(?i)^((srv\+)?(http|https):\/\/)?([\w-]+:[\w-]+@)?[\w-]+(?:\.[\w-]+)*(?::\d+)?(?:\/[\w ~\\\(\)%\=\.,\+-]*)*(?:\?[\w ~\\\(\)%\=\.,\+-]+=[\w ~\\\(\)%\=\.,\+-]*(?:&[\w ~\\\(\)%\=\.,\+-]+=[\w ~\\\(\)%\=\.,\+-]*)*)?(#[\w ~\\\(\)%\=\.,\/\+-]*)?$`)
+  return re.MatchString(uri)
+}
+
 func Username(username string) bool {
   re := regexp.MustCompile(`^[a-z0-9]{1,32}$`);
   return re.MatchString(username);
