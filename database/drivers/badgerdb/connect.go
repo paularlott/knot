@@ -33,7 +33,7 @@ func (db *BadgerDbDriver) keyExists(key string) (bool, error) {
 }
 
 func (db *BadgerDbDriver) Connect() error {
-  log.Debug().Msg("Connecting to BAdgerDB")
+  log.Debug().Msg("db: connecting to BadgerDB")
 
   var err error
   options := badger.DefaultOptions(viper.GetString("server.badgerdb.path"))

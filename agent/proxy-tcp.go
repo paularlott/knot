@@ -15,7 +15,7 @@ import (
 func proxyTCP(w http.ResponseWriter, r *http.Request) {
   ws := util.UpgradeToWS(w, r);
   if ws == nil {
-    log.Error().Msg("Error while upgrading to websocket")
+    log.Error().Msg("proxyTCP: error while upgrading to websocket")
     return
   }
 
@@ -26,7 +26,7 @@ func proxyTCP(w http.ResponseWriter, r *http.Request) {
   tcpConn, err := net.DialTimeout("tcp", dial, 10 * time.Second)
   if err != nil {
     ws.Close()
-    log.Error().Msgf("Error while dialing %s: %s", dial, err.Error())
+    log.Error().Msgf("proxyTCP: error while dialing %s: %s", dial, err.Error())
     return
   }
 

@@ -49,26 +49,26 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
       cobra.CheckErr("Failed to find service")
     }
 
-    log.Info().Msgf("Listening on %s", listen)
-    log.Info().Msgf("Forwarding ro %s (%s:%s)", args[0], host, port)
+    log.Info().Msgf("port: listening on %s", listen)
+    log.Info().Msgf("port: forwarding ro %s (%s:%s)", args[0], host, port)
 
     listener, err := net.Listen("tcp", listen)
     if err != nil {
-      log.Fatal().Msgf("Error while opening local port: %s", err.Error())
+      log.Fatal().Msgf("port: error while opening local port: %s", err.Error())
     }
     defer listener.Close()
 
     for {
       localConn, err := listener.Accept()
       if err != nil {
-        log.Error().Msgf("Could not accept the connection: %s", err.Error())
+        log.Error().Msgf("port: could not accept the connection: %s", err.Error())
       }
 
       go func() {
         remoteConn, err := net.Dial("tcp", net.JoinHostPort(host, port))
         if err != nil {
           localConn.Close()
-          log.Fatal().Msg("Can't connect to remote")
+          log.Fatal().Msg("port: can't connect to remote")
         }
         defer remoteConn.Close()
 
@@ -77,7 +77,7 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
         if err != nil {
           localConn.Close()
           remoteConn.Close()
-          log.Fatal().Msg("Lost connection to remote")
+          log.Fatal().Msg("port: lost connection to remote")
         }
       }()
     }

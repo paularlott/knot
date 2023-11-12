@@ -15,7 +15,7 @@ import (
 func HandleWSProxyServer(w http.ResponseWriter, r *http.Request) {
   ws := util.UpgradeToWS(w, r);
   if ws == nil {
-    log.Error().Msg("Error while upgrading to websocket")
+    log.Error().Msg("ws: error while upgrading to websocket")
     return
   }
 
@@ -28,21 +28,21 @@ func HandleWSProxyServer(w http.ResponseWriter, r *http.Request) {
     var err error
     host, port, err = util.GetTargetFromSRV(host, dns)
     if err != nil {
-      log.Error().Msgf("Error while looking up SRV record: %s", err.Error())
+      log.Error().Msgf("ws: error while looking up SRV record: %s", err.Error())
       ws.Close()
       return
     }
 
-    log.Info().Msgf("Proxying to %s via %s:%s", chi.URLParam(r, "host"), host, port)
+    log.Info().Msgf("ws: proxying to %s via %s:%s", chi.URLParam(r, "host"), host, port)
   } else {
-    log.Info().Msgf("Proxying to %s:%s", host, port)
+    log.Info().Msgf("ws: proxying to %s:%s", host, port)
   }
 
   // Open tcp connection to target
   tcpConn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 10 * time.Second)
   if err != nil {
     ws.Close()
-    log.Error().Msgf("Error while dialing %s:%s: %s", host, port, err.Error())
+    log.Error().Msgf("ws: error while dialing %s:%s: %s", host, port, err.Error())
     return
   }
 

@@ -34,25 +34,25 @@ func GetInstance() IDbDriver {
   once.Do(func() {
     if viper.GetBool("server.mysql.enabled") {
       // Connect to and use MySQL
-      log.Debug().Msg("MySQL enabled")
+      log.Debug().Msg("db: MySQL enabled")
 
       dbInstance = &driver_mysql.MySQLDriver{}
 
     } else if viper.GetBool("server.badgerdb.enabled") {
       // Connect to and use BadgerDB
-      log.Debug().Msg("BadgerDB enabled")
+      log.Debug().Msg("db: BadgerDB enabled")
 
       dbInstance = &driver_badgerdb.BadgerDbDriver{}
 
     } else {
       // Fail with no database
-      log.Fatal().Msg("No database enabled")
+      log.Fatal().Msg("db: no database enabled")
     }
 
     // Initialize the database
     err := dbInstance.Connect()
     if err != nil {
-      log.Fatal().Err(err).Msg("Failed to connect to database")
+      log.Fatal().Err(err).Msg("db: failed to connect to database")
     }
   })
 

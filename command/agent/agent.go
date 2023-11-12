@@ -38,7 +38,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
   Run: func(cmd *cobra.Command, args []string) {
     listen := cmd.Flag("listen").Value.String()
 
-    log.Info().Msgf("Starting agent, listening on: %s", listen)
+    log.Info().Msgf("agent: listening on: %s", listen)
 
     router := chi.NewRouter()
     router.Mount("/", agent.Routes(cmd))
@@ -67,7 +67,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     defer cancel()
     server.Shutdown(ctx)
     fmt.Println("\r")
-    log.Info().Msg("Agent Shutdown")
+    log.Info().Msg("agent: shutdown")
     os.Exit(0)
   },
 }

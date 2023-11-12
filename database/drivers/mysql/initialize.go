@@ -5,9 +5,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 func (db *MySQLDriver) initialize() error {
-  log.Debug().Msg("Checking if MySQL is initialized")
 
-  log.Debug().Msg("Creating users table")
+  log.Debug().Msg("db: creating users table")
   _, err := db.connection.Exec(`CREATE TABLE IF NOT EXISTS users (
 user_id CHAR(36) PRIMARY KEY,
 username VARCHAR(32) UNIQUE,
@@ -24,7 +23,7 @@ INDEX active (active)
 
 
 
-  log.Debug().Msg("MySQL is initialized")
+  log.Debug().Msg("db: MySQL is initialized")
 
   return nil
 }

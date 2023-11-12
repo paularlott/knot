@@ -64,7 +64,7 @@ func initConfig() {
     viper.SetConfigFile(cfgFile)
 
     if err := viper.ReadInConfig(); err != nil {
-      log.Fatal().Msgf("Missing config file: %s", viper.ConfigFileUsed())
+      log.Fatal().Msgf("missing config file: %s", viper.ConfigFileUsed())
     }
   } else {
     // Find home directory.

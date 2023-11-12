@@ -48,19 +48,19 @@ If <port> is not given then the port is found via a DNS SRV lookup against the s
       cobra.CheckErr("Failed to find service")
     }
 
-    log.Info().Msgf("Forwarding to %s (%s:%s)", args[0], host, port)
+    log.Info().Msgf("ssh: forwarding to %s (%s:%s)", args[0], host, port)
 
     for {
       remoteConn, err := net.Dial("tcp", net.JoinHostPort(host, port))
       if err != nil {
-        log.Fatal().Msg("Can't connect to remote")
+        log.Fatal().Msg("ssh: can't connect to remote")
       }
 
       go func() { io.Copy(os.Stdout, remoteConn) }()
       _, err = io.Copy(remoteConn, os.Stdin)
       if err != nil {
         remoteConn.Close()
-        log.Fatal().Msg("Lost connection to remote")
+        log.Fatal().Msg("ssh: lost connection to remote")
       }
     }
   },

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/database"
+	"github.com/rs/zerolog/log"
 )
 
 func HandleInitialSystemSetupPage(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +23,7 @@ func HandleInitialSystemSetupPage(w http.ResponseWriter, r *http.Request) {
 
     err = tmpl.Execute(w, nil)
     if err != nil {
-      panic(err)
+      log.Fatal().Msg(err.Error())
     }
   }
 }

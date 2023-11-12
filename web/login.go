@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/database"
+	"github.com/rs/zerolog/log"
 )
 
 func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
@@ -19,10 +20,15 @@ fmt.Print("userCount: ", userCount, "\n")
   if userCount < 1 || err != nil {
     http.Redirect(w, r, "/initial-system-setup", http.StatusSeeOther)
   } else {
+    tmpl, err := newTemplate("page-login.tmpl")
+    if err != nil {
+      w.WriteHeader(http.StatusInternalServerError)
+      return
+    }
 
-    w.WriteHeader(http.StatusOK)
-
-//  w.Header().Set("Content-Type", "text/html; charset=utf-8")
-    w.Write([]byte("Hello World! - login"))
+    err = tmpl.Execute(w, nil)
+    if err != nil {
+      log.Fatal().Msg(err.Error())
+    }
   }
 }

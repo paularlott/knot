@@ -25,7 +25,7 @@ func HandleLookup(w http.ResponseWriter, r *http.Request) {
 
   service := chi.URLParam(r, "service")
 
-  log.Debug().Msgf("Looking up %s", service)
+  log.Debug().Msgf("lookup: looking up %s", service)
 
   response := LookupResponse{Status: true, Host: "", Port: ""}
 

@@ -9,12 +9,12 @@ import (
 )
 
 func RunSSHForwarderViaProxy(proxyServerURL string, service string, port int) {
-  log.Info().Msgf("Connecting to proxy server at: %s", proxyServerURL)
+  log.Info().Msgf("ssh: connecting to proxy server at: %s", proxyServerURL)
   forwardSSH(fmt.Sprintf("%s/proxy/port/%s/%d", proxyServerURL, service, port))
 }
 
 func RunSSHForwarderViaAgent(proxyServerURL string, box string) {
-  log.Info().Msgf("Connecting to agent via server at: %s", proxyServerURL)
+  log.Info().Msgf("ssh: connecting to agent via server at: %s", proxyServerURL)
   forwardSSH(fmt.Sprintf("%s/%s/ssh/", proxyServerURL, box))
 }
 
@@ -23,7 +23,7 @@ func forwardSSH(dialURL string) {
     // Create websocket connection
     wsConn, _, err := websocket.DefaultDialer.Dial(dialURL, nil)
     if err != nil {
-      log.Fatal().Msgf("Error while dialing: %s", err.Error())
+      log.Fatal().Msgf("ssh: error while dialing: %s", err.Error())
       os.Exit(1)
     }
 

@@ -14,7 +14,7 @@ import (
 func proxySSH(w http.ResponseWriter, r *http.Request) {
   ws := util.UpgradeToWS(w, r);
   if ws == nil {
-    log.Error().Msg("Error while upgrading to websocket")
+    log.Error().Msg("proxySSH: error while upgrading to websocket")
     return
   }
 
@@ -23,7 +23,7 @@ func proxySSH(w http.ResponseWriter, r *http.Request) {
   tcpConn, err := net.DialTimeout("tcp", dial, 10 * time.Second)
   if err != nil {
     ws.Close()
-    log.Error().Msgf("Error while dialing %s: %s", dial, err.Error())
+    log.Error().Msgf("proxySSH: error while dialing %s: %s", dial, err.Error())
     return
   }
 

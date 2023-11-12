@@ -103,7 +103,7 @@ var serverCmd = &cobra.Command{
   Run: func(cmd *cobra.Command, args []string) {
     listen := viper.GetString("server.listen")
 
-    log.Info().Msgf("Starting server on: %s", listen)
+    log.Info().Msgf("server: starting on: %s", listen)
 
     // Initialize the middleware, test if users are present
     middleware.InitializeAuth()
@@ -146,7 +146,7 @@ var serverCmd = &cobra.Command{
     defer cancel()
     server.Shutdown(ctx)
     fmt.Println("\r")
-    log.Info().Msg("Server Shutdown")
+    log.Info().Msg("server: shutdown")
     os.Exit(0)
   },
 }

@@ -48,14 +48,14 @@ func (connections *copierConnections) Run() error {
 
       if err != nil && !os.IsTimeout(err) {
         if err != io.EOF {
-          log.Error().Msgf("Error reading from socket: %s", err.Error())
+          log.Error().Msgf("copier: error reading from socket: %s", err.Error())
         }
         return
       }
 
       // Write data to the websocket
       if err := connections.wsConnection.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
-        log.Error().Msgf("Error writing to websocket: %s", err.Error())
+        log.Error().Msgf("copier: error writing to websocket: %s", err.Error())
         return
       }
     }
@@ -69,11 +69,11 @@ func (connections *copierConnections) Run() error {
       // Read data from the websocket
       mt, r, err := connections.wsConnection.NextReader()
       if err != nil {
-        log.Error().Msgf("Error reading from websocket: %s", err.Error())
+        log.Error().Msgf("copier: error reading from websocket: %s", err.Error())
         return
       }
       if mt != websocket.BinaryMessage {
-        log.Error().Msg("Received unsupported websocket message type")
+        log.Error().Msg("copier: received unsupported websocket message type")
         return
       }
 
@@ -85,7 +85,7 @@ func (connections *copierConnections) Run() error {
       }
 
       if err != nil {
-        log.Error().Msgf("Error while writing to socket: %s", err.Error())
+        log.Error().Msgf("copier: error while writing to socket: %s", err.Error())
         return
       }
     }

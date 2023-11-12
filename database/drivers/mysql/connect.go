@@ -15,7 +15,7 @@ type MySQLDriver struct{
 }
 
 func (db *MySQLDriver) Connect() error {
-  log.Debug().Msg("Connecting to MySQL")
+  log.Debug().Msg("db: connecting to MySQL")
 
   var err error
   db.connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
@@ -32,7 +32,7 @@ func (db *MySQLDriver) Connect() error {
 
     err := db.initialize()
     if err != nil {
-      log.Fatal().Err(err).Msg("Failed to initialize MySQL database")
+      log.Fatal().Err(err).Msg("db: failed to initialize MySQL database")
     }
   }
 
