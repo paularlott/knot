@@ -12,6 +12,7 @@ import (
 var (
   HasUsers bool
   Session *model.Session = nil
+  Token *model.Token = nil
   User *model.User = nil
 )
 
@@ -28,8 +29,7 @@ func Initialize() {
 }
 
 func returnUnauthorized(w http.ResponseWriter) {
-  w.WriteHeader(http.StatusUnauthorized)
-  rest.SendJSON(w, struct {
+  rest.SendJSON(http.StatusUnauthorized, w, struct {
     Error string `json:"error"`
   }{
     Error: "Authentication token is not valid",
@@ -46,8 +46,8 @@ func ApiAuth(next http.Handler) http.Handler {
       var token string
       fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &token)
 
-      // If no token then fail
-      if token == "" {
+      // If token not 36 or 44 characters long then fail
+      if len(token) != 36 && len(token) != 44 {
         returnUnauthorized(w)
         return
       }
@@ -71,8 +71,25 @@ func ApiAuth(next http.Handler) http.Handler {
           return
         }
       } else {
-        // TODO Implement API tokens and check them here
-        fmt.Println("Token is an API token")
+        Token, _ = db.GetToken(token)
+        if Token == nil {
+          returnUnauthorized(w)
+          return
+        }
+
+        var err error
+        User, err = db.GetUser(Token.UserId)
+        if err != nil || !User.Active {
+          returnUnauthorized(w)
+          return
+        }
+
+        // Save the token to extend its life
+        err = db.SaveToken(Token)
+        if err != nil {
+          returnUnauthorized(w)
+          return
+        }
       }
     }
 
@@ -88,7 +105,7 @@ func WebAuth(next http.Handler) http.Handler {
     Session = GetSessionFromCookie(r)
     if Session == nil {
       DeleteSessionCookie(w)
-      http.Redirect(w, r, "/login", http.StatusSeeOther)
+      http.Redirect(w, r, "/login?redirect=" + r.URL.EscapedPath(), http.StatusSeeOther)
       return
     }
 

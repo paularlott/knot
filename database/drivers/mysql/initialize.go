@@ -40,6 +40,19 @@ INDEX user_id (user_id)
     return err
   }
 
+  log.Debug().Msg("db: creating API tokens table")
+  _, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS tokens (
+token_id CHAR(36) PRIMARY KEY,
+user_id CHAR(36),
+name VARCHAR(255),
+expires_after TIMESTAMP,
+INDEX expires_after (expires_after),
+INDEX user_id (user_id)
+)`)
+  if err != nil {
+    return err
+  }
+
   log.Debug().Msg("db: MySQL is initialized")
 
   // Add a task to clean up expired sessions
@@ -51,6 +64,11 @@ INDEX user_id (user_id)
       log.Debug().Msg("db: running GC")
       now := time.Now().UTC()
       _, err := db.connection.Exec("DELETE FROM sessions WHERE expires_after < ?", now)
+      if err != nil {
+        goto again
+      }
+
+      _, err = db.connection.Exec("DELETE FROM tokens WHERE expires_after < ?", now)
       if err != nil {
         goto again
       }

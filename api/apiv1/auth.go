@@ -20,15 +20,13 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
   err := rest.BindJSON(w, r, &request)
   if err != nil {
-    w.WriteHeader(http.StatusBadRequest)
-    rest.SendJSON(w, ErrorResponse{Error: err.Error()})
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
     return
   }
 
   // Validate
   if !validate.Email(request.Email) || !validate.Password(request.Password) {
-    w.WriteHeader(http.StatusBadRequest)
-    rest.SendJSON(w, ErrorResponse{Error: "Invalid email or password"})
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid email or password"})
     return
   }
 
@@ -36,8 +34,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
   user, err := db.GetUserByEmail(request.Email)
   if err != nil || !user.CheckPassword(request.Password) {
-    w.WriteHeader(http.StatusUnauthorized)
-    rest.SendJSON(w, ErrorResponse{Error: "Invalid email or password"})
+    rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: "Invalid email or password"})
     return
   }
 
@@ -45,8 +42,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
   user.LastLoginAt = time.Now().UTC()
   err = db.SaveUser(user)
   if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    rest.SendJSON(w, ErrorResponse{Error: err.Error()})
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
   }
 
@@ -56,8 +52,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
     session = model.NewSession(r, user.Id)
     err = db.SaveSession(session)
     if err != nil {
-      w.WriteHeader(http.StatusInternalServerError)
-      rest.SendJSON(w, ErrorResponse{Error: err.Error()})
+      rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
       return
     }
 
@@ -74,8 +69,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
   }
 
   // Return the authentication token
-  w.WriteHeader(http.StatusOK)
-  rest.SendJSON(w, struct {
+  rest.SendJSON(http.StatusOK, w, struct {
     Status bool `json:"status"`
     Token string `json:"token"`
   }{

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    {{ template "head-meta" (map "PageTitle" "Sessions") }}
+    {{ template "head-meta" (map "PageTitle" "API Tokens") }}
   </head>
   <body
     x-data="{ 'darkMode': true }"
@@ -33,28 +33,30 @@
           <div class="row">
             <div class="col-sm-12">
               <div class="box">
-                <h2>API Keys</h2>
+                <h2>API Tokens</h2>
 
-<div x-data="sessionsComponent()" x-init="getSessions">
+                <div class="text-right">
+                  <a href="/api-tokens/create" class="button"><i class="bx bx-plus"></i> Create Token</a>
+                </div>
+
+<div x-data="tokenComponent()" x-init="getTokens">
   <div class="responsiveTableWrapper">
     <div class="responsiveTableWrapperInner">
       {{ template "loading" . }}
       <table class="action" x-show="!loading" x-cloak>
         <thead>
         <tr>
-          <th>Session ID</th>
-          <th>IP</th>
-          <th>Current</th>
+          <th>Token ID</th>
+          <th>Name</th>
           <th>&nbsp;</th>
         </tr>
         </thead>
         <tbody>
-        <template x-for="session in sessions" :key="session.session_id">
+        <template x-for="t in tokens" :key="t.token_id">
           <tr>
-            <td x-text="session.session_id"></td>
-            <td x-text="session.ip"></td>
-            <td x-text="('session-' + session.session_id === token) ? 'Yes' : 'No'"></td>
-            <td><button @click="deleteSession(session.session_id)" class="danger">Delete</button></td>
+            <td x-text="t.token_id" class="no-wrap"></td>
+            <td x-text="t.name"></td>
+            <td><button @click="deleteToken(t.token_id)" class="danger">Delete</button></td>
           </tr>
         </template>
         </tbody>
@@ -64,35 +66,37 @@
 </div>
 
 <script>
-function sessionsComponent() {
+function tokenComponent() {
   return {
     loading: true,
-    sessions: [],
+    tokens: [],
     token: sessionStorage.getItem('token'),
-    async getSessions() {
+    async getTokens() {
       this.loading = true;
-      const response = await fetch('/api/v1/sessions', {
+      const response = await fetch('/api/v1/tokens', {
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.token}`
         }
       });
-      this.sessions = await response.json();
+      this.tokens = await response.json();
       this.loading = false;
     },
-    async deleteSession(sessionId) {
-      await fetch(`/api/v1/sessions/${sessionId}`, {
+    async deleteToken(tokenId) {
+      await fetch(`/api/v1/tokens/${tokenId}`, {
         method: 'DELETE',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.token}`
         }
       }).then((response) => {
         if (response.status === 200) {
-           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Session deleted", type: 'success' } }));
+           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Token deleted", type: 'success' } }));
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Session could not be deleted", type: 'error' } }));
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Token could not be deleted", type: 'error' } }));
         }
       });
-      this.getSessions();
+      this.getTokens();
     },
   };
 }

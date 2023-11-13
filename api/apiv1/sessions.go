@@ -14,12 +14,11 @@ import (
 func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
   sessions, err := database.GetInstance().GetSessions(middleware.User.Id)
   if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    rest.SendJSON(w, ErrorResponse{Error: err.Error()})
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
   }
 
-  // Build a json array of the IP address and expire time from each session
+  // Build a json array of session data to return to the client
   sessionData := make([]struct {
     Id string `json:"session_id"`
     Ip string `json:"ip"`
@@ -34,25 +33,22 @@ func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
     sessionData[i].UserAgent = session.UserAgent
   }
 
-  w.WriteHeader(http.StatusOK)
-  rest.SendJSON(w, sessionData)
+  rest.SendJSON(http.StatusOK, w, sessionData)
 }
 
 func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 
-  // Load the sessions if not found or doesn't belong to the user then treat both as not found
+  // Load the session if not found or doesn't belong to the user then treat both as not found
   session, err := database.GetInstance().GetSession(chi.URLParam(r, "session_id"))
   if err != nil || session.UserId != middleware.User.Id {
-    w.WriteHeader(http.StatusNotFound)
-    rest.SendJSON(w, ErrorResponse{Error: fmt.Sprintf("Session %s not found", chi.URLParam(r, "session_id"))})
+    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: fmt.Sprintf("token %s not found", chi.URLParam(r, "session_id"))})
     return
   }
 
   // Delete the session
   err = database.GetInstance().DeleteSession(session)
   if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    rest.SendJSON(w, ErrorResponse{Error: err.Error()})
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
   }
 

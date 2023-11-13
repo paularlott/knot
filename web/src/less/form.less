@@ -66,15 +66,15 @@ body.light {
   }
 }
 
-input[type="submit"], button {
+input[type="submit"], button, .button {
   .user-select();
-  color: @buttonColor;
+  color: @buttonColor !important;
   background-color: @buttonBackgroundColor;
   border: none;
   border-radius: .5rem;
   padding: .75rem 1.5rem;
   cursor: pointer;
-  width: 100%;
+  text-decoration: none;
 
   &:hover {
     background-color: darken(@buttonBackgroundColor, 10%);
@@ -86,9 +86,20 @@ input[type="submit"], button {
       background-color: darken(@buttonDangerBackgroundColor, 10%);
     }
   }
+
+  &.full-width {
+    width: 100%;
+  }
 }
 
-td input[type="submit"], button {
+button, .button {
+  .bx {
+    position: relative;
+    top: .125rem;
+  }
+}
+
+td input[type="submit"], td button {
   .fontSizeClamp(.75, .85);
   width: auto;
   padding: .5rem .75rem;

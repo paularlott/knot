@@ -1,7 +1,7 @@
 {{ define "head-meta" }}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- base href="/" / need to get this from Go -->
+<base href="/" />
 <title>{{ .PageTitle }}</title>
 
 <script src="app.js" defer></script>
@@ -29,7 +29,7 @@ x-init="darkMode = JSON.parse(localStorage.getItem('darkMode'));
     <li><a href="/dashboard"><i class="bx bxs-dashboard"></i> Dashboard</a></li>
     <li><a href="/"><i class="bx bx-server"></i> Boxes</a></li>
     <li><a href="/"><i class="bx bx-code-block"></i> Templates</a></li>
-    <li><a href="/api-keys"><i class="bx bx-key"></i> API Keys</a></li>
+    <li><a href="/api-tokens"><i class="bx bx-key"></i> API Tokens</a></li>
     {{ if .IsAdmin }}
     <li><a href="/"><i class="bx bx-user"></i> Users</a></li>
     {{ end }}

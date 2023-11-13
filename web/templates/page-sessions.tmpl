@@ -75,6 +75,7 @@ function sessionsComponent() {
       this.loading = true;
       const response = await fetch('/api/v1/sessions', {
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.token}`
         }
       });
@@ -85,6 +86,7 @@ function sessionsComponent() {
       await fetch(`/api/v1/sessions/${sessionId}`, {
         method: 'DELETE',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.token}`
         }
       }).then((response) => {

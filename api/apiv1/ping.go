@@ -13,8 +13,7 @@ type PingResponse struct {
 }
 
 func HandlePing(w http.ResponseWriter, r *http.Request) {
-  w.WriteHeader(http.StatusOK)
-  rest.SendJSON(w, PingResponse{
+  rest.SendJSON(http.StatusOK, w, PingResponse{
     Status: true,
     Version: build.Version + " (" + build.Date + ")",
   })

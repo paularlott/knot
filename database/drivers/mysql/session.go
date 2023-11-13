@@ -58,7 +58,7 @@ func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
 
   row := db.connection.QueryRow("SELECT session_id, data, expires_after, ip, user_id, user_agent FROM sessions WHERE session_id = ?", id)
   if row == nil {
-    return nil, fmt.Errorf("user not found")
+    return nil, fmt.Errorf("session not found")
   }
 
   err := row.Scan(&session.Id, &values, &expiresAfter, &session.Ip, &session.UserId, &session.UserAgent)

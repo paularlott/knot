@@ -23,6 +23,13 @@ func ApiRoutes() chi.Router {
       router.Get("/", HandleGetSessions)
       router.Delete("/{session_id}", HandleDeleteSessions)
     })
+
+    // Tokens
+    router.Route("/tokens", func(router chi.Router) {
+      router.Get("/", HandleGetTokens)
+      router.Post("/", HandleCreateToken)
+      router.Delete("/{token_id}", HandleDeleteToken)
+    })
   })
 
   // Unauthenticated routes

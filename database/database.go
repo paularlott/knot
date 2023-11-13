@@ -33,6 +33,12 @@ type IDbDriver interface {
   DeleteSession(session *model.Session) error
   GetSession(id string) (*model.Session, error)
   GetSessions(userId string) ([]*model.Session, error)
+
+  // Tokens
+  SaveToken(token *model.Token) error
+  DeleteToken(token *model.Token) error
+  GetToken(id string) (*model.Token, error)
+  GetTokens(userId string) ([]*model.Token, error)
 }
 
 // Get returns the database driver and on first call initializes it

@@ -44,7 +44,12 @@ func Routes() chi.Router {
     // Simple pages
     router.Get("/dashboard", HandleSimplePage)
     router.Get("/sessions", HandleSimplePage)
-    router.Get("/api-keys", HandleSimplePage)
+
+    router.Route("/api-tokens", func(router chi.Router) {
+      router.Get("/", HandleSimplePage)
+      router.Get("/create", HandleSimplePage)
+      router.Get("/create/{token_name}", HandleTokenCreatePage)
+    })
   })
 
   router.Get("/initial-system-setup", HandleInitialSystemSetupPage)

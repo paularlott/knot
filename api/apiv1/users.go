@@ -22,8 +22,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 
   err := rest.BindJSON(w, r, &request)
   if err != nil {
-    w.WriteHeader(http.StatusBadRequest)
-    rest.SendJSON(w, ErrorResponse{Error: err.Error()})
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
     return
   }
 
@@ -31,15 +30,13 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
   if(!validate.Username(request.Username) ||
     !validate.Password(request.Password) ||
     !validate.Email(request.Email)) {
-    w.WriteHeader(http.StatusBadRequest)
-    rest.SendJSON(w, ErrorResponse{Error: "Invalid username, password, or email given for new user"})
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid username, password, or email given for new user"})
     return
   }
 
   // If users in the system then only admins can create users
   if middleware.HasUsers && !middleware.User.IsAdmin {
-    w.WriteHeader(http.StatusForbidden)
-    rest.SendJSON(w, ErrorResponse{Error: "Users can only be created by admins"})
+    rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "Users can only be created by admins"})
     return
   }
 
@@ -48,8 +45,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
   err = database.GetInstance().SaveUser(user)
 
   if err != nil {
-    w.WriteHeader(http.StatusBadRequest)
-    rest.SendJSON(w, ErrorResponse{Error: err.Error()})
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
     return
   }
 
@@ -57,8 +53,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
   middleware.HasUsers = true
 
   // Return the user ID
-  w.WriteHeader(http.StatusCreated)
-  rest.SendJSON(w, struct {
+  rest.SendJSON(http.StatusCreated, w, struct {
     Status bool `json:"status"`
     UserID string `json:"user_id"`
   }{

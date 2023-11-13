@@ -20,3 +20,7 @@ func Username(username string) bool {
 func Password(password string) bool {
   return len(password) >= 8
 }
+
+func TokenName(name string) bool {
+  return len(name) > 0 && len(name) <= 255
+}

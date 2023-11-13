@@ -23,6 +23,9 @@ tags:
   - name: Users
     description: |
       These operations are for working with users.
+  - name: API Tokens
+    description: |
+      Operations for working with API tokens.
 
 components:
   securitySchemes:
@@ -36,12 +39,16 @@ paths:
 
   /api/v1/sessions:
     $ref: paths/sessions.yaml
-
   /api/v1/sessions/{session_id}:
     $ref: paths/sessions_{session_id}.yaml
 
   /api/v1/auth/web:
     $ref: paths/auth_web.yaml
+
+  /api/v1/tokens:
+    $ref: paths/tokens.yaml
+  /api/v1/tokens/{token_id}:
+    $ref: paths/tokens_{token_id}.yaml
 
   /api/v1/lookup/{service}:
     $ref: paths/lookup.yaml

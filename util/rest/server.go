@@ -26,7 +26,8 @@ func BindJSON(w http.ResponseWriter, r *http.Request, v interface{}) error {
 }
 
 // Send JSON response
-func SendJSON(w http.ResponseWriter, v interface{}) error {
-  w.Header().Set("Content-Type", "application/json")
+func SendJSON(status int, w http.ResponseWriter, v interface{}) error {
+  w.Header().Set("Content-Type", "application/json; charset=utf-8")
+  w.WriteHeader(status)
   return json.NewEncoder(w).Encode(v)
 }
