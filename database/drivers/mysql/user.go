@@ -48,7 +48,7 @@ func (db *MySQLDriver) getUser(by string, value string) (*model.User, error) {
   var createdAt string
   var lastLoginAt sql.NullString
 
-  row := db.connection.QueryRow(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, is_admin FROM users where %s = ?", by), value)
+  row := db.connection.QueryRow(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, is_admin FROM users WHERE %s = ?", by), value)
   if row == nil {
     return nil, fmt.Errorf("user not found")
   }

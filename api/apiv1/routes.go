@@ -17,6 +17,12 @@ func ApiRoutes() chi.Router {
     router.Route("/users", func(router chi.Router) {
       router.Post("/", HandleCreateUser)
     })
+
+    // Sessions
+    router.Route("/sessions", func(router chi.Router) {
+      router.Get("/", HandleGetSessions)
+      router.Delete("/{session_id}", HandleDeleteSessions)
+    })
   })
 
   // Unauthenticated routes

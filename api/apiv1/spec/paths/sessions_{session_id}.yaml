@@ -1,0 +1,20 @@
+delete:
+  tags:
+    - Users
+  summary: Delete a Session
+  description: Delete a specific session for the authenticated user.
+  operaionId: DeleteSession
+  parameters:
+    - name: session_id
+      in: path
+      required: true
+      description: The ID of the session to delete.
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Session deleted successfully.
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '500':
+      $ref: "../responses/internal-server-error.yaml"

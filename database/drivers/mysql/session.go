@@ -56,7 +56,7 @@ func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
   var expiresAfter string
   var values string
 
-  row := db.connection.QueryRow("SELECT session_id, data, expires_after, ip, user_id FROM sessions where session_id = ?", id)
+  row := db.connection.QueryRow("SELECT session_id, data, expires_after, ip, user_id FROM sessions WHERE session_id = ?", id)
   if row == nil {
     return nil, fmt.Errorf("user not found")
   }
@@ -79,4 +79,40 @@ func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
   }
 
   return &session, nil
+}
+
+func (db *MySQLDriver) GetSessions(userId string) ([]*model.Session, error) {
+  var sessions []*model.Session
+
+  rows, err := db.connection.Query("SELECT session_id, data, expires_after, ip, user_id FROM sessions WHERE user_id = ?", userId)
+  if err != nil {
+    return nil, err
+  }
+
+  for rows.Next() {
+    var session model.Session
+    var expiresAfter string
+    var values string
+
+    err := rows.Scan(&session.Id, &values, &expiresAfter, &session.Ip, &session.UserId)
+    if err != nil {
+      return nil, err
+    }
+
+    // Parse the values
+    err = json.Unmarshal([]byte(values), &session.Values)
+    if err != nil {
+      return nil, err
+    }
+
+    // Parse the dates
+    session.ExpiresAfter, err = time.Parse("2006-01-02 15:04:05", expiresAfter)
+    if err != nil {
+      return nil, err
+    }
+
+    sessions = append(sessions, &session)
+  }
+
+  return sessions, nil
 }

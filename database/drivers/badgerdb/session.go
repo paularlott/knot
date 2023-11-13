@@ -73,3 +73,37 @@ func (db *BadgerDbDriver) GetSession(id string) (*model.Session, error) {
 
   return &session, err
 }
+
+func (db *BadgerDbDriver) GetSessions(userId string) ([]*model.Session, error) {
+  var sessions []*model.Session
+
+  err := db.connection.View(func(txn *badger.Txn) error {
+    it := txn.NewIterator(badger.DefaultIteratorOptions)
+    defer it.Close()
+
+    prefix := []byte(fmt.Sprintf("SessionsByUserId:%s:", userId))
+    for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+      item := it.Item()
+
+      var sessionId string
+      err := item.Value(func(val []byte) error {
+        sessionId = string(val)
+        return nil
+      })
+      if err != nil {
+        return err
+      }
+
+      session, err := db.GetSession(sessionId)
+      if err != nil {
+        return err
+      }
+
+      sessions = append(sessions, session)
+    }
+
+    return nil
+  })
+
+  return sessions, err
+}
