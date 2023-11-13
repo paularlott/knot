@@ -10,11 +10,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-func init() {
-  lookupCmd.Flags().StringP("nameserver", "n", "", "The nameserver to use for SRV lookups (default use system resolver).\nOverrides the " + command.CONFIG_ENV_PREFIX + "_NAMESERVER environment variable if set.")
-  command.RootCmd.AddCommand(lookupCmd)
-}
-
 var lookupCmd = &cobra.Command{
   Use:   "lookup <service> [flags]",
   Short: "Look up the IP & port of a service",

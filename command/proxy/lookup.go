@@ -21,7 +21,7 @@ The request is passed to the proxy server to be processed rather than run agains
   Run: func(cmd *cobra.Command, args []string) {
     service := args[0]
     cfg := command.GetServerAddr()
-    client := rest.NewClient(cfg.HttpServer)
+    client := rest.NewClient(cfg.HttpServer, cfg.ApiToken)
 
     lookup, err := apiv1.CallLookup(client, service)
     if err != nil || !lookup.Status {

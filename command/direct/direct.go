@@ -8,15 +8,15 @@ import (
 )
 
 func init() {
-  forwardCmd.PersistentFlags().StringP("nameserver", "n", "", "The nameserver to use for SRV lookups (default use system resolver).\nOverrides the " + command.CONFIG_ENV_PREFIX + "_NAMESERVER environment variable if set.")
+  directCmd.PersistentFlags().StringP("nameserver", "n", "", "The nameserver to use for SRV lookups (default use system resolver).\nOverrides the " + command.CONFIG_ENV_PREFIX + "_NAMESERVER environment variable if set.")
 
-  command.RootCmd.AddCommand(forwardCmd)
-  forwardCmd.AddCommand(sshCmd)
-  forwardCmd.AddCommand(portCmd)
-  forwardCmd.AddCommand(lookupCmd)
+  command.RootCmd.AddCommand(directCmd)
+  directCmd.AddCommand(sshCmd)
+  directCmd.AddCommand(portCmd)
+  directCmd.AddCommand(lookupCmd)
 }
 
-var forwardCmd = &cobra.Command{
+var directCmd = &cobra.Command{
   Use:   "direct",
   Short: "Direct connection to a service",
   Long:  "Create a direct connection from a local port to a remote service looking up the IP and port via SRV records.",

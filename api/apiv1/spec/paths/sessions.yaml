@@ -28,5 +28,10 @@ get:
                   type: string
                   format: date-time
                   description: The expiration time of the session.
+                current:
+                  type: boolean
+                  description: Whether the session is the current session.
     '500':
       $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []

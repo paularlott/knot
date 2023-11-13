@@ -18,3 +18,5 @@ delete:
       $ref: "../responses/not-found.yaml"
     '500':
       $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []

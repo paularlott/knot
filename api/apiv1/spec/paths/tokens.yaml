@@ -26,6 +26,8 @@ get:
                   description: The expiration date of the token.
     '500':
       $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []
 
 post:
   summary: Create Token
@@ -59,3 +61,5 @@ post:
                 description: The ID of the created token.
     '400':
       $ref: "../responses/bad-request.yaml"
+  security:
+    - BearerAuth: []

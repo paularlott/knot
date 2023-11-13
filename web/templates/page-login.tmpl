@@ -85,12 +85,6 @@ function loginUserForm() {
         })
         .then((response) => {
           if (response.status === 200) {
-
-            // Save the token in session storage then redirect to the dashboard
-            response.json().then(function(data) {
-              sessionStorage.setItem('token', data.token);
-            });
-
             window.location.href = '{{ .redirect }}';
           } else {
             window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Invalid email or password", type: 'error' } }));

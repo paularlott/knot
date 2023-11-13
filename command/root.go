@@ -48,12 +48,16 @@ func init() {
   cobra.OnInitialize(initConfig)
 
   RootCmd.PersistentFlags().StringP("config", "c", "", "Config file (default is " + CONFIG_FILE_NAME + "." + CONFIG_FILE_TYPE + " in the current directory or $HOME/).\nOverrides the " + CONFIG_ENV_PREFIX + "_CONFIG environment variable if set.")
-  viper.BindPFlag("config", RootCmd.PersistentFlags().Lookup("config"))
-  viper.BindEnv("config", CONFIG_ENV_PREFIX + "_CONFIG")
-
   RootCmd.PersistentFlags().StringP("log-level", "", "info", "Log level (debug, info, warn, error, fatal, panic).\nOverrides the " + CONFIG_ENV_PREFIX + "_LOGLEVEL environment variable if set.")
-  viper.BindPFlag("log.level", RootCmd.PersistentFlags().Lookup("log-level"))
-  viper.BindEnv("log.level", CONFIG_ENV_PREFIX + "_LOGLEVEL")
+
+  RootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+    if cmd.Name() != "connect" {
+      viper.BindPFlag("config", RootCmd.PersistentFlags().Lookup("config"))
+      viper.BindEnv("config", CONFIG_ENV_PREFIX + "_CONFIG")
+      viper.BindPFlag("log.level", RootCmd.PersistentFlags().Lookup("log-level"))
+      viper.BindEnv("log.level", CONFIG_ENV_PREFIX + "_LOGLEVEL")
+    }
+  }
 }
 
 func initConfig() {
@@ -94,6 +98,7 @@ func Execute() {
 type ServerAddr struct {
   HttpServer string
   WsServer string
+  ApiToken string
 }
 
 // Read the server configuration information and generate the websocket address
@@ -101,19 +106,24 @@ func GetServerAddr() ServerAddr {
   flags := ServerAddr{}
 
   flags.HttpServer = viper.GetString("client.server")
+  flags.ApiToken = viper.GetString("client.token")
 
   // If flags.server empty then throw and error
   if flags.HttpServer == "" {
     cobra.CheckErr("Missing proxy server address")
   }
 
+  if flags.ApiToken == "" {
+    cobra.CheckErr("Missing API token")
+  }
+
+  if !strings.HasPrefix(flags.HttpServer, "http://") && !strings.HasPrefix(flags.HttpServer, "https://") {
+    flags.HttpServer = "https://" + flags.HttpServer
+  }
+
   // Fix up the address to a websocket address
   flags.HttpServer = strings.TrimSuffix(flags.HttpServer, "/")
-  if strings.HasPrefix(flags.HttpServer, "http") {
-    flags.WsServer = "ws" + flags.HttpServer[4:]
-  } else {
-    flags.WsServer = "ws://" + flags.HttpServer
-  }
+  flags.WsServer = "ws" + flags.HttpServer[4:]
 
   return flags
 }

@@ -15,10 +15,10 @@ type RESTClient struct {
     HTTPClient *http.Client
 }
 
-func NewClient(baseURL string) *RESTClient {
+func NewClient(baseURL string, token string) *RESTClient {
   return &RESTClient{
     baseURL: strings.TrimSuffix(baseURL, "/"),
-    token: "",
+    token: token,
     HTTPClient: &http.Client{
       Timeout: 10 * time.Second,
     },

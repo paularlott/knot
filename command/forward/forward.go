@@ -9,6 +9,7 @@ import (
 
 func init() {
   forwardCmd.PersistentFlags().StringP("server", "s", "", "The address of the remote server to proxy through.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_SERVER environment variable if set.")
+  forwardCmd.PersistentFlags().StringP("token", "t", "", "The token to use for authentication.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_TOKEN environment variable if set.")
 
   command.RootCmd.AddCommand(forwardCmd)
   forwardCmd.AddCommand(sshCmd)
@@ -22,6 +23,9 @@ var forwardCmd = &cobra.Command{
   PersistentPreRun: func(cmd *cobra.Command, args []string) {
     viper.BindPFlag("client.server", cmd.PersistentFlags().Lookup("server"))
     viper.BindEnv("client.server", command.CONFIG_ENV_PREFIX + "_SERVER")
+
+    viper.BindPFlag("client.token", cmd.PersistentFlags().Lookup("token"))
+    viper.BindEnv("client.token", command.CONFIG_ENV_PREFIX + "_TOKEN")
   },
   Run: func(cmd *cobra.Command, args []string) {
     cmd.Help()

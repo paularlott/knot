@@ -70,13 +70,11 @@ function tokenComponent() {
   return {
     loading: true,
     tokens: [],
-    token: sessionStorage.getItem('token'),
     async getTokens() {
       this.loading = true;
       const response = await fetch('/api/v1/tokens', {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`
+          'Content-Type': 'application/json'
         }
       });
       this.tokens = await response.json();
@@ -86,8 +84,7 @@ function tokenComponent() {
       await fetch(`/api/v1/tokens/${tokenId}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`
+          'Content-Type': 'application/json'
         }
       }).then((response) => {
         if (response.status === 200) {

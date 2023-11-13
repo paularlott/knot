@@ -30,3 +30,5 @@ get:
                 format: int32
                 example: 8080
                 description: The port of the service
+  security:
+    - BearerAuth: []

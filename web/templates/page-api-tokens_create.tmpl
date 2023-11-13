@@ -68,7 +68,6 @@ function createTokenForm() {
     loading: false,
     buttonLabel: 'Create Token',
     nameValid: true,
-    token: sessionStorage.getItem('token'),
     checkName() {
       return this.nameValid = this.formData.name.length > 0 && this.formData.name.length < 255;
     },
@@ -89,8 +88,7 @@ function createTokenForm() {
       fetch('/api/v1/tokens', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.token}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(data)
         })

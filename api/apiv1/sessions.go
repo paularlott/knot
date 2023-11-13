@@ -22,6 +22,7 @@ func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
   sessionData := make([]struct {
     Id string `json:"session_id"`
     Ip string `json:"ip"`
+    Current bool `json:"current"`
     ExpiresAfter time.Time `json:"expires_at"`
     UserAgent string `json:"user_agent"`
   }, len(sessions))
@@ -31,6 +32,7 @@ func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
     sessionData[i].Ip = session.Ip
     sessionData[i].ExpiresAfter = session.ExpiresAfter
     sessionData[i].UserAgent = session.UserAgent
+    sessionData[i].Current =  middleware.Session != nil && session.Id == middleware.Session.Id
   }
 
   rest.SendJSON(http.StatusOK, w, sessionData)

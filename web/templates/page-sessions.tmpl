@@ -55,7 +55,7 @@
             <td x-text="session.session_id" class="no-wrap"></td>
             <td x-text="session.ip"></td>
             <td x-text="session.user_agent"></td>
-            <td x-text="('session-' + session.session_id === token) ? 'Yes' : 'No'"></td>
+            <td x-text="session.current ? 'Yes' : 'No'"></td>
             <td><button @click="deleteSession(session.session_id)" class="danger">Delete</button></td>
           </tr>
         </template>
@@ -70,13 +70,11 @@ function sessionsComponent() {
   return {
     loading: true,
     sessions: [],
-    token: sessionStorage.getItem('token'),
     async getSessions() {
       this.loading = true;
       const response = await fetch('/api/v1/sessions', {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`
+          'Content-Type': 'application/json'
         }
       });
       this.sessions = await response.json();
@@ -86,8 +84,7 @@ function sessionsComponent() {
       await fetch(`/api/v1/sessions/${sessionId}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`
+          'Content-Type': 'application/json'
         }
       }).then((response) => {
         if (response.status === 200) {

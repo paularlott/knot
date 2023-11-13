@@ -41,55 +41,53 @@ func ApiAuth(next http.Handler) http.Handler {
 
     // If there's no users in the system then we don't check for authentication
     if(HasUsers) {
-
-      // Get the auth token
-      var token string
-      fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &token)
-
-      // If token not 36 or 44 characters long then fail
-      if len(token) != 36 && len(token) != 44 {
-        returnUnauthorized(w)
-        return
-      }
+      var userId string
+      var err error
 
       db := database.GetInstance()
 
-      // If token starts session- then it's a session token
-      if token[0:8] == "session-" {
-        token = token[8:]
+      // If have an Authorization header then we use that for authentication
+      authorization := r.Header.Get("Authorization")
+      if authorization != "" {
 
-        Session, _ = db.GetSession(token)
-        if Session == nil {
+        // Get the auth token
+        var token string
+        fmt.Sscanf(authorization, "Bearer %s", &token)
+        if len(token) != 36 {
           returnUnauthorized(w)
           return
         }
 
-        var err error
-        User, err = db.GetUser(Session.UserId)
-        if err != nil || !User.Active {
-          returnUnauthorized(w)
-          return
-        }
-      } else {
         Token, _ = db.GetToken(token)
         if Token == nil {
           returnUnauthorized(w)
           return
         }
 
-        var err error
-        User, err = db.GetUser(Token.UserId)
-        if err != nil || !User.Active {
+        userId = Token.UserId
+
+        // Save the token to extend its life
+        db.SaveToken(Token)
+      } else {
+
+        // Get the session
+        Session = GetSessionFromCookie(r)
+        if Session == nil {
           returnUnauthorized(w)
           return
         }
 
-        // Save the token to extend its life
-        err = db.SaveToken(Token)
-        if err != nil {
-          returnUnauthorized(w)
-          return
-        }
+        userId = Session.UserId
+
+        // Save the session to extend its life
+        db.SaveSession(Session)
+      }
+
+      // Get the user
+      User, err = db.GetUser(userId)
+      if err != nil || !User.Active {
+        returnUnauthorized(w)
+        return
       }
     }
 
