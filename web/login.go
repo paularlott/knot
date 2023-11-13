@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
@@ -28,8 +29,20 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
       return
     }
 
+    // Parse the URL to redirect to to get just the path
+    var redirect string
+    u, _ := url.Parse(r.URL.Query().Get("redirect"))
+    if u.Path == "" {
+      redirect = "/dashboard"
+    } else if u.Path[0:1] != "/" {
+      redirect = "/" + u.Path
+    } else {
+      redirect = u.Path
+    }
+
     data := map[string]interface{}{
       "version": build.Version + " (" + build.Date + ")",
+      "redirect": redirect,
     }
 
     err = tmpl.Execute(w, data)
@@ -40,8 +53,11 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
-  middleware.DeleteSessionCookie(w)
-  db := database.GetInstance()
-  db.DeleteSession(middleware.Session)
+  if middleware.Session != nil {
+    middleware.DeleteSessionCookie(w)
+    db := database.GetInstance()
+    db.DeleteSession(middleware.Session)
+  }
+
   http.Redirect(w, r, "/login", http.StatusSeeOther)
 }

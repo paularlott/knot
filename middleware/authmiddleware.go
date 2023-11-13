@@ -98,7 +98,7 @@ func WebAuth(next http.Handler) http.Handler {
     User, err = db.GetUser(Session.UserId)
     if err != nil || !User.Active {
       DeleteSessionCookie(w)
-      http.Redirect(w, r, "/login", http.StatusSeeOther)
+      http.Redirect(w, r, "/login?redirect=" + r.URL.EscapedPath(), http.StatusSeeOther)
       return
     }
 
