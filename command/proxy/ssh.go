@@ -34,6 +34,6 @@ If <port> is not given then the port is found via a DNS SRV lookup against the s
       port = 0
     }
 
-    proxy.RunSSHForwarderViaProxy(cfg.WsServer, args[0], port)
+    proxy.RunSSHForwarderViaProxy(cfg.WsServer, cfg.ApiToken, args[0], port)
   },
 }

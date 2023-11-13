@@ -35,6 +35,6 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
       port = 0
     }
 
-    proxy.RunTCPForwarderViaProxy(cfg.WsServer, args[0], args[1], port)
+    proxy.RunTCPForwarderViaProxy(cfg.WsServer, cfg.ApiToken, args[0], args[1], port)
   },
 }
