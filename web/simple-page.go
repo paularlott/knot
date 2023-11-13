@@ -16,9 +16,9 @@ func HandleSimplePage(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-
   data := map[string]interface{}{
     "username": middleware.User.Username,
+    "IsAdmin": middleware.User.IsAdmin,
   }
 
   err = tmpl.Execute(w, data)

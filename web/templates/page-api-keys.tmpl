@@ -33,7 +33,7 @@
           <div class="row">
             <div class="col-sm-12">
               <div class="box">
-                <h2>Active Sessions</h2>
+                <h2>API Keys</h2>
 
 <div x-data="sessionsComponent()" x-init="getSessions">
   <div class="responsiveTableWrapper">
@@ -44,7 +44,6 @@
         <tr>
           <th>Session ID</th>
           <th>IP</th>
-          <th>User Agent</th>
           <th>Current</th>
           <th>&nbsp;</th>
         </tr>
@@ -52,9 +51,8 @@
         <tbody>
         <template x-for="session in sessions" :key="session.session_id">
           <tr>
-            <td x-text="session.session_id" class="no-wrap"></td>
+            <td x-text="session.session_id"></td>
             <td x-text="session.ip"></td>
-            <td x-text="session.user_agent"></td>
             <td x-text="('session-' + session.session_id === token) ? 'Yes' : 'No'"></td>
             <td><button @click="deleteSession(session.session_id)" class="danger">Delete</button></td>
           </tr>

@@ -30,6 +30,7 @@ INDEX active (active)
 session_id CHAR(36) PRIMARY KEY,
 user_id CHAR(36),
 ip VARCHAR(15),
+user_agent VARCHAR(255),
 data TEXT,
 expires_after TIMESTAMP,
 INDEX expires_after (expires_after),

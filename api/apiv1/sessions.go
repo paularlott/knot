@@ -24,12 +24,14 @@ func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
     Id string `json:"session_id"`
     Ip string `json:"ip"`
     ExpiresAfter time.Time `json:"expires_at"`
+    UserAgent string `json:"user_agent"`
   }, len(sessions))
 
   for i, session := range sessions {
     sessionData[i].Id = session.Id
     sessionData[i].Ip = session.Ip
     sessionData[i].ExpiresAfter = session.ExpiresAfter
+    sessionData[i].UserAgent = session.UserAgent
   }
 
   w.WriteHeader(http.StatusOK)

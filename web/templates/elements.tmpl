@@ -28,11 +28,20 @@ x-init="darkMode = JSON.parse(localStorage.getItem('darkMode'));
   <ul>
     <li><a href="/dashboard"><i class="bx bxs-dashboard"></i> Dashboard</a></li>
     <li><a href="/"><i class="bx bx-server"></i> Boxes</a></li>
-    <li><a href="/"><i class="bx bx-list-ul"></i> Templates</a></li>
+    <li><a href="/"><i class="bx bx-code-block"></i> Templates</a></li>
+    <li><a href="/api-keys"><i class="bx bx-key"></i> API Keys</a></li>
+    {{ if .IsAdmin }}
+    <li><a href="/"><i class="bx bx-user"></i> Users</a></li>
+    {{ end }}
     <li><a href="/logout"><i class="bx bx-log-out-circle"></i> Logout</a></li>
     <li><a href="/sessions"><i class="bx bx-cookie"></i> Sessions</a></li>
-    <li><a href="api-docs/"><i class="bx bx-code-alt"></i> API Docs</a></li>
+    <li><a href="/api-docs/"><i class="bx bx-code-alt"></i> API Docs</a></li>
+    <li><a href="https://github.com/paularlott/knot/issues"><i class="bx bx-bug"></i> Report a Bug</a></li>
     <li><a href="https://github.com/paularlott/knot/"><i class="bx bxl-github"></i> Github</a></li>
   </ul>
 </nav>
+{{ end }}
+
+{{ define "loading" }}
+<div x-show="loading"><i class='bx bx-loader-alt bx-spin bx-rotate-270' ></i> Loading &hellip;</div>
 {{ end }}

@@ -21,6 +21,9 @@ get:
                 ip:
                   type: string
                   description: The IP address of the session.
+                user_agent:
+                  type: string
+                  description: The user agent of the session.
                 expires_at:
                   type: string
                   format: date-time

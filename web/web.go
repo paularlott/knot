@@ -44,6 +44,7 @@ func Routes() chi.Router {
     // Simple pages
     router.Get("/dashboard", HandleSimplePage)
     router.Get("/sessions", HandleSimplePage)
+    router.Get("/api-keys", HandleSimplePage)
   })
 
   router.Get("/initial-system-setup", HandleInitialSystemSetupPage)
