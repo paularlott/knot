@@ -23,6 +23,21 @@ table {
   tr:last-child td {
     border-bottom: none;
   }
+
+  tr:hover {
+    background-color: rgba(0,0,0,.1);
+  }
+
+  &.action {
+    tr {
+      td:last-child, th:last-child {
+        width: 20%
+      }
+      td:last-child {
+        text-align: right;
+      }
+    }
+  }
 }
 
 body.light {

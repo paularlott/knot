@@ -77,8 +77,19 @@ input[type="submit"], button {
   width: 100%;
 
   &:hover {
-    background-color: brighten(@buttonBackgroundColor, 15%);
+    background-color: darken(@buttonBackgroundColor, 10%);
   }
+
+  &.danger {
+    background-color: @buttonDangerBackgroundColor;
+    &:hover {
+      background-color: darken(@buttonDangerBackgroundColor, 10%);
+    }
+  }
+}
+
+td input[type="submit"], button {
+  width: auto;
 }
 
 input[type="checkbox"] {

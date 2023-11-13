@@ -41,7 +41,9 @@ func Routes() chi.Router {
   router.Group(func(router chi.Router) {
     router.Use(middleware.WebAuth)
 
-    router.Get("/dashboard", HandleDashboardPage)
+    // Simple pages
+    router.Get("/dashboard", HandleSimplePage)
+    router.Get("/sessions", HandleSimplePage)
   })
 
   router.Get("/initial-system-setup", HandleInitialSystemSetupPage)

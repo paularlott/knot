@@ -17,16 +17,7 @@
           <h1><img src="images/knot-logo.webp" alt="knot Logo" /> knot</h1>
         </header>
         <div class="menu">
-          <nav>
-            <ul>
-              <li><a href="/dashboard"><i class="bx bxs-dashboard"></i> Dashboard</a></li>
-              <li><a href="/"><i class="bx bx-server"></i> Boxes</a></li>
-              <li><a href="/"><i class="bx bx-list-ul"></i> Templates</a></li>
-              <li><a href="/logout"><i class="bx bx-log-out-circle"></i> Logout</a></li>
-              <li><a href="api-docs/"><i class="bx bx-code-alt"></i> API Docs</a></li>
-              <li><a href="https://github.com/paularlott/knot/"><i class="bx bxl-github"></i> Github</a></li>
-            </ul>
-          </nav>
+          {{ template "main-menu" . }}
         </div>
       </aside>
       <div class="content-container">
