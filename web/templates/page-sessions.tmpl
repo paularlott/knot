@@ -38,8 +38,8 @@
 <div x-data="sessionsComponent()" x-init="getSessions">
   <div class="responsiveTableWrapper">
     <div class="responsiveTableWrapperInner">
-      <div x-show="loading"><i class='bx bx-loader-alt bx-spin bx-rotate-270' ></i> Loading...</div>
-      <table class="action" x-show="!loading">
+      <div x-show="loading"><i class='bx bx-loader-alt bx-spin bx-rotate-270' ></i> Loading &hellip;</div>
+      <table class="action" x-show="!loading" x-cloak>
         <thead>
         <tr>
           <th>Session ID</th>
