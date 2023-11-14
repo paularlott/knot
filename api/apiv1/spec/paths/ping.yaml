@@ -18,3 +18,5 @@ get:
                 type: string
                 example: "1.0.0"
                 description: The version string
+  security:
+    - BearerAuth: []

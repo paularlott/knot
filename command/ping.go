@@ -30,7 +30,7 @@ var pingCmd = &cobra.Command{
     cfg := GetServerAddr()
     fmt.Println("Pinging server: ", cfg.HttpServer)
 
-    client := rest.NewClient(cfg.HttpServer, "")
+    client := rest.NewClient(cfg.HttpServer, cfg.ApiToken)
 
     ping, err := apiv1.CallPing(client)
     if err != nil || !ping.Status {

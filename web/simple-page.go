@@ -27,3 +27,8 @@ func HandleSimplePage(w http.ResponseWriter, r *http.Request) {
     log.Fatal().Msg(err.Error())
   }
 }
+
+func HandleHealthPage(w http.ResponseWriter, r *http.Request) {
+  w.WriteHeader(http.StatusOK)
+  fmt.Fprintf(w, "OK")
+}

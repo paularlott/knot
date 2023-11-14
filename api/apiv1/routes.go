@@ -15,6 +15,7 @@ func ApiRoutes() chi.Router {
 
     // Core
     router.Get("/lookup/{service}", HandleLookup)
+    router.Get("/ping", HandlePing)
 
     // Users
     router.Route("/users", func(router chi.Router) {
@@ -37,7 +38,6 @@ func ApiRoutes() chi.Router {
 
   // Unauthenticated routes
   router.Post("/auth/web", HandleAuthorization)
-  router.Get("/ping", HandlePing)
 
   return router
 }

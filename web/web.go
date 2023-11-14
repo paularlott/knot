@@ -41,9 +41,9 @@ func Routes() chi.Router {
   router.Group(func(router chi.Router) {
     router.Use(middleware.WebAuth)
 
-    // Simple pages
     router.Get("/dashboard", HandleSimplePage)
     router.Get("/sessions", HandleSimplePage)
+    router.Get("/logout", HandleLogoutPage)
 
     router.Route("/api-tokens", func(router chi.Router) {
       router.Get("/", HandleSimplePage)
@@ -52,9 +52,10 @@ func Routes() chi.Router {
     })
   })
 
+  // Routes without authentication
   router.Get("/initial-system-setup", HandleInitialSystemSetupPage)
   router.Get("/login", HandleLoginPage)
-  router.Get("/logout", HandleLogoutPage)
+  router.Get("/health", HandleHealthPage)
 
   return router
 }

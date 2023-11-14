@@ -17,15 +17,18 @@ tags:
       This API is authenticated using a bearer token. The token is passed in the Authorization header as a Bearer token.
 
       A token can be obtained by logging in with the login endpoint and providing a valid username and password, or by creating a token with the create token endpoint.
-  - name: Core
-    description: |
-      Core API endpoints.
-  - name: Users
-    description: |
-      These operations are for working with users.
   - name: API Tokens
     description: |
       Operations for working with API tokens.
+  - name: Core
+    description: |
+      Core API endpoints.
+  - name: Proxy
+    description: |
+      Endpoints for providing proxy services.
+  - name: Users
+    description: |
+      These operations are for working with users.
 
 components:
   securitySchemes:
@@ -49,6 +52,9 @@ paths:
     $ref: paths/tokens.yaml
   /api/v1/tokens/{token_id}:
     $ref: paths/tokens_{token_id}.yaml
+
+  /proxy/port/{host}/{port}:
+    $ref: paths/proxy_port_{host}_{port}.yaml
 
   /api/v1/lookup/{service}:
     $ref: paths/lookup.yaml
