@@ -34,6 +34,13 @@ func ApiRoutes() chi.Router {
       router.Post("/", HandleCreateToken)
       router.Delete("/{token_id}", HandleDeleteToken)
     })
+
+    // Agents
+    router.Route("/spaces", func(router chi.Router) {
+      router.Get("/", HandleGetSpaces)
+      router.Post("/", HandleCreateSpace)
+      router.Delete("/{space_id}", HandleDeleteSpace)
+    })
   })
 
   // Unauthenticated routes

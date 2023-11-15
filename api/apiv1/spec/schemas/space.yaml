@@ -1,0 +1,8 @@
+type: object
+properties:
+  space_id:
+    type: string
+  name:
+    type: string
+  template_name:
+    type: string

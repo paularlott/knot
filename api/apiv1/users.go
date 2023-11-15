@@ -27,7 +27,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
   }
 
   // Validate
-  if(!validate.Username(request.Username) ||
+  if(!validate.Name(request.Username) ||
     !validate.Password(request.Password) ||
     !validate.Email(request.Email)) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid username, password, or email given for new user"})

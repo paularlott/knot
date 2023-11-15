@@ -11,7 +11,7 @@ func (db *MySQLDriver) initialize() error {
   log.Debug().Msg("db: creating users table")
   _, err := db.connection.Exec(`CREATE TABLE IF NOT EXISTS users (
 user_id CHAR(36) PRIMARY KEY,
-username VARCHAR(32) UNIQUE,
+username VARCHAR(64) UNIQUE,
 email VARCHAR(255) UNIQUE,
 password VARCHAR(255),
 active TINYINT NOT NULL DEFAULT 1,
@@ -48,6 +48,28 @@ name VARCHAR(255),
 expires_after TIMESTAMP,
 INDEX expires_after (expires_after),
 INDEX user_id (user_id)
+)`)
+  if err != nil {
+    return err
+  }
+
+  log.Debug().Msg("db: creating spaces table")
+  _, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS spaces (
+space_id CHAR(36) PRIMARY KEY,
+user_id CHAR(36),
+template_id CHAR(36),
+access_token CHAR(36),
+name VARCHAR(64),
+address VARCHAR(255),
+is_running TINYINT NOT NULL DEFAULT 0,
+has_vscode TINYINT NOT NULL DEFAULT 0,
+has_ssh TINYINT NOT NULL DEFAULT 0,
+last_seen TIMESTAMP,
+created_at TIMESTAMP,
+updated_at TIMESTAMP,
+INDEX user_id (user_id),
+INDEX access_token (access_token),
+INDEX template_id (template_id)
 )`)
   if err != nil {
     return err

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/paularlott/knot/database/model"
@@ -44,8 +45,8 @@ func (db *BadgerDbDriver) SaveUser(user *model.User) error {
     }
 
     // If the username changed, check if the new username is unique
-    if newUser || user.Username != existingUser.Username {
-      exists, err := db.keyExists(fmt.Sprintf("UsersByUsername:%s", user.Username))
+    if newUser || strings.ToLower(user.Username) != strings.ToLower(existingUser.Username) {
+      exists, err := db.keyExists(fmt.Sprintf("UsersByUsername:%s", strings.ToLower(user.Username)))
       if err != nil {
         return err
       } else if exists {
@@ -54,7 +55,7 @@ func (db *BadgerDbDriver) SaveUser(user *model.User) error {
 
       if !newUser {
         // Delete the old username
-        err = txn.Delete([]byte(fmt.Sprintf("UsersByUsername:%s", existingUser.Username)))
+        err = txn.Delete([]byte(fmt.Sprintf("UsersByUsername:%s", strings.ToLower(existingUser.Username))))
         if err != nil {
           return err
         }
@@ -78,7 +79,7 @@ func (db *BadgerDbDriver) SaveUser(user *model.User) error {
       return err
     }
 
-    err = txn.Set([]byte(fmt.Sprintf("UsersByUsername:%s", user.Username)), []byte(user.Id))
+    err = txn.Set([]byte(fmt.Sprintf("UsersByUsername:%s", strings.ToLower(user.Username))), []byte(user.Id))
     if err != nil {
       return err
     }
@@ -101,7 +102,7 @@ func (db *BadgerDbDriver) DeleteUser(user *model.User) error {
       return err
     }
 
-    err = txn.Delete([]byte(fmt.Sprintf("UsersByUsername:%s", user.Username)))
+    err = txn.Delete([]byte(fmt.Sprintf("UsersByUsername:%s", strings.ToLower(user.Username))))
     if err != nil {
       return err
     }

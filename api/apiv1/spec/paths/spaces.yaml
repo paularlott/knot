@@ -1,0 +1,56 @@
+
+get:
+  summary: Get Spaces
+  description: Retrieve all spaces for the authenticated user.
+  operationId: getSpaces
+  tags:
+    - Spaces
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../schemas/space.yaml'
+    '500':
+      $ref: '../responses/internal-server-error.yaml'
+  security:
+    - BearerAuth: []
+
+post:
+  summary: Create a Space
+  description: Create a space for the authenticated user.
+  operationId: createSpace
+  tags:
+    - Spaces
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            Name:
+              type: string
+            AgentURL:
+              type: string
+            TemplateId:
+              type: string
+  responses:
+    '201':
+      description: Space created successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+              space_id:
+                type: string
+    '400':
+      $ref: "../responses/bad-request.yaml"
+  security:
+    - BearerAuth: []

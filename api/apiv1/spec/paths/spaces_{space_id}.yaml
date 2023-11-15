@@ -1,0 +1,21 @@
+delete:
+  summary: Delete a Space
+  description: Delete a space for the authenticated user.
+  operationId: deleteSpace
+  tags:
+    - Spaces
+  parameters:
+    - name: agent_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Successful operation
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '500':
+      $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []

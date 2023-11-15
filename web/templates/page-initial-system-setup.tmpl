@@ -23,7 +23,7 @@
                   <dt><label for="username">Username <em>*</em></label></dt>
                   <dd>
                     <input type="text" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'error': !usernameValid}" placeholder="Username (all lowercase)" x-model="formData.username">
-                    <div x-show="!usernameValid" class="error-message">Username must be all lowercase, can only contain the letters a - z and 0 - 9, and must be no longer than 32 characters.</div>
+                    <div x-show="!usernameValid" class="error-message">Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
                   </dd>
                   <dt><label for="email">Email <em>*</em></label></dt>
                   <dd>
@@ -68,7 +68,7 @@ function createUserForm() {
     passwordValid: true,
     confirmPasswordValid: true,
     checkUsername() {
-      return this.usernameValid = validate.username(this.formData.username);
+      return this.usernameValid = validate.name(this.formData.username);
     },
     checkEmail() {
       return this.emailValid = validate.email(this.formData.email);

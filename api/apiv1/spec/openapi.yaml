@@ -26,6 +26,9 @@ tags:
   - name: Proxy
     description: |
       Endpoints for providing proxy services.
+  - name: Spaces
+    description: |
+      Endpoints for working with spaces.
   - name: Users
     description: |
       These operations are for working with users.
@@ -52,6 +55,11 @@ paths:
     $ref: paths/tokens.yaml
   /api/v1/tokens/{token_id}:
     $ref: paths/tokens_{token_id}.yaml
+
+  /api/v1/spaces:
+    $ref: paths/spaces.yaml
+  /api/v1/spaces/{space_id}:
+    $ref: paths/spaces_{space_id}.yaml
 
   /proxy/port/{host}/{port}:
     $ref: paths/proxy_port_{host}_{port}.yaml

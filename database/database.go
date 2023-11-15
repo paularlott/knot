@@ -39,6 +39,12 @@ type IDbDriver interface {
   DeleteToken(token *model.Token) error
   GetToken(id string) (*model.Token, error)
   GetTokens(userId string) ([]*model.Token, error)
+
+  // Space
+  SaveSpace(space *model.Space) error
+  DeleteSpace(space *model.Space) error
+  GetSpace(id string) (*model.Space, error)
+  GetSpaces(userId string) ([]*model.Space, error)
 }
 
 // Get returns the database driver and on first call initializes it
