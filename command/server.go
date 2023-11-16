@@ -60,9 +60,9 @@ var serverCmd = &cobra.Command{
     viper.BindEnv("server.url", CONFIG_ENV_PREFIX + "_URL")
     viper.SetDefault("server.url", "http://127.0.0.1:3000")
 
-    viper.BindPFlag("nameserver", cmd.Flags().Lookup("nameserver"))
-    viper.BindEnv("nameserver", CONFIG_ENV_PREFIX + "_NAMESERVER")
-    viper.SetDefault("nameserver", "")
+    viper.BindPFlag("server.nameserver", cmd.Flags().Lookup("nameserver"))
+    viper.BindEnv("server.nameserver", CONFIG_ENV_PREFIX + "_NAMESERVER")
+    viper.SetDefault("server.nameserver", "")
 
     // MySQL
     viper.BindPFlag("server.mysql.enabled", cmd.Flags().Lookup("mysql-enabled"))

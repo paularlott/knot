@@ -19,7 +19,7 @@ func HandleWSProxyServer(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  dns := viper.GetString("nameserver")
+  dns := viper.GetString("server.nameserver")
   host := chi.URLParam(r, "host")
   port := chi.URLParam(r, "port")
 

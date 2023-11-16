@@ -29,9 +29,9 @@ func HandleLookup(w http.ResponseWriter, r *http.Request) {
 
   response := LookupResponse{Status: true, Host: "", Port: ""}
 
-  host, port, err = util.GetTargetFromSRV(service, viper.GetString("nameserver"))
+  host, port, err = util.GetTargetFromSRV(service, viper.GetString("server.nameserver"))
   if err != nil {
-    host, err = util.GetIP(service, viper.GetString("nameserver"))
+    host, err = util.GetIP(service, viper.GetString("server.nameserver"))
     if err != nil {
       response.Status = false
     }

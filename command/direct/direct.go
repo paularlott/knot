@@ -21,9 +21,9 @@ var directCmd = &cobra.Command{
   Short: "Direct connection to a service",
   Long:  "Create a direct connection from a local port to a remote service looking up the IP and port via SRV records.",
   PersistentPreRun: func(cmd *cobra.Command, args []string) {
-    viper.BindPFlag("nameserver", cmd.Flags().Lookup("nameserver"))
-    viper.BindEnv("nameserver", command.CONFIG_ENV_PREFIX + "_NAMESERVER")
-    viper.SetDefault("nameserver", "")
+    viper.BindPFlag("client.nameserver", cmd.Flags().Lookup("nameserver"))
+    viper.BindEnv("client.nameserver", command.CONFIG_ENV_PREFIX + "_NAMESERVER")
+    viper.SetDefault("client.nameserver", "")
   },
   Run: func(cmd *cobra.Command, args []string) {
     cmd.Help()

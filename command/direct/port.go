@@ -40,9 +40,9 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
         cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")
       }
 
-      host, err = util.GetIP(service, viper.GetString("nameserver"))
+      host, err = util.GetIP(service, viper.GetString("client.nameserver"))
     } else {
-      host, port, err = util.GetTargetFromSRV(service, viper.GetString("nameserver"))
+      host, port, err = util.GetTargetFromSRV(service, viper.GetString("client.nameserver"))
     }
 
     if err != nil {
