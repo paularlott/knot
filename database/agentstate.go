@@ -58,3 +58,7 @@ func AgentStateGet(spaceId string) (*AgentState, bool) {
 func AgentStateSet(spaceId string, state *AgentState) {
   registeredAgents[spaceId] = state
 }
+
+func AgentStateRemove(spaceId string) {
+  delete(registeredAgents, spaceId)
+}

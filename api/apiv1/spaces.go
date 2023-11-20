@@ -30,6 +30,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     Id string `json:"space_id"`
     Name string `json:"name"`
     TemplateName string `json:"template_name"`
+    HasCodeServer bool `json:"has_code_server"`
+    HasSSH bool `json:"has_ssh"`
   }, len(spaces))
 
   for i, space := range spaces {
@@ -46,6 +48,16 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     spaceData[i].Id = space.Id
     spaceData[i].Name = space.Name
     spaceData[i].TemplateName = templateName
+
+    // Get the state of the agent
+    agentState, ok := database.AgentStateGet(space.Id)
+    if ok {
+      spaceData[i].HasCodeServer = agentState.HasCodeServer
+      spaceData[i].HasSSH = agentState.HasSSH
+    } else {
+      spaceData[i].HasCodeServer = false
+      spaceData[i].HasSSH = false
+    }
   }
 
   rest.SendJSON(http.StatusOK, w, spaceData)
@@ -61,6 +73,9 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
   }
 
   // TODO If the space has a template and it's running then stop the nomad job
+
+  // Delete the agent state
+  database.AgentStateRemove(space.Id)
 
   // Delete the agent
   err = database.GetInstance().DeleteSpace(space)
@@ -111,4 +126,23 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
     Status: true,
     SpaceID: space.Id,
   })
+}
+
+type SpaceServiceResponse struct {
+  HasCodeServer bool `json:"has_code_server"`
+  HasSSH bool `json:"has_ssh"`
+}
+
+func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
+  response := SpaceServiceResponse{}
+  space, ok := database.AgentStateGet(chi.URLParam(r, "space_id"))
+  if !ok {
+    response.HasCodeServer = false
+    response.HasSSH = false
+  } else {
+    response.HasCodeServer = space.HasCodeServer
+    response.HasSSH = space.HasSSH
+  }
+
+  rest.SendJSON(http.StatusOK, w, response)
 }

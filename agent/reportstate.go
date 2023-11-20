@@ -21,10 +21,9 @@ func ReportState(serverAddr string, nameserver string, spaceId string) {
     client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), middleware.AgentSpaceKey)
     statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId)
     if err != nil {
-      log.Info().Msgf("failed to ping server: %s", err.Error())
-      log.Info().Msgf("failed to ping server: %d", statusCode)
+      log.Info().Msgf("failed to ping server: %d, %s", statusCode, err.Error())
 
-      // TODO Attempt registration with server
+      // Attempt reregistration with server
       log.Debug().Msgf("Attempting to register agent with server")
       Register(serverAddr, nameserver, spaceId)
     }

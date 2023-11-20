@@ -1,0 +1,26 @@
+get:
+  summary: Get Service State
+  description: Get the service states for a space.
+  operationId: getSpaceServiceState
+  tags:
+    - Spaces
+  parameters:
+    - name: space_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              has_code_server:
+                type: boolean
+              has_ssh:
+                type: boolean
+  security:
+    - BearerAuth: []

@@ -58,7 +58,7 @@
             <td x-text="s.space_id" class="no-wrap"></td>
             <td x-text="s.name"></td>
             <td x-text="s.template_name"></td>
-            <td><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" /> <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" /> <button @click="editSpace(s.space_id)">Edit</button> <button @click="deleteSpace(s.space_id)" class="danger">Delete</button></td>
+            <td><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" x-show="s.has_code_server" /> <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" x-show="s.has_ssh" /> <button @click="editSpace(s.space_id)">Edit</button> <button @click="deleteSpace(s.space_id)" class="danger">Delete</button></td>
           </tr>
         </template>
         </tbody>
@@ -81,6 +81,25 @@ function spacesListComponent() {
       });
       this.spaces = await response.json();
       this.loading = false;
+      this.spaces.forEach(space => this.getServiceState(space));
+    },
+    async getServiceState(space) {
+      setInterval(async () => {
+        await fetch(`/api/v1/spaces/${space.space_id}/service-state`, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }).then((response) => {
+          if (response.status === 200) {
+            response.json().then((serviceState) => {
+              space.has_code_server = serviceState.has_code_server;
+              space.has_ssh = serviceState.has_ssh;
+            });
+          } else {
+            space.has_code_server = space.has_ssh = false;
+          }
+        });
+      }, 5000);
     },
     async deleteSpace(spaceId) {
       /*await fetch(`/api/v1/tokens/${tokenId}`, {

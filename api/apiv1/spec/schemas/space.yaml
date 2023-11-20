@@ -6,3 +6,7 @@ properties:
     type: string
   template_name:
     type: string
+  has_code_server:
+    type: boolean
+  has_ssh:
+    type: boolean

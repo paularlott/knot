@@ -44,7 +44,8 @@ func ApiRoutes() chi.Router {
     router.Route("/spaces", func(router chi.Router) {
       router.Get("/", HandleGetSpaces)
       router.Post("/", HandleCreateSpace)
-      router.Delete("/{space_id}", HandleDeleteSpace)
+      router.Delete("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteSpace)
+      router.Get("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/service-state", HandleGetSpaceServiceState)
     })
   })
 
@@ -57,7 +58,7 @@ func ApiRoutes() chi.Router {
 
   // Unauthenticated routes
   router.Post("/auth/web", HandleAuthorization)
-  router.Post("/agents/{space_id}", HandleRegisterAgent)
+  router.Post("/agents/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleRegisterAgent)
 
   return router
 }

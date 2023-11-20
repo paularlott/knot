@@ -65,6 +65,8 @@ paths:
     $ref: paths/spaces.yaml
   /api/v1/spaces/{space_id}:
     $ref: paths/spaces_{space_id}.yaml
+  /api/v1/spaces/{space_id}/service-state:
+    $ref: paths/spaces_{space_id}_service-state.yaml
 
   /proxy/port/{host}/{port}:
     $ref: paths/proxy_port_{host}_{port}.yaml
