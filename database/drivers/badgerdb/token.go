@@ -74,7 +74,7 @@ func (db *BadgerDbDriver) GetToken(id string) (*model.Token, error) {
   return &token, err
 }
 
-func (db *BadgerDbDriver) GetTokens(userId string) ([]*model.Token, error) {
+func (db *BadgerDbDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
   var tokens []*model.Token
 
   err := db.connection.View(func(txn *badger.Txn) error {

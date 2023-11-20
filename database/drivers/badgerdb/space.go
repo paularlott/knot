@@ -33,11 +33,6 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space) error {
       return err
     }
 
-    e = badger.NewEntry([]byte(fmt.Sprintf("SpacesByAccessToken:%s", space.AccessToken)), []byte(space.Id))
-    if err = txn.SetEntry(e); err != nil {
-      return err
-    }
-
     return nil
   })
 
@@ -57,11 +52,6 @@ func (db *BadgerDbDriver) DeleteSpace(space *model.Space) error {
     }
 
     err = txn.Delete([]byte(fmt.Sprintf("SpacesByTemplateId:%s:%s", space.TemplateId, space.Id)))
-    if err != nil {
-      return err
-    }
-
-    err = txn.Delete([]byte(fmt.Sprintf("SpacesByAccessToken:%s", space.AccessToken)))
     if err != nil {
       return err
     }
@@ -93,7 +83,7 @@ func (db *BadgerDbDriver) GetSpace(id string) (*model.Space, error) {
   return &space, err
 }
 
-func (db *BadgerDbDriver) GetSpaces(userId string) ([]*model.Space, error) {
+func (db *BadgerDbDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
   var spaces []*model.Space
 
   err := db.connection.View(func(txn *badger.Txn) error {

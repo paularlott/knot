@@ -58,17 +58,11 @@ INDEX user_id (user_id)
 space_id CHAR(36) PRIMARY KEY,
 user_id CHAR(36),
 template_id CHAR(36),
-access_token CHAR(36),
 name VARCHAR(64),
-address VARCHAR(255),
-is_running TINYINT NOT NULL DEFAULT 0,
-has_vscode TINYINT NOT NULL DEFAULT 0,
-has_ssh TINYINT NOT NULL DEFAULT 0,
-last_seen TIMESTAMP,
+agent_url VARCHAR(255),
 created_at TIMESTAMP,
 updated_at TIMESTAMP,
 INDEX user_id (user_id),
-INDEX access_token (access_token),
 INDEX template_id (template_id)
 )`)
   if err != nil {

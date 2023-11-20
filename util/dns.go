@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -75,4 +77,28 @@ func GetIP(service string, nameserver string) (string, error) {
   }
 
   return ip, err
+}
+
+func ResolveSRVHttp(uri string, nameserver string) string {
+  // If url starts with srv+ then remove it and resolve the actual url
+  if len(uri) > 4 && uri[0:4] == "srv+" {
+
+    // Parse the url excluding the srv+ prefix
+    u, err := url.Parse(uri[4:])
+    if err != nil {
+      return uri[4:];
+    }
+
+    host, port, err := GetTargetFromSRV(u.Host, nameserver)
+    if err != nil {
+      return uri[4:];
+    }
+
+    u.Host = host + ":" + port
+    uri = u.String()
+  } else if !strings.HasPrefix(uri, "http://") && !strings.HasPrefix(uri, "https://") {
+    uri = "https://" + uri
+  }
+
+  return uri
 }

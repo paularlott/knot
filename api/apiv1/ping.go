@@ -19,8 +19,8 @@ func HandlePing(w http.ResponseWriter, r *http.Request) {
   })
 }
 
-func CallPing(client *rest.RESTClient) (PingResponse, error) {
+func CallPing(client *rest.RESTClient) (PingResponse, int, error) {
   ping := PingResponse{}
-  err := client.Get("/api/v1/ping", &ping)
-  return ping, err
+  statusCode, err := client.Get("/api/v1/ping", &ping)
+  return ping, statusCode, err
 }

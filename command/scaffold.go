@@ -26,9 +26,13 @@ var scaffoldCmd = &cobra.Command{
   Run: func(cmd *cobra.Command, args []string) {
     if cmd.Flag("server").Value.String() == "true" {
       fmt.Println(scaffold.ServerScaffold)
-    } else if cmd.Flag("client").Value.String() == "true" {
+    }
+
+    if cmd.Flag("client").Value.String() == "true" {
       fmt.Println(scaffold.ClientScaffold)
-    } else {
+    }
+
+    if cmd.Flag("server").Value.String() == "false" && cmd.Flag("client").Value.String() == "false" {
       cmd.Help()
     }
   },

@@ -1,4 +1,4 @@
-package agent
+package agentv1
 
 import (
 	"net/http"

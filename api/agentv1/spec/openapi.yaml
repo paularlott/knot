@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info:
+  version: 1.0.0
+  title: Knot Agent API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  x-logo:
+    url: ../images/knot-logo.webp
+  description: >
+    # Introduction
+
+    The agent REST API is used exclusively by the server to talk to the agents.
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+paths:
+  /ping:
+    $ref: paths/ping.yaml
+

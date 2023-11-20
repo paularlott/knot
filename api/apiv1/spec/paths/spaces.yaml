@@ -32,11 +32,11 @@ post:
         schema:
           type: object
           properties:
-            Name:
+            name:
               type: string
-            AgentURL:
+            agent_url:
               type: string
-            TemplateId:
+            template_id:
               type: string
   responses:
     '201':

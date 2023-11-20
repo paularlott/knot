@@ -11,7 +11,12 @@ info:
     # Introduction
 
     The REST API is used for the CLI, Web interface and 3rd party integrations.
+
+    See [Agent API](/api-docs/agent/) for the agent API.
 tags:
+  - name: Agents
+    description: |
+      Operations are for working with agents.
   - name: Authorization
     description: |
       This API is authenticated using a bearer token. The token is passed in the Authorization header as a Bearer token.
@@ -70,3 +75,5 @@ paths:
   /api/v1/ping:
     $ref: paths/ping.yaml
 
+  /api/v1/agents/{space_id}:
+    $ref: paths/agents_{space_id}.yaml

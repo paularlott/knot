@@ -1,12 +1,17 @@
 package apiv1
 
 import (
+	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/middleware"
 
 	"github.com/go-chi/chi/v5"
 )
 
 func ApiRoutes() chi.Router {
+
+  // Initialize agent information storage required by the API
+  database.InitializeAgentInformation();
+
   router := chi.NewRouter()
 
   // Group routes that require authentication
@@ -35,7 +40,7 @@ func ApiRoutes() chi.Router {
       router.Delete("/{token_id}", HandleDeleteToken)
     })
 
-    // Agents
+    // Spaces
     router.Route("/spaces", func(router chi.Router) {
       router.Get("/", HandleGetSpaces)
       router.Post("/", HandleCreateSpace)
@@ -43,8 +48,16 @@ func ApiRoutes() chi.Router {
     })
   })
 
+  // Group routes that require authentication via agent token
+  router.Group(func(router chi.Router) {
+    router.Use(middleware.AgentAuth)
+
+    router.Post("/agents/{space_id}/status", HandleAgentStatus)
+  })
+
   // Unauthenticated routes
   router.Post("/auth/web", HandleAuthorization)
+  router.Post("/agents/{space_id}", HandleRegisterAgent)
 
   return router
 }

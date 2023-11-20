@@ -74,7 +74,7 @@ func (db *BadgerDbDriver) GetSession(id string) (*model.Session, error) {
   return &session, err
 }
 
-func (db *BadgerDbDriver) GetSessions(userId string) ([]*model.Session, error) {
+func (db *BadgerDbDriver) GetSessionsForUser(userId string) ([]*model.Session, error) {
   var sessions []*model.Session
 
   err := db.connection.View(func(txn *badger.Txn) error {

@@ -68,7 +68,7 @@ func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
   return &token, nil
 }
 
-func (db *MySQLDriver) GetTokens(userId string) ([]*model.Token, error) {
+func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
   var tokens []*model.Token
 
   rows, err := db.connection.Query("SELECT token_id, name, expires_after,user_id FROM tokens WHERE user_id = ?", userId)

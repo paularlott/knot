@@ -32,7 +32,7 @@ var pingCmd = &cobra.Command{
 
     client := rest.NewClient(cfg.HttpServer, cfg.ApiToken)
 
-    ping, err := apiv1.CallPing(client)
+    ping, _, err := apiv1.CallPing(client)
     if err != nil || !ping.Status {
       fmt.Println("Failed to ping server")
       os.Exit(1)

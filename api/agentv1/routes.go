@@ -1,9 +1,11 @@
-package agent
+package agentv1
 
 import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/paularlott/knot/middleware"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -14,8 +16,22 @@ var (
 )
 
 func Routes(cmd *cobra.Command) chi.Router {
+
+  // Set a fake space key so that any calls fail
+  middleware.AgentSpaceKey = uuid.New().String()
+
   router := chi.NewRouter()
 
+  // Group routes that require authentication
+  router.Group(func(router chi.Router) {
+    router.Use(middleware.AgentApiAuth)
+
+    // Core
+    router.Get("/ping", HandleAgentPing)
+  })
+
+
+  // TODO Fix up everything below here
   // If code server port given the enable the proxy
   codeServerPort = cmd.Flag("code-server").Value.String()
   if codeServerPort != "0" {

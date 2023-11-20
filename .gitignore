@@ -6,6 +6,8 @@
 /web/public_html/api-docs/*
 !/web/public_html/api-docs/.gitignore
 !/web/public_html/api-docs/redoc.standalone.js
+!/web/public_html/api-docs/agent/
+/web/public_html/api-docs/agent/index.html
 /legal/license.txt
 /legal/notice.txt
 /NOTES.md

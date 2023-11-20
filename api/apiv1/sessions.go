@@ -12,7 +12,7 @@ import (
 )
 
 func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
-  sessions, err := database.GetInstance().GetSessions(middleware.User.Id)
+  sessions, err := database.GetInstance().GetSessionsForUser(middleware.User.Id)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return

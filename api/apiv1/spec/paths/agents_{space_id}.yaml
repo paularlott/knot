@@ -1,0 +1,33 @@
+post:
+  tags:
+    - Agents
+  summary: Register Agent
+  description: |
+    Register an agent for handling a space with the server, the access token for the agent to use in communication with the server is returned.
+  operationId: registerAgent
+  parameters:
+    - name: space_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Agent registered successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+              access_token:
+                type: string
+                description: The access token for the agent
+                format: uuid
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '423':
+      $ref: "../responses/locked.yaml"
+  security:
+    - BearerAuth: []

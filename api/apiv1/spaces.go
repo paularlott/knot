@@ -19,7 +19,7 @@ type CreateSpaceRequest struct {
 }
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
-  spaces, err := database.GetInstance().GetSpaces(middleware.User.Id)
+  spaces, err := database.GetInstance().GetSpacesForUser(middleware.User.Id)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
@@ -77,11 +77,10 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
   err := rest.BindJSON(w, r, &request)
   if err != nil {
-    fmt.Println(err)
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
     return
   }
-fmt.Println(request)
+
   // If template given then ensure the address is removed
   if request.TemplateId != "" {
     request.AgentURL = ""

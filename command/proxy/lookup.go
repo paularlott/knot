@@ -23,7 +23,7 @@ The request is passed to the proxy server to be processed rather than run agains
     cfg := command.GetServerAddr()
     client := rest.NewClient(cfg.HttpServer, cfg.ApiToken)
 
-    lookup, err := apiv1.CallLookup(client, service)
+    lookup, _, err := apiv1.CallLookup(client, service)
     if err != nil || !lookup.Status {
       fmt.Println("Failed to parse response")
       os.Exit(1)

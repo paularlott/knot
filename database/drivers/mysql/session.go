@@ -81,7 +81,7 @@ func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
   return &session, nil
 }
 
-func (db *MySQLDriver) GetSessions(userId string) ([]*model.Session, error) {
+func (db *MySQLDriver) GetSessionsForUser(userId string) ([]*model.Session, error) {
   var sessions []*model.Session
 
   rows, err := db.connection.Query("SELECT session_id, data, expires_after, ip, user_id, user_agent FROM sessions WHERE user_id = ?", userId)

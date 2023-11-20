@@ -24,20 +24,6 @@ var (
 
 It also helps with direct access to services identified by SRV records.`,
     Version: build.Version + " (" + build.Date + ")",
-    PersistentPreRun: func(cmd *cobra.Command, args []string) {
-      switch viper.GetString("log.level") {
-      case "debug":
-        zerolog.SetGlobalLevel(zerolog.DebugLevel)
-      case "info":
-        zerolog.SetGlobalLevel(zerolog.InfoLevel)
-      case "warn":
-        zerolog.SetGlobalLevel(zerolog.WarnLevel)
-      case "error":
-        zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-      default:
-        zerolog.SetGlobalLevel(zerolog.WarnLevel)
-      }
-    },
     Run: func(cmd *cobra.Command, args []string) {
       cmd.Help()
     },
@@ -56,6 +42,19 @@ func init() {
       viper.BindEnv("config", CONFIG_ENV_PREFIX + "_CONFIG")
       viper.BindPFlag("log.level", RootCmd.PersistentFlags().Lookup("log-level"))
       viper.BindEnv("log.level", CONFIG_ENV_PREFIX + "_LOGLEVEL")
+
+      switch viper.GetString("log.level") {
+      case "debug":
+        zerolog.SetGlobalLevel(zerolog.DebugLevel)
+      case "info":
+        zerolog.SetGlobalLevel(zerolog.InfoLevel)
+      case "warn":
+        zerolog.SetGlobalLevel(zerolog.WarnLevel)
+      case "error":
+        zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+      default:
+        zerolog.SetGlobalLevel(zerolog.WarnLevel)
+      }
     }
   }
 }

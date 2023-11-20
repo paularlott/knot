@@ -18,7 +18,7 @@ type CreateTokenRequest struct {
 }
 
 func HandleGetTokens(w http.ResponseWriter, r *http.Request) {
-  tokens, err := database.GetInstance().GetTokens(middleware.User.Id)
+  tokens, err := database.GetInstance().GetTokensForUser(middleware.User.Id)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
