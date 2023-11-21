@@ -1,6 +1,9 @@
 package agent
 
 import (
+	"fmt"
+	"net"
+	"net/http"
 	"time"
 
 	"github.com/paularlott/knot/api/apiv1"
@@ -11,15 +14,39 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func ReportState(serverAddr string, nameserver string, spaceId string) {
+func ReportState(serverAddr string, nameserver string, spaceId string, codeServerPort int, sshPort int) {
   for {
+    var sshAlive bool
+    var codeServerAlive bool
 
-    // TODO Check health of code-server and sshd, update the supported status before sending to server
+    // If sshPort > 0 then check the health of sshd
+    sshAlive = false
+    if sshPort > 0 {
+      // Check health of sshd
+      address := fmt.Sprintf("127.0.0.1:%d", sshPort)
+      conn, err := net.DialTimeout("tcp", address, time.Second)
+      if err == nil {
+        conn.Close()
+        sshAlive = true
+      }
+    }
+
+    // If codeServerPort > 0 then check the health of code-server, http://127.0.0.1/healthz
+    codeServerAlive = false
+    if codeServerPort > 0 {
+      // Check health of code-server
+      address := fmt.Sprintf("http://127.0.0.1:%d", codeServerPort)
+      client := rest.NewClient(address, "")
+      statusCode, _ := client.Get("/healthz", nil)
+      if statusCode == http.StatusOK {
+        codeServerAlive = true
+      }
+    }
 
     log.Debug().Msgf("Updating agent status for space %s", spaceId)
 
     client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), middleware.AgentSpaceKey)
-    statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId)
+    statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlive)
     if err != nil {
       log.Info().Msgf("failed to ping server: %d, %s", statusCode, err.Error())
 

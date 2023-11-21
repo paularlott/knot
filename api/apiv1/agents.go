@@ -112,10 +112,10 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
   database.AgentStateUnlock()
 }
 
-func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string) (int, error) {
+func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, hasSSH bool) (int, error) {
   request := &AgentStatusRequest{
-    HasCodeServer: true,
-    HasSSH: false,
+    HasCodeServer: hasCodeServer,
+    HasSSH: hasSSH,
   }
   response := &AgentStatusResponse{}
   statusCode, err := client.Post(fmt.Sprintf("/api/v1/agents/%s/status", spaceId), request, response)
