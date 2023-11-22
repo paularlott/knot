@@ -35,15 +35,15 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
   }
 
   // If users in the system then only admins can create users
-  if middleware.HasUsers && !middleware.User.IsAdmin {
+  user := r.Context().Value("user").(*model.User)
+  if middleware.HasUsers && !user.IsAdmin {
     rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "Users can only be created by admins"})
     return
   }
 
   // Create the user
-  user := model.NewUser(request.Username, request.Email, request.Password, request.IsAdmin)
-  err = database.GetInstance().SaveUser(user)
-
+  userNew := model.NewUser(request.Username, request.Email, request.Password, request.IsAdmin)
+  err = database.GetInstance().SaveUser(userNew)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
     return
@@ -58,6 +58,6 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
     UserID string `json:"user_id"`
   }{
     Status: true,
-    UserID: user.Id,
+    UserID: userNew.Id,
   })
 }

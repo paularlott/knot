@@ -1,6 +1,7 @@
 package agentv1
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -19,7 +20,7 @@ func proxySSH(w http.ResponseWriter, r *http.Request) {
   }
 
   // Open tcp connection to target
-  dial := net.JoinHostPort("127.0.0.1", sshPort)
+  dial := fmt.Sprintf("127.0.0.1:%d", sshPort)
   tcpConn, err := net.DialTimeout("tcp", dial, 10 * time.Second)
   if err != nil {
     ws.Close()

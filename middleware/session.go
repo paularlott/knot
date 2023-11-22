@@ -30,6 +30,6 @@ func DeleteSessionCookie(w http.ResponseWriter) {
     MaxAge: -1,
     HttpOnly: true,
     Secure: false,
-    SameSite: http.SameSiteStrictMode,
+    SameSite: http.SameSiteLaxMode,
   })
 }

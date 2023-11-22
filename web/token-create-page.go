@@ -5,7 +5,6 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/middleware"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -19,7 +18,9 @@ func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  token := model.NewToken(chi.URLParam(r, "token_name"), middleware.User.Id)
+  user := r.Context().Value("user").(*model.User)
+
+  token := model.NewToken(chi.URLParam(r, "token_name"), user.Id)
   db := database.GetInstance()
   err = db.SaveToken(token)
   if err != nil {
@@ -29,8 +30,8 @@ func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
   }
 
   data := map[string]interface{}{
-    "username": middleware.User.Username,
-    "IsAdmin": middleware.User.IsAdmin,
+    "username": user.Username,
+    "IsAdmin": user.IsAdmin,
     "TokenName": token.Name,
     "TokenId": token.Id,
   }

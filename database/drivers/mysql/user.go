@@ -43,7 +43,7 @@ func (db *MySQLDriver) DeleteUser(user *model.User) error {
 }
 
 func (db *MySQLDriver) getUser(by string, value string) (*model.User, error) {
-  var user model.User
+  var user = &model.User{}
   var updatedAt string
   var createdAt string
   var lastLoginAt sql.NullString
@@ -75,7 +75,7 @@ func (db *MySQLDriver) getUser(by string, value string) (*model.User, error) {
     }
   }
 
-  return &user, nil
+  return user, nil
 }
 
 func (db *MySQLDriver) GetUser(id string) (*model.User, error) {
@@ -95,7 +95,7 @@ func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
   }
 
   for rows.Next() {
-    var user model.User
+    var user = &model.User{}
     var updatedAt string
     var createdAt string
     var lastLoginAt sql.NullString
@@ -121,7 +121,7 @@ func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
       }
     }
 
-    users = append(users, &user)
+    users = append(users, user)
   }
 
   return users, nil

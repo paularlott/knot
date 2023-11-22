@@ -58,7 +58,11 @@
             <td x-text="s.space_id" class="no-wrap"></td>
             <td x-text="s.name"></td>
             <td x-text="s.template_name"></td>
-            <td><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" x-show="s.has_code_server" /> <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" x-show="s.has_ssh" /> <button @click="editSpace(s.space_id)">Edit</button> <button @click="deleteSpace(s.space_id)" class="danger">Delete</button></td>
+            <td>
+              <a :href="`/spaces/${s.space_id}/code-server/`" :target="`spaces_${s.space_id}`" x-show="s.has_code_server"><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" /></a>
+              <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" x-show="s.has_ssh" />
+              <button @click="editSpace(s.space_id)">Edit</button> <button @click="deleteSpace(s.space_id)" class="danger">Delete</button>
+            </td>
           </tr>
         </template>
         </tbody>

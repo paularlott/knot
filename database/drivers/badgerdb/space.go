@@ -63,7 +63,7 @@ func (db *BadgerDbDriver) DeleteSpace(space *model.Space) error {
 }
 
 func (db *BadgerDbDriver) GetSpace(id string) (*model.Space, error) {
-  var space model.Space
+  var space = &model.Space{}
 
   err := db.connection.View(func(txn *badger.Txn) error {
     item, err := txn.Get([]byte(fmt.Sprintf("Spaces:%s", id)))
@@ -72,7 +72,7 @@ func (db *BadgerDbDriver) GetSpace(id string) (*model.Space, error) {
     }
 
     return item.Value(func(val []byte) error {
-      return json.Unmarshal(val, &space)
+      return json.Unmarshal(val, space)
     })
   })
 
@@ -80,7 +80,7 @@ func (db *BadgerDbDriver) GetSpace(id string) (*model.Space, error) {
     return nil, err
   }
 
-  return &space, err
+  return space, err
 }
 
 func (db *BadgerDbDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {

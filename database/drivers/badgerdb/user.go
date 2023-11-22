@@ -114,7 +114,7 @@ func (db *BadgerDbDriver) DeleteUser(user *model.User) error {
 }
 
 func (db *BadgerDbDriver) GetUser(id string) (*model.User, error) {
-  var user model.User
+  var user = &model.User{}
 
   err := db.connection.View(func(txn *badger.Txn) error {
     item, err := txn.Get([]byte(fmt.Sprintf("Users:%s", id)))
@@ -123,7 +123,7 @@ func (db *BadgerDbDriver) GetUser(id string) (*model.User, error) {
     }
 
     return item.Value(func(val []byte) error {
-      return json.Unmarshal(val, &user)
+      return json.Unmarshal(val, user)
     })
   })
 
@@ -131,7 +131,7 @@ func (db *BadgerDbDriver) GetUser(id string) (*model.User, error) {
     return nil, err
   }
 
-  return &user, err
+  return user, err
 }
 
 func (db *BadgerDbDriver) GetUserByEmail(email string) (*model.User, error) {
@@ -164,15 +164,15 @@ func (db *BadgerDbDriver) GetUsers() ([]*model.User, error) {
     for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
       item := it.Item()
 
-      var user model.User
+      var user = &model.User{}
       err := item.Value(func(val []byte) error {
-        return json.Unmarshal(val, &user)
+        return json.Unmarshal(val, user)
       })
       if err != nil {
         return err
       }
 
-      users = append(users, &user)
+      users = append(users, user)
     }
 
     return nil

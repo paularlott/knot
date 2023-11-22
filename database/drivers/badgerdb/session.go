@@ -54,7 +54,7 @@ func (db *BadgerDbDriver) DeleteSession(session *model.Session) error {
 }
 
 func (db *BadgerDbDriver) GetSession(id string) (*model.Session, error) {
-  var session model.Session
+  var session = &model.Session{}
 
   err := db.connection.View(func(txn *badger.Txn) error {
     item, err := txn.Get([]byte(fmt.Sprintf("Sessions:%s", id)))
@@ -63,7 +63,7 @@ func (db *BadgerDbDriver) GetSession(id string) (*model.Session, error) {
     }
 
     return item.Value(func(val []byte) error {
-      return json.Unmarshal(val, &session)
+      return json.Unmarshal(val, session)
     })
   })
 
@@ -71,7 +71,7 @@ func (db *BadgerDbDriver) GetSession(id string) (*model.Session, error) {
     return nil, err
   }
 
-  return &session, err
+  return session, err
 }
 
 func (db *BadgerDbDriver) GetSessionsForUser(userId string) ([]*model.Session, error) {

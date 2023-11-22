@@ -52,7 +52,7 @@ func (db *MySQLDriver) DeleteSession(session *model.Session) error {
 }
 
 func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
-  var session model.Session
+  var session = &model.Session{}
   var expiresAfter string
   var values string
 
@@ -78,7 +78,7 @@ func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
     return nil, err
   }
 
-  return &session, nil
+  return session, nil
 }
 
 func (db *MySQLDriver) GetSessionsForUser(userId string) ([]*model.Session, error) {
@@ -90,7 +90,7 @@ func (db *MySQLDriver) GetSessionsForUser(userId string) ([]*model.Session, erro
   }
 
   for rows.Next() {
-    var session model.Session
+    var session = &model.Session{}
     var expiresAfter string
     var values string
 
@@ -111,7 +111,7 @@ func (db *MySQLDriver) GetSessionsForUser(userId string) ([]*model.Session, erro
       return nil, err
     }
 
-    sessions = append(sessions, &session)
+    sessions = append(sessions, session)
   }
 
   return sessions, nil

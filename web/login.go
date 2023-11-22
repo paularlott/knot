@@ -6,6 +6,7 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
 	"github.com/rs/zerolog/log"
 )
@@ -15,9 +16,10 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
   if !middleware.HasUsers {
     http.Redirect(w, r, "/initial-system-setup", http.StatusSeeOther)
   } else {
+    session := middleware.GetSessionFromCookie(r)
 
     // If session present then redirect to dashboard
-    if middleware.Session != nil {
+    if session != nil {
       http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
       return
     }
@@ -53,10 +55,11 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
-  if middleware.Session != nil {
+  session := r.Context().Value("session").(*model.Session)
+  if session != nil {
     middleware.DeleteSessionCookie(w)
     db := database.GetInstance()
-    db.DeleteSession(middleware.Session)
+    db.DeleteSession(session)
   }
 
   http.Redirect(w, r, "/login", http.StatusSeeOther)

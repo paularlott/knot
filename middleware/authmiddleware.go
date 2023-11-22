@@ -6,15 +6,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/rest"
+	"golang.org/x/net/context"
 )
 
 var (
   HasUsers bool
-  Session *model.Session = nil
-  Token *model.Token = nil
-  User *model.User = nil
 )
 
 func Initialize() {
@@ -39,6 +36,7 @@ func returnUnauthorized(w http.ResponseWriter) {
 
 func ApiAuth(next http.Handler) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
 
     // If there's no users in the system then we don't check for authentication
     if(HasUsers) {
@@ -52,48 +50,57 @@ func ApiAuth(next http.Handler) http.Handler {
       if authorization != "" {
 
         // Get the auth token
-        var token string
-        fmt.Sscanf(authorization, "Bearer %s", &token)
-        if len(token) != 36 {
+        var bearer string
+        fmt.Sscanf(authorization, "Bearer %s", &bearer)
+        if len(bearer) != 36 {
           returnUnauthorized(w)
           return
         }
 
-        Token, _ = db.GetToken(token)
-        if Token == nil {
+        token, _ := db.GetToken(bearer)
+        if token == nil {
           returnUnauthorized(w)
           return
         }
 
-        userId = Token.UserId
+        userId = token.UserId
 
         // Save the token to extend its life
-        db.SaveToken(Token)
+        db.SaveToken(token)
+
+        // Add the token to the context
+        ctx = context.WithValue(r.Context(), "access_token", token)
       } else {
 
         // Get the session
-        Session = GetSessionFromCookie(r)
-        if Session == nil {
+        session := GetSessionFromCookie(r)
+        if session == nil {
           returnUnauthorized(w)
           return
         }
 
-        userId = Session.UserId
+        userId = session.UserId
 
         // Save the session to extend its life
-        db.SaveSession(Session)
+        db.SaveSession(session)
+
+        // Add the session to the context
+        ctx = context.WithValue(r.Context(), "session", session)
       }
 
       // Get the user
-      User, err = db.GetUser(userId)
-      if err != nil || !User.Active {
+      user, err := db.GetUser(userId)
+      if err != nil || !user.Active {
         returnUnauthorized(w)
         return
       }
+
+      // Add the user to the context
+      ctx = context.WithValue(ctx, "user", user)
     }
 
     // If authenticated, continue
-    next.ServeHTTP(w, r)
+    next.ServeHTTP(w, r.WithContext(ctx))
   })
 }
 
@@ -101,9 +108,8 @@ func WebAuth(next http.Handler) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
     // If no session then redirect to login
-    Session = GetSessionFromCookie(r)
-    if Session == nil {
-      DeleteSessionCookie(w)
+    session := GetSessionFromCookie(r)
+    if session == nil {
       http.Redirect(w, r, "/login?redirect=" + r.URL.EscapedPath(), http.StatusSeeOther)
       return
     }
@@ -111,18 +117,21 @@ func WebAuth(next http.Handler) http.Handler {
     // Get the user from the session
     db := database.GetInstance()
     var err error
-    User, err = db.GetUser(Session.UserId)
-    if err != nil || !User.Active {
+    user, err := db.GetUser(session.UserId)
+    if err != nil || !user.Active {
       DeleteSessionCookie(w)
       http.Redirect(w, r, "/login?redirect=" + r.URL.EscapedPath(), http.StatusSeeOther)
       return
     }
 
-    // Ensure we save the session at the end of the request
-    defer db.SaveSession(Session)
+    // Save the session to update its life
+    db.SaveSession(session)
+
+    ctx := context.WithValue(r.Context(), "user", user)
+    ctx = context.WithValue(ctx, "session", session)
 
     // If authenticated, continue
-    next.ServeHTTP(w, r)
+    next.ServeHTTP(w, r.WithContext(ctx))
   })
 }
 

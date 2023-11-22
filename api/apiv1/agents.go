@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/rest"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 type AgentRegisterResponse struct {

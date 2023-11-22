@@ -47,7 +47,7 @@ func (db *MySQLDriver) DeleteSpace(space *model.Space) error {
 }
 
 func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
-  var space model.Space
+  var space = &model.Space{}
   var createdAt string
   var updatedAt string
 
@@ -71,7 +71,7 @@ func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
     return nil, err
   }
 
-  return &space, nil
+  return space, nil
 }
 
 func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
@@ -83,7 +83,7 @@ func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
   }
 
   for rows.Next() {
-    var space model.Space
+    var space = &model.Space{}
     var createdAt string
     var updatedAt string
 
@@ -102,7 +102,7 @@ func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
       return nil, err
     }
 
-    spaces = append(spaces, &space)
+    spaces = append(spaces, space)
   }
 
   return spaces, nil

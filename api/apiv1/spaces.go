@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 )
@@ -19,7 +18,9 @@ type CreateSpaceRequest struct {
 }
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
-  spaces, err := database.GetInstance().GetSpacesForUser(middleware.User.Id)
+  user := r.Context().Value("user").(*model.User)
+
+  spaces, err := database.GetInstance().GetSpacesForUser(user.Id)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
@@ -64,10 +65,11 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
+  user := r.Context().Value("user").(*model.User)
 
   // Load the space if not found or doesn't belong to the user then treat both as not found
   space, err := database.GetInstance().GetSpace(chi.URLParam(r, "space_id"))
-  if err != nil || space.UserId != middleware.User.Id {
+  if err != nil || space.UserId != user.Id {
     rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: fmt.Sprintf("space %s not found", chi.URLParam(r, "space_id"))})
     return
   }
@@ -110,8 +112,10 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
   // TODO if template given deploy the nomad job
   // TODO if template given then auto generate the address and port = 0
 
+  user := r.Context().Value("user").(*model.User)
+
   // Create the agent
-  space := model.NewSpace(request.Name, middleware.User.Id, request.AgentURL, request.TemplateId)
+  space := model.NewSpace(request.Name, user.Id, request.AgentURL, request.TemplateId)
   err = database.GetInstance().SaveSpace(space)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})

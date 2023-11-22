@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type CreateTokenRequest struct {
@@ -18,7 +18,8 @@ type CreateTokenRequest struct {
 }
 
 func HandleGetTokens(w http.ResponseWriter, r *http.Request) {
-  tokens, err := database.GetInstance().GetTokensForUser(middleware.User.Id)
+  user := r.Context().Value("user").(*model.User)
+  tokens, err := database.GetInstance().GetTokensForUser(user.Id)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
@@ -41,10 +42,11 @@ func HandleGetTokens(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
+  user := r.Context().Value("user").(*model.User)
 
   // Load the token if not found or doesn't belong to the user then treat both as not found
   token, err := database.GetInstance().GetToken(chi.URLParam(r, "token_id"))
-  if err != nil || token.UserId != middleware.User.Id {
+  if err != nil || token.UserId != user.Id {
     rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: fmt.Sprintf("token %s not found", chi.URLParam(r, "token_id"))})
     return
   }
@@ -75,7 +77,8 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
   }
 
   // Create the token
-  token := model.NewToken(request.Name, middleware.User.Id)
+  user := r.Context().Value("user").(*model.User)
+  token := model.NewToken(request.Name, user.Id)
   err = database.GetInstance().SaveToken(token)
 
   if err != nil {

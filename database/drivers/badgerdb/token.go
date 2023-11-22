@@ -54,7 +54,7 @@ func (db *BadgerDbDriver) DeleteToken(token *model.Token) error {
 }
 
 func (db *BadgerDbDriver) GetToken(id string) (*model.Token, error) {
-  var token model.Token
+  var token = &model.Token{}
 
   err := db.connection.View(func(txn *badger.Txn) error {
     item, err := txn.Get([]byte(fmt.Sprintf("Tokens:%s", id)))
@@ -63,7 +63,7 @@ func (db *BadgerDbDriver) GetToken(id string) (*model.Token, error) {
     }
 
     return item.Value(func(val []byte) error {
-      return json.Unmarshal(val, &token)
+      return json.Unmarshal(val, token)
     })
   })
 
@@ -71,7 +71,7 @@ func (db *BadgerDbDriver) GetToken(id string) (*model.Token, error) {
     return nil, err
   }
 
-  return &token, err
+  return token, err
 }
 
 func (db *BadgerDbDriver) GetTokensForUser(userId string) ([]*model.Token, error) {

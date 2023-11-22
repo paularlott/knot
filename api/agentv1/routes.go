@@ -3,16 +3,18 @@ package agentv1
 import (
 	"net/http"
 
+	"github.com/paularlott/knot/middleware"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/paularlott/knot/middleware"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
-  codeServerPort string
-  sshPort string
+  codeServerPort int
+  sshPort int
 )
 
 func Routes(cmd *cobra.Command) chi.Router {
@@ -28,21 +30,22 @@ func Routes(cmd *cobra.Command) chi.Router {
 
     // Core
     router.Get("/ping", HandleAgentPing)
+
+    // If code server port given the enable the proxy
+    codeServerPort = viper.GetInt("agent.port.code-server")
+    if codeServerPort != 0 {
+      log.Info().Msgf("Enabling proxy to code-server on port: %d", codeServerPort)
+      router.HandleFunc("/code-server/*", agentProxyCodeServer);
+    }
   })
 
 
   // TODO Fix up everything below here
-  // If code server port given the enable the proxy
-  codeServerPort = cmd.Flag("code-server").Value.String()
-  if codeServerPort != "0" {
-    log.Info().Msgf("Proxying to code-server on port: %s", codeServerPort)
-    router.HandleFunc("/code-server/*", proxyCodeServer);
-  }
 
   // If ssh port given the enable the proxy
-  sshPort = cmd.Flag("ssh").Value.String()
-  if sshPort != "0" {
-    log.Info().Msgf("Proxying to SSH server on port: %s", sshPort)
+  sshPort = viper.GetInt("agent.port.ssh")
+  if sshPort != 0 {
+    log.Info().Msgf("Proxying to SSH server on port: %d", sshPort)
     router.HandleFunc("/ssh/", proxySSH);
   }
 

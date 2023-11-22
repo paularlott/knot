@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/paularlott/knot/middleware"
+	"github.com/paularlott/knot/database/model"
 	"github.com/rs/zerolog/log"
 )
 
@@ -17,9 +17,11 @@ func HandleSimplePage(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  user := r.Context().Value("user").(*model.User)
+
   data := map[string]interface{}{
-    "username": middleware.User.Username,
-    "IsAdmin": middleware.User.IsAdmin,
+    "username": user.Username,
+    "IsAdmin": user.IsAdmin,
   }
 
   err = tmpl.Execute(w, data)

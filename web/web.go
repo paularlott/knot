@@ -55,6 +55,7 @@ func Routes() chi.Router {
       router.Get("/", HandleSimplePage)
       router.Get("/create", HandleSimplePage)
 //      router.Get("/edit/{agent_id}", HandleAgentEditPage)
+      router.HandleFunc("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/code-server/*", HandleSpacesCodeServerProxy)
     })
   })
 

@@ -46,7 +46,7 @@ func (db *MySQLDriver) DeleteToken(token *model.Token) error {
 }
 
 func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
-  var token model.Token
+  var token = &model.Token{}
   var expiresAfter string
 
   row := db.connection.QueryRow("SELECT token_id, name, expires_after,user_id FROM tokens WHERE token_id = ?", id)
@@ -65,7 +65,7 @@ func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
     return nil, err
   }
 
-  return &token, nil
+  return token, nil
 }
 
 func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
@@ -77,7 +77,7 @@ func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
   }
 
   for rows.Next() {
-    var token model.Token
+    var token = &model.Token{}
     var expiresAfter string
 
     err := rows.Scan(&token.Id, &token.Name, &expiresAfter, &token.UserId)
@@ -91,7 +91,7 @@ func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
       return nil, err
     }
 
-    tokens = append(tokens, &token)
+    tokens = append(tokens, token)
   }
 
   return tokens, nil
