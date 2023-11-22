@@ -25,6 +25,9 @@ var (
 func Routes() chi.Router {
   router := chi.NewRouter()
 
+  // Page not found
+  router.NotFound(showPageNotFound)
+
   // Serve static content
   router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 		rctx := chi.RouteContext(r.Context())
@@ -32,6 +35,14 @@ func Routes() chi.Router {
 
     fsys := fs.FS(publicHTML)
     contentStatic, _ := fs.Sub(fsys, "public_html")
+
+    // Test if file r.URL.Path exists in contentStatic
+    file, err := contentStatic.Open(strings.TrimPrefix(r.URL.Path, "/"))
+    if err != nil {
+      showPageNotFound(w, r)
+      return
+    }
+    file.Close()
 
 		fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
 		fs.ServeHTTP(w, r)
@@ -67,6 +78,21 @@ func Routes() chi.Router {
   return router
 }
 
+func showPageNotFound(w http.ResponseWriter, r *http.Request) {
+  tmpl, err := newTemplate("page-404.tmpl")
+  if err != nil {
+    w.WriteHeader(http.StatusInternalServerError)
+    return
+  }
+
+  w.WriteHeader(http.StatusNotFound)
+  err = tmpl.Execute(w, nil)
+  if err != nil {
+    w.WriteHeader(http.StatusInternalServerError)
+    return
+  }
+}
+
 // Initialize a new template
 func newTemplate(name string) (*template.Template, error){
 
@@ -90,6 +116,13 @@ func newTemplate(name string) (*template.Template, error){
 			return m, nil
 		},
 	}
+
+  // Check if template exists
+  file, err := tmplFiles.Open(fmt.Sprintf("templates/%s", name))
+  if err != nil {
+    return nil, nil
+  }
+  file.Close()
 
   // Create the template
   tmpl, err := template.New(name).Funcs(funcs).ParseFS(tmplFiles, "templates/*.tmpl")

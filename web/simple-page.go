@@ -15,6 +15,9 @@ func HandleSimplePage(w http.ResponseWriter, r *http.Request) {
     log.Fatal().Msg(err.Error())
     w.WriteHeader(http.StatusInternalServerError)
     return
+  } else if tmpl == nil {
+    showPageNotFound(w, r)
+    return
   }
 
   user := r.Context().Value("user").(*model.User)
