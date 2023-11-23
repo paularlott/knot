@@ -37,17 +37,18 @@ func Routes(cmd *cobra.Command) chi.Router {
       log.Info().Msgf("Enabling proxy to code-server on port: %d", codeServerPort)
       router.HandleFunc("/code-server/*", agentProxyCodeServer);
     }
+
+    // If ssh port given the enable the proxy
+    sshPort = viper.GetInt("agent.port.ssh")
+    if sshPort != 0 {
+      log.Info().Msgf("Enabling proxy to SSH server on port: %d", sshPort)
+      router.HandleFunc("/ssh/", agentProxySSH);
+    }
   })
 
 
   // TODO Fix up everything below here
 
-  // If ssh port given the enable the proxy
-  sshPort = viper.GetInt("agent.port.ssh")
-  if sshPort != 0 {
-    log.Info().Msgf("Proxying to SSH server on port: %d", sshPort)
-    router.HandleFunc("/ssh/", proxySSH);
-  }
 
   if cmd.Flag("disable-tcp").Value.String() != "true" {
     log.Info().Msg("Enabling proxying of TCP ports")

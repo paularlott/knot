@@ -115,12 +115,8 @@ var serverCmd = &cobra.Command{
     router.Mount("/proxy", proxy.Routes())
     router.Mount("/", web.Routes())
 
-// TODO /proxy/agent/{user}/{box}/code-server
-// TODO /proxy/agent/{user}/{box}/ssh
 // TODO /proxy/agent/{user}/{box}/port/{port}
-    router.HandleFunc("/{box}/code-server/*", proxyCodeServer);
     router.HandleFunc("/{box}/port/{port}", proxyTCP);
-    router.Get("/{box}/ssh/*", proxySSH);
 
 
     // Run the http server
@@ -152,30 +148,6 @@ var serverCmd = &cobra.Command{
   },
 }
 
-func proxyCodeServer(w http.ResponseWriter, r *http.Request) {
-
-  // TODO Change this to look up the IP + Port from consul / DNS
-  target, _ := url.Parse("http://127.0.0.1:3001/code-server/")
-  proxy := httputil.NewSingleHostReverseProxy(target)
-
-  box := chi.URLParam(r, "box")
-
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/%s/code-server", box))
-
-  proxy.ServeHTTP(w, r)
-}
-
-func proxySSH(w http.ResponseWriter, r *http.Request) {
-  // TODO Change this to look up the IP + Port from consul / DNS
-  target, _ := url.Parse("http://127.0.0.1:3001/ssh/")
-  proxy := httputil.NewSingleHostReverseProxy(target)
-
-  box := chi.URLParam(r, "box")
-
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/%s/ssh", box))
-
-  proxy.ServeHTTP(w, r)
-}
 
 
 func proxyTCP(w http.ResponseWriter, r *http.Request) {

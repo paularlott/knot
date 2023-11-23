@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func proxySSH(w http.ResponseWriter, r *http.Request) {
+func agentProxySSH(w http.ResponseWriter, r *http.Request) {
   ws := util.UpgradeToWS(w, r);
   if ws == nil {
     log.Error().Msg("proxySSH: error while upgrading to websocket")

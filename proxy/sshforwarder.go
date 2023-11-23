@@ -14,9 +14,9 @@ func RunSSHForwarderViaProxy(proxyServerURL string, token string, service string
   forwardSSH(fmt.Sprintf("%s/proxy/port/%s/%d", proxyServerURL, service, port), token)
 }
 
-func RunSSHForwarderViaAgent(proxyServerURL string, box string) {
+func RunSSHForwarderViaAgent(proxyServerURL string, space string, token string) {
   log.Info().Msgf("ssh: connecting to agent via server at: %s", proxyServerURL)
-  forwardSSH(fmt.Sprintf("%s/%s/ssh/", proxyServerURL, box), "")
+  forwardSSH(fmt.Sprintf("%s/proxy/spaces/%s/ssh/", proxyServerURL, space), token)
 }
 
 func forwardSSH(dialURL string, token string) {

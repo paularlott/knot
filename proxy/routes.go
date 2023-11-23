@@ -12,5 +12,9 @@ func Routes() chi.Router {
 
   router.Get("/port/{host}/{port:\\d+}", HandleWSProxyServer)
 
+  router.Route("/spaces/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
+    router.Get("/ssh/*", HandleSpacesSSHProxy)
+  })
+
   return router
 }
