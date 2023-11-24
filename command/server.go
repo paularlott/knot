@@ -4,11 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -115,10 +112,6 @@ var serverCmd = &cobra.Command{
     router.Mount("/proxy", proxy.Routes())
     router.Mount("/", web.Routes())
 
-// TODO /proxy/agent/{user}/{box}/port/{port}
-    router.HandleFunc("/{box}/port/{port}", proxyTCP);
-
-
     // Run the http server
     server := &http.Server{
       Addr:           listen,
@@ -146,20 +139,4 @@ var serverCmd = &cobra.Command{
     log.Info().Msg("server: shutdown")
     os.Exit(0)
   },
-}
-
-
-
-func proxyTCP(w http.ResponseWriter, r *http.Request) {
-  port := chi.URLParam(r, "port")
-
-  // TODO Change this to look up the IP + Port from consul / DNS
-  target, _ := url.Parse("http://127.0.0.1:3001/tcp/" + port)
-  proxy := httputil.NewSingleHostReverseProxy(target)
-
-  box := chi.URLParam(r, "box")
-
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/%s/port/%s", box, port))
-
-  proxy.ServeHTTP(w, r)
 }
