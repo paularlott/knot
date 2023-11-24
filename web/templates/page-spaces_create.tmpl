@@ -118,7 +118,9 @@ function createSpaceForm() {
           if (response.status === 201) {
             window.location.href = '/spaces';
           } else {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Failed to create space", type: 'error' } }));
+            response.json().then((data) => {
+              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Failed to create space, " + data.error, type: 'error' } }));
+            });
           }
         })
         .catch((error) => {

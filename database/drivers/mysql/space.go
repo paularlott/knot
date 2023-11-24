@@ -107,3 +107,31 @@ func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
 
   return spaces, nil
 }
+
+func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.Space, error) {
+  var space = &model.Space{}
+  var createdAt string
+  var updatedAt string
+
+  row := db.connection.QueryRow("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at FROM spaces WHERE userId = ? AND name = ?", userId, spaceName)
+  if row == nil {
+    return nil, fmt.Errorf("agent not found")
+  }
+
+  err := row.Scan(&space.Id, &space.UserId, &space.TemplateId, &space.Name, &space.AgentURL, &createdAt, &updatedAt)
+  if err != nil {
+    return nil, err
+  }
+
+  // Parse the dates
+  space.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
+  if err != nil {
+    return nil, err
+  }
+  space.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", updatedAt)
+  if err != nil {
+    return nil, err
+  }
+
+  return space, nil
+}

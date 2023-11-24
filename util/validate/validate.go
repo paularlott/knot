@@ -13,7 +13,7 @@ func Uri(uri string) bool {
 }
 
 func Name(username string) bool {
-  re := regexp.MustCompile(`^[a-zA-Z][a-z0-9\-]{1,63}$`);
+  re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9\-]{1,63}$`);
   return re.MatchString(username);
 }
 

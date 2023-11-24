@@ -45,6 +45,7 @@ type IDbDriver interface {
   DeleteSpace(space *model.Space) error
   GetSpace(id string) (*model.Space, error)
   GetSpacesForUser(userId string) ([]*model.Space, error)
+  GetSpaceByName(userId string, spaceName string) (*model.Space, error)
 }
 
 // Get returns the database driver and on first call initializes it

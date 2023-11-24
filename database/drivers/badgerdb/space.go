@@ -12,6 +12,22 @@ import (
 
 func (db *BadgerDbDriver) SaveSpace(space *model.Space) error {
   err := db.connection.Update(func(txn *badger.Txn) error {
+    // Load the existing space
+    existingSpace, _ := db.GetSpace(space.Id)
+    if existingSpace == nil {
+      space.CreatedAt = time.Now().UTC()
+    }
+
+    // If new space or name changed check if the new name is unique
+    if existingSpace == nil || space.Name != existingSpace.Name {
+      exists, err := db.keyExists(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, space.Name))
+      if err != nil {
+        return err
+      } else if exists {
+        return fmt.Errorf("duplicate space name")
+      }
+    }
+
     space.UpdatedAt = time.Now().UTC()
     data, err := json.Marshal(space)
     if err != nil {
@@ -24,6 +40,11 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space) error {
     }
 
     e = badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserId:%s:%s", space.UserId, space.Id)), []byte(space.Id))
+    if err = txn.SetEntry(e); err != nil {
+      return err
+    }
+
+    e = badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, space.Name)), []byte(space.Id))
     if err = txn.SetEntry(e); err != nil {
       return err
     }
@@ -47,6 +68,11 @@ func (db *BadgerDbDriver) DeleteSpace(space *model.Space) error {
     }
 
     err = txn.Delete([]byte(fmt.Sprintf("SpacesByUserId:%s:%s", space.UserId, space.Id)))
+    if err != nil {
+      return err
+    }
+
+    err = txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, space.Name)))
     if err != nil {
       return err
     }
@@ -120,4 +146,37 @@ func (db *BadgerDbDriver) GetSpacesForUser(userId string) ([]*model.Space, error
   })
 
   return spaces, err
+}
+
+func (db *BadgerDbDriver) GetSpaceByName(userId string, spaceName string) (*model.Space, error) {
+  var space = &model.Space{}
+
+  err := db.connection.View(func(txn *badger.Txn) error {
+    item, err := txn.Get([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", userId, spaceName)))
+    if err != nil {
+      return err
+    }
+
+    var spaceId string
+    err = item.Value(func(val []byte) error {
+      spaceId = string(val)
+      return nil
+    })
+    if err != nil {
+      return err
+    }
+
+    space, err = db.GetSpace(spaceId)
+    if err != nil {
+      return err
+    }
+
+    return nil
+  })
+
+  if err != nil {
+    return nil, err
+  }
+
+  return space, err
 }

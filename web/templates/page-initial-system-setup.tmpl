@@ -22,7 +22,7 @@
                 <dl>
                   <dt><label for="username">Username <em>*</em></label></dt>
                   <dd>
-                    <input type="text" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'error': !usernameValid}" placeholder="Username (all lowercase)" x-model="formData.username">
+                    <input type="text" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username">
                     <div x-show="!usernameValid" class="error-message">Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
                   </dd>
                   <dt><label for="email">Email <em>*</em></label></dt>

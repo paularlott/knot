@@ -63,7 +63,8 @@ agent_url VARCHAR(255),
 created_at TIMESTAMP,
 updated_at TIMESTAMP,
 INDEX user_id (user_id),
-INDEX template_id (template_id)
+INDEX template_id (template_id),
+UNIQUE INDEX name (user_id, name)
 )`)
   if err != nil {
     return err

@@ -37,7 +37,12 @@ func Routes() chi.Router {
     contentStatic, _ := fs.Sub(fsys, "public_html")
 
     // Test if file r.URL.Path exists in contentStatic
-    file, err := contentStatic.Open(strings.TrimPrefix(r.URL.Path, "/"))
+    fileName := strings.TrimPrefix(r.URL.Path, "/")
+    if fileName == "" {
+      fileName = "index.html"
+    }
+
+    file, err := contentStatic.Open(fileName)
     if err != nil {
       showPageNotFound(w, r)
       return

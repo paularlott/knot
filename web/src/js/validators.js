@@ -5,7 +5,7 @@ export var validate = {
   },
 
   name: function(username) {
-    var re = /^[a-zA-Z][a-z0-9\-]{1,63}$/;
+    var re = /^[a-zA-Z][a-zA-Z0-9\-]{1,63}$/;
     return re.test(username);
   },
 
