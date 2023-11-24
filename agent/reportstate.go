@@ -16,18 +16,17 @@ import (
 
 func ReportState(serverAddr string, nameserver string, spaceId string, codeServerPort int, sshPort int) {
   for {
-    var sshAlive bool
+    var sshAlivePort = 0
     var codeServerAlive bool
 
     // If sshPort > 0 then check the health of sshd
-    sshAlive = false
     if sshPort > 0 {
       // Check health of sshd
       address := fmt.Sprintf("127.0.0.1:%d", sshPort)
       conn, err := net.DialTimeout("tcp", address, time.Second)
       if err == nil {
         conn.Close()
-        sshAlive = true
+        sshAlivePort = sshPort
       }
     }
 
@@ -46,7 +45,7 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
     log.Debug().Msgf("Updating agent status for space %s", spaceId)
 
     client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), middleware.AgentSpaceKey)
-    statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlive)
+    statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort)
     if err != nil {
       log.Info().Msgf("failed to ping server: %d, %s", statusCode, err.Error())
 

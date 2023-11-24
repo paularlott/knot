@@ -55,7 +55,7 @@ func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
   database.AgentStateSet(spaceId, &database.AgentState{
     AccessToken: token,
     HasCodeServer: false,
-    HasSSH: false,
+    SSHPort: 0,
     LastSeen: time.Now().UTC(),
   })
   database.AgentStateUnlock()
@@ -72,7 +72,7 @@ func CallRegisterAgent(client *rest.RESTClient, spaceId string) (*AgentRegisterR
 
 type AgentStatusRequest struct {
   HasCodeServer bool `json:"has_code_server"`
-  HasSSH bool `json:"has_ssh"`
+  SSHPort int `json:"ssh_port"`
 }
 
 type AgentStatusResponse struct {
@@ -98,7 +98,7 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
     log.Debug().Msgf("agent status update for space %s", spaceId)
     state.LastSeen = time.Now().UTC()
     state.HasCodeServer = request.HasCodeServer
-    state.HasSSH = request.HasSSH
+    state.SSHPort = request.SSHPort
 
     database.AgentStateUnlock()
 
@@ -112,10 +112,10 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
   database.AgentStateUnlock()
 }
 
-func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, hasSSH bool) (int, error) {
+func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, sshPort int) (int, error) {
   request := &AgentStatusRequest{
     HasCodeServer: hasCodeServer,
-    HasSSH: hasSSH,
+    SSHPort: sshPort,
   }
   response := &AgentStatusResponse{}
   statusCode, err := client.Post(fmt.Sprintf("/api/v1/agents/%s/status", spaceId), request, response)

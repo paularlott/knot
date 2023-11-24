@@ -54,7 +54,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     agentState, ok := database.AgentStateGet(space.Id)
     if ok {
       spaceData[i].HasCodeServer = agentState.HasCodeServer
-      spaceData[i].HasSSH = agentState.HasSSH
+      spaceData[i].HasSSH = agentState.SSHPort > 0
     } else {
       spaceData[i].HasCodeServer = false
       spaceData[i].HasSSH = false
@@ -145,7 +145,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
     response.HasSSH = false
   } else {
     response.HasCodeServer = space.HasCodeServer
-    response.HasSSH = space.HasSSH
+    response.HasSSH = space.SSHPort > 0
   }
 
   rest.SendJSON(http.StatusOK, w, response)

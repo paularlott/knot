@@ -11,7 +11,7 @@ import (
 type AgentState struct {
   AccessToken string
   HasCodeServer bool
-  HasSSH bool
+  SSHPort int
   LastSeen time.Time
 }
 

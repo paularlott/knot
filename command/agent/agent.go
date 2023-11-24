@@ -9,13 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/paularlott/knot/agent"
 	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/util/validate"
-	"github.com/rs/zerolog/log"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -79,6 +79,12 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     agentv1.AllowedPortMap = make(map[string]bool, len(ports))
     for _, port := range ports {
       agentv1.AllowedPortMap[port] = true
+    }
+
+    // Add the ssh port to the map
+    sshPort := viper.GetInt("agent.port.ssh")
+    if sshPort != 0 {
+      agentv1.AllowedPortMap[fmt.Sprintf("%d", sshPort)] = true
     }
 
     // Check address given and valid URL

@@ -31,6 +31,7 @@ func agentProxyTCP(w http.ResponseWriter, r *http.Request) {
   ws := util.UpgradeToWS(w, r);
   if ws == nil {
     log.Error().Msg("error while upgrading to websocket")
+    w.WriteHeader(http.StatusInternalServerError)
     return
   }
 
@@ -40,6 +41,7 @@ func agentProxyTCP(w http.ResponseWriter, r *http.Request) {
   if err != nil {
     ws.Close()
     log.Error().Msgf("error while dialing %s: %s", dial, err.Error())
+    w.WriteHeader(http.StatusInternalServerError)
     return
   }
 

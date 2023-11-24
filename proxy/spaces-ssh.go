@@ -14,13 +14,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-
 func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
   spaceId := chi.URLParam(r, "space_id")
 
   // Get the space auth
   agentState, ok := database.AgentStateGet(spaceId)
-  if !ok {
+  if !ok || agentState.SSHPort == 0 {
     w.WriteHeader(http.StatusNotFound)
     return
   }
@@ -34,7 +33,7 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
   }
 
   // Look up the IP + Port from consul / DNS
-  target, _ := url.Parse(fmt.Sprintf("%s/ssh/", strings.TrimSuffix(util.ResolveSRVHttp(space.AgentURL, viper.GetString("agent.nameserver")), "/")))
+  target, _ := url.Parse(fmt.Sprintf("%s/tcp/%d", strings.TrimSuffix(util.ResolveSRVHttp(space.AgentURL, viper.GetString("agent.nameserver")), "/"), agentState.SSHPort))
   proxy := httputil.NewSingleHostReverseProxy(target)
 
   originalDirector := proxy.Director
