@@ -113,7 +113,7 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
   var createdAt string
   var updatedAt string
 
-  row := db.connection.QueryRow("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at FROM spaces WHERE userId = ? AND name = ?", userId, spaceName)
+  row := db.connection.QueryRow("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at FROM spaces WHERE user_id = ? AND name = ?", userId, spaceName)
   if row == nil {
     return nil, fmt.Errorf("agent not found")
   }

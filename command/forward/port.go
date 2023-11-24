@@ -14,7 +14,7 @@ var portCmd = &cobra.Command{
   Long:  `Forwards a local port to a remote container running the agent via the proxy server.
 
   listen    The local port to listen on e.g. :8080
-  space     The ID of the space to connect to e.g. a08ffda8-8b57-4047-9370-d032819d2c8f
+  space     The name of the space to connect to e.g. test1
   port      The remote port to connect to e.g. 80`,
   Args: cobra.ExactArgs(3),
   Run: func(cmd *cobra.Command, args []string) {

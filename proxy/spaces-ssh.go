@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
 
 	"github.com/go-chi/chi/v5"
@@ -15,19 +16,21 @@ import (
 )
 
 func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
-  spaceId := chi.URLParam(r, "space_id")
+  user := r.Context().Value("user").(*model.User)
+  spaceName := chi.URLParam(r, "space_name")
 
-  // Get the space auth
-  agentState, ok := database.AgentStateGet(spaceId)
-  if !ok || agentState.SSHPort == 0 {
+  // Load the space
+  db := database.GetInstance()
+  space, err := db.GetSpaceByName(user.Id, spaceName)
+  if err != nil {
+    fmt.Println("HandleSpacesSSHProxy", err)
     w.WriteHeader(http.StatusNotFound)
     return
   }
 
-  // Load the space
-  db := database.GetInstance()
-  space, err := db.GetSpace(spaceId)
-  if err != nil {
+  // Get the space auth
+  agentState, ok := database.AgentStateGet(space.Id)
+  if !ok || agentState.SSHPort == 0 {
     w.WriteHeader(http.StatusNotFound)
     return
   }
@@ -42,7 +45,7 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
     r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
   }
 
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/ssh", spaceId))
+  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/ssh", spaceName))
 
   proxy.ServeHTTP(w, r)
 }

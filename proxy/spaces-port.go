@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
 
 	"github.com/go-chi/chi/v5"
@@ -15,20 +16,21 @@ import (
 )
 
 func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
-  spaceId := chi.URLParam(r, "space_id")
+  user := r.Context().Value("user").(*model.User)
+  spaceName := chi.URLParam(r, "space_name")
   port := chi.URLParam(r, "port")
 
-  // Get the space auth
-  agentState, ok := database.AgentStateGet(spaceId)
-  if !ok {
+  // Load the space
+  db := database.GetInstance()
+  space, err := db.GetSpaceByName(user.Id, spaceName)
+  if err != nil {
     w.WriteHeader(http.StatusNotFound)
     return
   }
 
-  // Load the space
-  db := database.GetInstance()
-  space, err := db.GetSpace(spaceId)
-  if err != nil {
+  // Get the space auth
+  agentState, ok := database.AgentStateGet(space.Id)
+  if !ok {
     w.WriteHeader(http.StatusNotFound)
     return
   }

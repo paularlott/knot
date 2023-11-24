@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
@@ -44,7 +45,7 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space) error {
       return err
     }
 
-    e = badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, space.Name)), []byte(space.Id))
+    e = badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(space.Name))), []byte(space.Id))
     if err = txn.SetEntry(e); err != nil {
       return err
     }
@@ -72,7 +73,7 @@ func (db *BadgerDbDriver) DeleteSpace(space *model.Space) error {
       return err
     }
 
-    err = txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, space.Name)))
+    err = txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(space.Name))))
     if err != nil {
       return err
     }
@@ -152,7 +153,7 @@ func (db *BadgerDbDriver) GetSpaceByName(userId string, spaceName string) (*mode
   var space = &model.Space{}
 
   err := db.connection.View(func(txn *badger.Txn) error {
-    item, err := txn.Get([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", userId, spaceName)))
+    item, err := txn.Get([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", userId, strings.ToLower(spaceName))))
     if err != nil {
       return err
     }
