@@ -23,7 +23,6 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
   space, err := db.GetSpaceByName(user.Id, spaceName)
   if err != nil {
-    fmt.Println("HandleSpacesSSHProxy", err)
     w.WriteHeader(http.StatusNotFound)
     return
   }

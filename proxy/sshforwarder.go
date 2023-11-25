@@ -10,12 +10,12 @@ import (
 )
 
 func RunSSHForwarderViaProxy(proxyServerURL string, token string, service string, port int) {
-  log.Info().Msgf("ssh: connecting to proxy server at: %s", proxyServerURL)
+  log.Debug().Msgf("ssh: connecting to proxy server at: %s", proxyServerURL)
   forwardSSH(fmt.Sprintf("%s/proxy/port/%s/%d", proxyServerURL, service, port), token)
 }
 
 func RunSSHForwarderViaAgent(proxyServerURL string, space string, token string) {
-  log.Info().Msgf("ssh: connecting to agent via server at: %s", proxyServerURL)
+  log.Debug().Msgf("ssh: connecting to agent via server at: %s", proxyServerURL)
   forwardSSH(fmt.Sprintf("%s/proxy/spaces/%s/ssh/", proxyServerURL, space), token)
 }
 
@@ -28,15 +28,13 @@ func forwardSSH(dialURL string, token string) {
     header = nil
   }
 
-  for {
-    // Create websocket connection
-    wsConn, _, err := websocket.DefaultDialer.Dial(dialURL, header)
-    if err != nil {
-      log.Fatal().Msgf("ssh: error while dialing: %s", err.Error())
-      os.Exit(1)
-    }
-
-    copier := NewCopier(nil, wsConn)
-    copier.Run()
+  // Create websocket connection
+  wsConn, _, err := websocket.DefaultDialer.Dial(dialURL, header)
+  if err != nil {
+    log.Fatal().Msgf("ssh: error while dialing: %s", err.Error())
+    os.Exit(1)
   }
+
+  copier := NewCopier(nil, wsConn)
+  copier.Run()
 }

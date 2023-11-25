@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const WEBUI_SESSION_COOKIE = "__WEBUI_SESSION"
+const WEBUI_SESSION_COOKIE = "__KNOT_WEBUI_SESSION"
 
 // Session object
 type Session struct {

@@ -5,6 +5,7 @@
 package proxy
 
 import (
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -69,7 +70,9 @@ func (connections *copierConnections) Run() error {
       // Read data from the websocket
       mt, r, err := connections.wsConnection.NextReader()
       if err != nil {
-        log.Error().Msgf("copier: error reading from websocket: %s", err.Error())
+        if errors.Unwrap(err).Error() != "use of closed network connection" {
+          log.Error().Msgf("copier: error reading from websocket: %s", err.Error())
+        }
         return
       }
       if mt != websocket.BinaryMessage {

@@ -90,12 +90,9 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  log.Debug().Msgf("agent status update for space %s", spaceId)
-
   // Test if an agent is registered for the space, in RegisteredAgents map
   database.AgentStateLock()
   if state, ok := database.AgentStateGet(spaceId); ok {
-    log.Debug().Msgf("agent status update for space %s", spaceId)
     state.LastSeen = time.Now().UTC()
     state.HasCodeServer = request.HasCodeServer
     state.SSHPort = request.SSHPort

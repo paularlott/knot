@@ -42,8 +42,6 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
       }
     }
 
-    log.Debug().Msgf("Updating agent status for space %s", spaceId)
-
     client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), middleware.AgentSpaceKey)
     statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort)
     if err != nil {
