@@ -20,4 +20,5 @@ components:
 paths:
   /ping:
     $ref: paths/ping.yaml
-
+  /update-authorized-keys:
+    $ref: paths/update-authorized-keys.yaml

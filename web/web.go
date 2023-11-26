@@ -38,8 +38,8 @@ func Routes() chi.Router {
 
     // Test if file r.URL.Path exists in contentStatic
     fileName := strings.TrimPrefix(r.URL.Path, "/")
-    if fileName == "" {
-      fileName = "index.html"
+    if strings.HasSuffix(fileName, "/") {
+      fileName = fileName + "index.html"
     }
 
     file, err := contentStatic.Open(fileName)

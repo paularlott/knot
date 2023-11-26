@@ -1,0 +1,38 @@
+post:
+  summary: Update authorized_keys
+  description: Called to update the authorized_keys file with the public key for SSH access.
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            key:
+              type: string
+  responses:
+    '200':
+      description: authorized_keys updated successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+    '401':
+      description: Unauthorized
+    '400':
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - error
+            properties:
+              error:
+                type: string
+                description: The error message
+  security:
+    - BearerAuth: []
