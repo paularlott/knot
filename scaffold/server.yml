@@ -5,6 +5,9 @@ server:
   # Optional nameserver to use for SRV lookups
   # nameserver: 1.1.1.1:53
 
+  # Disable Proxy functionality
+  disable_proxy: false
+
   mysql:
     enabled: false
     host: localhost

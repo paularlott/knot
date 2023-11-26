@@ -1,8 +1,10 @@
 package proxy
 
 import (
-	"github.com/go-chi/chi/v5"
 	"github.com/paularlott/knot/middleware"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/spf13/viper"
 )
 
 func Routes() chi.Router {
@@ -10,7 +12,9 @@ func Routes() chi.Router {
 
   router.Use(middleware.ApiAuth)
 
-  router.Get("/port/{host}/{port:\\d+}", HandleWSProxyServer)
+  if !viper.GetBool("server.disable_proxy") {
+    router.Get("/port/{host}/{port:\\d+}", HandleWSProxyServer)
+  }
 
   router.Route("/spaces/{space_name:^[a-zA-Z][a-zA-Z0-9\\-]{1,63}$}", func(router chi.Router) {
     router.Get("/ssh/*", HandleSpacesSSHProxy)

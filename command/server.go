@@ -24,6 +24,7 @@ func init() {
   serverCmd.Flags().StringP("listen", "l", "", "The address to listen on (default \"127.0.0.1:3000\").\nOverrides the " + CONFIG_ENV_PREFIX + "_LISTEN environment variable if set.")
   serverCmd.Flags().StringP("nameserver", "n", "", "The nameserver to use for SRV lookups (default use system resolver).\nOverrides the " + CONFIG_ENV_PREFIX + "_NAMESERVER environment variable if set.")
   serverCmd.Flags().StringP("url", "u", "", "The URL to use for the server (default \"http://127.0.0.1:3000\").\nOverrides the " + CONFIG_ENV_PREFIX + "_URL environment variable if set.")
+  serverCmd.Flags().BoolP("disable-proxy", "", false, "Disable the proxy server functionality.\nOverrides the " + CONFIG_ENV_PREFIX + "_DISABLE_PROXY environment variable if set.")
 
   // MySQL
   serverCmd.Flags().BoolP("mysql-enabled", "", false, "Enable MySQL database backend.\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_ENABLED environment variable if set.")
@@ -60,6 +61,10 @@ var serverCmd = &cobra.Command{
     viper.BindPFlag("server.nameserver", cmd.Flags().Lookup("nameserver"))
     viper.BindEnv("server.nameserver", CONFIG_ENV_PREFIX + "_NAMESERVER")
     viper.SetDefault("server.nameserver", "")
+
+    viper.BindPFlag("server.disable_proxy", cmd.Flags().Lookup("disable-proxy"))
+    viper.BindEnv("server.disable_proxy", CONFIG_ENV_PREFIX + "_DISABLE_PROXY")
+    viper.SetDefault("server.disable_proxy", false)
 
     // MySQL
     viper.BindPFlag("server.mysql.enabled", cmd.Flags().Lookup("mysql-enabled"))
