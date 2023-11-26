@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/gorilla/websocket"
+	"github.com/paularlott/knot/util"
 	"github.com/rs/zerolog/log"
 )
 
@@ -35,6 +36,6 @@ func forwardSSH(dialURL string, token string) {
     os.Exit(1)
   }
 
-  copier := NewCopier(nil, wsConn)
+  copier := util.NewCopier(nil, wsConn)
   copier.Run()
 }

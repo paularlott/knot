@@ -7,11 +7,14 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/util/rest"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
@@ -32,6 +35,19 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
   if !ok || agentState.SSHPort == 0 {
     w.WriteHeader(http.StatusNotFound)
     return
+  }
+
+  // Write the users SSH public key to the agent
+  if user.SSHPublicKey != "" {
+    log.Debug().Msg("Sending SSH public key to agent")
+
+    // Send the public SSH key to the agent
+    client := rest.NewClient(util.ResolveSRVHttp(space.AgentURL, viper.GetString("server.namespace")), agentState.AccessToken)
+    if !agentv1.CallAgentUpdateAuthorizedKeys(client, user.SSHPublicKey) {
+      log.Debug().Msg("Failed to send SSH public key to agent")
+      w.WriteHeader(http.StatusInternalServerError)
+      return
+    }
   }
 
   // Look up the IP + Port from consul / DNS

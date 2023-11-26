@@ -11,6 +11,7 @@ import (
 func init() {
   scaffoldCmd.Flags().BoolP("server", "", false, "Generate a server configuration file")
   scaffoldCmd.Flags().BoolP("client", "", false, "Generate a client configuration file")
+  scaffoldCmd.Flags().BoolP("agent", "", false, "Generate an agent configuration file")
 
   RootCmd.AddCommand(scaffoldCmd)
 }
@@ -32,7 +33,11 @@ var scaffoldCmd = &cobra.Command{
       fmt.Println(scaffold.ClientScaffold)
     }
 
-    if cmd.Flag("server").Value.String() == "false" && cmd.Flag("client").Value.String() == "false" {
+    if cmd.Flag("agent").Value.String() == "true" {
+      fmt.Println(scaffold.AgentScaffold)
+    }
+
+    if cmd.Flag("server").Value.String() == "false" && cmd.Flag("client").Value.String() == "false" && cmd.Flag("agent").Value.String() == "false" {
       cmd.Help()
     }
   },

@@ -2,7 +2,7 @@
 // Copies data between a websocket and stdin / stdout / socket.
 //
 
-package proxy
+package util
 
 import (
 	"errors"

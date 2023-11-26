@@ -14,7 +14,6 @@ import (
 
 var (
   codeServerPort int
-  sshPort int
 )
 
 func Routes(cmd *cobra.Command) chi.Router {
@@ -31,7 +30,12 @@ func Routes(cmd *cobra.Command) chi.Router {
     // Core
     router.Get("/ping", HandleAgentPing)
 
-    // If code server port given the enable the proxy
+    // If SSH port given
+    if viper.GetInt("agent.port.ssh") > 0 {
+      router.Post("/update-authorized-keys", HandleAgentUpdateAuthorizedKeys)
+    }
+
+    // If code server port given then enable the proxy
     codeServerPort = viper.GetInt("agent.port.code-server")
     if codeServerPort != 0 {
       log.Info().Msgf("Enabling proxy to code-server on port: %d", codeServerPort)
@@ -50,7 +54,7 @@ func Routes(cmd *cobra.Command) chi.Router {
 
   if cmd.Flag("disable-http").Value.String() != "true" {
     log.Info().Msg("Enabling proxying of HTTP ports")
-    router.HandleFunc("/http/{port}/*", proxyHTTP);
+    router.HandleFunc("/http/{port}/*", agentProxyHTTP);
   }
 
   router.HandleFunc("/*", func(w http.ResponseWriter, r *http.Request) {

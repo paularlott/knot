@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
 
 	"github.com/go-chi/chi/v5"
@@ -45,6 +44,6 @@ func agentProxyTCP(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  copier := proxy.NewCopier(tcpConn, ws)
+  copier := util.NewCopier(tcpConn, ws)
   go copier.Run()
 }

@@ -13,6 +13,7 @@ type User struct {
   Username string `json:"username"`
   Email string `json:"email"`
   Password string `json:"password"`
+  SSHPublicKey string `json:"ssh_public_key"`
   Active bool `json:"active"`
   IsAdmin bool `json:"is_admin"`
   LastLoginAt time.Time `json:"last_login_at"`

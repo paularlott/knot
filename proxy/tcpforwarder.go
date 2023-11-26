@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"github.com/paularlott/knot/util"
 	"github.com/rs/zerolog/log"
 )
 
@@ -47,7 +48,7 @@ func forwardTCP(dialURL string, token string, listen string) {
       tcpConn.Close()
       log.Fatal().Msgf("tcp: error while dialing: %s", err.Error())
     }
-    copier := NewCopier(tcpConn, wsConn)
+    copier := util.NewCopier(tcpConn, wsConn)
     go copier.Run()
   }
 }

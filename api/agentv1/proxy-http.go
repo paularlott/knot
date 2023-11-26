@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func proxyHTTP(w http.ResponseWriter, r *http.Request) {
+func agentProxyHTTP(w http.ResponseWriter, r *http.Request) {
   port := chi.URLParam(r, "port")
 
   target, _ := url.Parse("http://127.0.0.1:" + port)

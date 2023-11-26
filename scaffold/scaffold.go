@@ -10,4 +10,7 @@ var (
 
   //go:embed server.yml
   ServerScaffold string
+
+  //go:embed agent.yml
+  AgentScaffold string
 )

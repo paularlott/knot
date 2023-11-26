@@ -1,0 +1,25 @@
+agent:
+  # URL of the knot server
+  server: http://127.0.0.1:3000
+  # Optional nameserver to use for SRV lookups
+  # nameserver: 1.1.1.1:53
+    # Address and port to listen on
+  listen: http://127.0.0.1:3000
+
+  # ID of the space the agent is for
+  space-id: cbac644f-cc9d-4991-9e99-2b421d70c126
+
+  # Allow updating of authorized keys file
+  update-authorized-keys: true
+
+  port:
+    # Port code server is running on, exclude to disable
+    code-server: 1234
+
+    # Post SSH is running on, exclude to disable
+    ssh: 22
+
+    # List of TCP ports to expose
+    tcp-port:
+      - 80
+      - 443

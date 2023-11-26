@@ -28,6 +28,7 @@ func init() {
   agentCmd.Flags().IntP("code-server", "", 0, "The port code-server is running on.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_CODE_SERVER environment variable if set.")
   agentCmd.Flags().IntP("ssh", "", 0, "The port sshd is running on.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_SSH environment variable if set.")
   agentCmd.Flags().StringSliceP("tcp-port", "p", []string{}, "Can be specified multiple times to give the list of TCP ports to be exposed to the client.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_TCP_PORT environment variable if set.")
+  agentCmd.Flags().BoolP("update-authorized-keys", "", true, "If given then the agent will update the authorized_keys file with the SSH public key of the user.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_UPDATE_AUTHORIZED_KEYS environment variable if set.")
 
   // TODO Add all these to viper and create an agent scaffold example
   agentCmd.Flags().BoolP("disable-http", "", false, "If given then disables http proxy.")
@@ -67,6 +68,10 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
     viper.BindPFlag("agent.port.tcp-port", cmd.Flags().Lookup("tcp-port"))
     viper.BindEnv("agent.port.tcp-port", command.CONFIG_ENV_PREFIX + "_TCP_PORT")
+
+    viper.BindPFlag("agent.update-authorized-keys", cmd.Flags().Lookup("update-authorized-keys"))
+    viper.BindEnv("agent.update-authorized-keys", command.CONFIG_ENV_PREFIX + "_UPDATE_AUTHORIZED_KEYS")
+    viper.SetDefault("agent.update-authorized-keys", true)
   },
   Run: func(cmd *cobra.Command, args []string) {
     listen := viper.GetString("agent.listen")

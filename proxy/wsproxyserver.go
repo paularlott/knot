@@ -46,6 +46,6 @@ func HandleWSProxyServer(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  copier := NewCopier(tcpConn, ws)
+  copier := util.NewCopier(tcpConn, ws)
   go copier.Run()
 }
