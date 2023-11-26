@@ -1,4 +1,4 @@
-package web
+package proxy
 
 import (
 	"fmt"
@@ -8,26 +8,28 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
-	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/spf13/viper"
 )
 
 func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
-  spaceId := chi.URLParam(r, "space_id")
+  spaceName := chi.URLParam(r, "space_name")
+  user := r.Context().Value("user").(*model.User)
 
-  // Get the space auth
-  agentState, ok := database.AgentStateGet(spaceId)
-  if !ok {
+  // Load the space
+  db := database.GetInstance()
+  space, err := db.GetSpaceByName(user.Id, spaceName)
+  if err != nil {
     w.WriteHeader(http.StatusNotFound)
     return
   }
 
-  // Load the space
-  db := database.GetInstance()
-  space, err := db.GetSpace(spaceId)
-  if err != nil {
+  // Get the space auth
+  agentState, ok := database.AgentStateGet(space.Id)
+  if !ok {
     w.WriteHeader(http.StatusNotFound)
     return
   }
@@ -42,7 +44,7 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
     r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
   }
 
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/spaces/%s/code-server", spaceId))
+  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/code-server", spaceName))
 
   proxy.ServeHTTP(w, r)
 }

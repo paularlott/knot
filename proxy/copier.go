@@ -48,7 +48,8 @@ func (connections *copierConnections) Run() error {
       }
 
       if err != nil && !os.IsTimeout(err) {
-        if err != io.EOF {
+        unwrappedErr := errors.Unwrap(err)
+        if err != io.EOF && unwrappedErr != nil && unwrappedErr.Error() != "use of closed network connection" {
           log.Error().Msgf("copier: error reading from socket: %s", err.Error())
         }
         return
@@ -70,7 +71,8 @@ func (connections *copierConnections) Run() error {
       // Read data from the websocket
       mt, r, err := connections.wsConnection.NextReader()
       if err != nil {
-        if errors.Unwrap(err).Error() != "use of closed network connection" {
+        unwrappedErr := errors.Unwrap(err)
+        if unwrappedErr != nil && unwrappedErr.Error() != "use of closed network connection" {
           log.Error().Msgf("copier: error reading from websocket: %s", err.Error())
         }
         return

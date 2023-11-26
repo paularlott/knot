@@ -15,6 +15,7 @@ func Routes() chi.Router {
   router.Route("/spaces/{space_name:^[a-zA-Z][a-zA-Z0-9\\-]{1,63}$}", func(router chi.Router) {
     router.Get("/ssh/*", HandleSpacesSSHProxy)
     router.Get("/port/{port}", HandleSpacesPortProxy)
+    router.Get("/code-server/*", HandleSpacesCodeServerProxy)
   })
 
   return router

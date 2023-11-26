@@ -71,12 +71,13 @@ func Routes() chi.Router {
       router.Get("/", HandleSimplePage)
       router.Get("/create", HandleSimplePage)
 //      router.Get("/edit/{agent_id}", HandleAgentEditPage)
-      router.HandleFunc("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/code-server/*", HandleSpacesCodeServerProxy)
     })
   })
 
   // Routes without authentication
-  router.Get("/initial-system-setup", HandleInitialSystemSetupPage)
+  if !middleware.HasUsers {
+    router.Get("/initial-system-setup", HandleInitialSystemSetupPage)
+  }
   router.Get("/login", HandleLoginPage)
   router.Get("/health", HandleHealthPage)
 
