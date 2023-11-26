@@ -10,6 +10,7 @@ server:
 
   mysql:
     enabled: false
+    # MySQL host if prefixed with srv+ then SRV lookup will be performed
     host: localhost
     port: 3306
     user: root
