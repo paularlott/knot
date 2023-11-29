@@ -15,6 +15,7 @@ type CreateSpaceRequest struct {
   Name string `json:"name"`
   TemplateId string `json:"template_id"`
   AgentURL string `json:"agent_url"`
+  Shell string `json:"shell"`
 }
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
@@ -33,6 +34,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     TemplateName string `json:"template_name"`
     HasCodeServer bool `json:"has_code_server"`
     HasSSH bool `json:"has_ssh"`
+    HasTerminal bool `json:"has_terminal"`
   }, len(spaces))
 
   for i, space := range spaces {
@@ -55,9 +57,11 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     if ok {
       spaceData[i].HasCodeServer = agentState.HasCodeServer
       spaceData[i].HasSSH = agentState.SSHPort > 0
+      spaceData[i].HasTerminal = agentState.HasTerminal
     } else {
       spaceData[i].HasCodeServer = false
       spaceData[i].HasSSH = false
+      spaceData[i].HasTerminal = false
     }
   }
 
@@ -107,6 +111,10 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name, template, or address given for new space"})
     return
   }
+  if(!validate.OneOf(request.Shell, []string{"bash", "zsh", "fish", "sh"})) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid shell given for space"})
+    return
+  }
 
   // TODO validate the template if one given
   // TODO if template given deploy the nomad job
@@ -115,7 +123,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
   user := r.Context().Value("user").(*model.User)
 
   // Create the agent
-  space := model.NewSpace(request.Name, user.Id, request.AgentURL, request.TemplateId)
+  space := model.NewSpace(request.Name, user.Id, request.AgentURL, request.TemplateId, request.Shell)
   err = database.GetInstance().SaveSpace(space)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})

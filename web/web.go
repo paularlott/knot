@@ -61,6 +61,8 @@ func Routes() chi.Router {
     router.Get("/sessions", HandleSimplePage)
     router.Get("/logout", HandleLogoutPage)
 
+    router.Get("/terminal/{space_name:^[a-zA-Z][a-zA-Z0-9\\-]{1,63}$}", HandleTerminalPage)
+
     router.Route("/api-tokens", func(router chi.Router) {
       router.Get("/", HandleSimplePage)
       router.Get("/create", HandleSimplePage)

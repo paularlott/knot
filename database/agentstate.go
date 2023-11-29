@@ -12,6 +12,7 @@ type AgentState struct {
   AccessToken string
   HasCodeServer bool
   SSHPort int
+  HasTerminal bool
   LastSeen time.Time
 }
 

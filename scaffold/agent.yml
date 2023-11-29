@@ -12,6 +12,9 @@ agent:
   # Allow updating of authorized keys file
   update-authorized-keys: true
 
+  # Allow use of the web terminal
+  enable-terminal: true
+
   port:
     # Port code server is running on, exclude to disable
     code-server: 1234

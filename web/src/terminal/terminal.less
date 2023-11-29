@@ -1,0 +1,31 @@
+@import "xterm.less";
+
+ html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+div::-webkit-scrollbar {
+  display: none;
+  width: 0;
+}
+
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+  background-color: #000;
+}
+
+div#terminal {
+  top: 8px;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  position: absolute;
+}
+
+.xterm-viewport,
+.xterm-screen {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}

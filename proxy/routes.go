@@ -20,6 +20,7 @@ func Routes() chi.Router {
     router.Get("/ssh/*", HandleSpacesSSHProxy)
     router.Get("/port/{port}", HandleSpacesPortProxy)
     router.Get("/code-server/*", HandleSpacesCodeServerProxy)
+    router.Get("/terminal/{shell:^[a-z]+$}", HandleSpacesTerminalProxy)
   })
 
   return router

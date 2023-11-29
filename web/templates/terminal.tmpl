@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Terminal</title>
+	<link rel="stylesheet" href="/fonts/jetbrainsmono.css" />
+	<link rel="stylesheet" href="/terminal.css" />
+</head>
+<body>
+	<div id="terminal"></div>
+	<script src="/terminal.js" ></script>
+  <script>
+    initializeTerminal({
+      shell: "{{ .shell }}",
+      renderer: "{{ .renderer }}",
+      spaceName: "{{ .spaceName }}",
+    });
+  </script>
+</body>
+</html>

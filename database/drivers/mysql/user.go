@@ -17,7 +17,9 @@ func (db *MySQLDriver) SaveUser(user *model.User) error {
   }
 
   // Assume update
-  result, err := tx.Exec("UPDATE users SET username=?, email=?, password=?, active=?, updated_at=?, last_login_at=?, is_admin=?, ssh_public_key=? WHERE user_id=?", user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.IsAdmin, user.SSHPublicKey, user.Id)
+  result, err := tx.Exec("UPDATE users SET username=?, email=?, password=?, active=?, updated_at=?, last_login_at=?, is_admin=?, ssh_public_key=?, preferred_shell=? WHERE user_id=?",
+    user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.IsAdmin, user.SSHPublicKey, user.PreferredShell, user.Id,
+  )
   if err != nil {
     tx.Rollback()
     return err
@@ -25,7 +27,9 @@ func (db *MySQLDriver) SaveUser(user *model.User) error {
 
   // If no rows were updated then do an insert
   if rows, _ := result.RowsAffected(); rows == 0 {
-    _, err = tx.Exec("INSERT INTO users (user_id, username, email, password, active, updated_at, created_at, is_admin, ssh_public_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", user.Id, user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), time.Now().UTC(), user.IsAdmin, user.SSHPublicKey)
+    _, err = tx.Exec("INSERT INTO users (user_id, username, email, password, active, updated_at, created_at, is_admin, ssh_public_key, preferred_shell) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      user.Id, user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), time.Now().UTC(), user.IsAdmin, user.SSHPublicKey, user.PreferredShell,
+    )
     if err != nil {
       tx.Rollback()
       return err
@@ -48,12 +52,12 @@ func (db *MySQLDriver) getUser(by string, value string) (*model.User, error) {
   var createdAt string
   var lastLoginAt sql.NullString
 
-  row := db.connection.QueryRow(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, is_admin, ssh_public_key FROM users WHERE %s = ?", by), value)
+  row := db.connection.QueryRow(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, is_admin, ssh_public_key, preferred_shell FROM users WHERE %s = ?", by), value)
   if row == nil {
     return nil, fmt.Errorf("user not found")
   }
 
-  err := row.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.IsAdmin, &user.SSHPublicKey)
+  err := row.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.IsAdmin, &user.SSHPublicKey, &user.PreferredShell)
   if err != nil {
     return nil, err
   }
@@ -89,7 +93,7 @@ func (db *MySQLDriver) GetUserByEmail(email string) (*model.User, error) {
 func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
   var users []*model.User
 
-  rows, err := db.connection.Query("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, is_admin, ssh_public_key FROM users ORDER BY username ASC")
+  rows, err := db.connection.Query("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, is_admin, ssh_public_key, preferred_shell FROM users ORDER BY username ASC")
   if err != nil {
     return nil, err
   }
@@ -100,7 +104,7 @@ func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
     var createdAt string
     var lastLoginAt sql.NullString
 
-    err = rows.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.IsAdmin, &user.SSHPublicKey)
+    err = rows.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.IsAdmin, &user.SSHPublicKey, &user.PreferredShell)
     if err != nil {
       return nil, err
     }

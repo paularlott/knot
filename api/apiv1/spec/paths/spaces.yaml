@@ -38,6 +38,8 @@ post:
               type: string
             template_id:
               type: string
+            shell:
+              type: string
   responses:
     '201':
       description: Space created successfully

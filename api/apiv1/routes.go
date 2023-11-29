@@ -53,7 +53,7 @@ func ApiRoutes() chi.Router {
   router.Group(func(router chi.Router) {
     router.Use(middleware.AgentAuth)
 
-    router.Post("/agents/{space_id}/status", HandleAgentStatus)
+    router.Post("/agents/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/status", HandleAgentStatus)
   })
 
   // Unauthenticated routes

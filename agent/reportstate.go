@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/rest"
+	"github.com/spf13/viper"
 
 	"github.com/rs/zerolog/log"
 )
@@ -43,7 +44,7 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
     }
 
     client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), middleware.AgentSpaceKey)
-    statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort)
+    statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort, viper.GetBool("agent.enable-terminal"))
     if err != nil {
       log.Info().Msgf("failed to ping server: %d, %s", statusCode, err.Error())
 

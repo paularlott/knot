@@ -25,6 +25,7 @@ func HandleSimplePage(w http.ResponseWriter, r *http.Request) {
   data := map[string]interface{}{
     "username": user.Username,
     "IsAdmin": user.IsAdmin,
+    "preferredShell": user.PreferredShell,
   }
 
   err = tmpl.Execute(w, data)

@@ -43,6 +43,9 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
+    AgentAuth:
+      type: http
+      scheme: bearer
 
 paths:
   /api/v1/users:
@@ -79,3 +82,5 @@ paths:
 
   /api/v1/agents/{space_id}:
     $ref: paths/agents_{space_id}.yaml
+  /agents/{space_id}/status:
+    $ref: paths/agents_{space_id}_status.yaml

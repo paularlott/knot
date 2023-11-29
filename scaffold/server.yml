@@ -8,6 +8,9 @@ server:
   # Disable Proxy functionality
   disable_proxy: false
 
+  terminal:
+    webgl: true
+
   mysql:
     enabled: false
     # MySQL host if prefixed with srv+ then SRV lookup will be performed

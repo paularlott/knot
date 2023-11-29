@@ -22,3 +22,5 @@ paths:
     $ref: paths/ping.yaml
   /update-authorized-keys:
     $ref: paths/update-authorized-keys.yaml
+  /terminal/{shell}:
+    $ref: paths/terminal.yaml

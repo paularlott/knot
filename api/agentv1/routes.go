@@ -1,8 +1,6 @@
 package agentv1
 
 import (
-	"net/http"
-
 	"github.com/paularlott/knot/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -47,6 +45,11 @@ func Routes(cmd *cobra.Command) chi.Router {
       log.Info().Msg("Enabling proxy for any TCP port")
       router.HandleFunc("/tcp/{port}/", agentProxyTCP);
     }
+
+    if viper.GetBool("agent.enable-terminal") {
+      log.Info().Msg("Enabling web terminal")
+      router.HandleFunc("/terminal/{shell:^[a-z]+$}/", agentTerminal);
+    }
   })
 
 
@@ -56,11 +59,6 @@ func Routes(cmd *cobra.Command) chi.Router {
     log.Info().Msg("Enabling proxying of HTTP ports")
     router.HandleFunc("/http/{port}/*", agentProxyHTTP);
   }
-
-  router.HandleFunc("/*", func(w http.ResponseWriter, r *http.Request) {
-    log.Error().Msgf("Unknown request: %s", r.URL.Path)
-    w.WriteHeader(http.StatusNotFound)
-  })
 
   return router
 }

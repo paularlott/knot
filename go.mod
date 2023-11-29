@@ -3,6 +3,7 @@ module github.com/paularlott/knot
 go 1.21
 
 require (
+	github.com/creack/pty v1.1.21
 	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-sql-driver/mysql v1.7.1

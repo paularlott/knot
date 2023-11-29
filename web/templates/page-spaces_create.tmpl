@@ -59,6 +59,19 @@
                         <input type="url" name="address" x-on:keyup.debounce.500ms="checkAddress()" :class="{'error': !addressValid}" placeholder="URL of agent" x-model="formData.agent_url">
                         <div x-show="!addressValid" class="error-message">When template is None this must be a valid URL.</div>
                       </dd>
+                      <dt><label for="name">Terminal Shell <em>*</em></label></dt>
+                      <dd>
+                        <div class="selectControl">
+                          <select id="shell" name="shell" x-model="formData.shell">
+                            <option value="bash">Bash</option>
+                            <option value="zsh">Zsh</option>
+                            <option value="fish">fish</option>
+                            <option value="sh">Bourne</option>
+                          </select>
+                        </div>
+                        <p class="description">The shell that will be used when you open a web terminal in this space.</p>
+                      </dd>
+
                       <dt></dt>
                       <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
                     </dl>
@@ -82,6 +95,7 @@ function createSpaceForm() {
       name: "",
       template_id: "",
       agent_url: "",
+      shell: "{{ .preferredShell }}",
     },
     loading: false,
     buttonLabel: 'Create Space',

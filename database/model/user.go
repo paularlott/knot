@@ -16,6 +16,7 @@ type User struct {
   SSHPublicKey string `json:"ssh_public_key"`
   Active bool `json:"active"`
   IsAdmin bool `json:"is_admin"`
+  PreferredShell string `json:"preferred_shell"`
   LastLoginAt time.Time `json:"last_login_at"`
   UpdatedAt time.Time `json:"updated_at"`
   CreatedAt time.Time `json:"created_at"`
@@ -28,6 +29,8 @@ func NewUser(username string, email string, password string, isAdmin bool) *User
     Email: email,
     Active: true,
     IsAdmin: isAdmin,
+    SSHPublicKey: "",
+    PreferredShell: "zsh",
   }
 
   user.SetPassword(password)

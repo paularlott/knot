@@ -1,0 +1,42 @@
+post:
+  tags:
+    - Agents
+  summary: Update Agent Status
+  description: |
+    Update the agents status and the services it provides.
+  operationId: registerAgent
+  parameters:
+    - name: space_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            has_code_server:
+              type: boolean
+            ssh_port:
+              type: integer
+            has_terminal:
+              type: boolean
+  responses:
+    '200':
+      description: Agent registered successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '401':
+      $ref: "../responses/unauthorized.yaml"
+  security:
+    - AgentAuth: []

@@ -24,3 +24,12 @@ func Password(password string) bool {
 func TokenName(name string) bool {
   return len(name) > 0 && len(name) <= 255
 }
+
+func OneOf(value string, values []string) bool {
+  for _, v := range values {
+    if value == v {
+      return true
+    }
+  }
+  return false
+}

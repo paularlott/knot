@@ -59,8 +59,8 @@
             <td x-text="s.name"></td>
             <td x-text="s.template_name"></td>
             <td>
-              <a :href="`/proxy/spaces/${s.name}/code-server/`" :target="`spaces_${s.space_id}`" x-show="s.has_code_server"><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" /></a>
-              <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" x-show="s.has_ssh" />
+              <a :href="`/proxy/spaces/${s.name}/code-server/`" :target="`spaces_${s.space_id}_codeserver`" x-show="s.has_code_server"><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" /></a>
+              <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" x-show="s.has_terminal" @click="openTerminal(s.name, s.space_id)" style="cursor: pointer;" />
               <button @click="editSpace(s.space_id)">Edit</button> <button @click="deleteSpace(s.space_id)" class="danger">Delete</button>
             </td>
           </tr>
