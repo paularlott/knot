@@ -96,7 +96,7 @@ function createUserForm() {
         username: this.formData.username,
         email: this.formData.email,
         password: this.formData.password,
-        is_admin: true
+        roles: ['00000000-0000-0000-0000-000000000000']
       }
 
       fetch('/api/v1/users', {

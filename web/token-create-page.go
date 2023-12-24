@@ -31,7 +31,8 @@ func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
 
   data := map[string]interface{}{
     "username": user.Username,
-    "IsAdmin": user.IsAdmin,
+    "permissionManageUsers": user.HasPermission(model.PermissionManageUsers),
+    "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
     "TokenName": token.Name,
     "TokenId": token.Id,
   }

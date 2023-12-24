@@ -26,14 +26,17 @@ post:
               type: string
               example: "password"
               description: The password of the user
-            is_admin:
-              type: boolean
-              example: false
-              description: Whether the user is an admin user or not
+            roles:
+              type: array
+              items:
+                type: string
+                example: ["00000000-0000-0000-0000-000000000000"]
+              description: The IDs of the roles assigned to the user.
           required:
             - username
             - password
             - email
+            - roles
   responses:
     '201':
       description: User created successfully

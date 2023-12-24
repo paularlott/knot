@@ -24,7 +24,8 @@ func HandleSimplePage(w http.ResponseWriter, r *http.Request) {
 
   data := map[string]interface{}{
     "username": user.Username,
-    "IsAdmin": user.IsAdmin,
+    "permissionManageUsers": user.HasPermission(model.PermissionManageUsers),
+    "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
     "preferredShell": user.PreferredShell,
   }
 

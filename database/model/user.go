@@ -14,23 +14,23 @@ type User struct {
   Email string `json:"email"`
   Password string `json:"password"`
   SSHPublicKey string `json:"ssh_public_key"`
+  Roles []string `json:"roles"`
   Active bool `json:"active"`
-  IsAdmin bool `json:"is_admin"`
   PreferredShell string `json:"preferred_shell"`
   LastLoginAt time.Time `json:"last_login_at"`
   UpdatedAt time.Time `json:"updated_at"`
   CreatedAt time.Time `json:"created_at"`
 }
 
-func NewUser(username string, email string, password string, isAdmin bool) *User {
+func NewUser(username string, email string, password string, roles []string) *User {
   user := &User{
     Id: uuid.New().String(),
     Username: username,
     Email: email,
     Active: true,
-    IsAdmin: isAdmin,
     SSHPublicKey: "",
     PreferredShell: "zsh",
+    Roles: roles,
   }
 
   user.SetPassword(password)
@@ -53,3 +53,47 @@ func (u *User) SetPassword(password string) error {
 func (u *User) CheckPassword(password string) bool {
   return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)) == nil
 }
+
+func (u *User) HasPermission(permission int) bool {
+  for _, role := range u.Roles {
+
+    // If role exists in rolePermissions map then check if the permission belongs to the role
+    if permissions, ok := rolePermissions[role]; ok {
+      for _, p := range permissions {
+        if p == permission {
+          return true
+        }
+      }
+    }
+  }
+
+  return true
+}
+
+// Check if the user is an admin
+func (u *User) IsAdmin() bool {
+
+  // TODO Make this query permissions if not admin role
+
+  for _, role := range u.Roles {
+    if role == RoleAdmin {
+      return true
+    }
+  }
+
+  return false
+}
+
+/* func (u *User) HasPermission(permisson int) bool {
+
+    db := database.GetInstance()
+    r, err := db.GetRole("00000000-0000-0000-0000-000000000000")
+
+fmt.Println("r", r)
+fmt.Println("err", err)
+
+return false;
+
+
+}
+ */
