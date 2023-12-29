@@ -46,41 +46,14 @@ func (db *MySQLDriver) DeleteSpace(space *model.Space) error {
   return err
 }
 
-func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
-  var space = &model.Space{}
-  var createdAt string
-  var updatedAt string
-
-  row := db.connection.QueryRow("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell FROM spaces WHERE space_id = ?", id)
-  if row == nil {
-    return nil, fmt.Errorf("agent not found")
-  }
-
-  err := row.Scan(&space.Id, &space.UserId, &space.TemplateId, &space.Name, &space.AgentURL, &createdAt, &updatedAt, &space.Shell)
-  if err != nil {
-    return nil, err
-  }
-
-  // Parse the dates
-  space.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
-  if err != nil {
-    return nil, err
-  }
-  space.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", updatedAt)
-  if err != nil {
-    return nil, err
-  }
-
-  return space, nil
-}
-
-func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
+func (db *MySQLDriver) getSpaces(query string, args ...interface{}) ([]*model.Space, error) {
   var spaces []*model.Space
 
-  rows, err := db.connection.Query("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell FROM spaces WHERE user_id = ? ORDER BY name ASC", userId)
+  rows, err := db.connection.Query(query, args ...)
   if err != nil {
     return nil, err
   }
+  defer rows.Close()
 
   for rows.Next() {
     var space = &model.Space{}
@@ -108,30 +81,35 @@ func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
   return spaces, nil
 }
 
-func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.Space, error) {
-  var space = &model.Space{}
-  var createdAt string
-  var updatedAt string
-
-  row := db.connection.QueryRow("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell FROM spaces WHERE user_id = ? AND name = ?", userId, spaceName)
-  if row == nil {
+func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
+  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell FROM spaces WHERE space_id = ?", id)
+  if err != nil {
+    return nil, err
+  }
+  if len(spaces) == 0 {
     return nil, fmt.Errorf("agent not found")
   }
 
-  err := row.Scan(&space.Id, &space.UserId, &space.TemplateId, &space.Name, &space.AgentURL, &createdAt, &updatedAt, &space.Shell)
+  return spaces[0], nil
+}
+
+func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
+  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell FROM spaces WHERE user_id = ? ORDER BY name ASC", userId)
   if err != nil {
     return nil, err
   }
 
-  // Parse the dates
-  space.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
+  return spaces, nil
+}
+
+func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.Space, error) {
+  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell FROM spaces WHERE user_id = ? AND name = ?", userId, spaceName)
   if err != nil {
     return nil, err
   }
-  space.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", updatedAt)
-  if err != nil {
-    return nil, err
+  if len(spaces) == 0 {
+    return nil, fmt.Errorf("agent not found")
   }
 
-  return space, nil
+  return spaces[0], nil
 }

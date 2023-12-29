@@ -45,36 +45,14 @@ func (db *MySQLDriver) DeleteToken(token *model.Token) error {
   return err
 }
 
-func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
-  var token = &model.Token{}
-  var expiresAfter string
-
-  row := db.connection.QueryRow("SELECT token_id, name, expires_after,user_id FROM tokens WHERE token_id = ?", id)
-  if row == nil {
-    return nil, fmt.Errorf("token not found")
-  }
-
-  err := row.Scan(&token.Id, &token.Name, &expiresAfter, &token.UserId)
-  if err != nil {
-    return nil, err
-  }
-
-  // Parse the dates
-  token.ExpiresAfter, err = time.Parse("2006-01-02 15:04:05", expiresAfter)
-  if err != nil {
-    return nil, err
-  }
-
-  return token, nil
-}
-
-func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
+func (db *MySQLDriver) getTokens(query string, args ...interface{}) ([]*model.Token, error) {
   var tokens []*model.Token
 
-  rows, err := db.connection.Query("SELECT token_id, name, expires_after,user_id FROM tokens WHERE user_id = ?", userId)
+  rows, err := db.connection.Query(query, args ...)
   if err != nil {
     return nil, err
   }
+  defer rows.Close()
 
   for rows.Next() {
     var token = &model.Token{}
@@ -92,6 +70,27 @@ func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
     }
 
     tokens = append(tokens, token)
+  }
+
+  return tokens, nil
+}
+
+func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
+  tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id FROM tokens WHERE token_id = ?", id)
+  if len(tokens) == 0 {
+    return nil, fmt.Errorf("token not found")
+  }
+  if err != nil {
+    return nil, err
+  }
+
+  return tokens[0], nil
+}
+
+func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
+  tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id FROM tokens WHERE user_id = ?", userId)
+  if err != nil {
+    return nil, err
   }
 
   return tokens, nil

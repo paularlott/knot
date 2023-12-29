@@ -54,73 +54,27 @@ func (db *MySQLDriver) DeleteUser(user *model.User) error {
   return err
 }
 
-func (db *MySQLDriver) getUser(by string, value string) (*model.User, error) {
-  var user = &model.User{}
+func (db *MySQLDriver) getUsers(where string, args ...interface{}) ([]*model.User, error) {
+  var users []*model.User
   var updatedAt string
   var createdAt string
   var lastLoginAt sql.NullString
   var roles string
 
-  row := db.connection.QueryRow(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, ssh_public_key, preferred_shell, roles FROM users WHERE %s = ?", by), value)
-  if row == nil {
-    return nil, fmt.Errorf("user not found")
+  if where != "" {
+    where = "WHERE " + where
   }
 
-  err := row.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.SSHPublicKey, &user.PreferredShell, &roles)
+  rows, err := db.connection.Query(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, ssh_public_key, preferred_shell, roles FROM users %s ORDER BY username ASC", where), args ...)
   if err != nil {
     return nil, err
   }
-
-  // Parse roles
-  err = json.Unmarshal([]byte(roles), &user.Roles)
-  if err != nil {
-    return nil, err
-  }
-
-  // Parse the dates
-  user.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", updatedAt)
-  if err != nil {
-    return nil, err
-  }
-  user.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
-  if err != nil {
-    return nil, err
-  }
-
-  if lastLoginAt.Valid {
-    user.LastLoginAt, err = time.Parse("2006-01-02 15:04:05", lastLoginAt.String)
-    if err != nil {
-      return nil, err
-    }
-  }
-
-  return user, nil
-}
-
-func (db *MySQLDriver) GetUser(id string) (*model.User, error) {
-  return db.getUser("user_id", id)
-}
-
-func (db *MySQLDriver) GetUserByEmail(email string) (*model.User, error) {
-  return db.getUser("email", email)
-}
-
-func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
-  var users []*model.User
-
-  rows, err := db.connection.Query("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, ssh_public_key, preferred_shell FROM users ORDER BY username ASC")
-  if err != nil {
-    return nil, err
-  }
+  defer rows.Close()
 
   for rows.Next() {
     var user = &model.User{}
-    var updatedAt string
-    var createdAt string
-    var lastLoginAt sql.NullString
-    var roles string
 
-    err = rows.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.SSHPublicKey, &user.PreferredShell, &roles)
+    err := rows.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.SSHPublicKey, &user.PreferredShell, &roles)
     if err != nil {
       return nil, err
     }
@@ -140,6 +94,7 @@ func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
     if err != nil {
       return nil, err
     }
+
     if lastLoginAt.Valid {
       user.LastLoginAt, err = time.Parse("2006-01-02 15:04:05", lastLoginAt.String)
       if err != nil {
@@ -148,6 +103,39 @@ func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
     }
 
     users = append(users, user)
+  }
+
+  return users, nil
+}
+
+func (db *MySQLDriver) GetUser(id string) (*model.User, error) {
+  users,err := db.getUsers("user_id=?", id)
+  if err != nil {
+    return nil, err
+  }
+  if len(users) == 0 {
+    return nil, fmt.Errorf("user not found")
+  }
+
+  return users[0], nil
+}
+
+func (db *MySQLDriver) GetUserByEmail(email string) (*model.User, error) {
+  users,err := db.getUsers("email=?", email)
+  if err != nil {
+    return nil, err
+  }
+  if len(users) == 0 {
+    return nil, fmt.Errorf("user not found")
+  }
+
+  return users[0], nil
+}
+
+func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
+  users,err := db.getUsers("")
+  if err != nil {
+    return nil, err
   }
 
   return users, nil

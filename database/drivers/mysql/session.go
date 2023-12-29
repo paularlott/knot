@@ -2,7 +2,6 @@ package driver_mysql
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/paularlott/knot/database/model"
@@ -51,43 +50,14 @@ func (db *MySQLDriver) DeleteSession(session *model.Session) error {
   return err
 }
 
-func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
-  var session = &model.Session{}
-  var expiresAfter string
-  var values string
-
-  row := db.connection.QueryRow("SELECT session_id, data, expires_after, ip, user_id, user_agent FROM sessions WHERE session_id = ?", id)
-  if row == nil {
-    return nil, fmt.Errorf("session not found")
-  }
-
-  err := row.Scan(&session.Id, &values, &expiresAfter, &session.Ip, &session.UserId, &session.UserAgent)
-  if err != nil {
-    return nil, err
-  }
-
-  // Parse the values
-  err = json.Unmarshal([]byte(values), &session.Values)
-  if err != nil {
-    return nil, err
-  }
-
-  // Parse the dates
-  session.ExpiresAfter, err = time.Parse("2006-01-02 15:04:05", expiresAfter)
-  if err != nil {
-    return nil, err
-  }
-
-  return session, nil
-}
-
-func (db *MySQLDriver) GetSessionsForUser(userId string) ([]*model.Session, error) {
+func (db *MySQLDriver) getSessions(query string, args ...interface{}) ([]*model.Session, error) {
   var sessions []*model.Session
 
-  rows, err := db.connection.Query("SELECT session_id, data, expires_after, ip, user_id, user_agent FROM sessions WHERE user_id = ?", userId)
+  rows, err := db.connection.Query(query, args...)
   if err != nil {
     return nil, err
   }
+  defer rows.Close()
 
   for rows.Next() {
     var session = &model.Session{}
@@ -112,6 +82,23 @@ func (db *MySQLDriver) GetSessionsForUser(userId string) ([]*model.Session, erro
     }
 
     sessions = append(sessions, session)
+  }
+
+  return sessions, nil
+}
+
+func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
+  sessions, err := db.getSessions("SELECT session_id, data, expires_after, ip, user_id, user_agent FROM sessions WHERE session_id = ?", id)
+  if err != nil || len(sessions) == 0 {
+    return nil, err
+  }
+  return sessions[0], nil
+}
+
+func (db *MySQLDriver) GetSessionsForUser(userId string) ([]*model.Session, error) {
+  sessions, err := db.getSessions("SELECT session_id, data, expires_after, ip, user_id, user_agent FROM sessions WHERE user_id = ?", userId)
+  if err != nil {
+    return nil, err
   }
 
   return sessions, nil
