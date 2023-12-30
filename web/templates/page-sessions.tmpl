@@ -1,10 +1,11 @@
 {{ template "metaHead" (map "PageTitle" "Sessions") }}
 {{ template "beforeContent" . }}
 
-<div class="row">
-  <div class="col-sm-12">
-    <div class="box">
-      <h2>Active Sessions</h2>
+<div class="content">
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="box">
+        <h2>Active Sessions</h2>
 
 <div x-data="sessionsComponent()" x-init="getSessions">
   <div class="responsiveTableWrapper">
@@ -36,6 +37,7 @@
   </div>
 </div>
 
+      </div>
     </div>
   </div>
 </div>

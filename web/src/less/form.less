@@ -241,11 +241,23 @@ body.light {
 
 form {
   dl {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
     dt {
       .sizeClamp(margin-bottom, .5, .75);
+      flex-grow: 0;
+      flex-shrink: 0;
     }
     dd {
       .sizeClamp(margin-bottom, 1, 1.25);
+      flex-grow: 0;
+      flex-shrink: 0;
+
+      &.grow {
+        flex-grow: 1;
+      }
     }
   }
 }

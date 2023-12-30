@@ -1,14 +1,15 @@
 {{ template "metaHead" (map "PageTitle" "Spaces") }}
 {{ template "beforeContent" . }}
 
-<div class="row">
-  <div class="col-sm-12">
-    <div class="box">
-      <h2>Spaces</h2>
+<div class="content">
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="box">
+        <h2>Spaces</h2>
 
-      <div class="text-right">
-        <a href="/spaces/create" class="button"><i class="bx bx-plus"></i> Create Space</a>
-      </div>
+        <div class="text-right">
+          <a href="/spaces/create" class="button"><i class="bx bx-plus"></i> Create Space</a>
+        </div>
 
 <div x-data="spacesListComponent()" x-init="getSpaces">
   <div class="responsiveTableWrapper">
@@ -42,6 +43,7 @@
   </div>
 </div>
 
+      </div>
     </div>
   </div>
 </div>

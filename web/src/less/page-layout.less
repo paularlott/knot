@@ -103,6 +103,14 @@
       .row + .row {
         margin-top: @colGutter;
       }
+
+      &.full-height {
+        height: 100%;
+
+        > .row {
+          height: 100%;
+        }
+      }
     }
 
     footer {
@@ -123,6 +131,16 @@
 
   & + .box {
     margin-top: @colGutter;
+  }
+
+  &.full-height {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    form {
+      flex-grow: 1;
+    }
   }
 }
 

@@ -1,54 +1,56 @@
 {{ template "metaHead" (map "PageTitle" "Create Space") }}
 {{ template "beforeContent" . }}
 
-<div class="row">
-  <div class="col-sm-6 col-sm-offset-3">
-    <div class="box">
-      <h2>Create Space</h2>
+<div class="content">
+  <div class="row">
+    <div class="col-sm-6 col-sm-offset-3">
+      <div class="box">
+        <h2>Create Space</h2>
 
-      <div x-data="createSpaceForm()">
-        <form action="" method="POST" @submit.prevent="submitData">
-          <dl>
-            <dt><label for="name">Space Name <em>*</em></label></dt>
-            <dd>
-              <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Space name" x-model="formData.name">
-              <div x-show="!nameValid" class="error-message">Space name can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
-            </dd>
-            <dt><label for="name">Template <em>*</em></label></dt>
-            <dd>
-              <div class="selectControl">
-                <select id="template" name="template" x-model="formData.template_id">
-                  <option value="" selected="selected">None (Manual Agent Deploy)</option>
-                  <option value="59c0993f-da84-4335-a524-cfbc84f8d84e">Ubuntu 22.04</option>
-                  <option value="59c0993f-da84-4335-a524-cfbc84f8d85e">Redis</option>
-                  <option value="59c0993f-da84-4335-a524-cfbc84f8d86e">KeyDB</option>
-                </select>
-              </div>
-            </dd>
-            <dt x-show="formData.template_id === ''"><label for="name">Agent URL <em>*</em></label></dt>
-            <dd x-show="formData.template_id === ''">
-              <input type="url" name="address" x-on:keyup.debounce.500ms="checkAddress()" :class="{'error': !addressValid}" placeholder="URL of agent" x-model="formData.agent_url">
-              <div x-show="!addressValid" class="error-message">When template is None this must be a valid URL.</div>
-            </dd>
-            <dt><label for="name">Terminal Shell <em>*</em></label></dt>
-            <dd>
-              <div class="selectControl">
-                <select id="shell" name="shell" x-model="formData.shell">
-                  <option value="bash">Bash</option>
-                  <option value="zsh">Zsh</option>
-                  <option value="fish">fish</option>
-                  <option value="sh">Bourne</option>
-                </select>
-              </div>
-              <p class="description">The shell that will be used when you open a web terminal in this space.</p>
-            </dd>
+        <div x-data="createSpaceForm()">
+          <form action="" method="POST" @submit.prevent="submitData">
+            <dl>
+              <dt><label for="name">Space Name <em>*</em></label></dt>
+              <dd>
+                <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Space name" x-model="formData.name">
+                <div x-show="!nameValid" class="error-message">Space name can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+              </dd>
+              <dt><label for="name">Template <em>*</em></label></dt>
+              <dd>
+                <div class="selectControl">
+                  <select id="template" name="template" x-model="formData.template_id">
+                    <option value="" selected="selected">None (Manual Agent Deploy)</option>
+                    <option value="59c0993f-da84-4335-a524-cfbc84f8d84e">Ubuntu 22.04</option>
+                    <option value="59c0993f-da84-4335-a524-cfbc84f8d85e">Redis</option>
+                    <option value="59c0993f-da84-4335-a524-cfbc84f8d86e">KeyDB</option>
+                  </select>
+                </div>
+              </dd>
+              <dt x-show="formData.template_id === ''"><label for="name">Agent URL <em>*</em></label></dt>
+              <dd x-show="formData.template_id === ''">
+                <input type="url" name="address" x-on:keyup.debounce.500ms="checkAddress()" :class="{'error': !addressValid}" placeholder="URL of agent" x-model="formData.agent_url">
+                <div x-show="!addressValid" class="error-message">When template is None this must be a valid URL.</div>
+              </dd>
+              <dt><label for="name">Terminal Shell <em>*</em></label></dt>
+              <dd>
+                <div class="selectControl">
+                  <select id="shell" name="shell" x-model="formData.shell">
+                    <option value="bash">Bash</option>
+                    <option value="zsh">Zsh</option>
+                    <option value="fish">fish</option>
+                    <option value="sh">Bourne</option>
+                  </select>
+                </div>
+                <p class="description">The shell that will be used when you open a web terminal in this space.</p>
+              </dd>
 
-            <dt></dt>
-            <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
-          </dl>
-        </form>
+              <dt></dt>
+              <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
+            </dl>
+          </form>
+        </div>
+
       </div>
-
     </div>
   </div>
 </div>

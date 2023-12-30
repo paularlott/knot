@@ -1,25 +1,27 @@
 {{ template "metaHead" (map "PageTitle" "Create API Token") }}
 {{ template "beforeContent" . }}
 
-<div class="row">
-  <div class="col-sm-6 col-sm-offset-3">
-    <div class="box">
-      <h2>Create API Token</h2>
+<div class="content">
+  <div class="row">
+    <div class="col-sm-6 col-sm-offset-3">
+      <div class="box">
+        <h2>Create API Token</h2>
 
-      <div x-data="createTokenForm()">
-        <form action="" method="POST" @submit.prevent="submitData">
-          <dl>
-            <dt><label for="name">Token Name <em>*</em></label></dt>
-            <dd>
-              <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Token name" x-model="formData.name">
-              <div x-show="!nameValid" class="error-message">The token name is required and must be shorter than 255 characters.</div>
-            </dd>
-            <dt></dt>
-            <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
-          </dl>
-        </form>
+        <div x-data="createTokenForm()">
+          <form action="" method="POST" @submit.prevent="submitData">
+            <dl>
+              <dt><label for="name">Token Name <em>*</em></label></dt>
+              <dd>
+                <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Token name" x-model="formData.name">
+                <div x-show="!nameValid" class="error-message">The token name is required and must be shorter than 255 characters.</div>
+              </dd>
+              <dt></dt>
+              <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
+            </dl>
+          </form>
+        </div>
+
       </div>
-
     </div>
   </div>
 </div>

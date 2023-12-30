@@ -1,24 +1,26 @@
 {{ template "metaHead" (map "PageTitle" "Create API Token") }}
 {{ template "beforeContent" . }}
 
-<div class="row">
-  <div class="col-sm-6 col-sm-offset-3">
-    <div class="box">
-      <h2>Create API Token</h2>
+<div class="content">
+  <div class="row">
+    <div class="col-sm-6 col-sm-offset-3">
+      <div class="box">
+        <h2>Create API Token</h2>
 
-      <form action="" method="POST" @submit.prevent="submitData">
-        <dl>
-          <dt><label for="name">Token Name</label></dt>
-          <dd>
-            <input type="text" name="name" value="{{ .TokenName | html }}" readonly="readonly">
-          </dd>
-          <dt><label for="token">Token</label></dt>
-          <dd>
-            <input type="text" name="token" value="{{ .TokenId | html }}" readonly="readonly">
-          </dd>
-        </dl>
-      </form>
+        <form action="" method="POST" @submit.prevent="submitData">
+          <dl>
+            <dt><label for="name">Token Name</label></dt>
+            <dd>
+              <input type="text" name="name" value="{{ .TokenName | html }}" readonly="readonly">
+            </dd>
+            <dt><label for="token">Token</label></dt>
+            <dd>
+              <input type="text" name="token" value="{{ .TokenId | html }}" readonly="readonly">
+            </dd>
+          </dl>
+        </form>
 
+      </div>
     </div>
   </div>
 </div>

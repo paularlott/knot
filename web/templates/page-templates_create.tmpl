@@ -1,12 +1,12 @@
 {{ template "metaHead" (map "PageTitle" "Create Template") }}
 {{ template "beforeContent" . }}
 
-<div class="row">
-  <div class="col-sm-12">
-    <div class="box">
-      <h2>Create Template</h2>
+<div class="content full-height">
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="box full-height" x-data="createTemplateForm()" x-init="initEditor()">
+        <h2>Create Template</h2>
 
-      <div x-data="createTemplateForm()" x-init="initEditor()">
         <form action="" method="POST" @submit.prevent="submitData">
           <dl>
             <dt><label for="name">Template Name <em>*</em></label></dt>
@@ -15,15 +15,15 @@
               <div x-show="!nameValid" class="error-message">Template name can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
             </dd>
             <dt><label for="template_text">Template <em>*</em></label></dt>
-            <dd>
+            <dd class="grow">
               <textarea name="template_text" id="template_text"></textarea>
             </dd>
             <dt></dt>
             <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
           </dl>
         </form>
-      </div>
 
+      </div>
     </div>
   </div>
 </div>
