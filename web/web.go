@@ -74,6 +74,10 @@ func Routes() chi.Router {
       router.Get("/create", HandleSimplePage)
 //      router.Get("/edit/{agent_id}", HandleAgentEditPage)
     })
+
+    router.Route("/templates", func(router chi.Router) {
+      router.Get("/create", HandleSimplePage)
+    })
   })
 
   // Routes without authentication

@@ -1,43 +1,14 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    {{ template "head-meta" (map "PageTitle" "Spaces") }}
-  </head>
-  <body
-    x-data="{ 'darkMode': true }"
-    x-init="darkMode = JSON.parse(localStorage.getItem('darkMode'));
-            if(darkMode == null) darkMode = true;
-            $watch('darkMode', val => localStorage.setItem('darkMode', val))"
-    :class="darkMode ? 'dark' : 'light'"
-  >
+{{ template "metaHead" (map "PageTitle" "Spaces") }}
+{{ template "beforeContent" . }}
 
-    <div class="layout">
-      <aside>
-        <header>
-          <h1><img src="images/knot-logo.webp" alt="knot Logo" /> knot</h1>
-        </header>
-        <div class="menu">
-          {{ template "main-menu" . }}
-        </div>
-      </aside>
-      <div class="content-container">
-        <header>
-          <form>
-            <input type="checkbox" :value="darkMode" @change="darkMode = !darkMode" name="theme" class="light-dark">
-          </form>
+<div class="row">
+  <div class="col-sm-12">
+    <div class="box">
+      <h2>Spaces</h2>
 
-          <div>{{ .username }}</div>
-        </header>
-        <div class="content">
-
-          <div class="row">
-            <div class="col-sm-12">
-              <div class="box">
-                <h2>Spaces</h2>
-
-                <div class="text-right">
-                  <a href="/spaces/create" class="button"><i class="bx bx-plus"></i> Create Space</a>
-                </div>
+      <div class="text-right">
+        <a href="/spaces/create" class="button"><i class="bx bx-plus"></i> Create Space</a>
+      </div>
 
 <div x-data="spacesListComponent()" x-init="getSpaces">
   <div class="responsiveTableWrapper">
@@ -67,6 +38,10 @@
         </template>
         </tbody>
       </table>
+    </div>
+  </div>
+</div>
+
     </div>
   </div>
 </div>
@@ -124,15 +99,4 @@ function spacesListComponent() {
 }
 </script>
 
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-
-{{ template "alerts" . }}
-
-  </body>
-</html>
+{{ template "afterContent" . }}

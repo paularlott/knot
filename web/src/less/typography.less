@@ -6,10 +6,25 @@
   src: url(/fonts/nunito.woff2) format('woff2');
 }
 
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/jetbrainsmono.woff2) format('woff2');
+}
+
 * {
 	margin: 0;
 	padding: 0;
 	box-sizing: border-box;
+}
+
+html, body {
+	-webkit-tap-highlight-color: rgba(0,0,0,0); // Stop bleed on android
+}
+
+.standardFont {
   font-family: 'Nunito', sans-serif;
   -webkit-font-smoothing: antialiased;
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -17,13 +32,10 @@
   .lineHeightClamp(1.25, 1.5);
 }
 
-html, body {
-	-webkit-tap-highlight-color: rgba(0,0,0,0); // Stop bleed on android
-}
-
 body {
   color: @darkFontColor;
   background-color: @darkBodyColor;
+  .standardFont;
 
   a {
     color: @darkFontColor;

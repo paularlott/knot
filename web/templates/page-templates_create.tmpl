@@ -1,0 +1,130 @@
+{{ template "metaHead" (map "PageTitle" "Create Template") }}
+{{ template "beforeContent" . }}
+
+<div class="row">
+  <div class="col-sm-12">
+    <div class="box">
+      <h2>Create Template</h2>
+
+      <div x-data="createTemplateForm()" x-init="initEditor()">
+        <form action="" method="POST" @submit.prevent="submitData">
+          <dl>
+            <dt><label for="name">Template Name <em>*</em></label></dt>
+            <dd>
+              <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Template name" x-model="formData.name">
+              <div x-show="!nameValid" class="error-message">Template name can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+            </dd>
+            <dt><label for="template_text">Template <em>*</em></label></dt>
+            <dd>
+              <textarea name="template_text" id="template_text"></textarea>
+            </dd>
+            <dt></dt>
+            <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
+          </dl>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+
+function createTemplateForm() {
+  return {
+    formData: {
+      name: "",
+      template_text: "default data\npaul\n\nanother test\n",
+    },
+    loading: false,
+    buttonLabel: 'Create Template',
+    nameValid: true,
+    addressValid: true,
+
+    initEditor() {
+      let darkMode = JSON.parse(localStorage.getItem('darkMode'));
+      if(darkMode == null)
+        darkMode = true;
+
+      // Create the editor
+      let editor = ace.edit('template_text');
+      editor.session.setValue(this.formData.template_text);
+      editor.session.on('change', () => {
+          this.formData.template_text = editor.getValue();
+      });
+      editor.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
+      editor.session.setMode("ace/mode/terraform");
+      editor.setOptions({
+        printMargin: false,
+        newLineMode: 'unix',
+        tabSize: 2,
+        wrap: false,
+        vScrollBarAlwaysVisible: true,
+        customScrollbar: true,
+      });
+
+      // Listen for the theme_change event on the body & change the editor theme
+      window.addEventListener('theme-change', function (e) {
+        if (e.detail.dark_theme) {
+          editor.setTheme("ace/theme/github_dark");
+        } else {
+          editor.setTheme("ace/theme/github");
+        }
+      });
+    },
+
+    checkName() {
+      return this.nameValid = validate.name(this.formData.name);
+    },
+    checkAddress() {
+      if(this.formData.template_id == "") {
+        return this.addressValid = validate.uri(this.formData.agent_url);
+      }
+      return true;
+    },
+    async submitData() {
+
+console.log(this.formData);
+return;
+
+
+      var err = false;
+      err = !this.checkName() || err;
+      err = !this.checkAddress() || err;
+      if(err) {
+        return;
+      }
+
+      this.buttonLabel = 'Creating space...'
+      this.loading = true;
+
+      fetch('/api/v1/templates', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(this.formData)
+        })
+        .then((response) => {
+          if (response.status === 201) {
+            window.location.href = '/templates';
+          } else {
+            response.json().then((data) => {
+              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Failed to create template, " + data.error, type: 'error' } }));
+            });
+          }
+        })
+        .catch((error) => {
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
+        })
+        .finally(() => {
+          this.buttonLabel = 'Create Template';
+          this.loading = false;
+        })
+    },
+  }
+}
+
+</script>
+
+{{ template "afterContent" }}

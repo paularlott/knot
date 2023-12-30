@@ -27,6 +27,7 @@ func HandleSimplePage(w http.ResponseWriter, r *http.Request) {
     "permissionManageUsers": user.HasPermission(model.PermissionManageUsers),
     "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
     "preferredShell": user.PreferredShell,
+    "prev_year": "2020",
   }
 
   err = tmpl.Execute(w, data)
