@@ -46,6 +46,14 @@ type IDbDriver interface {
   GetSpace(id string) (*model.Space, error)
   GetSpacesForUser(userId string) ([]*model.Space, error)
   GetSpaceByName(userId string, spaceName string) (*model.Space, error)
+  GetSpacesByTemplateId(templateId string) ([]*model.Space, error)
+
+  // Templates
+  SaveTemplate(template *model.Template) error
+  DeleteTemplate(template *model.Template) error
+  GetTemplate(id string) (*model.Template, error)
+  GetTemplates() ([]*model.Template, error)
+  GetTemplateOptionList() (map[string]string, error)
 }
 
 // Get returns the database driver and on first call initializes it

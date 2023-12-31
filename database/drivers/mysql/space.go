@@ -17,8 +17,8 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
   }
 
   // Assume update
-  result, err := tx.Exec("UPDATE spaces SET template_id=?, name=?, agent_url=?, updated_at=?, shell=? WHERE space_id=?",
-    space.TemplateId, space.Name, space.AgentURL, time.Now().UTC(), space.Shell, space.Id,
+  result, err := tx.Exec("UPDATE spaces SET name=?, agent_url=?, updated_at=?, shell=? WHERE space_id=?",
+    space.Name, space.AgentURL, time.Now().UTC(), space.Shell, space.Id,
   )
   if err != nil {
     tx.Rollback()
@@ -112,4 +112,13 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
   }
 
   return spaces[0], nil
+}
+
+func (db *MySQLDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space, error) {
+  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell FROM spaces WHERE template_id = ? ORDER BY name ASC", templateId)
+  if err != nil {
+    return nil, err
+  }
+
+  return spaces, nil
 }

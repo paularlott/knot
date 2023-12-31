@@ -19,10 +19,9 @@
               <dd>
                 <div class="selectControl">
                   <select id="template" name="template" x-model="formData.template_id">
-                    <option value="" selected="selected">None (Manual Agent Deploy)</option>
-                    <option value="59c0993f-da84-4335-a524-cfbc84f8d84e">Ubuntu 22.04</option>
-                    <option value="59c0993f-da84-4335-a524-cfbc84f8d85e">Redis</option>
-                    <option value="59c0993f-da84-4335-a524-cfbc84f8d86e">KeyDB</option>
+                    {{ range $key, $value := .templateList }}
+                      <option value="{{ $key }}">{{ $value }}</option>
+                    {{ end }}
                   </select>
                 </div>
               </dd>

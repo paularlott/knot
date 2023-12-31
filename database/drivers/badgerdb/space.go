@@ -181,3 +181,42 @@ func (db *BadgerDbDriver) GetSpaceByName(userId string, spaceName string) (*mode
 
   return space, err
 }
+
+func (db *BadgerDbDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space, error) {
+  var spaces []*model.Space
+
+  err := db.connection.View(func(txn *badger.Txn) error {
+    it := txn.NewIterator(badger.DefaultIteratorOptions)
+    defer it.Close()
+
+    prefix := []byte(fmt.Sprintf("SpacesByTemplateId:%s:", templateId))
+    for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+      item := it.Item()
+
+      var spaceId string
+      err := item.Value(func(val []byte) error {
+        spaceId = string(val)
+        return nil
+      })
+      if err != nil {
+        return err
+      }
+
+      space, err := db.GetSpace(spaceId)
+      if err != nil {
+        return err
+      }
+
+      spaces = append(spaces, space)
+    }
+
+    return nil
+  })
+
+  // Sort the agents by name
+  sort.Slice(spaces, func(i, j int) bool {
+    return spaces[i].Name < spaces[j].Name
+  })
+
+  return spaces, err
+}

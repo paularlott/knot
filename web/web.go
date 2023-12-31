@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -71,7 +72,7 @@ func Routes() chi.Router {
 
     router.Route("/spaces", func(router chi.Router) {
       router.Get("/", HandleSimplePage)
-      router.Get("/create", HandleSimplePage)
+      router.Get("/create", HandleSpacesCreate)
 //      router.Get("/edit/{agent_id}", HandleAgentEditPage)
     })
 
@@ -143,4 +144,14 @@ func newTemplate(name string) (*template.Template, error){
   }
 
   return tmpl, err
+}
+
+func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}) {
+  user := r.Context().Value("user").(*model.User)
+
+  return user, map[string]interface{}{
+    "username"                 : user.Username,
+    "permissionManageUsers"    : user.HasPermission(model.PermissionManageUsers),
+    "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
+  }
 }

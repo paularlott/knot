@@ -73,6 +73,20 @@ UNIQUE INDEX name (user_id, name)
     return err
   }
 
+  log.Debug().Msg("db: creating templates table")
+  _, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS templates (
+template_id CHAR(36) PRIMARY KEY,
+name VARCHAR(64),
+job MEDIUMTEXT,
+created_user_id CHAR(36),
+created_at TIMESTAMP,
+updated_user_id CHAR(36),
+updated_at TIMESTAMP
+)`)
+  if err != nil {
+    return err
+  }
+
   log.Debug().Msg("db: MySQL is initialized")
 
   // Add a task to clean up expired sessions

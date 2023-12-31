@@ -42,10 +42,11 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     // TODO Lookup the template name
     var templateName string
 
-    if space.TemplateId != "" {
+    if space.TemplateId != "00000000-0000-0000-0000-000000000000" && space.TemplateId != "" {
       templateName = "TODO Lookup Template Name"
     } else {
       templateName = "None (" + space.AgentURL + ")"
+      space.TemplateId = "00000000-0000-0000-0000-000000000000"
     }
 
     spaceData[i].Id = space.Id

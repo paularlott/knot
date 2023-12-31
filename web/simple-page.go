@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/paularlott/knot/database/model"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,15 +19,8 @@ func HandleSimplePage(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  user := r.Context().Value("user").(*model.User)
-
-  data := map[string]interface{}{
-    "username": user.Username,
-    "permissionManageUsers": user.HasPermission(model.PermissionManageUsers),
-    "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
-    "preferredShell": user.PreferredShell,
-    "prev_year": "2020",
-  }
+  user, data := getCommonTemplateData(r)
+  data["preferredShell"] = user.PreferredShell
 
   err = tmpl.Execute(w, data)
   if err != nil {
