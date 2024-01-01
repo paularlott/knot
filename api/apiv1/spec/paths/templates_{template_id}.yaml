@@ -1,0 +1,64 @@
+post:
+  summary: Update a Template
+  description: Update a template.
+  operationId: updateTemplate
+  tags:
+    - Templates
+  parameters:
+    - name: template_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 64
+            job:
+              type: string
+  responses:
+    '200':
+      description: Successful operation
+    '400':
+      $ref: '../responses/bad-request.yaml'
+    '403':
+      $ref: '../responses/forbidden.yaml'
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '500':
+      $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []
+
+delete:
+  summary: Delete Template
+  description: Delete a specified template.
+  tags:
+    - Templates
+  operaionId: deleteTemplate
+  parameters:
+    - in: path
+      name: template_id
+      schema:
+        type: string
+      required: true
+      description: The ID of the template to delete.
+  responses:
+    '200':
+      description: Successful operation.
+    '403':
+      $ref: '../responses/forbidden.yaml'
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '423':
+      $ref: '../responses/locked.yaml'
+    '500':
+      $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []

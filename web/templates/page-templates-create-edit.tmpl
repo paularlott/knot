@@ -1,22 +1,29 @@
+{{ if .isEdit }}
+{{ template "metaHead" (map "PageTitle" "Edit Template") }}
+{{ else }}
 {{ template "metaHead" (map "PageTitle" "Create Template") }}
+{{ end }}
 {{ template "beforeContent" . }}
 
 <div class="content full-height">
   <div class="row">
     <div class="col-sm-12">
-      <div class="box full-height" x-data="createTemplateForm()" x-init="initEditor()">
-        <h2>Create Template</h2>
+      <div class="box full-height" x-data="templateForm()" x-init="initEditor()">
+        <h2>{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}</h2>
 
         <form action="" method="POST" @submit.prevent="submitData">
           <dl>
-            <dt><label for="name">Template Name <em>*</em></label></dt>
+            <dt><label for="name">Name <em>*</em></label></dt>
             <dd>
               <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Template name" x-model="formData.name">
-              <div x-show="!nameValid" class="error-message">Template name can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+              <div x-show="!nameValid" class="error-message">Template name can be a max 64 characters.</div>
             </dd>
-            <dt><label for="template_text">Template <em>*</em></label></dt>
+            <dt><label for="job">Nomad Job <em>*</em></label></dt>
             <dd class="grow">
-              <textarea name="template_text" id="template_text"></textarea>
+              <div :class="{'error': !jobValid, 'editor-wrap': true}">
+                <textarea name="job" id="job"></textarea>
+                <div x-show="!jobValid" class="error-message">Template is required.</div>
+              </div>
             </dd>
             <dt></dt>
             <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
@@ -30,16 +37,18 @@
 
 <script>
 
-function createTemplateForm() {
+function templateForm() {
+  var isEdit = "{{ .isEdit }}" == 'true';
+
   return {
     formData: {
-      name: "",
-      template_text: "default data\npaul\n\nanother test\n",
+      name: "{{ .templateName }}",
+      job: "{{ .templateJob }}",
     },
     loading: false,
-    buttonLabel: 'Create Template',
+    buttonLabel: isEdit ? 'Update Template' : 'Create Template',
     nameValid: true,
-    addressValid: true,
+    jobValid: true,
 
     initEditor() {
       let darkMode = JSON.parse(localStorage.getItem('darkMode'));
@@ -47,10 +56,10 @@ function createTemplateForm() {
         darkMode = true;
 
       // Create the editor
-      let editor = ace.edit('template_text');
-      editor.session.setValue(this.formData.template_text);
+      let editor = ace.edit('job');
+      editor.session.setValue(this.formData.job);
       editor.session.on('change', () => {
-          this.formData.template_text = editor.getValue();
+          this.formData.job = editor.getValue();
       });
       editor.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
       editor.session.setMode("ace/mode/terraform");
@@ -72,33 +81,25 @@ function createTemplateForm() {
         }
       });
     },
-
     checkName() {
-      return this.nameValid = validate.name(this.formData.name);
+      return this.nameValid = validate.maxLength(this.formData.name, 64) && validate.required(this.formData.name);
     },
-    checkAddress() {
-      if(this.formData.template_id == "") {
-        return this.addressValid = validate.uri(this.formData.agent_url);
-      }
-      return true;
+    checkJob() {
+      return this.jobValid = validate.required(this.formData.job);
     },
+
     async submitData() {
-
-console.log(this.formData);
-return;
-
-
       var err = false;
       err = !this.checkName() || err;
-      err = !this.checkAddress() || err;
+      err = !this.checkJob() || err;
       if(err) {
         return;
       }
 
-      this.buttonLabel = 'Creating space...'
+      this.buttonLabel = isEdit ? 'Updating template...' : 'Create template...'
       this.loading = true;
 
-      fetch('/api/v1/templates', {
+      fetch(isEdit ? '/api/v1/templates/{{ .templateId }}' : '/api/v1/templates', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -106,11 +107,16 @@ return;
           body: JSON.stringify(this.formData)
         })
         .then((response) => {
-          if (response.status === 201) {
-            window.location.href = '/templates';
+          if (response.status === 200) {
+            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Template updated", type: 'success' } }));
+          } else if (response.status === 201) {
+            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Template created", type: 'success' } }));
+            response.json().then(function(data) {
+              window.location.href = '/templates/edit/' + data.template_id;
+            });
           } else {
             response.json().then((data) => {
-              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Failed to create template, " + data.error, type: 'error' } }));
+              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Failed to update the template, " + data.error, type: 'error' } }));
             });
           }
         })
@@ -118,7 +124,7 @@ return;
           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
         })
         .finally(() => {
-          this.buttonLabel = 'Create Template';
+          this.buttonLabel = isEdit ? 'Update Template' : 'Create Template';
           this.loading = false;
         })
     },

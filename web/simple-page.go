@@ -19,8 +19,7 @@ func HandleSimplePage(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  user, data := getCommonTemplateData(r)
-  data["preferredShell"] = user.PreferredShell
+  _, data := getCommonTemplateData(r)
 
   err = tmpl.Execute(w, data)
   if err != nil {

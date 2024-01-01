@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/rest"
 	"golang.org/x/net/context"
 )
@@ -101,6 +102,22 @@ func ApiAuth(next http.Handler) http.Handler {
 
     // If authenticated, continue
     next.ServeHTTP(w, r.WithContext(ctx))
+  })
+}
+
+type ErrorResponse struct {
+  Error string `json:"error"`
+}
+
+func ApiPermissionManageTemplates(next http.Handler) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    user := r.Context().Value("user").(*model.User)
+    if !user.HasPermission(model.PermissionManageTemplates) {
+      rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage templates"})
+      return
+    }
+
+    next.ServeHTTP(w, r)
   })
 }
 

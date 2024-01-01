@@ -71,6 +71,11 @@ paths:
   /api/v1/spaces/{space_id}/service-state:
     $ref: paths/spaces_{space_id}_service-state.yaml
 
+  /api/v1/templates:
+    $ref: paths/templates.yaml
+  /api/v1/templates/{template_id}:
+    $ref: paths/templates_{template_id}.yaml
+
   /proxy/port/{host}/{port}:
     $ref: paths/proxy_port_{host}_{port}.yaml
 

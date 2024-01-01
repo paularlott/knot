@@ -16,5 +16,13 @@ export var validate = {
   uri: function(uri) {
     var re = /^(srv\+)?https?:\/\/([\w-]+:[\w-]+@)?[\w-]+(?:\.[\w-]+)*(?::\d+)?(?:\/[\w ~\\\(\)%\=\.,\+-]*)*(?:\?[\w ~\\\(\)%\=\.,\+-]+=[\w ~\\\(\)%\=\.,\+-]*(?:&[\w ~\\\(\)%\=\.,\+-]+=[\w ~\\\(\)%\=\.,\+-]*)*)?(#[\w ~\\\(\)%\=\.,\/\+-]*)?$/i
     return re.test(uri);
+  },
+
+  required: function(string) {
+    return string.length > 0;
+  },
+
+  maxLength: function(string, length) {
+    return string.length <= length;
   }
 };

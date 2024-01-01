@@ -42,11 +42,10 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     // TODO Lookup the template name
     var templateName string
 
-    if space.TemplateId != "00000000-0000-0000-0000-000000000000" && space.TemplateId != "" {
+    if space.TemplateId != model.MANUAL_TEMPLATE_ID {
       templateName = "TODO Lookup Template Name"
     } else {
       templateName = "None (" + space.AgentURL + ")"
-      space.TemplateId = "00000000-0000-0000-0000-000000000000"
     }
 
     spaceData[i].Id = space.Id
@@ -106,6 +105,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
   // If template given then ensure the address is removed
   if request.TemplateId != "" {
     request.AgentURL = ""
+    request.TemplateId = model.MANUAL_TEMPLATE_ID
   }
 
   if(!validate.Name(request.Name) || (request.TemplateId != "" && !validate.Uri(request.AgentURL))) {

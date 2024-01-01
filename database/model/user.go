@@ -69,31 +69,3 @@ func (u *User) HasPermission(permission int) bool {
 
   return true
 }
-
-// Check if the user is an admin
-func (u *User) IsAdmin() bool {
-
-  // TODO Make this query permissions if not admin role
-
-  for _, role := range u.Roles {
-    if role == RoleAdmin {
-      return true
-    }
-  }
-
-  return false
-}
-
-/* func (u *User) HasPermission(permisson int) bool {
-
-    db := database.GetInstance()
-    r, err := db.GetRole("00000000-0000-0000-0000-000000000000")
-
-fmt.Println("r", r)
-fmt.Println("err", err)
-
-return false;
-
-
-}
- */

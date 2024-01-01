@@ -47,6 +47,16 @@ func ApiRoutes() chi.Router {
       router.Delete("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteSpace)
       router.Get("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/service-state", HandleGetSpaceServiceState)
     })
+
+    // Templates
+    router.Route("/templates", func(router chi.Router) {
+      router.Use(middleware.ApiPermissionManageTemplates)
+
+      router.Get("/", HandleGetTemplates)
+      router.Post("/", HandleCreateTemplate)
+      router.Post("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateTemplate)
+      router.Delete("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteTemplate)
+    })
   })
 
   // Group routes that require authentication via agent token

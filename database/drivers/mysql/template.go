@@ -50,7 +50,7 @@ func (db *MySQLDriver) DeleteTemplate(template *model.Template) error {
   }
 
   if len(spaces) > 0 {
-    return fmt.Errorf("template is in use")
+    return fmt.Errorf("template in use")
   }
 
   _, err = db.connection.Exec("DELETE FROM templates WHERE template_id = ?", template.Id)
@@ -110,7 +110,7 @@ func (db *MySQLDriver) GetTemplates() ([]*model.Template, error) {
 
 func (db *MySQLDriver) GetTemplateOptionList() (map[string]string, error) {
   var optionList = make(map[string]string)
-  optionList["00000000-0000-0000-0000-000000000000"] = "None (Manual Deploy)"
+  optionList[""] = "None (Manual Deploy)"
 
   rows, err := db.connection.Query("SELECT template_id, name FROM templates ORDER BY name")
   if err != nil {

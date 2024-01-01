@@ -1,0 +1,64 @@
+
+get:
+  summary: Get Templates
+  description: Retrieve all templates.
+  operationId: getTemplates
+  tags:
+    - Templates
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              template_id:
+                type: string
+              name:
+                type: string
+              usage:
+                type: integer
+    '500':
+      $ref: '../responses/internal-server-error.yaml'
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []
+
+post:
+  summary: Create a Template
+  description: Create a new template.
+  operationId: createTemplate
+  tags:
+    - Templates
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 64
+            job:
+              type: string
+  responses:
+    '201':
+      description: Template created successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+              template_id:
+                type: string
+    '400':
+      $ref: "../responses/bad-request.yaml"
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []

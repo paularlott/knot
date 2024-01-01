@@ -33,3 +33,11 @@ func OneOf(value string, values []string) bool {
   }
   return false
 }
+
+func Required(text string) bool {
+  return len(text) > 0
+}
+
+func MaxLength(text string, length int) bool {
+  return len(text) <= length
+}

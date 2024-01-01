@@ -16,7 +16,8 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  _, data := getCommonTemplateData(r)
+  user, data := getCommonTemplateData(r)
+  data["preferredShell"] = user.PreferredShell
 
   db := database.GetInstance()
   data["templateList"], err = db.GetTemplateOptionList()

@@ -4,7 +4,7 @@ package model
 const (
   PermissionManageUsers = iota
   PermissionManageTemplates
-  PermissionManageWorkspaces
+  PermissionManageSpaces
 )
 
 // Roles
@@ -12,13 +12,13 @@ const (
   RoleAdmin            = "00000000-0000-0000-0000-000000000000"
   RoleUserManager      = "00000000-0000-0000-0000-000000000001"
   RoleTemplateManager  = "00000000-0000-0000-0000-000000000002"
-  RoleWorkspaceManager = "00000000-0000-0000-0000-000000000003"
+  RoleSpaceManager     = "00000000-0000-0000-0000-000000000003"
 )
 
 // Mapping of permissions to roles
 var rolePermissions = map[string][]int{
-  RoleAdmin           : {PermissionManageUsers, PermissionManageTemplates, PermissionManageWorkspaces},
+  RoleAdmin           : {PermissionManageUsers, PermissionManageTemplates, PermissionManageSpaces},
   RoleUserManager     : {PermissionManageUsers},
   RoleTemplateManager : {PermissionManageTemplates},
-  RoleWorkspaceManager: {PermissionManageWorkspaces},
+  RoleSpaceManager    : {PermissionManageSpaces},
 }

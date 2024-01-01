@@ -45,7 +45,7 @@ func (db *BadgerDbDriver) DeleteTemplate(template *model.Template) error {
   }
 
   if len(spaces) > 0 {
-    return fmt.Errorf("template is in use")
+    return fmt.Errorf("template in use")
   }
 
   err = db.connection.Update(func(txn *badger.Txn) error {
@@ -123,7 +123,7 @@ func (db *BadgerDbDriver) GetTemplateOptionList() (map[string]string, error) {
 
   // Build the option list, id => name
   var optionList = make(map[string]string)
-  optionList["00000000-0000-0000-0000-000000000000"] = "None (Manual Deploy)"
+  optionList[""] = "None (Manual Deploy)"
   for _, template := range templates {
     optionList[template.Id] = template.Name
   }

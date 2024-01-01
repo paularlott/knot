@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"sync"
 
 	driver_badgerdb "github.com/paularlott/knot/database/drivers/badgerdb"
@@ -14,6 +15,7 @@ import (
 var (
   once sync.Once
   dbInstance IDbDriver
+  ErrTemplateInUse = errors.New("template in use")
 )
 
 // IDbDriver is the interface for the database drivers
