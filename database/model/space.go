@@ -14,6 +14,7 @@ type Space struct {
   Name string `json:"name"`
   AgentURL string `json:"agent_url"`
   Shell string `json:"shell"`
+  IsDeployed bool `json:"is_deployed"`
   CreatedAt time.Time `json:"created_at"`
   UpdatedAt time.Time `json:"updated_at"`
 }
@@ -26,6 +27,7 @@ func NewSpace(name string, userId string, agentURL string, templateId string, sh
     Name: name,
     AgentURL: agentURL,
     Shell: shell,
+    IsDeployed: false,
     CreatedAt: time.Now().UTC(),
     UpdatedAt: time.Now().UTC(),
   }

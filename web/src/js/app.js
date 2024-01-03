@@ -13,5 +13,6 @@ window.openTerminal = function(space, spaceId) {
 /// wysiwyg editor
 import 'ace-builds/src-noconflict/ace';
 import 'ace-builds/src-noconflict/mode-terraform';
+import 'ace-builds/src-noconflict/mode-yaml';
 import 'ace-builds/src-noconflict/theme-github';
 import 'ace-builds/src-noconflict/theme-github_dark';

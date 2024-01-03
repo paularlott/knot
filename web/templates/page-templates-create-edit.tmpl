@@ -18,11 +18,18 @@
               <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Template name" x-model="formData.name">
               <div x-show="!nameValid" class="error-message">Template name can be a max 64 characters.</div>
             </dd>
-            <dt><label for="job">Nomad Job <em>*</em></label></dt>
+            <dt><label for="job">Nomad Job (HCL) <em>*</em></label></dt>
             <dd class="grow">
               <div :class="{'error': !jobValid, 'editor-wrap': true}">
                 <textarea name="job" id="job"></textarea>
                 <div x-show="!jobValid" class="error-message">Template is required.</div>
+              </div>
+            </dd>
+            <dt><label for="job">Volume Definition (YAML)</label></dt>
+            <dd>
+              <div :class="{'error': !volValid, 'editor-wrap': true}">
+                <textarea name="vol" id="vol"></textarea>
+                <div x-show="!volValid" class="error-message">Volume definition must be valid YAML.</div>
               </div>
             </dd>
             <dt></dt>
@@ -44,18 +51,20 @@ function templateForm() {
     formData: {
       name: "{{ .templateName }}",
       job: "{{ .templateJob }}",
+      volumes: "{{ .templateVolumes }}",
     },
     loading: false,
     buttonLabel: isEdit ? 'Update Template' : 'Create Template',
     nameValid: true,
     jobValid: true,
+    volValid: true,
 
     initEditor() {
       let darkMode = JSON.parse(localStorage.getItem('darkMode'));
       if(darkMode == null)
         darkMode = true;
 
-      // Create the editor
+      // Create the job editor
       let editor = ace.edit('job');
       editor.session.setValue(this.formData.job);
       editor.session.on('change', () => {
@@ -72,12 +81,32 @@ function templateForm() {
         customScrollbar: true,
       });
 
+      // Create the volume editor
+      let editorVol = ace.edit('vol');
+      editorVol.session.setValue(this.formData.volumes);
+      editorVol.session.on('change', () => {
+          this.formData.volumes = editorVol.getValue();
+      });
+      editorVol.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
+      editorVol.session.setMode("ace/mode/yaml");
+      editorVol.setOptions({
+        printMargin: false,
+        newLineMode: 'unix',
+        tabSize: 2,
+        wrap: false,
+        vScrollBarAlwaysVisible: true,
+        customScrollbar: true,
+        useWorker: false,
+      });
+
       // Listen for the theme_change event on the body & change the editor theme
       window.addEventListener('theme-change', function (e) {
         if (e.detail.dark_theme) {
           editor.setTheme("ace/theme/github_dark");
+          editorVol.setTheme("ace/theme/github_dark");
         } else {
           editor.setTheme("ace/theme/github");
+          editorVol.setTheme("ace/theme/github");
         }
       });
     },

@@ -33,7 +33,8 @@
             <td>
               <a :href="`/proxy/spaces/${s.name}/code-server/`" :target="`spaces_${s.space_id}_codeserver`" x-show="s.has_code_server"><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" /></a>
               <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" x-show="s.has_terminal" @click="openTerminal(s.name, s.space_id)" style="cursor: pointer;" />
-              <button @click="editSpace(s.space_id)">Edit</button> <button @click="deleteSpace(s.space_id)" class="danger">Delete</button>
+              <button x-show="!s.is_deployed" @click="startSpace(s.space_id)">Start</button> <button x-show="s.is_deployed" @click="stopSpace(s.space_id)">Stop</button>
+              <button x-show="!s.is_deployed" @click="editSpace(s.space_id)">Edit</button> <button x-show="!s.is_deployed" @click="deleteSpace(s.space_id)" class="danger">Delete</button>
             </td>
           </tr>
         </template>
@@ -75,6 +76,7 @@ function spacesListComponent() {
             response.json().then((serviceState) => {
               space.has_code_server = serviceState.has_code_server;
               space.has_ssh = serviceState.has_ssh;
+              space.is_deployed = serviceState.is_deployed;
             });
           } else {
             space.has_code_server = space.has_ssh = false;
@@ -82,20 +84,24 @@ function spacesListComponent() {
         });
       }, 5000);
     },
+    async startSpace(spaceId) {
+    },
+    async stopSpace(spaceId) {
+    },
     async deleteSpace(spaceId) {
-      /*await fetch(`/api/v1/tokens/${tokenId}`, {
+      await fetch(`/api/v1/spaces/${spaceId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
         }
       }).then((response) => {
         if (response.status === 200) {
-           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Token deleted", type: 'success' } }));
+           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space deleted", type: 'success' } }));
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Token could not be deleted", type: 'error' } }));
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be deleted", type: 'error' } }));
         }
       });
-      this.getTokens();*/
+      this.getSpaces();
     },
   };
 }

@@ -81,7 +81,7 @@ func Routes() chi.Router {
 
       router.Get("/", HandleSimplePage)
       router.Get("/create", HandleTemplateCreate)
-      router.Get("/edit/{template_id:^[a-zA-Z][a-zA-Z0-9\\-]{1,63}$}", HandleTemplateEdit)
+      router.Get("/edit/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateEdit)
     })
   })
 
@@ -102,10 +102,8 @@ func showPageNotFound(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  _, data := getCommonTemplateData(r)
-
   w.WriteHeader(http.StatusNotFound)
-  err = tmpl.Execute(w, data)
+  err = tmpl.Execute(w, nil)
   if err != nil {
     w.WriteHeader(http.StatusInternalServerError)
     return
@@ -119,10 +117,8 @@ func showPageForbidden(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  _, data := getCommonTemplateData(r)
-
   w.WriteHeader(http.StatusForbidden)
-  err = tmpl.Execute(w, data)
+  err = tmpl.Execute(w, nil)
   if err != nil {
     w.WriteHeader(http.StatusInternalServerError)
     return

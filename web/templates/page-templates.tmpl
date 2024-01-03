@@ -31,7 +31,7 @@
             <td x-text="t.name"></td>
             <td x-text="t.usage"></td>
             <td>
-                <button @click="editTemplate(t.template_id)">Edit</button> <button x-if="t.usage === 0" @click="deleteTemplate(t.template_id)" class="danger">Delete</button>
+                <button @click="editTemplate(t.template_id)">Edit</button> <button x-show="t.usage === 0" @click="deleteTemplate(t.template_id)" class="danger">Delete</button>
             </td>
           </tr>
         </template>

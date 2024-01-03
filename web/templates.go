@@ -59,6 +59,7 @@ func HandleTemplateEdit(w http.ResponseWriter, r *http.Request) {
   data["templateId"] = template.Id
   data["templateName"] = template.Name
   data["templateJob"] = template.Job
+  data["templateVolumes"] = template.Volumes
 
   err = tmpl.Execute(w, data)
   if err != nil {

@@ -24,5 +24,7 @@ get:
                 type: boolean
               has_terminal:
                 type: boolean
+              is_deployed:
+                type: boolean
   security:
     - BearerAuth: []

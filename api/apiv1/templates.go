@@ -13,6 +13,7 @@ import (
 type TemplateRequest struct {
   Name string `json:"name"`
   Job string `json:"job"`
+  Volumes string `json:"volumes"`
 }
 
 func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +65,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
   template.Name = request.Name
   template.Job = request.Job
+  template.Volumes = request.Volumes
   template.UpdatedUserId = user.Id
 
   err = database.GetInstance().SaveTemplate(template)
@@ -85,7 +87,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  template := model.NewTemplate(request.Name, request.Job, user.Id)
+  template := model.NewTemplate(request.Name, request.Job, request.Volumes, user.Id)
 
   err = database.GetInstance().SaveTemplate(template)
   if err != nil {

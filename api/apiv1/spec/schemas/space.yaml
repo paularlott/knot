@@ -10,3 +10,5 @@ properties:
     type: boolean
   has_ssh:
     type: boolean
+  is_deployed:
+    type: boolean

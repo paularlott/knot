@@ -22,6 +22,10 @@ post:
               maxLength: 64
             job:
               type: string
+              description: A HCL formatted job Nomad job specification
+            volumes:
+              type: string
+              description: A YAML formatted string describing the volumes to be created
   responses:
     '200':
       description: Successful operation

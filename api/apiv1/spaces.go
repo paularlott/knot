@@ -35,15 +35,20 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     HasCodeServer bool `json:"has_code_server"`
     HasSSH bool `json:"has_ssh"`
     HasTerminal bool `json:"has_terminal"`
+    IsDeployed bool `json:"is_deployed"`
   }, len(spaces))
 
   for i, space := range spaces {
-
-    // TODO Lookup the template name
     var templateName string
 
     if space.TemplateId != model.MANUAL_TEMPLATE_ID {
-      templateName = "TODO Lookup Template Name"
+      // Lookup the template
+      template, err := database.GetInstance().GetTemplate(space.TemplateId)
+      if err != nil {
+        templateName = "Unknown"
+      } else {
+        templateName = template.Name
+      }
     } else {
       templateName = "None (" + space.AgentURL + ")"
     }
@@ -51,6 +56,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     spaceData[i].Id = space.Id
     spaceData[i].Name = space.Name
     spaceData[i].TemplateName = templateName
+    spaceData[i].IsDeployed = space.IsDeployed
 
     // Get the state of the agent
     agentState, ok := database.AgentStateGet(space.Id)
@@ -78,7 +84,11 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // TODO If the space has a template and it's running then stop the nomad job
+  // If the space is running then fail
+  if space.IsDeployed {
+    rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space is running"})
+    return
+  }
 
   // Delete the agent state
   database.AgentStateRemove(space.Id)
@@ -105,10 +115,11 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
   // If template given then ensure the address is removed
   if request.TemplateId != "" {
     request.AgentURL = ""
+  } else {
     request.TemplateId = model.MANUAL_TEMPLATE_ID
   }
 
-  if(!validate.Name(request.Name) || (request.TemplateId != "" && !validate.Uri(request.AgentURL))) {
+  if(!validate.Name(request.Name) || (request.TemplateId == model.MANUAL_TEMPLATE_ID && !validate.Uri(request.AgentURL))) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name, template, or address given for new space"})
     return
   }
@@ -117,9 +128,14 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // TODO validate the template if one given
-  // TODO if template given deploy the nomad job
-  // TODO if template given then auto generate the address and port = 0
+  if(request.TemplateId != model.MANUAL_TEMPLATE_ID) {
+    // Lookup the template
+    _, err := database.GetInstance().GetTemplate(request.TemplateId)
+    if err != nil {
+      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
+      return
+    }
+  }
 
   user := r.Context().Value("user").(*model.User)
 
@@ -144,18 +160,27 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 type SpaceServiceResponse struct {
   HasCodeServer bool `json:"has_code_server"`
   HasSSH bool `json:"has_ssh"`
+  IsDeployed bool `json:"is_deployed"`
 }
 
 func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
+  space, err := database.GetInstance().GetSpace(chi.URLParam(r, "space_id"))
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
   response := SpaceServiceResponse{}
-  space, ok := database.AgentStateGet(chi.URLParam(r, "space_id"))
+  state, ok := database.AgentStateGet(space.Id)
   if !ok {
     response.HasCodeServer = false
     response.HasSSH = false
   } else {
-    response.HasCodeServer = space.HasCodeServer
-    response.HasSSH = space.SSHPort > 0
+    response.HasCodeServer = state.HasCodeServer
+    response.HasSSH = state.SSHPort > 0
   }
+
+  response.IsDeployed = space.IsDeployed
 
   rest.SendJSON(http.StatusOK, w, response)
 }
