@@ -85,6 +85,19 @@ function spacesListComponent() {
       }, 5000);
     },
     async startSpace(spaceId) {
+      await fetch(`/api/v1/spaces/${spaceId}/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space started", type: 'success' } }));
+        } else {
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be started", type: 'error' } }));
+        }
+      });
+      this.getSpaces();
     },
     async stopSpace(spaceId) {
     },

@@ -34,3 +34,7 @@ func NewTemplate(name string, job string, volumes string, userId string) *Templa
 
   return template
 }
+
+func (template *Template) GetVolumes() (*Volumes, error) {
+  return LoadVolumesFromYaml(template.Volumes)
+}

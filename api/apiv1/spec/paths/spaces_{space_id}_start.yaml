@@ -1,0 +1,23 @@
+post:
+  summary: Start a Space
+  description: Deploy a template to the Nomad cluster creating any required volumes.
+  operationId: startSpace
+  tags:
+    - Spaces
+  parameters:
+    - name: space_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Successful operation
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '423':
+      $ref: "../responses/locked.yaml"
+    '500':
+      $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []

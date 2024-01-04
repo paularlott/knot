@@ -90,6 +90,8 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  // TODO Delete the volumes
+
   // Delete the agent state
   database.AgentStateRemove(space.Id)
 
@@ -183,4 +185,59 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
   response.IsDeployed = space.IsDeployed
 
   rest.SendJSON(http.StatusOK, w, response)
+}
+
+func HandleGetSpaceStart(w http.ResponseWriter, r *http.Request) {
+  db := database.GetInstance()
+
+  space, err := db.GetSpace(chi.URLParam(r, "space_id"))
+  if err != nil {
+    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  // If the space is already running then fail
+  if space.IsDeployed {
+    rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space is running"})
+    return
+  }
+
+  // Load the user
+  user, err := db.GetUser(space.UserId)
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  // Get the template
+  template, err := db.GetTemplate(space.TemplateId)
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  // Get the volume definitions
+  volumes, err := template.GetVolumes()
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  // Find the volumes that are defined but not yet created in the space and create them
+
+  // TODO store the volume ID + namespace in the space
+
+  // Find the volumes that are created in the space but not defined and delete them
+
+  fmt.Println("converting to json")
+
+  j, err := volumes.ToJSON(map[string]interface{}{"space_id": space.Id, "user_id": space.UserId, "username": user.Username})
+  if err != nil {
+    fmt.Println(err)
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+  fmt.Println(j)
+
+  w.WriteHeader(http.StatusOK)
 }

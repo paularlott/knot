@@ -2,9 +2,9 @@ package model
 
 // Permissions
 const (
-  PermissionManageUsers = iota
-  PermissionManageTemplates
-  PermissionManageSpaces
+  PermissionManageUsers = iota // Can Manage Users
+  PermissionManageTemplates    // Can Manage Templates
+  PermissionManageSpaces       // Can Manage Spaces
 )
 
 // Roles

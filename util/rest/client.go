@@ -10,15 +10,19 @@ import (
 )
 
 type RESTClient struct {
-    baseURL    string
-    token      string
-    HTTPClient *http.Client
+  baseURL    string
+  token      string
+  tokenKey   string
+  tokenValue string
+  HTTPClient *http.Client
 }
 
 func NewClient(baseURL string, token string) *RESTClient {
   return &RESTClient{
     baseURL: strings.TrimSuffix(baseURL, "/"),
     token: token,
+    tokenKey: "Authorization",
+    tokenValue: "Bearer %s",
     HTTPClient: &http.Client{
       Timeout: 10 * time.Second,
     },
@@ -27,6 +31,16 @@ func NewClient(baseURL string, token string) *RESTClient {
 
 func (c *RESTClient) SetAuthToken(token string) *RESTClient {
   c.token = token
+  return c
+}
+
+func (c *RESTClient) SetTokenKey(key string) *RESTClient {
+  c.tokenKey = key
+  return c
+}
+
+func (c *RESTClient) SetTokenValue(value string) *RESTClient {
+  c.tokenValue = value
   return c
 }
 
@@ -39,7 +53,7 @@ func (c *RESTClient) Get(path string, response interface{}) (int, error) {
   req.Header.Set("Accept", "application/json")
   req.Header.Set("Content-Type", "application/json")
   if c.token != "" {
-    req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+    req.Header.Set(c.tokenKey, fmt.Sprintf(c.tokenValue, c.token))
   }
 
   resp, err := c.HTTPClient.Do(req);
@@ -71,7 +85,7 @@ func (c *RESTClient) SendData(method string, path string, request interface{}, r
   req.Header.Set("Accept", "application/json")
   req.Header.Set("Content-Type", "application/json")
   if c.token != "" {
-    req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+    req.Header.Set(c.tokenKey, fmt.Sprintf(c.tokenValue, c.token))
   }
 
   resp, err := c.HTTPClient.Do(req);

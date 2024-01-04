@@ -70,6 +70,8 @@ paths:
     $ref: paths/spaces_{space_id}.yaml
   /api/v1/spaces/{space_id}/service-state:
     $ref: paths/spaces_{space_id}_service-state.yaml
+  /api/v1/spaces/{space_id}/start:
+    $ref: paths/spaces_{space_id}_start.yaml
 
   /api/v1/templates:
     $ref: paths/templates.yaml

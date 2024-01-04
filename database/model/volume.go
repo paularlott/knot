@@ -1,0 +1,101 @@
+package model
+
+import (
+	"bytes"
+	"encoding/json"
+	"text/template"
+
+	"github.com/paularlott/knot/util"
+
+	"gopkg.in/yaml.v3"
+)
+
+//
+// Define the data structures for CSI volumes
+//
+
+type VolumeMountOptions struct {
+  FsType string `yaml:"fs_type" json:"FsType"`
+  MountFlags []string `yaml:"mount_flags" json:"MountFlags"`
+}
+
+type VolumeCapability struct {
+  AccessMode string `yaml:"access_mode" json:"AccessMode"`
+  AttachmentMode string `yaml:"attachment_mode" json:"AttachmentMode"`
+}
+
+type Volume struct {
+  Id string `yaml:"id" json:"ID"`
+  Name string `yaml:"name" json:"Name"`
+  Namespace string `yaml:"namespace" json:"Namespace"`
+  PuluginId string `yaml:"plugin_id" json:"PluginID"`
+  Type string `yaml:"type" json:"Type"`
+  MountOptions VolumeMountOptions `yaml:"mount_options" json:"MountOptions"`
+  CapacityMin interface{} `yaml:"capacity_min" json:"RequestedCapacityMin"`
+  CapacityMax interface{} `yaml:"capacity_max" json:"RequestedCapacityMax"`
+  Capabilities []VolumeCapability `yaml:"capabilities" json:"RequestedCapabilities"`
+  Secrets map[string]string `yaml:"secrets" json:"Secrets"`
+  Parameters map[string]string `yaml:"parameters" json:"Parameters"`
+}
+
+type Volumes struct {
+  Volumes []Volume `yaml:"volumes" json:"Volumes"`
+}
+
+func LoadVolumesFromYaml(yamlData string) (*Volumes, error) {
+  volumes := &Volumes{}
+
+  err := yaml.Unmarshal([]byte(yamlData), volumes)
+  if err != nil {
+    return nil, err
+  }
+
+  // Fix up the capacity values
+  for i, _ := range volumes.Volumes {
+    if volumes.Volumes[i].CapacityMin != nil {
+      switch volumes.Volumes[i].CapacityMin.(type) {
+      case string:
+        value, err := util.ConvertToBytes(volumes.Volumes[i].CapacityMin.(string))
+        if err != nil {
+          return nil, err
+        }
+        volumes.Volumes[i].CapacityMin = value
+      }
+    }
+
+    if volumes.Volumes[i].CapacityMax != nil {
+      switch volumes.Volumes[i].CapacityMax.(type) {
+      case string:
+        value, err := util.ConvertToBytes(volumes.Volumes[i].CapacityMax.(string))
+        if err != nil {
+          return nil, err
+        }
+        volumes.Volumes[i].CapacityMax = value
+      }
+    }
+  }
+
+  return volumes, nil
+}
+
+func (volumes *Volumes) ToJSON(data map[string]interface{}) (string, error) {
+
+  json, err := json.Marshal(volumes)
+  if err != nil {
+    return "", err
+  }
+
+  // Passe the json string through the template engine to resolve variables
+  tmpl, err := template.New("tmpl").Delims("${", "}").Parse(string(json))
+  if err != nil {
+      return "", err
+  }
+
+  var tmplBytes bytes.Buffer
+  err = tmpl.Execute(&tmplBytes, data)
+  if err != nil {
+      return "", err
+  }
+
+  return tmplBytes.String(), nil
+}
