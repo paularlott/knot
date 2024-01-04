@@ -25,7 +25,9 @@ func (client *NomadClient) CreateSpaceVolumes(template *model.Template, space *m
   log.Debug().Msg("nomad: checking for required volumes")
 
   // Find the volumes that are defined but not yet created in the space and create them
+  var volById = make(map[string]*model.Volume)
   for _, volume := range volumes.Volumes {
+    volById[volume.Id] = &volume
 
     // Check if the volume is already created for the space
     if data, ok := space.VolumeData[volume.Name]; !ok || data.Namespace != volume.Namespace {
@@ -48,6 +50,21 @@ func (client *NomadClient) CreateSpaceVolumes(template *model.Template, space *m
         Id: volume.Id,
         Namespace: volume.Namespace,
       }
+    }
+  }
+
+  // Find the volumes deployed in the space but no longer in the template definition and remove them
+  for _, volume := range space.VolumeData {
+    // Check if the volume is defined in the template
+    if _, ok := volById[volume.Id]; !ok {
+      // Delete the volume
+      err := client.DeleteCSIVolume(&volume)
+      if err != nil {
+        db.SaveSpace(space) // Save the space to capture the volumes
+        return err
+      }
+
+      delete(space.VolumeData, volume.Id)
     }
   }
 
