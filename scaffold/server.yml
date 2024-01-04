@@ -26,3 +26,7 @@ server:
   badgerdb:
     enabled: false
     path: ./badgerdb/
+
+  nomad:
+    addr: http://127.0.0.1:4646
+    token: ""

@@ -2,7 +2,6 @@ package model
 
 import (
 	"bytes"
-	"encoding/json"
 	"text/template"
 
 	"github.com/paularlott/knot/util"
@@ -42,15 +41,33 @@ type Volumes struct {
   Volumes []Volume `yaml:"volumes" json:"Volumes"`
 }
 
-func LoadVolumesFromYaml(yamlData string) (*Volumes, error) {
+func LoadVolumesFromYaml(yamlData string, space *Space, user *User) (*Volumes, error) {
   volumes := &Volumes{}
 
-  err := yaml.Unmarshal([]byte(yamlData), volumes)
+  // Passe the YAML string through the template engine to resolve variables
+  tmpl, err := template.New("tmpl").Delims("${", "}").Parse(yamlData)
   if err != nil {
     return nil, err
   }
 
-  // Fix up the capacity values
+  data := map[string]interface{}{
+    "space_id": space.Id,
+    "user_id": space.UserId,
+    "username": user.Username,
+  }
+
+  var tmplBytes bytes.Buffer
+  err = tmpl.Execute(&tmplBytes, data)
+  if err != nil {
+      return nil, err
+  }
+
+  err = yaml.Unmarshal(tmplBytes.Bytes(), volumes)
+  if err != nil {
+    return nil, err
+  }
+
+  // Fix up the capacity values & namespace
   for i, _ := range volumes.Volumes {
     if volumes.Volumes[i].CapacityMin != nil {
       switch volumes.Volumes[i].CapacityMin.(type) {
@@ -61,6 +78,8 @@ func LoadVolumesFromYaml(yamlData string) (*Volumes, error) {
         }
         volumes.Volumes[i].CapacityMin = value
       }
+    } else {
+      volumes.Volumes[i].CapacityMin = 0
     }
 
     if volumes.Volumes[i].CapacityMax != nil {
@@ -72,30 +91,29 @@ func LoadVolumesFromYaml(yamlData string) (*Volumes, error) {
         }
         volumes.Volumes[i].CapacityMax = value
       }
+    } else {
+      volumes.Volumes[i].CapacityMax = 0
+    }
+
+    // Fix namespace if nil then make default
+    if volumes.Volumes[i].Namespace == "" {
+      volumes.Volumes[i].Namespace = "default"
+    }
+
+    // default type to csi
+    if volumes.Volumes[i].Type == "" {
+      volumes.Volumes[i].Type = "csi"
+    }
+
+    // fix secrets and parameters
+    if volumes.Volumes[i].Secrets == nil {
+      volumes.Volumes[i].Secrets = make(map[string]string)
+    }
+
+    if volumes.Volumes[i].Parameters == nil {
+      volumes.Volumes[i].Parameters = make(map[string]string)
     }
   }
 
   return volumes, nil
-}
-
-func (volumes *Volumes) ToJSON(data map[string]interface{}) (string, error) {
-
-  json, err := json.Marshal(volumes)
-  if err != nil {
-    return "", err
-  }
-
-  // Passe the json string through the template engine to resolve variables
-  tmpl, err := template.New("tmpl").Delims("${", "}").Parse(string(json))
-  if err != nil {
-      return "", err
-  }
-
-  var tmplBytes bytes.Buffer
-  err = tmpl.Execute(&tmplBytes, data)
-  if err != nil {
-      return "", err
-  }
-
-  return tmplBytes.String(), nil
 }

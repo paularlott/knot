@@ -67,7 +67,7 @@ func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
 
 func CallRegisterAgent(client *rest.RESTClient, spaceId string) (*AgentRegisterResponse, int, error) {
   response := &AgentRegisterResponse{}
-  statusCode, err := client.Post(fmt.Sprintf("/api/v1/agents/%s", spaceId), nil, response)
+  statusCode, err := client.Post(fmt.Sprintf("/api/v1/agents/%s", spaceId), nil, response, http.StatusOK)
   return response, statusCode, err
 }
 
@@ -119,6 +119,6 @@ func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServe
     HasTerminal: hasTerminal,
   }
   response := &AgentStatusResponse{}
-  statusCode, err := client.Post(fmt.Sprintf("/api/v1/agents/%s/status", spaceId), request, response)
+  statusCode, err := client.Post(fmt.Sprintf("/api/v1/agents/%s/status", spaceId), request, response, http.StatusOK)
   return statusCode, err
 }

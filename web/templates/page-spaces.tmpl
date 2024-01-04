@@ -54,8 +54,16 @@ function spacesListComponent() {
   return {
     loading: true,
     spaces: [],
+    timerIDs: [],
     async getSpaces() {
       this.loading = true;
+
+      // Clear all timers
+      Object.keys(this.timerIDs).forEach((key) => {
+        clearInterval(this.timerIDs[key]);
+      });
+      this.timerIDs = [];
+
       const response = await fetch('/api/v1/spaces', {
         headers: {
           'Content-Type': 'application/json'
@@ -66,7 +74,7 @@ function spacesListComponent() {
       this.spaces.forEach(space => this.getServiceState(space));
     },
     async getServiceState(space) {
-      setInterval(async () => {
+      this.timerIDs[space.space_id] = setInterval(async () => {
         await fetch(`/api/v1/spaces/${space.space_id}/service-state`, {
           headers: {
             'Content-Type': 'application/json'
@@ -94,12 +102,27 @@ function spacesListComponent() {
         if (response.status === 200) {
            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space started", type: 'success' } }));
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be started", type: 'error' } }));
+          response.json().then((data) => {
+            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be started: " + data.error, type: 'error' } }));
+          });
         }
       });
       this.getSpaces();
     },
     async stopSpace(spaceId) {
+      await fetch(`/api/v1/spaces/${spaceId}/stop`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space stopped", type: 'success' } }));
+        } else {
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be stopped", type: 'error' } }));
+        }
+      });
+      this.getSpaces();
     },
     async deleteSpace(spaceId) {
       await fetch(`/api/v1/spaces/${spaceId}`, {

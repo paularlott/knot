@@ -61,6 +61,7 @@ func CallAgentUpdateAuthorizedKeys(client *rest.RESTClient, sshKey string) bool 
       Key: sshKey,
     },
     response,
+    http.StatusOK,
   )
   return statusCode == http.StatusOK && err == nil && response.Status
 }

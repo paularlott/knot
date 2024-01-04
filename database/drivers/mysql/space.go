@@ -21,7 +21,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
   volumeData, err := json.Marshal(space.VolumeData)
 
   // Assume update
-  result, err := tx.Exec("UPDATE spaces SET name=?, agent_url=?, updated_at=?, shell=?, is_deployed=?, volume_data WHERE space_id=?",
+  result, err := tx.Exec("UPDATE spaces SET name=?, agent_url=?, updated_at=?, shell=?, is_deployed=?, volume_data=? WHERE space_id=?",
     space.Name, space.AgentURL, time.Now().UTC(), space.Shell, space.IsDeployed, volumeData, space.Id,
   )
   if err != nil {
@@ -63,8 +63,9 @@ func (db *MySQLDriver) getSpaces(query string, args ...interface{}) ([]*model.Sp
     var space = &model.Space{}
     var createdAt string
     var updatedAt string
+    var volumeData []byte
 
-    err := rows.Scan(&space.Id, &space.UserId, &space.TemplateId, &space.Name, &space.AgentURL, &createdAt, &updatedAt, &space.Shell, &space.IsDeployed, &space.VolumeData)
+    err := rows.Scan(&space.Id, &space.UserId, &space.TemplateId, &space.Name, &space.AgentURL, &createdAt, &updatedAt, &space.Shell, &space.IsDeployed, &volumeData)
     if err != nil {
       return nil, err
     }
@@ -80,7 +81,7 @@ func (db *MySQLDriver) getSpaces(query string, args ...interface{}) ([]*model.Sp
     }
 
     // Decode volume data
-    err = json.Unmarshal([]byte(space.VolumeData), &space.VolumeData)
+    err = json.Unmarshal(volumeData, &space.VolumeData)
     if err != nil {
       return nil, err
     }

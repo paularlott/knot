@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type CreateSpaceRequest struct {
@@ -90,7 +92,15 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // TODO Delete the volumes
+   // Get the nomad client
+  nomadClient := nomad.NewClient()
+
+  // Delete volumes
+  err = nomadClient.DeleteSpaceVolumes(space)
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
 
   // Delete the agent state
   database.AgentStateRemove(space.Id)
@@ -168,7 +178,11 @@ type SpaceServiceResponse struct {
 func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
   space, err := database.GetInstance().GetSpace(chi.URLParam(r, "space_id"))
   if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    if err.Error() == "agent not found" {
+      rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+    } else {
+      rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    }
     return
   }
 
@@ -187,7 +201,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
   rest.SendJSON(http.StatusOK, w, response)
 }
 
-func HandleGetSpaceStart(w http.ResponseWriter, r *http.Request) {
+func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
 
   space, err := db.GetSpace(chi.URLParam(r, "space_id"))
@@ -202,13 +216,6 @@ func HandleGetSpaceStart(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // Load the user
-  user, err := db.GetUser(space.UserId)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
-
   // Get the template
   template, err := db.GetTemplate(space.TemplateId)
   if err != nil {
@@ -216,28 +223,40 @@ func HandleGetSpaceStart(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // Get the volume definitions
-  volumes, err := template.GetVolumes()
+  // Get the nomad client
+  nomadClient := nomad.NewClient()
+
+  // Create volumes
+  err = nomadClient.CreateSpaceVolumes(template, space)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
   }
 
-  // Find the volumes that are defined but not yet created in the space and create them
+  // TODO deploy the space job
 
-  // TODO store the volume ID + namespace in the space
 
-  // Find the volumes that are created in the space but not defined and delete them
+  w.WriteHeader(http.StatusOK)
+}
 
-  fmt.Println("converting to json")
+func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
+  db := database.GetInstance()
 
-  j, err := volumes.ToJSON(map[string]interface{}{"space_id": space.Id, "user_id": space.UserId, "username": user.Username})
+  space, err := db.GetSpace(chi.URLParam(r, "space_id"))
   if err != nil {
-    fmt.Println(err)
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
     return
   }
-  fmt.Println(j)
+
+  // If the space is not running then fail
+  if !space.IsDeployed {
+    rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space not running"})
+    return
+  }
+
+  // TODO Implement stop logic but leave volumes behind
+  space.IsDeployed = false
+  db.SaveSpace(space)
 
   w.WriteHeader(http.StatusOK)
 }

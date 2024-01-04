@@ -27,6 +27,10 @@ func init() {
   serverCmd.Flags().BoolP("disable-proxy", "", false, "Disable the proxy server functionality.\nOverrides the " + CONFIG_ENV_PREFIX + "_DISABLE_PROXY environment variable if set.")
   serverCmd.Flags().BoolP("terminal-webgl", "", true, "Enable WebGL terminal renderer.\nOverrides the " + CONFIG_ENV_PREFIX + "_WEBGL environment variable if set.")
 
+  // Nomad
+  serverCmd.Flags().StringP("nomad-addr", "", "http://127.0.0.1:4646", "The address of the Nomad server (default \"http://127.0.0.1:4646\").\nOverrides the " + CONFIG_ENV_PREFIX + "_NOMAD_ADDR environment variable if set.")
+  serverCmd.Flags().StringP("nomad-token", "", "", "The token to use for Nomad API requests.\nOverrides the " + CONFIG_ENV_PREFIX + "_NOMAD_TOKEN environment variable if set.")
+
   // MySQL
   serverCmd.Flags().BoolP("mysql-enabled", "", false, "Enable MySQL database backend.\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_ENABLED environment variable if set.")
   serverCmd.Flags().StringP("mysql-host", "", "", "The MySQL host to connect to (default \"localhost\").\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_HOST environment variable if set.")
@@ -70,6 +74,15 @@ var serverCmd = &cobra.Command{
     viper.BindPFlag("server.terminal.webgl", cmd.Flags().Lookup("terminal-webgl"))
     viper.BindEnv("server.terminal.webgl", CONFIG_ENV_PREFIX + "_WEBGL")
     viper.SetDefault("server.terminal.webgl", true)
+
+    // Nomad
+    viper.BindPFlag("server.nomad.addr", cmd.Flags().Lookup("nomad-addr"))
+    viper.BindEnv("server.nomad.addr", CONFIG_ENV_PREFIX + "_NOMAD_ADDR")
+    viper.SetDefault("server.nomad.addr", "http://127.0.0.1:4646")
+
+    viper.BindPFlag("server.nomad.token", cmd.Flags().Lookup("nomad-token"))
+    viper.BindEnv("server.nomad.token", CONFIG_ENV_PREFIX + "_NOMAD_TOKEN")
+    viper.SetDefault("server.nomad.token", "")
 
     // MySQL
     viper.BindPFlag("server.mysql.enabled", cmd.Flags().Lookup("mysql-enabled"))

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -71,7 +72,7 @@ func (c *RESTClient) Get(path string, response interface{}) (int, error) {
   return resp.StatusCode, err
 }
 
-func (c *RESTClient) SendData(method string, path string, request interface{}, response interface{}) (int, error) {
+func (c *RESTClient) SendData(method string, path string, request interface{}, response interface{}, successCode int) (int, error) {
   jsonData, err := json.Marshal(request)
   if err != nil {
     return 0, err
@@ -92,25 +93,36 @@ func (c *RESTClient) SendData(method string, path string, request interface{}, r
   if err != nil {
     return 0, err
   }
-
-  if resp.StatusCode != http.StatusOK {
-    return resp.StatusCode, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-  }
-
   defer resp.Body.Close()
 
-  err = json.NewDecoder(resp.Body).Decode(response)
-  return resp.StatusCode, err
+  if resp.StatusCode != successCode {
+
+    // Get the body as a string and wrap in the error message
+    var bodyBytes []byte
+    if resp.Body != nil {
+      bodyBytes, _ = io.ReadAll(resp.Body)
+    }
+    bodyString := string(bodyBytes)
+
+    return resp.StatusCode, fmt.Errorf("unexpected status code: %d, %w", resp.StatusCode, fmt.Errorf(bodyString))
+  }
+
+  if response == nil {
+    return resp.StatusCode, nil
+  } else {
+    err = json.NewDecoder(resp.Body).Decode(response)
+    return resp.StatusCode, err
+  }
 }
 
-func (c *RESTClient) Post(path string, request interface{}, response interface{}) (int, error) {
-  return c.SendData(http.MethodPost, path, request, response)
+func (c *RESTClient) Post(path string, request interface{}, response interface{}, successCode int) (int, error) {
+  return c.SendData(http.MethodPost, path, request, response, successCode)
 }
 
-func (c *RESTClient) Put(path string, request interface{}, response interface{}) (int, error) {
-  return c.SendData(http.MethodPut, path, request, response)
+func (c *RESTClient) Put(path string, request interface{}, response interface{}, successCode int) (int, error) {
+  return c.SendData(http.MethodPut, path, request, response, successCode)
 }
 
-func (c *RESTClient) Delete(path string, request interface{}, response interface{}) (int, error) {
-  return c.SendData(http.MethodDelete, path, request, response)
+func (c *RESTClient) Delete(path string, request interface{}, response interface{}, successCode int) (int, error) {
+  return c.SendData(http.MethodDelete, path, request, response, successCode)
 }

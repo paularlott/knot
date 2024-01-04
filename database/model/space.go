@@ -6,6 +6,11 @@ import (
 	"github.com/google/uuid"
 )
 
+type SpaceVolume struct {
+  Id string `json:"id"`
+  Namespace string `json:"Namespace"`
+}
+
 // Space object
 type Space struct {
 	Id string `json:"space_id"`
@@ -14,7 +19,7 @@ type Space struct {
   Name string `json:"name"`
   AgentURL string `json:"agent_url"`
   Shell string `json:"shell"`
-  VolumeData string `json:"volume_data"`
+  VolumeData map[string]SpaceVolume `json:"volume_data"`
   IsDeployed bool `json:"is_deployed"`
   CreatedAt time.Time `json:"created_at"`
   UpdatedAt time.Time `json:"updated_at"`
@@ -29,7 +34,7 @@ func NewSpace(name string, userId string, agentURL string, templateId string, sh
     AgentURL: agentURL,
     Shell: shell,
     IsDeployed: false,
-    VolumeData: "",
+    VolumeData: make(map[string]SpaceVolume),
     CreatedAt: time.Now().UTC(),
     UpdatedAt: time.Now().UTC(),
   }
