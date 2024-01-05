@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type RESTClient struct {
@@ -104,6 +106,7 @@ func (c *RESTClient) SendData(method string, path string, request interface{}, r
     }
     bodyString := string(bodyBytes)
 
+    log.Debug().Msgf("rest: %s, error: %s", path, bodyString)
     return resp.StatusCode, fmt.Errorf("unexpected status code: %d, %w", resp.StatusCode, fmt.Errorf(bodyString))
   }
 

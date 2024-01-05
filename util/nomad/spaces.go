@@ -68,9 +68,6 @@ func (client *NomadClient) CreateSpaceVolumes(template *model.Template, space *m
     }
   }
 
-  // FIXME this is a hack to get the space to show as deployed
-  space.IsDeployed = true
-
   // Save the space with the volume data
   err = db.SaveSpace(space)
   if err != nil {
@@ -110,11 +107,76 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 }
 
 func (client *NomadClient) CreateSpaceJob(template *model.Template, space *model.Space) error {
-  // TODO Implement
+
+  log.Debug().Msgf("nomad: creating space job %s", space.Id)
+
+  // Load the user
+  db := database.GetInstance()
+  user, err := db.GetUser(space.UserId)
+  if err != nil {
+    return err
+  }
+
+  // Pre-parse the job to fill out the knot variables
+  jobHCL, err := model.ResolveVariables(template.Job, space, user)
+  if err != nil {
+    return err
+  }
+
+  // Convert job to JSON
+  jobJSON, err := client.ParseJobHCL(jobHCL)
+  if err != nil {
+    log.Debug().Msgf("nomad: creating space job %s, parse error: %s", space.Id, err)
+    return err
+  }
+
+  // Save the namespace and job ID to the space
+  namespace, ok := jobJSON["Namespace"].(string)
+  if !ok {
+    namespace = "default"
+  }
+  space.NomadNamespace = namespace
+  space.NomadJobId = jobJSON["ID"].(string)
+
+  // Launch the job
+  _, err = client.CreateJob(&jobJSON)
+  if err != nil {
+    log.Debug().Msgf("nomad: creating space job %s, error: %s", space.Id, err)
+    return err
+  }
+
+  // Record deployed
+  space.IsDeployed = true
+  err = db.SaveSpace(space)
+  if err != nil {
+    log.Debug().Msgf("nomad: creating space job %s error %s", space.Id, err)
+    return err
+  }
+
+  log.Debug().Msgf("nomad: created space job %s as %s", space.Id, space.NomadJobId)
+
   return nil
 }
 
 func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
-  // TODO Implement
+  log.Debug().Msgf("nomad: deleting space job %s, %s", space.Id, space.NomadJobId)
+
+  _, err := client.DeleteJob(space.NomadJobId, space.NomadNamespace)
+  if err != nil {
+    log.Debug().Msgf("nomad: deleting space job %s, error: %s", space.Id, err)
+    return err
+  }
+
+  space.IsDeployed = false
+
+  db := database.GetInstance()
+  err = db.SaveSpace(space)
+  if err != nil {
+    log.Debug().Msgf("nomad: deleting space job %s error %s", space.Id, err)
+    return err
+  }
+
+  log.Debug().Msgf("nomad: deleted space job %s, %s", space.Id, space.NomadJobId)
+
   return nil
 }

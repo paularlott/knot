@@ -233,8 +233,12 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // TODO deploy the space job
-
+  // Start the job
+  err = nomadClient.CreateSpaceJob(template, space)
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
 
   w.WriteHeader(http.StatusOK)
 }
@@ -254,7 +258,17 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // TODO Implement stop logic but leave volumes behind
+  // Get the nomad client
+  nomadClient := nomad.NewClient()
+
+  // Stop the job
+  err = nomadClient.DeleteSpaceJob(space)
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  // Record the space as not deployed
   space.IsDeployed = false
   db.SaveSpace(space)
 

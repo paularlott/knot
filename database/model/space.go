@@ -19,6 +19,8 @@ type Space struct {
   Name string `json:"name"`
   AgentURL string `json:"agent_url"`
   Shell string `json:"shell"`
+  NomadNamespace string `json:"nomad_namespace"`
+  NomadJobId string `json:"nomad_job_id"`
   VolumeData map[string]SpaceVolume `json:"volume_data"`
   IsDeployed bool `json:"is_deployed"`
   CreatedAt time.Time `json:"created_at"`

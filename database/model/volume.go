@@ -1,9 +1,6 @@
 package model
 
 import (
-	"bytes"
-	"text/template"
-
 	"github.com/paularlott/knot/util"
 
 	"gopkg.in/yaml.v3"
@@ -44,25 +41,12 @@ type Volumes struct {
 func LoadVolumesFromYaml(yamlData string, space *Space, user *User) (*Volumes, error) {
   volumes := &Volumes{}
 
-  // Passe the YAML string through the template engine to resolve variables
-  tmpl, err := template.New("tmpl").Delims("${", "}").Parse(yamlData)
+  yamlData, err := ResolveVariables(yamlData, space, user)
   if err != nil {
     return nil, err
   }
 
-  data := map[string]interface{}{
-    "space_id": space.Id,
-    "user_id": space.UserId,
-    "username": user.Username,
-  }
-
-  var tmplBytes bytes.Buffer
-  err = tmpl.Execute(&tmplBytes, data)
-  if err != nil {
-      return nil, err
-  }
-
-  err = yaml.Unmarshal(tmplBytes.Bytes(), volumes)
+  err = yaml.Unmarshal([]byte(yamlData), volumes)
   if err != nil {
     return nil, err
   }
