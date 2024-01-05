@@ -22,6 +22,9 @@ func (db *BadgerDbDriver) SaveUser(user *model.User) error {
     existingUser, _ := db.GetUser(user.Id)
     if existingUser != nil {
       newUser = false
+
+      // Don't allow username to be changed
+      user.Username = existingUser.Username
     } else {
       user.CreatedAt = time.Now().UTC()
     }
@@ -44,21 +47,13 @@ func (db *BadgerDbDriver) SaveUser(user *model.User) error {
       }
     }
 
-    // If the username changed, check if the new username is unique
-    if newUser || strings.ToLower(user.Username) != strings.ToLower(existingUser.Username) {
+    // Check if the new username is unique
+    if newUser {
       exists, err := db.keyExists(fmt.Sprintf("UsersByUsername:%s", strings.ToLower(user.Username)))
       if err != nil {
         return err
       } else if exists {
         return fmt.Errorf("duplicate username")
-      }
-
-      if !newUser {
-        // Delete the old username
-        err = txn.Delete([]byte(fmt.Sprintf("UsersByUsername:%s", strings.ToLower(existingUser.Username))))
-        if err != nil {
-          return err
-        }
       }
     }
 

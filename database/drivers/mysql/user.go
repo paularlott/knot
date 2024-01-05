@@ -25,8 +25,8 @@ func (db *MySQLDriver) SaveUser(user *model.User) error {
   }
 
   // Assume update
-  result, err := tx.Exec("UPDATE users SET username=?, email=?, password=?, active=?, updated_at=?, last_login_at=?, ssh_public_key=?, roles=?, preferred_shell=? WHERE user_id=?",
-    user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.SSHPublicKey, roles, user.PreferredShell, user.Id,
+  result, err := tx.Exec("UPDATE users SET email=?, password=?, active=?, updated_at=?, last_login_at=?, ssh_public_key=?, roles=?, preferred_shell=? WHERE user_id=?",
+    user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.SSHPublicKey, roles, user.PreferredShell, user.Id,
   )
   if err != nil {
     tx.Rollback()

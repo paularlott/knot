@@ -33,7 +33,7 @@ func (client *NomadClient) CreateSpaceVolumes(template *model.Template, space *m
     if data, ok := space.VolumeData[volume.Name]; !ok || data.Namespace != volume.Namespace {
       // Existing volume then destroy it as in wrong namespace
       if ok {
-        log.Debug().Msgf("nomad: deleting volume %s from wrong namespace", volume.Id)
+        log.Debug().Msgf("nomad: deleting volume %s due to wrong namespace", volume.Id)
         client.DeleteCSIVolume(&data)
         delete(space.VolumeData, volume.Id)
       }
