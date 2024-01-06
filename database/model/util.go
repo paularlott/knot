@@ -15,10 +15,14 @@ func ResolveVariables(srcString string, space *Space, user *User) (string, error
   }
 
   data := map[string]interface{}{
-    "space_id": space.Id,
-    "space_name": space.Name,
-    "user_id": space.UserId,
-    "username": user.Username,
+    "space": map[string]interface{}{
+      "id": space.Id,
+      "name": space.Name,
+    },
+    "user": map[string]interface{}{
+      "id": user.Id,
+      "username": user.Username,
+    },
   }
 
   var tmplBytes bytes.Buffer

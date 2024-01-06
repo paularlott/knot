@@ -33,8 +33,10 @@
             <td>
               <a :href="`/proxy/spaces/${s.name}/code-server/`" :target="`spaces_${s.space_id}_codeserver`" x-show="s.has_code_server"><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" /></a>
               <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" x-show="s.has_terminal" @click="openTerminal(s.name, s.space_id)" style="cursor: pointer;" />
-              <button x-show="!s.is_deployed" @click="startSpace(s.space_id)">Start</button> <button x-show="s.is_deployed" @click="stopSpace(s.space_id)">Stop</button>
-              <button x-show="!s.is_deployed" @click="editSpace(s.space_id)">Edit</button> <button x-show="!s.is_deployed" @click="deleteSpace(s.space_id)" class="danger">Delete</button>
+              <button x-show="!s.is_deployed" x-bind:disabled="s.starting" @click="startSpace(s.space_id); s.starting = true">Start<span x-show="s.starting">ing ...</span></button>
+              <button x-show="s.is_deployed" x-bind:disabled="s.stopping" @click="stopSpace(s.space_id); s.stopping = true">Stop<span x-show="s.stopping">ping ...</span></button>
+              <button x-show="!s.is_deployed" @click="editSpace(s.space_id)">Edit</button>
+              <button x-show="!s.is_deployed" x-bind:disabled="s.deleting" @click="deleteSpace(s.space_id); s.deleting = true" class="danger"><span x-show="!s.deleting">Delete</span><span x-show="s.deleting">Deleting</span></button>
             </td>
           </tr>
         </template>
@@ -71,26 +73,42 @@ function spacesListComponent() {
       });
       this.spaces = await response.json();
       this.loading = false;
-      this.spaces.forEach(space => this.getServiceState(space));
+      this.spaces.forEach(space => {
+        space.starting = false;
+        space.stopping = false;
+        space.deleting = false;
+        this.timerIDs[space.space_id] = setInterval(async () => {
+          await this.fetchServiceState(space);
+        }, 5000);
+      });
     },
-    async getServiceState(space) {
-      this.timerIDs[space.space_id] = setInterval(async () => {
-        await fetch(`/api/v1/spaces/${space.space_id}/service-state`, {
-          headers: {
-            'Content-Type': 'application/json'
+    async fetchServiceState(space, resetStateFlags = false) {
+      await fetch(`/api/v1/spaces/${space.space_id}/service-state`, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((serviceState) => {
+            space.has_code_server = serviceState.has_code_server;
+            space.has_ssh = serviceState.has_ssh;
+            space.is_deployed = serviceState.is_deployed;
+
+            if (resetStateFlags) {
+              space.starting = false;
+              space.stopping = false;
+              space.deleting = false;
+            }
+          });
+        } else {
+          space.has_code_server = space.has_ssh = false;
+
+          // If 404 then remove the space from the array
+          if (response.status === 404) {
+            this.spaces = this.spaces.filter(s => s.space_id !== space.space_id);
           }
-        }).then((response) => {
-          if (response.status === 200) {
-            response.json().then((serviceState) => {
-              space.has_code_server = serviceState.has_code_server;
-              space.has_ssh = serviceState.has_ssh;
-              space.is_deployed = serviceState.is_deployed;
-            });
-          } else {
-            space.has_code_server = space.has_ssh = false;
-          }
-        });
-      }, 5000);
+        }
+      });
     },
     async startSpace(spaceId) {
       await fetch(`/api/v1/spaces/${spaceId}/start`, {
@@ -106,8 +124,12 @@ function spacesListComponent() {
             window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be started: " + data.error, type: 'error' } }));
           });
         }
+      }).catch((error) => {
+        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be started: " + error, type: 'error' } }));
+      }).finally(() => {
+        const space = this.spaces.find(space => space.space_id === spaceId);
+        this.fetchServiceState(space, true);
       });
-      this.getSpaces();
     },
     async stopSpace(spaceId) {
       await fetch(`/api/v1/spaces/${spaceId}/stop`, {
@@ -121,8 +143,12 @@ function spacesListComponent() {
         } else {
           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be stopped", type: 'error' } }));
         }
+      }).catch((error) => {
+        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be stopped: " + error, type: 'error' } }));
+      }).finally(() => {
+        const space = this.spaces.find(space => space.space_id === spaceId);
+        this.fetchServiceState(space, true);
       });
-      this.getSpaces();
     },
     async deleteSpace(spaceId) {
       await fetch(`/api/v1/spaces/${spaceId}`, {
@@ -136,8 +162,12 @@ function spacesListComponent() {
         } else {
           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be deleted", type: 'error' } }));
         }
+      }).catch((error) => {
+        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be deleted: " + error, type: 'error' } }));
+      }).finally(() => {
+        const space = this.spaces.find(space => space.space_id === spaceId);
+        this.getSpaces();
       });
-      this.getSpaces();
     },
   };
 }
