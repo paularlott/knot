@@ -30,9 +30,15 @@ func forwardSSH(dialURL string, token string) {
   }
 
   // Create websocket connection
-  wsConn, _, err := websocket.DefaultDialer.Dial(dialURL, header)
+  wsConn, response, err := websocket.DefaultDialer.Dial(dialURL, header)
   if err != nil {
-    log.Fatal().Msgf("ssh: error while dialing: %s", err.Error())
+
+    // If not autorized then tell user
+    if response != nil && response.StatusCode == http.StatusUnauthorized {
+      log.Fatal().Msgf("ssh: %s", response.Status)
+    } else {
+      log.Fatal().Msgf("ssh: error while dialing: %s", err.Error())
+    }
     os.Exit(1)
   }
 

@@ -20,18 +20,12 @@ import (
 
 func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
   user := r.Context().Value("user").(*model.User)
-  spaceId := chi.URLParam(r, "space_id")
+  spaceName := chi.URLParam(r, "space_name")
 
   // Load the space
   db := database.GetInstance()
-  space, err := db.GetSpace(spaceId)
+  space, err := db.GetSpaceByName(user.Id, spaceName)
   if err != nil {
-    w.WriteHeader(http.StatusNotFound)
-    return
-  }
-
-  // Check user access to the space
-  if space.UserId != user.Id {
     w.WriteHeader(http.StatusNotFound)
     return
   }
@@ -48,7 +42,7 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
     log.Debug().Msg("Sending SSH public key to agent")
 
     // Send the public SSH key to the agent
-    client := rest.NewClient(util.ResolveSRVHttp(space.AgentURL, viper.GetString("server.namespace")), agentState.AccessToken)
+    client := rest.NewClient(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("server.namespace")), agentState.AccessToken)
     if !agentv1.CallAgentUpdateAuthorizedKeys(client, user.SSHPublicKey) {
       log.Debug().Msg("Failed to send SSH public key to agent")
       w.WriteHeader(http.StatusInternalServerError)
@@ -57,7 +51,7 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
   }
 
   // Look up the IP + Port from consul / DNS
-  target, _ := url.Parse(fmt.Sprintf("%s/tcp/%d", strings.TrimSuffix(util.ResolveSRVHttp(space.AgentURL, viper.GetString("agent.nameserver")), "/"), agentState.SSHPort))
+  target, _ := url.Parse(fmt.Sprintf("%s/tcp/%d", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), agentState.SSHPort))
   proxy := httputil.NewSingleHostReverseProxy(target)
 
   originalDirector := proxy.Director
@@ -66,7 +60,7 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
     r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
   }
 
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/ssh", spaceId))
+  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/ssh", spaceName))
 
   proxy.ServeHTTP(w, r)
 }

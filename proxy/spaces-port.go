@@ -17,19 +17,13 @@ import (
 
 func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
   user := r.Context().Value("user").(*model.User)
-  spaceId := chi.URLParam(r, "space_id")
+  spaceName := chi.URLParam(r, "space_name")
   port := chi.URLParam(r, "port")
 
   // Load the space
   db := database.GetInstance()
-  space, err := db.GetSpace(spaceId)
+  space, err := db.GetSpaceByName(user.Id, spaceName)
   if err != nil {
-    w.WriteHeader(http.StatusNotFound)
-    return
-  }
-
-  // Check user access to the space
-  if space.UserId != user.Id {
     w.WriteHeader(http.StatusNotFound)
     return
   }
@@ -42,7 +36,7 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
   }
 
   // Look up the IP + Port from consul / DNS
-  target, _ := url.Parse(fmt.Sprintf("%s/tcp/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.AgentURL, viper.GetString("agent.nameserver")), "/"), port))
+  target, _ := url.Parse(fmt.Sprintf("%s/tcp/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), port))
   proxy := httputil.NewSingleHostReverseProxy(target)
 
   originalDirector := proxy.Director

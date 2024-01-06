@@ -41,7 +41,7 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
   }
 
   // Look up the IP + Port from consul / DNS
-  target, _ := url.Parse(fmt.Sprintf("%s/code-server/", strings.TrimSuffix(util.ResolveSRVHttp(space.AgentURL, viper.GetString("agent.nameserver")), "/")))
+  target, _ := url.Parse(fmt.Sprintf("%s/code-server/", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/")))
   proxy := httputil.NewSingleHostReverseProxy(target)
 
   originalDirector := proxy.Director

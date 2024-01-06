@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,4 +43,12 @@ func NewSpace(name string, userId string, agentURL string, templateId string, sh
   }
 
   return space
+}
+
+func (space *Space) GetAgentURL() string {
+  if space.AgentURL == "" {
+    return fmt.Sprintf("srv+http://%s.service.consul", space.Id)
+  } else {
+    return space.AgentURL
+  }
 }

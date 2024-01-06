@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/websocket"
 	"github.com/paularlott/knot/util"
@@ -43,10 +44,18 @@ func forwardTCP(dialURL string, token string, listen string) {
 		}
 
     // Create websocket connection
-    wsConn, _, err := websocket.DefaultDialer.Dial(dialURL, header)
+    wsConn, response, err := websocket.DefaultDialer.Dial(dialURL, header)
     if err != nil {
+      if response != nil && response.StatusCode == http.StatusUnauthorized {
+        log.Fatal().Msgf("tcp: %s", response.Status)
+      } else if response != nil && response.StatusCode == http.StatusForbidden {
+        log.Fatal().Msgf("tcp: proxy of remote port is not allowed")
+      } else {
+        log.Fatal().Msgf("tcp: error while dialing: %s", err.Error())
+      }
+
       tcpConn.Close()
-      log.Fatal().Msgf("tcp: error while dialing: %s", err.Error())
+      os.Exit(1)
     }
     copier := util.NewCopier(tcpConn, wsConn)
     go copier.Run()

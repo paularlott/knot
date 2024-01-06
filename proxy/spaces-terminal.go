@@ -42,7 +42,7 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
   }
 
   // Look up the IP + Port from consul / DNS
-  target, _ := url.Parse(fmt.Sprintf("%s/terminal/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.AgentURL, viper.GetString("agent.nameserver")), "/"), shell))
+  target, _ := url.Parse(fmt.Sprintf("%s/terminal/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), shell))
   proxy := httputil.NewSingleHostReverseProxy(target)
 
   originalDirector := proxy.Director

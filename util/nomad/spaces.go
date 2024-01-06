@@ -126,7 +126,7 @@ func (client *NomadClient) CreateSpaceJob(template *model.Template, space *model
   // Convert job to JSON
   jobJSON, err := client.ParseJobHCL(jobHCL)
   if err != nil {
-    log.Debug().Msgf("nomad: creating space job %s, parse error: %s", space.Id, err)
+    log.Error().Msgf("nomad: creating space job %s, parse error: %s", space.Id, err)
     return err
   }
 
@@ -141,7 +141,7 @@ func (client *NomadClient) CreateSpaceJob(template *model.Template, space *model
   // Launch the job
   _, err = client.CreateJob(&jobJSON)
   if err != nil {
-    log.Debug().Msgf("nomad: creating space job %s, error: %s", space.Id, err)
+    log.Error().Msgf("nomad: creating space job %s, error: %s", space.Id, err)
     return err
   }
 
@@ -149,7 +149,7 @@ func (client *NomadClient) CreateSpaceJob(template *model.Template, space *model
   space.IsDeployed = true
   err = db.SaveSpace(space)
   if err != nil {
-    log.Debug().Msgf("nomad: creating space job %s error %s", space.Id, err)
+    log.Error().Msgf("nomad: creating space job %s error %s", space.Id, err)
     return err
   }
 

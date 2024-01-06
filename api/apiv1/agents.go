@@ -41,7 +41,7 @@ func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
     }
 
     // Ping the existing agent to see if it's alive
-    client := rest.NewClient(util.ResolveSRVHttp(space.AgentURL, viper.GetString("server.namespace")), state.AccessToken)
+    client := rest.NewClient(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("server.namespace")), state.AccessToken)
     if agentv1.CallAgentPing(client) {
       log.Debug().Msgf("agent already registered for space %s and is alive", spaceId)
       rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "agent already registered for space"})
