@@ -17,13 +17,19 @@ import (
 
 func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
   user := r.Context().Value("user").(*model.User)
-  spaceName := chi.URLParam(r, "space_name")
+  spaceId := chi.URLParam(r, "space_id")
   port := chi.URLParam(r, "port")
 
   // Load the space
   db := database.GetInstance()
-  space, err := db.GetSpaceByName(user.Id, spaceName)
+  space, err := db.GetSpace(spaceId)
   if err != nil {
+    w.WriteHeader(http.StatusNotFound)
+    return
+  }
+
+  // Check user access to the space
+  if space.UserId != user.Id {
     w.WriteHeader(http.StatusNotFound)
     return
   }

@@ -31,8 +31,8 @@
             <td x-text="s.name"></td>
             <td x-text="s.template_name"></td>
             <td>
-              <a :href="`/proxy/spaces/${s.name}/code-server/`" :target="`spaces_${s.space_id}_codeserver`" x-show="s.has_code_server"><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" /></a>
-              <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" x-show="s.has_terminal" @click="openTerminal(s.name, s.space_id)" style="cursor: pointer;" />
+              <a :href="`/proxy/spaces/${s.space_id}/code-server/`" :target="`spaces_${s.space_id}_codeserver`" x-show="s.has_code_server"><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" /></a>
+              <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" x-show="s.has_terminal" @click="openTerminal(s.space_id)" style="cursor: pointer;" />
               <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="startSpace(s.space_id); s.starting = true">Start<span x-show="s.starting">ing ...</span></button>
               <button x-show="s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="stopSpace(s.space_id); s.stopping = true">Stop<span x-show="s.stopping">ping ...</span></button>
               <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="editSpace(s.space_id)">Edit</button>

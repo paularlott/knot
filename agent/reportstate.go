@@ -43,6 +43,8 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
       }
     }
 
+    log.Debug().Msgf("Report agent state to server: SSH %d, Code Server %d, Code Server Alive %t", sshAlivePort, codeServerPort, codeServerAlive)
+
     client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), middleware.AgentSpaceKey)
     statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort, viper.GetBool("agent.enable-terminal"))
     if err != nil {
@@ -53,6 +55,6 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
       Register(serverAddr, nameserver, spaceId)
     }
 
-    time.Sleep(2 * time.Second) // TODO make this configurable or at least set a sane amount of time
+    time.Sleep(5 * time.Second) // TODO make this configurable or at least set a sane amount of time
   }
 }

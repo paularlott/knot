@@ -50,7 +50,6 @@ func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
     }
   }
 
-  log.Debug().Msgf("registering agent for space %s", spaceId)
   var token = uuid.New().String()
   database.AgentStateSet(spaceId, &database.AgentState{
     AccessToken: token,

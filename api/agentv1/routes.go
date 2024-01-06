@@ -21,15 +21,16 @@ func Routes(cmd *cobra.Command) chi.Router {
 
   router := chi.NewRouter()
 
+  // Ping needs to be public so nomad can monitor the health of the agent
+  router.Get("/ping", HandleAgentPing)
+
   // Group routes that require authentication
   router.Group(func(router chi.Router) {
     router.Use(middleware.AgentApiAuth)
 
-    // Core
-    router.Get("/ping", HandleAgentPing)
-
     // If SSH port given
     if viper.GetInt("agent.port.ssh") > 0 {
+      log.Info().Msg("Enabling update authorized keys")
       router.Post("/update-authorized-keys", HandleAgentUpdateAuthorizedKeys)
     }
 

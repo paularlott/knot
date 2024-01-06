@@ -7,10 +7,13 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -24,6 +27,8 @@ var (
 )
 
 func Routes() chi.Router {
+  log.Info().Msg("server: adding routes")
+
   router := chi.NewRouter()
 
   // Page not found
@@ -62,7 +67,7 @@ func Routes() chi.Router {
     router.Get("/sessions", HandleSimplePage)
     router.Get("/logout", HandleLogoutPage)
 
-    router.Get("/terminal/{space_name:^[a-zA-Z][a-zA-Z0-9\\-]{1,63}$}", HandleTerminalPage)
+    router.Get("/terminal/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTerminalPage)
 
     router.Route("/api-tokens", func(router chi.Router) {
       router.Get("/", HandleSimplePage)
@@ -73,7 +78,6 @@ func Routes() chi.Router {
     router.Route("/spaces", func(router chi.Router) {
       router.Get("/", HandleSimplePage)
       router.Get("/create", HandleSpacesCreate)
-//      router.Get("/edit/{agent_id}", HandleAgentEditPage)
     })
 
     router.Route("/templates", func(router chi.Router) {
@@ -91,6 +95,17 @@ func Routes() chi.Router {
   }
   router.Get("/login", HandleLoginPage)
   router.Get("/health", HandleHealthPage)
+
+  // If download path set then enable serving of the download folder
+  downloadPath := viper.GetString("server.download_path")
+  if downloadPath != "" {
+    log.Info().Msgf("server: enabling download endpoint, source folder %s", downloadPath)
+
+    router.Get("/download/*", func(w http.ResponseWriter, r *http.Request) {
+      filePath := r.URL.Path[len("/download/"):]
+      http.ServeFile(w, r, filepath.Join(downloadPath, filePath))
+    })
+  }
 
   return router
 }

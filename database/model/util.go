@@ -3,6 +3,8 @@ package model
 import (
 	"bytes"
 	"text/template"
+
+	"github.com/spf13/viper"
 )
 
 // Parse an input string and resolve knot variables
@@ -22,6 +24,9 @@ func ResolveVariables(srcString string, space *Space, user *User) (string, error
     "user": map[string]interface{}{
       "id": user.Id,
       "username": user.Username,
+    },
+    "server": map[string]interface{}{
+      "url": viper.GetString("server.url"),
     },
   }
 

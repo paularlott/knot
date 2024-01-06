@@ -28,7 +28,7 @@ window.initializeTerminal = function(options) {
   }
 
   var protocol = (location.protocol === "https:") ? "wss://" : "ws://";
-  var url = protocol + location.host + "/proxy/spaces/" + options.spaceName + "/terminal/" + options.shell;
+  var url = protocol + location.host + "/proxy/spaces/" + options.spaceId + "/terminal/" + options.shell;
   var ws = new WebSocket(url);
 
   var attachAddon = new AttachAddon(ws);

@@ -5,8 +5,8 @@ window.validate = validate;
 
 Alpine.start()
 
-window.openTerminal = function(space, spaceId) {
-  window.open('/terminal/' + space, 'spaces_' + spaceId + '_terminal', 'width=800,height=500');
+window.openTerminal = function(spaceId) {
+  window.open('/terminal/' + spaceId, 'spaces_' + spaceId + '_terminal', 'width=800,height=500');
   return false;
 }
 

@@ -24,9 +24,9 @@ func init() {
   agentCmd.Flags().StringP("server", "s", "", "The address of the server to connect to.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_SERVER environment variable if set.")
   agentCmd.Flags().StringP("space-id", "", "", "The ID of the space the agent is providing.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_SPACEID environment variable if set.")
   agentCmd.Flags().StringP("nameserver", "n", "", "The nameserver to use for SRV lookups (default use system resolver).\nOverrides the " + command.CONFIG_ENV_PREFIX + "_NAMESERVER environment variable if set.")
-  agentCmd.Flags().StringP("listen", "l", "127.0.0.1:3000", "The address and port to listen on.")
-  agentCmd.Flags().IntP("code-server", "", 0, "The port code-server is running on.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_CODE_SERVER environment variable if set.")
-  agentCmd.Flags().IntP("ssh", "", 0, "The port sshd is running on.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_SSH environment variable if set.")
+  agentCmd.Flags().StringP("listen", "l", "0.0.0.0:3000", "The address and port to listen on.")
+  agentCmd.Flags().IntP("code-server-port", "", 0, "The port code-server is running on.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_CODE_SERVER_PORT environment variable if set.")
+  agentCmd.Flags().IntP("ssh-port", "", 0, "The port sshd is running on.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_SSH_PORT environment variable if set.")
   agentCmd.Flags().StringSliceP("tcp-port", "p", []string{}, "Can be specified multiple times to give the list of TCP ports to be exposed to the client.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_TCP_PORT environment variable if set.")
   agentCmd.Flags().BoolP("update-authorized-keys", "", true, "If given then the agent will update the authorized_keys file with the SSH public key of the user.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_UPDATE_AUTHORIZED_KEYS environment variable if set.")
   agentCmd.Flags().BoolP("enable-terminal", "", true, "If given then the agent will enable the web terminal.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_ENABLE_TERMINAL environment variable if set.")
@@ -57,14 +57,14 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
     viper.BindPFlag("agent.listen", cmd.Flags().Lookup("listen"))
     viper.BindEnv("agent.listen", command.CONFIG_ENV_PREFIX + "_LISTEN")
-    viper.SetDefault("agent.listen", "127.0.0.1:3000")
+    viper.SetDefault("agent.listen", "0.0.0.0:3000")
 
-    viper.BindPFlag("agent.port.code-server", cmd.Flags().Lookup("code-server"))
-    viper.BindEnv("agent.port.code-server", command.CONFIG_ENV_PREFIX + "_CODE_SERVER")
+    viper.BindPFlag("agent.port.code-server", cmd.Flags().Lookup("code-server-port"))
+    viper.BindEnv("agent.port.code-server", command.CONFIG_ENV_PREFIX + "_CODE_SERVER_PORT")
     viper.SetDefault("agent.port.code-server", "0")
 
-    viper.BindPFlag("agent.port.ssh", cmd.Flags().Lookup("ssh"))
-    viper.BindEnv("agent.port.ssh", command.CONFIG_ENV_PREFIX + "_SSH")
+    viper.BindPFlag("agent.port.ssh", cmd.Flags().Lookup("ssh-port"))
+    viper.BindEnv("agent.port.ssh", command.CONFIG_ENV_PREFIX + "_SSH_PORT")
     viper.SetDefault("agent.port.ssh", "0")
 
     viper.BindPFlag("agent.port.tcp-port", cmd.Flags().Lookup("tcp-port"))

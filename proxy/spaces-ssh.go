@@ -20,12 +20,18 @@ import (
 
 func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
   user := r.Context().Value("user").(*model.User)
-  spaceName := chi.URLParam(r, "space_name")
+  spaceId := chi.URLParam(r, "space_id")
 
   // Load the space
   db := database.GetInstance()
-  space, err := db.GetSpaceByName(user.Id, spaceName)
+  space, err := db.GetSpace(spaceId)
   if err != nil {
+    w.WriteHeader(http.StatusNotFound)
+    return
+  }
+
+  // Check user access to the space
+  if space.UserId != user.Id {
     w.WriteHeader(http.StatusNotFound)
     return
   }
@@ -60,7 +66,7 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
     r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
   }
 
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/ssh", spaceName))
+  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/ssh", spaceId))
 
   proxy.ServeHTTP(w, r)
 }

@@ -12,13 +12,19 @@ import (
 )
 
 func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
-  spaceName := chi.URLParam(r, "space_name")
+  spaceId := chi.URLParam(r, "space_id")
   user := r.Context().Value("user").(*model.User)
 
   // Load the space
   db := database.GetInstance()
-  space, err := db.GetSpaceByName(user.Id, spaceName)
+  space, err := db.GetSpace(spaceId)
   if err != nil {
+    showPageNotFound(w, r)
+    return
+  }
+
+  // Check if the user has access to the space
+  if space.UserId != user.Id {
     showPageNotFound(w, r)
     return
   }
@@ -40,7 +46,7 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
   data := map[string]interface{}{
     "shell": space.Shell,
     "renderer": renderer,
-    "spaceName": spaceName,
+    "spaceId": spaceId,
   }
 
   err = tmpl.Execute(w, data)

@@ -16,13 +16,19 @@ import (
 )
 
 func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
-  spaceName := chi.URLParam(r, "space_name")
+  spaceId := chi.URLParam(r, "space_id")
   user := r.Context().Value("user").(*model.User)
 
   // Load the space
   db := database.GetInstance()
-  space, err := db.GetSpaceByName(user.Id, spaceName)
+  space, err := db.GetSpace(spaceId)
   if err != nil {
+    w.WriteHeader(http.StatusNotFound)
+    return
+  }
+
+  // Check user access to the space
+  if space.UserId != user.Id {
     w.WriteHeader(http.StatusNotFound)
     return
   }
@@ -44,7 +50,7 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
     r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
   }
 
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/code-server", spaceName))
+  r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/code-server", spaceId))
 
   proxy.ServeHTTP(w, r)
 }
