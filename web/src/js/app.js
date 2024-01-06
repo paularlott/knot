@@ -10,6 +10,13 @@ window.openTerminal = function(spaceId) {
   return false;
 }
 
+window.openCodeServer = function(spaceId) {
+  const maxWidth = Math.min(window.innerWidth, 1440);
+  const maxHeight = window.innerHeight;
+  window.open('/proxy/spaces/' + spaceId + '/code-server/', 'spaces_' + spaceId + '_code_server', 'width=' + maxWidth + ',height=' + maxHeight);
+  return false;
+}
+
 /// wysiwyg editor
 import 'ace-builds/src-noconflict/ace';
 import 'ace-builds/src-noconflict/mode-terraform';

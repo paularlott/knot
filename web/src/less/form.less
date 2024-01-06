@@ -74,7 +74,7 @@ body.light {
 input[type="submit"], button, .button {
   .standardFont;
   .user-select();
-  color: @buttonColor !important;
+  color: @buttonColor;
   background-color: @buttonBackgroundColor;
   border: none;
   border-radius: .5rem;
@@ -104,11 +104,37 @@ button, .button {
     position: relative;
     top: .125rem;
   }
+
+  &.outline {
+    color: @darkFontColor;
+    background-color: transparent;
+    border: 1px solid @darkBorderColor;
+
+    &:hover {
+      background-color: @darkBorderColor;
+    }
+  }
+}
+
+body.light {
+  button, .button {
+    color: @buttonColor;
+
+    &.outline {
+      color: @lightFontColor;
+      background-color: transparent;
+      border: 1px solid @lightBorderColor;
+
+      &:hover {
+        background-color: @lightBorderColor;
+      }
+    }
+  }
 }
 
 td input[type="submit"], td button {
   .standardFont;
-  .fontSizeClamp(.75, .85);
+  .fontSizeClamp(.85, .95);
   width: auto;
   padding: .5rem .75rem;
 }

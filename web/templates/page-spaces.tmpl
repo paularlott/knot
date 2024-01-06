@@ -31,12 +31,15 @@
             <td x-text="s.name"></td>
             <td x-text="s.template_name"></td>
             <td>
-              <a :href="`/proxy/spaces/${s.space_id}/code-server/`" :target="`spaces_${s.space_id}_codeserver`" x-show="s.has_code_server"><img src="icons/vscode.svg" alt="VSCode" style="max-height: 40px;" /></a>
-              <img src="icons/terminal.svg" alt="Terminal" style="max-height: 40px;" x-show="s.has_terminal" @click="openTerminal(s.space_id)" style="cursor: pointer;" />
-              <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="startSpace(s.space_id); s.starting = true">Start<span x-show="s.starting">ing ...</span></button>
-              <button x-show="s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="stopSpace(s.space_id); s.stopping = true">Stop<span x-show="s.stopping">ping ...</span></button>
-              <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="editSpace(s.space_id)">Edit</button>
-              <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="deleteSpace(s.space_id); s.deleting = true" class="danger"><span x-show="!s.deleting">Delete</span><span x-show="s.deleting">Deleting</span></button>
+              <span x-show="s.is_deployed && !s.is_stopping">
+                <button class="outline" x-show="s.has_ssh"><i class='bx bxs-terminal' ></i> SSH</button>
+                <button class="outline" x-show="s.has_code_server" @click="openCodeServer(s.space_id)"><i class='bx bx-code-alt' ></i> Code Server</button>
+                <button class="outline" x-show="s.has_terminal" @click="openTerminal(s.space_id)"><i class='bx bx-terminal'></i> Terminal</button>
+              </span>
+              <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="startSpace(s.space_id); s.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="s.starting">ing ...</span></button>
+              <button x-show="s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="stopSpace(s.space_id); s.stopping = true"><i class='bx bx-stop-circle' ></i> Stop<span x-show="s.stopping">ping ...</span></button>
+              <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="editSpace(s.space_id)"><i class='bx bx-edit' ></i> Edit</button>
+              <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="deleteSpace(s.space_id); s.deleting = true" class="danger"><span x-show="!s.deleting"><i class='bx bx-error-circle' ></i> Delete</span><span x-show="s.deleting">Deleting</span></button>
             </td>
           </tr>
         </template>
@@ -92,6 +95,7 @@ function spacesListComponent() {
           response.json().then((serviceState) => {
             space.has_code_server = serviceState.has_code_server;
             space.has_ssh = serviceState.has_ssh;
+            space.has_terminal = serviceState.has_terminal;
             space.is_deployed = serviceState.is_deployed;
 
             if (resetStateFlags) {
@@ -101,7 +105,7 @@ function spacesListComponent() {
             }
           });
         } else {
-          space.has_code_server = space.has_ssh = false;
+          space.has_code_server = space.has_ssh = space.has_terminal = false;
 
           // If 404 then remove the space from the array
           if (response.status === 404) {

@@ -172,6 +172,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 type SpaceServiceResponse struct {
   HasCodeServer bool `json:"has_code_server"`
   HasSSH bool `json:"has_ssh"`
+  HasTerminal bool `json:"has_terminal"`
   IsDeployed bool `json:"is_deployed"`
 }
 
@@ -191,9 +192,11 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
   if !ok {
     response.HasCodeServer = false
     response.HasSSH = false
+    response.HasTerminal = false
   } else {
     response.HasCodeServer = state.HasCodeServer
     response.HasSSH = state.SSHPort > 0
+    response.HasTerminal = state.HasTerminal
   }
 
   response.IsDeployed = space.IsDeployed
