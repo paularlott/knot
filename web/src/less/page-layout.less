@@ -151,7 +151,7 @@ body.light {
   }
 }
 
-.space-menu-popup {
+.space-menu-popup, .space-id-popup {
   color: @darkFontColor;
   background-color: @darkBorderColor;
   border: 1px solid @darkBorderColor;
@@ -174,9 +174,28 @@ body.light {
 }
 
 body.light {
-  .space-menu-popup {
+  .space-menu-popup, .space-id-popup {
     color: @lightFontColor;
     background-color: @lightBorderColor;
     border-color: @lightBorderColor;
+  }
+}
+
+button.show-id {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 5rem;
+  display: block;
+}
+
+.space-id-popup {
+  left: .5rem;
+  right: initial;
+  width: auto;
+  white-space: nowrap;
+
+  input {
+    width: 25em;
   }
 }

@@ -16,7 +16,7 @@
   <table class="action" x-show="!loading" x-cloak>
     <thead>
     <tr>
-      <th>Space ID</th>
+      <th class="id-col">Space ID</th>
       <th>Name</th>
       <th>Template</th>
       <th>&nbsp;</th>
@@ -25,7 +25,12 @@
     <tbody>
     <template x-for="s in spaces" :key="s.space_id">
       <tr>
-        <td x-text="s.space_id" class="no-wrap"></td>
+        <td class="id-col">
+          <button @click="s.showIdPopup = true" class="show-id" x-text="s.space_id"></button>
+          <div x-show="s.showIdPopup" @click.away="s.showIdPopup = false" @keydown.window.escape="s.showIdPopup = false" class="space-id-popup">
+            <input type="text" x-model="s.space_id" readonly>
+          </div>
+        </td>
         <td x-text="s.name"></td>
         <td x-text="s.template_name"></td>
         <td>
@@ -81,6 +86,7 @@ function spacesListComponent() {
         space.stopping = false;
         space.deleting = false;
         space.showMenu = false;
+        space.showIdPopup = false;
         this.timerIDs[space.space_id] = setInterval(async () => {
           await this.fetchServiceState(space);
         }, 5000);
