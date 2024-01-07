@@ -1,13 +1,17 @@
+{{ if .isEdit }}
+{{ template "metaHead" (map "PageTitle" "Edit Space") }}
+{{ else }}
 {{ template "metaHead" (map "PageTitle" "Create Space") }}
+{{ end }}
 {{ template "beforeContent" . }}
 
 <div class="content">
   <div class="row">
     <div class="col-sm-6 col-sm-offset-3">
       <div class="box">
-        <h2>Create Space</h2>
+        <h2>{{ if .isEdit }}Edit Space{{ else }}Create Space{{ end }}</h2>
 
-        <div x-data="createSpaceForm()">
+        <div x-data="spaceForm()">
           <form action="" method="POST" @submit.prevent="submitData">
             <dl>
               <dt><label for="name">Space Name <em>*</em></label></dt>
@@ -56,16 +60,18 @@
 
 <script>
 
-function createSpaceForm() {
+function spaceForm() {
+  var isEdit = "{{ .isEdit }}" == 'true';
+
   return {
     formData: {
-      name: "",
-      template_id: "",
-      agent_url: "",
+      name: "{{ .spaceName }}",
+      template_id: "{{ .templateId }}",
+      agent_url: "{{ .agentUrl }}",
       shell: "{{ .preferredShell }}",
     },
     loading: false,
-    buttonLabel: 'Create Space',
+    buttonLabel: isEdit ? 'Update Space' : 'Create Space',
     nameValid: true,
     addressValid: true,
     checkName() {
@@ -85,10 +91,10 @@ function createSpaceForm() {
         return;
       }
 
-      this.buttonLabel = 'Creating space...'
+      this.buttonLabel = isEdit ? 'Updating space...' : 'Creating space...'
       this.loading = true;
 
-      fetch('/api/v1/spaces', {
+      fetch(isEdit ? '/api/v1/spaces/{{ .spaceId }}' : '/api/v1/spaces', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -96,7 +102,9 @@ function createSpaceForm() {
           body: JSON.stringify(this.formData)
         })
         .then((response) => {
-          if (response.status === 201) {
+          if (response.status === 200) {
+            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space updated", type: 'success' } }));
+          } else if (response.status === 201) {
             window.location.href = '/spaces';
           } else {
             response.json().then((data) => {
@@ -108,7 +116,7 @@ function createSpaceForm() {
           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
         })
         .finally(() => {
-          this.buttonLabel = 'Create Space';
+          this.buttonLabel = isEdit ? 'Update Space' : 'Create Space';
           this.loading = false;
         })
     },

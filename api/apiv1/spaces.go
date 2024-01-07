@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type CreateSpaceRequest struct {
+type SpaceRequest struct {
   Name string `json:"name"`
   TemplateId string `json:"template_id"`
   AgentURL string `json:"agent_url"`
@@ -116,7 +116,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
-  request := CreateSpaceRequest{}
+  request := SpaceRequest{}
 
   err := rest.BindJSON(w, r, &request)
   if err != nil {
@@ -151,7 +151,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
   user := r.Context().Value("user").(*model.User)
 
-  // Create the agent
+  // Create the space
   space := model.NewSpace(request.Name, user.Id, request.AgentURL, request.TemplateId, request.Shell)
   err = database.GetInstance().SaveSpace(space)
   if err != nil {
@@ -283,6 +283,69 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
   // Record the space as not deployed
   space.IsDeployed = false
   db.SaveSpace(space)
+
+  w.WriteHeader(http.StatusOK)
+}
+
+
+func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
+  db := database.GetInstance()
+  user := r.Context().Value("user").(*model.User)
+
+  space, err := db.GetSpace(chi.URLParam(r, "space_id"))
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  if space.UserId != user.Id {
+    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
+    return
+  }
+
+  request := SpaceRequest{}
+  err = rest.BindJSON(w, r, &request)
+  if err != nil {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  // If template given then ensure the address is removed
+  if request.TemplateId != "" {
+    request.AgentURL = ""
+  } else {
+    request.TemplateId = model.MANUAL_TEMPLATE_ID
+  }
+
+  if(!validate.Name(request.Name) || (request.TemplateId == model.MANUAL_TEMPLATE_ID && !validate.Uri(request.AgentURL))) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name, template, or address given for new space"})
+    return
+  }
+  if(!validate.OneOf(request.Shell, []string{"bash", "zsh", "fish", "sh"})) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid shell given for space"})
+    return
+  }
+
+  if(request.TemplateId != model.MANUAL_TEMPLATE_ID) {
+    // Lookup the template
+    _, err := database.GetInstance().GetTemplate(request.TemplateId)
+    if err != nil {
+      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
+      return
+    }
+  }
+
+  // Update the space
+  space.Name = request.Name
+  space.TemplateId = request.TemplateId
+  space.AgentURL = request.AgentURL
+  space.Shell = request.Shell
+
+  err = db.SaveSpace(space)
+  if err != nil {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+    return
+  }
 
   w.WriteHeader(http.StatusOK)
 }

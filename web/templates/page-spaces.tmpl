@@ -221,6 +221,9 @@ function spacesListComponent() {
         this.getSpaces();
       });
     },
+    editSpace(spaceId) {
+      window.location.href = `/spaces/edit/${spaceId}`;
+    },
   };
 }
 </script>

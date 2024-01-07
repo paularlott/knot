@@ -21,3 +21,38 @@ delete:
       $ref: "../responses/internal-server-error.yaml"
   security:
     - BearerAuth: []
+
+post:
+  summary: Update a Space
+  description: Update a space for the authenticated user.
+  operationId: updateSpace
+  tags:
+    - Spaces
+  parameters:
+    - name: space_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+            agent_url:
+              type: string
+            template_id:
+              type: string
+            shell:
+              type: string
+  responses:
+    '200':
+      description: Space update successfully
+    '400':
+      $ref: "../responses/bad-request.yaml"
+  security:
+    - BearerAuth: []
