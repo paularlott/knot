@@ -28,6 +28,11 @@ func ResolveVariables(srcString string, space *Space, user *User) (string, error
     "server": map[string]interface{}{
       "url": viper.GetString("server.url"),
     },
+    "registry": map[string]interface{}{
+      "address": viper.GetString("server.registry.address"),
+      "username": viper.GetString("server.registry.username"),
+      "password": viper.GetString("server.registry.password"),
+    },
   }
 
   var tmplBytes bytes.Buffer

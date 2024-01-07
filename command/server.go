@@ -32,6 +32,11 @@ func init() {
   serverCmd.Flags().StringP("nomad-addr", "", "http://127.0.0.1:4646", "The address of the Nomad server (default \"http://127.0.0.1:4646\").\nOverrides the " + CONFIG_ENV_PREFIX + "_NOMAD_ADDR environment variable if set.")
   serverCmd.Flags().StringP("nomad-token", "", "", "The token to use for Nomad API requests.\nOverrides the " + CONFIG_ENV_PREFIX + "_NOMAD_TOKEN environment variable if set.")
 
+  // Registry
+  serverCmd.Flags().StringP("registry-address", "", "", "The address of the registry server (default \"\").\nOverrides the " + CONFIG_ENV_PREFIX + "_REGISTRY_ADDRESS environment variable if set.")
+  serverCmd.Flags().StringP("registry-username", "", "", "The user to use for registry API requests.\nOverrides the " + CONFIG_ENV_PREFIX + "_REGISTRY_USERNAME environment variable if set.")
+  serverCmd.Flags().StringP("registry-password", "", "", "The password to use for registry API requests.\nOverrides the " + CONFIG_ENV_PREFIX + "_REGISTRY_PASSWORD environment variable if set.")
+
   // MySQL
   serverCmd.Flags().BoolP("mysql-enabled", "", false, "Enable MySQL database backend.\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_ENABLED environment variable if set.")
   serverCmd.Flags().StringP("mysql-host", "", "", "The MySQL host to connect to (default \"localhost\").\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_HOST environment variable if set.")
@@ -88,6 +93,19 @@ var serverCmd = &cobra.Command{
     viper.BindPFlag("server.nomad.token", cmd.Flags().Lookup("nomad-token"))
     viper.BindEnv("server.nomad.token", CONFIG_ENV_PREFIX + "_NOMAD_TOKEN")
     viper.SetDefault("server.nomad.token", "")
+
+    // Registry
+    viper.BindPFlag("server.registry.address", cmd.Flags().Lookup("registry-address"))
+    viper.BindEnv("server.registry.address", CONFIG_ENV_PREFIX + "_REGISTRY_ADDRESS")
+    viper.SetDefault("server.registry.address", "")
+
+    viper.BindPFlag("server.registry.username", cmd.Flags().Lookup("registry-username"))
+    viper.BindEnv("server.registry.username", CONFIG_ENV_PREFIX + "_REGISTRY_USERNAME")
+    viper.SetDefault("server.registry.username", "")
+
+    viper.BindPFlag("server.registry.password", cmd.Flags().Lookup("registry-password"))
+    viper.BindEnv("server.registry.password", CONFIG_ENV_PREFIX + "_REGISTRY_PASSWORD")
+    viper.SetDefault("server.registry.password", "")
 
     // MySQL
     viper.BindPFlag("server.mysql.enabled", cmd.Flags().Lookup("mysql-enabled"))
