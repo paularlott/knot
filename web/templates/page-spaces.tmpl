@@ -12,41 +12,41 @@
         </div>
 
 <div x-data="spacesListComponent()" x-init="getSpaces">
-  <div class="responsiveTableWrapper">
-    <div class="responsiveTableWrapperInner">
-      {{ template "loading" . }}
-      <table class="action" x-show="!loading" x-cloak>
-        <thead>
-        <tr>
-          <th>Space ID</th>
-          <th>Name</th>
-          <th>Template</th>
-          <th>&nbsp;</th>
-        </tr>
-        </thead>
-        <tbody>
-        <template x-for="s in spaces" :key="s.space_id">
-          <tr>
-            <td x-text="s.space_id" class="no-wrap"></td>
-            <td x-text="s.name"></td>
-            <td x-text="s.template_name"></td>
-            <td>
-              <span x-show="s.is_deployed && !s.is_stopping">
-                <button class="outline" x-show="s.has_ssh"><i class='bx bxs-terminal' ></i> SSH</button>
-                <button class="outline" x-show="s.has_code_server" @click="openCodeServer(s.space_id)"><i class='bx bx-code-alt' ></i> Code Server</button>
-                <button class="outline" x-show="s.has_terminal" @click="openTerminal(s.space_id)"><i class='bx bx-terminal'></i> Terminal</button>
-              </span>
-              <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="startSpace(s.space_id); s.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="s.starting">ing ...</span></button>
-              <button x-show="s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="stopSpace(s.space_id); s.stopping = true"><i class='bx bx-stop-circle' ></i> Stop<span x-show="s.stopping">ping ...</span></button>
-              <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="editSpace(s.space_id)"><i class='bx bx-edit' ></i> Edit</button>
-              <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="deleteSpace(s.space_id); s.deleting = true" class="danger"><span x-show="!s.deleting"><i class='bx bx-error-circle' ></i> Delete</span><span x-show="s.deleting">Deleting</span></button>
-            </td>
-          </tr>
-        </template>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  {{ template "loading" . }}
+  <table class="action" x-show="!loading" x-cloak>
+    <thead>
+    <tr>
+      <th>Space ID</th>
+      <th>Name</th>
+      <th>Template</th>
+      <th>&nbsp;</th>
+    </tr>
+    </thead>
+    <tbody>
+    <template x-for="s in spaces" :key="s.space_id">
+      <tr>
+        <td x-text="s.space_id" class="no-wrap"></td>
+        <td x-text="s.name"></td>
+        <td x-text="s.template_name"></td>
+        <td>
+          <span x-show="s.is_deployed && !s.is_stopping">
+            <button class="outline" x-show="s.has_ssh"><i class='bx bxs-terminal' ></i> SSH</button>
+            <button class="outline" x-show="s.has_code_server" @click="openCodeServer(s.space_id)"><i class='bx bx-code-alt' ></i> Code Server</button>
+            <button class="outline" x-show="s.has_terminal" @click="openTerminal(s.space_id)"><i class='bx bx-terminal'></i> Terminal</button>
+          </span>
+
+          <button class="outline" @click="s.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
+          <div x-show="s.showMenu" @click.away="s.showMenu = false" @keydown.window.escape="s.showMenu = false" class="space-menu-popup">
+            <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="startSpace(s.space_id); s.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="s.starting">ing ...</span></button>
+            <button x-show="s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="stopSpace(s.space_id); s.stopping = true"><i class='bx bx-stop-circle' ></i> Stop<span x-show="s.stopping">ping ...</span></button>
+            <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="editSpace(s.space_id)"><i class='bx bx-edit' ></i> Edit</button>
+            <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="deleteSpace(s.space_id); s.deleting = true" class="danger"><i class='bx bx-error-circle' ></i> <span x-show="!s.deleting">Delete</span><span x-show="s.deleting">Deleting</span></button>
+          </div>
+        </td>
+      </tr>
+    </template>
+    </tbody>
+  </table>
 </div>
 
       </div>
@@ -80,6 +80,7 @@ function spacesListComponent() {
         space.starting = false;
         space.stopping = false;
         space.deleting = false;
+        space.showMenu = false;
         this.timerIDs[space.space_id] = setInterval(async () => {
           await this.fetchServiceState(space);
         }, 5000);
@@ -132,6 +133,7 @@ function spacesListComponent() {
         window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be started: " + error, type: 'error' } }));
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
+        space.showMenu = false;
         this.fetchServiceState(space, true);
       });
     },
@@ -151,6 +153,7 @@ function spacesListComponent() {
         window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be stopped: " + error, type: 'error' } }));
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
+        space.showMenu = false;
         this.fetchServiceState(space, true);
       });
     },
@@ -170,6 +173,7 @@ function spacesListComponent() {
         window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be deleted: " + error, type: 'error' } }));
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
+        space.showMenu = false;
         this.getSpaces();
       });
     },

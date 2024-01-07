@@ -12,33 +12,29 @@
         </div>
 
 <div x-data="templateListComponent()" x-init="getTemplates">
-  <div class="responsiveTableWrapper">
-    <div class="responsiveTableWrapperInner">
-      {{ template "loading" . }}
-      <table class="action" x-show="!loading" x-cloak>
-        <thead>
-        <tr>
-          <th>Template ID</th>
-          <th>Name</th>
-          <th>Usage</th>
-          <th>&nbsp;</th>
-        </tr>
-        </thead>
-        <tbody>
-        <template x-for="t in templates" :key="t.template_id">
-          <tr>
-            <td x-text="t.template_id" class="no-wrap"></td>
-            <td x-text="t.name"></td>
-            <td x-text="t.usage"></td>
-            <td>
-                <button @click="editTemplate(t.template_id)">Edit</button> <button x-show="t.usage === 0" @click="deleteTemplate(t.template_id)" class="danger">Delete</button>
-            </td>
-          </tr>
-        </template>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  {{ template "loading" . }}
+  <table class="action" x-show="!loading" x-cloak>
+    <thead>
+    <tr>
+      <th>Template ID</th>
+      <th>Name</th>
+      <th>Usage</th>
+      <th>&nbsp;</th>
+    </tr>
+    </thead>
+    <tbody>
+    <template x-for="t in templates" :key="t.template_id">
+      <tr>
+        <td x-text="t.template_id" class="no-wrap"></td>
+        <td x-text="t.name"></td>
+        <td x-text="t.usage"></td>
+        <td>
+            <button @click="editTemplate(t.template_id)">Edit</button> <button x-show="t.usage === 0" @click="deleteTemplate(t.template_id)" class="danger">Delete</button>
+        </td>
+      </tr>
+    </template>
+    </tbody>
+  </table>
 </div>
 
       </div>

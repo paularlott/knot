@@ -8,33 +8,29 @@
         <h2>Active Sessions</h2>
 
 <div x-data="sessionsComponent()" x-init="getSessions">
-  <div class="responsiveTableWrapper">
-    <div class="responsiveTableWrapperInner">
-      {{ template "loading" . }}
-      <table class="action" x-show="!loading" x-cloak>
-        <thead>
-        <tr>
-          <th>Session ID</th>
-          <th>IP</th>
-          <th>User Agent</th>
-          <th>Current</th>
-          <th>&nbsp;</th>
-        </tr>
-        </thead>
-        <tbody>
-        <template x-for="session in sessions" :key="session.session_id">
-          <tr>
-            <td x-text="session.session_id" class="no-wrap"></td>
-            <td x-text="session.ip"></td>
-            <td x-text="session.user_agent"></td>
-            <td x-text="session.current ? 'Yes' : 'No'"></td>
-            <td><button @click="deleteSession(session.session_id)" class="danger">Delete</button></td>
-          </tr>
-        </template>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  {{ template "loading" . }}
+  <table class="action" x-show="!loading" x-cloak>
+    <thead>
+    <tr>
+      <th>Session ID</th>
+      <th>IP</th>
+      <th>User Agent</th>
+      <th>Current</th>
+      <th>&nbsp;</th>
+    </tr>
+    </thead>
+    <tbody>
+    <template x-for="session in sessions" :key="session.session_id">
+      <tr>
+        <td x-text="session.session_id" class="no-wrap"></td>
+        <td x-text="session.ip"></td>
+        <td x-text="session.user_agent"></td>
+        <td x-text="session.current ? 'Yes' : 'No'"></td>
+        <td><button @click="deleteSession(session.session_id)" class="danger">Delete</button></td>
+      </tr>
+    </template>
+    </tbody>
+  </table>
 </div>
 
       </div>

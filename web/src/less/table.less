@@ -37,6 +37,7 @@ table {
     tr {
       td:last-child {
         text-align: right;
+        position: relative;
       }
     }
   }
@@ -50,6 +51,10 @@ body.light {
     }
     td {
       border-bottom-color: @lightTableBorderColor;
+    }
+
+    tr:hover {
+      background-color: @lightTableLineHighlight;
     }
   }
 }

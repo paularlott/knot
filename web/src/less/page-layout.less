@@ -97,7 +97,7 @@
     .content {
       overflow-y: auto;
       overflow-x: hidden;
-      flex-grow: 0;
+      flex-grow: 1;
       padding: 2rem;
 
       .row + .row {
@@ -147,6 +147,36 @@
 body.light {
   .box {
   background-color: @lightBoxBackgroundColor;
+    border-color: @lightBorderColor;
+  }
+}
+
+.space-menu-popup {
+  color: @darkFontColor;
+  background-color: @darkBorderColor;
+  border: 1px solid @darkBorderColor;
+  margin-top: .5rem;
+  padding: .5rem;
+  border-radius: .5rem;
+  width: 150px;
+  display: block;
+  position: absolute;
+  top: 80%;
+  right: .5rem;
+  z-index: 10;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+
+  button {
+    width: 100%;
+    margin: .5rem 0;
+    display: block;
+  }
+}
+
+body.light {
+  .space-menu-popup {
+    color: @lightFontColor;
+    background-color: @lightBorderColor;
     border-color: @lightBorderColor;
   }
 }

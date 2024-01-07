@@ -36,8 +36,9 @@ func Routes() chi.Router {
 
   // Serve static content
   router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		rctx := chi.RouteContext(r.Context())
-		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+    rctx := chi.RouteContext(r.Context())
+    pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+
 
     fsys := fs.FS(publicHTML)
     contentStatic, _ := fs.Sub(fsys, "public_html")
@@ -55,9 +56,9 @@ func Routes() chi.Router {
     }
     file.Close()
 
-		fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
-		fs.ServeHTTP(w, r)
-	})
+    fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
+    fs.ServeHTTP(w, r)
+  })
 
   // Group routes that require authentication
   router.Group(func(router chi.Router) {

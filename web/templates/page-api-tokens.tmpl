@@ -12,29 +12,25 @@
         </div>
 
 <div x-data="tokenComponent()" x-init="getTokens">
-  <div class="responsiveTableWrapper">
-    <div class="responsiveTableWrapperInner">
-      {{ template "loading" . }}
-      <table class="action" x-show="!loading" x-cloak>
-        <thead>
-        <tr>
-          <th>Token ID</th>
-          <th>Name</th>
-          <th>&nbsp;</th>
-        </tr>
-        </thead>
-        <tbody>
-        <template x-for="t in tokens" :key="t.token_id">
-          <tr>
-            <td x-text="t.token_id" class="no-wrap"></td>
-            <td x-text="t.name"></td>
-            <td><button @click="deleteToken(t.token_id)" class="danger">Delete</button></td>
-          </tr>
-        </template>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  {{ template "loading" . }}
+  <table class="action" x-show="!loading" x-cloak>
+    <thead>
+    <tr>
+      <th>Token ID</th>
+      <th>Name</th>
+      <th>&nbsp;</th>
+    </tr>
+    </thead>
+    <tbody>
+    <template x-for="t in tokens" :key="t.token_id">
+      <tr>
+        <td x-text="t.token_id" class="no-wrap"></td>
+        <td x-text="t.name"></td>
+        <td><button @click="deleteToken(t.token_id)" class="danger">Delete</button></td>
+      </tr>
+    </template>
+    </tbody>
+  </table>
 </div>
 
       </div>
