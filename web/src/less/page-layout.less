@@ -151,7 +151,7 @@ body.light {
   }
 }
 
-.space-menu-popup, .space-id-popup {
+.space-menu-popup, .space-id-popup, .space-ssh-popup {
   color: @darkFontColor;
   background-color: @darkBorderColor;
   border: 1px solid @darkBorderColor;
@@ -174,7 +174,7 @@ body.light {
 }
 
 body.light {
-  .space-menu-popup, .space-id-popup {
+  .space-menu-popup, .space-id-popup, .space-ssh-popup {
     color: @lightFontColor;
     background-color: @lightBorderColor;
     border-color: @lightBorderColor;
@@ -189,7 +189,7 @@ button.show-id {
   display: block;
 }
 
-.space-id-popup {
+.space-id-popup, .space-ssh-popup {
   left: .5rem;
   right: initial;
   width: auto;
@@ -198,6 +198,11 @@ button.show-id {
   input {
     width: 25em;
   }
+}
+
+.space-ssh-popup {
+  left: initial;
+  right: .5rem;
 }
 
 .modal-tint {
