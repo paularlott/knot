@@ -67,6 +67,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
   template.Job = request.Job
   template.Volumes = request.Volumes
   template.UpdatedUserId = user.Id
+  template.UpdateHash()
 
   err = database.GetInstance().SaveTemplate(template)
   if err != nil {

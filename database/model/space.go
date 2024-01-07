@@ -20,6 +20,7 @@ type Space struct {
   Name string `json:"name"`
   AgentURL string `json:"agent_url"`
   Shell string `json:"shell"`
+  TemplateHash string `json:"template_hash"`
   NomadNamespace string `json:"nomad_namespace"`
   NomadJobId string `json:"nomad_job_id"`
   VolumeData map[string]SpaceVolume `json:"volume_data"`
@@ -36,6 +37,7 @@ func NewSpace(name string, userId string, agentURL string, templateId string, sh
     Name: name,
     AgentURL: agentURL,
     Shell: shell,
+    TemplateHash: "",
     IsDeployed: false,
     VolumeData: make(map[string]SpaceVolume),
     CreatedAt: time.Now().UTC(),

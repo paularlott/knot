@@ -147,6 +147,7 @@ func (client *NomadClient) CreateSpaceJob(template *model.Template, space *model
 
   // Record deployed
   space.IsDeployed = true
+  space.TemplateHash = template.Hash
   err = db.SaveSpace(space)
   if err != nil {
     log.Error().Msgf("nomad: creating space job %s error %s", space.Id, err)

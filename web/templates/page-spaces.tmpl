@@ -39,6 +39,7 @@
           <span x-show="s.is_starting" class="badge warning">Starting</span>
           <span x-show="s.is_stopping" class="badge warning">Stopping</span>
           <span x-show="!s.is_deployed && !s.is_stopping" class="badge danger">Stopped</span>
+          <span x-show="s.update_available" class="badge update">Update Available</span>
         </td>
         <td>
           <span x-show="s.is_deployed && !s.is_stopping">
@@ -140,6 +141,7 @@ function spacesListComponent() {
             space.has_ssh = serviceState.has_ssh;
             space.has_terminal = serviceState.has_terminal;
             space.is_deployed = serviceState.is_deployed;
+            space.update_available = serviceState.update_available;
 
             if (resetStateFlags) {
               space.starting = false;

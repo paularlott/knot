@@ -26,5 +26,7 @@ get:
                 type: boolean
               is_deployed:
                 type: boolean
+              update_available:
+                type: boolean
   security:
     - BearerAuth: []

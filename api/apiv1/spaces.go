@@ -174,16 +174,24 @@ type SpaceServiceResponse struct {
   HasSSH bool `json:"has_ssh"`
   HasTerminal bool `json:"has_terminal"`
   IsDeployed bool `json:"is_deployed"`
+  UpdateAvailable bool `json:"update_available"`
 }
 
 func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
-  space, err := database.GetInstance().GetSpace(chi.URLParam(r, "space_id"))
+  db := database.GetInstance()
+  space, err := db.GetSpace(chi.URLParam(r, "space_id"))
   if err != nil {
     if err.Error() == "agent not found" {
       rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
     } else {
       rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     }
+    return
+  }
+
+  template, err := db.GetTemplate(space.TemplateId)
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
   }
 
@@ -200,6 +208,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
   }
 
   response.IsDeployed = space.IsDeployed
+  response.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
 
   rest.SendJSON(http.StatusOK, w, response)
 }
