@@ -19,6 +19,7 @@
       <th class="id-col">Space ID</th>
       <th>Name</th>
       <th>Template</th>
+      <th>Status</th>
       <th>&nbsp;</th>
     </tr>
     </thead>
@@ -33,6 +34,12 @@
         </td>
         <td x-text="s.name"></td>
         <td x-text="s.template_name"></td>
+        <td>
+          <span x-show="s.is_deployed && !s.is_stopping" class="badge success">Running</span>
+          <span x-show="s.is_starting" class="badge warning">Starting</span>
+          <span x-show="s.is_stopping" class="badge warning">Stopping</span>
+          <span x-show="!s.is_deployed && !s.is_stopping" class="badge danger">Stopped</span>
+        </td>
         <td>
           <span x-show="s.is_deployed && !s.is_stopping">
             <button class="outline" x-show="s.has_ssh"><i class='bx bxs-terminal' ></i> SSH</button>

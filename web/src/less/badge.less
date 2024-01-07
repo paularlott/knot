@@ -1,0 +1,20 @@
+.badge {
+  display: inline-block;
+  border-radius: 2rem;
+  line-height: 1.75rem;
+  padding: 0 .75rem;
+  white-space: nowrap;
+
+  &.success {
+    color: @darkFontColor;
+    background-color: @alertColorSuccessFg;
+  }
+  &.warning {
+    color: @darkFontColor;
+    background-color: @alertColorWarningFg;
+  }
+  &.danger {
+    color: @darkFontColor;
+    background-color: @alertColorErrorFg;
+  }
+}
