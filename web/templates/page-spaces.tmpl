@@ -45,13 +45,29 @@
             <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="startSpace(s.space_id); s.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="s.starting">ing ...</span></button>
             <button x-show="s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="stopSpace(s.space_id); s.stopping = true"><i class='bx bx-stop-circle' ></i> Stop<span x-show="s.stopping">ping ...</span></button>
             <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="editSpace(s.space_id)"><i class='bx bx-edit' ></i> Edit</button>
-            <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="deleteSpace(s.space_id); s.deleting = true" class="danger"><i class='bx bx-error-circle' ></i> <span x-show="!s.deleting">Delete</span><span x-show="s.deleting">Deleting</span></button>
+            <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="deleteConfirm.show = true; deleteConfirm.space = s; s.deleting = true" class="danger"><i class='bx bx-error-circle' ></i> <span x-show="!s.deleting">Delete</span><span x-show="s.deleting">Deleting</span></button>
           </div>
         </td>
       </tr>
     </template>
     </tbody>
   </table>
+
+
+  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
+    <div class="modal">
+      <div class="modal-body">
+        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
+        <p>Are you sure you want to delete the space <span x-text="deleteConfirm.space.name"></span>?</p>
+        <p>Deleting the space will also delete any template volumes and the data they contain.</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false">Cancel</button>
+        <button class="danger" @click="deleteSpace(deleteConfirm.space.space_id); deleteConfirm.show = false">Delete</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
       </div>
@@ -65,6 +81,13 @@ function spacesListComponent() {
     loading: true,
     spaces: [],
     timerIDs: [],
+    deleteConfirm: {
+      show: false,
+      space: {
+        space_id: '',
+        name: ''
+      }
+    },
     async getSpaces() {
       this.loading = true;
 

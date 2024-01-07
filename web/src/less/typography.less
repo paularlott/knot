@@ -32,6 +32,10 @@ html, body {
   .lineHeightClamp(1.25, 1.5);
 }
 
+.standardFontBold {
+  font-variation-settings: 'FILL' 0, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+}
+
 body {
   color: @darkFontColor;
   background-color: @darkBodyColor;
@@ -74,6 +78,10 @@ p {
 
 pre {
 	white-space: pre-wrap;
+}
+
+strong {
+  .standardFontBold();
 }
 
 // Alignment

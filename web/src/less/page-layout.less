@@ -199,3 +199,61 @@ button.show-id {
     width: 25em;
   }
 }
+
+.modal-tint {
+  display: block;
+  background-color: rgba(0,0,0,.5);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+
+  .modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 570px;
+    color: @darkFontColor;
+    background-color: @darkBoxBackgroundColor;
+    border: 1px solid @darkBorderColor;
+    padding: 1rem;
+    border-radius: .5rem;
+    z-index: 101;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+
+    .modal-body {
+      text-align: center;
+      margin: 2rem;
+
+      .bxs-error {
+        color: @buttonDangerBackgroundColor;
+      }
+    }
+    .modal-footer {
+      text-align: center;
+      margin: 1rem 2rem 2rem 2rem;
+
+      button {
+        margin-right: .5rem;
+
+        & + button {
+          margin-left: .5rem;
+          margin-right: 0;
+        }
+      }
+    }
+  }
+}
+
+body.light {
+  .modal-tint {
+    .modal {
+      color: @lightFontColor;
+      background-color: @lightBoxBackgroundColor;
+      border-color: @lightBorderColor;
+    }
+  }
+}
