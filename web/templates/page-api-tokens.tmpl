@@ -1,4 +1,4 @@
-{{ template "metaHead"  (map "PageTitle" "API Tokens") }}>
+{{ template "metaHead" (map "PageTitle" "API Tokens") }}
 {{ template "beforeContent" . }}
 
 <div class="content">
@@ -26,11 +26,26 @@
       <tr>
         <td x-text="t.token_id" class="no-wrap"></td>
         <td x-text="t.name"></td>
-        <td><button @click="deleteToken(t.token_id)" class="danger">Delete</button></td>
+        <td><button @click="deleteConfirm.show = true; deleteConfirm.token = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button></td>
       </tr>
     </template>
     </tbody>
   </table>
+
+  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
+    <div class="modal">
+      <div class="modal-body">
+        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
+        <p>Are you sure you want to delete the API token <span x-text="deleteConfirm.token.name"></span>?</p>
+        <p>Deleting the token may prevent access.</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="deleteConfirm.show = false">Cancel</button>
+        <button class="danger" @click="deleteToken(deleteConfirm.token.token_id); deleteConfirm.show = false">Delete</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
       </div>
@@ -43,6 +58,13 @@ function tokenComponent() {
   return {
     loading: true,
     tokens: [],
+    deleteConfirm: {
+      show: false,
+      token: {
+        token_id: '',
+        name: ''
+      }
+    },
     async getTokens() {
       this.loading = true;
       const response = await fetch('/api/v1/tokens', {

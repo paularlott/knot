@@ -28,6 +28,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
     Id string `json:"template_id"`
     Name string `json:"name"`
     Usage int `json:"usage"`
+    Deployed int `json:"deployed"`
   }, len(templates))
 
   for i, template := range templates {
@@ -41,7 +42,15 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
       return
     }
 
+    var deployed int = 0
+    for _, space := range spaces {
+      if space.IsDeployed {
+        deployed++
+      }
+    }
+
     templateData[i].Usage = len(spaces)
+    templateData[i].Deployed = deployed
   }
 
   rest.SendJSON(http.StatusOK, w, templateData)

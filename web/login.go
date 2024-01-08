@@ -24,7 +24,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
       return
     }
 
-    tmpl, err := newTemplate("page-login.tmpl")
+    tmpl, err := newTemplate("login.tmpl")
     if err != nil {
       log.Fatal().Msg(err.Error())
       w.WriteHeader(http.StatusInternalServerError)

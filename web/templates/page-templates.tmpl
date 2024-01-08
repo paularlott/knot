@@ -16,25 +16,47 @@
   <table class="action" x-show="!loading" x-cloak>
     <thead>
     <tr>
-      <th>Template ID</th>
+      <th class="id-col">Template ID</th>
       <th>Name</th>
       <th>Usage</th>
+      <th>Deployed</th>
       <th>&nbsp;</th>
     </tr>
     </thead>
     <tbody>
     <template x-for="t in templates" :key="t.template_id">
       <tr>
-        <td x-text="t.template_id" class="no-wrap"></td>
+        <td class="id-col">
+          <button @click="t.showIdPopup = true" class="show-id" x-text="t.template_id"></button>
+          <div x-show="t.showIdPopup" @click.away="t.showIdPopup = false" @keydown.window.escape="t.showIdPopup = false" class="id-popup">
+            <input type="text" x-model="t.template_id" readonly>
+          </div>
+        </td>
         <td x-text="t.name"></td>
         <td x-text="t.usage"></td>
+        <td x-text="t.deployed"></td>
         <td>
-            <button @click="editTemplate(t.template_id)">Edit</button> <button x-show="t.usage === 0" @click="deleteTemplate(t.template_id)" class="danger">Delete</button>
+            <button @click="editTemplate(t.template_id)"><i class='bx bx-edit' ></i> Edit</button>
+            <button x-show="t.usage === 0" @click="deleteConfirm.show = true; deleteConfirm.template = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
         </td>
       </tr>
     </template>
     </tbody>
   </table>
+
+  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
+    <div class="modal">
+      <div class="modal-body">
+        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
+        <p>Are you sure you want to delete the template <span x-text="deleteConfirm.template.name"></span>?</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="deleteConfirm.show = false">Cancel</button>
+        <button class="danger" @click="deleteTemplate(deleteConfirm.template.template_id); deleteConfirm.show = false">Delete</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
       </div>
@@ -46,6 +68,13 @@
 function templateListComponent() {
   return {
     loading: true,
+    deleteConfirm: {
+      show: false,
+      template: {
+        template_id: '',
+        name: '',
+      }
+    },
     templates: [],
     async getTemplates() {
       this.loading = true;
@@ -56,6 +85,9 @@ function templateListComponent() {
       });
       this.templates = await response.json();
       this.loading = false;
+      this.templates.forEach(template => {
+        template.showIdPopup = false;
+      });
     },
     editTemplate(templateId) {
       window.location.href = `/templates/edit/${templateId}`;

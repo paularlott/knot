@@ -11,7 +11,7 @@ import (
 )
 
 func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
-  tmpl, err := newTemplate("page-spaces-create-edit.tmpl")
+  tmpl, err := newTemplate("spaces-create-edit.tmpl")
   if err != nil {
     log.Fatal().Msg(err.Error())
     w.WriteHeader(http.StatusInternalServerError)
@@ -40,7 +40,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
   user, data := getCommonTemplateData(r)
 
-  tmpl, err := newTemplate("page-spaces-create-edit.tmpl")
+  tmpl, err := newTemplate("spaces-create-edit.tmpl")
   if err != nil {
     log.Fatal().Msg(err.Error())
     w.WriteHeader(http.StatusInternalServerError)

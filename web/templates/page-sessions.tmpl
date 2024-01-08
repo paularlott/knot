@@ -12,7 +12,7 @@
   <table class="action" x-show="!loading" x-cloak>
     <thead>
     <tr>
-      <th>Session ID</th>
+      <th class="id-col">Session ID</th>
       <th>IP</th>
       <th>User Agent</th>
       <th>Current</th>
@@ -22,15 +22,35 @@
     <tbody>
     <template x-for="session in sessions" :key="session.session_id">
       <tr>
-        <td x-text="session.session_id" class="no-wrap"></td>
+        <td class="id-col">
+          <button @click="session.showIdPopup = true" class="show-id" x-text="session.session_id"></button>
+          <div x-show="session.showIdPopup" @click.away="session.showIdPopup = false" @keydown.window.escape="session.showIdPopup = false" class="id-popup">
+            <input type="text" x-model="session.session_id" readonly>
+          </div>
+        </td>
         <td x-text="session.ip"></td>
         <td x-text="session.user_agent"></td>
         <td x-text="session.current ? 'Yes' : 'No'"></td>
-        <td><button @click="deleteSession(session.session_id)" class="danger">Delete</button></td>
+        <td><button x-show="!session.current" @click="deleteConfirm.show = true; deleteConfirm.session = session" class="danger"><i class="bx bx-error-circle"></i> Delete</button></td>
       </tr>
     </template>
     </tbody>
   </table>
+
+  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
+    <div class="modal">
+      <div class="modal-body">
+        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
+        <p>Are you sure you want to delete the session?</p>
+        <p>Deleting the session will cause the the browser to be logged out.</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="deleteConfirm.show = false">Cancel</button>
+        <button class="danger" @click="deleteSession(deleteConfirm.session.session_id); deleteConfirm.show = false">Delete</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
       </div>
@@ -43,6 +63,12 @@ function sessionsComponent() {
   return {
     loading: true,
     sessions: [],
+    deleteConfirm: {
+      show: false,
+      session: {
+        session_id: ''
+      }
+    },
     async getSessions() {
       this.loading = true;
       const response = await fetch('/api/v1/sessions', {
@@ -52,6 +78,9 @@ function sessionsComponent() {
       });
       this.sessions = await response.json();
       this.loading = false;
+      this.sessions.forEach(session => {
+        session.showIdPopup = false;
+      });
     },
     async deleteSession(sessionId) {
       await fetch(`/api/v1/sessions/${sessionId}`, {

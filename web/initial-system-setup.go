@@ -13,7 +13,7 @@ func HandleInitialSystemSetupPage(w http.ResponseWriter, r *http.Request) {
   if middleware.HasUsers {
     http.Redirect(w, r, "/login", http.StatusSeeOther)
   } else {
-    tmpl, err := newTemplate("page-initial-system-setup.tmpl")
+    tmpl, err := newTemplate("initial-system-setup.tmpl")
     if err != nil {
       log.Error().Msg(err.Error())
       w.WriteHeader(http.StatusInternalServerError)

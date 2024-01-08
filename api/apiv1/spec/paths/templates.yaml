@@ -19,6 +19,8 @@ get:
                 type: string
               usage:
                 type: integer
+              deployed:
+                type: integer
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':

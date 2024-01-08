@@ -17,7 +17,7 @@ func HandleTemplateCreate(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  tmpl, err := newTemplate("page-templates-create-edit.tmpl")
+  tmpl, err := newTemplate("templates-create-edit.tmpl")
   if err != nil {
     log.Fatal().Msg(err.Error())
     w.WriteHeader(http.StatusInternalServerError)
@@ -39,7 +39,7 @@ func HandleTemplateEdit(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  tmpl, err := newTemplate("page-templates-create-edit.tmpl")
+  tmpl, err := newTemplate("templates-create-edit.tmpl")
   if err != nil {
     log.Fatal().Msg(err.Error())
     w.WriteHeader(http.StatusInternalServerError)
