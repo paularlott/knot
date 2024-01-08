@@ -1,0 +1,212 @@
+{{ if .isEdit }}
+{{ template "metaHead" (map "PageTitle" "Edit User") }}
+{{ else }}
+{{ template "metaHead" (map "PageTitle" "Create User") }}
+{{ end }}
+{{ template "beforeContent" . }}
+
+<div class="content">
+  <div class="row">
+    <div class="col-sm-6 col-sm-offset-3">
+      <div class="box">
+        <h2>{{ if .isEdit }}Edit User{{ else }}Create User{{ end }}</h2>
+
+        <div x-data="userForm()" x-init="initUsers">
+          {{ template "loading" . }}
+          <form action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
+            <dl>
+              <dt><label for="username">Username <em>*</em></label></dt>
+              <dd>
+                <input type="text" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
+                <div x-show="!usernameValid" class="error-message">Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+              </dd>
+              <dt><label for="email">Email <em>*</em></label></dt>
+              <dd>
+                <input type="text" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'error': !emailValid}" placeholder="Email address" x-model="formData.email">
+                <div x-show="!emailValid" class="error-message">Enter a valid email address.</div>
+              </dd>
+              <dt><label for="shell">Preferred Shell</label></dt>
+              <dd>
+                <div class="selectControl">
+                  <select id="shell" name="shell" x-model="formData.preferred_shell">
+                    <option value="bash">Bash</option>
+                    <option value="zsh">Zsh</option>
+                    <option value="fish">fish</option>
+                    <option value="sh">Bourne</option>
+                  </select>
+                </div>
+              <p class="description">The shell that will be used when you open a web terminal in this space.</p>
+              </dd>
+              <dt><label for="password">SSH Public Key</label></dt>
+              <dd>
+                <textarea name="ssh_key" rows="8" placeholder="SSH Public Key" x-model="formData.ssh_public_key"></textarea>
+                <p class="description">If given this key will be added to the spaces to allow you to SSH into the space.</p>
+              <dt><label for="password">Password <em>*</em></label></dt>
+              <dd>
+                <input type="password" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'error': !passwordValid}" placeholder="Password" x-model="formData.password">
+                <div x-show="!passwordValid" class="error-message">Password must be at least 8 characters.</div>
+              </dd>
+              <dt><label for="confirm_password">Confirm Password <em>*</em></label></dt>
+              <dd>
+                <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
+                <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
+              </dd>
+              {{ if .isEdit }}
+              <dt><label for="active">Active</label></dt>
+              <dd>
+                <div class="selectControl">
+                  <select id="active" name="active" x-model="formData.active">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+              </dd>
+              {{ end }}
+              <dt><label>Roles</label></dt>
+              <dd>
+                <template x-for="(role, index) in roles" :key="index">
+                  <label class="checkbox">
+                    <input type="checkbox" :id="'role-' + index" name="roles[]" :value="role.id_role" :checked="formData.roles.includes(role.id_role)" @change="toggleRole(role.id_role)">
+                    <span x-text="role.role_name"></span>
+                  </label>
+                </template>
+              </dd>
+              <dt></dt>
+              <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel"></dd>
+            </dl>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+function userForm() {
+  var isEdit = "{{ .isEdit }}" == 'true';
+
+  return {
+    roles: [],
+    formData: {
+      username: "",
+      email: "",
+      password: "",
+      password_confirm: "",
+      preferred_shell: "",
+      ssh_public_key: "",
+      active: "true",
+      roles: [],
+    },
+    loading: true,
+    buttonLabel: isEdit ? 'Update User' : 'Create User',
+    usernameValid: true,
+    emailValid: true,
+    passwordValid: true,
+    confirmPasswordValid: true,
+    async initUsers() {
+      const rolesResponse = await fetch('/api/v1/roles', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.roles = await rolesResponse.json();
+
+      if(isEdit) {
+        const userResponse = await fetch('/api/v1/users/{{ .user.id }}', {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (userResponse.status !== 200) {
+          window.location.href = '/dashboard';
+        } else {
+          const user = await userResponse.json();
+          this.formData.username = user.username;
+          this.formData.email = user.email;
+          this.formData.preferred_shell = user.preferred_shell;
+          this.formData.ssh_public_key = user.ssh_public_key;
+          this.formData.active = user.active;
+          this.formData.roles = user.roles;
+        }
+      }
+
+      this.loading = false;
+    },
+    toggleRole(roleId) {
+      if (this.formData.roles.includes(roleId)) {
+        const index = this.formData.roles.indexOf(roleId);
+        this.formData.roles.splice(index, 1);
+      } else {
+        this.formData.roles.push(roleId);
+      }
+    },
+    checkUsername() {
+      return this.usernameValid = validate.name(this.formData.username);
+    },
+    checkEmail() {
+      return this.emailValid = validate.email(this.formData.email);
+    },
+    checkPassword() {
+      return this.passwordValid = validate.password(this.formData.password);
+    },
+    checkConfirmPassword() {
+      return this.confirmPasswordValid = this.formData.password == this.formData.password_confirm;
+    },
+    submitData() {
+      var err = false;
+      err = !this.checkUsername() || err;
+      err = !this.checkEmail() || err;
+      if(!isEdit || this.formData.password.length > 0 || this.formData.password_confirm.length > 0) {
+        err = !this.checkPassword() || err;
+        err = !this.checkConfirmPassword() || err;
+      }
+      if(err) {
+        return;
+      }
+
+      this.buttonLabel = isEdit ? 'Updating user...' : 'Creating user...'
+
+      data = {
+        username: this.formData.username,
+        email: this.formData.email,
+        password: this.formData.password,
+        preferred_shell: this.formData.preferred_shell,
+        ssh_public_key: this.formData.ssh_public_key,
+        active: this.formData.active == "true",
+        roles: this.formData.roles,
+      };
+
+      fetch(isEdit ? '/api/v1/users/{{ .user.id }}' : '/api/v1/users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
+        })
+        .then((response) => {
+          if (response.status === 200) {
+            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "User updated", type: 'success' } }));
+          } else if (response.status === 201) {
+            window.location.href = '/users';
+          } else {
+            response.json().then((data) => {
+              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: (isEdit ? "Failed to update user, " : "Failed to create user, ") + data.error, type: 'error' } }));
+            });
+          }
+        })
+        .catch((error) => {
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
+        })
+        .finally(() => {
+          this.buttonLabel = isEdit ? 'Update User' : 'Create User';
+        })
+    },
+  }
+}
+
+</script>
+
+{{ template "afterContent" . }}

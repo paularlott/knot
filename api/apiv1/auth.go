@@ -39,7 +39,8 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
   }
 
   // Update the last login time
-  user.LastLoginAt = time.Now().UTC()
+  now := time.Now().UTC()
+  user.LastLoginAt = &now
   err = db.SaveUser(user)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})

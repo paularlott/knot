@@ -50,6 +50,11 @@ components:
 paths:
   /api/v1/users:
     $ref: paths/users.yaml
+  /api/v1/users/{user_id}:
+    $ref: paths/users_{user_id}.yaml
+
+  /api/v1/roles:
+    $ref: paths/roles.yaml
 
   /api/v1/sessions:
     $ref: paths/sessions.yaml
@@ -74,6 +79,8 @@ paths:
     $ref: paths/spaces_{space_id}_start.yaml
   /api/v1/spaces/{space_id}/stop:
     $ref: paths/spaces_{space_id}_stop.yaml
+  /api/v1/spaces/stop-for-user/{user_id}:
+    $ref: paths/spaces_stop-for-user_{user_id}.yaml
 
   /api/v1/templates:
     $ref: paths/templates.yaml

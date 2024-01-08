@@ -96,10 +96,13 @@ func (db *MySQLDriver) getUsers(where string, args ...interface{}) ([]*model.Use
     }
 
     if lastLoginAt.Valid {
-      user.LastLoginAt, err = time.Parse("2006-01-02 15:04:05", lastLoginAt.String)
+      parsedTime, err := time.Parse("2006-01-02 15:04:05", lastLoginAt.String)
       if err != nil {
         return nil, err
       }
+      user.LastLoginAt = &parsedTime
+    } else {
+      user.LastLoginAt = nil
     }
 
     users = append(users, user)

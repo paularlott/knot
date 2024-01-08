@@ -24,7 +24,7 @@
             <input type="checkbox" :value="darkMode" @change="darkMode = !darkMode; $dispatch('theme-change', {dark_theme: darkMode})" name="theme" class="light-dark">
           </form>
 
-          <div>{{ .username }}</div>
+          <div><a href="/users/edit/{{ .user_id }}" class="button outline">{{ .username }}</a></div>
         </header>
 {{ end }}
 

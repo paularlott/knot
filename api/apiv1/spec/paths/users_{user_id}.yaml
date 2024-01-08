@@ -1,0 +1,156 @@
+get:
+  tags:
+    - Users
+  summary: Get a User by ID
+  operaionId: getUser
+  parameters:
+    - name: user_id
+      in: path
+      required: true
+      description: The ID of the user
+      schema:
+        type: string
+  responses:
+    '200':
+      description: A user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/User'
+    '400':
+      $ref: "../responses/bad-request.yaml"
+
+    '403':
+      $ref: "../responses/forbidden.yaml"
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: The ID of the user
+        username:
+          type: string
+          description: The username of the user
+        email:
+          type: string
+          description: The email of the user
+        roles:
+          type: array
+          items:
+            type: string
+          description: The roles of the user
+        active:
+          type: boolean
+          description: Whether the user is active
+        current:
+          type: boolean
+          description: Whether the user is the current user
+        last_login_at:
+          type: string
+          format: date-time
+          description: The last login time of the user
+        created_at:
+          type: string
+          format: date-time
+          description: The date and time the user was created
+        updated_at:
+          type: string
+          format: date-time
+          description: The date and time the user was last updated
+        ssh_public_key:
+          type: string
+          description: The SSH key for the user
+        preferred_shell:
+          type: string
+          description: The preferred shell of the user
+
+post:
+  tags:
+    - Users
+  summary: Update User
+  description: Update the user data.
+  operaionId: updateUser
+  parameters:
+    - name: user_id
+      in: path
+      required: true
+      description: The ID of the user
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+              example: user1@example.com
+              description: The email address of the user
+            username:
+              type: string
+              example: "user1"
+              description: The username of the user
+            password:
+              type: string
+              example: "password"
+              description: The password of the user
+            active:
+              type: boolean
+              description: Whether the user is active
+            ssh_public_key:
+              type: string
+              description: The SSH key for the user
+            preferred_shell:
+              type: string
+              description: The preferred shell of the user
+            roles:
+              type: array
+              items:
+                type: string
+                example: ["00000000-0000-0000-0000-000000000000"]
+              description: The IDs of the roles assigned to the user.
+          required:
+            - username
+            - password
+            - email
+            - roles
+  responses:
+    '200':
+      description: User updated successfully
+
+    '400':
+      $ref: "../responses/bad-request.yaml"
+
+    '403':
+      $ref: "../responses/forbidden.yaml"
+
+  security:
+    - BearerAuth: []
+
+delete:
+  summary: Delete User
+  description: Delete a user, a user can't delete themselves.
+  tags:
+    - Users
+  operaionId: deleteUser
+  parameters:
+    - in: path
+      name: user_id
+      schema:
+        type: string
+      required: true
+      description: The ID of the user to delete.
+  responses:
+    '200':
+      description: Successful operation.
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '500':
+      $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []

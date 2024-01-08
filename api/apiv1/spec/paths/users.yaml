@@ -6,7 +6,7 @@ post:
     Create a new user.
 
     Only admin users can create users.
-  operaionId: CreateUser
+  operaionId: createUser
   requestBody:
     required: true
     content:
@@ -26,6 +26,16 @@ post:
               type: string
               example: "password"
               description: The password of the user
+            active:
+              type: boolean
+              description: Whether the user is active
+            ssh_public_key:
+              type: string
+              description: The SSH key for the user
+            preferred_shell:
+              type: string
+              description: The preferred shell of the user
+
             roles:
               type: array
               items:
@@ -60,3 +70,64 @@ post:
 
   security:
     - BearerAuth: []
+
+get:
+  tags:
+    - Users
+  summary: Get the Users
+  description: Get the list of users within the system.
+  operaionId: listUsers
+  responses:
+    '200':
+      description: A list of users
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+                  $ref: '#/components/schemas/User'
+
+    '400':
+      $ref: "../responses/bad-request.yaml"
+
+    '403':
+      $ref: "../responses/forbidden.yaml"
+
+  security:
+    - BearerAuth: []
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: The ID of the user
+        username:
+          type: string
+          description: The username of the user
+        email:
+          type: string
+          description: The email of the user
+        roles:
+          type: array
+          items:
+            type: string
+          description: The roles of the user
+        active:
+          type: boolean
+          description: Whether the user is active
+        current:
+          type: boolean
+          description: Whether the user is the current user
+        last_login_at:
+          type: string
+          format: date-time
+          description: The last login date and time of the user (UTC)
+        number_spaces:
+          type: integer
+          description: The number of spaces the user has
+        number_spaces_deployed:
+          type: integer
+          description: The number of spaces the user has deployed currently

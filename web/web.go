@@ -89,6 +89,18 @@ func Routes() chi.Router {
       router.Get("/create", HandleTemplateCreate)
       router.Get("/edit/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateEdit)
     })
+
+    router.Route("/users", func(router chi.Router) {
+      router.Use(checkPermissionManageUsers)
+
+      router.Get("/", HandleSimplePage)
+      router.Get("/create", HandleUserCreate)
+    })
+    router.Route("/users/edit/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
+      router.Use(checkPermissionManageUsersOrSelf)
+
+      router.Get("/", HandleUserEdit)
+    })
   })
 
   // Routes without authentication
@@ -187,6 +199,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 
   return user, map[string]interface{}{
     "username"                 : user.Username,
+    "user_id"                  : user.Id,
     "permissionManageUsers"    : user.HasPermission(model.PermissionManageUsers),
     "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
   }

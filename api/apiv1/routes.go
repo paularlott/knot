@@ -24,8 +24,23 @@ func ApiRoutes() chi.Router {
 
     // Users
     router.Route("/users", func(router chi.Router) {
+      if middleware.HasUsers {
+        router.Use(middleware.ApiPermissionManageUsers)
+      }
+
       router.Post("/", HandleCreateUser)
+      router.Get("/", HandleGetUsers)
     })
+    router.Route("/users/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
+      router.Use(middleware.ApiPermissionManageUsersOrSelf)
+
+      router.Get("/", HandleGetUser)
+      router.Post("/", HandleUpdateUser)
+      router.Delete("/", HandleDeleteUser)
+    })
+
+    // Roles
+    router.Get("/roles", HandleGetRoles)
 
     // Sessions
     router.Route("/sessions", func(router chi.Router) {
@@ -49,6 +64,7 @@ func ApiRoutes() chi.Router {
       router.Get("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/service-state", HandleGetSpaceServiceState)
       router.Post("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/start", HandleSpaceStart)
       router.Post("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/stop", HandleSpaceStop)
+      router.Post("/stop-for-user/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpaceStopUsersSpaces)
     })
 
     // Templates

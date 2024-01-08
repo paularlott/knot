@@ -189,12 +189,6 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  template, err := db.GetTemplate(space.TemplateId)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
-
   response := SpaceServiceResponse{}
   state, ok := database.AgentStateGet(space.Id)
   if !ok {
@@ -208,7 +202,17 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
   }
 
   response.IsDeployed = space.IsDeployed
-  response.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
+
+  if space.TemplateId == model.MANUAL_TEMPLATE_ID {
+    response.UpdateAvailable = false
+  } else {
+    template, err := db.GetTemplate(space.TemplateId)
+    if err != nil {
+      rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+      return
+    }
+    response.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
+  }
 
   rest.SendJSON(http.StatusOK, w, response)
 }
@@ -287,7 +291,6 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
   w.WriteHeader(http.StatusOK)
 }
 
-
 func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
   user := r.Context().Value("user").(*model.User)
@@ -345,6 +348,32 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
     return
+  }
+
+  w.WriteHeader(http.StatusOK)
+}
+
+func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
+  db := database.GetInstance()
+
+  // Get the nomad client
+  nomadClient := nomad.NewClient()
+
+  // Stop all spaces
+  spaces, err := db.GetSpacesForUser(chi.URLParam(r, "user_id"))
+  if err != nil {
+    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  for _, space := range spaces {
+    if space.IsDeployed {
+      err = nomadClient.DeleteSpaceJob(space)
+      if err != nil {
+        rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+        return
+      }
+    }
   }
 
   w.WriteHeader(http.StatusOK)

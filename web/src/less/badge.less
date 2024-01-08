@@ -6,6 +6,11 @@
   white-space: nowrap;
   margin-right: .5rem;
 
+  &.outline {
+    border: 1px solid @darkBorderColor;
+    background-color: @darkTableHeaderBackground;
+  }
+
   &.success {
     color: @darkFontColor;
     background-color: @alertColorSuccessFg;
@@ -21,5 +26,14 @@
   &.update {
     color: @darkFontColor;
     background-color: @updateColorBg;
+  }
+}
+
+body.light {
+  .badge {
+    &.outline {
+      border: 1px solid @lightBorderColor;
+      background-color: @lightTableHeaderBackground;
+    }
   }
 }

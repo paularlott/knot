@@ -135,6 +135,16 @@ body.light {
       }
     }
   }
+
+  header {
+    .button.outline {
+      color: @darkFontColor;
+      border: 1px solid @darkBorderColor;
+      &:hover {
+        background-color: @darkBorderColor;
+      }
+    }
+  }
 }
 
 td input[type="submit"], td button {
@@ -142,6 +152,11 @@ td input[type="submit"], td button {
   .fontSizeClamp(.85, .95);
   width: auto;
   padding: .5rem .75rem;
+}
+
+label.checkbox {
+  display: block;
+  margin-bottom: .25rem;
 }
 
 input[type="checkbox"] {

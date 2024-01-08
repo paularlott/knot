@@ -1,0 +1,196 @@
+{{ template "metaHead" (map "PageTitle" "Users") }}
+{{ template "beforeContent" . }}
+
+<div class="content">
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="box">
+        <h2>Users</h2>
+
+        <div class="text-right">
+          <a href="/users/create" class="button"><i class="bx bx-plus"></i> Create User</a>
+        </div>
+
+<div x-data="userListComponent()" x-init="getUsers">
+  {{ template "loading" . }}
+  <table class="action" x-show="!loading" x-cloak>
+    <thead>
+    <tr>
+      <th class="id-col">Template ID</th>
+      <th>Username</th>
+      <th>Email</th>
+      <th>Roles</th>
+      <th>Spaces</th>
+      <th>Deployed</th>
+      <th>Active</th>
+      <th>Last Login</th>
+      <th>&nbsp;</th>
+    </tr>
+    </thead>
+    <tbody>
+    <template x-for="u in users" :key="u.user_id">
+      <tr>
+        <td class="id-col">
+          <button @click="u.showIdPopup = true" class="show-id" x-text="u.user_id"></button>
+          <div x-show="u.showIdPopup" @click.away="u.showIdPopup = false" @keydown.window.escape="u.showIdPopup = false" class="id-popup">
+            <input type="text" x-model="u.user_id" readonly>
+          </div>
+        </td>
+        <td x-text="u.username"></td>
+        <td x-text="u.email"></td>
+        <td>
+          <template x-for="role in u.role_names">
+            <span class="badge outline" x-text="role"></span>
+          </template>
+        </td>
+        <td x-text="u.number_spaces"></td>
+        <td x-text="u.number_spaces_deployed"></td>
+        <td x-text="u.active ? 'Yes' : 'No'"></td>
+        <td x-text="u.last_login_at"></td>
+        <td>
+          <button class="outline" @click="u.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
+          <div x-show="u.showMenu" @click.away="u.showMenu = false" @keydown.window.escape="u.showMenu = false" class="menu-popup">
+            <button @click="editUser(u.user_id)"><i class='bx bx-edit' ></i> Edit</button>
+            <button x-show="u.number_spaces_deployed > 0" @click="stopConfirm.show = true; stopConfirm.user = u" class="danger"><i class='bx bx-error-alt'></i> Stop Spaces</button>
+            <button x-show="!u.current" @click="deleteConfirm.show = true; deleteConfirm.user = u" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
+          </div>
+        </td>
+      </tr>
+    </template>
+    </tbody>
+  </table>
+
+  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
+    <div class="modal">
+      <div class="modal-body">
+        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
+        <p>Are you sure you want to delete the user <span x-text="deleteConfirm.user.username"></span>?</p>
+        <p>All spaces will be stopped and deleted, any data in template volumes will be deleted.</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="deleteConfirm.show = false">Cancel</button>
+        <button class="danger" @click="deleteUser(deleteConfirm.user.user_id)">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-tint" x-show="stopConfirm.show" x-cloak style="display: none;">
+    <div class="modal">
+      <div class="modal-body">
+        <h2><i class='bx bxs-error'></i> Confirm Stop Spaces</h2>
+        <p>Are you sure you want to stop all spaces for the user <span x-text="stopConfirm.user.username"></span>?</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="stopConfirm.show = false">Cancel</button>
+        <button class="danger" @click="stopSpaces(stopConfirm.user.user_id)">Stop Spaces</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function userListComponent() {
+  return {
+    loading: true,
+    deleteConfirm: {
+      show: false,
+      user: {
+        user_id: '',
+        username: '',
+      }
+    },
+    stopConfirm: {
+      show: false,
+      user: {
+        user_id: '',
+        username: '',
+      }
+    },
+    users: [],
+    roles: [],
+    async getUsers() {
+      this.loading = true;
+      const rolesResponse = await fetch('/api/v1/roles', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.roles = await rolesResponse.json();
+      const response = await fetch('/api/v1/users', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.users = await response.json();
+      this.loading = false;
+      this.users.forEach(user => {
+        user.showIdPopup = false;
+        user.showMenu = false;
+
+        // Make last_login_at human readable data time in the browser's timezone
+        if (user.last_login_at) {
+          const date = new Date(user.last_login_at);
+          user.last_login_at = date.toLocaleString();
+        } else {
+          user.last_login_at = '-';
+        }
+
+        // Convert role IDs to names
+        user.role_names = [];
+        user.roles.forEach(roleId => {
+          this.roles.forEach(role => {
+            if (role.id_role === roleId) {
+              user.role_names.push(role.role_name);
+            }
+          });
+        });
+      });
+    },
+    editUser(userId) {
+      window.location.href = `/users/edit/${userId}`;
+    },
+    async deleteUser(userId) {
+      await fetch(`/api/v1/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "User deleted", type: 'success' } }));
+        } else {
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "User could not be deleted", type: 'error' } }));
+        }
+      });
+
+      this.getUsers();
+      this.deleteConfirm.show = false
+    },
+    async stopSpaces(userId) {
+      await fetch(`/api/v1/spaces/stop-for-user/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "User spaces stopped", type: 'success' } }));
+        } else {
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "User spaces could not be stopped", type: 'error' } }));
+        }
+      });
+
+      this.getUsers();
+      this.stopConfirm.show = false
+    }
+  };
+}
+</script>
+
+{{ template "afterContent" . }}

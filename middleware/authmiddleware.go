@@ -121,6 +121,31 @@ func ApiPermissionManageTemplates(next http.Handler) http.Handler {
   })
 }
 
+func ApiPermissionManageUsers(next http.Handler) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    user := r.Context().Value("user").(*model.User)
+    if !user.HasPermission(model.PermissionManageUsers) {
+      rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage users"})
+      return
+    }
+
+    next.ServeHTTP(w, r)
+  })
+}
+
+func ApiPermissionManageUsersOrSelf(next http.Handler) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    userId := chi.URLParam(r, "user_id")
+    user := r.Context().Value("user").(*model.User)
+    if !user.HasPermission(model.PermissionManageUsers) && user.Id != userId {
+      rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage users"})
+      return
+    }
+
+    next.ServeHTTP(w, r)
+  })
+}
+
 func WebAuth(next http.Handler) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

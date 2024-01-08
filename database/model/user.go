@@ -17,19 +17,19 @@ type User struct {
   Roles []string `json:"roles"`
   Active bool `json:"active"`
   PreferredShell string `json:"preferred_shell"`
-  LastLoginAt time.Time `json:"last_login_at"`
+  LastLoginAt *time.Time `json:"last_login_at"`
   UpdatedAt time.Time `json:"updated_at"`
   CreatedAt time.Time `json:"created_at"`
 }
 
-func NewUser(username string, email string, password string, roles []string) *User {
+func NewUser(username string, email string, password string, roles []string, sshPublicKey string, preferredShell string) *User {
   user := &User{
     Id: uuid.New().String(),
     Username: username,
     Email: email,
     Active: true,
-    SSHPublicKey: "",
-    PreferredShell: "zsh",
+    SSHPublicKey: sshPublicKey,
+    PreferredShell: preferredShell,
     Roles: roles,
   }
 
