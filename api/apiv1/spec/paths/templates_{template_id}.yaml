@@ -66,3 +66,36 @@ delete:
       $ref: "../responses/internal-server-error.yaml"
   security:
     - BearerAuth: []
+
+get:
+  summary: Get Template
+  description: Get a Template.
+  operationId: getTemplate
+  tags:
+    - Templates
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              name:
+                type: string
+              job:
+                type: string
+                description: A HCL formatted job Nomad job specification
+              volumes:
+                type: string
+                description: A YAML formatted string describing the volumes to be created
+              usage:
+                type: integer
+              deployed:
+                type: integer
+    '500':
+      $ref: '../responses/internal-server-error.yaml'
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []

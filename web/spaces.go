@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -69,15 +68,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  data["spaceName"] = space.Name
-  data["spaceId"] = space.Id
-  if space.TemplateId == model.MANUAL_TEMPLATE_ID {
-    data["templateId"] = ""
-  } else {
-    data["templateId"] = space.TemplateId
-  }
-  data["agentUrl"] = space.AgentURL
-  data["preferredShell"] = space.Shell
+  data["spaceId"] = spaceId
 
   err = tmpl.Execute(w, data)
   if err != nil {

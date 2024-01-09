@@ -56,3 +56,27 @@ post:
       $ref: "../responses/bad-request.yaml"
   security:
     - BearerAuth: []
+
+get:
+  summary: Get Space
+  description: Retrieve a specific space.
+  operationId: getSpace
+  tags:
+    - Spaces
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '../schemas/space.yaml'
+
+    '404':
+      $ref: "../responses/not-found.yaml"
+
+    '500':
+      $ref: '../responses/internal-server-error.yaml'
+  security:
+    - BearerAuth: []

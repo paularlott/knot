@@ -135,3 +135,44 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 
   w.WriteHeader(http.StatusOK)
 }
+
+func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
+  templateId := chi.URLParam(r, "template_id")
+
+  db := database.GetInstance()
+  template, err := db.GetTemplate(templateId)
+  if err != nil {
+    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  // Find the number of spaces using this template
+  spaces, err := database.GetInstance().GetSpacesByTemplateId(templateId)
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  var deployed int = 0
+  for _, space := range spaces {
+    if space.IsDeployed {
+      deployed++
+    }
+  }
+
+  data := struct {
+    Name string `json:"name"`
+    Job string `json:"job"`
+    Volumes string `json:"volumes"`
+    Usage int `json:"usage"`
+    Deployed int `json:"deployed"`
+  }{
+    Name: template.Name,
+    Job: template.Job,
+    Volumes: template.Volumes,
+    Usage: len(spaces),
+    Deployed: deployed,
+  }
+
+  rest.SendJSON(http.StatusOK, w, data)
+}

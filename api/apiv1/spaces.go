@@ -378,3 +378,50 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 
   w.WriteHeader(http.StatusOK)
 }
+
+func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
+  user := r.Context().Value("user").(*model.User)
+  spaceId := chi.URLParam(r, "space_id")
+
+  db := database.GetInstance()
+  space, err := db.GetSpace(spaceId)
+  if err != nil {
+    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  if space.UserId != user.Id {
+    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
+    return
+  }
+
+  data := struct {
+    Name string `json:"name"`
+    AgentURL string `json:"agent_url"`
+    TemplateId string `json:"template_id"`
+    Shell string `json:"shell"`
+    HasCodeServer bool `json:"has_code_server"`
+    HasSSH bool `json:"has_ssh"`
+    HasTerminal bool `json:"has_terminal"`
+    IsDeployed bool `json:"is_deployed"`
+  }{
+    Name: space.Name,
+    AgentURL: space.AgentURL,
+    TemplateId: space.TemplateId,
+    Shell: space.Shell,
+  }
+
+  if data.TemplateId == model.MANUAL_TEMPLATE_ID {
+    data.TemplateId = ""
+  }
+
+  // Get the state of the agent
+  agentState, ok := database.AgentStateGet(space.Id)
+  if ok {
+    data.HasCodeServer = agentState.HasCodeServer
+    data.HasSSH = agentState.SSHPort > 0
+    data.HasTerminal = agentState.HasTerminal
+  }
+
+  rest.SendJSON(http.StatusOK, w, data)
+}

@@ -11,8 +11,9 @@
       <div class="box">
         <h2>{{ if .isEdit }}Edit Space{{ else }}Create Space{{ end }}</h2>
 
-        <div x-data="spaceForm()">
-          <form action="" method="POST" @submit.prevent="submitData">
+        <div x-data="spaceForm()" x-init="initData">
+          {{ template "loading" . }}
+          <form action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
             <dl>
               <dt><label for="name">Space Name <em>*</em></label></dt>
               <dd>
@@ -65,15 +66,37 @@ function spaceForm() {
 
   return {
     formData: {
-      name: "{{ .spaceName }}",
-      template_id: "{{ .templateId }}",
-      agent_url: "{{ .agentUrl }}",
-      shell: "{{ .preferredShell }}",
+      name: "",
+      template_id: "",
+      agent_url: "",
+      shell: "",
     },
-    loading: false,
+    loading: true,
     buttonLabel: isEdit ? 'Update Space' : 'Create Space',
     nameValid: true,
     addressValid: true,
+    async initData() {
+      if(isEdit) {
+        const spaceResponse = await fetch('/api/v1/spaces/{{ .spaceId }}', {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (spaceResponse.status !== 200) {
+          window.location.href = '/dashboard';
+        } else {
+          const space = await spaceResponse.json();
+
+          this.formData.name = space.name;
+          this.formData.template_id = space.template_id;
+          this.formData.agent_url = space.agent_url;
+          this.formData.shell = space.shell;
+        }
+      }
+
+      this.loading = false;
+    },
     checkName() {
       return this.nameValid = validate.name(this.formData.name);
     },

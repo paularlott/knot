@@ -8,10 +8,11 @@
 <div class="content full-height">
   <div class="row">
     <div class="col-sm-12">
-      <div class="box full-height" x-data="templateForm()" x-init="initEditor()">
+      <div class="box full-height" x-data="templateForm()" x-init="initData()">
         <h2>{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}</h2>
 
-        <form action="" method="POST" @submit.prevent="submitData">
+        {{ template "loading" . }}
+        <form action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
           <dl>
             <dt><label for="name">Name <em>*</em></label></dt>
             <dd>
@@ -53,13 +54,31 @@ function templateForm() {
       job: "{{ .templateJob }}",
       volumes: "{{ .templateVolumes }}",
     },
-    loading: false,
+    loading: true,
     buttonLabel: isEdit ? 'Update Template' : 'Create Template',
     nameValid: true,
     jobValid: true,
     volValid: true,
 
-    initEditor() {
+    async initData() {
+      if(isEdit) {
+        const templateResponse = await fetch('/api/v1/templates/{{ .templateId }}', {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (templateResponse.status !== 200) {
+          window.location.href = '/dashboard';
+        } else {
+          const template = await templateResponse.json();
+
+          this.formData.name = template.name;
+          this.formData.job = template.job;
+          this.formData.volumes = template.volumes;
+        }
+      }
+
       let darkMode = JSON.parse(localStorage.getItem('darkMode'));
       if(darkMode == null)
         darkMode = true;
@@ -109,6 +128,8 @@ function templateForm() {
           editorVol.setTheme("ace/theme/github");
         }
       });
+
+      this.loading = false;
     },
     checkName() {
       return this.nameValid = validate.maxLength(this.formData.name, 64) && validate.required(this.formData.name);

@@ -3,7 +3,6 @@ package web
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 
 	"github.com/go-chi/chi/v5"
@@ -46,20 +45,8 @@ func HandleTemplateEdit(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // Load the template
-  templateId := chi.URLParam(r, "template_id")
-  template, err := database.GetInstance().GetTemplate(templateId)
-  if err != nil {
-    log.Error().Msg(err.Error())
-    showPageNotFound(w, r)
-    return
-  }
-
   data["isEdit"] = true
-  data["templateId"] = template.Id
-  data["templateName"] = template.Name
-  data["templateJob"] = template.Job
-  data["templateVolumes"] = template.Volumes
+  data["templateId"] = chi.URLParam(r, "template_id")
 
   err = tmpl.Execute(w, data)
   if err != nil {
