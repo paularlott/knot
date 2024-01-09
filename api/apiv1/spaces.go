@@ -181,7 +181,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
   space, err := db.GetSpace(chi.URLParam(r, "space_id"))
   if err != nil {
-    if err.Error() == "agent not found" {
+    if err.Error() == "space not found" {
       rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
     } else {
       rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})

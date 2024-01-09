@@ -98,7 +98,7 @@ func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
     return nil, err
   }
   if len(spaces) == 0 {
-    return nil, fmt.Errorf("agent not found")
+    return nil, fmt.Errorf("space not found")
   }
 
   return spaces[0], nil
@@ -119,7 +119,7 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
     return nil, err
   }
   if len(spaces) == 0 {
-    return nil, fmt.Errorf("agent not found")
+    return nil, fmt.Errorf("space not found")
   }
 
   return spaces[0], nil
