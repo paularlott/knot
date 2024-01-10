@@ -26,17 +26,23 @@ x-init="darkMode = JSON.parse(localStorage.getItem('darkMode'));
 {{ define "main-menu" }}
 <nav>
   <ul>
-    <li><a href="/dashboard"><i class="bx bxs-dashboard"></i> Dashboard</a></li>
     <li><a href="/spaces"><i class="bx bx-cloud"></i> Spaces</a></li>
     {{ if .permissionManageTemplates }}
     <li><a href="/templates"><i class="bx bx-code-block"></i> Templates</a></li>
     {{ end }}
-    <li><a href="/api-tokens"><i class="bx bx-key"></i> API Tokens</a></li>
     {{ if .permissionManageUsers }}
     <li><a href="/users"><i class="bx bx-user"></i> Users</a></li>
     {{ end }}
-    <li><a href="/logout"><i class="bx bx-log-out-circle"></i> Logout</a></li>
+    <li><a href="/api-tokens"><i class="bx bx-key"></i> API Tokens</a></li>
     <li><a href="/sessions"><i class="bx bx-cookie"></i> Sessions</a></li>
+    <li><a href="/logout"><i class="bx bx-log-out-circle"></i> Logout</a></li>
+  </ul>
+</nav>
+{{ end }}
+
+{{ define "main-menu2" }}
+<nav>
+  <ul>
     <li><a href="/api-docs/"><i class="bx bx-code-alt"></i> API Docs</a></li>
     <li><a href="https://github.com/paularlott/knot/issues"><i class="bx bx-bug"></i> Report a Bug</a></li>
     <li><a href="https://github.com/paularlott/knot/"><i class="bx bxl-github"></i> Github</a></li>

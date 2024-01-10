@@ -69,7 +69,7 @@ function templateForm() {
         });
 
         if (templateResponse.status !== 200) {
-          window.location.href = '/dashboard';
+          window.location.href = '/spaces';
         } else {
           const template = await templateResponse.json();
 

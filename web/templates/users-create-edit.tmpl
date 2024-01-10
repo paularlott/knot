@@ -120,7 +120,7 @@ function userForm() {
         });
 
         if (userResponse.status !== 200) {
-          window.location.href = '/dashboard';
+          window.location.href = '/spaces';
         } else {
           const user = await userResponse.json();
           this.formData.username = user.username;

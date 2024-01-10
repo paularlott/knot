@@ -20,7 +20,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 
     // If session present then redirect to dashboard
     if session != nil {
-      http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+      http.Redirect(w, r, "/spaces", http.StatusSeeOther)
       return
     }
 
@@ -35,7 +35,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
     var redirect string
     u, _ := url.Parse(r.URL.Query().Get("redirect"))
     if u.Path == "" {
-      redirect = "/dashboard"
+      redirect = "/spaces"
     } else if u.Path[0:1] != "/" {
       redirect = "/" + u.Path
     } else {

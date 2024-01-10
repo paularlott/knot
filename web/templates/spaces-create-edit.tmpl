@@ -86,7 +86,7 @@ function spaceForm() {
         });
 
         if (spaceResponse.status !== 200) {
-          window.location.href = '/dashboard';
+          window.location.href = '/spaces';
         } else {
           const space = await spaceResponse.json();
 
