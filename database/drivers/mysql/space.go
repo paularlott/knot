@@ -133,3 +133,12 @@ func (db *MySQLDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space,
 
   return spaces, nil
 }
+
+func (db *MySQLDriver) GetSpaces() ([]*model.Space, error) {
+  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash FROM spaces ORDER BY name ASC")
+  if err != nil {
+    return nil, err
+  }
+
+  return spaces, nil
+}

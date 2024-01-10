@@ -51,6 +51,7 @@
           <button class="outline" @click="u.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
           <div x-show="u.showMenu" @click.away="u.showMenu = false" @keydown.window.escape="u.showMenu = false" class="menu-popup">
             <button @click="editUser(u.user_id)"><i class='bx bx-edit' ></i> Edit</button>
+            <button @click="userSpaces(u.user_id)"><i class='bx bx-cloud' ></i> Spaces</button>
             <button x-show="u.number_spaces_deployed > 0" @click="stopConfirm.show = true; stopConfirm.user = u" class="danger"><i class='bx bx-error-alt'></i> Stop Spaces</button>
             <button x-show="!u.current" @click="deleteConfirm.show = true; deleteConfirm.user = u" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
           </div>
@@ -154,6 +155,9 @@ function userListComponent() {
     },
     editUser(userId) {
       window.location.href = `/users/edit/${userId}`;
+    },
+    userSpaces(userId) {
+      window.location.href = `/spaces/${userId}`;
     },
     async deleteUser(userId) {
       await fetch(`/api/v1/users/${userId}`, {

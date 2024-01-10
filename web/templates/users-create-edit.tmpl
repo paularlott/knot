@@ -51,17 +51,15 @@
                 <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
                 <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
               </dd>
-              {{ if .isEdit }}
+              {{ if and .isEdit .permissionManageUsers }}
               <dt><label for="active">Active</label></dt>
               <dd>
-                <div class="selectControl">
-                  <select id="active" name="active" x-model="formData.active">
-                    <option value="true">Yes</option>
-                    <option value="false">No</option>
-                  </select>
-                </div>
+                <label class="checkbox">
+                  <input type="checkbox" id="active" name="active" x-model="formData.active"> <span x-text="formData.active ? 'Yes' : 'No'"></span>
+                </label>
               </dd>
               {{ end }}
+              {{ if .permissionManageUsers }}
               <dt><label>Roles</label></dt>
               <dd>
                 <template x-for="(role, index) in roles" :key="index">
@@ -71,6 +69,7 @@
                   </label>
                 </template>
               </dd>
+              {{ end }}
               <dt></dt>
               <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel"></dd>
             </dl>
@@ -96,7 +95,7 @@ function userForm() {
       password_confirm: "",
       preferred_shell: "",
       ssh_public_key: "",
-      active: "true",
+      active: true,
       roles: [],
     },
     loading: true,
@@ -175,7 +174,7 @@ function userForm() {
         password: this.formData.password,
         preferred_shell: this.formData.preferred_shell,
         ssh_public_key: this.formData.ssh_public_key,
-        active: this.formData.active == "true",
+        active: this.formData.active,
         roles: this.formData.roles,
       };
 

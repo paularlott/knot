@@ -67,5 +67,5 @@ func (u *User) HasPermission(permission int) bool {
     }
   }
 
-  return true
+  return false
 }

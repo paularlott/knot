@@ -49,6 +49,7 @@ type IDbDriver interface {
   GetSpacesForUser(userId string) ([]*model.Space, error)
   GetSpaceByName(userId string, spaceName string) (*model.Space, error)
   GetSpacesByTemplateId(templateId string) ([]*model.Space, error)
+  GetSpaces() ([]*model.Space, error)
 
   // Templates
   SaveTemplate(template *model.Template) error

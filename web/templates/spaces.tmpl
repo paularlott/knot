@@ -7,11 +7,26 @@
       <div class="box">
         <h2>Spaces</h2>
 
-        <div class="text-right">
-          <a href="/spaces/create" class="button"><i class="bx bx-plus"></i> Create Space</a>
-        </div>
-
 <div x-data="spacesListComponent()" x-init="getSpaces">
+
+  <div class="row">
+    <div class="col-sm-6">
+      <div class="selectControl" x-show="canManageSpaces">
+        <select id="user" name="user" x-model="forUserId" x-on:change="userChanged">
+          <option value="" x-bind:selected="forUserId === ''">All Users</option>
+          <template x-for="user in users" :key="user.user_id">
+            <option x-bind:value="user.user_id" x-text="user.username" x-bind:selected="user.user_id === forUserId"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+    <div class="col-sm-6">
+      <div class="text-right">
+          <a :href="createURL" class="button"><i class="bx bx-plus"></i> Create Space</a>
+      </div>
+    </div>
+  </div>
+
   {{ template "loading" . }}
   <table class="action" x-show="!loading" x-cloak>
     <thead>
@@ -19,6 +34,7 @@
       <th class="id-col">Space ID</th>
       <th>Name</th>
       <th>Template</th>
+      <th>User</th>
       <th>Status</th>
       <th>&nbsp;</th>
     </tr>
@@ -34,6 +50,7 @@
         </td>
         <td x-text="s.name"></td>
         <td x-text="s.template_name"></td>
+        <td x-text="s.username"></td>
         <td>
           <span x-show="s.is_deployed && !s.is_stopping" class="badge success">Running</span>
           <span x-show="s.is_starting" class="badge warning">Starting</span>
@@ -42,7 +59,7 @@
           <span x-show="s.update_available" class="badge update">Update Available</span>
         </td>
         <td>
-          <span x-show="s.is_deployed && !s.is_stopping">
+          <span x-show="s.is_deployed && !s.is_stopping && s.user_id == '{{ .user_id }}'">
             <button class="outline" x-show="s.has_ssh" @click="s.showSSHPopup = true"><i class='bx bxs-terminal' ></i> SSH</button>
             <div x-show="s.showSSHPopup" @click.away="s.showSSHPopup = false" @keydown.window.escape="s.showSSHPopup = false" class="space-ssh-popup">
               <input type="text" x-model="s.sshCmd" readonly>
@@ -100,8 +117,37 @@ function spacesListComponent() {
         name: ''
       }
     },
-    async getSpaces() {
+    forUserId: "{{ .forUserId }}",
+    forUsername: "{{ .forUserUsername }}",
+    canManageSpaces: "{{ .permissionManageSpaces }}" == 'true',
+    createURL: "",
+    users: [],
+    async init() {
+      if(this.canManageSpaces) {
+        const usersResponse = await fetch('/api/v1/users?state=active', {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        this.users = await usersResponse.json();
+      }
+
+      this.getSpaces();
+    },
+    async userChanged() {
       this.loading = true;
+
+      if(this.forUserId.length == 0) {
+        this.forUsername = "";
+      } else {
+        const user = this.users.find(user => user.user_id === this.forUserId);
+        this.forUsername = user.username;
+      }
+
+      this.getSpaces();
+    },
+    async getSpaces() {
+      this.createURL = '/spaces/create' + (this.forUserId.length && this.forUserId != "{{ .user_id }}" ? '/' + this.forUserId : '');
 
       // Clear all timers
       Object.keys(this.timerIDs).forEach((key) => {
@@ -109,7 +155,7 @@ function spacesListComponent() {
       });
       this.timerIDs = [];
 
-      const response = await fetch('/api/v1/spaces', {
+      const response = await fetch('/api/v1/spaces?user_id=' + this.forUserId, {
         headers: {
           'Content-Type': 'application/json'
         }

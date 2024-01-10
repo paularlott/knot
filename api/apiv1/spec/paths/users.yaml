@@ -77,6 +77,18 @@ get:
   summary: Get the Users
   description: Get the list of users within the system.
   operaionId: listUsers
+  parameters:
+  - name: state
+    in: query
+    description: The sate of users to return
+    required: false
+    schema:
+      type: string
+      enum:
+        - active
+        - inactive
+        - all
+      default: all
   responses:
     '200':
       description: A list of users

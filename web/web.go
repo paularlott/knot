@@ -77,8 +77,10 @@ func Routes() chi.Router {
     })
 
     router.Route("/spaces", func(router chi.Router) {
-      router.Get("/", HandleSimplePage)
+      router.Get("/", HandleListSpaces)
+      router.Get("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleListSpaces)
       router.Get("/create", HandleSpacesCreate)
+      router.Get("/create/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
       router.Get("/edit/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesEdit)
     })
 
@@ -202,5 +204,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
     "user_id"                  : user.Id,
     "permissionManageUsers"    : user.HasPermission(model.PermissionManageUsers),
     "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
+    "permissionManageSpaces"   : user.HasPermission(model.PermissionManageSpaces),
   }
 }

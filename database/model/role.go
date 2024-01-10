@@ -35,3 +35,13 @@ var rolePermissions = map[string][]int{
   RoleTemplateManager : {PermissionManageTemplates},
   RoleSpaceManager    : {PermissionManageSpaces},
 }
+
+func RoleExists(roleId string) bool {
+  for _, role := range RoleNames {
+    if role.RoleID == roleId {
+      return true
+    }
+  }
+
+  return false
+}

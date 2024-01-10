@@ -4,10 +4,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/util/validate"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type TemplateRequest struct {
@@ -72,6 +74,19 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template name given"})
+    return
+  }
+  if !validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Job is required and must be less than 10MB"})
+    return
+  }
+  if !validate.MaxLength(request.Volumes, 10*1024*1024) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volumes must be less than 10MB"})
+    return
+  }
+
   template.Name = request.Name
   template.Job = request.Job
   template.Volumes = request.Volumes
@@ -94,6 +109,19 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
   err := rest.BindJSON(w, r, &request)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template name given"})
+    return
+  }
+  if !validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Job is required and must be less than 10MB"})
+    return
+  }
+  if !validate.MaxLength(request.Volumes, 10*1024*1024) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volumes must be less than 10MB"})
     return
   }
 

@@ -9,9 +9,9 @@
   <div class="row">
     <div class="col-sm-6 col-sm-offset-3">
       <div class="box">
-        <h2>{{ if .isEdit }}Edit Space{{ else }}Create Space{{ end }}</h2>
-
         <div x-data="spaceForm()" x-init="initData">
+          <h2>{{ if .isEdit }}Edit Space{{ else }}Create Space{{ end }} <span x-show="formData.user_id.length">for <span x-text="forUsername"></span></span></h2>
+
           {{ template "loading" . }}
           <form action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
             <dl>
@@ -69,12 +69,14 @@ function spaceForm() {
       name: "",
       template_id: "",
       agent_url: "",
-      shell: "",
+      shell: "{{ .preferredShell }}",
+      user_id: "{{ .forUserId }}",
     },
     loading: true,
     buttonLabel: isEdit ? 'Update Space' : 'Create Space',
     nameValid: true,
     addressValid: true,
+    forUsername: "{{ .forUserUsername }}",
     async initData() {
       if(isEdit) {
         const spaceResponse = await fetch('/api/v1/spaces/{{ .spaceId }}', {
@@ -92,6 +94,14 @@ function spaceForm() {
           this.formData.template_id = space.template_id;
           this.formData.agent_url = space.agent_url;
           this.formData.shell = space.shell;
+
+          if(space.user_id != "{{ .user_id }}") {
+            this.formData.user_id = space.user_id;
+            this.forUsername = space.username;
+          } else {
+            this.formData.user_id = "";
+            this.forUsername = "";
+          }
         }
       }
 
@@ -128,10 +138,10 @@ function spaceForm() {
           if (response.status === 200) {
             window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space updated", type: 'success' } }));
           } else if (response.status === 201) {
-            window.location.href = '/spaces';
+            window.location.href = '/spaces' + (this.forUserId ? '/' + this.forUserId : '');
           } else {
             response.json().then((data) => {
-              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Failed to create space, " + data.error, type: 'error' } }));
+              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: (isEdit ? "Failed to update space, " : "Failed to create space, ") + data.error, type: 'error' } }));
             });
           }
         })

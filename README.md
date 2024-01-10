@@ -1,23 +1,20 @@
 # knot
 
-A project to allow for the easy management of developer environments within a Nomad cluster via a web interface.
-
-Templates for environments can be created and developers can launch and destroy environments as required without needing to worry about configuration.
+Knot is a powerful tool that simplifies the deployment and management of developer environments within a Nomad cluster through a web interface. It enables the creation of environment templates and allows developers to launch or terminate environments as needed, eliminating the need for each developer to manage their own configurations.
 
 This project is under active development and is not feature complete, as such there's no guarantee of compatibility between builds.
 
-This project is designed to be used within trusted environments rather than on the open internet, therefore
+This project is designed to be used within trusted environments rather than on the open internet.
 
 ## Features
 
-- Web base management interface
-- Visual Studio Code in the browser
-- Terminal in the browser
-- Command line tools to simply container access
-- Users
-- Permissions
-- Environment Templates
-- Integration with Nomad
+- **Web-Based Management Interface:** Provides an easy-to-use, browser-based interface for managing environments.
+- **Visual Studio Code Integration:** Allows access to Visual Studio Code right from your browser.
+- **Terminal Access:** Offers in-browser terminal access for seamless command-line operations.
+- **Command-Line Tools:** Simplifies container access with handy command-line tools.
+- **User & Permission Management:** Effectively manage users and their permissions.
+- **Environment Templates:** Customizable templates for creating consistent development environments.
+- **Integration with Nomad:** Ensures seamless integration with Nomad for efficient cluster management.
 
 ## CLI
 

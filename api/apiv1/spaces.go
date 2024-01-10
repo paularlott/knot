@@ -18,15 +18,36 @@ type SpaceRequest struct {
   TemplateId string `json:"template_id"`
   AgentURL string `json:"agent_url"`
   Shell string `json:"shell"`
+  UserId string `json:"user_id"`
 }
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
-  user := r.Context().Value("user").(*model.User)
+  db := database.GetInstance()
 
-  spaces, err := database.GetInstance().GetSpacesForUser(user.Id)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+  user := r.Context().Value("user").(*model.User)
+  userId := r.URL.Query().Get("user_id")
+
+  // If user doesn't have permission to manage spaces and filter user ID doesn't match the user return an empty list
+  if !user.HasPermission(model.PermissionManageSpaces) && userId != user.Id {
+    rest.SendJSON(http.StatusOK, w, []struct{}{})
     return
+  }
+
+  var spaces []*model.Space
+  var err error
+
+  if userId == "" {
+    spaces, err = db.GetSpaces()
+    if err != nil {
+      rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+      return
+    }
+  } else {
+    spaces, err = db.GetSpacesForUser(userId)
+    if err != nil {
+      rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+      return
+    }
   }
 
   // Build a json array of token data to return to the client
@@ -38,6 +59,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     HasSSH bool `json:"has_ssh"`
     HasTerminal bool `json:"has_terminal"`
     IsDeployed bool `json:"is_deployed"`
+    Username string `json:"username"`
+    UserId string `json:"user_id"`
   }, len(spaces))
 
   for i, space := range spaces {
@@ -45,7 +68,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 
     if space.TemplateId != model.MANUAL_TEMPLATE_ID {
       // Lookup the template
-      template, err := database.GetInstance().GetTemplate(space.TemplateId)
+      template, err := db.GetTemplate(space.TemplateId)
       if err != nil {
         templateName = "Unknown"
       } else {
@@ -59,6 +82,15 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     spaceData[i].Name = space.Name
     spaceData[i].TemplateName = templateName
     spaceData[i].IsDeployed = space.IsDeployed
+
+    // Get the user
+    u, err := db.GetUser(space.UserId)
+    if err != nil {
+      rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+      return
+    }
+    spaceData[i].Username = u.Username
+    spaceData[i].UserId = u.Id
 
     // Get the state of the agent
     agentState, ok := database.AgentStateGet(space.Id)
@@ -81,7 +113,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 
   // Load the space if not found or doesn't belong to the user then treat both as not found
   space, err := database.GetInstance().GetSpace(chi.URLParam(r, "space_id"))
-  if err != nil || space.UserId != user.Id {
+  if err != nil || (space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces)) {
     rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: fmt.Sprintf("space %s not found", chi.URLParam(r, "space_id"))})
     return
   }
@@ -117,10 +149,17 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 
 func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
   request := SpaceRequest{}
+  user := r.Context().Value("user").(*model.User)
 
   err := rest.BindJSON(w, r, &request)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  // If user give and not our ID and no permission to manage spaces then fail
+  if request.UserId != "" && request.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+    rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "Cannot create space for another user"})
     return
   }
 
@@ -149,10 +188,12 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
     }
   }
 
-  user := r.Context().Value("user").(*model.User)
-
   // Create the space
-  space := model.NewSpace(request.Name, user.Id, request.AgentURL, request.TemplateId, request.Shell)
+  forUserId := user.Id
+  if request.UserId != "" {
+    forUserId = request.UserId
+  }
+  space := model.NewSpace(request.Name, forUserId, request.AgentURL, request.TemplateId, request.Shell)
   err = database.GetInstance().SaveSpace(space)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
@@ -301,7 +342,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  if space.UserId != user.Id {
+  if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
     rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
     return
   }
@@ -390,7 +431,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  if space.UserId != user.Id {
+  if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
     rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
     return
   }
@@ -404,6 +445,8 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
     HasSSH bool `json:"has_ssh"`
     HasTerminal bool `json:"has_terminal"`
     IsDeployed bool `json:"is_deployed"`
+    Username string `json:"username"`
+    UserId string `json:"user_id"`
   }{
     Name: space.Name,
     AgentURL: space.AgentURL,
@@ -414,6 +457,15 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
   if data.TemplateId == model.MANUAL_TEMPLATE_ID {
     data.TemplateId = ""
   }
+
+  // Get the user
+  u, err := db.GetUser(space.UserId)
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+  data.Username = u.Username
+  data.UserId = u.Id
 
   // Get the state of the agent
   agentState, ok := database.AgentStateGet(space.Id)

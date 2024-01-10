@@ -17,6 +17,8 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space) error {
     existingSpace, _ := db.GetSpace(space.Id)
     if existingSpace == nil {
       space.CreatedAt = time.Now().UTC()
+    } else {
+      space.UserId = existingSpace.UserId
     }
 
     // If new space or name changed check if the new name is unique
@@ -203,6 +205,39 @@ func (db *BadgerDbDriver) GetSpacesByTemplateId(templateId string) ([]*model.Spa
       }
 
       space, err := db.GetSpace(spaceId)
+      if err != nil {
+        return err
+      }
+
+      spaces = append(spaces, space)
+    }
+
+    return nil
+  })
+
+  // Sort the agents by name
+  sort.Slice(spaces, func(i, j int) bool {
+    return spaces[i].Name < spaces[j].Name
+  })
+
+  return spaces, err
+}
+
+func (db *BadgerDbDriver) GetSpaces() ([]*model.Space, error) {
+  var spaces []*model.Space
+
+  err := db.connection.View(func(txn *badger.Txn) error {
+    it := txn.NewIterator(badger.DefaultIteratorOptions)
+    defer it.Close()
+
+    prefix := []byte("Spaces:")
+    for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+      item := it.Item()
+
+      var space = &model.Space{}
+      err := item.Value(func(val []byte) error {
+        return json.Unmarshal(val, space)
+      })
       if err != nil {
         return err
       }

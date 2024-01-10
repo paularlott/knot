@@ -12,3 +12,7 @@ properties:
     type: boolean
   is_deployed:
     type: boolean
+  username:
+    type: string
+  user_id:
+    type: string
