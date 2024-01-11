@@ -26,6 +26,12 @@ post:
             volumes:
               type: string
               description: A YAML formatted string describing the volumes to be created
+            groups:
+              type: array
+              items:
+                type: string
+                example: ["00000000-0000-0000-0000-000000000000"]
+              description: The IDs of the groups to assign to the template.
   responses:
     '200':
       description: Successful operation
@@ -93,6 +99,12 @@ get:
                 type: integer
               deployed:
                 type: integer
+              groups:
+                type: array
+                items:
+                  type: string
+                  example: ["00000000-0000-0000-0000-000000000000"]
+                description: The IDs of the groups assigned to the template.
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':

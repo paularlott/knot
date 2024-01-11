@@ -33,6 +33,15 @@
                 <div x-show="!volValid" class="error-message">Volume definition must be valid YAML.</div>
               </div>
             </dd>
+            <dt><label>Groups</label></dt>
+              <dd>
+                <template x-for="(group, index) in groups" :key="index">
+                  <label class="checkbox">
+                    <input type="checkbox" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
+                    <span x-text="group.name"></span>
+                  </label>
+                </template>
+              </dd>
             <dt></dt>
             <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
           </dl>
@@ -50,17 +59,26 @@ function templateForm() {
 
   return {
     formData: {
-      name: "{{ .templateName }}",
-      job: "{{ .templateJob }}",
-      volumes: "{{ .templateVolumes }}",
+      name: "",
+      job: "",
+      volumes: "",
+      groups: [],
     },
     loading: true,
     buttonLabel: isEdit ? 'Update Template' : 'Create Template',
     nameValid: true,
     jobValid: true,
     volValid: true,
+    groups: [],
 
     async initData() {
+      const groupsResponse = await fetch('/api/v1/groups', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.groups = await groupsResponse.json();
+
       if(isEdit) {
         const templateResponse = await fetch('/api/v1/templates/{{ .templateId }}', {
           headers: {
@@ -76,6 +94,7 @@ function templateForm() {
           this.formData.name = template.name;
           this.formData.job = template.job;
           this.formData.volumes = template.volumes;
+          this.formData.groups = template.groups;
         }
       }
 
@@ -130,6 +149,14 @@ function templateForm() {
       });
 
       this.loading = false;
+    },
+    toggleGroup(groupId) {
+      if (this.formData.groups.includes(groupId)) {
+        const index = this.formData.groups.indexOf(groupId);
+        this.formData.groups.splice(index, 1);
+      } else {
+        this.formData.groups.push(groupId);
+      }
     },
     checkName() {
       return this.nameValid = validate.maxLength(this.formData.name, 64) && validate.required(this.formData.name);

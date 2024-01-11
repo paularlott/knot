@@ -55,6 +55,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     Id string `json:"space_id"`
     Name string `json:"name"`
     TemplateName string `json:"template_name"`
+    TemplateId string `json:"template_id"`
     HasCodeServer bool `json:"has_code_server"`
     HasSSH bool `json:"has_ssh"`
     HasTerminal bool `json:"has_terminal"`
@@ -81,6 +82,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     spaceData[i].Id = space.Id
     spaceData[i].Name = space.Name
     spaceData[i].TemplateName = templateName
+    spaceData[i].TemplateId = space.TemplateId
     spaceData[i].IsDeployed = space.IsDeployed
 
     // Get the user
@@ -164,10 +166,8 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
   }
 
   // If template given then ensure the address is removed
-  if request.TemplateId != "" {
+  if request.TemplateId != model.MANUAL_TEMPLATE_ID {
     request.AgentURL = ""
-  } else {
-    request.TemplateId = model.MANUAL_TEMPLATE_ID
   }
 
   if(!validate.Name(request.Name) || (request.TemplateId == model.MANUAL_TEMPLATE_ID && !validate.Uri(request.AgentURL))) {
@@ -179,13 +179,11 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  if(request.TemplateId != model.MANUAL_TEMPLATE_ID) {
-    // Lookup the template
-    _, err := database.GetInstance().GetTemplate(request.TemplateId)
-    if err != nil {
-      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
-      return
-    }
+  // Lookup the template
+  _, err = database.GetInstance().GetTemplate(request.TemplateId)
+  if err != nil {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
+    return
   }
 
   // Create the space
@@ -355,10 +353,8 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
   }
 
   // If template given then ensure the address is removed
-  if request.TemplateId != "" {
+  if request.TemplateId != model.MANUAL_TEMPLATE_ID {
     request.AgentURL = ""
-  } else {
-    request.TemplateId = model.MANUAL_TEMPLATE_ID
   }
 
   if(!validate.Name(request.Name) || (request.TemplateId == model.MANUAL_TEMPLATE_ID && !validate.Uri(request.AgentURL))) {
@@ -370,13 +366,11 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  if(request.TemplateId != model.MANUAL_TEMPLATE_ID) {
-    // Lookup the template
-    _, err := database.GetInstance().GetTemplate(request.TemplateId)
-    if err != nil {
-      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
-      return
-    }
+  // Lookup the template
+  _, err = database.GetInstance().GetTemplate(request.TemplateId)
+  if err != nil {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
+    return
   }
 
   // Update the space
@@ -452,10 +446,6 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
     AgentURL: space.AgentURL,
     TemplateId: space.TemplateId,
     Shell: space.Shell,
-  }
-
-  if data.TemplateId == model.MANUAL_TEMPLATE_ID {
-    data.TemplateId = ""
   }
 
   // Get the user

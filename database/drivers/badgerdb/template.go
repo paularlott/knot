@@ -114,19 +114,3 @@ func (db *BadgerDbDriver) GetTemplates() ([]*model.Template, error) {
 
   return templates, err
 }
-
-func (db *BadgerDbDriver) GetTemplateOptionList() (map[string]string, error) {
-  templates, err := db.GetTemplates()
-  if err != nil {
-    return nil, err
-  }
-
-  // Build the option list, id => name
-  var optionList = make(map[string]string)
-  optionList[""] = "None (Manual Deploy)"
-  for _, template := range templates {
-    optionList[template.Id] = template.Name
-  }
-
-  return optionList, nil
-}

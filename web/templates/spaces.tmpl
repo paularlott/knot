@@ -10,7 +10,7 @@
 <div x-data="spacesListComponent()" x-init="getSpaces">
 
   <div class="row">
-    <div class="col-sm-6">
+    <div class="col-sm-4">
       <div class="selectControl" x-show="canManageSpaces">
         <select id="user" name="user" x-model="forUserId" x-on:change="userChanged">
           <option value="" x-bind:selected="forUserId === ''">All Users</option>
@@ -20,7 +20,7 @@
         </select>
       </div>
     </div>
-    <div class="col-sm-6">
+    <div class="col-sm-8">
       <div class="text-right">
           <a :href="createURL" class="button"><i class="bx bx-plus"></i> Create Space</a>
       </div>
@@ -52,11 +52,14 @@
         <td x-text="s.template_name"></td>
         <td x-text="s.username"></td>
         <td>
-          <span x-show="s.is_deployed && !s.is_stopping" class="badge success">Running</span>
-          <span x-show="s.is_starting" class="badge warning">Starting</span>
-          <span x-show="s.is_stopping" class="badge warning">Stopping</span>
-          <span x-show="!s.is_deployed && !s.is_stopping" class="badge danger">Stopped</span>
-          <span x-show="s.update_available" class="badge update">Update Available</span>
+          <div x-show="s.template_id != '00000000-0000-0000-0000-000000000000'">
+            <span x-show="s.is_deployed && !s.is_stopping" class="badge success">Running</span>
+            <span x-show="s.is_starting" class="badge warning">Starting</span>
+            <span x-show="s.is_stopping" class="badge warning">Stopping</span>
+            <span x-show="!s.is_deployed && !s.is_stopping" class="badge danger">Stopped</span>
+            <span x-show="s.update_available" class="badge update">Update Available</span>
+          </div>
+          <span x-show="s.template_id == '00000000-0000-0000-0000-000000000000'" class="badge warning">Listening</span>
         </td>
         <td>
           <span x-show="s.is_deployed && !s.is_stopping && s.user_id == '{{ .user_id }}'">
@@ -71,8 +74,8 @@
 
           <button class="outline" @click="s.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
           <div x-show="s.showMenu" @click.away="s.showMenu = false" @keydown.window.escape="s.showMenu = false" class="menu-popup">
-            <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="startSpace(s.space_id); s.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="s.starting">ing ...</span></button>
-            <button x-show="s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="stopSpace(s.space_id); s.stopping = true"><i class='bx bx-stop-circle' ></i> Stop<span x-show="s.stopping">ping ...</span></button>
+            <button x-show="!s.is_deployed && s.template_id != '00000000-0000-0000-0000-000000000000'" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="startSpace(s.space_id); s.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="s.starting">ing ...</span></button>
+            <button x-show="s.is_deployed && s.template_id != '00000000-0000-0000-0000-000000000000'" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="stopSpace(s.space_id); s.stopping = true"><i class='bx bx-stop-circle' ></i> Stop<span x-show="s.stopping">ping ...</span></button>
             <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="editSpace(s.space_id)"><i class='bx bx-edit' ></i> Edit</button>
             <button x-show="!s.is_deployed" x-bind:disabled="s.starting || s.stopping || s.deleting" @click="deleteConfirm.show = true; deleteConfirm.space = s; s.deleting = true" class="danger"><i class="bx bx-error-circle"></i> <span x-show="!s.deleting">Delete</span><span x-show="s.deleting">Deleting</span></button>
           </div>

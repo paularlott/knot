@@ -69,6 +69,15 @@
                   </label>
                 </template>
               </dd>
+              <dt><label>Groups</label></dt>
+              <dd>
+                <template x-for="(group, index) in groups" :key="index">
+                  <label class="checkbox">
+                    <input type="checkbox" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
+                    <span x-text="group.name"></span>
+                  </label>
+                </template>
+              </dd>
               {{ end }}
               <dt></dt>
               <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel"></dd>
@@ -88,6 +97,7 @@ function userForm() {
 
   return {
     roles: [],
+    groups: [],
     formData: {
       username: "",
       email: "",
@@ -97,6 +107,7 @@ function userForm() {
       ssh_public_key: "",
       active: true,
       roles: [],
+      groups: [],
     },
     loading: true,
     buttonLabel: isEdit ? 'Update User' : 'Create User',
@@ -111,6 +122,13 @@ function userForm() {
         }
       });
       this.roles = await rolesResponse.json();
+
+      const groupsResponse = await fetch('/api/v1/groups', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.groups = await groupsResponse.json();
 
       if(isEdit) {
         const userResponse = await fetch('/api/v1/users/{{ .user.id }}', {
@@ -129,6 +147,7 @@ function userForm() {
           this.formData.ssh_public_key = user.ssh_public_key;
           this.formData.active = user.active;
           this.formData.roles = user.roles;
+          this.formData.groups = user.groups;
         }
       }
 
@@ -140,6 +159,14 @@ function userForm() {
         this.formData.roles.splice(index, 1);
       } else {
         this.formData.roles.push(roleId);
+      }
+    },
+    toggleGroup(groupId) {
+      if (this.formData.groups.includes(groupId)) {
+        const index = this.formData.groups.indexOf(groupId);
+        this.formData.groups.splice(index, 1);
+      } else {
+        this.formData.groups.push(groupId);
       }
     },
     checkUsername() {
@@ -176,6 +203,7 @@ function userForm() {
         ssh_public_key: this.formData.ssh_public_key,
         active: this.formData.active,
         roles: this.formData.roles,
+        groups: this.formData.groups,
       };
 
       fetch(isEdit ? '/api/v1/users/{{ .user.id }}' : '/api/v1/users', {

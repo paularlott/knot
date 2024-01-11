@@ -16,7 +16,8 @@ email VARCHAR(255) UNIQUE,
 password VARCHAR(255),
 preferred_shell VARCHAR(8) DEFAULT 'zsh',
 ssh_public_key TEXT DEFAULT '',
-roles TEXT DEFAULT '',
+roles TEXT DEFAULT '[]',
+groups TEXT DEFAULT '[]',
 active TINYINT NOT NULL DEFAULT 1,
 last_login_at TIMESTAMP DEFAULT NULL,
 updated_at TIMESTAMP,
@@ -85,6 +86,20 @@ name VARCHAR(64),
 hash VARCHAR(32) DEFAUlT '',
 job MEDIUMTEXT,
 volumes MEDIUMTEXT,
+groups TEXT DEFAULT '[]',
+created_user_id CHAR(36),
+created_at TIMESTAMP,
+updated_user_id CHAR(36),
+updated_at TIMESTAMP
+)`)
+  if err != nil {
+    return err
+  }
+
+  log.Debug().Msg("db: creating groups table")
+  _, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS groups (
+group_id CHAR(36) PRIMARY KEY,
+name VARCHAR(64),
 created_user_id CHAR(36),
 created_at TIMESTAMP,
 updated_user_id CHAR(36),

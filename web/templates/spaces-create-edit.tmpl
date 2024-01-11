@@ -25,13 +25,13 @@
                 <div class="selectControl">
                   <select id="template" name="template" x-model="formData.template_id">
                     {{ range $key, $value := .templateList }}
-                      <option value="{{ $key }}">{{ $value }}</option>
+                      <option value="{{ $value.Id }}">{{ $value.Name }}</option>
                     {{ end }}
                   </select>
                 </div>
               </dd>
-              <dt x-show="formData.template_id === ''"><label for="name">Agent URL <em>*</em></label></dt>
-              <dd x-show="formData.template_id === ''">
+              <dt x-show="formData.template_id === '00000000-0000-0000-0000-000000000000'"><label for="name">Agent URL <em>*</em></label></dt>
+              <dd x-show="formData.template_id === '00000000-0000-0000-0000-000000000000'">
                 <input type="url" name="address" x-on:keyup.debounce.500ms="checkAddress()" :class="{'error': !addressValid}" placeholder="URL of agent" x-model="formData.agent_url">
                 <div x-show="!addressValid" class="error-message">When template is None this must be a valid URL.</div>
               </dd>
@@ -89,7 +89,7 @@ function spaceForm() {
           window.location.href = '/spaces';
         } else {
           const space = await spaceResponse.json();
-
+console.log(space);
           this.formData.name = space.name;
           this.formData.template_id = space.template_id;
           this.formData.agent_url = space.agent_url;
@@ -111,7 +111,7 @@ function spaceForm() {
       return this.nameValid = validate.name(this.formData.name);
     },
     checkAddress() {
-      if(this.formData.template_id == "") {
+      if(this.formData.template_id == "00000000-0000-0000-0000-000000000000") {
         return this.addressValid = validate.uri(this.formData.agent_url);
       }
       return true;

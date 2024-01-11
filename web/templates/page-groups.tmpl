@@ -1,0 +1,110 @@
+{{ template "metaHead" (map "PageTitle" "Groups") }}
+{{ template "beforeContent" . }}
+
+<div class="content">
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="box">
+        <h2>Groups</h2>
+
+        <div class="text-right">
+          <a href="/groups/create" class="button"><i class="bx bx-plus"></i> Create Group</a>
+        </div>
+
+<div x-data="groupListComponent()" x-init="getGroups">
+  {{ template "loading" . }}
+  <table class="action" x-show="!loading" x-cloak>
+    <thead>
+    <tr>
+      <th class="id-col">Group ID</th>
+      <th>Name</th>
+      <th>&nbsp;</th>
+    </tr>
+    </thead>
+    <tbody>
+    <template x-for="g in groups" :key="g.group_id">
+      <tr>
+        <td class="id-col">
+          <button @click="g.showIdPopup = true" class="show-id" x-text="g.group_id"></button>
+          <div x-show="g.showIdPopup" @click.away="g.showIdPopup = false" @keydown.window.escape="g.showIdPopup = false" class="id-popup">
+            <input type="text" x-model="g.group_id" readonly>
+          </div>
+        </td>
+        <td x-text="g.name"></td>
+        <td>
+            <button @click="editGroup(g.group_id)"><i class='bx bx-edit' ></i> Edit</button>
+            <button @click="deleteConfirm.show = true; deleteConfirm.group = g" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
+        </td>
+      </tr>
+    </template>
+    </tbody>
+  </table>
+
+  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
+    <div class="modal">
+      <div class="modal-body">
+        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
+        <p>Are you sure you want to delete the group <span x-text="deleteConfirm.group.name"></span>?</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="deleteConfirm.show = false">Cancel</button>
+        <button class="danger" @click="deleteGroup(deleteConfirm.group.group_id); deleteConfirm.show = false">Delete</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function groupListComponent() {
+  return {
+    loading: true,
+    deleteConfirm: {
+      show: false,
+      group: {
+        group_id: '',
+        name: '',
+      }
+    },
+    groups: [],
+    async getGroups() {
+      this.loading = true;
+      const response = await fetch('/api/v1/groups', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.groups = await response.json();
+      this.loading = false;
+      this.groups.forEach(group => {
+        group.showIdPopup = false;
+      });
+    },
+    editGroup(groupId) {
+      window.location.href = `/groups/edit/${groupId}`;
+    },
+    async deleteGroup(groupId) {
+      await fetch(`/api/v1/groups/${groupId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Group deleted", type: 'success' } }));
+        } else {
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Group could not be deleted", type: 'error' } }));
+        }
+      });
+      this.getGroups();
+    },
+  };
+}
+</script>
+
+{{ template "afterContent" . }}

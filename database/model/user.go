@@ -15,6 +15,7 @@ type User struct {
   Password string `json:"password"`
   SSHPublicKey string `json:"ssh_public_key"`
   Roles []string `json:"roles"`
+  Groups []string `json:"groups"`
   Active bool `json:"active"`
   PreferredShell string `json:"preferred_shell"`
   LastLoginAt *time.Time `json:"last_login_at"`
@@ -22,7 +23,7 @@ type User struct {
   CreatedAt time.Time `json:"created_at"`
 }
 
-func NewUser(username string, email string, password string, roles []string, sshPublicKey string, preferredShell string) *User {
+func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string) *User {
   user := &User{
     Id: uuid.New().String(),
     Username: username,
@@ -31,6 +32,7 @@ func NewUser(username string, email string, password string, roles []string, ssh
     SSHPublicKey: sshPublicKey,
     PreferredShell: preferredShell,
     Roles: roles,
+    Groups: groups,
   }
 
   user.SetPassword(password)
@@ -63,6 +65,25 @@ func (u *User) HasPermission(permission int) bool {
         if p == permission {
           return true
         }
+      }
+    }
+  }
+
+  return false
+}
+
+func (u *User) HasAnyGroup(groups *[]string) bool {
+
+  // If user has no groups then return false
+  if len(u.Groups) == 0 {
+    return false
+  }
+
+  // If user has groups then check if any of the groups match
+  for _, group := range u.Groups {
+    for _, g := range *groups {
+      if g == group {
+        return true
       }
     }
   }

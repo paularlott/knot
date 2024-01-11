@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/api/apiv1"
+	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/web"
@@ -151,6 +153,15 @@ var serverCmd = &cobra.Command{
 
     // Initialize the middleware, test if users are present
     middleware.Initialize()
+
+    // Check manual template is present, create it if not
+    db := database.GetInstance()
+    _, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
+    if err != nil {
+      template := model.NewTemplate("Manual", "manual", "", "", []string{})
+      template.Id = model.MANUAL_TEMPLATE_ID
+      db.SaveTemplate(template)
+    }
 
     router := chi.NewRouter()
 

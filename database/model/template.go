@@ -17,18 +17,20 @@ type Template struct {
   Hash string `json:"hash"`
   Job string `json:"job"`
   Volumes string `json:"volumes"`
+  Groups []string `json:"groups"`
   CreatedUserId string `json:"created_user_id"`
   CreatedAt time.Time `json:"created_at"`
   UpdatedUserId string `json:"updated_user_id"`
   UpdatedAt time.Time `json:"updated_at"`
 }
 
-func NewTemplate(name string, job string, volumes string, userId string) *Template {
+func NewTemplate(name string, job string, volumes string, userId string, groups []string) *Template {
   template := &Template{
     Id: uuid.New().String(),
     Name: name,
     Job: job,
     Volumes: volumes,
+    Groups: groups,
     CreatedUserId: userId,
     CreatedAt: time.Now().UTC(),
     UpdatedUserId: userId,

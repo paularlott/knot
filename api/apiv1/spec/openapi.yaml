@@ -53,6 +53,11 @@ paths:
   /api/v1/users/{user_id}:
     $ref: paths/users_{user_id}.yaml
 
+  /api/v1/groups:
+    $ref: paths/groups.yaml
+  /api/v1/groups/{group_id}:
+    $ref: paths/groups_{group_id}.yaml
+
   /api/v1/roles:
     $ref: paths/roles.yaml
 

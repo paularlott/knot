@@ -56,7 +56,12 @@ type IDbDriver interface {
   DeleteTemplate(template *model.Template) error
   GetTemplate(id string) (*model.Template, error)
   GetTemplates() ([]*model.Template, error)
-  GetTemplateOptionList() (map[string]string, error)
+
+  // Groups
+  SaveGroup(group *model.Group) error
+  DeleteGroup(group *model.Group) error
+  GetGroup(id string) (*model.Group, error)
+  GetGroups() ([]*model.Group, error)
 }
 
 // Get returns the database driver and on first call initializes it

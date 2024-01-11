@@ -42,6 +42,11 @@ components:
           items:
             type: string
           description: The roles of the user
+        groups:
+          type: array
+          items:
+            type: string
+          description: The groups of the user
         active:
           type: boolean
           description: Whether the user is active
@@ -114,6 +119,12 @@ post:
                 type: string
                 example: ["00000000-0000-0000-0000-000000000000"]
               description: The IDs of the roles assigned to the user.
+            groups:
+              type: array
+              items:
+                type: string
+                example: ["00000000-0000-0000-0000-000000000000"]
+              description: The IDs of the groups assigned to the user.
           required:
             - username
             - password

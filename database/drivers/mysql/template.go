@@ -1,6 +1,7 @@
 package driver_mysql
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -16,9 +17,16 @@ func (db *MySQLDriver) SaveTemplate(template *model.Template) error {
     return err
   }
 
+  // Convert groups array to JSON
+  groups, err := json.Marshal(template.Groups)
+  if err != nil {
+    tx.Rollback()
+    return err
+  }
+
   // Assume update
-  result, err := tx.Exec("UPDATE templates SET name=?, job=?, volumes=?, hash=?, updated_user_id=?, updated_at=? WHERE template_id=?",
-    template.Name, template.Job, template.Volumes, template.Hash, template.UpdatedUserId, time.Now().UTC(), template.Id,
+  result, err := tx.Exec("UPDATE templates SET name=?, job=?, volumes=?, hash=?, updated_user_id=?, updated_at=?, groups=? WHERE template_id=?",
+    template.Name, template.Job, template.Volumes, template.Hash, template.UpdatedUserId, time.Now().UTC(), groups, template.Id,
   )
   if err != nil {
     tx.Rollback()
@@ -27,8 +35,8 @@ func (db *MySQLDriver) SaveTemplate(template *model.Template) error {
 
   // If no rows were updated then do an insert
   if rows, _ := result.RowsAffected(); rows == 0 {
-    _, err = tx.Exec("INSERT INTO templates (template_id, name, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      template.Id, template.Name, template.Job, template.Volumes, template.Hash, template.CreatedUserId, time.Now().UTC(), template.CreatedUserId, time.Now().UTC(),
+    _, err = tx.Exec("INSERT INTO templates (template_id, name, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      template.Id, template.Name, template.Job, template.Volumes, template.Hash, template.CreatedUserId, time.Now().UTC(), template.CreatedUserId, time.Now().UTC(), groups,
     )
     if err != nil {
       tx.Rollback()
@@ -70,8 +78,9 @@ func (db *MySQLDriver) getTemplates(query string, args ...interface{}) ([]*model
     var template = &model.Template{}
     var createdAt string
     var updatedAt string
+    var groups string
 
-    err := rows.Scan(&template.Id, &template.Name, &template.Job, &template.Volumes, &template.Hash, &template.CreatedUserId, &createdAt, &template.UpdatedUserId, &updatedAt)
+    err := rows.Scan(&template.Id, &template.Name, &template.Job, &template.Volumes, &template.Hash, &template.CreatedUserId, &createdAt, &template.UpdatedUserId, &updatedAt, &groups)
     if err != nil {
       return nil, err
     }
@@ -86,6 +95,12 @@ func (db *MySQLDriver) getTemplates(query string, args ...interface{}) ([]*model
       return nil, err
     }
 
+    // Parse groups
+    err = json.Unmarshal([]byte(groups), &template.Groups)
+    if err != nil {
+      return nil, err
+    }
+
     templates = append(templates, template)
   }
 
@@ -93,7 +108,7 @@ func (db *MySQLDriver) getTemplates(query string, args ...interface{}) ([]*model
 }
 
 func (db *MySQLDriver) GetTemplate(id string) (*model.Template, error) {
-  templates, err := db.getTemplates("SELECT template_id, name, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at FROM templates WHERE template_id = ?", id)
+  templates, err := db.getTemplates("SELECT template_id, name, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups FROM templates WHERE template_id = ?", id)
   if err != nil {
     return nil, err
   }
@@ -105,30 +120,5 @@ func (db *MySQLDriver) GetTemplate(id string) (*model.Template, error) {
 }
 
 func (db *MySQLDriver) GetTemplates() ([]*model.Template, error) {
-  return db.getTemplates("SELECT template_id, name, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at FROM templates ORDER BY name")
-}
-
-func (db *MySQLDriver) GetTemplateOptionList() (map[string]string, error) {
-  var optionList = make(map[string]string)
-  optionList[""] = "None (Manual Deploy)"
-
-  rows, err := db.connection.Query("SELECT template_id, name FROM templates ORDER BY name")
-  if err != nil {
-    return nil, err
-  }
-  defer rows.Close()
-
-  for rows.Next() {
-    var id string
-    var name string
-
-    err := rows.Scan(&id, &name)
-    if err != nil {
-      return nil, err
-    }
-
-    optionList[id] = name
-  }
-
-  return optionList, nil
+  return db.getTemplates("SELECT template_id, name, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups FROM templates ORDER BY name")
 }

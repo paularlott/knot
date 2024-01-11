@@ -20,6 +20,7 @@
       <th>Username</th>
       <th>Email</th>
       <th>Roles</th>
+      <th>Groups</th>
       <th>Spaces</th>
       <th>Deployed</th>
       <th>Active</th>
@@ -41,6 +42,11 @@
         <td>
           <template x-for="role in u.role_names">
             <span class="badge outline" x-text="role"></span>
+          </template>
+        </td>
+        <td>
+          <template x-for="group in u.group_names">
+            <span class="badge outline" x-text="group"></span>
           </template>
         </td>
         <td x-text="u.number_spaces"></td>
@@ -115,6 +121,8 @@ function userListComponent() {
     },
     users: [],
     roles: [],
+    groups: [],
+
     async getUsers() {
       this.loading = true;
       const rolesResponse = await fetch('/api/v1/roles', {
@@ -123,6 +131,14 @@ function userListComponent() {
         }
       });
       this.roles = await rolesResponse.json();
+
+      const groupsResponse = await fetch('/api/v1/groups', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.groups = await groupsResponse.json();
+
       const response = await fetch('/api/v1/users', {
         headers: {
           'Content-Type': 'application/json'
@@ -148,6 +164,16 @@ function userListComponent() {
           this.roles.forEach(role => {
             if (role.id_role === roleId) {
               user.role_names.push(role.role_name);
+            }
+          });
+        });
+
+        // Convert group IDs to names
+        user.group_names = [];
+        user.groups.forEach(groupId => {
+          this.groups.forEach(group => {
+            if (group.group_id === groupId) {
+              user.group_names.push(group.name);
             }
           });
         });

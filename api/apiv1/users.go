@@ -20,12 +20,14 @@ type UserRequest struct {
   Password string `json:"password"`
   Email string `json:"email"`
   Roles []string `json:"roles"`
+  Groups []string `json:"groups"`
   Active bool `json:"active"`
   SSHPublicKey string `json:"ssh_public_key"`
   PreferredShell string `json:"preferred_shell"`
 }
 
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
+  db := database.GetInstance()
   request := UserRequest{}
 
   err := rest.BindJSON(w, r, &request)
@@ -58,9 +60,18 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
     }
   }
 
+  // Check the groups are present in the system
+  for _, groupId := range request.Groups {
+    _, err := db.GetGroup(groupId)
+    if err != nil {
+      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+      return
+    }
+  }
+
   // Create the user
-  userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.SSHPublicKey, request.PreferredShell)
-  err = database.GetInstance().SaveUser(userNew)
+  userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell)
+  err = db.SaveUser(userNew)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
     return
@@ -96,6 +107,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
     Username string `json:"username"`
     Email string `json:"email"`
     Roles []string `json:"roles"`
+    Groups []string `json:"groups"`
     Active bool `json:"active"`
     SSHPublicKey string `json:"ssh_public_key"`
     PreferredShell string `json:"preferred_shell"`
@@ -108,6 +120,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
     Username: user.Username,
     Email: user.Email,
     Roles: user.Roles,
+    Groups: user.Groups,
     Active: user.Active,
     SSHPublicKey: user.SSHPublicKey,
     PreferredShell: user.PreferredShell,
@@ -130,6 +143,7 @@ type UserInfoResponse struct {
   Username string `json:"username"`
   Email string `json:"email"`
   Roles []string `json:"roles"`
+  Groups []string `json:"groups"`
   Active bool `json:"active"`
   Current bool `json:"current"`
   LastLoginAt *time.Time `json:"last_login_at"`
@@ -162,6 +176,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
       data.Username = user.Username
       data.Email = user.Email
       data.Roles = user.Roles
+      data.Groups = user.Groups
       data.Active = user.Active
       data.Current = user.Id == activeUser.Id
 
@@ -225,14 +240,6 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // Check roles give are present in the system
-  for _, role := range request.Roles {
-    if !model.RoleExists(role) {
-      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Role %s does not exist", role)})
-      return
-    }
-  }
-
   // Load the existing user
   db := database.GetInstance()
   user, err := db.GetUser(userId)
@@ -250,8 +257,26 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
   user.PreferredShell = request.PreferredShell
 
   if activeUser.HasPermission(model.PermissionManageUsers) {
+    // Check roles give are present in the system
+    for _, role := range request.Roles {
+      if !model.RoleExists(role) {
+        rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Role %s does not exist", role)})
+        return
+      }
+    }
+
+    // Check the groups are present in the system
+    for _, groupId := range request.Groups {
+      _, err := db.GetGroup(groupId)
+      if err != nil {
+        rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+        return
+      }
+    }
+
     user.Active = request.Active
     user.Roles = request.Roles
+    user.Groups = request.Groups
   }
 
   // Save

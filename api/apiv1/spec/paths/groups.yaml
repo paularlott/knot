@@ -1,0 +1,60 @@
+
+get:
+  summary: Get Groups
+  description: Retrieve all groups.
+  operationId: getGroups
+  tags:
+    - Groups
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              group_id:
+                type: string
+              name:
+                type: string
+    '500':
+      $ref: '../responses/internal-server-error.yaml'
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []
+
+post:
+  summary: Create a Group
+  description: Create a new group.
+  operationId: createGroup
+  tags:
+    - Groups
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 64
+  responses:
+    '201':
+      description: Group created successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+              group_id:
+                type: string
+    '400':
+      $ref: "../responses/bad-request.yaml"
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []

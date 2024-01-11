@@ -3,8 +3,6 @@ package web
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/database"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
@@ -19,14 +17,6 @@ func HandleUserCreate(w http.ResponseWriter, r *http.Request) {
 
   _, data := getCommonTemplateData(r)
   data["isEdit"] = false
-
-  db := database.GetInstance()
-  data["templateList"], err = db.GetTemplateOptionList()
-  if err != nil {
-    log.Error().Msg(err.Error())
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
 
   err = tmpl.Execute(w, data)
   if err != nil {

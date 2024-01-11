@@ -18,6 +18,7 @@
     <tr>
       <th class="id-col">Template ID</th>
       <th>Name</th>
+      <th>Groups</th>
       <th>Usage</th>
       <th>Deployed</th>
       <th>&nbsp;</th>
@@ -33,11 +34,16 @@
           </div>
         </td>
         <td x-text="t.name"></td>
+        <td>
+          <template x-for="group in t.group_names">
+            <span class="badge outline" x-text="group"></span>
+          </template>
+        </td>
         <td x-text="t.usage"></td>
         <td x-text="t.deployed"></td>
         <td>
             <button @click="editTemplate(t.template_id)"><i class='bx bx-edit' ></i> Edit</button>
-            <button x-show="t.usage === 0" @click="deleteConfirm.show = true; deleteConfirm.template = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
+            <button x-show="t.usage === 0 && t.template_id != '00000000-0000-0000-0000-000000000000'" @click="deleteConfirm.show = true; deleteConfirm.template = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
         </td>
       </tr>
     </template>
@@ -76,18 +82,39 @@ function templateListComponent() {
       }
     },
     templates: [],
+    groups: [],
     async getTemplates() {
       this.loading = true;
+
+      const groupsResponse = await fetch('/api/v1/groups', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.groups = await groupsResponse.json();
+
       const response = await fetch('/api/v1/templates', {
         headers: {
           'Content-Type': 'application/json'
         }
       });
       this.templates = await response.json();
-      this.loading = false;
+
       this.templates.forEach(template => {
         template.showIdPopup = false;
+
+        // Convert group IDs to names
+        template.group_names = [];
+        template.groups.forEach(groupId => {
+          this.groups.forEach(group => {
+            if (group.group_id === groupId) {
+              template.group_names.push(group.name);
+            }
+          });
+        });
       });
+
+      this.loading = false;
     },
     editTemplate(templateId) {
       window.location.href = `/templates/edit/${templateId}`;

@@ -79,7 +79,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 
   data["forUserId"] = userId
 
-  data["templateList"], err = db.GetTemplateOptionList()
+  data["templateList"], err = getTemplateOptionList(user)
   if err != nil {
     log.Error().Msg(err.Error())
     w.WriteHeader(http.StatusInternalServerError)
@@ -119,7 +119,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 
   data["isEdit"] = true
   data["preferredShell"] = ""
-  data["templateList"], err = db.GetTemplateOptionList()
+  data["templateList"], err = getTemplateOptionList(user)
   if err != nil {
     log.Error().Msg(err.Error())
     w.WriteHeader(http.StatusInternalServerError)
@@ -133,3 +133,30 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
     log.Fatal().Msg(err.Error())
   }
 }
+
+type templateOptionList struct {
+  Id string
+  Name string `json:"role_name"`
+}
+
+func getTemplateOptionList(user *model.User) (*[]templateOptionList, error) {
+  optionList := []templateOptionList{}
+
+  templates, err := database.GetInstance().GetTemplates()
+  if err != nil {
+    return nil, err
+  }
+
+  for _, template := range templates {
+    // If template doesn't have groups or one of the template groups is in the user's groups then add to optionList
+    if len(template.Groups) == 0 || user.HasAnyGroup(&template.Groups) {
+      optionList = append(optionList, templateOptionList{
+        Id:   template.Id,
+        Name: template.Name,
+      })
+    }
+  }
+
+  return &optionList, nil
+}
+

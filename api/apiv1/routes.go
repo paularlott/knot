@@ -39,6 +39,17 @@ func ApiRoutes() chi.Router {
       router.Delete("/", HandleDeleteUser)
     })
 
+    // Groups
+    router.Route("/groups", func(router chi.Router) {
+      router.Use(middleware.ApiPermissionManageUsers)
+
+      router.Get("/", HandleGetGroups)
+      router.Post("/", HandleCreateGroup)
+      router.Post("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateGroup)
+      router.Delete("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteGroup)
+      router.Get("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetGroup)
+    })
+
     // Roles
     router.Get("/roles", HandleGetRoles)
 

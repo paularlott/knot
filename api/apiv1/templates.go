@@ -2,6 +2,7 @@ package apiv1
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/paularlott/knot/database"
@@ -16,6 +17,7 @@ type TemplateRequest struct {
   Name string `json:"name"`
   Job string `json:"job"`
   Volumes string `json:"volumes"`
+  Groups []string `json:"groups"`
 }
 
 func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
@@ -31,11 +33,13 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
     Name string `json:"name"`
     Usage int `json:"usage"`
     Deployed int `json:"deployed"`
+    Groups []string `json:"groups"`
   }, len(templates))
 
   for i, template := range templates {
     templateData[i].Id = template.Id
     templateData[i].Name = template.Name
+    templateData[i].Groups = template.Groups
 
     // Find the number of spaces using this template
     spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
@@ -59,6 +63,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
+  db := database.GetInstance()
   user := r.Context().Value("user").(*model.User)
 
   template, err := database.GetInstance().GetTemplate(chi.URLParam(r, "template_id"))
@@ -87,10 +92,20 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  // Check the groups are present in the system
+  for _, groupId := range request.Groups {
+    _, err := db.GetGroup(groupId)
+    if err != nil {
+      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+      return
+    }
+  }
+
   template.Name = request.Name
   template.Job = request.Job
   template.Volumes = request.Volumes
   template.UpdatedUserId = user.Id
+  template.Groups = request.Groups
   template.UpdateHash()
 
   err = database.GetInstance().SaveTemplate(template)
@@ -103,6 +118,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
+  db := database.GetInstance()
   user := r.Context().Value("user").(*model.User)
 
   request := TemplateRequest{}
@@ -125,7 +141,16 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  template := model.NewTemplate(request.Name, request.Job, request.Volumes, user.Id)
+  // Check the groups are present in the system
+  for _, groupId := range request.Groups {
+    _, err := db.GetGroup(groupId)
+    if err != nil {
+      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+      return
+    }
+  }
+
+  template := model.NewTemplate(request.Name, request.Job, request.Volumes, user.Id, request.Groups)
 
   err = database.GetInstance().SaveTemplate(template)
   if err != nil {
@@ -147,6 +172,12 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
   template, err := database.GetInstance().GetTemplate(chi.URLParam(r, "template_id"))
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  // Don't allow the manual template to be deleted
+  if template.Id == model.MANUAL_TEMPLATE_ID {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Manual template cannot be deleted"})
     return
   }
 
@@ -175,7 +206,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
   }
 
   // Find the number of spaces using this template
-  spaces, err := database.GetInstance().GetSpacesByTemplateId(templateId)
+  spaces, err := db.GetSpacesByTemplateId(templateId)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
@@ -194,12 +225,14 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
     Volumes string `json:"volumes"`
     Usage int `json:"usage"`
     Deployed int `json:"deployed"`
+    Groups []string `json:"groups"`
   }{
     Name: template.Name,
     Job: template.Job,
     Volumes: template.Volumes,
     Usage: len(spaces),
     Deployed: deployed,
+    Groups: template.Groups,
   }
 
   rest.SendJSON(http.StatusOK, w, data)
