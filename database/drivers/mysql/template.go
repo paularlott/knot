@@ -1,7 +1,6 @@
 package driver_mysql
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -17,16 +16,9 @@ func (db *MySQLDriver) SaveTemplate(template *model.Template) error {
     return err
   }
 
-  // Convert groups array to JSON
-  groups, err := json.Marshal(template.Groups)
-  if err != nil {
-    tx.Rollback()
-    return err
-  }
-
   // Assume update
   result, err := tx.Exec("UPDATE templates SET name=?, job=?, volumes=?, hash=?, updated_user_id=?, updated_at=?, groups=? WHERE template_id=?",
-    template.Name, template.Job, template.Volumes, template.Hash, template.UpdatedUserId, time.Now().UTC(), groups, template.Id,
+    template.Name, template.Job, template.Volumes, template.Hash, template.UpdatedUserId, time.Now().UTC(), template.Groups, template.Id,
   )
   if err != nil {
     tx.Rollback()
@@ -36,7 +28,7 @@ func (db *MySQLDriver) SaveTemplate(template *model.Template) error {
   // If no rows were updated then do an insert
   if rows, _ := result.RowsAffected(); rows == 0 {
     _, err = tx.Exec("INSERT INTO templates (template_id, name, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      template.Id, template.Name, template.Job, template.Volumes, template.Hash, template.CreatedUserId, time.Now().UTC(), template.CreatedUserId, time.Now().UTC(), groups,
+      template.Id, template.Name, template.Job, template.Volumes, template.Hash, template.CreatedUserId, time.Now().UTC(), template.CreatedUserId, time.Now().UTC(), template.Groups,
     )
     if err != nil {
       tx.Rollback()
@@ -78,9 +70,8 @@ func (db *MySQLDriver) getTemplates(query string, args ...interface{}) ([]*model
     var template = &model.Template{}
     var createdAt string
     var updatedAt string
-    var groups string
 
-    err := rows.Scan(&template.Id, &template.Name, &template.Job, &template.Volumes, &template.Hash, &template.CreatedUserId, &createdAt, &template.UpdatedUserId, &updatedAt, &groups)
+    err := rows.Scan(&template.Id, &template.Name, &template.Job, &template.Volumes, &template.Hash, &template.CreatedUserId, &createdAt, &template.UpdatedUserId, &updatedAt, &template.Groups)
     if err != nil {
       return nil, err
     }
@@ -91,12 +82,6 @@ func (db *MySQLDriver) getTemplates(query string, args ...interface{}) ([]*model
       return nil, err
     }
     template.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", updatedAt)
-    if err != nil {
-      return nil, err
-    }
-
-    // Parse groups
-    err = json.Unmarshal([]byte(groups), &template.Groups)
     if err != nil {
       return nil, err
     }

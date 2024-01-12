@@ -92,6 +92,11 @@ paths:
   /api/v1/templates/{template_id}:
     $ref: paths/templates_{template_id}.yaml
 
+  /api/v1/templatevars:
+    $ref: paths/templatevars.yaml
+  /api/v1/templatevars/{templatvar_id}:
+    $ref: paths/templatevars_{templatevar_id}.yaml
+
   /proxy/port/{host}/{port}:
     $ref: paths/proxy_port_{host}_{port}.yaml
 

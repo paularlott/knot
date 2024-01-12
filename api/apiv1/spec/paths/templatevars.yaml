@@ -1,0 +1,65 @@
+
+get:
+  summary: Get Template Variables
+  description: Retrieve all template variables.
+  operationId: getTemplateVars
+  tags:
+    - TemplateVars
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              templatevar_id:
+                type: string
+              name:
+                type: string
+              value:
+                type: string
+    '500':
+      $ref: '../responses/internal-server-error.yaml'
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []
+
+post:
+  summary: Create a Template Variable
+  description: Create a new template variable.
+  operationId: createTemplateVar
+  tags:
+    - TemplateVars
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 64
+            value:
+              type: string
+              description: The value of the template variable.
+  responses:
+    '201':
+      description: Template variable created successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+              templatevar_id:
+                type: string
+    '400':
+      $ref: "../responses/bad-request.yaml"
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []

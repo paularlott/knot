@@ -14,8 +14,8 @@ type User struct {
   Email string `json:"email"`
   Password string `json:"password"`
   SSHPublicKey string `json:"ssh_public_key"`
-  Roles []string `json:"roles"`
-  Groups []string `json:"groups"`
+  Roles JSONDbArray `json:"roles"`
+  Groups JSONDbArray `json:"groups"`
   Active bool `json:"active"`
   PreferredShell string `json:"preferred_shell"`
   LastLoginAt *time.Time `json:"last_login_at"`
@@ -72,7 +72,7 @@ func (u *User) HasPermission(permission int) bool {
   return false
 }
 
-func (u *User) HasAnyGroup(groups *[]string) bool {
+func (u *User) HasAnyGroup(groups *JSONDbArray) bool {
 
   // If user has no groups then return false
   if len(u.Groups) == 0 {

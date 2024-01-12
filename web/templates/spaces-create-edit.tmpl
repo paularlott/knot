@@ -89,7 +89,7 @@ function spaceForm() {
           window.location.href = '/spaces';
         } else {
           const space = await spaceResponse.json();
-console.log(space);
+
           this.formData.name = space.name;
           this.formData.template_id = space.template_id;
           this.formData.agent_url = space.agent_url;

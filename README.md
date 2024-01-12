@@ -13,6 +13,7 @@ This project is designed to be used within trusted environments rather than on t
 - **Terminal Access:** Offers in-browser terminal access for seamless command-line operations.
 - **Command-Line Tools:** Simplifies container access with handy command-line tools.
 - **User & Permission Management:** Effectively manage users and their permissions.
+- **Groups:** Control which templates are available to users.
 - **Environment Templates:** Customizable templates for creating consistent development environments.
 - **Integration with Nomad:** Ensures seamless integration with Nomad for efficient cluster management.
 

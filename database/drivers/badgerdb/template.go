@@ -12,9 +12,9 @@ import (
 
 func (db *BadgerDbDriver) SaveTemplate(template *model.Template) error {
   err := db.connection.Update(func(txn *badger.Txn) error {
-    // Load the existing space
-    existingSpace, _ := db.GetTemplate(template.Id)
-    if existingSpace == nil {
+    // Load the existing template
+    existingTemplate, _ := db.GetTemplate(template.Id)
+    if existingTemplate == nil {
       template.CreatedAt = time.Now().UTC()
     }
 

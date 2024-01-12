@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (client *NomadClient) CreateSpaceVolumes(template *model.Template, space *model.Space) error {
+func (client *NomadClient) CreateSpaceVolumes(template *model.Template, space *model.Space, variables *map[string]interface{}) error {
   db := database.GetInstance()
 
   // Load the user
@@ -17,7 +17,7 @@ func (client *NomadClient) CreateSpaceVolumes(template *model.Template, space *m
   }
 
   // Get the volume definitions
-  volumes, err := template.GetVolumes(space, user)
+  volumes, err := template.GetVolumes(space, user, variables)
   if err != nil {
     return err
   }
@@ -106,7 +106,7 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
   return nil
 }
 
-func (client *NomadClient) CreateSpaceJob(template *model.Template, space *model.Space) error {
+func (client *NomadClient) CreateSpaceJob(template *model.Template, space *model.Space, variables *map[string]interface{}) error {
 
   log.Debug().Msgf("nomad: creating space job %s", space.Id)
 
@@ -118,7 +118,7 @@ func (client *NomadClient) CreateSpaceJob(template *model.Template, space *model
   }
 
   // Pre-parse the job to fill out the knot variables
-  jobHCL, err := model.ResolveVariables(template.Job, space, user)
+  jobHCL, err := model.ResolveVariables(template.Job, space, user, variables)
   if err != nil {
     return err
   }

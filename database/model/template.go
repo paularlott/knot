@@ -17,7 +17,7 @@ type Template struct {
   Hash string `json:"hash"`
   Job string `json:"job"`
   Volumes string `json:"volumes"`
-  Groups []string `json:"groups"`
+  Groups JSONDbArray `json:"groups"`
   CreatedUserId string `json:"created_user_id"`
   CreatedAt time.Time `json:"created_at"`
   UpdatedUserId string `json:"updated_user_id"`
@@ -41,8 +41,8 @@ func NewTemplate(name string, job string, volumes string, userId string, groups 
   return template
 }
 
-func (template *Template) GetVolumes(space *Space, user *User) (*Volumes, error) {
-  return LoadVolumesFromYaml(template.Volumes, space, user)
+func (template *Template) GetVolumes(space *Space, user *User, variables *map[string]interface{}) (*Volumes, error) {
+  return LoadVolumesFromYaml(template.Volumes, space, user, variables)
 }
 
 func (template *Template) UpdateHash() {

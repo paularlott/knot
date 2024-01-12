@@ -91,6 +91,14 @@ func Routes() chi.Router {
       router.Get("/edit/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateEdit)
     })
 
+    router.Route("/variables", func(router chi.Router) {
+      router.Use(checkPermissionManageTemplates)
+
+      router.Get("/", HandleSimplePage)
+      router.Get("/create", HandleTemplateVarCreate)
+      router.Get("/edit/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateVarEdit)
+    })
+
     router.Route("/users", func(router chi.Router) {
       router.Use(checkPermissionManageUsers)
 

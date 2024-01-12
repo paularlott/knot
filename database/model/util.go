@@ -8,7 +8,7 @@ import (
 )
 
 // Parse an input string and resolve knot variables
-func ResolveVariables(srcString string, space *Space, user *User) (string, error) {
+func ResolveVariables(srcString string, space *Space, user *User, variables *map[string]interface{}) (string, error) {
 
   // Passe the YAML string through the template engine to resolve variables
   tmpl, err := template.New("tmpl").Delims("$[", "]").Parse(srcString)
@@ -33,6 +33,7 @@ func ResolveVariables(srcString string, space *Space, user *User) (string, error
       "username": viper.GetString("server.registry.username"),
       "password": viper.GetString("server.registry.password"),
     },
+    "var": variables,
   }
 
   var tmplBytes bytes.Buffer

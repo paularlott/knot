@@ -278,18 +278,30 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  // Add the variables
+  variables, err := db.GetTemplateVars()
+  if err != nil {
+    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+    return
+  }
+
+  vars := make(map[string]interface{})
+  for _, variable := range variables {
+    vars[variable.Name] = variable.Value
+  }
+
   // Get the nomad client
   nomadClient := nomad.NewClient()
 
   // Create volumes
-  err = nomadClient.CreateSpaceVolumes(template, space)
+  err = nomadClient.CreateSpaceVolumes(template, space, &vars)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
   }
 
   // Start the job
-  err = nomadClient.CreateSpaceJob(template, space)
+  err = nomadClient.CreateSpaceJob(template, space, &vars)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return

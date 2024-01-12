@@ -1,0 +1,113 @@
+{{ template "metaHead" (map "PageTitle" "Variables") }}
+{{ template "beforeContent" . }}
+
+<div class="content">
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="box">
+        <h2>Variables</h2>
+
+        <div class="text-right">
+          <a href="/variables/create" class="button"><i class="bx bx-plus"></i> Create Variable</a>
+        </div>
+
+<div x-data="templateVarListComponent()" x-init="getTemplateVars">
+  {{ template "loading" . }}
+  <table class="action" x-show="!loading" x-cloak>
+    <thead>
+    <tr>
+      <th class="id-col">Variable ID</th>
+      <th>Name</th>
+      <th>&nbsp;</th>
+    </tr>
+    </thead>
+    <tbody>
+    <template x-for="v in variables" :key="v.templatevar_id">
+      <tr>
+        <td class="id-col">
+          <button @click="v.showIdPopup = true" class="show-id" x-text="v.templatevar_id"></button>
+          <div x-show="v.showIdPopup" @click.away="v.showIdPopup = false" @keydown.window.escape="v.showIdPopup = false" class="id-popup">
+            <input type="text" x-model="v.templatevar_id" readonly>
+          </div>
+        </td>
+        <td x-text="v.name"></td>
+        <td>
+            <button @click="editTemplateVar(v.templatevar_id)"><i class='bx bx-edit' ></i> Edit</button>
+            <button @click="deleteConfirm.show = true; deleteConfirm.variable = v" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
+        </td>
+      </tr>
+    </template>
+    </tbody>
+  </table>
+
+  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
+    <div class="modal">
+      <div class="modal-body">
+        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
+        <p>Are you sure you want to delete the variable <span x-text="deleteConfirm.variable.name"></span>?</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="deleteConfirm.show = false">Cancel</button>
+        <button class="danger" @click="deleteTemplateVar(deleteConfirm.variable.templatevar_id); deleteConfirm.show = false">Delete</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function templateVarListComponent() {
+  return {
+    loading: true,
+    deleteConfirm: {
+      show: false,
+      variable: {
+        templatevar_id: '',
+        name: '',
+      }
+    },
+    variables: [],
+    async getTemplateVars() {
+      this.loading = true;
+
+      const response = await fetch('/api/v1/templatevars', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.variables = await response.json();
+
+      this.variables.forEach(variable => {
+        variable.showIdPopup = false;
+      });
+
+      this.loading = false;
+    },
+    editTemplateVar(templateVarId) {
+      window.location.href = `/variables/edit/${templateVarId}`;
+    },
+    async deleteTemplateVar(templateVarId) {
+      await fetch(`/api/v1/templatevars/${templateVarId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Variable deleted", type: 'success' } }));
+        } else {
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Variable could not be deleted", type: 'error' } }));
+        }
+      });
+      this.getTemplateVars();
+    },
+  };
+}
+</script>
+
+{{ template "afterContent" . }}

@@ -38,10 +38,10 @@ type Volumes struct {
   Volumes []Volume `yaml:"volumes" json:"Volumes"`
 }
 
-func LoadVolumesFromYaml(yamlData string, space *Space, user *User) (*Volumes, error) {
+func LoadVolumesFromYaml(yamlData string, space *Space, user *User, variables *map[string]interface{}) (*Volumes, error) {
   volumes := &Volumes{}
 
-  yamlData, err := ResolveVariables(yamlData, space, user)
+  yamlData, err := ResolveVariables(yamlData, space, user, variables)
   if err != nil {
     return nil, err
   }
