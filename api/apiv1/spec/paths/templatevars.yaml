@@ -13,12 +13,14 @@ get:
           schema:
             type: array
             items:
-              templatevar_id:
-                type: string
-              name:
-                type: string
-              value:
-                type: string
+              type: object
+              properties:
+                templatevar_id:
+                  type: string
+                name:
+                  type: string
+                value:
+                  type: string
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':
