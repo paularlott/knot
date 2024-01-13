@@ -32,8 +32,9 @@ func InitializeAgentInformation() {
       // Loop through all the agents and check if they haven't been seen in a while
       registeredAgentsMutex.Lock()
       for spaceId, agent := range registeredAgents {
-        if time.Now().UTC().Sub(agent.LastSeen) > 10 * time.Second { // TODO make this configurable or at least set a sane amount of time 2 x agent ping interval
-          log.Debug().Msgf("agent %s not seen in a while, dropping agent", spaceId)
+        var lastSeen = time.Now().UTC().Sub(agent.LastSeen)
+        if lastSeen > 15 * time.Second { // TODO make this configurable or at least set a sane amount of time 2 x agent ping interval
+          log.Debug().Msgf("agent %s not seen for a while, dropping agent", spaceId)
 
           delete(registeredAgents, spaceId)
         }
