@@ -103,6 +103,8 @@ function spaceForm() {
             this.forUsername = "";
           }
         }
+      } else {
+        this.formData.template_id = document.querySelector('#template option:first-child').value;
       }
 
       this.loading = false;
