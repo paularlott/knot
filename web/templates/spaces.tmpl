@@ -171,7 +171,7 @@ function spacesListComponent() {
         space.showMenu = false;
         space.showIdPopup = false;
         space.showSSHPopup = false;
-        space.sshCmd = "ssh -o ProxyCommand='knot forward ssh %h' {{ .username }}@" + space.name;
+        space.sshCmd = "ssh -o ProxyCommand='knot forward ssh %h' -o StrictHostKeyChecking=no {{ .username }}@" + space.name;
         this.timerIDs[space.space_id] = setInterval(async () => {
           await this.fetchServiceState(space);
         }, 5000);
