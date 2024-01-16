@@ -7,6 +7,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+  AGENT_STATE_PING_INTERVAL = 5 * time.Second
+  AGENT_STATE_TIMEOUT = 15 * time.Second
+)
+
 // Struct holding the state of an agent
 type AgentState struct {
   AccessToken string
@@ -27,13 +32,13 @@ func InitializeAgentInformation() {
   // Start a go routine to check for agents that haven't been seen in a while
   go func() {
     for {
-      time.Sleep(5 * time.Second) // TODO make this configurable or at least set a sane amount of time
+      time.Sleep(AGENT_STATE_PING_INTERVAL)
 
       // Loop through all the agents and check if they haven't been seen in a while
       registeredAgentsMutex.Lock()
       for spaceId, agent := range registeredAgents {
         var lastSeen = time.Now().UTC().Sub(agent.LastSeen)
-        if lastSeen > 15 * time.Second { // TODO make this configurable or at least set a sane amount of time 2 x agent ping interval
+        if lastSeen > AGENT_STATE_TIMEOUT {
           log.Debug().Msgf("agent %s not seen for a while, dropping agent", spaceId)
 
           delete(registeredAgents, spaceId)

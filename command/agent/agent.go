@@ -32,7 +32,7 @@ func init() {
   agentCmd.Flags().BoolP("enable-terminal", "", true, "If given then the agent will enable the web terminal.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_ENABLE_TERMINAL environment variable if set.")
 
   // TODO Add all these to viper and create an agent scaffold example
-  agentCmd.Flags().BoolP("disable-http", "", false, "If given then disables http proxy.")
+  agentCmd.Flags().BoolP("disable-http", "", true, "If given then disables http proxy.")
 
   command.RootCmd.AddCommand(agentCmd)
 }

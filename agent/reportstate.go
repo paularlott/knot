@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/api/apiv1"
+	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/rest"
-	"github.com/spf13/viper"
 
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 func ReportState(serverAddr string, nameserver string, spaceId string, codeServerPort int, sshPort int) {
@@ -55,6 +56,6 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
       Register(serverAddr, nameserver, spaceId)
     }
 
-    time.Sleep(5 * time.Second) // TODO make this configurable or at least set a sane amount of time
+    time.Sleep(database.AGENT_STATE_PING_INTERVAL)
   }
 }

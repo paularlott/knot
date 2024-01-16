@@ -11,7 +11,7 @@ import (
 func ResolveVariables(srcString string, space *Space, user *User, variables *map[string]interface{}) (string, error) {
 
   // Passe the YAML string through the template engine to resolve variables
-  tmpl, err := template.New("tmpl").Delims("$[", "]").Parse(srcString)
+  tmpl, err := template.New("tmpl").Delims("${{", "}}").Parse(srcString)
   if err != nil {
     return srcString, err
   }
