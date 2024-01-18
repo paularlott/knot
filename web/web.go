@@ -39,7 +39,6 @@ func Routes() chi.Router {
     rctx := chi.RouteContext(r.Context())
     pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
 
-
     fsys := fs.FS(publicHTML)
     contentStatic, _ := fs.Sub(fsys, "public_html")
 
@@ -64,6 +63,7 @@ func Routes() chi.Router {
   router.Group(func(router chi.Router) {
     router.Use(middleware.WebAuth)
 
+    router.Get("/clients", HandleSimplePage)
     router.Get("/sessions", HandleSimplePage)
     router.Get("/logout", HandleLogoutPage)
 
@@ -214,9 +214,16 @@ func newTemplate(name string) (*template.Template, error){
 func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}) {
   user := r.Context().Value("user").(*model.User)
 
+  withDownloads := false
+  downloadPath := viper.GetString("server.download_path")
+  if downloadPath != "" {
+    withDownloads = true
+  }
+
   return user, map[string]interface{}{
     "username"                 : user.Username,
     "user_id"                  : user.Id,
+    "withDownloads"            : withDownloads,
     "permissionManageUsers"    : user.HasPermission(model.PermissionManageUsers),
     "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
     "permissionManageSpaces"   : user.HasPermission(model.PermissionManageSpaces),
