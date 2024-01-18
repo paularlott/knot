@@ -148,6 +148,25 @@ func (db *BadgerDbDriver) GetUserByEmail(email string) (*model.User, error) {
   return user, err
 }
 
+func (db *BadgerDbDriver) GetUserByUsername(name string) (*model.User, error) {
+  var user *model.User = nil
+
+  err := db.connection.View(func(txn *badger.Txn) error {
+    item, err := txn.Get([]byte(fmt.Sprintf("UsersByUsername:%s", name)))
+    if err != nil {
+      return err
+    }
+
+    return item.Value(func(val []byte) error {
+      var err error
+      user, err = db.GetUser(string(val))
+      return err
+    })
+  })
+
+  return user, err
+}
+
 func (db *BadgerDbDriver) GetUsers() ([]*model.User, error) {
   var users []*model.User
 

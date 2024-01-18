@@ -70,6 +70,15 @@
 
             <button class="outline" x-show="s.has_code_server" @click="openCodeServer(s.space_id)"><i class='bx bx-code-alt' ></i> Code Server</button>
             <button class="outline" x-show="s.has_terminal" @click="openTerminal(s.space_id)"><i class='bx bx-terminal'></i> Terminal</button>
+            <button class="outline" x-show="s.tcp_ports.length || s.http_ports.length" @click="s.showPortMenu = true"><i class='bx bx-network-chart'></i> Ports</button>
+            <div x-show="s.showPortMenu" @click.away="s.showPortMenu = false" @keydown.window.escape="s.showPortMenu = false" class="menu-popup">
+              <template x-for="port in s.http_ports" :key="port">
+                <button x-text="port" @click="openWindowForPort(s.space_id, s.name, port); s.showPortMenu = false;"></button>
+              </template>
+              <template x-for="port in s.tcp_ports" :key="port">
+                <div class="tcp-port" x-text="port"></div>
+              </template>
+            </div>
           </span>
 
           <button class="outline" @click="s.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
@@ -171,6 +180,7 @@ function spacesListComponent() {
         space.showMenu = false;
         space.showIdPopup = false;
         space.showSSHPopup = false;
+        space.showPortMenu = false;
         space.sshCmd = "ssh -o ProxyCommand='knot forward ssh %h' -o StrictHostKeyChecking=no {{ .username }}@" + space.name;
         this.timerIDs[space.space_id] = setInterval(async () => {
           await this.fetchServiceState(space);
@@ -191,6 +201,8 @@ function spacesListComponent() {
             space.has_terminal = serviceState.has_terminal;
             space.is_deployed = serviceState.is_deployed;
             space.update_available = serviceState.update_available;
+            space.tcp_ports = serviceState.tcp_ports;
+            space.http_ports = serviceState.http_ports;
 
             if (resetStateFlags) {
               space.starting = false;
@@ -200,6 +212,7 @@ function spacesListComponent() {
           });
         } else {
           space.has_code_server = space.has_ssh = space.has_terminal = false;
+          space.tcp_ports = space.http_ports = [];
 
           // If 404 then remove the space from the array
           if (response.status === 404) {
@@ -273,6 +286,9 @@ function spacesListComponent() {
     editSpace(spaceId) {
       window.location.href = `/spaces/edit/${spaceId}`;
     },
+    async openWindowForPort(spaceId, spaceName, port) {
+      openPortWindow(spaceId, "{{ .wildcard_domain }}", "{{ .username }}", spaceName, port);
+    }
   };
 }
 </script>

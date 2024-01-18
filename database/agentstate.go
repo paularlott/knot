@@ -18,6 +18,8 @@ type AgentState struct {
   HasCodeServer bool
   SSHPort int
   HasTerminal bool
+  TcpPorts []int
+  HttpPorts []int
   LastSeen time.Time
 }
 

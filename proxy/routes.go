@@ -28,3 +28,14 @@ func Routes() chi.Router {
 
   return router
 }
+
+// Setup proxying of URLs to ports within spaces
+func PortRoutes() chi.Router {
+  router := chi.NewRouter()
+
+// TODO enable authentication possibly we have web ports and other ports, web ports skip the auth?
+//  router.Use(middleware.ApiAuth)
+  router.Get("/*", HandleSpacesWebPortProxy)
+
+  return router
+}

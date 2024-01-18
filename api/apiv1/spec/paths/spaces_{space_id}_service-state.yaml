@@ -26,6 +26,14 @@ get:
                 type: boolean
               is_deployed:
                 type: boolean
+              tcp_ports:
+                type: array
+                items:
+                  type: integer
+              http_ports:
+                type: array
+                items:
+                  type: integer
               update_available:
                 type: boolean
   security:

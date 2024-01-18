@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/spf13/viper"
 )
 
 type SpaceRequest struct {
@@ -62,6 +63,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     IsDeployed bool `json:"is_deployed"`
     Username string `json:"username"`
     UserId string `json:"user_id"`
+    TcpPorts []int `json:"tcp_ports"`
+    HttpPorts []int `json:"http_ports"`
   }, len(spaces))
 
   for i, space := range spaces {
@@ -100,10 +103,20 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
       spaceData[i].HasCodeServer = agentState.HasCodeServer
       spaceData[i].HasSSH = agentState.SSHPort > 0
       spaceData[i].HasTerminal = agentState.HasTerminal
+      spaceData[i].TcpPorts = agentState.TcpPorts
+
+      // If wildcard domain is set then offer the http ports
+      if viper.GetString("server.wildcard_domain") == "" {
+        spaceData[i].HttpPorts = []int{}
+      } else {
+        spaceData[i].HttpPorts = agentState.HttpPorts
+      }
     } else {
       spaceData[i].HasCodeServer = false
       spaceData[i].HasSSH = false
       spaceData[i].HasTerminal = false
+      spaceData[i].TcpPorts = []int{}
+      spaceData[i].HttpPorts = []int{}
     }
   }
 
@@ -213,6 +226,8 @@ type SpaceServiceResponse struct {
   HasSSH bool `json:"has_ssh"`
   HasTerminal bool `json:"has_terminal"`
   IsDeployed bool `json:"is_deployed"`
+  TcpPorts []int `json:"tcp_ports"`
+  HttpPorts []int `json:"http_ports"`
   UpdateAvailable bool `json:"update_available"`
 }
 
@@ -234,10 +249,20 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
     response.HasCodeServer = false
     response.HasSSH = false
     response.HasTerminal = false
+    response.TcpPorts = []int{}
+    response.HttpPorts = []int{}
   } else {
     response.HasCodeServer = state.HasCodeServer
     response.HasSSH = state.SSHPort > 0
     response.HasTerminal = state.HasTerminal
+    response.TcpPorts = state.TcpPorts
+
+    // If wildcard domain is set then offer the http ports
+    if viper.GetString("server.wildcard_domain") == "" {
+      response.HttpPorts = []int{}
+    } else {
+      response.HttpPorts = state.HttpPorts
+    }
   }
 
   response.IsDeployed = space.IsDeployed

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,6 +18,7 @@ import (
 	"github.com/paularlott/knot/web"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/hostrouter"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -29,6 +31,7 @@ func init() {
   serverCmd.Flags().BoolP("disable-proxy", "", false, "Disable the proxy server functionality.\nOverrides the " + CONFIG_ENV_PREFIX + "_DISABLE_PROXY environment variable if set.")
   serverCmd.Flags().BoolP("terminal-webgl", "", true, "Enable WebGL terminal renderer.\nOverrides the " + CONFIG_ENV_PREFIX + "_WEBGL environment variable if set.")
   serverCmd.Flags().StringP("download-path", "", "", "The path to serve download files from if set.\nOverrides the " + CONFIG_ENV_PREFIX + "_DOWNLOAD_PATH environment variable if set.")
+  serverCmd.Flags().StringP("wildcard-domain", "", "", "The wildcard domain to use for proxying to spaces.\nOverrides the " + CONFIG_ENV_PREFIX + "_WILDCARD_DOMAIN environment variable if set.")
 
   // Nomad
   serverCmd.Flags().StringP("nomad-addr", "", "http://127.0.0.1:4646", "The address of the Nomad server (default \"http://127.0.0.1:4646\").\nOverrides the " + CONFIG_ENV_PREFIX + "_NOMAD_ADDR environment variable if set.")
@@ -70,6 +73,10 @@ var serverCmd = &cobra.Command{
     viper.BindPFlag("server.url", cmd.Flags().Lookup("url"))
     viper.BindEnv("server.url", CONFIG_ENV_PREFIX + "_URL")
     viper.SetDefault("server.url", "http://127.0.0.1:3000")
+
+    viper.BindPFlag("server.wildcard_domain", cmd.Flags().Lookup("wildcard-domain"))
+    viper.BindEnv("server.wildcard_domain", CONFIG_ENV_PREFIX + "_WILDCARD_DOMAIN")
+    viper.SetDefault("server.wildcard_domain", "")
 
     viper.BindPFlag("server.nameserver", cmd.Flags().Lookup("nameserver"))
     viper.BindEnv("server.nameserver", CONFIG_ENV_PREFIX + "_NAMESERVER")
@@ -165,9 +172,40 @@ var serverCmd = &cobra.Command{
 
     router := chi.NewRouter()
 
-    router.Mount("/api/v1", apiv1.ApiRoutes())
-    router.Mount("/proxy", proxy.Routes())
-    router.Mount("/", web.Routes())
+    // Get the wildcard domain, if blank just start up the server to respond on any domain
+    wildcardDomain := viper.GetString("server.wildcard_domain")
+    if wildcardDomain == "" {
+      router.Mount("/api/v1", apiv1.ApiRoutes())
+      router.Mount("/proxy", proxy.Routes())
+      router.Mount("/", web.Routes())
+    } else {
+      // Get the main host domain
+      serverURL := viper.GetString("server.url")
+      u, err := url.Parse(serverURL)
+      if err != nil {
+        log.Fatal().Msg(err.Error())
+      }
+
+      log.Debug().Msgf("Host: %s", u.Host)
+      log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
+
+      hr := hostrouter.New()
+      hr.Map(u.Host, func () chi.Router {
+        router := chi.NewRouter()
+        router.Mount("/api/v1", apiv1.ApiRoutes())
+        router.Mount("/proxy", proxy.Routes())
+        router.Mount("/", web.Routes())
+        return router
+      }())
+
+      hr.Map(wildcardDomain, func() chi.Router {
+        router := chi.NewRouter()
+        router.Mount("/", proxy.PortRoutes())
+        return router
+      }())
+
+      router.Mount("/", hr)
+    }
 
     // Run the http server
     server := &http.Server{

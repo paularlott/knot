@@ -159,7 +159,7 @@ function templateForm() {
       }
     },
     checkName() {
-      return this.nameValid = validate.maxLength(this.formData.name, 64) && validate.required(this.formData.name);
+      return this.nameValid = validate.name(this.formData.name);
     },
     checkJob() {
       return this.jobValid = validate.required(this.formData.job);

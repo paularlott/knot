@@ -4,9 +4,9 @@ export var validate = {
     return re.test(email);
   },
 
-  name: function(username) {
+  name: function(name) {
     var re = /^[a-zA-Z][a-zA-Z0-9\-]{1,63}$/;
-    return re.test(username);
+    return re.test(name) && !/--/.test(name);
   },
 
   password: function(password) {

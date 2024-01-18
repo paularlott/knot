@@ -16,3 +16,7 @@ properties:
     type: string
   user_id:
     type: string
+  tcp_ports:
+    type: array
+    items:
+      type: integer

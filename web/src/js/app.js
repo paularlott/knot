@@ -17,6 +17,14 @@ window.openCodeServer = function(spaceId) {
   return false;
 }
 
+window.openPortWindow = function(spaceId, domain, username, spaceName, port) {
+  var subdomain = window.location.protocol + '//' + username + '--' + spaceName + '--' + port;
+  const maxWidth = Math.min(window.innerWidth, 1440);
+  const maxHeight = window.innerHeight;
+  window.open(domain.replace(/^\*/, subdomain), 'spaces_' + spaceId + '_http_port_' + port); //, 'width=' + maxWidth + ',height=' + maxHeight + ',menubar=yes,toolbar=yes,location=yes,status=yes');
+  return false;
+}
+
 /// wysiwyg editor
 import 'ace-builds/src-noconflict/ace';
 import 'ace-builds/src-noconflict/mode-terraform';

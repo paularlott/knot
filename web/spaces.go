@@ -5,6 +5,7 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -38,6 +39,8 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
     data["forUserId"] = user.Id
     data["forUserUsername"] = ""
   }
+
+  data["wildcard_domain"] = viper.GetString("server.wildcard_domain")
 
   err = tmpl.Execute(w, data)
   if err != nil {

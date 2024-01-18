@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func ReportState(serverAddr string, nameserver string, spaceId string, codeServerPort int, sshPort int) {
+func ReportState(serverAddr string, nameserver string, spaceId string, codeServerPort int, sshPort int, tcpPorts []int, httpPorts []int) {
   for {
     var sshAlivePort = 0
     var codeServerAlive bool
@@ -47,7 +47,7 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
     log.Debug().Msgf("Report agent state to server: SSH %d, Code Server %d, Code Server Alive %t", sshAlivePort, codeServerPort, codeServerAlive)
 
     client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), middleware.AgentSpaceKey)
-    statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort, viper.GetBool("agent.enable-terminal"))
+    statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort, viper.GetBool("agent.enable-terminal"), tcpPorts, httpPorts)
     if err != nil {
       log.Info().Msgf("failed to ping server: %d, %s", statusCode, err.Error())
 

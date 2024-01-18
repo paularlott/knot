@@ -74,6 +74,8 @@ type AgentStatusRequest struct {
   HasCodeServer bool `json:"has_code_server"`
   SSHPort int `json:"ssh_port"`
   HasTerminal bool `json:"has_terminal"`
+  TcpPorts []int `json:"tcp_ports"`
+  HttpPorts []int `json:"http_ports"`
 }
 
 type AgentStatusResponse struct {
@@ -98,6 +100,8 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
     state.HasCodeServer = request.HasCodeServer
     state.SSHPort = request.SSHPort
     state.HasTerminal = request.HasTerminal
+    state.TcpPorts = request.TcpPorts
+    state.HttpPorts = request.HttpPorts
 
     database.AgentStateUnlock()
 
@@ -106,16 +110,19 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  database.AgentStateUnlock()
+
   log.Debug().Msgf("agent status for space %s not found", spaceId)
   rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "agent not found"})
-  database.AgentStateUnlock()
 }
 
-func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, sshPort int, hasTerminal bool) (int, error) {
+func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, sshPort int, hasTerminal bool, tcpPorts []int, httpPorts []int) (int, error) {
   request := &AgentStatusRequest{
     HasCodeServer: hasCodeServer,
     SSHPort: sshPort,
     HasTerminal: hasTerminal,
+    TcpPorts: tcpPorts,
+    HttpPorts: httpPorts,
   }
   response := &AgentStatusResponse{}
   statusCode, err := client.Post(fmt.Sprintf("/api/v1/agents/%s/status", spaceId), request, response, http.StatusOK)

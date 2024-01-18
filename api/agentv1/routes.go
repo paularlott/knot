@@ -42,9 +42,12 @@ func Routes(cmd *cobra.Command) chi.Router {
     }
 
     // If allowing TCP ports then enable the proxy
-    if len(AllowedPortMap) > 0 {
-      log.Info().Msg("Enabling proxy for any TCP port")
+    if len(TcpPortMap) > 0 {
+      log.Info().Msg("Enabling proxy for TCP ports")
       router.HandleFunc("/tcp/{port}/", agentProxyTCP);
+
+      log.Info().Msg("Enabling proxy for HTTP ports")
+      router.HandleFunc("/http/{port}/*", agentProxyHTTP);
     }
 
     if viper.GetBool("agent.enable-terminal") {
@@ -52,14 +55,6 @@ func Routes(cmd *cobra.Command) chi.Router {
       router.HandleFunc("/terminal/{shell:^[a-z]+$}/", agentTerminal);
     }
   })
-
-
-  // TODO Fix up everything below here
-
-  if cmd.Flag("disable-http").Value.String() != "true" {
-    log.Info().Msg("Enabling proxying of HTTP ports")
-    router.HandleFunc("/http/{port}/*", agentProxyHTTP);
-  }
 
   return router
 }

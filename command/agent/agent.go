@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -27,12 +28,10 @@ func init() {
   agentCmd.Flags().StringP("listen", "l", "0.0.0.0:3000", "The address and port to listen on.")
   agentCmd.Flags().IntP("code-server-port", "", 0, "The port code-server is running on.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_CODE_SERVER_PORT environment variable if set.")
   agentCmd.Flags().IntP("ssh-port", "", 0, "The port sshd is running on.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_SSH_PORT environment variable if set.")
-  agentCmd.Flags().StringSliceP("tcp-port", "p", []string{}, "Can be specified multiple times to give the list of TCP ports to be exposed to the client.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_TCP_PORT environment variable if set.")
+  agentCmd.Flags().StringSliceP("tcp-port", "", []string{}, "Can be specified multiple times to give the list of TCP ports to be exposed to the client.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_TCP_PORT environment variable if set.")
+  agentCmd.Flags().StringSliceP("http-port", "", []string{}, "Can be specified multiple times to give the list of ports to be exposed via the web interface.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_HTTP_PORT environment variable if set.")
   agentCmd.Flags().BoolP("update-authorized-keys", "", true, "If given then the agent will update the authorized_keys file with the SSH public key of the user.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_UPDATE_AUTHORIZED_KEYS environment variable if set.")
   agentCmd.Flags().BoolP("enable-terminal", "", true, "If given then the agent will enable the web terminal.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_ENABLE_TERMINAL environment variable if set.")
-
-  // TODO Add all these to viper and create an agent scaffold example
-  agentCmd.Flags().BoolP("disable-http", "", true, "If given then disables http proxy.")
 
   command.RootCmd.AddCommand(agentCmd)
 }
@@ -70,6 +69,9 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     viper.BindPFlag("agent.port.tcp-port", cmd.Flags().Lookup("tcp-port"))
     viper.BindEnv("agent.port.tcp-port", command.CONFIG_ENV_PREFIX + "_TCP_PORT")
 
+    viper.BindPFlag("agent.port.http-port", cmd.Flags().Lookup("http-port"))
+    viper.BindEnv("agent.port.http-port", command.CONFIG_ENV_PREFIX + "_HTTP_PORT")
+
     viper.BindPFlag("agent.update-authorized-keys", cmd.Flags().Lookup("update-authorized-keys"))
     viper.BindEnv("agent.update-authorized-keys", command.CONFIG_ENV_PREFIX + "_UPDATE_AUTHORIZED_KEYS")
     viper.SetDefault("agent.update-authorized-keys", true)
@@ -86,15 +88,30 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
     // Build a map of the available tcp ports
     ports := viper.GetStringSlice("agent.port.tcp-port")
-    agentv1.AllowedPortMap = make(map[string]bool, len(ports))
+    tcpPorts := []int{}
+    agentv1.TcpPortMap = make(map[string]bool, len(ports))
     for _, port := range ports {
-      agentv1.AllowedPortMap[port] = true
+      agentv1.TcpPortMap[port] = true
+
+      portInt, _ := strconv.Atoi(port)
+      tcpPorts = append(tcpPorts, portInt)
     }
 
     // Add the ssh port to the map
     sshPort := viper.GetInt("agent.port.ssh")
     if sshPort != 0 {
-      agentv1.AllowedPortMap[fmt.Sprintf("%d", sshPort)] = true
+      agentv1.TcpPortMap[fmt.Sprintf("%d", sshPort)] = true
+    }
+
+    // Build a map of available http ports
+    ports = viper.GetStringSlice("agent.port.http-port")
+    httpPorts := []int{}
+    agentv1.HttpPortMap = make(map[string]bool, len(ports))
+    for _, port := range ports {
+      agentv1.HttpPortMap[port] = true
+
+      portInt, _ := strconv.Atoi(port)
+      httpPorts = append(httpPorts, portInt)
     }
 
     // Check address given and valid URL
@@ -115,7 +132,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     agent.Register(serverAddr, nameserver, spaceId)
 
     // Pings the server periodically to keep the agent alive
-    go agent.ReportState(serverAddr, nameserver, spaceId, viper.GetInt("agent.port.code-server"), viper.GetInt("agent.port.ssh"))
+    go agent.ReportState(serverAddr, nameserver, spaceId, viper.GetInt("agent.port.code-server"), viper.GetInt("agent.port.ssh"), tcpPorts, httpPorts)
 
     log.Info().Msgf("agent: listening on: %s", listen)
 

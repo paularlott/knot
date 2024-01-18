@@ -135,6 +135,18 @@ func (db *MySQLDriver) GetUserByEmail(email string) (*model.User, error) {
   return users[0], nil
 }
 
+func (db *MySQLDriver) GetUserByUsername(name string) (*model.User, error) {
+  users,err := db.getUsers("username=?", name)
+  if err != nil {
+    return nil, err
+  }
+  if len(users) == 0 {
+    return nil, fmt.Errorf("user not found")
+  }
+
+  return users[0], nil
+}
+
 func (db *MySQLDriver) GetUsers() ([]*model.User, error) {
   users,err := db.getUsers("")
   if err != nil {

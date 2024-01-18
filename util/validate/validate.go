@@ -1,6 +1,9 @@
 package validate
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 func Email(email string) bool {
   re := regexp.MustCompile(`(?i)^([a-z0-9](?:[a-z0-9&'+=_\.-]+)?)@([a-z0-9_-]+)(\.[a-z0-9_-]+)*(\.[a-z]{2,})+$`)
@@ -12,9 +15,9 @@ func Uri(uri string) bool {
   return re.MatchString(uri)
 }
 
-func Name(username string) bool {
+func Name(name string) bool {
   re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9\-]{1,63}$`);
-  return re.MatchString(username);
+  return re.MatchString(name) && !strings.Contains(name, "--");
 }
 
 func Password(password string) bool {

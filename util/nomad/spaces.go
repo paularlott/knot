@@ -118,7 +118,7 @@ func (client *NomadClient) CreateSpaceJob(template *model.Template, space *model
   }
 
   // Pre-parse the job to fill out the knot variables
-  jobHCL, err := model.ResolveVariables(template.Job, space, user, variables)
+  jobHCL, err := model.ResolveVariables(template.Job, template, space, user, variables)
   if err != nil {
     return err
   }

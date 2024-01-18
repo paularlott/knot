@@ -12,7 +12,7 @@ import (
 )
 
 var (
-  AllowedPortMap map[string]bool
+  TcpPortMap map[string]bool
 )
 
 func agentProxyTCP(w http.ResponseWriter, r *http.Request) {
@@ -20,9 +20,9 @@ func agentProxyTCP(w http.ResponseWriter, r *http.Request) {
 
   log.Debug().Msgf("proxy of tcp port %s", port)
 
-  // Check port is in the list of allowed ports viper.GetStringSlice("agent.port.tcp-port")
-  if !AllowedPortMap[port] {
-    log.Error().Msgf("proxy of port %s is not allowed", port)
+  // Check port is in the list of allowed ports
+  if !TcpPortMap[port] {
+    log.Error().Msgf("proxy of tcp port %s is not allowed", port)
     w.WriteHeader(http.StatusForbidden)
     return
   }

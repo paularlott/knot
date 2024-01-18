@@ -42,7 +42,7 @@ func NewTemplate(name string, job string, volumes string, userId string, groups 
 }
 
 func (template *Template) GetVolumes(space *Space, user *User, variables *map[string]interface{}) (*Volumes, error) {
-  return LoadVolumesFromYaml(template.Volumes, space, user, variables)
+  return LoadVolumesFromYaml(template.Volumes, template, space, user, variables)
 }
 
 func (template *Template) UpdateHash() {

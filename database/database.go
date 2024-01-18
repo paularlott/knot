@@ -27,6 +27,7 @@ type IDbDriver interface {
   DeleteUser(user *model.User) error
   GetUser(id string) (*model.User, error)
   GetUserByEmail(email string) (*model.User, error)
+  GetUserByUsername(email string) (*model.User, error)
   GetUsers() ([]*model.User, error)
   GetUserCount() (int, error)
 
