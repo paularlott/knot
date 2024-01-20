@@ -16,8 +16,6 @@ RUN ARCH=$(uname -m); \
 		*) echo >&2 "error: unsupported architecture: '$ARCH'"; exit 1 ;; \
 	esac \
   && unzip /srv/$f.zip -d /usr/local/bin \
-  && mv /usr/local/bin/$f /usr/local/bin/knot \
-  && chmod +x /usr/local/bin/knot \
   \
   # Add a user, knot, to run the process
   && addgroup -S knot \
