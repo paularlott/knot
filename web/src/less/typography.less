@@ -82,6 +82,27 @@ p {
 
 pre {
 	white-space: pre-wrap;
+
+  &.code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    line-height: 1.5;
+		color: @darkTableHeaderColorText;
+    background-color: @darkTableHeaderBackground;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+  }
+}
+
+body.light {
+  pre {
+    &.code {
+      color: @lightTableHeaderColorText;
+      background-color: @lightTableHeaderBackground;
+    }
+  }
 }
 
 strong {

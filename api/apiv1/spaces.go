@@ -193,8 +193,14 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
   }
 
   // Lookup the template
-  _, err = database.GetInstance().GetTemplate(request.TemplateId)
+  template, err := database.GetInstance().GetTemplate(request.TemplateId)
   if err != nil {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
+    return
+  }
+
+  // Check the user and template have overlapping groups
+  if len(template.Groups) > 0 && !user.HasAnyGroup(&template.Groups) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
     return
   }
