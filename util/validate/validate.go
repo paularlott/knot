@@ -20,6 +20,11 @@ func Name(name string) bool {
   return re.MatchString(name) && !strings.Contains(name, "--");
 }
 
+func VarName(name string) bool {
+  re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]{1,63}$`);
+  return re.MatchString(name);
+}
+
 func Password(password string) bool {
   return len(password) >= 8
 }

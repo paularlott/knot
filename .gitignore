@@ -3,6 +3,7 @@
 !/bin/.gitignore
 /node_modules
 .knot.yml
+/knot-server.nomad
 /web/public_html/api-docs/*
 !/web/public_html/api-docs/.gitignore
 !/web/public_html/api-docs/redoc.standalone.js

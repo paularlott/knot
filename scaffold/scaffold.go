@@ -13,4 +13,7 @@ var (
 
   //go:embed agent.yml
   AgentScaffold string
+
+  //go:embed knot-server.nomad
+  NomadScaffold string
 )

@@ -56,7 +56,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  if !validate.Required(request.Name) || !validate.Name(request.Name) {
+  if !validate.Required(request.Name) || !validate.VarName(request.Name) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template variable name given"})
     return
   }
@@ -89,7 +89,7 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  if !validate.Required(request.Name) || !validate.Name(request.Name) {
+  if !validate.Required(request.Name) || !validate.VarName(request.Name) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template variable name given"})
     return
   }

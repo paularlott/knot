@@ -9,6 +9,11 @@ export var validate = {
     return re.test(name) && !/--/.test(name);
   },
 
+  varName: function(name) {
+    var re = /^[a-zA-Z][a-zA-Z0-9_]{1,63}$/;
+    return re.test(name);
+  },
+
   password: function(password) {
     return password.length >= 8;
   },

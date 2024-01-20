@@ -12,6 +12,7 @@ func init() {
   scaffoldCmd.Flags().BoolP("server", "", false, "Generate a server configuration file")
   scaffoldCmd.Flags().BoolP("client", "", false, "Generate a client configuration file")
   scaffoldCmd.Flags().BoolP("agent", "", false, "Generate an agent configuration file")
+  scaffoldCmd.Flags().BoolP("nomad", "", false, "Generate a nomad job file")
 
   RootCmd.AddCommand(scaffoldCmd)
 }
@@ -37,7 +38,11 @@ var scaffoldCmd = &cobra.Command{
       fmt.Println(scaffold.AgentScaffold)
     }
 
-    if cmd.Flag("server").Value.String() == "false" && cmd.Flag("client").Value.String() == "false" && cmd.Flag("agent").Value.String() == "false" {
+    if cmd.Flag("nomad").Value.String() == "true" {
+      fmt.Println(scaffold.NomadScaffold)
+    }
+
+    if cmd.Flag("server").Value.String() == "false" && cmd.Flag("client").Value.String() == "false" && cmd.Flag("agent").Value.String() == "false" && cmd.Flag("nomad").Value.String() == "false" {
       cmd.Help()
     }
   },

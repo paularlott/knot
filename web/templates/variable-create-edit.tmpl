@@ -17,7 +17,7 @@
             <dt><label for="name">Name <em>*</em></label></dt>
             <dd>
               <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Template name" x-model="formData.name">
-              <div x-show="!nameValid" class="error-message">Space name can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+              <div x-show="!nameValid" class="error-message">Space name can only contain the letters a - Z, 0 - 9 and _, max 64 characters.</div>
             </dd>
             <dt><label for="job">Value</label></dt>
             <dd class="grow">
@@ -102,7 +102,7 @@ function variableForm() {
       this.loading = false;
     },
     checkName() {
-      return this.nameValid = validate.name(this.formData.name);
+      return this.nameValid = validate.varName(this.formData.name);
     },
     checkValue() {
       return this.valueValid = validate.maxLength(this.formData.value, 10 * 1024 * 1024);

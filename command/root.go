@@ -43,6 +43,15 @@ func init() {
       viper.BindPFlag("log.level", RootCmd.PersistentFlags().Lookup("log-level"))
       viper.BindEnv("log.level", CONFIG_ENV_PREFIX + "_LOGLEVEL")
 
+      // If config file given then use it
+      cfgFile := viper.GetString("config")
+      if cfgFile != "" {
+        viper.SetConfigFile(cfgFile)
+        if err := viper.ReadInConfig(); err != nil {
+          log.Fatal().Msgf("missing config file: %s", viper.ConfigFileUsed())
+        }
+      }
+
       switch viper.GetString("log.level") {
       case "debug":
         zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -60,27 +69,15 @@ func init() {
 }
 
 func initConfig() {
-  cfgFile := viper.GetString("config")
+  // Find home directory.
+  home, err := os.UserHomeDir()
+  cobra.CheckErr(err)
 
-  if cfgFile != "" {
-    // Use config file from the flag
-    viper.SetConfigFile(cfgFile)
-
-    if err := viper.ReadInConfig(); err != nil {
-      log.Fatal().Msgf("missing config file: %s", viper.ConfigFileUsed())
-    }
-  } else {
-    // Find home directory.
-    home, err := os.UserHomeDir()
-    cobra.CheckErr(err)
-
-    // Search config in home directory with name ".knot" (without extension).
-    viper.AddConfigPath(".")
-    viper.AddConfigPath(home)
-    viper.SetConfigName(CONFIG_FILE_NAME) // Name of config file without extension
-    viper.SetConfigType(CONFIG_FILE_TYPE) // Type of config file
-  }
-
+  // Search config in home directory with name ".knot" (without extension).
+  viper.AddConfigPath(".")
+  viper.AddConfigPath(home)
+  viper.SetConfigName(CONFIG_FILE_NAME) // Name of config file without extension
+  viper.SetConfigType(CONFIG_FILE_TYPE) // Type of config file
   viper.SetEnvPrefix(CONFIG_ENV_PREFIX)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
   //viper.AutomaticEnv() // Read in environment variables that match

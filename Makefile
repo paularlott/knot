@@ -62,6 +62,16 @@ clean:
 	rm -rf legal/notice.txt
 	rm -rf web/public_html/api-docs/index.html
 
+.PHONEY: knot-server
+## Build the docker image and push to GitHub
+container:
+	docker buildx build \
+		--platform linux/amd64,linux/arm64 \
+		--tag ghcr.io/paularlott/knot:0.0.1 \
+		--tag ghcr.io/paularlott/knot:latest \
+		--push \
+		.
+
 .PHONY: help
 ## This help screen
 help:
