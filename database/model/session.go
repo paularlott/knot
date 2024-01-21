@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 const WEBUI_SESSION_COOKIE = "__KNOT_WEBUI_SESSION"
@@ -27,8 +28,13 @@ func NewSession(r *http.Request, userId string) *Session {
       ip = r.RemoteAddr
   }
 
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+
   session := &Session{
-    Id: uuid.New().String(),
+    Id: id.String(),
     Ip: ip,
     UserId: userId,
     UserAgent: r.UserAgent(),

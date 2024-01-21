@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -24,8 +25,13 @@ type User struct {
 }
 
 func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string) *User {
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+
   user := &User{
-    Id: uuid.New().String(),
+    Id: id.String(),
     Username: username,
     Email: email,
     Active: true,

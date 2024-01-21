@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 // Template Variable object
@@ -18,8 +19,13 @@ type TemplateVar struct {
 }
 
 func NewTemplateVar(name string, value string, userId string) *TemplateVar {
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+
   templateVar := &TemplateVar{
-    Id: uuid.New().String(),
+    Id: id.String(),
     Name: name,
     Value: value,
     CreatedUserId: userId,

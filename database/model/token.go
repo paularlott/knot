@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 // Session object
@@ -15,8 +16,13 @@ type Token struct {
 }
 
 func NewToken(name string, userId string) *Token {
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+
   token := &Token{
-    Id: uuid.New().String(),
+    Id: id.String(),
     UserId: userId,
     Name: name,
   }

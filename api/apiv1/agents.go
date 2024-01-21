@@ -50,7 +50,12 @@ func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
     }
   }
 
-  var token = uuid.New().String()
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+
+  var token = id.String()
   database.AgentStateSet(spaceId, &database.AgentState{
     AccessToken: token,
     HasCodeServer: false,

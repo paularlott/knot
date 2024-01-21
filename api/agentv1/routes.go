@@ -15,9 +15,13 @@ var (
 )
 
 func Routes(cmd *cobra.Command) chi.Router {
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
 
   // Set a fake space key so that any calls fail
-  middleware.AgentSpaceKey = uuid.New().String()
+  middleware.AgentSpaceKey = id.String()
 
   router := chi.NewRouter()
 

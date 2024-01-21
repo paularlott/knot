@@ -13,7 +13,12 @@ import (
 )
 
 func Register(serverAddr string, nameserver string, spaceId string) {
-  middleware.AgentSpaceKey = uuid.New().String()
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+
+  middleware.AgentSpaceKey = id.String()
 
   // Register the agent with the server
   var response *apiv1.AgentRegisterResponse

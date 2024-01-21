@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 // Group object
@@ -17,8 +18,13 @@ type Group struct {
 }
 
 func NewGroup(name string, userId string) *Group {
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+
   group := &Group{
-    Id: uuid.New().String(),
+    Id: id.String(),
     Name: name,
     CreatedUserId: userId,
     CreatedAt: time.Now().UTC(),

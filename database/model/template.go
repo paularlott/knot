@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 const MANUAL_TEMPLATE_ID = "00000000-0000-0000-0000-000000000000"
@@ -25,8 +26,13 @@ type Template struct {
 }
 
 func NewTemplate(name string, job string, volumes string, userId string, groups []string) *Template {
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+
   template := &Template{
-    Id: uuid.New().String(),
+    Id: id.String(),
     Name: name,
     Job: job,
     Volumes: volumes,

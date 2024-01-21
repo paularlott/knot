@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type SpaceVolume struct {
@@ -30,8 +31,13 @@ type Space struct {
 }
 
 func NewSpace(name string, userId string, agentURL string, templateId string, shell string) *Space {
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+
   space := &Space{
-    Id: uuid.New().String(),
+    Id: id.String(),
     UserId: userId,
     TemplateId: templateId,
     Name: name,
