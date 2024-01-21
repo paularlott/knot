@@ -114,6 +114,7 @@ updated_at TIMESTAMP
 templatevar_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
 value MEDIUMTEXT,
+protected TINYINT NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP,
 updated_user_id CHAR(36),

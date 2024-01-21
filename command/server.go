@@ -32,6 +32,7 @@ func init() {
   serverCmd.Flags().BoolP("terminal-webgl", "", true, "Enable WebGL terminal renderer.\nOverrides the " + CONFIG_ENV_PREFIX + "_WEBGL environment variable if set.")
   serverCmd.Flags().StringP("download-path", "", "", "The path to serve download files from if set.\nOverrides the " + CONFIG_ENV_PREFIX + "_DOWNLOAD_PATH environment variable if set.")
   serverCmd.Flags().StringP("wildcard-domain", "", "", "The wildcard domain to use for proxying to spaces.\nOverrides the " + CONFIG_ENV_PREFIX + "_WILDCARD_DOMAIN environment variable if set.")
+  serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the " + CONFIG_ENV_PREFIX + "_ENCRYPT environment variable if set.")
 
   // Nomad
   serverCmd.Flags().StringP("nomad-addr", "", "http://127.0.0.1:4646", "The address of the Nomad server (default \"http://127.0.0.1:4646\").\nOverrides the " + CONFIG_ENV_PREFIX + "_NOMAD_ADDR environment variable if set.")
@@ -88,6 +89,10 @@ var serverCmd = &cobra.Command{
     viper.BindPFlag("server.download_path", cmd.Flags().Lookup("download-path"))
     viper.BindEnv("server.download_path", CONFIG_ENV_PREFIX + "_DOWNLOAD_PATH")
     viper.SetDefault("server.download_path", "")
+
+    viper.BindPFlag("server.encrypt", cmd.Flags().Lookup("encrypt"))
+    viper.BindEnv("server.encrypt", CONFIG_ENV_PREFIX + "_ENCRYPT")
+    viper.SetDefault("server.encrypt", "")
 
     // Nomad
     viper.BindPFlag("server.nomad.addr", cmd.Flags().Lookup("nomad-addr"))

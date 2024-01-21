@@ -19,8 +19,8 @@ get:
                   type: string
                 name:
                   type: string
-                value:
-                  type: string
+                protected:
+                  type: boolean
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':
@@ -47,6 +47,9 @@ post:
             value:
               type: string
               description: The value of the template variable.
+            protected:
+              type: boolean
+              description: Whether the template variable is protected with encryption.
   responses:
     '201':
       description: Template variable created successfully

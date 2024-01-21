@@ -14,6 +14,7 @@ import (
 type TemplateVarRequest struct {
   Name string `json:"name"`
   Value string `json:"value"`
+  Protected bool `json:"protected"`
 }
 
 func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
@@ -27,13 +28,13 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
   data := make([]struct {
     Id string `json:"templatevar_id"`
     Name string `json:"name"`
-    Value string `json:"value"`
+    Protected bool `json:"protected"`
   }, len(templateVars))
 
   for i, variable := range templateVars {
     data[i].Id = variable.Id
     data[i].Name = variable.Name
-    data[i].Value = variable.Value
+    data[i].Protected = variable.Protected
   }
 
   rest.SendJSON(http.StatusOK, w, data)
@@ -67,6 +68,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 
   templateVar.Name = request.Name
   templateVar.Value = request.Value
+  templateVar.Protected = request.Protected
   templateVar.UpdatedUserId = user.Id
 
   err = db.SaveTemplateVar(templateVar)
@@ -98,7 +100,7 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  templateVar := model.NewTemplateVar(request.Name, request.Value, user.Id)
+  templateVar := model.NewTemplateVar(request.Name, request.Value, request.Protected, user.Id)
 
   err = db.SaveTemplateVar(templateVar)
   if err != nil {
@@ -144,12 +146,22 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  var val string
+
+  if templateVar.Protected {
+    val = ""
+  } else {
+    val = templateVar.Value
+  }
+
   data := struct {
     Name string `json:"name"`
     Value string `json:"value"`
+    Protected bool `json:"protected"`
   }{
     Name: templateVar.Name,
-    Value: templateVar.Value,
+    Value: val,
+    Protected: templateVar.Protected,
   }
 
   rest.SendJSON(http.StatusOK, w, data)

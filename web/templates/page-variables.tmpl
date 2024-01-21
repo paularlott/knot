@@ -18,6 +18,7 @@
     <tr>
       <th class="id-col">Variable ID</th>
       <th>Name</th>
+      <th>Protected</th>
       <th>&nbsp;</th>
     </tr>
     </thead>
@@ -31,6 +32,7 @@
           </div>
         </td>
         <td x-text="v.name"></td>
+        <td x-text="v.protected ? 'Yes' : 'No'"></td>
         <td>
             <button @click="editTemplateVar(v.templatevar_id)"><i class='bx bx-edit' ></i> Edit</button>
             <button @click="deleteConfirm.show = true; deleteConfirm.variable = v" class="danger"><i class="bx bx-error-circle"></i> Delete</button>

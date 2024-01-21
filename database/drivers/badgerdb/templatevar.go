@@ -18,6 +18,7 @@ func (db *BadgerDbDriver) SaveTemplateVar(templateVar *model.TemplateVar) error 
       templateVar.CreatedAt = time.Now().UTC()
     }
 
+    templateVar.Value = templateVar.GetValueEncrypted()
     templateVar.UpdatedUserId = templateVar.CreatedUserId
     templateVar.UpdatedAt = time.Now().UTC()
     data, err := json.Marshal(templateVar)
@@ -67,6 +68,7 @@ func (db *BadgerDbDriver) GetTemplateVar(id string) (*model.TemplateVar, error) 
     return nil, err
   }
 
+  templateVar.DecryptSetValue(templateVar.Value)
   return templateVar, err
 }
 
@@ -90,6 +92,7 @@ func (db *BadgerDbDriver) GetTemplateVars() ([]*model.TemplateVar, error) {
         return err
       }
 
+      templateVar.DecryptSetValue(templateVar.Value)
       templateVars = append(templateVars, templateVar)
     }
 

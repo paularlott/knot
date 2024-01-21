@@ -19,6 +19,10 @@
               <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Template name" x-model="formData.name">
               <div x-show="!nameValid" class="error-message">Space name can only contain the letters a - Z, 0 - 9 and _, max 64 characters.</div>
             </dd>
+            <dt><label for="protected">Protected</label></dt>
+            <dd>
+              <input type="checkbox" name="protected" x-model="formData.protected">
+            </dd>
             <dt><label for="job">Value</label></dt>
             <dd class="grow">
               <div :class="{'error': !valueValid, 'editor-wrap': true}">
@@ -45,6 +49,7 @@ function variableForm() {
     formData: {
       name: "",
       value: "",
+      protected: false,
     },
     loading: true,
     buttonLabel: isEdit ? 'Update Variable' : 'Create Variable',
@@ -66,6 +71,7 @@ function variableForm() {
 
           this.formData.name = v.name;
           this.formData.value = v.value;
+          this.formData.protected = v.protected;
         }
       }
 
