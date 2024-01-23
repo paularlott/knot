@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
 	"github.com/rs/zerolog/log"
@@ -227,5 +228,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
     "permissionManageUsers"    : user.HasPermission(model.PermissionManageUsers),
     "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
     "permissionManageSpaces"   : user.HasPermission(model.PermissionManageSpaces),
+    "version"                  : build.Version,
+    "buildDate"                : build.Date,
   }
 }
