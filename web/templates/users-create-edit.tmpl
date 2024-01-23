@@ -1,10 +1,8 @@
-{{ if .isEdit }}
-{{ template "metaHead" (map "PageTitle" "Edit User") }}
-{{ else }}
-{{ template "metaHead" (map "PageTitle" "Create User") }}
-{{ end }}
-{{ template "beforeContent" . }}
+{{ template "layout-base.tmpl" . }}
 
+{{ define "pageTitle" }}{{ if .isEdit }}Edit User"{{ else }}Create User{{ end }}{{ end }}
+
+{{ define "mainContent" }}
 <div class="content">
   <div class="row">
     <div class="col-sm-6 col-sm-offset-3">
@@ -236,4 +234,4 @@ function userForm() {
 
 </script>
 
-{{ template "afterContent" . }}
+{{ end }}

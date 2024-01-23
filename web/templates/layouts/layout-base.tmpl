@@ -1,12 +1,8 @@
-{{ define "metaHead" }}
 <!DOCTYPE html>
 <html>
   <head>
     {{ template "head-meta" . }}
   </head>
-{{ end }}
-
-{{ define "beforeContent" }}
   <body {{ template "init-theme" . }}>
 
     <div class="layout">
@@ -29,9 +25,9 @@
 
           <div><a href="/users/edit/{{ .user_id }}" class="button outline">{{ .username }}</a></div>
         </header>
-{{ end }}
 
-{{ define "afterContent" }}
+{{ block "mainContent" . }}{{ end }}
+
       </div>
     </div>
 
@@ -39,4 +35,3 @@
 
   </body>
 </html>
-{{ end }}

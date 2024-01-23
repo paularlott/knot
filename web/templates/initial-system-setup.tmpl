@@ -1,55 +1,36 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    {{ template "head-meta" (map "PageTitle" "Initialize System") }}
-  </head>
-  <body {{ template "init-theme" . }}>
+{{ template "layout-center.tmpl" . }}
 
-    <div class="box-wrapper">
-      <div class="box login-box">
-        <div class="row align-items-center">
-          <div class="col-sm-6">
-            <div style="text-align: center; padding: 2rem 0">
-              <img src="images/knot-logo.webp" alt="Knot Logo" class="logo" />
-              <h1>Knot</h1>
-              <p>This instance has not been initialized.<br /> Create the first user.</p>
-            </div>
-          </div>
-          <div class="col-sm-6">
+{{ define "pageTitle" }}Initialize System{{ end }}
 
-            <div x-data="createUserForm()">
-              <form action="" method="POST" @submit.prevent="submitData">
-                <dl>
-                  <dt><label for="username">Username <em>*</em></label></dt>
-                  <dd>
-                    <input type="text" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username">
-                    <div x-show="!usernameValid" class="error-message">Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
-                  </dd>
-                  <dt><label for="email">Email <em>*</em></label></dt>
-                  <dd>
-                    <input type="text" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'error': !emailValid}" placeholder="Email address" x-model="formData.email">
-                    <div x-show="!emailValid" class="error-message">Enter a valid email address.</div>
-                  </dd>
-                  <dt><label for="password">Password <em>*</em></label></dt>
-                  <dd>
-                    <input type="password" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'error': !passwordValid}" placeholder="Password" x-model="formData.password">
-                    <div x-show="!passwordValid" class="error-message">Password must be at least 8 characters.</div>
-                  </dd>
-                  <dt><label for="confirm_password">Confirm Password <em>*</em></label></dt>
-                  <dd>
-                    <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
-                    <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
-                  </dd>
-                  <dt></dt>
-                  <dd><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" class="full-width"></dd>
-                </dl>
-              </form>
-            </div>
-
-          </div>
-        </div>
-      </div>
-    </div>
+{{ define "mainContent" }}
+<div x-data="createUserForm()">
+  <form action="" method="POST" @submit.prevent="submitData">
+    <dl>
+      <dt><label for="username">Username <em>*</em></label></dt>
+      <dd>
+        <input type="text" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username">
+        <div x-show="!usernameValid" class="error-message">Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+      </dd>
+      <dt><label for="email">Email <em>*</em></label></dt>
+      <dd>
+        <input type="text" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'error': !emailValid}" placeholder="Email address" x-model="formData.email">
+        <div x-show="!emailValid" class="error-message">Enter a valid email address.</div>
+      </dd>
+      <dt><label for="password">Password <em>*</em></label></dt>
+      <dd>
+        <input type="password" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'error': !passwordValid}" placeholder="Password" x-model="formData.password">
+        <div x-show="!passwordValid" class="error-message">Password must be at least 8 characters.</div>
+      </dd>
+      <dt><label for="confirm_password">Confirm Password <em>*</em></label></dt>
+      <dd>
+        <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
+        <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
+      </dd>
+      <dt></dt>
+      <dd><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" class="full-width"></dd>
+    </dl>
+  </form>
+</div>
 
 <script>
 
@@ -59,10 +40,7 @@ function createUserForm() {
       username: "",
       email: "",
       password: "",
-      password_confirm: ""
-      active: true,
-      ssh_public_key: "",
-      preferred_shell: "bash",
+      password_confirm: "",
     },
     loading: false,
     buttonLabel: 'Create User',
@@ -99,7 +77,10 @@ function createUserForm() {
         username: this.formData.username,
         email: this.formData.email,
         password: this.formData.password,
-        roles: ['00000000-0000-0000-0000-000000000000']
+        roles: ['00000000-0000-0000-0000-000000000000'],
+        active: true,
+        ssh_public_key: "",
+        preferred_shell: "bash",
       }
 
       fetch('/api/v1/users', {
@@ -131,7 +112,4 @@ function createUserForm() {
 
 </script>
 
-{{ template "alerts" . }}
-
-  </body>
-</html>
+{{ end }}

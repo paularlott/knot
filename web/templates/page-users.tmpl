@@ -1,6 +1,8 @@
-{{ template "metaHead" (map "PageTitle" "Users") }}
-{{ template "beforeContent" . }}
+{{ template "layout-base.tmpl" . }}
 
+{{ define "pageTitle" }}Users{{ end }}
+
+{{ define "mainContent" }}
 <div class="content">
   <div class="row">
     <div class="col-sm-12">
@@ -223,4 +225,4 @@ function userListComponent() {
 }
 </script>
 
-{{ template "afterContent" . }}
+{{ end }}

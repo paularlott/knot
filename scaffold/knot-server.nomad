@@ -37,7 +37,7 @@ server:
   download_path: /srv
   url: "https://knot.example.com"
   wildcard_domain: "*.knot.example.com"
-  encrypt: "knot genkey"
+  encrypt: "Gnat9SAejFszCla9n1FjCIXQb3py5i0w" # Replace this using knot genkey
 
   mysql:
       database: knot

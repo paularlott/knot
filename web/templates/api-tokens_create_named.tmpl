@@ -1,6 +1,8 @@
-{{ template "metaHead" (map "PageTitle" "Create API Token") }}
-{{ template "beforeContent" . }}
+{{ template "layout-base.tmpl" . }}
 
+{{ define "pageTitle" }}Create API Token{{ end }}
+
+{{ define "mainContent" }}
 <div class="content">
   <div class="row">
     <div class="col-sm-6 col-sm-offset-3">
@@ -25,4 +27,4 @@
   </div>
 </div>
 
-{{ template "afterContent" . }}
+{{ end }}

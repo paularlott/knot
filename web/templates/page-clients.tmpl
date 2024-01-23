@@ -1,6 +1,8 @@
-{{ template "metaHead" (map "PageTitle" "Clients") }}
-{{ template "beforeContent" . }}
+{{ template "layout-base.tmpl" . }}
 
+{{ define "pageTitle" }}Clients{{ end }}
+
+{{ define "mainContent" }}
 <div class="content">
   <div class="row">
     <div class="col-sm-12">
@@ -60,4 +62,4 @@
   </div>
 </div>
 
-{{ template "afterContent" . }}
+{{ end }}

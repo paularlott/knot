@@ -1,6 +1,8 @@
-{{ template "metaHead" (map "PageTitle" "Variables") }}
-{{ template "beforeContent" . }}
+{{ template "layout-base.tmpl" . }}
 
+{{ define "pageTitle" }}Variables{{ end }}
+
+{{ define "mainContent" }}
 <div class="content">
   <div class="row">
     <div class="col-sm-12">
@@ -112,4 +114,4 @@ function templateVarListComponent() {
 }
 </script>
 
-{{ template "afterContent" . }}
+{{ end }}

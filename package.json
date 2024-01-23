@@ -1,6 +1,6 @@
 {
   "name": "knot",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Developer Tooling",
   "devDependencies": {
     "@redocly/cli": "^1.5.0",

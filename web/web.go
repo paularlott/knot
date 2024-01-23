@@ -22,7 +22,7 @@ var (
   //go:embed public_html/*
   publicHTML embed.FS
 
-  //go:embed templates/*.tmpl
+  //go:embed templates/*.tmpl templates/partials/*.tmpl templates/layouts/*.tmpl
   tmplFiles embed.FS
 )
 
@@ -203,7 +203,7 @@ func newTemplate(name string) (*template.Template, error){
   file.Close()
 
   // Create the template
-  tmpl, err := template.New(name).Funcs(funcs).ParseFS(tmplFiles, "templates/*.tmpl")
+  tmpl, err := template.New(name).Funcs(funcs).ParseFS(tmplFiles, "templates/partials/*.tmpl", "templates/layouts/*.tmpl", fmt.Sprintf("templates/%s", name))
   if err != nil {
     return nil, err
   }

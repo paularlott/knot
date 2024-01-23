@@ -1,10 +1,8 @@
-{{ if .isEdit }}
-{{ template "metaHead" (map "PageTitle" "Edit Template") }}
-{{ else }}
-{{ template "metaHead" (map "PageTitle" "Create Template") }}
-{{ end }}
-{{ template "beforeContent" . }}
+{{ template "layout-base.tmpl" . }}
 
+{{ define "pageTitle" }}{{ if .isEdit }}Edit Template"{{ else }}Create Template{{ end }}{{ end }}
+
+{{ define "mainContent" }}
 <div class="content full-height">
   <div class="row">
     <div class="col-sm-12">
@@ -210,4 +208,4 @@ function templateForm() {
 
 </script>
 
-{{ template "afterContent" }}
+{{ end }}

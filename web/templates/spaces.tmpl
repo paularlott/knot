@@ -1,6 +1,8 @@
-{{ template "metaHead" (map "PageTitle" "Spaces") }}
-{{ template "beforeContent" . }}
+{{ template "layout-base.tmpl" . }}
 
+{{ define "pageTitle" }}Space{{ end }}
+
+{{ define "mainContent" }}
 <div class="content">
   <div class="row">
     <div class="col-sm-12">
@@ -293,4 +295,4 @@ function spacesListComponent() {
 }
 </script>
 
-{{ template "afterContent" . }}
+{{ end }}

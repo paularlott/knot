@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    {{ template "head-meta" . }}
+  </head>
+  <body {{ template "init-theme" . }}>
+
+    <div class="box-wrapper">
+
+      <div class="box center-box">
+        <div class="row align-items-center">
+          <div class="col-sm-6">
+            <div style="text-align: center; padding: 2rem 0">
+              <img src="images/knot-logo.webp" alt="knot Logo" class="logo" />
+              <h1>knot</h1>
+            </div>
+          </div>
+          <div class="col-sm-6">
+
+            {{ block "mainContent" . }}{{ end }}
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+{{ template "alerts" . }}
+
+  </body>
+</html>

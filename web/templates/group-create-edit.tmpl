@@ -1,10 +1,8 @@
-{{ if .isEdit }}
-{{ template "metaHead" (map "PageTitle" "Edit Group") }}
-{{ else }}
-{{ template "metaHead" (map "PageTitle" "Create Group") }}
-{{ end }}
-{{ template "beforeContent" . }}
+{{ template "layout-base.tmpl" . }}
 
+{{ define "pageTitle" }}{{ if .isEdit }}Edit Group{{ else }}Create Group{{ end }}{{ end }}
+
+{{ define "mainContent" }}
 <div class="content">
   <div class="row">
     <div class="col-sm-6 col-sm-offset-3">
@@ -109,4 +107,4 @@ function userGroupForm() {
 
 </script>
 
-{{ template "afterContent" }}
+{{ end }}

@@ -1,10 +1,8 @@
-{{ if .isEdit }}
-{{ template "metaHead" (map "PageTitle" "Edit Variable") }}
-{{ else }}
-{{ template "metaHead" (map "PageTitle" "Create Variable") }}
-{{ end }}
-{{ template "beforeContent" . }}
+{{ template "layout-base.tmpl" . }}
 
+{{ define "pageTitle" }}{{ if .isEdit }}Edit Variable"{{ else }}Create Variable{{ end }}{{ end }}
+
+{{ define "mainContent" }}
 <div class="content full-height">
   <div class="row">
     <div class="col-sm-12">
@@ -159,4 +157,4 @@ function variableForm() {
 
 </script>
 
-{{ template "afterContent" }}
+{{ end }}

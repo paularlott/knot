@@ -1,28 +1,3 @@
-{{ define "head-meta" }}
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<base href="/" />
-<title>{{ .PageTitle }}</title>
-
-<script src="app.js" defer></script>
-<link rel="stylesheet" type="text/css" href="app.css" />
-{{ end }}
-
-{{ define "init-theme" }}
-x-data="{ 'darkMode': true }"
-x-init="darkMode = JSON.parse(localStorage.getItem('darkMode'));
-        if(darkMode == null) darkMode = true;
-        $watch('darkMode', val => localStorage.setItem('darkMode', val))"
-:class="darkMode ? 'dark' : 'light'"
-{{ end }}
-
-{{ define "alerts" }}
-<div x-data="{ showAlert: false, exposedType: '', type: '', alertMessage: '', timeoutId: null }">
-  <div id="toast" :class="showAlert ? exposedType : type" x-text="alertMessage" @show-alert.window="clearTimeout(timeoutId); showAlert = true; type = $event.detail.type; exposedType = 'exposed ' + type; alertMessage = $event.detail.msg; timeoutId = setTimeout(() => showAlert = false, 8000)">
-  </div>
-</div>
-{{ end }}
-
 {{ define "main-menu" }}
 <nav>
   <ul>
@@ -55,8 +30,4 @@ x-init="darkMode = JSON.parse(localStorage.getItem('darkMode'));
     <li><a href="https://github.com/paularlott/knot/"><i class="bx bxl-github"></i> Github</a></li>
   </ul>
 </nav>
-{{ end }}
-
-{{ define "loading" }}
-<div x-show="loading" class="loading"><i class='bx bx-loader-alt bx-spin bx-rotate-270' ></i> Loading &hellip;</div>
 {{ end }}
