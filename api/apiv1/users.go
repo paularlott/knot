@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
+	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -24,6 +25,7 @@ type UserRequest struct {
   Active bool `json:"active"`
   SSHPublicKey string `json:"ssh_public_key"`
   PreferredShell string `json:"preferred_shell"`
+  Timezone string `json:"timezone"`
 }
 
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +53,10 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "SSH public key too long"})
     return
   }
-
+  if !validate.OneOf(request.Timezone, util.Timezones) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid timezone"})
+    return
+  }
   // Check roles give are present in the system
   for _, role := range request.Roles {
     if !model.RoleExists(role) {
@@ -70,7 +75,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
   }
 
   // Create the user
-  userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell)
+  userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone)
   err = db.SaveUser(userNew)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
@@ -111,6 +116,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
     Active bool `json:"active"`
     SSHPublicKey string `json:"ssh_public_key"`
     PreferredShell string `json:"preferred_shell"`
+    Timezone string `json:"timezone"`
     Current bool `json:"current"`
     LastLoginAt *time.Time `json:"last_login_at"`
     CreatedAt time.Time `json:"created_at"`
@@ -124,6 +130,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
     Active: user.Active,
     SSHPublicKey: user.SSHPublicKey,
     PreferredShell: user.PreferredShell,
+    Timezone: user.Timezone,
     Current: user.Id == activeUser.Id,
     LastLoginAt: nil,
     CreatedAt: user.CreatedAt.UTC(),
@@ -239,6 +246,10 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "SSH public key too long"})
     return
   }
+  if !validate.OneOf(request.Timezone, util.Timezones) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid timezone"})
+    return
+  }
 
   // Load the existing user
   db := database.GetInstance()
@@ -255,6 +266,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
   user.Email = request.Email
   user.SSHPublicKey = request.SSHPublicKey
   user.PreferredShell = request.PreferredShell
+  user.Timezone = request.Timezone
 
   if activeUser.HasPermission(model.PermissionManageUsers) {
     // Check roles give are present in the system

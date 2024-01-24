@@ -81,6 +81,7 @@ function createUserForm() {
         active: true,
         ssh_public_key: "",
         preferred_shell: "bash",
+        timezone: "UTC",
       }
 
       fetch('/api/v1/users', {

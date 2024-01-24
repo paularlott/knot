@@ -1,5 +1,7 @@
 import Alpine from 'alpinejs'
 import { validate } from './validators.js'
+import {} from './timezones.js'
+import {} from './components/autocompleter.js'
 
 window.validate = validate;
 
@@ -19,9 +21,7 @@ window.openCodeServer = function(spaceId) {
 
 window.openPortWindow = function(spaceId, domain, username, spaceName, port) {
   var subdomain = window.location.protocol + '//' + username + '--' + spaceName + '--' + port;
-  const maxWidth = Math.min(window.innerWidth, 1440);
-  const maxHeight = window.innerHeight;
-  window.open(domain.replace(/^\*/, subdomain), 'spaces_' + spaceId + '_http_port_' + port); //, 'width=' + maxWidth + ',height=' + maxHeight + ',menubar=yes,toolbar=yes,location=yes,status=yes');
+  window.open(domain.replace(/^\*/, subdomain), 'spaces_' + spaceId + '_http_port_' + port);
   return false;
 }
 

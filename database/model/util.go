@@ -28,6 +28,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
     "user": map[string]interface{}{
       "id": user.Id,
       "username": user.Username,
+      "timezone": user.Timezone,
     },
     "server": map[string]interface{}{
       "url": viper.GetString("server.url"),

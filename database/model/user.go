@@ -19,12 +19,13 @@ type User struct {
   Groups JSONDbArray `json:"groups"`
   Active bool `json:"active"`
   PreferredShell string `json:"preferred_shell"`
+  Timezone string `json:"timezone"`
   LastLoginAt *time.Time `json:"last_login_at"`
   UpdatedAt time.Time `json:"updated_at"`
   CreatedAt time.Time `json:"created_at"`
 }
 
-func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string) *User {
+func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string, timezone string) *User {
   id, err := uuid.NewV7()
   if err != nil {
     log.Fatal().Msg(err.Error())
@@ -39,6 +40,7 @@ func NewUser(username string, email string, password string, roles []string, gro
     PreferredShell: preferredShell,
     Roles: roles,
     Groups: groups,
+    Timezone: timezone,
   }
 
   user.SetPassword(password)

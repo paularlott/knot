@@ -29,5 +29,9 @@ export var validate = {
 
   maxLength: function(string, length) {
     return string.length <= length;
+  },
+
+  isOneOf: function(value, options) {
+    return options.includes(value);
   }
 };

@@ -1,6 +1,6 @@
 {{ template "layout-base.tmpl" . }}
 
-{{ define "pageTitle" }}{{ if .isEdit }}Edit User"{{ else }}Create User{{ end }}{{ end }}
+{{ define "pageTitle" }}{{ if .isEdit }}Edit User{{ else }}Create User{{ end }}{{ end }}
 
 {{ define "mainContent" }}
 <div class="content">
@@ -33,7 +33,22 @@
                     <option value="sh">Bourne</option>
                   </select>
                 </div>
-              <p class="description">The shell that will be used when you open a web terminal in this space.</p>
+                <p class="description">The shell that will be used when you open a web terminal in this space.</p>
+                <div x-show="!shellValid" class="error-message">Select a valid shell.</div>
+              </dd>
+              <dt><label for="tz">Timezone</label></dt>
+              <dd>
+                <div x-data="autocompleter()" x-init="loadOptions" class="autocomplete" data-parent-variable="timezone" @refresh-autocompleter.window="refresh()">
+                    <input x-model="search" type="search" placeholder="Search..." @focus="showList = true" @blur.debounce.200ms="showList = false">
+                    <div class="autocomplete-list" x-show="showList">
+                      <ul>
+                          <template x-for="(option, index) in filteredOptions" :key="index">
+                              <li @click="selectOption(option)" x-text="option"></li>
+                          </template>
+                      </ul>
+                    </div>
+                </div>
+                <div x-show="!tzValid" class="error-message">Enter a valid Timezone.</div>
               </dd>
               <dt><label for="password">SSH Public Key</label></dt>
               <dd>
@@ -103,6 +118,7 @@ function userForm() {
       password_confirm: "",
       preferred_shell: "",
       ssh_public_key: "",
+      timezone: "",
       active: true,
       roles: [],
       groups: [],
@@ -113,6 +129,8 @@ function userForm() {
     emailValid: true,
     passwordValid: true,
     confirmPasswordValid: true,
+    shellValid: true,
+    tzValid: true,
     async initUsers() {
       const rolesResponse = await fetch('/api/v1/roles', {
         headers: {
@@ -146,6 +164,9 @@ function userForm() {
           this.formData.active = user.active;
           this.formData.roles = user.roles;
           this.formData.groups = user.groups;
+          this.formData.timezone = user.timezone;
+
+          this.$dispatch('refresh-autocompleter');
         }
       }
 
@@ -179,6 +200,12 @@ function userForm() {
     checkConfirmPassword() {
       return this.confirmPasswordValid = this.formData.password == this.formData.password_confirm;
     },
+    checkShell() {
+      return this.shellValid = validate.isOneOf(this.formData.preferred_shell, ['bash', 'zsh', 'fish', 'sh']);
+    },
+    checkTz() {
+      return this.tzValid = validate.isOneOf(this.formData.timezone, window.Timezones);
+    },
     submitData() {
       var err = false;
       err = !this.checkUsername() || err;
@@ -187,6 +214,8 @@ function userForm() {
         err = !this.checkPassword() || err;
         err = !this.checkConfirmPassword() || err;
       }
+      err = !this.checkShell() || err;
+      err = !this.checkTz() || err;
       if(err) {
         return;
       }
@@ -202,6 +231,7 @@ function userForm() {
         active: this.formData.active,
         roles: this.formData.roles,
         groups: this.formData.groups,
+        timezone: this.formData.timezone,
       };
 
       fetch(isEdit ? '/api/v1/users/{{ .user.id }}' : '/api/v1/users', {

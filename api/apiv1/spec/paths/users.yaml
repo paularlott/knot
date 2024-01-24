@@ -35,6 +35,9 @@ post:
             preferred_shell:
               type: string
               description: The preferred shell of the user
+            timezone:
+              type: string
+              description: The timezone of the user
             roles:
               type: array
               items:
