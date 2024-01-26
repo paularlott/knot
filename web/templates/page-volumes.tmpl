@@ -1,0 +1,198 @@
+{{ template "layout-base.tmpl" . }}
+
+{{ define "pageTitle" }}Volumes{{ end }}
+
+{{ define "mainContent" }}
+<div class="content">
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="box">
+        <h2>Volumes</h2>
+
+        <div class="text-right">
+          <a href="/volumes/create" class="button"><i class="bx bx-plus"></i> Create Volume</a>
+        </div>
+
+<div x-data="volumeListComponent()" x-init="getVolumes">
+  {{ template "loading" . }}
+  <table class="action" x-show="!loading" x-cloak>
+    <thead>
+    <tr>
+      <th class="id-col">Volume ID</th>
+      <th>Name</th>
+      <th>Deployed</th>
+      <th>&nbsp;</th>
+    </tr>
+    </thead>
+    <tbody>
+    <template x-for="t in volumes" :key="t.volume_id">
+      <tr>
+        <td class="id-col">
+          <button @click="t.showIdPopup = true" class="show-id" x-text="t.volume_id"></button>
+          <div x-show="t.showIdPopup" @click.away="t.showIdPopup = false" @keydown.window.escape="t.showIdPopup = false" class="id-popup">
+            <input type="text" x-model="t.volume_id" readonly>
+          </div>
+        </td>
+        <td x-text="t.name"></td>
+        <td>
+          <span x-show="t.active" class="badge success">Running</span>
+          <span x-show="!t.active" class="badge danger">Stopped</span>
+        </td>
+        <td>
+          <button class="outline" @click="t.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
+          <div x-show="t.showMenu" @click.away="t.showMenu = false" @keydown.window.escape="t.showMenu = false" class="menu-popup">
+            <button x-show="!t.active" x-bind:disabled="t.starting && t.stopping" @click="t.showMenu = false; editVolume(t.volume_id)"><i class='bx bx-edit' ></i> Edit</button>
+            <button x-show="!t.active" x-bind:disabled="t.starting || t.stopping" @click="t.showMenu = false; startVolume(t.volume_id); t.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="t.starting">ing ...</span></button>
+            <button x-show="t.active" x-bind:disabled="t.starting || t.stopping" @click="t.showMenu = false; stopConfirm.show = true; stopConfirm.volume = t"><i class='bx bx-stop-circle' ></i> Stop<span x-show="t.stopping">ping ...</span></button>
+            <button x-show="!t.active && !t.starting && !t.stopping" @click="t.showMenu = false; deleteConfirm.show = true; deleteConfirm.volume = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
+          </div>
+        </td>
+      </tr>
+    </template>
+    </tbody>
+  </table>
+
+  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
+    <div class="modal">
+      <div class="modal-body">
+        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
+        <p>Are you sure you want to delete the volume <span x-text="deleteConfirm.volume.name"></span>?</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="deleteConfirm.show = false">Cancel</button>
+        <button class="danger" @click="deleteVolume(deleteConfirm.volume.volume_id); deleteConfirm.show = false">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-tint" x-show="stopConfirm.show" x-cloak style="display: none;">
+    <div class="modal">
+      <div class="modal-body">
+        <h2><i class='bx bxs-error'></i> Confirm Stop Volume</h2>
+        <p>Are you sure you want to stop the volume <span x-text="deleteConfirm.volume.name"></span>?</p>
+        <p>Stopping the volume will delete any data that it contains.</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="stopConfirm.show = false">Cancel</button>
+        <button class="danger" @click="stopVolume(stopConfirm.volume.volume_id); stopConfirm.show = false">Stop</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function volumeListComponent() {
+  return {
+    loading: true,
+    deleteConfirm: {
+      show: false,
+      volume: {
+        volume_id: '',
+        name: '',
+      }
+    },
+    stopConfirm: {
+      show: false,
+      volume: {
+        volume_id: '',
+        name: '',
+      }
+    },
+    volumes: [],
+    async getVolumes() {
+      this.loading = true;
+
+      const response = await fetch('/api/v1/volumes', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.volumes = await response.json();
+
+      this.volumes.forEach(volume => {
+        volume.showIdPopup = false;
+        volume.showMenu = false;
+        volume.starting = false;
+        volume.stopping = false;
+      });
+
+      this.loading = false;
+    },
+    editVolume(volumeId) {
+      window.location.href = `/volumes/edit/${volumeId}`;
+    },
+    async deleteVolume(volumeId) {
+      await fetch(`/api/v1/volumes/${volumeId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume deleted", type: 'success' } }));
+        } else {
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume could not be deleted", type: 'error' } }));
+        }
+      });
+      this.getVolumes();
+    },
+    async startVolume(volumeId) {
+      var self = this;
+
+      await fetch(`/api/v1/volumes/${volumeId}/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+          const volume = self.volumes.find(volume => volume.volume_id === volumeId);
+          volume.active = true;
+          volume.starting = false;
+
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volumes started", type: 'success' } }));
+        } else {
+          response.json().then((data) => {
+            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume could not be started: " + data.error, type: 'error' } }));
+          });
+        }
+      }).catch((error) => {
+        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume could not be started: " + error, type: 'error' } }));
+      });
+    },
+    async stopVolume(volumeId) {
+      var self = this;
+
+      const volume = self.volumes.find(volume => volume.volume_id === volumeId);
+      volume.stopping = true;
+
+      await fetch(`/api/v1/volumes/${volumeId}/stop`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+          const volume = self.volumes.find(volume => volume.volume_id === volumeId);
+          volume.active = false;
+          volume.stopping = false;
+
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume stopped", type: 'success' } }));
+        } else {
+          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume could not be stopped", type: 'error' } }));
+        }
+      }).catch((error) => {
+        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume could not be stopped: " + error, type: 'error' } }));
+      });
+    },
+  };
+}
+</script>
+
+{{ end }}

@@ -1,0 +1,26 @@
+post:
+  summary: Start a Volume
+  description: Start a specified volume.
+  tags:
+    - Volumes
+  operaionId: startVolume
+  parameters:
+    - in: path
+      name: volume_id
+      schema:
+        type: string
+      required: true
+      description: The ID of the volume to start.
+  responses:
+    '200':
+      description: Successful operation.
+    '403':
+      $ref: '../responses/forbidden.yaml'
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '423':
+      $ref: '../responses/locked.yaml'
+    '500':
+      $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []

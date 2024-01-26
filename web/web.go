@@ -119,6 +119,14 @@ func Routes() chi.Router {
       router.Get("/create", HandleGroupCreate)
       router.Get("/edit/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGroupEdit)
     })
+
+    router.Route("/volumes", func(router chi.Router) {
+      router.Use(checkPermissionManageVolumes)
+
+      router.Get("/", HandleSimplePage)
+      router.Get("/create", HandleVolumeCreate)
+      router.Get("/edit/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleVolumeEdit)
+    })
   })
 
   // Routes without authentication
@@ -228,6 +236,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
     "permissionManageUsers"    : user.HasPermission(model.PermissionManageUsers),
     "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
     "permissionManageSpaces"   : user.HasPermission(model.PermissionManageSpaces),
+    "permissionManageVolumes"  : user.HasPermission(model.PermissionManageVolumes),
     "version"                  : build.Version,
     "buildDate"                : build.Date,
   }

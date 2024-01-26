@@ -6,7 +6,8 @@
     <li><a href="/templates"><i class="bx bx-code-block"></i> Templates</a></li>
     <li><a href="/variables"><i class='bx bx-spreadsheet'></i> Variables</a></li>
     {{ end }}
-    {{ if .permissionManageDevices }}
+    {{ if .permissionManageVolumes }}
+    <li><a href="/volumes"><i class='bx bx-hdd'></i> Volumes</a></li>
     {{ end }}
     {{ if .permissionManageUsers }}
     <li><a href="/users"><i class="bx bx-user"></i> Users</a></li>

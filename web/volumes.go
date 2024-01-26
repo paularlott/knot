@@ -7,10 +7,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func HandleTemplateCreate(w http.ResponseWriter, r *http.Request) {
+func HandleVolumeCreate(w http.ResponseWriter, r *http.Request) {
   _, data := getCommonTemplateData(r)
 
-  tmpl, err := newTemplate("templates-create-edit.tmpl")
+  tmpl, err := newTemplate("volumes-create-edit.tmpl")
   if err != nil {
     log.Fatal().Msg(err.Error())
     w.WriteHeader(http.StatusInternalServerError)
@@ -25,10 +25,10 @@ func HandleTemplateCreate(w http.ResponseWriter, r *http.Request) {
   }
 }
 
-func HandleTemplateEdit(w http.ResponseWriter, r *http.Request) {
+func HandleVolumeEdit(w http.ResponseWriter, r *http.Request) {
   _, data := getCommonTemplateData(r)
 
-  tmpl, err := newTemplate("templates-create-edit.tmpl")
+  tmpl, err := newTemplate("volumes-create-edit.tmpl")
   if err != nil {
     log.Fatal().Msg(err.Error())
     w.WriteHeader(http.StatusInternalServerError)
@@ -36,7 +36,7 @@ func HandleTemplateEdit(w http.ResponseWriter, r *http.Request) {
   }
 
   data["isEdit"] = true
-  data["templateId"] = chi.URLParam(r, "template_id")
+  data["volumeId"] = chi.URLParam(r, "volume_id")
 
   err = tmpl.Execute(w, data)
   if err != nil {

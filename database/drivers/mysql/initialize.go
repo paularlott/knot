@@ -125,6 +125,21 @@ updated_at TIMESTAMP
     return err
   }
 
+  log.Debug().Msg("db: creating volumes table")
+  _, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS volumes (
+volume_id CHAR(36) PRIMARY KEY,
+name VARCHAR(64),
+definition MEDIUMTEXT,
+active TINYINT NOT NULL DEFAULT 0,
+created_user_id CHAR(36),
+created_at TIMESTAMP,
+updated_user_id CHAR(36),
+updated_at TIMESTAMP
+)`)
+  if err != nil {
+    return err
+  }
+
   log.Debug().Msg("db: MySQL is initialized")
 
   // Add a task to clean up expired sessions

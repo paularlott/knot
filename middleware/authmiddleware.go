@@ -121,6 +121,18 @@ func ApiPermissionManageTemplates(next http.Handler) http.Handler {
   })
 }
 
+func ApiPermissionManageVolumes(next http.Handler) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    user := r.Context().Value("user").(*model.User)
+    if !user.HasPermission(model.PermissionManageVolumes) {
+      rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage volumes"})
+      return
+    }
+
+    next.ServeHTTP(w, r)
+  })
+}
+
 func ApiPermissionManageUsers(next http.Handler) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     user := r.Context().Value("user").(*model.User)

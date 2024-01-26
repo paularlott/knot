@@ -1,0 +1,67 @@
+
+get:
+  summary: Get Volumes
+  description: Retrieve all volumes.
+  operationId: getVolumes
+  tags:
+    - Volumes
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                volume_id:
+                  type: string
+                name:
+                  type: string
+                active:
+                  type: boolean
+    '500':
+      $ref: '../responses/internal-server-error.yaml'
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []
+
+post:
+  summary: Create a Volume
+  description: Create a new volume.
+  operationId: createVolume
+  tags:
+    - Volumes
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 64
+            definition:
+              type: string
+              description: A YAML formatted string describing the volume to be created
+  responses:
+    '201':
+      description: Volume created successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+              volume_id:
+                type: string
+    '400':
+      $ref: "../responses/bad-request.yaml"
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []

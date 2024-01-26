@@ -9,8 +9,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (client *NomadClient) CreateCSIVolume(volume *model.Volume) error {
-  var volumes = model.Volumes{}
+func (client *NomadClient) CreateCSIVolume(volume *model.CSIVolume) error {
+  var volumes = model.CSIVolumes{}
   volumes.Volumes = append(volumes.Volumes, *volume)
 
   log.Debug().Msgf("nomad: creating csi volume %s", volume.Id)
@@ -24,12 +24,12 @@ func (client *NomadClient) CreateCSIVolume(volume *model.Volume) error {
   return nil
 }
 
-func (client *NomadClient) DeleteCSIVolume(volume *model.SpaceVolume) error {
-  log.Debug().Msgf("nomad: deleting csi volume %s", volume.Id)
+func (client *NomadClient) DeleteCSIVolume(id string, namespace string) error {
+  log.Debug().Msgf("nomad: deleting csi volume %s", id)
 
-  _, err := client.httpClient.Delete(fmt.Sprintf("/v1/volume/csi/%s/delete?namespace=%s", volume.Id, volume.Namespace), nil, nil, http.StatusOK)
+  _, err := client.httpClient.Delete(fmt.Sprintf("/v1/volume/csi/%s/delete?namespace=%s", id, namespace), nil, nil, http.StatusOK)
   if err != nil {
-    log.Debug().Msgf("nomad: deleting csi volume %s, error: %s", volume.Id, err)
+    log.Debug().Msgf("nomad: deleting csi volume %s, error: %s", id, err)
     return err
   }
 

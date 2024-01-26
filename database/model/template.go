@@ -47,7 +47,7 @@ func NewTemplate(name string, job string, volumes string, userId string, groups 
   return template
 }
 
-func (template *Template) GetVolumes(space *Space, user *User, variables *map[string]interface{}) (*Volumes, error) {
+func (template *Template) GetVolumes(space *Space, user *User, variables *map[string]interface{}) (*CSIVolumes, error) {
   return LoadVolumesFromYaml(template.Volumes, template, space, user, variables)
 }
 

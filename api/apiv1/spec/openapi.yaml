@@ -97,6 +97,15 @@ paths:
   /api/v1/templatevars/{templatvar_id}:
     $ref: paths/templatevars_{templatevar_id}.yaml
 
+  /api/v1/volumes:
+    $ref: paths/volumes.yaml
+  /api/v1/volumes/{volume_id}:
+    $ref: paths/volumes_{volume_id}.yaml
+  /api/v1/volumes/{volume_id}/start:
+    $ref: paths/volumes_{volume_id}_start.yaml
+  /api/v1/volumes/{volume_id}/stop:
+    $ref: paths/volumes_{volume_id}_stop.yaml
+
   /proxy/port/{host}/{port}:
     $ref: paths/proxy_port_{host}_{port}.yaml
 

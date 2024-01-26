@@ -1,11 +1,11 @@
 post:
-  summary: Update a Template
-  description: Update a template.
-  operationId: updateTemplate
+  summary: Update a Volume
+  description: Update a volume.
+  operationId: updateVolume
   tags:
-    - Templates
+    - Volumes
   parameters:
-    - name: template_id
+    - name: volume_id
       in: path
       required: true
       schema:
@@ -20,18 +20,9 @@ post:
             name:
               type: string
               maxLength: 64
-            job:
+            definition:
               type: string
-              description: A HCL formatted job Nomad job specification
-            volumes:
-              type: string
-              description: A YAML formatted string describing the volumes to be created
-            groups:
-              type: array
-              items:
-                type: string
-                example: ["00000000-0000-0000-0000-000000000000"]
-              description: The IDs of the groups to assign to the template.
+              description: A YAML formatted string describing the volume to be created
   responses:
     '200':
       description: Successful operation
@@ -47,18 +38,18 @@ post:
     - BearerAuth: []
 
 delete:
-  summary: Delete Template
-  description: Delete a specified template.
+  summary: Delete Volume
+  description: Delete a specified volume.
   tags:
-    - Templates
-  operaionId: deleteTemplate
+    - Volumes
+  operaionId: deleteVolume
   parameters:
     - in: path
-      name: template_id
+      name: volume_id
       schema:
         type: string
       required: true
-      description: The ID of the template to delete.
+      description: The ID of the volume to delete.
   responses:
     '200':
       description: Successful operation.
@@ -74,18 +65,18 @@ delete:
     - BearerAuth: []
 
 get:
-  summary: Get Template
-  description: Get a Template.
-  operationId: getTemplate
+  summary: Get Volume
+  description: Get a Volume.
+  operationId: getVolume
   tags:
-    - Templates
+    - Volumes
   parameters:
     - in: path
-      name: template_id
+      name: volume_id
       schema:
         type: string
       required: true
-      description: The ID of the template to get.
+      description: The ID of the volume to get.
   responses:
     '200':
       description: Successful operation
@@ -96,22 +87,11 @@ get:
             properties:
               name:
                 type: string
-              job:
-                type: string
-                description: A HCL formatted job Nomad job specification
-              volumes:
+              definition:
                 type: string
                 description: A YAML formatted string describing the volumes to be created
-              usage:
-                type: integer
-              deployed:
-                type: integer
-              groups:
-                type: array
-                items:
-                  type: string
-                  example: ["00000000-0000-0000-0000-000000000000"]
-                description: The IDs of the groups assigned to the template.
+              active:
+                type: boolean
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':

@@ -18,22 +18,44 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 
   data := map[string]interface{}{
     "space": map[string]interface{}{
-      "id": space.Id,
-      "name": space.Name,
+      "id":   "",
+      "name": "",
     },
     "template": map[string]interface{}{
-      "id": t.Id,
-      "name": t.Name,
+      "id": "",
+      "name": "",
     },
     "user": map[string]interface{}{
-      "id": user.Id,
-      "username": user.Username,
-      "timezone": user.Timezone,
+      "id": "",
+      "username": "",
+      "timezone": "",
     },
     "server": map[string]interface{}{
       "url": viper.GetString("server.url"),
     },
     "var": variables,
+  }
+
+  if space != nil {
+    data["space"] = map[string]interface{}{
+      "id":   space.Id,
+      "name": space.Name,
+    }
+  }
+
+  if t != nil {
+    data["template"] = map[string]interface{}{
+      "id": t.Id,
+      "name": t.Name,
+    }
+  }
+
+  if user != nil {
+    data["user"] = map[string]interface{}{
+      "id": user.Id,
+      "username": user.Username,
+      "timezone": user.Timezone,
+    }
   }
 
   var tmplBytes bytes.Buffer

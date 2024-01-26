@@ -19,16 +19,16 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
   log.Debug().Msg("nomad: checking for required volumes")
 
   // Find the volumes that are defined but not yet created in the space and create them
-  var volById = make(map[string]*model.Volume)
+  var volById = make(map[string]*model.CSIVolume)
   for _, volume := range volumes.Volumes {
     volById[volume.Id] = &volume
 
     // Check if the volume is already created for the space
-    if data, ok := space.VolumeData[volume.Name]; !ok || data.Namespace != volume.Namespace {
+    if data, ok := space.VolumeData[volume.Id]; !ok || data.Namespace != volume.Namespace {
       // Existing volume then destroy it as in wrong namespace
       if ok {
         log.Debug().Msgf("nomad: deleting volume %s due to wrong namespace", volume.Id)
-        client.DeleteCSIVolume(&data)
+        client.DeleteCSIVolume(data.Id, data.Namespace)
         delete(space.VolumeData, volume.Id)
       }
 
@@ -52,7 +52,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
     // Check if the volume is defined in the template
     if _, ok := volById[volume.Id]; !ok {
       // Delete the volume
-      err := client.DeleteCSIVolume(&volume)
+      err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
       if err != nil {
         db.SaveSpace(space) // Save the space to capture the volumes
         return err
@@ -80,7 +80,7 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 
   // For all volumes in the space delete them
   for _, volume := range space.VolumeData {
-    err := client.DeleteCSIVolume(&volume)
+    err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
     if err != nil {
       db.SaveSpace(space) // Save the space to capture the volumes
       return err

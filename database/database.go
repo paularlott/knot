@@ -69,6 +69,12 @@ type IDbDriver interface {
   DeleteTemplateVar(variable *model.TemplateVar) error
   GetTemplateVar(id string) (*model.TemplateVar, error)
   GetTemplateVars() ([]*model.TemplateVar, error)
+
+  // Volumes
+  SaveVolume(volume *model.Volume) error
+  DeleteVolume(volume *model.Volume) error
+  GetVolume(id string) (*model.Volume, error)
+  GetVolumes() ([]*model.Volume, error)
 }
 
 // Get returns the database driver and on first call initializes it

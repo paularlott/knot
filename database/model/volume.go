@@ -1,103 +1,44 @@
 package model
 
 import (
-	"github.com/paularlott/knot/util"
+	"time"
 
-	"gopkg.in/yaml.v3"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
-//
-// Define the data structures for CSI volumes
-//
-
-type VolumeMountOptions struct {
-  FsType string `yaml:"fs_type" json:"FsType"`
-  MountFlags []string `yaml:"mount_flags" json:"MountFlags"`
-}
-
-type VolumeCapability struct {
-  AccessMode string `yaml:"access_mode" json:"AccessMode"`
-  AttachmentMode string `yaml:"attachment_mode" json:"AttachmentMode"`
-}
-
+// Template object
 type Volume struct {
-  Id string `yaml:"id" json:"ID"`
-  Name string `yaml:"name" json:"Name"`
-  Namespace string `yaml:"namespace" json:"Namespace"`
-  PuluginId string `yaml:"plugin_id" json:"PluginID"`
-  Type string `yaml:"type" json:"Type"`
-  MountOptions VolumeMountOptions `yaml:"mount_options" json:"MountOptions"`
-  CapacityMin interface{} `yaml:"capacity_min" json:"RequestedCapacityMin"`
-  CapacityMax interface{} `yaml:"capacity_max" json:"RequestedCapacityMax"`
-  Capabilities []VolumeCapability `yaml:"capabilities" json:"RequestedCapabilities"`
-  Secrets map[string]string `yaml:"secrets" json:"Secrets"`
-  Parameters map[string]string `yaml:"parameters" json:"Parameters"`
+	Id string `json:"volume_id"`
+  Name string `json:"name"`
+  Definition string `json:"definition"`
+  Active bool `json:"active"`
+  CreatedUserId string `json:"created_user_id"`
+  CreatedAt time.Time `json:"created_at"`
+  UpdatedUserId string `json:"updated_user_id"`
+  UpdatedAt time.Time `json:"updated_at"`
 }
 
-type Volumes struct {
-  Volumes []Volume `yaml:"volumes" json:"Volumes"`
+func NewVolume(name string, definition string, userId string) *Volume {
+  id, err := uuid.NewV7()
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+
+  volume := &Volume{
+    Id: id.String(),
+    Name: name,
+    Definition: definition,
+    Active: false,
+    CreatedUserId: userId,
+    CreatedAt: time.Now().UTC(),
+    UpdatedUserId: userId,
+    UpdatedAt: time.Now().UTC(),
+  }
+
+  return volume
 }
 
-func LoadVolumesFromYaml(yamlData string, t *Template, space *Space, user *User, variables *map[string]interface{}) (*Volumes, error) {
-  volumes := &Volumes{}
-
-  yamlData, err := ResolveVariables(yamlData, t, space, user, variables)
-  if err != nil {
-    return nil, err
-  }
-
-  err = yaml.Unmarshal([]byte(yamlData), volumes)
-  if err != nil {
-    return nil, err
-  }
-
-  // Fix up the capacity values & namespace
-  for i, _ := range volumes.Volumes {
-    if volumes.Volumes[i].CapacityMin != nil {
-      switch volumes.Volumes[i].CapacityMin.(type) {
-      case string:
-        value, err := util.ConvertToBytes(volumes.Volumes[i].CapacityMin.(string))
-        if err != nil {
-          return nil, err
-        }
-        volumes.Volumes[i].CapacityMin = value
-      }
-    } else {
-      volumes.Volumes[i].CapacityMin = 0
-    }
-
-    if volumes.Volumes[i].CapacityMax != nil {
-      switch volumes.Volumes[i].CapacityMax.(type) {
-      case string:
-        value, err := util.ConvertToBytes(volumes.Volumes[i].CapacityMax.(string))
-        if err != nil {
-          return nil, err
-        }
-        volumes.Volumes[i].CapacityMax = value
-      }
-    } else {
-      volumes.Volumes[i].CapacityMax = 0
-    }
-
-    // Fix namespace if nil then make default
-    if volumes.Volumes[i].Namespace == "" {
-      volumes.Volumes[i].Namespace = "default"
-    }
-
-    // default type to csi
-    if volumes.Volumes[i].Type == "" {
-      volumes.Volumes[i].Type = "csi"
-    }
-
-    // fix secrets and parameters
-    if volumes.Volumes[i].Secrets == nil {
-      volumes.Volumes[i].Secrets = make(map[string]string)
-    }
-
-    if volumes.Volumes[i].Parameters == nil {
-      volumes.Volumes[i].Parameters = make(map[string]string)
-    }
-  }
-
-  return volumes, nil
+func (volume *Volume) GetVolume(variables *map[string]interface{}) (*CSIVolumes, error) {
+  return LoadVolumesFromYaml(volume.Definition, nil, nil, nil, variables)
 }
