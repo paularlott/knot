@@ -165,10 +165,13 @@ function userForm() {
           this.formData.roles = user.roles;
           this.formData.groups = user.groups;
           this.formData.timezone = user.timezone;
-
-          this.$dispatch('refresh-autocompleter');
         }
+      } else {
+        this.formData.preferred_shell = 'bash';
+        this.formData.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       }
+
+      this.$dispatch('refresh-autocompleter');
 
       this.loading = false;
     },
