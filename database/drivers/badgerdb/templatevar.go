@@ -19,7 +19,6 @@ func (db *BadgerDbDriver) SaveTemplateVar(templateVar *model.TemplateVar) error 
     }
 
     templateVar.Value = templateVar.GetValueEncrypted()
-    templateVar.UpdatedUserId = templateVar.CreatedUserId
     templateVar.UpdatedAt = time.Now().UTC()
     data, err := json.Marshal(templateVar)
     if err != nil {

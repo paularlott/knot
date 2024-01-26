@@ -18,7 +18,6 @@ func (db *BadgerDbDriver) SaveVolume(volume *model.Volume) error {
       volume.CreatedAt = time.Now().UTC()
     }
 
-    volume.UpdatedUserId = existingVolume.CreatedUserId
     volume.UpdatedAt = time.Now().UTC()
     data, err := json.Marshal(volume)
     if err != nil {

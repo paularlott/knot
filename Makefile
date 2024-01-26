@@ -25,7 +25,7 @@ build: legal/license.txt legal/notice.txt
 
 .PHONY: all
 ## Build the binary for all platforms
-all: $(PLATFORMS) container checksums
+all: $(PLATFORMS)
 
 .PHONY: $(PLATFORMS)
 $(PLATFORMS): legal apidocs webassets
@@ -79,6 +79,21 @@ container:
 		--tag ghcr.io/paularlott/knot:latest \
 		--push \
 		.
+
+.PHONY: release
+## Tag, build, and create a GitHub release
+release: tag all container create-release checksums
+
+.PHONY: tag
+## Tag the current code
+tag:
+	git tag -a v$(VERSION) -m "Release $(VERSION)"
+	git push origin v$(VERSION)
+
+.PHONY: create-release
+## Create a GitHub release
+create-release:
+	gh release create v$(VERSION) $(OUTPUT_DIR)/*.zip -t "Release $(VERSION)" -n "Knot $(VERSION)"
 
 .PHONY: help
 ## This help screen
