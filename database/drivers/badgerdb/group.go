@@ -39,7 +39,7 @@ func (db *BadgerDbDriver) SaveGroup(group *model.Group) error {
 func (db *BadgerDbDriver) DeleteGroup(group *model.Group) error {
 
   err := db.connection.Update(func(txn *badger.Txn) error {
-    err := txn.Delete([]byte(fmt.Sprintf("UserGrouops:%s", group.Id)))
+    err := txn.Delete([]byte(fmt.Sprintf("Groups:%s", group.Id)))
     if err != nil {
       return err
     }
