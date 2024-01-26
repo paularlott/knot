@@ -288,6 +288,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
+  user := r.Context().Value("user").(*model.User)
   db := database.GetInstance()
 
   space, err := db.GetSpace(chi.URLParam(r, "space_id"))
@@ -325,14 +326,14 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
   nomadClient := nomad.NewClient()
 
   // Create volumes
-  err = nomadClient.CreateSpaceVolumes(template, space, &vars)
+  err = nomadClient.CreateSpaceVolumes(user, template, space, &vars)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
   }
 
   // Start the job
-  err = nomadClient.CreateSpaceJob(template, space, &vars)
+  err = nomadClient.CreateSpaceJob(user, template, space, &vars)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return

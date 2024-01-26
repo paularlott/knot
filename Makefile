@@ -13,6 +13,9 @@ BUILD_FLAGS := -ldflags="-s -w -X github.com/paularlott/knot/build.Date=$(BUILT_
 # Set the output directory
 OUTPUT_DIR := bin
 
+# Get the VERSION from go run ./scripts/getversion
+VERSION := $(shell go run ./scripts/getversion)
+
 default: all
 
 .PHONY: build
@@ -22,7 +25,7 @@ build: legal/license.txt legal/notice.txt
 
 .PHONY: all
 ## Build the binary for all platforms
-all: $(PLATFORMS)
+all: $(PLATFORMS) container checksums
 
 .PHONY: $(PLATFORMS)
 $(PLATFORMS): legal apidocs webassets
@@ -67,12 +70,12 @@ clean:
 	rm -rf legal/notice.txt
 	rm -rf web/public_html/api-docs/index.html
 
-.PHONEY: knot-server
+.PHONEY: container
 ## Build the docker image and push to GitHub
 container:
 	docker buildx build \
 		--platform linux/amd64,linux/arm64 \
-		--tag ghcr.io/paularlott/knot:0.0.2 \
+		--tag ghcr.io/paularlott/knot:$(VERSION) \
 		--tag ghcr.io/paularlott/knot:latest \
 		--push \
 		.
