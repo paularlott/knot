@@ -24,7 +24,7 @@ func GetTargetFromSRV(service string, nameserver string) (string, string, error)
       PreferGo: true,
       Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
         dialer := &net.Dialer{
-          Timeout: time.Second,
+          Timeout: 5 * time.Second,
         }
         return dialer.DialContext(ctx, "udp", nameserver)
       },
