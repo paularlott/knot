@@ -65,7 +65,8 @@ EOF
 
         # Expose the port on a domain name
         # tags = [
-        #  "urlprefix-knot.example.com proto=https tlsskipverify=true"
+        #  "urlprefix-knot.example.com proto=https tlsskipverify=true",
+        #  "urlprefix-*.knot.example.com proto=https tlsskipverify=true"
         # ]
 
         check {
