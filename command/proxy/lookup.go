@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/util/rest"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var lookupCmd = &cobra.Command{
@@ -21,7 +22,7 @@ The request is passed to the proxy server to be processed rather than run agains
   Run: func(cmd *cobra.Command, args []string) {
     service := args[0]
     cfg := command.GetServerAddr()
-    client := rest.NewClient(cfg.HttpServer, cfg.ApiToken)
+    client := rest.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
 
     lookup, _, err := apiv1.CallLookup(client, service)
     if err != nil || !lookup.Status {

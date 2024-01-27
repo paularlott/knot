@@ -30,7 +30,7 @@ var pingCmd = &cobra.Command{
     cfg := GetServerAddr()
     fmt.Println("Pinging server: ", cfg.HttpServer)
 
-    client := rest.NewClient(cfg.HttpServer, cfg.ApiToken)
+    client := rest.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
 
     ping, _, err := apiv1.CallPing(client)
     if err != nil || !ping.Status {

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -42,7 +43,7 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
     log.Debug().Msg("Sending SSH public key to agent")
 
     // Send the public SSH key to the agent
-    client := rest.NewClient(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("server.namespace")), agentState.AccessToken)
+    client := rest.NewClient(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("server.namespace")), agentState.AccessToken, viper.GetBool("tls_skip_verify"))
     if !agentv1.CallAgentUpdateAuthorizedKeys(client, user.SSHPublicKey) {
       log.Debug().Msg("Failed to send SSH public key to agent")
       w.WriteHeader(http.StatusInternalServerError)
@@ -58,6 +59,12 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
   proxy.Director = func(r *http.Request) {
     originalDirector(r)
     r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
+  }
+
+  if viper.GetBool("tls_skip_verify") {
+    proxy.Transport = &http.Transport{
+      TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+    }
   }
 
   r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/ssh", spaceName))

@@ -2,6 +2,7 @@ package commands_agent
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/paularlott/knot/agent"
 	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/command"
+	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/go-chi/chi/v5"
@@ -32,6 +34,12 @@ func init() {
   agentCmd.Flags().StringSliceP("http-port", "", []string{}, "Can be specified multiple times to give the list of ports to be exposed via the web interface.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_HTTP_PORT environment variable if set.")
   agentCmd.Flags().BoolP("update-authorized-keys", "", true, "If given then the agent will update the authorized_keys file with the SSH public key of the user.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_UPDATE_AUTHORIZED_KEYS environment variable if set.")
   agentCmd.Flags().BoolP("enable-terminal", "", true, "If given then the agent will enable the web terminal.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_ENABLE_TERMINAL environment variable if set.")
+
+  // TLS
+  agentCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the agent.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_CERT_FILE environment variable if set.")
+  agentCmd.Flags().StringP("key-file", "", "", "The file with the PEM encoded key to use for the agent.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_KEY_FILE environment variable if set.")
+  agentCmd.Flags().BoolP("use-tls", "", true, "Enable TLS.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_USE_TLS environment variable if set.")
+  agentCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY environment variable if set.")
 
   command.RootCmd.AddCommand(agentCmd)
 }
@@ -79,6 +87,23 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     viper.BindPFlag("agent.enable-terminal", cmd.Flags().Lookup("enable-terminal"))
     viper.BindEnv("agent.enable-terminal", command.CONFIG_ENV_PREFIX + "_ENABLE_TERMINAL")
     viper.SetDefault("agent.enable-terminal", true)
+
+    // TLS
+    viper.BindPFlag("agent.tls.cert_file", cmd.Flags().Lookup("cert-file"))
+    viper.BindEnv("agent.tls.cert_file", command.CONFIG_ENV_PREFIX + "_CERT_FILE")
+    viper.SetDefault("agent.tls.cert_file", "")
+
+    viper.BindPFlag("agent.tls.key_file", cmd.Flags().Lookup("key-file"))
+    viper.BindEnv("agent.tls.key_file", command.CONFIG_ENV_PREFIX + "_KEY_FILE")
+    viper.SetDefault("agent.tls.key_file", "")
+
+    viper.BindPFlag("agent.tls.use_tls", cmd.Flags().Lookup("use-tls"))
+    viper.BindEnv("agent.tls.use_tls", command.CONFIG_ENV_PREFIX + "_USE_TLS")
+    viper.SetDefault("agent.tls.use_tls", true)
+
+    viper.BindPFlag("tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
+    viper.BindEnv("tls_skip_verify", command.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY")
+    viper.SetDefault("tls_skip_verify", true)
   },
   Run: func(cmd *cobra.Command, args []string) {
     listen := viper.GetString("agent.listen")
@@ -136,19 +161,70 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
     log.Info().Msgf("agent: listening on: %s", listen)
 
-    // Run the http server
-    server := &http.Server{
-      Addr:           listen,
-      Handler:        router,
-      ReadTimeout:    10 * time.Second,
-      WriteTimeout:   10 * time.Second,
+    var tlsConfig *tls.Config = nil
+
+    // If server should use TLS
+    useTLS := viper.GetBool("agent.tls.use_tls")
+    if useTLS {
+      log.Debug().Msg("agent: using TLS")
+
+      // If have both a cert and key file, use them
+      certFile := viper.GetString("agent.tls.cert_file")
+      keyFile := viper.GetString("agent.tls.key_file")
+      if certFile != "" && keyFile != "" {
+        log.Info().Msgf("agent: using cert file: %s", certFile)
+        log.Info().Msgf("agent: using key file: %s", keyFile)
+
+        serverTLSCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+        if err != nil {
+          log.Fatal().Msgf("Error loading certificate and key file: %v", err)
+        }
+
+        tlsConfig = &tls.Config{
+          Certificates: []tls.Certificate{serverTLSCert},
+        }
+      } else {
+        // Otherwise generate a self-signed cert
+        log.Info().Msg("agent: generating self-signed certificate")
+
+        cert, key, err := util.GenerateCertificate()
+        if err != nil {
+          log.Fatal().Msgf("Error generating certificate and key: %v", err)
+        }
+
+        serverTLSCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
+        if err != nil {
+          log.Fatal().Msgf("Error generating server TLS cert: %v", err)
+        }
+
+        tlsConfig = &tls.Config{
+          Certificates: []tls.Certificate{serverTLSCert},
+        }
+      }
     }
 
-    go func() {
-      if err := server.ListenAndServe(); err != http.ErrServerClosed {
-        log.Fatal().Msg(err.Error())
-      }
-    }()
+    // Run the http server
+    server := &http.Server{
+      Addr        : listen,
+      Handler     : router,
+      ReadTimeout : 10 * time.Second,
+      WriteTimeout: 10 * time.Second,
+      TLSConfig   : tlsConfig,
+    }
+
+    if useTLS {
+      go func() {
+        if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+          log.Fatal().Msg(err.Error())
+        }
+      }()
+    } else {
+      go func() {
+        if err := server.ListenAndServe(); err != http.ErrServerClosed {
+          log.Fatal().Msg(err.Error())
+        }
+      }()
+    }
 
     c := make(chan os.Signal, 1)
     signal.Notify(c, os.Interrupt, syscall.SIGTERM)

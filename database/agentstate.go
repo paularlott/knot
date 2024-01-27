@@ -40,7 +40,7 @@ func InitializeAgentInformation() {
       registeredAgentsMutex.Lock()
       for spaceId, agent := range registeredAgents {
         var lastSeen = time.Now().UTC().Sub(agent.LastSeen)
-        if lastSeen > AGENT_STATE_TIMEOUT {
+        if lastSeen >= AGENT_STATE_TIMEOUT {
           log.Debug().Msgf("agent %s not seen for a while, dropping agent", spaceId)
 
           delete(registeredAgents, spaceId)

@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
+	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/web"
 
 	"github.com/go-chi/chi/v5"
@@ -33,6 +35,13 @@ func init() {
   serverCmd.Flags().StringP("download-path", "", "", "The path to serve download files from if set.\nOverrides the " + CONFIG_ENV_PREFIX + "_DOWNLOAD_PATH environment variable if set.")
   serverCmd.Flags().StringP("wildcard-domain", "", "", "The wildcard domain to use for proxying to spaces.\nOverrides the " + CONFIG_ENV_PREFIX + "_WILDCARD_DOMAIN environment variable if set.")
   serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the " + CONFIG_ENV_PREFIX + "_ENCRYPT environment variable if set.")
+
+  // TLS
+  serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the " + CONFIG_ENV_PREFIX + "_CERT_FILE environment variable if set.")
+  serverCmd.Flags().StringP("key-file", "", "", "The file with the PEM encoded key to use for the server.\nOverrides the " + CONFIG_ENV_PREFIX + "_KEY_FILE environment variable if set.")
+  serverCmd.Flags().BoolP("use-tls", "", true, "Enable TLS.\nOverrides the " + CONFIG_ENV_PREFIX + "_USE_TLS environment variable if set.")
+  serverCmd.Flags().BoolP("agent-use-tls", "", true, "Enable TLS when talking to agents.\nOverrides the " + CONFIG_ENV_PREFIX + "_AGENT_USE_TLS environment variable if set.")
+  serverCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to agents.\nOverrides the " + CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY environment variable if set.")
 
   // Nomad
   serverCmd.Flags().StringP("nomad-addr", "", "http://127.0.0.1:4646", "The address of the Nomad server (default \"http://127.0.0.1:4646\").\nOverrides the " + CONFIG_ENV_PREFIX + "_NOMAD_ADDR environment variable if set.")
@@ -93,6 +102,27 @@ var serverCmd = &cobra.Command{
     viper.BindPFlag("server.encrypt", cmd.Flags().Lookup("encrypt"))
     viper.BindEnv("server.encrypt", CONFIG_ENV_PREFIX + "_ENCRYPT")
     viper.SetDefault("server.encrypt", "")
+
+    // TLS
+    viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
+    viper.BindEnv("server.tls.cert_file", CONFIG_ENV_PREFIX + "_CERT_FILE")
+    viper.SetDefault("server.tls.cert_file", "")
+
+    viper.BindPFlag("server.tls.key_file", cmd.Flags().Lookup("key-file"))
+    viper.BindEnv("server.tls.key_file", CONFIG_ENV_PREFIX + "_KEY_FILE")
+    viper.SetDefault("server.tls.key_file", "")
+
+    viper.BindPFlag("server.tls.use_tls", cmd.Flags().Lookup("use-tls"))
+    viper.BindEnv("server.tls.use_tls", CONFIG_ENV_PREFIX + "_USE_TLS")
+    viper.SetDefault("server.tls.use_tls", true)
+
+    viper.BindPFlag("server.tls.agent_use_tls", cmd.Flags().Lookup("agent-use-tls"))
+    viper.BindEnv("server.tls.agent_use_tls", CONFIG_ENV_PREFIX + "_AGENT_USE_TLS")
+    viper.SetDefault("server.tls.agent_use_tls", true)
+
+    viper.BindPFlag("tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
+    viper.BindEnv("tls_skip_verify", CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY")
+    viper.SetDefault("tls_skip_verify", true)
 
     // Nomad
     viper.BindPFlag("server.nomad.addr", cmd.Flags().Lookup("nomad-addr"))
@@ -201,19 +231,70 @@ var serverCmd = &cobra.Command{
       router.Mount("/", hr)
     }
 
-    // Run the http server
-    server := &http.Server{
-      Addr:           listen,
-      Handler:        router,
-      ReadTimeout:    10 * time.Second,
-      WriteTimeout:   10 * time.Second,
+    var tlsConfig *tls.Config = nil
+
+    // If server should use TLS
+    useTLS := viper.GetBool("server.tls.use_tls")
+    if useTLS {
+      log.Debug().Msg("server: using TLS")
+
+      // If have both a cert and key file, use them
+      certFile := viper.GetString("server.tls.cert_file")
+      keyFile := viper.GetString("server.tls.key_file")
+      if certFile != "" && keyFile != "" {
+        log.Info().Msgf("server: using cert file: %s", certFile)
+        log.Info().Msgf("server: using key file: %s", keyFile)
+
+        serverTLSCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+        if err != nil {
+          log.Fatal().Msgf("Error loading certificate and key file: %v", err)
+        }
+
+        tlsConfig = &tls.Config{
+          Certificates: []tls.Certificate{serverTLSCert},
+        }
+      } else {
+        // Otherwise generate a self-signed cert
+        log.Info().Msg("server: generating self-signed certificate")
+
+        cert, key, err := util.GenerateCertificate()
+        if err != nil {
+          log.Fatal().Msgf("Error generating certificate and key: %v", err)
+        }
+
+        serverTLSCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
+        if err != nil {
+          log.Fatal().Msgf("Error generating server TLS cert: %v", err)
+        }
+
+        tlsConfig = &tls.Config{
+          Certificates: []tls.Certificate{serverTLSCert},
+        }
+      }
     }
 
-    go func() {
-      if err := server.ListenAndServe(); err != http.ErrServerClosed {
-        log.Fatal().Msg(err.Error())
-      }
-    }()
+    // Run the http server
+    server := &http.Server{
+      Addr        : listen,
+      Handler     : router,
+      ReadTimeout : 10 * time.Second,
+      WriteTimeout: 10 * time.Second,
+      TLSConfig   : tlsConfig,
+    }
+
+    if useTLS {
+      go func() {
+        if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+          log.Fatal().Msg(err.Error())
+        }
+      }()
+    } else {
+      go func() {
+        if err := server.ListenAndServe(); err != http.ErrServerClosed {
+          log.Fatal().Msg(err.Error())
+        }
+      }()
+    }
 
     c := make(chan os.Signal, 1)
     signal.Notify(c, os.Interrupt, syscall.SIGTERM)

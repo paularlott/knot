@@ -2,6 +2,7 @@ package rest
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,8 +21,8 @@ type RESTClient struct {
   HTTPClient *http.Client
 }
 
-func NewClient(baseURL string, token string) *RESTClient {
-  return &RESTClient{
+func NewClient(baseURL string, token string, insecureSkipVerify bool) *RESTClient {
+  restClient := &RESTClient{
     baseURL: strings.TrimSuffix(baseURL, "/"),
     token: token,
     tokenKey: "Authorization",
@@ -30,6 +31,14 @@ func NewClient(baseURL string, token string) *RESTClient {
       Timeout: 10 * time.Second,
     },
   }
+
+  if insecureSkipVerify {
+    restClient.HTTPClient.Transport = &http.Transport{
+      TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+    }
+  }
+
+  return restClient
 }
 
 func (c *RESTClient) SetAuthToken(token string) *RESTClient {

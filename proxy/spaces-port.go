@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -43,6 +44,12 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
   proxy.Director = func(r *http.Request) {
     originalDirector(r)
     r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
+  }
+
+  if viper.GetBool("tls_skip_verify") {
+    proxy.Transport = &http.Transport{
+      TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+    }
   }
 
   r.URL.Path = ""
@@ -96,6 +103,12 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
   proxy.Director = func(r *http.Request) {
     originalDirector(r)
     r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
+  }
+
+  if viper.GetBool("tls_skip_verify") {
+    proxy.Transport = &http.Transport{
+      TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+    }
   }
 
   proxy.ServeHTTP(w, r)

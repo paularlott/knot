@@ -15,7 +15,7 @@ func NewClient() *NomadClient {
   token := viper.GetString("server.nomad.token")
 
   client := &NomadClient{
-    httpClient: rest.NewClient(baseURL, token),
+    httpClient: rest.NewClient(baseURL, token, false),
   }
 
   client.httpClient.SetTokenKey("X-Nomad-Token")

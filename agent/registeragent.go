@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/util/rest"
 
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 func Register(serverAddr string, nameserver string, spaceId string) {
@@ -26,7 +27,7 @@ func Register(serverAddr string, nameserver string, spaceId string) {
     log.Info().Msgf("attempting registering of agent with server %s", serverAddr)
 
     // Call the server and get the access token to use, if the server doesn't respond sleep and try again until we get it
-    client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), "")
+    client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), "", viper.GetBool("tls_skip_verify"))
 
     var err error
     var statusCode int

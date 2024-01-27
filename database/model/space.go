@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 type SpaceVolume struct {
@@ -55,7 +56,11 @@ func NewSpace(name string, userId string, agentURL string, templateId string, sh
 
 func (space *Space) GetAgentURL() string {
   if space.AgentURL == "" {
-    return fmt.Sprintf("srv+http://%s.service.consul", space.Id)
+    if viper.GetBool("server.tls.agent_use_tls") {
+      return fmt.Sprintf("srv+https://%s.service.consul", space.Id)
+    } else {
+      return fmt.Sprintf("srv+http://%s.service.consul", space.Id)
+    }
   } else {
     return space.AgentURL
   }
