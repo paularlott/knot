@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -257,7 +258,24 @@ var serverCmd = &cobra.Command{
         // Otherwise generate a self-signed cert
         log.Info().Msg("server: generating self-signed certificate")
 
-        cert, key, err := util.GenerateCertificate()
+        // Build the list of domains to include in the cert
+        var sslDomains []string
+
+        serverURL := viper.GetString("server.url")
+        u, err := url.Parse(serverURL)
+        if err != nil {
+          log.Fatal().Msg(err.Error())
+        }
+        sslDomains = append(sslDomains, u.Host)
+        sslDomains = append(sslDomains, "localhost")
+
+        // If wildcard domain given add it
+        wildcardDomain := viper.GetString("server.wildcard_domain")
+        if wildcardDomain != "" {
+          sslDomains = append(sslDomains, wildcardDomain)
+        }
+
+        cert, key, err := util.GenerateCertificate(sslDomains, []net.IP{net.ParseIP("127.0.0.1")})
         if err != nil {
           log.Fatal().Msgf("Error generating certificate and key: %v", err)
         }

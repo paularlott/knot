@@ -7,11 +7,12 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"net"
 	"time"
 )
 
 // GenerateCertificate generates a self-signed certificate and private key in PEM format.
-func GenerateCertificate() (string, string, error) {
+func GenerateCertificate(dnsNames []string, ipAddresses []net.IP) (string, string, error) {
   priv, err := rsa.GenerateKey(rand.Reader, 2048)
   if err != nil {
     return "", "", err
@@ -21,11 +22,22 @@ func GenerateCertificate() (string, string, error) {
   notBefore := time.Now().Add(-10 * time.Second)
   notAfter := notBefore.Add(3650 * 24 * time.Hour)
 
+  // Get the common name
+  var commonName string
+  if len(dnsNames) > 0 {
+    commonName = dnsNames[0]
+  } else if len(ipAddresses) > 0 {
+    commonName = ipAddresses[0].String()
+  } else {
+    commonName = "localhost"
+  }
+
   template := x509.Certificate{
     SerialNumber: big.NewInt(1),
     Subject: pkix.Name{
       Organization: []string{"getknot.dev"},
-			Country:      []string{"AU"},
+      Country:      []string{"AU"},
+      CommonName:   commonName,
     },
     NotBefore: notBefore,
     NotAfter:  notAfter,
@@ -33,6 +45,9 @@ func GenerateCertificate() (string, string, error) {
     KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
     ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
     BasicConstraintsValid: true,
+
+    DNSNames:    dnsNames,
+    IPAddresses: ipAddresses,
   }
 
   derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -187,7 +188,12 @@ The agent will listen on the port specified by the --listen flag and proxy reque
         // Otherwise generate a self-signed cert
         log.Info().Msg("agent: generating self-signed certificate")
 
-        cert, key, err := util.GenerateCertificate()
+        // Add the agents service Id to the cert
+        var sslDomains []string
+        sslDomains = append(sslDomains, fmt.Sprintf("%s.service.consul", viper.GetString("agent.space-id")))
+        sslDomains = append(sslDomains, "localhost")
+
+        cert, key, err := util.GenerateCertificate(sslDomains, []net.IP{net.ParseIP("127.0.0.1")})
         if err != nil {
           log.Fatal().Msgf("Error generating certificate and key: %v", err)
         }
