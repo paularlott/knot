@@ -3,6 +3,7 @@
 !/bin/.gitignore
 /node_modules
 .knot.yml
+/.parcel-cache
 /knot-server.nomad
 /web/public_html/api-docs/*
 !/web/public_html/api-docs/.gitignore
@@ -14,6 +15,8 @@
 /NOTES.md
 /badgerdb
 /web/public_html/app.js
+/web/public_html/app.js.map
 /web/public_html/terminal.js
-/web/public_html/app.css
-/web/public_html/terminal.css
+/web/public_html/terminal.js.map
+/web/public_html/css/*
+!/web/public_html/css/.gitignore
