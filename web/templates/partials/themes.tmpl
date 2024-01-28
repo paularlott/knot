@@ -1,7 +1,4 @@
 {{ define "init-theme" }}
-x-data="{ 'darkMode': true }"
-x-init="darkMode = JSON.parse(localStorage.getItem('darkMode'));
-        if(darkMode == null) darkMode = true;
-        $watch('darkMode', val => localStorage.setItem('darkMode', val))"
+x-data="{ darkMode: $persist(true) }"
 :class="darkMode ? 'dark' : 'light'"
 {{ end }}

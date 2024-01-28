@@ -6,7 +6,7 @@ info:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   x-logo:
-    url: ../images/knot-logo.webp
+    url: ../images/logo-light.svg
   description: >
     # Introduction
 

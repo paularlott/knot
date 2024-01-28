@@ -6,7 +6,8 @@
     "@parcel/transformer-less": "^2.11.0",
     "@redocly/cli": "^1.5.0",
     "alpinejs": "^3.13.2",
-    "parcel": "^2.11.0"
+    "parcel": "^2.11.0",
+    "process": "^0.11.10"
   },
   "repository": {
     "type": "git",
@@ -18,6 +19,7 @@
     "url": "https://github.com/paularlott/knot/issues"
   },
   "dependencies": {
+    "@alpinejs/persist": "^3.13.5",
     "@xterm/addon-attach": "^0.10.0-beta.1",
     "@xterm/addon-canvas": "^0.6.0-beta.1",
     "@xterm/addon-fit": "^0.9.0-beta.1",

@@ -60,10 +60,10 @@ apidocs:
 
 ## Compile LESS and JavaScript
 webassets:
-	npx parcel build --dist-dir ./web/public_html/ ./web/src/js/app.js ./web/src/js/terminal.js
-	npx parcel build --dist-dir ./web/public_html/css/ ./web/src/less/app.less
-	npx parcel build --dist-dir ./web/public_html/css/ ./web/src/terminal/terminal.less
-	npx parcel build --dist-dir ./web/public_html/css/ ./web/src/less/nunito.less
+	npx parcel build --no-cache --dist-dir ./web/public_html/ ./web/src/js/app.js ./web/src/js/terminal.js
+	npx parcel build --no-cache --dist-dir ./web/public_html/css/ ./web/src/less/app.less
+	npx parcel build --no-cache --dist-dir ./web/public_html/css/ ./web/src/terminal/terminal.less
+	npx parcel build --no-cache --dist-dir ./web/public_html/css/ ./web/src/less/nunito.less
 
 .PHONY: clean
 ## Remove the previous build

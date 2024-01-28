@@ -1,11 +1,14 @@
 import Alpine from 'alpinejs'
+import persist from '@alpinejs/persist'
 import { validate } from './validators.js'
 import {} from './timezones.js'
 import {} from './components/autocompleter.js'
 
 window.validate = validate;
 
-Alpine.start()
+window.Alpine = Alpine;
+Alpine.plugin(persist)
+Alpine.start();
 
 window.openTerminal = function(spaceId) {
   window.open('/terminal/' + spaceId, 'spaces_' + spaceId + '_terminal', 'width=800,height=500');
