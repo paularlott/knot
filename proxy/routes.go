@@ -12,7 +12,7 @@ func Routes() chi.Router {
 
   router.Use(middleware.ApiAuth)
 
-  if !viper.GetBool("server.disable_proxy") {
+  if viper.GetBool("server.enable_proxy") {
     router.Get("/port/{host}/{port:\\d+}", HandleWSProxyServer)
   }
 
