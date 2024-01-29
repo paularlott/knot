@@ -20,7 +20,7 @@ func GenerateCertificate(dnsNames []string, ipAddresses []net.IP) (string, strin
 
   // Set the certificate for 100 years.
   notBefore := time.Now().Add(-10 * time.Second)
-  notAfter := notBefore.Add(3650 * 24 * time.Hour)
+  notAfter := notBefore.Add(365 * 24 * time.Hour)
 
   // Get the common name
   var commonName string
