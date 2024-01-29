@@ -17,6 +17,8 @@ import (
 )
 
 func ReportState(serverAddr string, nameserver string, spaceId string, codeServerPort int, sshPort int, tcpPorts []int, httpPorts []int) {
+  var failCount = 0
+
   for {
     var sshAlivePort = 0
     var codeServerAlive bool
@@ -50,10 +52,16 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
     statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort, viper.GetBool("agent.enable-terminal"), tcpPorts, httpPorts)
     if err != nil {
       log.Info().Msgf("failed to ping server: %d, %s", statusCode, err.Error())
+      failCount++
 
-      // Attempt reregistration with server
-      log.Debug().Msgf("Attempting to register agent with server")
-      Register(serverAddr, nameserver, spaceId)
+      if failCount >= 3 {
+        // Attempt reregistration with server
+        log.Debug().Msgf("Attempting to register agent with server")
+        Register(serverAddr, nameserver, spaceId)
+        failCount = 0
+      }
+    } else {
+      failCount = 0
     }
 
     time.Sleep(database.AGENT_STATE_PING_INTERVAL)

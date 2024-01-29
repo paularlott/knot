@@ -8,7 +8,8 @@ import (
 )
 
 const (
-  AGENT_STATE_PING_INTERVAL = 5 * time.Second
+  AGENT_STATE_PING_INTERVAL = 4 * time.Second
+  AGENT_STATE_GC_INTERVAL = 5 * time.Second
   AGENT_STATE_TIMEOUT = 15 * time.Second
 )
 
@@ -34,7 +35,7 @@ func InitializeAgentInformation() {
   // Start a go routine to check for agents that haven't been seen in a while
   go func() {
     for {
-      time.Sleep(AGENT_STATE_PING_INTERVAL)
+      time.Sleep(AGENT_STATE_GC_INTERVAL)
 
       // Loop through all the agents and check if they haven't been seen in a while
       registeredAgentsMutex.Lock()
