@@ -15,6 +15,7 @@ import (
 	"github.com/paularlott/knot/agent"
 	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/command"
+	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/validate"
 
@@ -158,7 +159,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     agent.Register(serverAddr, nameserver, spaceId)
 
     // Pings the server periodically to keep the agent alive
-    go agent.ReportState(serverAddr, nameserver, spaceId, viper.GetInt("agent.port.code-server"), viper.GetInt("agent.port.ssh"), tcpPorts, httpPorts)
+    go agent.ReportState(middleware.ServerURL, nameserver, spaceId, viper.GetInt("agent.port.code-server"), viper.GetInt("agent.port.ssh"), tcpPorts, httpPorts)
 
     log.Info().Msgf("agent: listening on: %s", listen)
 
@@ -190,7 +191,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
         // Add the agents service Id to the cert
         var sslDomains []string
-        sslDomains = append(sslDomains, fmt.Sprintf("%s.service.consul", viper.GetString("agent.space-id")))
+        sslDomains = append(sslDomains, fmt.Sprintf("knot-%s.service.consul", viper.GetString("agent.space-id")))
         sslDomains = append(sslDomains, "localhost")
 
         cert, key, err := util.GenerateCertificate(sslDomains, []net.IP{net.ParseIP("127.0.0.1")})

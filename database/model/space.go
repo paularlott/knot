@@ -57,9 +57,9 @@ func NewSpace(name string, userId string, agentURL string, templateId string, sh
 func (space *Space) GetAgentURL() string {
   if space.AgentURL == "" {
     if viper.GetBool("server.tls.agent_use_tls") {
-      return fmt.Sprintf("srv+https://%s.service.consul", space.Id)
+      return fmt.Sprintf("srv+https://knot-%s.service.consul", space.Id)
     } else {
-      return fmt.Sprintf("srv+http://%s.service.consul", space.Id)
+      return fmt.Sprintf("srv+http://knot-%s.service.consul", space.Id)
     }
   } else {
     return space.AgentURL

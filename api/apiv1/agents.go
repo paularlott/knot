@@ -19,6 +19,7 @@ import (
 type AgentRegisterResponse struct {
   Status bool `json:"status"`
   AccessToken string `json:"access_token"`
+  ServerURL string `json:"server_url"`
 }
 
 func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +66,18 @@ func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
   })
   database.AgentStateUnlock()
 
-  response := AgentRegisterResponse{Status: true, AccessToken: token}
+  var serverURL string
+  if viper.GetString("server.agent_url") != "" {
+    serverURL = viper.GetString("server.agent_url")
+  } else {
+    serverURL = viper.GetString("server.url")
+  }
+
+  response := AgentRegisterResponse{
+    Status: true,
+    AccessToken: token,
+    ServerURL: serverURL,
+  }
   rest.SendJSON(http.StatusOK, w, response)
 }
 

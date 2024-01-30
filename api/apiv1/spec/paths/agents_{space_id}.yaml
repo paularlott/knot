@@ -25,6 +25,9 @@ post:
                 type: string
                 description: The access token for the agent
                 format: uuid
+              server_url:
+                type: string
+                description: The server url for the agent to use in communication with the server
     '404':
       $ref: "../responses/not-found.yaml"
     '423':

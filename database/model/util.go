@@ -16,6 +16,13 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
     return srcString, err
   }
 
+  var agentURL string
+  if viper.GetString("server.agent_url") != "" {
+    agentURL = viper.GetString("server.agent_url")
+  } else {
+    agentURL = viper.GetString("server.url")
+  }
+
   data := map[string]interface{}{
     "space": map[string]interface{}{
       "id":   "",
@@ -32,6 +39,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
     },
     "server": map[string]interface{}{
       "url": viper.GetString("server.url"),
+      "agent_url": agentURL,
     },
     "var": variables,
   }

@@ -7,6 +7,7 @@ import (
 
 var (
   AgentSpaceKey string
+  ServerURL string
 )
 
 func AgentApiAuth(next http.Handler) http.Handler {

@@ -36,6 +36,7 @@ func init() {
   serverCmd.Flags().StringP("download-path", "", "", "The path to serve download files from if set.\nOverrides the " + CONFIG_ENV_PREFIX + "_DOWNLOAD_PATH environment variable if set.")
   serverCmd.Flags().StringP("wildcard-domain", "", "", "The wildcard domain to use for proxying to spaces.\nOverrides the " + CONFIG_ENV_PREFIX + "_WILDCARD_DOMAIN environment variable if set.")
   serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the " + CONFIG_ENV_PREFIX + "_ENCRYPT environment variable if set.")
+  serverCmd.Flags().StringP("agent-url", "", "", "The URL agents should use to talk to the server (default \"\").\nOverrides the " + CONFIG_ENV_PREFIX + "_AGENT_URL environment variable if set.")
 
   // TLS
   serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the " + CONFIG_ENV_PREFIX + "_CERT_FILE environment variable if set.")
@@ -103,6 +104,10 @@ var serverCmd = &cobra.Command{
     viper.BindPFlag("server.encrypt", cmd.Flags().Lookup("encrypt"))
     viper.BindEnv("server.encrypt", CONFIG_ENV_PREFIX + "_ENCRYPT")
     viper.SetDefault("server.encrypt", "")
+
+    viper.BindPFlag("server.agent_url", cmd.Flags().Lookup("agent-url"))
+    viper.BindEnv("server.agent_url", CONFIG_ENV_PREFIX + "_AGENT_URL")
+    viper.SetDefault("server.agent_url", "")
 
     // TLS
     viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
@@ -206,16 +211,9 @@ var serverCmd = &cobra.Command{
 
       log.Debug().Msgf("Host: %s", u.Host)
       log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
+      log.Debug().Msgf("Agent URL: %s", viper.GetString("server.agent_url"))
 
       hr := hostrouter.New()
-      hr.Map(u.Host, func () chi.Router {
-        router := chi.NewRouter()
-        router.Mount("/api/v1", apiv1.ApiRoutes())
-        router.Mount("/proxy", proxy.Routes())
-        router.Mount("/", web.Routes())
-        return router
-      }())
-
       hr.Map(wildcardDomain, func() chi.Router {
         router := chi.NewRouter()
         router.Mount("/", proxy.PortRoutes())
@@ -225,6 +223,9 @@ var serverCmd = &cobra.Command{
       // Expose the health endpoint
       hr.Map("*", func() chi.Router {
         router := chi.NewRouter()
+        router.Mount("/api/v1", apiv1.ApiRoutes())
+        router.Mount("/proxy", proxy.Routes())
+        router.Mount("/", web.Routes())
         router.Get("/health", web.HandleHealthPage)
         return router
       }())
@@ -268,6 +269,16 @@ var serverCmd = &cobra.Command{
         }
         sslDomains = append(sslDomains, u.Host)
         sslDomains = append(sslDomains, "localhost")
+
+        // If have an agent url then add it's domain
+        agentURL := viper.GetString("server.agent_url")
+        if agentURL != "" {
+          u, err := url.Parse(agentURL)
+          if err != nil {
+            log.Fatal().Msg(err.Error())
+          }
+          sslDomains = append(sslDomains, u.Host)
+        }
 
         // If wildcard domain given add it
         wildcardDomain := viper.GetString("server.wildcard_domain")

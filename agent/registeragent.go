@@ -41,6 +41,7 @@ func Register(serverAddr string, nameserver string, spaceId string) {
     log.Info().Msgf("registered agent with server %s", serverAddr)
 
     middleware.AgentSpaceKey = response.AccessToken
+    middleware.ServerURL = response.ServerURL
     break
   }
 }
