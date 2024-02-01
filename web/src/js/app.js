@@ -1,3 +1,5 @@
+import '../less/app.less'
+
 import Alpine from 'alpinejs'
 import persist from '@alpinejs/persist'
 import { validate } from './validators.js'

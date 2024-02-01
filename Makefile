@@ -60,10 +60,7 @@ apidocs:
 
 ## Compile LESS and JavaScript
 webassets:
-	npx parcel build --no-cache --dist-dir ./web/public_html/ ./web/src/js/app.js ./web/src/js/terminal.js
-	npx parcel build --no-cache --dist-dir ./web/public_html/css/ ./web/src/less/app.less
-	npx parcel build --no-cache --dist-dir ./web/public_html/css/ ./web/src/terminal/terminal.less
-	npx parcel build --no-cache --dist-dir ./web/public_html/css/ ./web/src/less/nunito.less
+	npx vite build
 
 .PHONY: clean
 ## Remove the previous build
@@ -73,9 +70,7 @@ clean:
 	rm -rf legal/notice.txt
 	rm -rf web/public_html/api-docs/index.html
 	rm -rf web/public_html/css/*
-	rm -rf web/public_html/app.js web/public_html/terminal.js
-	rm -rf web/public_html/app.js.map web/public_html/terminal.js.map
-	rm -rf .parcel-cache
+	rm -rf web/public_html/js/*
 
 .PHONEY: container
 ## Build the docker image and push to GitHub

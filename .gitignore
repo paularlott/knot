@@ -18,5 +18,4 @@
 /web/public_html/app.js.map
 /web/public_html/terminal.js
 /web/public_html/terminal.js.map
-/web/public_html/css/*
-!/web/public_html/css/.gitignore
+/web/public_html/assets/*
