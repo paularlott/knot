@@ -90,6 +90,7 @@ func CallRegisterAgent(client *rest.RESTClient, spaceId string) (*AgentRegisterR
 type AgentStatusRequest struct {
   HasCodeServer bool `json:"has_code_server"`
   SSHPort int `json:"ssh_port"`
+  VNCHttpPort int `json:"vnc_http_port"`
   HasTerminal bool `json:"has_terminal"`
   TcpPorts []int `json:"tcp_ports"`
   HttpPorts []int `json:"http_ports"`
@@ -116,6 +117,7 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
     state.LastSeen = time.Now().UTC()
     state.HasCodeServer = request.HasCodeServer
     state.SSHPort = request.SSHPort
+    state.VNCHttpPort = request.VNCHttpPort
     state.HasTerminal = request.HasTerminal
     state.TcpPorts = request.TcpPorts
     state.HttpPorts = request.HttpPorts
@@ -133,10 +135,11 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
   rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "agent not found"})
 }
 
-func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, sshPort int, hasTerminal bool, tcpPorts []int, httpPorts []int) (int, error) {
+func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts []int, httpPorts []int) (int, error) {
   request := &AgentStatusRequest{
     HasCodeServer: hasCodeServer,
     SSHPort: sshPort,
+    VNCHttpPort: vncHttpPort,
     HasTerminal: hasTerminal,
     TcpPorts: tcpPorts,
     HttpPorts: httpPorts,

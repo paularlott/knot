@@ -95,8 +95,15 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // Look up the IP + Port from consul / DNS
-  target, _ := url.Parse(fmt.Sprintf("%s/http/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), domainParts[2]))
+  var target *url.URL
+
+  // If the last part is VNC then doing proxy for HTTP based VNC server
+  if domainParts[2] == "vnc" {
+    target, _ = url.Parse(fmt.Sprintf("%s/vnc/", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/")))
+  } else {
+    target, _ = url.Parse(fmt.Sprintf("%s/http/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), domainParts[2]))
+  }
+
   proxy := httputil.NewSingleHostReverseProxy(target)
 
   originalDirector := proxy.Director

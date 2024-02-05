@@ -18,9 +18,11 @@ type AgentState struct {
   AccessToken string
   HasCodeServer bool
   SSHPort int
+  VNCHttpPort int
   HasTerminal bool
   TcpPorts []int
   HttpPorts []int
+  ServicePassword string
   LastSeen time.Time
 }
 

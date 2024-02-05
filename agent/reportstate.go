@@ -16,11 +16,12 @@ import (
 	"github.com/spf13/viper"
 )
 
-func ReportState(serverAddr string, nameserver string, spaceId string, codeServerPort int, sshPort int, tcpPorts []int, httpPorts []int) {
+func ReportState(serverAddr string, nameserver string, spaceId string, codeServerPort int, sshPort int, vncHttpPort int, tcpPorts []int, httpPorts []int) {
   var failCount = 0
 
   for {
     var sshAlivePort = 0
+    var vncAliveHttpPort = 0
     var codeServerAlive bool
 
     // If sshPort > 0 then check the health of sshd
@@ -46,10 +47,21 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
       }
     }
 
-    log.Debug().Msgf("Report agent state to server: SSH %d, Code Server %d, Code Server Alive %t", sshAlivePort, codeServerPort, codeServerAlive)
+    // If vncHttpPort > 0 then check the health of VNC
+    if vncHttpPort > 0 {
+      // Check health of sshd
+      address := fmt.Sprintf("127.0.0.1:%d", vncHttpPort)
+      conn, err := net.DialTimeout("tcp", address, time.Second)
+      if err == nil {
+        conn.Close()
+        vncAliveHttpPort = vncHttpPort
+      }
+    }
+
+    log.Debug().Msgf("Report agent state to server: SSH %d, Code Server %d, VNC Http %d, Code Server Alive %t", sshAlivePort, codeServerPort, vncAliveHttpPort, codeServerAlive)
 
     client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), middleware.AgentSpaceKey, viper.GetBool("tls_skip_verify"))
-    statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort, viper.GetBool("agent.enable-terminal"), tcpPorts, httpPorts)
+    statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort, vncAliveHttpPort, viper.GetBool("agent.enable_terminal"), tcpPorts, httpPorts)
     if err != nil {
       log.Info().Msgf("failed to ping server: %d, %s", statusCode, err.Error())
       failCount++

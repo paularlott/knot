@@ -36,6 +36,8 @@ func init() {
   agentCmd.Flags().StringSliceP("http-port", "", []string{}, "Can be specified multiple times to give the list of ports to be exposed via the web interface.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_HTTP_PORT environment variable if set.")
   agentCmd.Flags().BoolP("update-authorized-keys", "", true, "If given then the agent will update the authorized_keys file with the SSH public key of the user.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_UPDATE_AUTHORIZED_KEYS environment variable if set.")
   agentCmd.Flags().BoolP("enable-terminal", "", true, "If given then the agent will enable the web terminal.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_ENABLE_TERMINAL environment variable if set.")
+  agentCmd.Flags().IntP("vnc-http-port", "", 0, "The port to use for VNC over HTTP.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_VNC_HTTP_PORT environment variable if set.")
+  agentCmd.Flags().StringP("service-password", "", "", "The password to use for the agent.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_SERVICE_PASSWORD environment variable if set.")
 
   // TLS
   agentCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the agent.\nOverrides the " + command.CONFIG_ENV_PREFIX + "_CERT_FILE environment variable if set.")
@@ -57,8 +59,8 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     viper.BindPFlag("agent.server", cmd.Flags().Lookup("server"))
     viper.BindEnv("agent.server", command.CONFIG_ENV_PREFIX + "_SERVER")
 
-    viper.BindPFlag("agent.space-id", cmd.Flags().Lookup("space-id"))
-    viper.BindEnv("agent.space-id", command.CONFIG_ENV_PREFIX + "_SPACEID")
+    viper.BindPFlag("agent.space_id", cmd.Flags().Lookup("space-id"))
+    viper.BindEnv("agent.space_id", command.CONFIG_ENV_PREFIX + "_SPACEID")
 
     viper.BindPFlag("agent.nameserver", cmd.Flags().Lookup("nameserver"))
     viper.BindEnv("agent.nameserver", command.CONFIG_ENV_PREFIX + "_NAMESERVER")
@@ -68,27 +70,35 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     viper.BindEnv("agent.listen", command.CONFIG_ENV_PREFIX + "_LISTEN")
     viper.SetDefault("agent.listen", "0.0.0.0:3000")
 
-    viper.BindPFlag("agent.port.code-server", cmd.Flags().Lookup("code-server-port"))
-    viper.BindEnv("agent.port.code-server", command.CONFIG_ENV_PREFIX + "_CODE_SERVER_PORT")
-    viper.SetDefault("agent.port.code-server", "0")
+    viper.BindPFlag("agent.port.code_server", cmd.Flags().Lookup("code-server-port"))
+    viper.BindEnv("agent.port.code_server", command.CONFIG_ENV_PREFIX + "_CODE_SERVER_PORT")
+    viper.SetDefault("agent.port.code_server", "0")
+
+    viper.BindPFlag("agent.port.vnc_http", cmd.Flags().Lookup("vnc-http-port"))
+    viper.BindEnv("agent.port.vnc_http", command.CONFIG_ENV_PREFIX + "_VNC_HTTP_PORT")
+    viper.SetDefault("agent.port.vnc_http", "0")
 
     viper.BindPFlag("agent.port.ssh", cmd.Flags().Lookup("ssh-port"))
     viper.BindEnv("agent.port.ssh", command.CONFIG_ENV_PREFIX + "_SSH_PORT")
     viper.SetDefault("agent.port.ssh", "0")
 
-    viper.BindPFlag("agent.port.tcp-port", cmd.Flags().Lookup("tcp-port"))
-    viper.BindEnv("agent.port.tcp-port", command.CONFIG_ENV_PREFIX + "_TCP_PORT")
+    viper.BindPFlag("agent.port.tcp_port", cmd.Flags().Lookup("tcp-port"))
+    viper.BindEnv("agent.port.tcp_port", command.CONFIG_ENV_PREFIX + "_TCP_PORT")
 
-    viper.BindPFlag("agent.port.http-port", cmd.Flags().Lookup("http-port"))
-    viper.BindEnv("agent.port.http-port", command.CONFIG_ENV_PREFIX + "_HTTP_PORT")
+    viper.BindPFlag("agent.port.http_port", cmd.Flags().Lookup("http-port"))
+    viper.BindEnv("agent.port.http_port", command.CONFIG_ENV_PREFIX + "_HTTP_PORT")
 
-    viper.BindPFlag("agent.update-authorized-keys", cmd.Flags().Lookup("update-authorized-keys"))
-    viper.BindEnv("agent.update-authorized-keys", command.CONFIG_ENV_PREFIX + "_UPDATE_AUTHORIZED_KEYS")
-    viper.SetDefault("agent.update-authorized-keys", true)
+    viper.BindPFlag("agent.update_authorized_keys", cmd.Flags().Lookup("update-authorized-keys"))
+    viper.BindEnv("agent.update_authorized_keys", command.CONFIG_ENV_PREFIX + "_UPDATE_AUTHORIZED_KEYS")
+    viper.SetDefault("agent.update_authorized_keys", true)
 
-    viper.BindPFlag("agent.enable-terminal", cmd.Flags().Lookup("enable-terminal"))
-    viper.BindEnv("agent.enable-terminal", command.CONFIG_ENV_PREFIX + "_ENABLE_TERMINAL")
-    viper.SetDefault("agent.enable-terminal", true)
+    viper.BindPFlag("agent.enable_terminal", cmd.Flags().Lookup("enable-terminal"))
+    viper.BindEnv("agent.enable_terminal", command.CONFIG_ENV_PREFIX + "_ENABLE_TERMINAL")
+    viper.SetDefault("agent.enable_terminal", true)
+
+    viper.BindPFlag("agent.service_password", cmd.Flags().Lookup("service-password"))
+    viper.BindEnv("agent.service_password", command.CONFIG_ENV_PREFIX + "_SERVICE_PASSWORD")
+    viper.SetDefault("agent.service_password", "")
 
     // TLS
     viper.BindPFlag("agent.tls.cert_file", cmd.Flags().Lookup("cert-file"))
@@ -111,10 +121,10 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     listen := viper.GetString("agent.listen")
     serverAddr := viper.GetString("agent.server")
     nameserver := viper.GetString("agent.nameserver")
-    spaceId := viper.GetString("agent.space-id")
+    spaceId := viper.GetString("agent.space_id")
 
     // Build a map of the available tcp ports
-    ports := viper.GetStringSlice("agent.port.tcp-port")
+    ports := viper.GetStringSlice("agent.port.tcp_port")
     tcpPorts := []int{}
     agentv1.TcpPortMap = make(map[string]bool, len(ports))
     for _, port := range ports {
@@ -131,7 +141,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     }
 
     // Build a map of available http ports
-    ports = viper.GetStringSlice("agent.port.http-port")
+    ports = viper.GetStringSlice("agent.port.http_port")
     httpPorts := []int{}
     agentv1.HttpPortMap = make(map[string]bool, len(ports))
     for _, port := range ports {
@@ -159,7 +169,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     agent.Register(serverAddr, nameserver, spaceId)
 
     // Pings the server periodically to keep the agent alive
-    go agent.ReportState(middleware.ServerURL, nameserver, spaceId, viper.GetInt("agent.port.code-server"), viper.GetInt("agent.port.ssh"), tcpPorts, httpPorts)
+    go agent.ReportState(middleware.ServerURL, nameserver, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), tcpPorts, httpPorts)
 
     log.Info().Msgf("agent: listening on: %s", listen)
 
@@ -191,7 +201,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
         // Add the agents service Id to the cert
         var sslDomains []string
-        sslDomains = append(sslDomains, fmt.Sprintf("knot-%s.service.consul", viper.GetString("agent.space-id")))
+        sslDomains = append(sslDomains, fmt.Sprintf("knot-%s.service.consul", viper.GetString("agent.space_id")))
         sslDomains = append(sslDomains, "localhost")
 
         cert, key, err := util.GenerateCertificate(sslDomains, []net.IP{net.ParseIP("127.0.0.1")})

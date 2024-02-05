@@ -59,6 +59,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     TemplateId string `json:"template_id"`
     HasCodeServer bool `json:"has_code_server"`
     HasSSH bool `json:"has_ssh"`
+    HasHttpVNC bool `json:"has_http_vnc"`
     HasTerminal bool `json:"has_terminal"`
     IsDeployed bool `json:"is_deployed"`
     Username string `json:"username"`
@@ -103,7 +104,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
       spaceData[i].HasCodeServer = agentState.HasCodeServer
       spaceData[i].HasSSH = agentState.SSHPort > 0
       spaceData[i].HasTerminal = agentState.HasTerminal
-      spaceData[i].TcpPorts = agentState.TcpPorts
+      spaceData[i].HasHttpVNC = agentState.VNCHttpPort > 0
 
       // If wildcard domain is set then offer the http ports
       if viper.GetString("server.wildcard_domain") == "" {
@@ -114,6 +115,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     } else {
       spaceData[i].HasCodeServer = false
       spaceData[i].HasSSH = false
+      spaceData[i].HasHttpVNC = false
       spaceData[i].HasTerminal = false
       spaceData[i].TcpPorts = []int{}
       spaceData[i].HttpPorts = []int{}
@@ -230,6 +232,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 type SpaceServiceResponse struct {
   HasCodeServer bool `json:"has_code_server"`
   HasSSH bool `json:"has_ssh"`
+  HasHttpVNC bool `json:"has_http_vnc"`
   HasTerminal bool `json:"has_terminal"`
   IsDeployed bool `json:"is_deployed"`
   TcpPorts []int `json:"tcp_ports"`
@@ -255,12 +258,14 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
     response.HasCodeServer = false
     response.HasSSH = false
     response.HasTerminal = false
+    response.HasHttpVNC = false
     response.TcpPorts = []int{}
     response.HttpPorts = []int{}
   } else {
     response.HasCodeServer = state.HasCodeServer
     response.HasSSH = state.SSHPort > 0
     response.HasTerminal = state.HasTerminal
+    response.HasHttpVNC = state.VNCHttpPort > 0
     response.TcpPorts = state.TcpPorts
 
     // If wildcard domain is set then offer the http ports

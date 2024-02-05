@@ -10,6 +10,8 @@ properties:
     type: boolean
   has_ssh:
     type: boolean
+  has_http_vnc:
+    type: boolean
   is_deployed:
     type: boolean
   username:

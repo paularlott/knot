@@ -24,6 +24,15 @@ window.openCodeServer = function(spaceId) {
   return false;
 }
 
+window.openVNC = function(spaceId, domain, username, spaceName) {
+  const subdomain = window.location.protocol + '//' + username + '--' + spaceName + '--vnc';
+  const maxWidth = Math.min(window.innerWidth, 1440);
+  const maxHeight = window.innerHeight;
+
+  window.open(domain.replace(/^\*/, subdomain), 'spaces_' + spaceId + '_vnc', 'width=' + maxWidth + ',height=' + maxHeight);
+  return false;
+}
+
 window.openPortWindow = function(spaceId, domain, username, spaceName, port) {
   var subdomain = window.location.protocol + '//' + username + '--' + spaceName + '--' + port;
   window.open(domain.replace(/^\*/, subdomain), 'spaces_' + spaceId + '_http_port_' + port);

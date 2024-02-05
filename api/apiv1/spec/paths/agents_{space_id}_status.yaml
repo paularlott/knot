@@ -22,6 +22,8 @@ post:
               type: boolean
             ssh_port:
               type: integer
+            vnc_http_port:
+              type: integer
             has_terminal:
               type: boolean
   responses:

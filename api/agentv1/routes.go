@@ -12,6 +12,7 @@ import (
 
 var (
   codeServerPort int
+  vncHttpServerPort int
 )
 
 func Routes(cmd *cobra.Command) chi.Router {
@@ -39,10 +40,17 @@ func Routes(cmd *cobra.Command) chi.Router {
     }
 
     // If code server port given then enable the proxy
-    codeServerPort = viper.GetInt("agent.port.code-server")
+    codeServerPort = viper.GetInt("agent.port.code_server")
     if codeServerPort != 0 {
       log.Info().Msgf("Enabling proxy to code-server on port: %d", codeServerPort)
       router.HandleFunc("/code-server/*", agentProxyCodeServer);
+    }
+
+    // If VNC port given then enable the proxy
+    vncHttpServerPort = viper.GetInt("agent.port.vnc_http")
+    if vncHttpServerPort != 0 {
+      log.Info().Msgf("Enabling proxy to HTTP VNC on port: %d", vncHttpServerPort)
+      router.HandleFunc("/vnc/*", agentProxyVNCHttp);
     }
 
     // If allowing TCP ports then enable the proxy
@@ -54,7 +62,7 @@ func Routes(cmd *cobra.Command) chi.Router {
       router.HandleFunc("/http/{port}/*", agentProxyHTTP);
     }
 
-    if viper.GetBool("agent.enable-terminal") {
+    if viper.GetBool("agent.enable_terminal") {
       log.Info().Msg("Enabling web terminal")
       router.HandleFunc("/terminal/{shell:^[a-z]+$}/", agentTerminal);
     }

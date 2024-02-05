@@ -33,7 +33,7 @@ func HandleAgentUpdateAuthorizedKeys(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  if viper.GetBool("agent.update-authorized-keys") && viper.GetInt("agent.port.ssh") > 0 {
+  if viper.GetBool("agent.update_authorized_keys") && viper.GetInt("agent.port.ssh") > 0 {
     // If the key is the same as the last key then skip
     if request.Key != lastPublicSSHKey {
       log.Debug().Msg("updating authorized_keys")
