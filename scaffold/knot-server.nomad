@@ -20,7 +20,7 @@ job "knot-server" {
     task "knot-server" {
       driver = "docker"
       config {
-        image = "ghcr.io/paularlott/knot:latest"
+        image = "paularlott/knot:latest"
         ports = ["knot_port"]
       }
 

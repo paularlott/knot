@@ -77,8 +77,8 @@ clean:
 container:
 	docker buildx build \
 		--platform linux/amd64,linux/arm64 \
-		--tag ghcr.io/paularlott/knot:$(VERSION) \
-		--tag ghcr.io/paularlott/knot:latest \
+		--tag paularlott/knot:$(VERSION) \
+		--tag paularlott/knot:latest \
 		--push \
 		.
 
