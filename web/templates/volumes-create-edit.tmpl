@@ -6,7 +6,7 @@
 <div class="content full-height">
   <div class="row">
     <div class="col-sm-12">
-      <div class="box full-height" x-data="volumeForm()" x-init="initData()">
+      <div class="box full-height" x-data="volumeForm({{ .isEdit }}, '{{ .volumeId }}')" x-init="initData()">
         <h2>{{ if .isEdit }}Edit Volume{{ else }}Create Volume{{ end }}</h2>
 
         {{ template "loading" . }}
@@ -14,7 +14,7 @@
           <dl>
             <dt><label for="name">Name <em>*</em></label></dt>
             <dd>
-              <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Template name" x-model="formData.name">
+              <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Volume name" x-model="formData.name">
               <div x-show="!nameValid" class="error-message">Volume name can be a max 64 characters.</div>
             </dd>
             <dt><label for="vol">Volume Definition (YAML) <em>*</em></label></dt>
@@ -32,124 +32,4 @@
     </div>
   </div>
 </div>
-
-<script>
-
-function volumeForm() {
-  var isEdit = "{{ .isEdit }}" == 'true';
-
-  return {
-    formData: {
-      name: "",
-      definition: "",
-    },
-    loading: true,
-    buttonLabel: isEdit ? 'Update Volume' : 'Create Volume',
-    nameValid: true,
-    volValid: true,
-
-    async initData() {
-      if(isEdit) {
-        const volumeResponse = await fetch('/api/v1/volumes/{{ .volumeId }}', {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (volumeResponse.status !== 200) {
-          window.location.href = '/volumes';
-        } else {
-          const volume = await volumeResponse.json();
-
-          this.formData.name = volume.name;
-          this.formData.definition = volume.definition;
-        }
-      }
-
-      let darkMode = JSON.parse(localStorage.getItem('darkMode'));
-      if(darkMode == null)
-        darkMode = true;
-
-      // Create the volume editor
-      let editorVol = ace.edit('vol');
-      editorVol.session.setValue(this.formData.definition);
-      editorVol.session.on('change', () => {
-          this.formData.definition = editorVol.getValue();
-      });
-      editorVol.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
-      editorVol.session.setMode("ace/mode/yaml");
-      editorVol.setOptions({
-        printMargin: false,
-        newLineMode: 'unix',
-        tabSize: 2,
-        wrap: false,
-        vScrollBarAlwaysVisible: true,
-        customScrollbar: true,
-        useWorker: false,
-      });
-
-      // Listen for the theme_change event on the body & change the editor theme
-      window.addEventListener('theme-change', function (e) {
-        if (e.detail.dark_theme) {
-          editorVol.setTheme("ace/theme/github_dark");
-        } else {
-          editorVol.setTheme("ace/theme/github");
-        }
-      });
-
-      this.loading = false;
-    },
-    checkName() {
-      return this.nameValid = validate.name(this.formData.name);
-    },
-    checkVol() {
-      return this.volValid = validate.required(this.formData.definition);
-    },
-
-    async submitData() {
-      var err = false,
-          self = this;
-      err = !this.checkName() || err;
-      err = !this.checkVol() || err;
-      if(err) {
-        return;
-      }
-
-      this.buttonLabel = isEdit ? 'Updating volume...' : 'Create volume...'
-      this.loading = true;
-
-      fetch(isEdit ? '/api/v1/volumes/{{ .volumeId }}' : '/api/v1/volumes', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(this.formData)
-        })
-        .then((response) => {
-          if (response.status === 200) {
-            self.$dispatch('show-alert', { msg: "Volume updated", type: 'success' });
-          } else if (response.status === 201) {
-            self.$dispatch('show-alert', { msg: "Volume created", type: 'success' });
-            response.json().then(function(data) {
-              window.location.href = '/volumes/edit/' + data.volume_id;
-            });
-          } else {
-            response.json().then((data) => {
-              self.$dispatch('show-alert', { msg: "Failed to update the volume, " + data.error, type: 'error' });
-            });
-          }
-        })
-        .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
-        })
-        .finally(() => {
-          this.buttonLabel = isEdit ? 'Update Volume' : 'Create Volume';
-          this.loading = false;
-        })
-    },
-  }
-}
-
-</script>
-
 {{ end }}

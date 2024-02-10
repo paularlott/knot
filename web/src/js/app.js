@@ -1,12 +1,35 @@
-import '../less/app.less'
+import '../less/app.less';
 
-import Alpine from 'alpinejs'
-import persist from '@alpinejs/persist'
-import { validate } from './validators.js'
-import {} from './timezones.js'
-import {} from './components/autocompleter.js'
+import Alpine from 'alpinejs';
+import persist from '@alpinejs/persist';
+import { validate } from './validators.js';
+import {} from './timezones.js';
+import {} from './components/autocompleter.js';
+
+import './pages/createInitialUserForm.js';
+import './pages/loginUserForm.js';
+import './pages/userGroupForm.js';
+import './pages/createTokenForm.js';
+import './pages/apiTokensComponent.js';
+import './pages/groupListComponent.js';
+import './pages/sessionsListComponent.js';
+import './pages/templateListComponent.js';
+import './pages/templateForm.js';
+import './pages/userListComponent.js';
+import './pages/userForm.js';
+import './pages/templateVarListComponent.js';
+import './pages/variableForm.js';
+import './pages/volumeListComponent.js';
+import './pages/volumeForm.js';
+import './pages/spaceForm.js';
+import './pages/spacesListComponent.js';
 
 window.validate = validate;
+window.focusElement = function(selector) {
+  setTimeout(() => {
+    document.querySelector(selector).focus();
+  }, 10);
+}
 
 window.Alpine = Alpine;
 Alpine.plugin(persist)
