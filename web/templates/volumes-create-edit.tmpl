@@ -107,7 +107,8 @@ function volumeForm() {
     },
 
     async submitData() {
-      var err = false;
+      var err = false,
+          self = this;
       err = !this.checkName() || err;
       err = !this.checkVol() || err;
       if(err) {
@@ -126,20 +127,20 @@ function volumeForm() {
         })
         .then((response) => {
           if (response.status === 200) {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume updated", type: 'success' } }));
+            self.$dispatch('show-alert', { msg: "Volume updated", type: 'success' });
           } else if (response.status === 201) {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume created", type: 'success' } }));
+            self.$dispatch('show-alert', { msg: "Volume created", type: 'success' });
             response.json().then(function(data) {
               window.location.href = '/volumes/edit/' + data.volume_id;
             });
           } else {
             response.json().then((data) => {
-              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Failed to update the volume, " + data.error, type: 'error' } }));
+              self.$dispatch('show-alert', { msg: "Failed to update the volume, " + data.error, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
+          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = isEdit ? 'Update Volume' : 'Create Volume';

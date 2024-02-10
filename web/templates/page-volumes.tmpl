@@ -128,6 +128,7 @@ function volumeListComponent() {
       window.location.href = `/volumes/edit/${volumeId}`;
     },
     async deleteVolume(volumeId) {
+    var self = this;
       await fetch(`/api/v1/volumes/${volumeId}`, {
         method: 'DELETE',
         headers: {
@@ -135,9 +136,9 @@ function volumeListComponent() {
         }
       }).then((response) => {
         if (response.status === 200) {
-           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume deleted", type: 'success' } }));
+          self.$dispatch('show-alert', { msg: "Volume deleted", type: 'success' });
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume could not be deleted", type: 'error' } }));
+          self.$dispatch('show-alert', { msg: "Volume could not be deleted", type: 'error' });
         }
       });
       this.getVolumes();
@@ -156,14 +157,14 @@ function volumeListComponent() {
           volume.active = true;
           volume.starting = false;
 
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volumes started", type: 'success' } }));
+          self.$dispatch('show-alert', { msg: "Volume started", type: 'success' });
         } else {
           response.json().then((data) => {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume could not be started: " + data.error, type: 'error' } }));
+            self.$dispatch('show-alert', { msg: "Volume could not be started: " + data.error, type: 'error' });
           });
         }
       }).catch((error) => {
-        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume could not be started: " + error, type: 'error' } }));
+        self.$dispatch('show-alert', { msg: "Volume could not be started: " + error, type: 'error' });
       });
     },
     async stopVolume(volumeId) {
@@ -183,12 +184,12 @@ function volumeListComponent() {
           volume.active = false;
           volume.stopping = false;
 
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume stopped", type: 'success' } }));
+          self.$dispatch('show-alert', { msg: "Volume stopped", type: 'success' });
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume could not be stopped", type: 'error' } }));
+          self.$dispatch('show-alert', { msg: "Volume could not be stopped", type: 'error' });
         }
       }).catch((error) => {
-        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Volume could not be stopped: " + error, type: 'error' } }));
+        self.$dispatch('show-alert', { msg: "Volume could not be stopped: " + error, type: 'error' });
       });
     },
   };

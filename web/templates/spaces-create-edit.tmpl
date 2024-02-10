@@ -117,7 +117,8 @@ function spaceForm() {
       return true;
     },
     submitData() {
-      var err = false;
+      var err = false,
+          self = this;
       err = !this.checkName() || err;
       err = !this.checkAddress() || err;
       if(err) {
@@ -136,17 +137,17 @@ function spaceForm() {
         })
         .then((response) => {
           if (response.status === 200) {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space updated", type: 'success' } }));
+            self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
           } else if (response.status === 201) {
             window.location.href = '/spaces' + (this.forUserId ? '/' + this.forUserId : '');
           } else {
             response.json().then((data) => {
-              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: (isEdit ? "Failed to update space, " : "Failed to create space, ") + data.error, type: 'error' } }));
+              self.$dispatch('show-alert', { msg: (isEdit ? "Failed to update space, " : "Failed to create space, ") + data.error, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
+          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = isEdit ? 'Update Space' : 'Create Space';

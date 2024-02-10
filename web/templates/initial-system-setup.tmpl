@@ -61,7 +61,8 @@ function createUserForm() {
       return this.confirmPasswordValid = this.formData.password == this.formData.password_confirm;
     },
     submitData() {
-      var err = false;
+      var err = false,
+          self = this;
       err = !this.checkUsername() || err;
       err = !this.checkEmail() || err;
       err = !this.checkPassword() || err;
@@ -96,12 +97,12 @@ function createUserForm() {
             window.location.href = '/';
           } else {
             response.json().then(function(data) {
-              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: data.error, type: 'error' } }));
+              self.$disaptch('show-alert', { msg: data.error, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
+          self.$disaptch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = 'Create User';

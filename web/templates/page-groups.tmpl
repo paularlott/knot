@@ -91,6 +91,7 @@ function groupListComponent() {
       window.location.href = `/groups/edit/${groupId}`;
     },
     async deleteGroup(groupId) {
+      var self = this;
       await fetch(`/api/v1/groups/${groupId}`, {
         method: 'DELETE',
         headers: {
@@ -98,9 +99,9 @@ function groupListComponent() {
         }
       }).then((response) => {
         if (response.status === 200) {
-           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Group deleted", type: 'success' } }));
+          self.$dispatch('show-alert', { msg: "Group deleted", type: 'success' });
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Group could not be deleted", type: 'error' } }));
+          self.$dispatch('show-alert', { msg: "Group could not be deleted", type: 'error' });
         }
       });
       this.getGroups();

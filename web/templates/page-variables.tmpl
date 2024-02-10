@@ -96,6 +96,7 @@ function templateVarListComponent() {
       window.location.href = `/variables/edit/${templateVarId}`;
     },
     async deleteTemplateVar(templateVarId) {
+      var self = this;
       await fetch(`/api/v1/templatevars/${templateVarId}`, {
         method: 'DELETE',
         headers: {
@@ -103,9 +104,9 @@ function templateVarListComponent() {
         }
       }).then((response) => {
         if (response.status === 200) {
-           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Variable deleted", type: 'success' } }));
+          self.$dispatch('show-alert', { msg: "Variable deleted", type: 'success' });
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Variable could not be deleted", type: 'error' } }));
+          self.$dispatch('show-alert', { msg: "Variable could not be deleted", type: 'error' });
         }
       });
       this.getTemplateVars();

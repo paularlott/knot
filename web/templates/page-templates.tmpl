@@ -122,6 +122,7 @@ function templateListComponent() {
       window.location.href = `/templates/edit/${templateId}`;
     },
     async deleteTemplate(templateId) {
+      var self = this;
       await fetch(`/api/v1/templates/${templateId}`, {
         method: 'DELETE',
         headers: {
@@ -129,9 +130,9 @@ function templateListComponent() {
         }
       }).then((response) => {
         if (response.status === 200) {
-           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Template deleted", type: 'success' } }));
+          self.$dispatch('show-alert', { msg: "Template deleted", type: 'success' });
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Template could not be deleted", type: 'error' } }));
+          self.$dispatch('show-alert', { msg: "Template could not be deleted", type: 'error' });
         }
       });
       this.getTemplates();

@@ -210,7 +210,8 @@ function userForm() {
       return this.tzValid = validate.isOneOf(this.formData.timezone, window.Timezones);
     },
     submitData() {
-      var err = false;
+      var err = false,
+          self = this;
       err = !this.checkUsername() || err;
       err = !this.checkEmail() || err;
       if(!isEdit || this.formData.password.length > 0 || this.formData.password_confirm.length > 0) {
@@ -246,17 +247,17 @@ function userForm() {
         })
         .then((response) => {
           if (response.status === 200) {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "User updated", type: 'success' } }));
+            self.$dispatch('show-alert', { msg: "User updated", type: 'success' });
           } else if (response.status === 201) {
             window.location.href = '/users';
           } else {
             response.json().then((data) => {
-              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: (isEdit ? "Failed to update user, " : "Failed to create user, ") + data.error, type: 'error' } }));
+              self.$dispatch('show-alert', { msg: (isEdit ? "Failed to update user, " : "Failed to create user, ") + data.error, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
+          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = isEdit ? 'Update User' : 'Create User';

@@ -41,7 +41,8 @@ function loginUserForm() {
       return this.passwordValid = this.formData.password.length > 0;
     },
     submitData() {
-      var err = false;
+      var err = false,
+          self = this;
       err = !this.checkEmail() || err;
       err = !this.checkPassword() || err;
       if(err) {
@@ -67,11 +68,11 @@ function loginUserForm() {
           if (response.status === 200) {
             window.location.href = '{{ .redirect }}';
           } else {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Invalid email or password", type: 'error' } }));
+            self.$dispatch('show-alert', { msg: "Invalid email or password", type: 'error' });
           }
         })
         .catch((error) => {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
+          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = 'Login';

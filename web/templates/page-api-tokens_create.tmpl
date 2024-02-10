@@ -42,7 +42,8 @@ function createTokenForm() {
       return this.nameValid = this.formData.name.length > 0 && this.formData.name.length < 255;
     },
     submitData() {
-      var err = false;
+      var err = false,
+          self = this;
       err = !this.checkName() || err;
       if(err) {
         return;
@@ -66,11 +67,11 @@ function createTokenForm() {
           if (response.status === 201) {
             window.location.href = '/api-tokens';
           } else {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Failed to create API token", type: 'error' } }));
+            self.$dispatch('show-alert', { msg: "Failed to create API token", type: 'error' });
           }
         })
         .catch((error) => {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
+          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = 'Create Token';

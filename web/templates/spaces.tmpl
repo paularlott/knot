@@ -228,6 +228,7 @@ function spacesListComponent() {
       });
     },
     async startSpace(spaceId) {
+      var self = this;
       await fetch(`/api/v1/spaces/${spaceId}/start`, {
         method: 'POST',
         headers: {
@@ -235,14 +236,14 @@ function spacesListComponent() {
         }
       }).then((response) => {
         if (response.status === 200) {
-           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space started", type: 'success' } }));
+          self.$dispatch('show-alert', { msg: "Space started", type: 'success' });
         } else {
           response.json().then((data) => {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be started: " + data.error, type: 'error' } }));
+            self.$dispatch('show-alert', { msg: "Space could not be started: " + data.error, type: 'error' });
           });
         }
       }).catch((error) => {
-        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be started: " + error, type: 'error' } }));
+        self.$dispatch('show-alert', { msg: "Space could not be started: " + error, type: 'error' });
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
         space.showMenu = false;
@@ -250,6 +251,7 @@ function spacesListComponent() {
       });
     },
     async stopSpace(spaceId) {
+      var self = this;
       await fetch(`/api/v1/spaces/${spaceId}/stop`, {
         method: 'POST',
         headers: {
@@ -257,12 +259,12 @@ function spacesListComponent() {
         }
       }).then((response) => {
         if (response.status === 200) {
-           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space stopped", type: 'success' } }));
+          self.$dispatch('show-alert', { msg: "Space stopped", type: 'success' });
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be stopped", type: 'error' } }));
+          self.$dispatch('show-alert', { msg: "Space could not be stopped", type: 'error' });
         }
       }).catch((error) => {
-        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be stopped: " + error, type: 'error' } }));
+        self.$dispatch('show-alert', { msg: "Space could not be stopped: " + error, type: 'error' });
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
         space.showMenu = false;
@@ -270,6 +272,7 @@ function spacesListComponent() {
       });
     },
     async deleteSpace(spaceId) {
+      var self = this;
       await fetch(`/api/v1/spaces/${spaceId}`, {
         method: 'DELETE',
         headers: {
@@ -277,12 +280,12 @@ function spacesListComponent() {
         }
       }).then((response) => {
         if (response.status === 200) {
-           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space deleted", type: 'success' } }));
+          self.$dispatch('show-alert', { msg: "Space deleted", type: 'success' });
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be deleted", type: 'error' } }));
+          self.$dispatch('show-alert', { msg: "Space could not be deleted", type: 'error' });
         }
       }).catch((error) => {
-        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space could not be deleted: " + error, type: 'error' } }));
+        self.$dispatch('show-alert', { msg: "Space could not be deleted: " + error, type: 'error' });
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
         space.showMenu = false;

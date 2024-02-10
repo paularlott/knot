@@ -78,6 +78,7 @@ function tokenComponent() {
       this.loading = false;
     },
     async deleteToken(tokenId) {
+      var self = this;
       await fetch(`/api/v1/tokens/${tokenId}`, {
         method: 'DELETE',
         headers: {
@@ -85,9 +86,9 @@ function tokenComponent() {
         }
       }).then((response) => {
         if (response.status === 200) {
-           window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Token deleted", type: 'success' } }));
+          self.$dispatch('show-alert', { msg: "Token deleted", type: 'success' });
         } else {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Token could not be deleted", type: 'error' } }));
+          self.$dispatch('show-alert', { msg: "Token could not be deleted", type: 'error' });
         }
       });
       this.getTokens();

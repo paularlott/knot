@@ -64,7 +64,8 @@ function userGroupForm() {
     },
 
     async submitData() {
-      var err = false;
+      var err = false,
+          self = this;
       err = !this.checkName() || err;
       if(err) {
         return;
@@ -82,20 +83,20 @@ function userGroupForm() {
         })
         .then((response) => {
           if (response.status === 200) {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Group Updated", type: 'success' } }));
+            self.$dispatch('show-alert', { msg: "Group Updated", type: 'success' });
           } else if (response.status === 201) {
-            window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Group Created", type: 'success' } }));
+            self.$dispatch('show-alert', { msg: "Group Created", type: 'success' });
             response.json().then(function(data) {
               window.location.href = '/groups/edit/' + data.group_id;
             });
           } else {
             response.json().then((data) => {
-              window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Failed to update the group, " + data.error, type: 'error' } }));
+              self.$dispatch('show-alert', { msg: "Failed to update the group, " + data.error, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: 'Ooops Error!<br />' + error.message, type: 'error' } }));
+          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = isEdit ? 'Update Group' : 'Create Group';
