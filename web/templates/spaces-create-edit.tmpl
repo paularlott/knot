@@ -7,7 +7,7 @@
   <div class="row">
     <div class="col-sm-6 col-sm-offset-3">
       <div class="box">
-        <div x-data="spaceForm()" x-init="initData({{ .isEdit }}, '{{ .spaceId }}', '{{ .user_id }}', '{{ .preferredShell }}', '{{ .forUserId }}', '{{ .forUserUsername }}')">
+        <div x-data="spaceForm({{ .isEdit }}, '{{ .spaceId }}', '{{ .user_id }}', '{{ .preferredShell }}', '{{ .forUserId }}', '{{ .forUserUsername }}')" x-init="initData">
           <h2>{{ if .isEdit }}Edit Space{{ else }}Create Space{{ end }} <span x-show="formData.user_id.length">for <span x-text="forUsername"></span></span></h2>
 
           {{ template "loading" . }}

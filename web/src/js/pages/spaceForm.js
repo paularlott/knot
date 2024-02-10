@@ -56,6 +56,9 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       return true;
     },
     submitData() {
+
+console.log(this.formData);
+
       var err = false,
           self = this;
       err = !this.checkName() || err;
