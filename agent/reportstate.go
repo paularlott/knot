@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/api/apiv1"
-	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/rest"
@@ -76,6 +76,6 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
       failCount = 0
     }
 
-    time.Sleep(database.AGENT_STATE_PING_INTERVAL)
+    time.Sleep(model.AGENT_STATE_PING_INTERVAL)
   }
 }

@@ -1,17 +1,12 @@
 package apiv1
 
 import (
-	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/middleware"
 
 	"github.com/go-chi/chi/v5"
 )
 
 func ApiRoutes() chi.Router {
-
-  // Initialize agent information storage required by the API
-  database.InitializeAgentInformation();
-
   router := chi.NewRouter()
 
   // Group routes that require authentication

@@ -99,8 +99,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     spaceData[i].UserId = u.Id
 
     // Get the state of the agent
-    agentState, ok := database.AgentStateGet(space.Id)
-    if ok {
+    agentState, _ := db.GetAgentState(space.Id)
+    if agentState != nil {
       spaceData[i].HasCodeServer = agentState.HasCodeServer
       spaceData[i].HasSSH = agentState.SSHPort > 0
       spaceData[i].HasTerminal = agentState.HasTerminal
@@ -152,10 +152,14 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
   }
 
   // Delete the agent state
-  database.AgentStateRemove(space.Id)
+  db := database.GetInstance()
+  state, _ := db.GetAgentState(space.Id)
+  if state != nil {
+    db.DeleteAgentState(state)
+  }
 
   // Delete the agent
-  err = database.GetInstance().DeleteSpace(space)
+  err = db.DeleteSpace(space)
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
     return
@@ -253,8 +257,8 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
   }
 
   response := SpaceServiceResponse{}
-  state, ok := database.AgentStateGet(space.Id)
-  if !ok {
+  state, _ := db.GetAgentState(space.Id)
+  if state == nil {
     response.HasCodeServer = false
     response.HasSSH = false
     response.HasTerminal = false
@@ -375,6 +379,12 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
   // Record the space as not deployed
   space.IsDeployed = false
   db.SaveSpace(space)
+
+  // Delete the agent state
+  state, _ := db.GetAgentState(space.Id)
+  if state != nil {
+    db.DeleteAgentState(state)
+  }
 
   w.WriteHeader(http.StatusOK)
 }
@@ -507,8 +517,8 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
   data.UserId = u.Id
 
   // Get the state of the agent
-  agentState, ok := database.AgentStateGet(space.Id)
-  if ok {
+  agentState, _ := db.GetAgentState(space.Id)
+  if agentState != nil {
     data.HasCodeServer = agentState.HasCodeServer
     data.HasSSH = agentState.SSHPort > 0
     data.HasTerminal = agentState.HasTerminal

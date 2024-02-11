@@ -32,8 +32,8 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
   }
 
   // Get the space auth
-  agentState, ok := database.AgentStateGet(space.Id)
-  if !ok || agentState.SSHPort == 0 {
+  agentState, err := db.GetAgentState(space.Id)
+  if err != nil || agentState.SSHPort == 0 {
     w.WriteHeader(http.StatusNotFound)
     return
   }

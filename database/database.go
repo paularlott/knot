@@ -75,6 +75,11 @@ type IDbDriver interface {
   DeleteVolume(volume *model.Volume) error
   GetVolume(id string) (*model.Volume, error)
   GetVolumes() ([]*model.Volume, error)
+
+  // Agent State
+  SaveAgentState(agentState *model.AgentState) error
+  DeleteAgentState(agentState *model.AgentState) error
+  GetAgentState(id string) (*model.AgentState, error)
 }
 
 // Get returns the database driver and on first call initializes it

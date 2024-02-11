@@ -30,8 +30,8 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
   }
 
   // Get the space auth
-  agentState, ok := database.AgentStateGet(space.Id)
-  if !ok {
+  agentState, err := db.GetAgentState(space.Id)
+  if err != nil {
     w.WriteHeader(http.StatusNotFound)
     return
   }
@@ -89,8 +89,8 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
   }
 
   // Get the space auth
-  agentState, ok := database.AgentStateGet(space.Id)
-  if !ok {
+  agentState, err := db.GetAgentState(space.Id)
+  if err != nil {
     w.WriteHeader(http.StatusNotFound)
     return
   }

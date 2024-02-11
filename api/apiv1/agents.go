@@ -3,15 +3,14 @@ package apiv1
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/rest"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
@@ -23,21 +22,19 @@ type AgentRegisterResponse struct {
 }
 
 func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
+  db := database.GetInstance()
   spaceId := chi.URLParam(r, "space_id")
 
   log.Debug().Msgf("agent registering for space %s", spaceId)
 
   // Test if an agent is registered for the space, in RegisteredAgents map
-  database.AgentStateLock()
-  if state, ok := database.AgentStateGet(spaceId); ok {
+  if state, err := db.GetAgentState(spaceId); err != nil {
     log.Debug().Msgf("agent already registered for space %s", spaceId)
 
     // Load the space from the database
-    db := database.GetInstance()
     space, err := db.GetSpace(spaceId)
     if err != nil {
       rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
-      database.AgentStateUnlock()
       return
     }
 
@@ -46,25 +43,12 @@ func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
     if agentv1.CallAgentPing(client) {
       log.Debug().Msgf("agent already registered for space %s and is alive", spaceId)
       rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "agent already registered for space"})
-      database.AgentStateUnlock()
       return
     }
   }
 
-  id, err := uuid.NewV7()
-  if err != nil {
-    log.Fatal().Msg(err.Error())
-  }
-
-  var token = id.String()
-  database.AgentStateSet(spaceId, &database.AgentState{
-    AccessToken: token,
-    HasCodeServer: false,
-    SSHPort: 0,
-    HasTerminal: false,
-    LastSeen: time.Now().UTC(),
-  })
-  database.AgentStateUnlock()
+  state := model.NewAgentState(spaceId)
+  db.SaveAgentState(state)
 
   var serverURL string
   if viper.GetString("server.agent_url") != "" {
@@ -75,7 +59,7 @@ func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
 
   response := AgentRegisterResponse{
     Status: true,
-    AccessToken: token,
+    AccessToken: state.AccessToken,
     ServerURL: serverURL,
   }
   rest.SendJSON(http.StatusOK, w, response)
@@ -101,6 +85,7 @@ type AgentStatusResponse struct {
 }
 
 func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
+  db := database.GetInstance()
   spaceId := chi.URLParam(r, "space_id")
 
   request := AgentStatusRequest{}
@@ -112,24 +97,19 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
   }
 
   // Test if an agent is registered for the space, in RegisteredAgents map
-  database.AgentStateLock()
-  if state, ok := database.AgentStateGet(spaceId); ok {
-    state.LastSeen = time.Now().UTC()
+  if state, err := db.GetAgentState(spaceId); err == nil {
     state.HasCodeServer = request.HasCodeServer
     state.SSHPort = request.SSHPort
     state.VNCHttpPort = request.VNCHttpPort
     state.HasTerminal = request.HasTerminal
     state.TcpPorts = request.TcpPorts
     state.HttpPorts = request.HttpPorts
-
-    database.AgentStateUnlock()
+    db.SaveAgentState(state)
 
     response := AgentStatusResponse{Status: true}
     rest.SendJSON(http.StatusOK, w, response)
     return
   }
-
-  database.AgentStateUnlock()
 
   log.Debug().Msgf("agent status for space %s not found", spaceId)
   rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "agent not found"})
