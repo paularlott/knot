@@ -26,7 +26,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
   // Validate
   if !validate.Email(request.Email) || !validate.Password(request.Password) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid email or password"})
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "invalid email or password"})
     return
   }
 
@@ -34,7 +34,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
   user, err := db.GetUserByEmail(request.Email)
   if err != nil || !user.CheckPassword(request.Password) {
-    rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: "Invalid email or password"})
+    rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: "invalid email or password"})
     return
   }
 

@@ -7,7 +7,7 @@ window.spacesListComponent = function(userId, username, forUserId, forUserUserna
       show: false,
       space: {
         space_id: '',
-        name: ''
+        name: '',
       }
     },
     forUserId: forUserId,
@@ -101,6 +101,10 @@ window.spacesListComponent = function(userId, username, forUserId, forUserUserna
           // If 404 then remove the space from the array
           if (response.status === 404) {
             this.spaces = this.spaces.filter(s => s.space_id !== space.space_id);
+
+            // Clear the timer
+            clearInterval(this.timerIDs[space.space_id]);
+            delete this.timerIDs[space.space_id];
           }
         }
       });

@@ -6,7 +6,6 @@ import { validate } from './validators.js';
 import {} from './timezones.js';
 import {} from './components/autocompleter.js';
 
-import './pages/createInitialUserForm.js';
 import './pages/loginUserForm.js';
 import './pages/userGroupForm.js';
 import './pages/createTokenForm.js';

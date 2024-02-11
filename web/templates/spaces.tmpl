@@ -73,7 +73,7 @@
             <button class="outline" x-show="s.has_http_vnc" @click="openWindowForVNC(s.space_id, s.name)"><i class='bx bx-desktop' ></i> Desktop</button>
             <button class="outline" x-show="s.has_code_server" @click="openCodeServer(s.space_id)"><i class='bx bx-code-alt' ></i> Code Server</button>
             <button class="outline" x-show="s.has_terminal" @click="openTerminal(s.space_id)"><i class='bx bx-terminal'></i> Terminal</button>
-            <button class="outline" x-show="s.tcp_ports.length || s.http_ports.length" @click="s.showPortMenu = true"><i class='bx bx-network-chart'></i> Ports</button>
+            <button class="outline" x-show="(s.tcp_ports && s.tcp_ports.length) || (s.http_ports && s.http_ports.length)" @click="s.showPortMenu = true"><i class='bx bx-network-chart'></i> Ports</button>
             <div x-show="s.showPortMenu" @click.away="s.showPortMenu = false" @keydown.window.escape="s.showPortMenu = false" class="menu-popup">
               <template x-for="port in s.http_ports" :key="port">
                 <button x-text="port" @click="openWindowForPort(s.space_id, s.name, port); s.showPortMenu = false;"></button>

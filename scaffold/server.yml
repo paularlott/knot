@@ -13,7 +13,7 @@ server:
 
   mysql:
     enabled: false
-    # MySQL host if prefixed with srv+ then SRV lookup will be performed
+    # MySQL host if prefixed with srv+ then SRV+ lookup will be performed
     host: localhost
     port: 3306
     user: root
@@ -26,6 +26,13 @@ server:
   badgerdb:
     enabled: false
     path: ./badgerdb/
+
+  redis:
+    enabled: false
+    # Redis host if prefixed with srv+ then SRV+ lookup will be performed
+    host: localhost:6379
+    password: ""
+    db: 0
 
   nomad:
     addr: http://127.0.0.1:4646

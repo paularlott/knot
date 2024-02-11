@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/rest"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/net/context"
 )
 
@@ -19,6 +20,9 @@ func Initialize() {
   // Test if there's users present in the system
   db := database.GetInstance()
   userCount, err := db.GetUserCount()
+  if err != nil {
+    log.Fatal().Msgf("failed to get user count: %s", err.Error())
+  }
 
   if userCount > 0 || err != nil {
     HasUsers = true

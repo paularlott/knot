@@ -6,6 +6,7 @@ import (
 
 	driver_badgerdb "github.com/paularlott/knot/database/drivers/badgerdb"
 	driver_mysql "github.com/paularlott/knot/database/drivers/mysql"
+	driver_redis "github.com/paularlott/knot/database/drivers/redis"
 	"github.com/paularlott/knot/database/model"
 
 	"github.com/rs/zerolog/log"
@@ -96,6 +97,12 @@ func GetInstance() IDbDriver {
       log.Debug().Msg("db: BadgerDB enabled")
 
       dbInstance = &driver_badgerdb.BadgerDbDriver{}
+
+    } else if viper.GetBool("server.redis.enabled") {
+      // Connect to and use Redis
+      log.Debug().Msg("db: Redis enabled")
+
+      dbInstance = &driver_redis.RedisDbDriver{}
 
     } else {
       // Fail with no database

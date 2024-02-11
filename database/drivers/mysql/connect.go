@@ -23,7 +23,7 @@ func (db *MySQLDriver) Connect() error {
   port := viper.GetInt("server.mysql.port")
 
   // If the host starts with srv+ then lookup the SRV record
-  if viper.GetString("server.mysql.host")[:4] == "srv+" {
+  if host[:4] == "srv+" {
     hostSrv, portSrv, err := util.GetTargetFromSRV(host[4:], viper.GetString("server.nameserver"))
     if err != nil {
       log.Fatal().Err(err).Msg("db: failed to lookup SRV record for MySQL database")

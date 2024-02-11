@@ -64,6 +64,12 @@ func init() {
   serverCmd.Flags().BoolP("badgerdb-enabled", "", false, "Enable BadgerDB database backend.\nOverrides the " + CONFIG_ENV_PREFIX + "_BADGERDB_ENABLED environment variable if set.")
   serverCmd.Flags().StringP("badgerdb-path", "", "./badger", "The path to the BadgerDB database (default \"./badger\").\nOverrides the " + CONFIG_ENV_PREFIX + "_BADGERDB_PATH environment variable if set.")
 
+  // Redis
+  serverCmd.Flags().BoolP("redis-enabled", "", false, "Enable Redis database backend.\nOverrides the " + CONFIG_ENV_PREFIX + "_REDIS_ENABLED environment variable if set.")
+  serverCmd.Flags().StringP("redis-host", "", "localhost:6379", "The redis server (default \"localhost:6379\").\nOverrides the " + CONFIG_ENV_PREFIX + "_REDIS_HOST environment variable if set.")
+  serverCmd.Flags().StringP("redis-password", "", "", "The password to use for the redis server.\nOverrides the " + CONFIG_ENV_PREFIX + "_REDIS_PASSWORD environment variable if set.")
+  serverCmd.Flags().IntP("redis-db", "", 0, "The redis database to use (default \"0\").\nOverrides the " + CONFIG_ENV_PREFIX + "_REDIS_DB environment variable if set.")
+
   RootCmd.AddCommand(serverCmd)
 }
 
@@ -175,6 +181,20 @@ var serverCmd = &cobra.Command{
     viper.BindPFlag("server.badgerdb.path", cmd.Flags().Lookup("badgerdb-path"))
     viper.BindEnv("server.badgerdb.path", CONFIG_ENV_PREFIX + "_BADGERDB_PATH")
     viper.SetDefault("server.badgerdb.path", "./badger")
+
+    // Redis
+    viper.BindPFlag("server.redis.enabled", cmd.Flags().Lookup("redis-enabled"))
+    viper.BindEnv("server.redis.enabled", CONFIG_ENV_PREFIX + "_REDIS_ENABLED")
+    viper.SetDefault("server.redis.enabled", false)
+    viper.BindPFlag("server.redis.host", cmd.Flags().Lookup("redis-host"))
+    viper.BindEnv("server.redis.host", CONFIG_ENV_PREFIX + "_REDIS_HOST")
+    viper.SetDefault("server.redis.host", "localhost:6379")
+    viper.BindPFlag("server.redis.password", cmd.Flags().Lookup("redis-password"))
+    viper.BindEnv("server.redis.password", CONFIG_ENV_PREFIX + "_REDIS_PASSWORD")
+    viper.SetDefault("server.redis.password", "")
+    viper.BindPFlag("server.redis.db", cmd.Flags().Lookup("redis-db"))
+    viper.BindEnv("server.redis.db", CONFIG_ENV_PREFIX + "_REDIS_DB")
+    viper.SetDefault("server.redis.db", 0)
   },
   Run: func(cmd *cobra.Command, args []string) {
     listen := viper.GetString("server.listen")

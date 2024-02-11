@@ -23,7 +23,7 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
   // Load the space
   db := database.GetInstance()
   space, err := db.GetSpace(spaceId)
-  if err != nil {
+  if err != nil || space == nil {
     w.WriteHeader(http.StatusNotFound)
     return
   }

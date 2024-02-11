@@ -132,7 +132,7 @@ window.templateForm = function(isEdit, templateId) {
           if (response.status === 200) {
             self.$dispatch('show-alert', { msg: "Template updated", type: 'success' });
           } else if (response.status === 201) {
-            slef.$dispatch('show-alert', { msg: "Template created", type: 'success' });
+            self.$dispatch('show-alert', { msg: "Template created", type: 'success' });
             response.json().then(function(data) {
               window.location.href = '/templates/edit/' + data.template_id;
             });
