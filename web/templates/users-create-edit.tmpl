@@ -66,7 +66,7 @@
               </dd>
               {{ if and .isEdit .permissionManageUsers }}
               <dt><label for="active">Active</label></dt>
-              <dd>
+              <dd class="checkbox-group">
                 <label class="checkbox">
                   <input type="checkbox" id="active" name="active" x-model="formData.active"> <span x-text="formData.active ? 'Yes' : 'No'"></span>
                 </label>
@@ -74,7 +74,7 @@
               {{ end }}
               {{ if .permissionManageUsers }}
               <dt><label>Roles</label></dt>
-              <dd>
+              <dd class="checkbox-group">
                 <template x-for="(role, index) in roles" :key="index">
                   <label class="checkbox">
                     <input type="checkbox" :id="'role-' + index" name="roles[]" :value="role.id_role" :checked="formData.roles.includes(role.id_role)" @change="toggleRole(role.id_role)">

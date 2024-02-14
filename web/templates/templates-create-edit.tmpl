@@ -32,7 +32,7 @@
               </div>
             </dd>
             <dt><label>Restrict to Groups</label></dt>
-              <dd>
+              <dd class="checkbox-group">
                 <template x-for="(group, index) in groups" :key="index">
                   <label class="checkbox">
                     <input type="checkbox" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
