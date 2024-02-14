@@ -24,6 +24,7 @@ type SpaceRequest struct {
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
+  cache := database.GetCacheInstance()
 
   user := r.Context().Value("user").(*model.User)
   userId := r.URL.Query().Get("user_id")
@@ -99,12 +100,13 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     spaceData[i].UserId = u.Id
 
     // Get the state of the agent
-    agentState, _ := db.GetAgentState(space.Id)
+    agentState, _ := cache.GetAgentState(space.Id)
     if agentState != nil {
       spaceData[i].HasCodeServer = agentState.HasCodeServer
       spaceData[i].HasSSH = agentState.SSHPort > 0
       spaceData[i].HasTerminal = agentState.HasTerminal
       spaceData[i].HasHttpVNC = agentState.VNCHttpPort > 0
+      spaceData[i].TcpPorts = agentState.TcpPorts
 
       // If wildcard domain is set then offer the http ports
       if viper.GetString("server.wildcard_domain") == "" {
@@ -127,9 +129,11 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 
 func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
   user := r.Context().Value("user").(*model.User)
+  db := database.GetInstance()
+  cache := database.GetCacheInstance()
 
   // Load the space if not found or doesn't belong to the user then treat both as not found
-  space, err := database.GetInstance().GetSpace(chi.URLParam(r, "space_id"))
+  space, err := db.GetSpace(chi.URLParam(r, "space_id"))
   if err != nil || (space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces)) {
     rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: fmt.Sprintf("space %s not found", chi.URLParam(r, "space_id"))})
     return
@@ -152,10 +156,9 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
   }
 
   // Delete the agent state
-  db := database.GetInstance()
-  state, _ := db.GetAgentState(space.Id)
+  state, _ := cache.GetAgentState(space.Id)
   if state != nil {
-    db.DeleteAgentState(state)
+    cache.DeleteAgentState(state)
   }
 
   // Delete the agent
@@ -246,6 +249,8 @@ type SpaceServiceResponse struct {
 
 func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
+  cache := database.GetCacheInstance()
+
   space, err := db.GetSpace(chi.URLParam(r, "space_id"))
   if err != nil || space == nil {
     if err.Error() == "space not found" {
@@ -257,7 +262,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
   }
 
   response := SpaceServiceResponse{}
-  state, _ := db.GetAgentState(space.Id)
+  state, _ := cache.GetAgentState(space.Id)
   if state == nil {
     response.HasCodeServer = false
     response.HasSSH = false
@@ -353,6 +358,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
+  cache := database.GetCacheInstance()
 
   space, err := db.GetSpace(chi.URLParam(r, "space_id"))
   if err != nil {
@@ -381,9 +387,9 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
   db.SaveSpace(space)
 
   // Delete the agent state
-  state, _ := db.GetAgentState(space.Id)
+  state, _ := cache.GetAgentState(space.Id)
   if state != nil {
-    db.DeleteAgentState(state)
+    cache.DeleteAgentState(state)
   }
 
   w.WriteHeader(http.StatusOK)
@@ -426,7 +432,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
   }
 
   // Lookup the template
-  _, err = database.GetInstance().GetTemplate(request.TemplateId)
+  _, err = db.GetTemplate(request.TemplateId)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
     return
@@ -476,8 +482,9 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
   user := r.Context().Value("user").(*model.User)
   spaceId := chi.URLParam(r, "space_id")
-
   db := database.GetInstance()
+  cache := database.GetCacheInstance()
+
   space, err := db.GetSpace(spaceId)
   if err != nil {
     rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
@@ -517,7 +524,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
   data.UserId = u.Id
 
   // Get the state of the agent
-  agentState, _ := db.GetAgentState(space.Id)
+  agentState, _ := cache.GetAgentState(space.Id)
   if agentState != nil {
     data.HasCodeServer = agentState.HasCodeServer
     data.HasSSH = agentState.SSHPort > 0

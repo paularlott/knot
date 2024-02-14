@@ -15,7 +15,7 @@ func GetSessionFromCookie(r *http.Request) *model.Session {
   if err == nil {
 
     // Load the session from the database
-    db := database.GetInstance()
+    db := database.GetCacheInstance()
     session, _ = db.GetSession(cookie.Value)
   }
 

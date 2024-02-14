@@ -49,6 +49,7 @@ func ApiAuth(next http.Handler) http.Handler {
       var err error
 
       db := database.GetInstance()
+      cache := database.GetCacheInstance()
 
       // If have an Authorization header then we use that for authentication
       authorization := r.Header.Get("Authorization")
@@ -87,7 +88,7 @@ func ApiAuth(next http.Handler) http.Handler {
         userId = session.UserId
 
         // Save the session to extend its life
-        db.SaveSession(session)
+        cache.SaveSession(session)
 
         // Add the session to the context
         ctx = context.WithValue(r.Context(), "session", session)
@@ -183,7 +184,7 @@ func WebAuth(next http.Handler) http.Handler {
     }
 
     // Save the session to update its life
-    db.SaveSession(session)
+    database.GetCacheInstance().SaveSession(session)
 
     ctx := context.WithValue(r.Context(), "user", user)
     ctx = context.WithValue(ctx, "session", session)
@@ -200,7 +201,7 @@ func AgentAuth(next http.Handler) http.Handler {
     authorization := r.Header.Get("Authorization")
 
     // Fetch the registered space, if not found then fail
-    state, err := database.GetInstance().GetAgentState(spaceId);
+    state, err := database.GetCacheInstance().GetAgentState(spaceId);
     if err != nil || authorization == "" {
       returnUnauthorized(w)
       return

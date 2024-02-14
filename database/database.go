@@ -16,6 +16,7 @@ import (
 var (
   once sync.Once
   dbInstance IDbDriver
+  dbCacheInstance IDbDriver
   ErrTemplateInUse = errors.New("template in use")
 )
 
@@ -83,9 +84,12 @@ type IDbDriver interface {
   GetAgentState(id string) (*model.AgentState, error)
 }
 
-// Get returns the database driver and on first call initializes it
-func GetInstance() IDbDriver {
+// Initialize the database drivers
+func initDrivers() {
   once.Do(func() {
+    var isCacheDriver bool = false
+
+    // Initialize the main driver
     if viper.GetBool("server.mysql.enabled") {
       // Connect to and use MySQL
       log.Debug().Msg("db: MySQL enabled")
@@ -103,7 +107,7 @@ func GetInstance() IDbDriver {
       log.Debug().Msg("db: Redis enabled")
 
       dbInstance = &driver_redis.RedisDbDriver{}
-
+      isCacheDriver = true
     } else {
       // Fail with no database
       log.Fatal().Msg("db: no database enabled")
@@ -113,8 +117,42 @@ func GetInstance() IDbDriver {
     err := dbInstance.Connect()
     if err != nil {
       log.Fatal().Err(err).Msg("db: failed to connect to database")
+    } else {
+      log.Debug().Msg("db: connected to database")
+    }
+
+    // If not using a cache driver then try and initialize one or use the main driver
+    if !isCacheDriver {
+      if viper.GetBool("server.redis.enabled") {
+        // Connect to and use Redis
+        log.Debug().Msg("db: Redis enabled")
+
+        dbCacheInstance = &driver_redis.RedisDbDriver{}
+        err := dbCacheInstance.Connect()
+        if err != nil {
+          log.Debug().Msg("db: failed to connect to redis")
+          dbCacheInstance = dbInstance
+        } else {
+          log.Debug().Msg("db: connected to redis")
+        }
+      } else {
+        // Use the main driver
+        dbCacheInstance = dbInstance
+      }
+    } else {
+      dbCacheInstance = dbInstance
     }
   })
+}
 
+// Returns the database driver and on first call initializes it
+func GetInstance() IDbDriver {
+  initDrivers()
   return dbInstance
+}
+
+// Returns the caching database driver and on first call initializes it
+func GetCacheInstance() IDbDriver {
+  initDrivers()
+  return dbCacheInstance
 }

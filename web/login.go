@@ -56,8 +56,7 @@ func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
   session := r.Context().Value("session").(*model.Session)
   if session != nil {
     middleware.DeleteSessionCookie(w)
-    db := database.GetInstance()
-    db.DeleteSession(session)
+    database.GetCacheInstance().DeleteSession(session)
   }
 
   http.Redirect(w, r, "/login", http.StatusSeeOther)

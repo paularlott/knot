@@ -51,7 +51,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
   var session *model.Session
   if r.URL.Path == "/api/v1/auth/web" {
     session = model.NewSession(r, user.Id)
-    err = db.SaveSession(session)
+    err = database.GetCacheInstance().SaveSession(session)
     if err != nil {
       rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
       return

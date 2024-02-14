@@ -35,7 +35,7 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
   }
 
   // Get the space auth
-  agentState, err := db.GetAgentState(space.Id)
+  agentState, err := database.GetCacheInstance().GetAgentState(space.Id)
   if err != nil {
     w.WriteHeader(http.StatusNotFound)
     return
