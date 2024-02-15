@@ -202,7 +202,7 @@ func AgentAuth(next http.Handler) http.Handler {
 
     // Fetch the registered space, if not found then fail
     state, err := database.GetCacheInstance().GetAgentState(spaceId);
-    if err != nil || authorization == "" {
+    if err != nil || authorization == "" || state == nil {
       returnUnauthorized(w)
       return
     }
