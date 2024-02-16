@@ -19,6 +19,7 @@ type AgentRegisterResponse struct {
   Status bool `json:"status"`
   AccessToken string `json:"access_token"`
   ServerURL string `json:"server_url"`
+  SSHKey string `json:"ssh_key"`
 }
 
 func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
@@ -58,10 +59,25 @@ func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
     serverURL = viper.GetString("server.url")
   }
 
+  // Load the space from the database
+  space, err := db.GetSpace(spaceId)
+  if err != nil {
+    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
+    return
+  }
+
+  // Load the user that owns the space
+  user, err := db.GetUser(space.UserId)
+  if err != nil {
+    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "user not found"})
+    return
+  }
+
   response := AgentRegisterResponse{
     Status: true,
     AccessToken: state.AccessToken,
     ServerURL: serverURL,
+    SSHKey: user.SSHPublicKey,
   }
   rest.SendJSON(http.StatusOK, w, response)
 }

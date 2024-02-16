@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
@@ -12,6 +13,8 @@ import (
 	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -311,6 +314,9 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
     for _, space := range spaces {
       nomadClient.DeleteSpaceJob(space)
     }
+  } else {
+    // Update the SSH key on the agents
+    go updateSpacesSSHKey(user)
   }
 
   w.WriteHeader(http.StatusOK)
@@ -367,4 +373,38 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
   }
 
   w.WriteHeader(http.StatusOK)
+}
+
+func updateSpacesSSHKey(user *model.User) {
+  db := database.GetInstance()
+  cache := database.GetCacheInstance()
+
+  log.Debug().Msgf("Updating agent SSH key for user %s", user.Id)
+
+  // Load the list of spaces for the user
+  spaces, err := db.GetSpacesForUser(user.Id)
+  if err != nil {
+    log.Debug().Msgf("Failed to get spaces for user %s: %s", user.Id, err)
+    return
+  }
+
+  // Loop through all spaces updating the active ones
+  for _, space := range spaces {
+    if space.IsDeployed {
+      // Get the agent state
+      agentState, err := cache.GetAgentState(space.Id)
+      if err != nil && agentState != nil {
+        log.Debug().Msgf("Failed to get agent state for space %s: %s", space.Id, err)
+        continue
+      }
+
+      log.Debug().Msgf("Sending SSH public key to agent %s", space.Id)
+      client := rest.NewClient(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("server.namespace")), agentState.AccessToken, viper.GetBool("tls_skip_verify"))
+      if !agentv1.CallAgentUpdateAuthorizedKeys(client, user.SSHPublicKey) {
+        log.Debug().Msg("Failed to send SSH public key to agent")
+      }
+    }
+  }
+
+  log.Debug().Msgf("Finished updating agent SSH key for user %s", user.Id)
 }

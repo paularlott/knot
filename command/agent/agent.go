@@ -15,7 +15,6 @@ import (
 	"github.com/paularlott/knot/agent"
 	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/command"
-	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/validate"
 
@@ -165,11 +164,8 @@ The agent will listen on the port specified by the --listen flag and proxy reque
     router := chi.NewRouter()
     router.Mount("/", agentv1.Routes(cmd))
 
-    // Register the agent with the server
-    agent.Register(serverAddr, nameserver, spaceId)
-
     // Pings the server periodically to keep the agent alive
-    go agent.ReportState(middleware.ServerURL, nameserver, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), tcpPorts, httpPorts)
+    go agent.ReportState(serverAddr, nameserver, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), tcpPorts, httpPorts)
 
     log.Info().Msgf("agent: listening on: %s", listen)
 

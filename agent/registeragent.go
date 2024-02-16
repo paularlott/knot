@@ -42,6 +42,10 @@ func Register(serverAddr string, nameserver string, spaceId string) {
 
     middleware.AgentSpaceKey = response.AccessToken
     middleware.ServerURL = response.ServerURL
+
+    // Authorize the SSK key
+    util.UpdateAuthorizedKeys(response.SSHKey)
+
     break
   }
 }

@@ -19,6 +19,9 @@ import (
 func ReportState(serverAddr string, nameserver string, spaceId string, codeServerPort int, sshPort int, vncHttpPort int, tcpPorts []int, httpPorts []int) {
   var failCount = 0
 
+  // Register the agent with the server
+  Register(serverAddr, nameserver, spaceId)
+
   for {
     var sshAlivePort = 0
     var vncAliveHttpPort = 0
@@ -60,7 +63,7 @@ func ReportState(serverAddr string, nameserver string, spaceId string, codeServe
 
     log.Debug().Msgf("Report agent state to server: SSH %d, Code Server %d, VNC Http %d, Code Server Alive %t", sshAlivePort, codeServerPort, vncAliveHttpPort, codeServerAlive)
 
-    client := rest.NewClient(util.ResolveSRVHttp(serverAddr, nameserver), middleware.AgentSpaceKey, viper.GetBool("tls_skip_verify"))
+    client := rest.NewClient(util.ResolveSRVHttp(middleware.ServerURL, nameserver), middleware.AgentSpaceKey, viper.GetBool("tls_skip_verify"))
     statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort, vncAliveHttpPort, viper.GetBool("agent.enable_terminal"), tcpPorts, httpPorts)
     if err != nil {
       log.Info().Msgf("failed to ping server: %d, %s", statusCode, err.Error())

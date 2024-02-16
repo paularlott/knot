@@ -28,6 +28,9 @@ post:
               server_url:
                 type: string
                 description: The server url for the agent to use in communication with the server
+              ssh_key:
+                type: string
+                description: The public ssh key to authorize
     '404':
       $ref: "../responses/not-found.yaml"
     '423':
