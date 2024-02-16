@@ -7,9 +7,13 @@
   <div class="row">
     <div class="col-sm-12">
       <div class="box">
+        {{ if eq .user_id .user.id }}
+        <h2>Profile</h2>
+        {{ else }}
         <h2>{{ if .isEdit }}Edit User{{ else }}Create User{{ end }}</h2>
+        {{ end }}
 
-        <div x-data="userForm({{ .isEdit }}, '{{ .user.id }}')" x-init="initUsers">
+        <div x-data="userForm({{ .isEdit }}, '{{ .user.id }}', '{{ .user_id }}')" x-init="initUsers">
           {{ template "loading" . }}
           <form action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
             <dl>
@@ -64,7 +68,7 @@
                 <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
                 <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
               </dd>
-              {{ if and .isEdit .permissionManageUsers }}
+              {{ if and (and .isEdit .permissionManageUsers) (ne .user_id .user.id) }}
               <dt><label for="active">Active</label></dt>
               <dd class="checkbox-group">
                 <label class="checkbox">
@@ -83,7 +87,7 @@
                 </template>
               </dd>
               <dt><label>Groups</label></dt>
-              <dd>
+              <dd class="checkbox-group">
                 <template x-for="(group, index) in groups" :key="index">
                   <label class="checkbox">
                     <input type="checkbox" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">

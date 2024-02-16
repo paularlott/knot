@@ -23,7 +23,15 @@
             <input type="checkbox" :value="darkMode" @change="darkMode = !darkMode; $dispatch('theme-change', {dark_theme: darkMode})" name="theme" class="light-dark">
           </form>
 
-          <div><a href="/users/edit/{{ .user_id }}" class="button outline">{{ .username }}</a></div>
+          <div x-data="{ showMenu: false }" class="user-menu">
+            <button class="outline" @click="showMenu = true">{{ .username }}</button>
+            <div x-show="showMenu" @click.away="showMenu = false" @keydown.window.escape="showMenu = false" class="menu-popup">
+              <a href="/users/edit/{{ .user_id }}" class="button outline"><i class='bx bx-user-circle'></i> Profile</a>
+              <a href="/sessions" class="button outline"><i class="bx bx-cookie"></i> Sessions</a>
+              <a href="/logout" class="button outline"><i class="bx bx-log-out-circle"></i> Logout</a>
+            </div>
+          </div>
+
         </header>
 
 {{ block "mainContent" . }}{{ end }}

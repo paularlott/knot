@@ -289,7 +289,10 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
       }
     }
 
-    user.Active = request.Active
+    if activeUser.Id != user.Id {
+      user.Active = request.Active
+    }
+
     user.Roles = request.Roles
     user.Groups = request.Groups
   }

@@ -1,4 +1,6 @@
-window.userForm = function(isEdit, userId) {
+window.userForm = function(isEdit, userId, activeUserId) {
+  var entity = userId == activeUserId ? 'Profile' : 'User';
+
   return {
     roles: [],
     groups: [],
@@ -15,7 +17,7 @@ window.userForm = function(isEdit, userId) {
       groups: [],
     },
     loading: true,
-    buttonLabel: isEdit ? 'Update User' : 'Create User',
+    buttonLabel: (isEdit ? 'Update ' : 'Create ') + entity,
     usernameValid: true,
     emailValid: true,
     passwordValid: true,
@@ -117,7 +119,7 @@ window.userForm = function(isEdit, userId) {
         return;
       }
 
-      this.buttonLabel = isEdit ? 'Updating user...' : 'Creating user...'
+      this.buttonLabel = (isEdit ? 'Updating ' : 'Creating ') + entity + '...';
 
       data = {
         username: this.formData.username,
@@ -140,7 +142,7 @@ window.userForm = function(isEdit, userId) {
         })
         .then((response) => {
           if (response.status === 200) {
-            self.$dispatch('show-alert', { msg: "User updated", type: 'success' });
+            self.$dispatch('show-alert', { msg: entity + " updated", type: 'success' });
           } else if (response.status === 201) {
             window.location.href = '/users';
           } else {
@@ -153,7 +155,7 @@ window.userForm = function(isEdit, userId) {
           self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update User' : 'Create User';
+          this.buttonLabel = (isEdit ? 'Update ' : 'Create ') + entity;
         })
     },
   }
