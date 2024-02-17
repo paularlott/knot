@@ -25,7 +25,7 @@
 
           <div x-data="{ showMenu: false }" class="user-menu">
             <button class="outline" @click="showMenu = true">{{ .username }}</button>
-            <div x-show="showMenu" @click.away="showMenu = false" @keydown.window.escape="showMenu = false" class="menu-popup">
+            <div x-cloak x-show="showMenu" @click.away="showMenu = false" @keydown.window.escape="showMenu = false" class="menu-popup">
               <a href="/profile" class="button outline"><i class='bx bx-user-circle'></i> My Profile</a>
               <a href="/sessions" class="button outline"><i class="bx bx-cookie"></i> My Sessions</a>
               <a href="/logout" class="button outline"><i class="bx bx-log-out-circle"></i> Logout</a>

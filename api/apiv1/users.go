@@ -26,6 +26,7 @@ type UserRequest struct {
   Roles []string `json:"roles"`
   Groups []string `json:"groups"`
   Active bool `json:"active"`
+  MaxSpaces int `json:"max_spaces"`
   SSHPublicKey string `json:"ssh_public_key"`
   PreferredShell string `json:"preferred_shell"`
   Timezone string `json:"timezone"`
@@ -60,6 +61,11 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid timezone"})
     return
   }
+  if !validate.IsNumber(int(request.MaxSpaces), 0, 1000) {
+    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid max spaces"})
+    return
+  }
+
   // Check roles give are present in the system
   for _, role := range request.Roles {
     if !model.RoleExists(role) {
@@ -78,7 +84,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
   }
 
   // Create the user
-  userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone)
+  userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces)
   err = db.SaveUser(userNew)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
@@ -117,6 +123,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
     Roles []string `json:"roles"`
     Groups []string `json:"groups"`
     Active bool `json:"active"`
+    MaxSpaces int `json:"max_spaces"`
     SSHPublicKey string `json:"ssh_public_key"`
     PreferredShell string `json:"preferred_shell"`
     Timezone string `json:"timezone"`
@@ -131,6 +138,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
     Roles: user.Roles,
     Groups: user.Groups,
     Active: user.Active,
+    MaxSpaces: user.MaxSpaces,
     SSHPublicKey: user.SSHPublicKey,
     PreferredShell: user.PreferredShell,
     Timezone: user.Timezone,
@@ -155,6 +163,7 @@ type UserInfoResponse struct {
   Roles []string `json:"roles"`
   Groups []string `json:"groups"`
   Active bool `json:"active"`
+  MaxSpaces int `json:"max_spaces"`
   Current bool `json:"current"`
   LastLoginAt *time.Time `json:"last_login_at"`
   NumberSpaces int `json:"number_spaces"`
@@ -188,6 +197,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
       data.Roles = user.Roles
       data.Groups = user.Groups
       data.Active = user.Active
+      data.MaxSpaces = user.MaxSpaces
       data.Current = user.Id == activeUser.Id
 
       if user.LastLoginAt != nil {
@@ -262,7 +272,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  // Update the user
+  // Update the user password
   if len(request.Password) > 0 {
     user.SetPassword(request.Password)
   }
@@ -272,6 +282,11 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
   user.Timezone = request.Timezone
 
   if activeUser.HasPermission(model.PermissionManageUsers) {
+    if !validate.IsNumber(int(request.MaxSpaces), 0, 1000) {
+      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid max spaces"})
+      return
+    }
+
     // Check roles give are present in the system
     for _, role := range request.Roles {
       if !model.RoleExists(role) {
@@ -295,6 +310,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
     user.Roles = request.Roles
     user.Groups = request.Groups
+    user.MaxSpaces = request.MaxSpaces
   }
 
   // Save

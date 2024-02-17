@@ -51,7 +51,7 @@
             <span class="badge info" x-text="group"></span>
           </template>
         </td>
-        <td x-text="u.number_spaces"></td>
+        <td><span x-text="u.number_spaces"></span> <span x-show="u.max_spaces > 0">of <span x-text="u.max_spaces"></span></span></td>
         <td x-text="u.number_spaces_deployed"></td>
         <td x-text="u.active ? 'Yes' : 'No'"></td>
         <td x-text="u.last_login_at"></td>

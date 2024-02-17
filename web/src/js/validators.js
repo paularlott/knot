@@ -33,5 +33,9 @@ export var validate = {
 
   isOneOf: function(value, options) {
     return options.includes(value);
+  },
+
+  isNumber: function(value, min, max) {
+    return Number.isInteger(value) && value >= min && value <= max;
   }
 };

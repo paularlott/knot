@@ -18,6 +18,7 @@ type User struct {
   Roles JSONDbArray `json:"roles"`
   Groups JSONDbArray `json:"groups"`
   Active bool `json:"active"`
+  MaxSpaces int `json:"max_spaces"`
   PreferredShell string `json:"preferred_shell"`
   Timezone string `json:"timezone"`
   LastLoginAt *time.Time `json:"last_login_at"`
@@ -25,7 +26,7 @@ type User struct {
   CreatedAt time.Time `json:"created_at"`
 }
 
-func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string, timezone string) *User {
+func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string, timezone string, maxSpaces int) *User {
   id, err := uuid.NewV7()
   if err != nil {
     log.Fatal().Msg(err.Error())
@@ -41,6 +42,7 @@ func NewUser(username string, email string, password string, roles []string, gro
     Roles: roles,
     Groups: groups,
     Timezone: timezone,
+    MaxSpaces: maxSpaces,
   }
 
   user.SetPassword(password)

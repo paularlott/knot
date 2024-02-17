@@ -49,3 +49,7 @@ func Required(text string) bool {
 func MaxLength(text string, length int) bool {
   return len(text) <= length
 }
+
+func IsNumber(value int, min int, max int) bool {
+  return value >= min && value <= max
+}

@@ -74,6 +74,9 @@ components:
         timezone:
           type: string
           description: The timezone of the user
+        max_spaces:
+          type: integer
+          description: The maximum number of spaces the user can have, 0 for unlimited
 
 post:
   tags:
@@ -131,6 +134,9 @@ post:
                 type: string
                 example: ["00000000-0000-0000-0000-000000000000"]
               description: The IDs of the groups assigned to the user.
+            max_spaces:
+              type: integer
+              description: The maximum number of spaces the user can have, 0 for unlimited.
           required:
             - username
             - password

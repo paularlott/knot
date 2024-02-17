@@ -86,6 +86,12 @@
               </dd>
               {{ end }}
               {{ if and (not .isProfile) .permissionManageUsers }}
+              <dt><label>Maximum Spaces</label></dt>
+              <dd>
+                <input type="number" name="max_spaces" x-model="formData.max_spaces" min="0" max="1000">
+                <p class="description">The maximum number of spaces this user can create, 0 for unlimited.</p>
+                <div x-show="!maxSpacesValid" class="error-message">Enter a valid number between 0 and 1000.</div>
+              </dd>
               <dt><label>Roles</label></dt>
               <dd class="checkbox-group">
                 <template x-for="(role, index) in roles" :key="index">

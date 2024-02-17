@@ -12,6 +12,8 @@ import (
 )
 
 func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
+  db := database.GetInstance()
+
   tmpl, err := newTemplate("spaces.tmpl")
   if err != nil {
     log.Fatal().Msg(err.Error())
@@ -27,18 +29,27 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
   }
 
   if userId != "" {
-    forUser, err := database.GetInstance().GetUser(userId)
+    forUser, err := db.GetUser(userId)
     if err != nil {
       log.Error().Msg(err.Error())
       w.WriteHeader(http.StatusInternalServerError)
       return
     }
     data["forUserId"] = userId
+    data["max_spaces"] = forUser.MaxSpaces
     data["forUserUsername"] = forUser.Username
   } else {
     data["forUserId"] = user.Id
+    data["max_spaces"] = user.MaxSpaces
     data["forUserUsername"] = ""
   }
+
+  // Get the number of spaces for the user
+  spaces, err := db.GetSpacesForUser(data["forUserId"].(string))
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+  data["num_spaces"] = len(spaces)
 
   data["wildcard_domain"] = viper.GetString("server.wildcard_domain")
 
@@ -68,6 +79,9 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
     return
   }
 
+  var maxSpaces int
+  var usingUserId string
+
   if userId != "" {
     forUser, err := db.GetUser(userId)
     if err != nil {
@@ -76,11 +90,29 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
       return
     }
     data["forUserUsername"] = forUser.Username
+    maxSpaces = forUser.MaxSpaces
+    usingUserId = userId
   } else {
     data["forUserUsername"] = ""
+    maxSpaces = user.MaxSpaces
+    usingUserId = user.Id
   }
 
   data["forUserId"] = userId
+
+  // Get the number of spaces for the user
+  if maxSpaces > 0 {
+    spaces, err := db.GetSpacesForUser(usingUserId)
+    if err != nil {
+      log.Error().Msg(err.Error())
+      w.WriteHeader(http.StatusInternalServerError)
+    }
+
+    if len(spaces) >= maxSpaces {
+      // Redirect to /spaces
+      http.Redirect(w, r, "/spaces", http.StatusSeeOther)
+    }
+  }
 
   data["templateList"], err = getTemplateOptionList(user)
   if err != nil {
