@@ -1,19 +1,25 @@
 {{ template "layout-base.tmpl" . }}
 
-{{ define "pageTitle" }}{{ if .isEdit }}Edit User{{ else }}Create User{{ end }}{{ end }}
+{{ define "pageTitle" }}
+{{ if .isProfile }}
+  My Profile
+{{ else }}
+  {{ if .isEdit }}Edit User{{ else }}Create User{{ end }}
+{{ end }}
+{{ end }}
 
 {{ define "mainContent" }}
 <div class="content">
   <div class="row">
     <div class="col-sm-12">
       <div class="box">
-        {{ if eq .user_id .user.id }}
+        {{ if .isProfile }}
         <h2>Profile</h2>
         {{ else }}
         <h2>{{ if .isEdit }}Edit User{{ else }}Create User{{ end }}</h2>
         {{ end }}
 
-        <div x-data="userForm({{ .isEdit }}, '{{ .user.id }}', '{{ .user_id }}')" x-init="initUsers">
+        <div x-data="userForm({{ .isEdit }}, '{{ .user.id }}', {{ .isProfile }})" x-init="initUsers">
           {{ template "loading" . }}
           <form action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
             <dl>
@@ -58,17 +64,20 @@
               <dd>
                 <textarea name="ssh_key" rows="8" placeholder="SSH Public Key" x-model="formData.ssh_public_key"></textarea>
                 <p class="description">If given this key will be added to the spaces to allow you to SSH into the space.</p>
-              <dt><label for="password">Password <em>*</em></label></dt>
+              <dt><label for="password">Password {{ if not .isProfile }}<em>*</em>{{ end }}</label></dt>
               <dd>
                 <input type="password" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'error': !passwordValid}" placeholder="Password" x-model="formData.password">
+                {{ if .isProfile }}
+                <p class="description">Leave blank to keep the current password.</p>
+                {{ end }}
                 <div x-show="!passwordValid" class="error-message">Password must be at least 8 characters.</div>
               </dd>
-              <dt><label for="confirm_password">Confirm Password <em>*</em></label></dt>
+              <dt><label for="confirm_password">Confirm Password {{ if not .isProfile }}<em>*</em>{{ end }}</label></dt>
               <dd>
                 <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
                 <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
               </dd>
-              {{ if and (and .isEdit .permissionManageUsers) (ne .user_id .user.id) }}
+              {{ if and (not .isProfile) (and .isEdit .permissionManageUsers) (ne .user_id .user.id) }}
               <dt><label for="active">Active</label></dt>
               <dd class="checkbox-group">
                 <label class="checkbox">
@@ -76,7 +85,7 @@
                 </label>
               </dd>
               {{ end }}
-              {{ if .permissionManageUsers }}
+              {{ if and (not .isProfile) .permissionManageUsers }}
               <dt><label>Roles</label></dt>
               <dd class="checkbox-group">
                 <template x-for="(role, index) in roles" :key="index">

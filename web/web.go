@@ -66,6 +66,7 @@ func Routes() chi.Router {
 
     router.Get("/clients", HandleSimplePage)
     router.Get("/sessions", HandleSimplePage)
+    router.Get("/profile", HandleUserProfilePage)
     router.Get("/logout", HandleLogoutPage)
 
     router.Get("/terminal/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTerminalPage)
@@ -105,11 +106,7 @@ func Routes() chi.Router {
 
       router.Get("/", HandleSimplePage)
       router.Get("/create", HandleUserCreate)
-    })
-    router.Route("/users/edit/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
-      router.Use(checkPermissionManageUsersOrSelf)
-
-      router.Get("/", HandleUserEdit)
+      router.Get("/edit/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUserEdit)
     })
 
     router.Route("/groups", func(router chi.Router) {

@@ -1,5 +1,5 @@
-window.userForm = function(isEdit, userId, activeUserId) {
-  var entity = userId == activeUserId ? 'Profile' : 'User';
+window.userForm = function(isEdit, userId, isProfile) {
+  var entity = isProfile ? 'Profile' : 'User';
 
   return {
     roles: [],

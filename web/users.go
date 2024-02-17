@@ -36,8 +36,31 @@ func HandleUserEdit(w http.ResponseWriter, r *http.Request) {
   }
 
   data["isEdit"] = true
+  data["isProfile"] = false
   data["user"] = map[string]interface{}{
-    "id":       userId,
+    "id": userId,
+  }
+
+  err = tmpl.Execute(w, data)
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+  }
+}
+
+func HandleUserProfilePage(w http.ResponseWriter, r *http.Request) {
+  user, data := getCommonTemplateData(r)
+
+  tmpl, err := newTemplate("users-create-edit.tmpl")
+  if err != nil {
+    log.Fatal().Msg(err.Error())
+    w.WriteHeader(http.StatusInternalServerError)
+    return
+  }
+
+  data["isEdit"] = true
+  data["isProfile"] = true
+  data["user"] = map[string]interface{}{
+    "id": user.Id,
   }
 
   err = tmpl.Execute(w, data)
