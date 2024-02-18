@@ -5,6 +5,12 @@ get:
   operationId: getTemplates
   tags:
     - Templates
+  parameters:
+    - name: user_id
+      in: query
+      description: If given, only templates available to that user will be returned.
+      schema:
+        type: string
   responses:
     '200':
       description: Successful operation
@@ -17,9 +23,9 @@ get:
               properties:
                 template_id:
                   type: string
-                template_name:
-                  type: string
                 name:
+                  type: string
+                description:
                   type: string
                 usage:
                   type: integer
@@ -54,6 +60,8 @@ post:
             name:
               type: string
               maxLength: 64
+            description:
+              type: string
             job:
               type: string
               description: A HCL formatted job Nomad job specification

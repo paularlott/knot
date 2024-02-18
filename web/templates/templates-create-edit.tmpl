@@ -17,6 +17,10 @@
               <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Template name" x-model="formData.name">
               <div x-show="!nameValid" class="error-message">Template name can be a max 64 characters.</div>
             </dd>
+            <dt><label for="description">Description</label></dt>
+            <dd class="short-editor">
+              <textarea name="description" id="description" placeholder="Description"></textarea>
+            </dd>
             <dt><label for="job">Nomad Job (HCL) <em>*</em></label></dt>
             <dd class="grow">
               <div :class="{'error': !jobValid, 'editor-wrap': true}">

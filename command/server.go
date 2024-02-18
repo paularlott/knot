@@ -208,7 +208,7 @@ var serverCmd = &cobra.Command{
     db := database.GetInstance()
     _, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
     if err != nil {
-      template := model.NewTemplate("Manual-Configuration", "manual", "", "", []string{})
+      template := model.NewTemplate("Manual-Configuration", "Access a manually installed agent.", "manual", "", "", []string{})
       template.Id = model.MANUAL_TEMPLATE_ID
       db.SaveTemplate(template)
     }

@@ -38,12 +38,12 @@ func ApiRoutes() chi.Router {
     router.Route("/groups", func(router chi.Router) {
       router.Use(middleware.ApiPermissionManageUsers)
 
-      router.Get("/", HandleGetGroups)
       router.Post("/", HandleCreateGroup)
       router.Post("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateGroup)
       router.Delete("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteGroup)
       router.Get("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetGroup)
     })
+    router.Get("/groups", HandleGetGroups)
 
     // Roles
     router.Get("/roles", HandleGetRoles)
@@ -78,12 +78,12 @@ func ApiRoutes() chi.Router {
     router.Route("/templates", func(router chi.Router) {
       router.Use(middleware.ApiPermissionManageTemplates)
 
-      router.Get("/", HandleGetTemplates)
       router.Post("/", HandleCreateTemplate)
       router.Post("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateTemplate)
       router.Delete("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteTemplate)
       router.Get("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplate)
     })
+    router.Get("/templates", HandleGetTemplates)
 
     // Templates
     router.Route("/volumes", func(router chi.Router) {

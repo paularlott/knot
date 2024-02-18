@@ -2,8 +2,8 @@
 <nav>
   <ul>
     <li><a href="/spaces"><i class="bx bx-cloud"></i> Spaces</a></li>
-    {{ if .permissionManageTemplates }}
     <li><a href="/templates"><i class="bx bx-code-block"></i> Templates</a></li>
+    {{ if .permissionManageTemplates }}
     <li><a href="/variables"><i class='bx bx-spreadsheet'></i> Variables</a></li>
     {{ end }}
     {{ if .permissionManageVolumes }}

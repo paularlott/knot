@@ -9,20 +9,25 @@
       <div class="box">
         <h2>Templates</h2>
 
+        {{ if .permissionManageTemplates }}
         <div class="text-right">
           <a href="/templates/create" class="button"><i class="bx bx-plus"></i> Create Template</a>
         </div>
+        {{ end }}
 
-<div x-data="templateListComponent()" x-init="getTemplates">
+<div x-data="templateListComponent({{ .permissionManageSpaces }})" x-init="getTemplates">
+
   {{ template "loading" . }}
   <table class="action" x-show="!loading" x-cloak>
     <thead>
     <tr>
       <th class="id-col">Template ID</th>
       <th>Name</th>
+      {{ if .permissionManageTemplates }}
       <th>Groups</th>
       <th>Usage</th>
       <th>Deployed</th>
+      {{ end}}
       <th>&nbsp;</th>
     </tr>
     </thead>
@@ -35,7 +40,11 @@
             <input type="text" x-model="t.template_id" readonly>
           </div>
         </td>
-        <td x-text="t.name"></td>
+        <td>
+          <div x-text="t.name"></div>
+          <div x-show="t.description.length > 0" x-text="t.description"></div>
+        </td>
+        {{ if .permissionManageTemplates }}
         <td>
           <template x-for="group in t.group_names">
             <span class="badge info" x-text="group"></span>
@@ -43,16 +52,56 @@
         </td>
         <td x-text="t.usage"></td>
         <td x-text="t.deployed"></td>
+        {{ end }}
         <td>
+          {{ if not .permissionManageTemplates }}
+          <button @click="createSpaceFromTemplate(t.template_id)"><i class='bx bx-cloud' ></i> Create Space</button>
+          {{ else }}
+          <button class="outline" @click="t.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
+          <div x-show="t.showMenu" @click.away="t.showMenu = false" @keydown.window.escape="t.showMenu = false" class="menu-popup">
+            <button @click="createSpaceFromTemplate(t.template_id)"><i class='bx bx-cloud' ></i> Create Space</button>
             <button @click="editTemplate(t.template_id)"><i class='bx bx-edit' ></i> Edit</button>
             <button x-show="t.usage === 0 && t.template_id != '00000000-0000-0000-0000-000000000000'" @click="deleteConfirm.show = true; deleteConfirm.template = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
+            <hr />
+            <button x-show="canManageSpaces" @click="chooseUser.show = true; chooseUser.invalidTemplate = false; chooseUser.template = t" class="danger create-space-for"><i class='bx bx-cloud' ></i> Create Space For</button>
+          </div>
+          {{ end }}
         </td>
       </tr>
     </template>
     </tbody>
   </table>
 
-  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
+  <div class="modal-tint" x-show="chooseUser.show" x-cloak>
+    <div class="modal">
+      <div class="modal-body">
+        <h2>Select User</h2>
+        <p>Select the user to create the space for.</p>
+
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="selectControl" x-show="canManageSpaces">
+              <select id="user" name="user" x-model="chooseUser.forUserId">
+                <option value="" x-bind:selected="chooseUser.forUserId === ''">Select Users</option>
+                <template x-for="user in users" :key="user.user_id">
+                  <option x-bind:value="user.user_id" x-text="user.username" x-bind:selected="user.user_id === chooseUser.forUserId"></option>
+                </template>
+              </select>
+            </div>
+            <div x-show="chooseUser.invalidUser" class="error-message">Select a valid user.</div>
+            <div x-show="chooseUser.invalidTemplate" class="error-message">The selected user can't create a space from the chosen template.</div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button @click="chooseUser.show = false">Cancel</button>
+        <button class="danger" @click="createSpaceAs">Create Space</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak>
     <div class="modal">
       <div class="modal-body">
         <h2><i class='bx bxs-error'></i> Confirm Delete</h2>

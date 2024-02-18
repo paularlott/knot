@@ -1,4 +1,4 @@
-window.spacesListComponent = function(userId, username, forUserId, forUserUsername, canManageSpaces, wildcardDomain) {
+window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain) {
   return {
     loading: true,
     spaces: [],
@@ -11,9 +11,7 @@ window.spacesListComponent = function(userId, username, forUserId, forUserUserna
       }
     },
     forUserId: forUserId,
-    forUsername: forUserUsername,
     canManageSpaces: canManageSpaces,
-    createURL: "",
     users: [],
     async init() {
       if(this.canManageSpaces) {
@@ -40,8 +38,6 @@ window.spacesListComponent = function(userId, username, forUserId, forUserUserna
       this.getSpaces();
     },
     async getSpaces() {
-      this.createURL = '/spaces/create' + (this.forUserId.length && this.forUserId != userId ? '/' + this.forUserId : '');
-
       // Clear all timers
       Object.keys(this.timerIDs).forEach((key) => {
         clearInterval(this.timerIDs[key]);

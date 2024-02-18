@@ -20,6 +20,8 @@ post:
             name:
               type: string
               maxLength: 64
+            description:
+              type: string
             job:
               type: string
               description: A HCL formatted job Nomad job specification
@@ -95,6 +97,8 @@ get:
             type: object
             properties:
               name:
+                type: string
+              description:
                 type: string
               job:
                 type: string

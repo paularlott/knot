@@ -1,0 +1,28 @@
+{{ template "layout-base.tmpl" . }}
+
+{{ define "pageTitle" }}Groups{{ end }}
+
+{{ define "mainContent" }}
+<div class="content">
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="box">
+
+        <div class="modal-tint">
+          <div class="modal">
+            <div class="modal-body">
+              <h2><i class='bx bxs-info-circle'></i> Space Quota Reached</h2>
+              <p>You have reached the limit on the number of allowed spaces.</p>
+              <p>Deleting unused spaces will allow you to create new spaces or contact the system administrator to have your quota increased.</p>
+            </div>
+            <div class="modal-footer">
+              <p><a href="/templates">Return to Templates</a></p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}

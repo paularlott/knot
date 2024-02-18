@@ -87,6 +87,7 @@ UNIQUE INDEX name (user_id, name)
 template_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
 hash VARCHAR(32) DEFAUlT '',
+description TEXT DEFAULT '',
 job MEDIUMTEXT,
 volumes MEDIUMTEXT,
 groups JSON DEFAULT NULL,

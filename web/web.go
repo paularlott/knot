@@ -66,6 +66,7 @@ func Routes() chi.Router {
 
     router.Get("/clients", HandleSimplePage)
     router.Get("/sessions", HandleSimplePage)
+    router.Get("/space-quota-reached", HandleSimplePage)
     router.Get("/profile", HandleUserProfilePage)
     router.Get("/logout", HandleLogoutPage)
 
@@ -80,18 +81,18 @@ func Routes() chi.Router {
     router.Route("/spaces", func(router chi.Router) {
       router.Get("/", HandleListSpaces)
       router.Get("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleListSpaces)
-      router.Get("/create", HandleSpacesCreate)
-      router.Get("/create/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
+      router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
+      router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
       router.Get("/edit/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesEdit)
     })
 
     router.Route("/templates", func(router chi.Router) {
       router.Use(checkPermissionManageTemplates)
 
-      router.Get("/", HandleSimplePage)
       router.Get("/create", HandleTemplateCreate)
       router.Get("/edit/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateEdit)
     })
+    router.Get("/templates", HandleSimplePage)
 
     router.Route("/variables", func(router chi.Router) {
       router.Use(checkPermissionManageTemplates)

@@ -4,6 +4,7 @@ window.templateForm = function(isEdit, templateId) {
   return {
     formData: {
       name: "",
+      description: "",
       job: "",
       volumes: "",
       groups: [],
@@ -36,6 +37,7 @@ window.templateForm = function(isEdit, templateId) {
           const template = await templateResponse.json();
 
           this.formData.name = template.name;
+          this.formData.description = template.description;
           this.formData.job = template.job;
           this.formData.volumes = template.volumes;
           this.formData.groups = template.groups;
@@ -81,14 +83,34 @@ window.templateForm = function(isEdit, templateId) {
         useWorker: false,
       });
 
+      // Create the description editor
+      let editorDesc = ace.edit('description');
+      editorDesc.session.setValue(this.formData.description);
+      editorDesc.session.on('change', () => {
+          this.formData.description = editorDesc.getValue();
+      });
+      editorDesc.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
+      editorDesc.session.setMode("ace/mode/text");
+      editorDesc.setOptions({
+        printMargin: false,
+        newLineMode: 'unix',
+        tabSize: 2,
+        wrap: false,
+        vScrollBarAlwaysVisible: true,
+        customScrollbar: true,
+        useWorker: false,
+      });
+
       // Listen for the theme_change event on the body & change the editor theme
       window.addEventListener('theme-change', function (e) {
         if (e.detail.dark_theme) {
           editor.setTheme("ace/theme/github_dark");
           editorVol.setTheme("ace/theme/github_dark");
+          editorDesc.setTheme("ace/theme/github_dark");
         } else {
           editor.setTheme("ace/theme/github");
           editorVol.setTheme("ace/theme/github");
+          editorDesc.setTheme("ace/theme/github");
         }
       });
 

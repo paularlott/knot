@@ -204,7 +204,6 @@ body.light {
   margin-top: .5rem;
   padding: .5rem;
   border-radius: .5rem;
-  width: 150px;
   display: block;
   position: absolute;
   top: 80%;
@@ -216,6 +215,12 @@ body.light {
     width: 100%;
     margin: .5rem 0;
     display: block;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid rgba(0,0,0,.5);
+    margin: .5rem 0;
   }
 }
 
@@ -281,6 +286,10 @@ button.show-id {
 
       .bxs-error {
         color: @buttonDangerBackgroundColor;
+      }
+
+      .bxs-info-circle {
+        color: @alertColorWarningBg;
       }
     }
     .modal-footer {

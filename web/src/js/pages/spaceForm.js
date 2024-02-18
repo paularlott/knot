@@ -1,4 +1,4 @@
-window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, forUserUsername) {
+window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, forUserUsername, templateId) {
   return {
     formData: {
       name: "",
@@ -7,6 +7,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       shell: preferredShell,
       user_id: forUserId,
     },
+    template_id: templateId,
     loading: true,
     buttonLabel: isEdit ? 'Update Space' : 'Create Space',
     nameValid: true,
@@ -28,7 +29,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           const space = await spaceResponse.json();
 
           this.formData.name = space.name;
-          this.formData.template_id = space.template_id;
+          this.formData.template_id = this.template_id = space.template_id;
           this.formData.agent_url = space.agent_url;
           this.formData.shell = space.shell;
 
@@ -41,7 +42,11 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           }
         }
       } else {
-        this.formData.template_id = document.querySelector('#template option:first-child').value;
+        if(templateId == '') {
+          this.formData.template_id = this.template_id = document.querySelector('#template option:first-child').value;
+        } else {
+          this.formData.template_id = this.template_id;
+        }
       }
 
       this.loading = false;

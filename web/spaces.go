@@ -36,20 +36,11 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
       return
     }
     data["forUserId"] = userId
-    data["max_spaces"] = forUser.MaxSpaces
     data["forUserUsername"] = forUser.Username
   } else {
     data["forUserId"] = user.Id
-    data["max_spaces"] = user.MaxSpaces
     data["forUserUsername"] = ""
   }
-
-  // Get the number of spaces for the user
-  spaces, err := db.GetSpacesForUser(data["forUserId"].(string))
-  if err != nil {
-    log.Fatal().Msg(err.Error())
-  }
-  data["num_spaces"] = len(spaces)
 
   data["wildcard_domain"] = viper.GetString("server.wildcard_domain")
 
@@ -61,6 +52,8 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 
 func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
+
+  templateId := chi.URLParam(r, "template_id")
 
   tmpl, err := newTemplate("spaces-create-edit.tmpl")
   if err != nil {
@@ -81,9 +74,10 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 
   var maxSpaces int
   var usingUserId string
+  var forUser *model.User
 
   if userId != "" {
-    forUser, err := db.GetUser(userId)
+    forUser, err = db.GetUser(userId)
     if err != nil {
       log.Error().Msg(err.Error())
       w.WriteHeader(http.StatusInternalServerError)
@@ -96,9 +90,11 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
     data["forUserUsername"] = ""
     maxSpaces = user.MaxSpaces
     usingUserId = user.Id
+    forUser = user
   }
 
   data["forUserId"] = userId
+  data["templateId"] = templateId
 
   // Get the number of spaces for the user
   if maxSpaces > 0 {
@@ -109,15 +105,28 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
     }
 
     if len(spaces) >= maxSpaces {
-      // Redirect to /spaces
-      http.Redirect(w, r, "/spaces", http.StatusSeeOther)
+      http.Redirect(w, r, "/space-quota-reached", http.StatusSeeOther)
     }
   }
 
-  data["templateList"], err = getTemplateOptionList(user)
+  data["templateList"], err = getTemplateOptionList(forUser)
   if err != nil {
     log.Error().Msg(err.Error())
     w.WriteHeader(http.StatusInternalServerError)
+    return
+  }
+
+  // If the template ID isn't in the template list then throw an error
+  found := false
+  for _, template := range *data["templateList"].(*[]templateOptionList) {
+    if template.Id == templateId {
+      found = true
+      break
+    }
+  }
+
+  if !found {
+    showPageNotFound(w, r)
     return
   }
 
@@ -184,7 +193,7 @@ func getTemplateOptionList(user *model.User) (*[]templateOptionList, error) {
 
   for _, template := range templates {
     // If template doesn't have groups or one of the template groups is in the user's groups then add to optionList
-    if len(template.Groups) == 0 || user.HasAnyGroup(&template.Groups) {
+    if user.HasPermission(model.PermissionManageTemplates) || len(template.Groups) == 0 || user.HasAnyGroup(&template.Groups) {
       optionList = append(optionList, templateOptionList{
         Id:   template.Id,
         Name: template.Name,

@@ -15,6 +15,7 @@ const MANUAL_TEMPLATE_ID = "00000000-0000-0000-0000-000000000000"
 type Template struct {
 	Id string `json:"template_id"`
   Name string `json:"name"`
+  Description string `json:"description"`
   Hash string `json:"hash"`
   Job string `json:"job"`
   Volumes string `json:"volumes"`
@@ -25,7 +26,7 @@ type Template struct {
   UpdatedAt time.Time `json:"updated_at"`
 }
 
-func NewTemplate(name string, job string, volumes string, userId string, groups []string) *Template {
+func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string) *Template {
   id, err := uuid.NewV7()
   if err != nil {
     log.Fatal().Msg(err.Error())
@@ -34,6 +35,7 @@ func NewTemplate(name string, job string, volumes string, userId string, groups 
   template := &Template{
     Id: id.String(),
     Name: name,
+    Description: description,
     Job: job,
     Volumes: volumes,
     Groups: groups,

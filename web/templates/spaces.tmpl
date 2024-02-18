@@ -9,7 +9,7 @@
       <div class="box">
         <h2>Spaces</h2>
 
-<div x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', '{{ .forUserUsername }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}')" x-init="getSpaces">
+<div x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}')" x-init="getSpaces">
 
   <div class="row">
     <div class="col-sm-4">
@@ -23,11 +23,6 @@
       </div>
     </div>
     <div class="col-sm-8">
-      <div class="text-right">
-          {{ if or (eq .max_spaces 0) (gt .max_spaces .num_spaces) }}
-          <a :href="createURL" class="button"><i class="bx bx-plus"></i> Create Space</a>
-          {{ end }}
-      </div>
     </div>
   </div>
 

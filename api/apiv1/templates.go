@@ -16,11 +16,43 @@ import (
 type TemplateRequest struct {
   Name string `json:"name"`
   Job string `json:"job"`
+  Description string `json:"description"`
   Volumes string `json:"volumes"`
   Groups []string `json:"groups"`
 }
 
+type TemplateResponse struct {
+  Id string `json:"template_id"`
+  Name string `json:"name"`
+  Description string `json:"description"`
+  Usage int `json:"usage"`
+  Deployed int `json:"deployed"`
+  Groups []string `json:"groups"`
+}
+
 func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
+  user := r.Context().Value("user").(*model.User)
+
+  // Get the query parameter user_id if present load the user
+  userId := r.URL.Query().Get("user_id")
+  if userId != "" {
+    if !user.HasPermission(model.PermissionManageSpaces) {
+      rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "Permission denied"})
+      return
+    }
+
+    var err error
+    user, err = database.GetInstance().GetUser(userId)
+    if err != nil {
+      rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+      return
+    }
+    if user == nil {
+      rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "User not found"})
+      return
+    }
+  }
+
   templates, err := database.GetInstance().GetTemplates()
   if err != nil {
     rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
@@ -28,18 +60,21 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
   }
 
   // Build a json array of data to return to the client
-  templateData := make([]struct {
-    Id string `json:"template_id"`
-    Name string `json:"name"`
-    Usage int `json:"usage"`
-    Deployed int `json:"deployed"`
-    Groups []string `json:"groups"`
-  }, len(templates))
+  templateResponse := []*TemplateResponse{}
 
-  for i, template := range templates {
-    templateData[i].Id = template.Id
-    templateData[i].Name = template.Name
-    templateData[i].Groups = template.Groups
+  for _, template := range templates {
+
+    // If the template has groups and no overlap with the user's groups then skip
+    if !user.HasPermission(model.PermissionManageTemplates) && len(template.Groups) > 0 && !user.HasAnyGroup(&template.Groups) {
+      continue
+    }
+
+    templateData := &TemplateResponse{}
+
+    templateData.Id = template.Id
+    templateData.Name = template.Name
+    templateData.Description = template.Description
+    templateData.Groups = template.Groups
 
     // Find the number of spaces using this template
     spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
@@ -55,11 +90,13 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
       }
     }
 
-    templateData[i].Usage = len(spaces)
-    templateData[i].Deployed = deployed
+    templateData.Usage = len(spaces)
+    templateData.Deployed = deployed
+
+    templateResponse = append(templateResponse, templateData)
   }
 
-  rest.SendJSON(http.StatusOK, w, templateData)
+  rest.SendJSON(http.StatusOK, w, templateResponse)
 }
 
 func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +139,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
   }
 
   template.Name = request.Name
+  template.Description = request.Description
   template.Job = request.Job
   template.Volumes = request.Volumes
   template.UpdatedUserId = user.Id
@@ -150,7 +188,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
     }
   }
 
-  template := model.NewTemplate(request.Name, request.Job, request.Volumes, user.Id, request.Groups)
+  template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups)
 
   err = database.GetInstance().SaveTemplate(template)
   if err != nil {
@@ -222,12 +260,14 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
   data := struct {
     Name string `json:"name"`
     Job string `json:"job"`
+    Description string `json:"description"`
     Volumes string `json:"volumes"`
     Usage int `json:"usage"`
     Deployed int `json:"deployed"`
     Groups []string `json:"groups"`
   }{
     Name: template.Name,
+    Description: template.Description,
     Job: template.Job,
     Volumes: template.Volumes,
     Usage: len(spaces),
