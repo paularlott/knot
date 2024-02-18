@@ -51,6 +51,7 @@
               padding: .5rem .7rem;
               color: @headerFontColor;
               white-space: nowrap;
+              border-radius: .5rem;
 
               &:hover {
                 background-color: @navHoverBackgroundColor;
@@ -173,7 +174,7 @@ body.light {
   background-color: @darkBoxBackgroundColor;
   border: 1px solid @darkBorderColor;
   padding: 1rem;
-  border-radius: .125rem;
+  border-radius: .5rem;
 
   & + .box {
     margin-top: @colGutter;
@@ -208,6 +209,7 @@ body.light {
   position: absolute;
   top: 80%;
   right: .5rem;
+  min-width: 150px;
   z-index: 10;
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
 
