@@ -116,6 +116,21 @@ get:
                   type: string
                   example: ["00000000-0000-0000-0000-000000000000"]
                 description: The IDs of the groups assigned to the template.
+              volume_sizes:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    capacity_min:
+                      type: integer
+                      description: The minimum capacity of the volume in GB
+                    capacity_max:
+                      type: integer
+                      description: The maximum capacity of the volume in GB
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':

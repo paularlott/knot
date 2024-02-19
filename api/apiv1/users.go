@@ -27,6 +27,7 @@ type UserRequest struct {
   Groups []string `json:"groups"`
   Active bool `json:"active"`
   MaxSpaces int `json:"max_spaces"`
+  MaxDiskSpace int `json:"max_disk_space"`
   SSHPublicKey string `json:"ssh_public_key"`
   PreferredShell string `json:"preferred_shell"`
   Timezone string `json:"timezone"`
@@ -84,7 +85,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
   }
 
   // Create the user
-  userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces)
+  userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.MaxDiskSpace)
   err = db.SaveUser(userNew)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
@@ -124,6 +125,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
     Groups []string `json:"groups"`
     Active bool `json:"active"`
     MaxSpaces int `json:"max_spaces"`
+    MaxDiskSpace int `json:"max_disk_space"`
     SSHPublicKey string `json:"ssh_public_key"`
     PreferredShell string `json:"preferred_shell"`
     Timezone string `json:"timezone"`
@@ -139,6 +141,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
     Groups: user.Groups,
     Active: user.Active,
     MaxSpaces: user.MaxSpaces,
+    MaxDiskSpace: user.MaxDiskSpace,
     SSHPublicKey: user.SSHPublicKey,
     PreferredShell: user.PreferredShell,
     Timezone: user.Timezone,
@@ -164,6 +167,7 @@ type UserInfoResponse struct {
   Groups []string `json:"groups"`
   Active bool `json:"active"`
   MaxSpaces int `json:"max_spaces"`
+  MaxDiskSpace int `json:"max_disk_space"`
   Current bool `json:"current"`
   LastLoginAt *time.Time `json:"last_login_at"`
   NumberSpaces int `json:"number_spaces"`
@@ -198,6 +202,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
       data.Groups = user.Groups
       data.Active = user.Active
       data.MaxSpaces = user.MaxSpaces
+      data.MaxDiskSpace = user.MaxDiskSpace
       data.Current = user.Id == activeUser.Id
 
       if user.LastLoginAt != nil {
@@ -311,6 +316,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
     user.Roles = request.Roles
     user.Groups = request.Groups
     user.MaxSpaces = request.MaxSpaces
+    user.MaxDiskSpace = request.MaxDiskSpace
   }
 
   // Save

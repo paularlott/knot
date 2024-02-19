@@ -25,6 +25,7 @@
       <th>Groups</th>
       <th>Spaces</th>
       <th>Deployed</th>
+      <th>Disk Space</th>
       <th>Active</th>
       <th>Last Login</th>
       <th>&nbsp;</th>
@@ -53,6 +54,10 @@
         </td>
         <td><span x-text="u.number_spaces"></span> <span x-show="u.max_spaces > 0">of <span x-text="u.max_spaces"></span></span></td>
         <td x-text="u.number_spaces_deployed"></td>
+        <td>
+          <span x-show="!u.max_disk_space">-</span>
+          <span x-show="u.max_disk_space" x-text="u.max_disk_space + ' GB'"></span>
+        </td>
         <td x-text="u.active ? 'Yes' : 'No'"></td>
         <td x-text="u.last_login_at"></td>
         <td>

@@ -1,6 +1,8 @@
 package model
 
 import (
+	"encoding/json"
+
 	"github.com/paularlott/knot/util"
 
 	"gopkg.in/yaml.v3"
@@ -38,17 +40,42 @@ type CSIVolumes struct {
   Volumes []CSIVolume `yaml:"volumes" json:"Volumes"`
 }
 
-func LoadVolumesFromYaml(yamlData string, t *Template, space *Space, user *User, variables *map[string]interface{}) (*CSIVolumes, error) {
+func LoadVolumesFromYaml(yamlData string, t *Template, space *Space, user *User, variables *map[string]interface{}, applySpaceSizes bool) (*CSIVolumes, error) {
+  var err error
   volumes := &CSIVolumes{}
 
-  yamlData, err := ResolveVariables(yamlData, t, space, user, variables)
-  if err != nil {
-    return nil, err
+  if space != nil || user != nil {
+    yamlData, err = ResolveVariables(yamlData, t, space, user, variables)
+    if err != nil {
+      return nil, err
+    }
   }
 
   err = yaml.Unmarshal([]byte(yamlData), volumes)
   if err != nil {
     return nil, err
+  }
+
+  // If applying sizes from space then resolve the variables
+  var volumeSizes map[string]int64
+  if applySpaceSizes {
+    // Convert space volume sizes to a string
+    temp, err := json.Marshal(space.VolumeSizes)
+    if err != nil {
+      return nil, err
+    }
+
+    // Resolve the variables
+    data, err := ResolveVariables(string(temp), t, space, user, variables)
+    if err != nil {
+      return nil, err
+    }
+
+    // Convert back to a map
+    err = json.Unmarshal([]byte(data), &volumeSizes)
+    if err != nil {
+      return nil, err
+    }
   }
 
   // Fix up the capacity values & namespace
@@ -77,6 +104,14 @@ func LoadVolumesFromYaml(yamlData string, t *Template, space *Space, user *User,
       }
     } else {
       volumes.Volumes[i].CapacityMax = 0
+    }
+
+    // Apply space sizes if requested
+    if applySpaceSizes {
+      if volumeSizes[volumes.Volumes[i].Id] > 0 {
+        volumes.Volumes[i].CapacityMin = volumeSizes[volumes.Volumes[i].Id] * 1024 * 1024 * 1024
+        volumes.Volumes[i].CapacityMax = volumeSizes[volumes.Volumes[i].Id] * 1024 * 1024 * 1024
+      }
     }
 
     // Fix namespace if nil then make default

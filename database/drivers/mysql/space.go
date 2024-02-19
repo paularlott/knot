@@ -19,10 +19,11 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
 
   // JSON encode volume data
   volumeData, _ := json.Marshal(space.VolumeData)
+  volumeSizes, _ := json.Marshal(space.VolumeSizes)
 
   // Assume update
-  result, err := tx.Exec("UPDATE spaces SET name=?, template_id=?, agent_url=?, updated_at=?, shell=?, is_deployed=?, volume_data=?, nomad_namespace=?, nomad_job_id=?, template_hash=? WHERE space_id=?",
-    space.Name, space.TemplateId, space.AgentURL, time.Now().UTC(), space.Shell, space.IsDeployed, volumeData, space.NomadNamespace, space.NomadJobId, space.TemplateHash, space.Id,
+  result, err := tx.Exec("UPDATE spaces SET name=?, template_id=?, agent_url=?, updated_at=?, shell=?, is_deployed=?, volume_data=?, volume_sizes=?, nomad_namespace=?, nomad_job_id=?, template_hash=? WHERE space_id=?",
+    space.Name, space.TemplateId, space.AgentURL, time.Now().UTC(), space.Shell, space.IsDeployed, volumeData, volumeSizes, space.NomadNamespace, space.NomadJobId, space.TemplateHash, space.Id,
   )
   if err != nil {
     tx.Rollback()
@@ -31,8 +32,8 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
 
   // If no rows were updated then do an insert
   if rows, _ := result.RowsAffected(); rows == 0 {
-    _, err = tx.Exec("INSERT INTO spaces (space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      space.Id, space.UserId, space.TemplateId, space.Name, space.AgentURL, time.Now().UTC(), time.Now().UTC(), space.Shell, space.IsDeployed, volumeData, space.NomadNamespace, space.NomadJobId, space.TemplateHash,
+    _, err = tx.Exec("INSERT INTO spaces (space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, volume_sizes, nomad_namespace, nomad_job_id, template_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      space.Id, space.UserId, space.TemplateId, space.Name, space.AgentURL, time.Now().UTC(), time.Now().UTC(), space.Shell, space.IsDeployed, volumeData, volumeSizes, space.NomadNamespace, space.NomadJobId, space.TemplateHash,
     )
     if err != nil {
       tx.Rollback()
@@ -64,8 +65,9 @@ func (db *MySQLDriver) getSpaces(query string, args ...interface{}) ([]*model.Sp
     var createdAt string
     var updatedAt string
     var volumeData []byte
+    var volumeSizes []byte
 
-    err := rows.Scan(&space.Id, &space.UserId, &space.TemplateId, &space.Name, &space.AgentURL, &createdAt, &updatedAt, &space.Shell, &space.IsDeployed, &volumeData, &space.NomadNamespace, &space.NomadJobId, &space.TemplateHash)
+    err := rows.Scan(&space.Id, &space.UserId, &space.TemplateId, &space.Name, &space.AgentURL, &createdAt, &updatedAt, &space.Shell, &space.IsDeployed, &volumeData, &space.NomadNamespace, &space.NomadJobId, &space.TemplateHash, &volumeSizes)
     if err != nil {
       return nil, err
     }
@@ -86,6 +88,11 @@ func (db *MySQLDriver) getSpaces(query string, args ...interface{}) ([]*model.Sp
       return nil, err
     }
 
+    err = json.Unmarshal(volumeSizes, &space.VolumeSizes)
+    if err != nil {
+      return nil, err
+    }
+
     spaces = append(spaces, space)
   }
 
@@ -93,7 +100,7 @@ func (db *MySQLDriver) getSpaces(query string, args ...interface{}) ([]*model.Sp
 }
 
 func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
-  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash FROM spaces WHERE space_id = ?", id)
+  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash, volume_sizes FROM spaces WHERE space_id = ?", id)
   if err != nil {
     return nil, err
   }
@@ -105,7 +112,7 @@ func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
 }
 
 func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
-  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash FROM spaces WHERE user_id = ? ORDER BY name ASC", userId)
+  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash, volume_sizes FROM spaces WHERE user_id = ? ORDER BY name ASC", userId)
   if err != nil {
     return nil, err
   }
@@ -114,7 +121,7 @@ func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
 }
 
 func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.Space, error) {
-  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash FROM spaces WHERE user_id = ? AND name = ?", userId, spaceName)
+  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash, volume_sizes FROM spaces WHERE user_id = ? AND name = ?", userId, spaceName)
   if err != nil {
     return nil, err
   }
@@ -126,7 +133,7 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
 }
 
 func (db *MySQLDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space, error) {
-  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash FROM spaces WHERE template_id = ? ORDER BY name ASC", templateId)
+  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash, volume_sizes FROM spaces WHERE template_id = ? ORDER BY name ASC", templateId)
   if err != nil {
     return nil, err
   }
@@ -135,7 +142,7 @@ func (db *MySQLDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space,
 }
 
 func (db *MySQLDriver) GetSpaces() ([]*model.Space, error) {
-  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash FROM spaces ORDER BY name ASC")
+  spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash, volume_sizes FROM spaces ORDER BY name ASC")
   if err != nil {
     return nil, err
   }

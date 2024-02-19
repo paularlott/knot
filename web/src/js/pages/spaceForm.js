@@ -6,6 +6,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       agent_url: "",
       shell: preferredShell,
       user_id: forUserId,
+      volume_size: {}
     },
     template_id: templateId,
     loading: true,
@@ -13,7 +14,13 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     nameValid: true,
     addressValid: true,
     forUsername: forUserUsername,
+    volume_size: [],
+    volume_size_valid: {},
+    isEdit: isEdit,
+
     async initData() {
+      var self = this;
+
       focusElement('input[name="name"]');
 
       if(isEdit) {
@@ -32,6 +39,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.formData.template_id = this.template_id = space.template_id;
           this.formData.agent_url = space.agent_url;
           this.formData.shell = space.shell;
+          this.formData.volume_size = space.volume_size;
 
           if(space.user_id != userId) {
             this.formData.user_id = space.user_id;
@@ -49,6 +57,25 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         }
       }
 
+      // Fetch the template to get the volume sizes
+      const templateResponse = await fetch('/api/v1/templates/' + this.template_id, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      await templateResponse.json().then(data => {
+        self.volume_size = data.volume_sizes;
+
+        for (var i = 0; i < self.volume_size.length; i++) {
+          self.volume_size_valid[self.volume_size[i].id] = true;
+
+          // If size not defined the use the min from self.volume_size[i].capacity_min
+          if(self.formData.volume_size[self.volume_size[i].id] === undefined) {
+            self.formData.volume_size[self.volume_size[i].id] = self.volume_size[i].capacity_min;
+          }
+        }
+      });
+
       this.loading = false;
     },
     checkName() {
@@ -60,14 +87,22 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       }
       return true;
     },
+    checkVolumeSize(id) {
+      var volume = this.volume_size.find(volume => volume.id === id);
+      this.formData.volume_size[id] = parseInt(this.formData.volume_size[id]);
+      return this.volume_size_valid[id] = this.formData.volume_size[id] >= volume.capacity_min && this.formData.volume_size[id] <= volume.capacity_max;
+    },
     submitData() {
-
-console.log(this.formData);
-
       var err = false,
           self = this;
       err = !this.checkName() || err;
       err = !this.checkAddress() || err;
+
+      // Check the sizes of all the volumes
+      for (var i = 0; i < this.volume_size.length; i++) {
+        err = !this.checkVolumeSize(this.volume_size[i].id) || err;
+      }
+
       if(err) {
         return;
       }

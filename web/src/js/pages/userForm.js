@@ -14,6 +14,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       timezone: "",
       active: true,
       max_spaces: 0,
+      max_disk_space: 0,
       roles: [],
       groups: [],
     },
@@ -60,6 +61,7 @@ window.userForm = function(isEdit, userId, isProfile) {
           this.formData.ssh_public_key = user.ssh_public_key;
           this.formData.active = user.active;
           this.formData.max_spaces = user.max_spaces;
+          this.formData.max_disk_space = user.max_disk_space;
           this.formData.roles = user.roles;
           this.formData.groups = user.groups;
           this.formData.timezone = user.timezone;
@@ -136,6 +138,7 @@ window.userForm = function(isEdit, userId, isProfile) {
         ssh_public_key: this.formData.ssh_public_key,
         active: this.formData.active,
         max_spaces: parseInt(this.formData.max_spaces),
+        max_disk_space: parseInt(this.formData.max_disk_space),
         roles: this.formData.roles,
         groups: this.formData.groups,
         timezone: this.formData.timezone,

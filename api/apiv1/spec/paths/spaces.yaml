@@ -40,6 +40,10 @@ post:
         schema:
           type: object
           properties:
+            volume_size:
+              type: object
+              additionalProperties:
+                type: integer
             name:
               type: string
             agent_url:

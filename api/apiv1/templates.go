@@ -3,6 +3,7 @@ package apiv1
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 
 	"github.com/paularlott/knot/database"
@@ -257,6 +258,18 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
     }
   }
 
+  volumes, _ := template.GetVolumes(nil, nil, nil, false);
+
+  var volumeList []map[string]interface{}
+  for _, volume := range volumes.Volumes {
+    volumeList = append(volumeList, map[string]interface{}{
+      "id":           volume.Id,
+      "name":         volume.Name,
+      "capacity_min": math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64)) / (1024 * 1024 * 1024))),
+      "capacity_max": math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64)) / (1024 * 1024 * 1024))),
+    })
+  }
+
   data := struct {
     Name string `json:"name"`
     Job string `json:"job"`
@@ -265,6 +278,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
     Usage int `json:"usage"`
     Deployed int `json:"deployed"`
     Groups []string `json:"groups"`
+    VolumeSizes []map[string]interface{} `json:"volume_sizes"`
   }{
     Name: template.Name,
     Description: template.Description,
@@ -273,6 +287,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
     Usage: len(spaces),
     Deployed: deployed,
     Groups: template.Groups,
+    VolumeSizes: volumeList,
   }
 
   rest.SendJSON(http.StatusOK, w, data)

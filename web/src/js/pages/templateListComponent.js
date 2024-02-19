@@ -104,7 +104,6 @@ window.templateListComponent = function(canManageSpaces) {
       }).then((response) => {
         if (response.status === 200) {
           response.json().then((templates) => {
-            console.log(templates);
 
             // If the selected template is in the list then created
             var template = templates.find(template => template.template_id === this.chooseUser.template.template_id);

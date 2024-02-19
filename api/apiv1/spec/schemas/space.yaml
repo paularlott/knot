@@ -22,3 +22,5 @@ properties:
     type: array
     items:
       type: integer
+  volume_size:
+    type: integer

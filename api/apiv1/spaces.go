@@ -20,6 +20,7 @@ type SpaceRequest struct {
   AgentURL string `json:"agent_url"`
   Shell string `json:"shell"`
   UserId string `json:"user_id"`
+  VolumeSize map[string]int64 `json:"volume_size"`
 }
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +68,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
     UserId string `json:"user_id"`
     TcpPorts []int `json:"tcp_ports"`
     HttpPorts []int `json:"http_ports"`
+    VolumeSize int64 `json:"volume_size"`
   }, len(spaces))
 
   for i, space := range spaces {
@@ -122,6 +124,13 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
       spaceData[i].TcpPorts = []int{}
       spaceData[i].HttpPorts = []int{}
     }
+
+    // Sum the volume sizes
+    var volumeSize int64
+    for _, size := range space.VolumeSizes {
+      volumeSize += size
+    }
+    spaceData[i].VolumeSize = volumeSize
   }
 
   rest.SendJSON(http.StatusOK, w, spaceData)
@@ -219,7 +228,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
   if request.UserId != "" {
     forUserId = request.UserId
   }
-  space := model.NewSpace(request.Name, forUserId, request.AgentURL, request.TemplateId, request.Shell)
+  space := model.NewSpace(request.Name, forUserId, request.AgentURL, request.TemplateId, request.Shell, &request.VolumeSize)
   err = database.GetInstance().SaveSpace(space)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
@@ -507,11 +516,13 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
     IsDeployed bool `json:"is_deployed"`
     Username string `json:"username"`
     UserId string `json:"user_id"`
+    VolumeSize map[string]int64 `json:"volume_size"`
   }{
     Name: space.Name,
     AgentURL: space.AgentURL,
     TemplateId: space.TemplateId,
     Shell: space.Shell,
+    VolumeSize: space.VolumeSizes,
   }
 
   // Get the user

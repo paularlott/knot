@@ -34,6 +34,7 @@
       <th>Name</th>
       <th>Template</th>
       <th>User</th>
+      <th>Disk</th>
       <th>Status</th>
       <th>&nbsp;</th>
     </tr>
@@ -50,6 +51,7 @@
         <td x-text="s.name"></td>
         <td x-text="s.template_name"></td>
         <td x-text="s.username"></td>
+        <td x-text="s.volume_size + 'GB'"></td>
         <td>
           <div x-show="s.template_id != '00000000-0000-0000-0000-000000000000'">
             <span x-show="s.is_deployed && !s.is_stopping" class="badge success">Running</span>

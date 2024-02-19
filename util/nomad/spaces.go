@@ -11,7 +11,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
   db := database.GetInstance()
 
   // Get the volume definitions
-  volumes, err := template.GetVolumes(space, user, variables)
+  volumes, err := template.GetVolumes(space, user, variables, true)
   if err != nil {
     return err
   }
