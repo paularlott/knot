@@ -172,6 +172,7 @@ type UserInfoResponse struct {
   LastLoginAt *time.Time `json:"last_login_at"`
   NumberSpaces int `json:"number_spaces"`
   NumberSpacesDeployed int `json:"number_spaces_deployed"`
+  UsedDiskSpace int `json:"used_disk_space"`
 }
 
 func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
@@ -220,14 +221,24 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
       }
 
       var deployed int = 0
+      var diskSpace int = 0
       for _, space := range spaces {
         if space.IsDeployed {
           deployed++
         }
+
+        sSize, err := calcSpaceDiskUsage(space)
+        if err != nil {
+          rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+          return
+        }
+
+        diskSpace += sSize
       }
 
       data.NumberSpaces = len(spaces)
       data.NumberSpacesDeployed = deployed
+      data.UsedDiskSpace = diskSpace
 
       userData = append(userData, &data)
     }

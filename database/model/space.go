@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -66,4 +67,22 @@ func (space *Space) GetAgentURL() string {
   } else {
     return space.AgentURL
   }
+}
+
+// Get the storage size for the space in GB
+func (space *Space) GetStorageSize(template *Template) (int, error ){
+
+  // Get the volumes with sizes applied
+  volumes, err := template.GetVolumes(space, nil, nil, true)
+  if err != nil {
+    return 0, err
+  }
+
+  // Calculate the volume sizes
+  var sizeGB int = 0;
+  for _, volume := range volumes.Volumes {
+    sizeGB += int(math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64)) / (1024 * 1024 * 1024))))
+  }
+
+  return sizeGB, nil
 }

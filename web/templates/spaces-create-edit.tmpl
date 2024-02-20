@@ -45,15 +45,14 @@
                 </div>
                 <div class="description">The shell that will be used when you open a web terminal in this space.</div>
               </dd>
-              <dt><label for="name">Volume Size(s) <em>*</em></label></dt>
-              <dd>
+              <dt x-show="!isEdit && hasEditableVolumeSizes"><label for="name">Volume Size(s) <em>*</em></label></dt>
+              <dd x-show="!isEdit && hasEditableVolumeSizes">
                 <ul>
                 <template x-for="(vs, idx) in volume_size" :key="idx">
-                  <li>
-                    <label for="name" x-text="vs.name"></label>
+                  <li x-show="vs.capacity_min != vs.capacity_max">
+                    <label for="name" x-text="volume_size_label[vs.id].label"></label>
                     <input type="number" :class="{'error': !volume_size_valid[vs.id]}" :min="vs.capacity_min" :max="vs.capacity_max" :disabled="isEdit || vs.capacity_min == vs.capacity_max" :readonly="isEdit || vs.capacity_min == vs.capacity_max"  placeholder="Volume Size in GB" x-model="formData.volume_size[vs.id]" @blur.debounce.500ms="checkVolumeSize(vs.id)" />
                     <div x-show="!volume_size_valid[vs.id]" class="error-message">Please enter a valid volume size in GB.</div>
-                    <div class="description" x-show="vs.capacity_min == vs.capacity_max" x-text="vs.capacity_min + 'GB'"></div>
                     <div class="description" x-show="vs.capacity_min != vs.capacity_max">Between <span x-text="vs.capacity_min"></span>GB and <span x-text="vs.capacity_max"></span>GB</div>
                   </li>
                 </template>

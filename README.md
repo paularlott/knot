@@ -16,6 +16,7 @@ This project is designed to be used within trusted environments rather than on t
 - **Groups:** Control which templates are available to users.
 - **Environment Templates:** Customizable templates for creating consistent development environments.
 - **Integration with Nomad:** Ensures seamless integration with Nomad for efficient cluster management.
+- **Quotas:** Limit by disk space usage and by number of spaces per user.
 
 ## Documentation
 

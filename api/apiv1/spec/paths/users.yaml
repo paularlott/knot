@@ -168,3 +168,6 @@ components:
         number_spaces_deployed:
           type: integer
           description: The number of spaces the user has deployed currently
+        used_disk_space:
+          type: integer
+          description: The disk space used by the user

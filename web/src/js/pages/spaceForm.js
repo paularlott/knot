@@ -16,7 +16,9 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     forUsername: forUserUsername,
     volume_size: [],
     volume_size_valid: {},
+    volume_size_label: {},
     isEdit: isEdit,
+    hasEditableVolumeSizes: false,
 
     async initData() {
       var self = this;
@@ -69,6 +71,16 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         for (var i = 0; i < self.volume_size.length; i++) {
           self.volume_size_valid[self.volume_size[i].id] = true;
 
+          var n = self.volume_size[i].name.replace(/\$\{\{.*\.space\.id.*\}\}/, '00000000-0000-0000-0000-000000000000');
+          self.volume_size_label[self.volume_size[i].id] = {
+            name: n,
+            label: n.replace(/\$\{\{.*\.space\.name.*\}\}/, self.formData.name)
+          }
+
+          if(self.volume_size[i].capacity_min !== self.volume_size[i].capacity_max) {
+            self.hasEditableVolumeSizes = true;
+          }
+
           // If size not defined the use the min from self.volume_size[i].capacity_min
           if(self.formData.volume_size[self.volume_size[i].id] === undefined) {
             self.formData.volume_size[self.volume_size[i].id] = self.volume_size[i].capacity_min;
@@ -79,6 +91,11 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       this.loading = false;
     },
     checkName() {
+      // Update the labels
+      for (var i = 0; i < this.volume_size.length; i++) {
+        this.volume_size_label[this.volume_size[i].id].label = this.volume_size_label[this.volume_size[i].id].name.replace(/\$\{\{.*\.space\.name.*\}\}/g, this.formData.name);
+      }
+
       return this.nameValid = validate.name(this.formData.name);
     },
     checkAddress() {
@@ -122,6 +139,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
             self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
           } else if (response.status === 201) {
             window.location.href = '/spaces' + (this.forUserId ? '/' + this.forUserId : '');
+          } else if (response.status === 507) {
+            self.$dispatch('show-alert', { msg: "Failed to create space, storage limit reached", type: 'error' });
           } else {
             response.json().then((data) => {
               self.$dispatch('show-alert', { msg: (isEdit ? "Failed to update space, " : "Failed to create space, ") + data.error, type: 'error' });
