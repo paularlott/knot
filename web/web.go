@@ -228,14 +228,15 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
   }
 
   return user, map[string]interface{}{
-    "username"                 : user.Username,
-    "user_id"                  : user.Id,
-    "withDownloads"            : withDownloads,
-    "permissionManageUsers"    : user.HasPermission(model.PermissionManageUsers),
-    "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
-    "permissionManageSpaces"   : user.HasPermission(model.PermissionManageSpaces),
-    "permissionManageVolumes"  : user.HasPermission(model.PermissionManageVolumes),
-    "version"                  : build.Version,
-    "buildDate"                : build.Date,
+    "username"                  : user.Username,
+    "user_id"                   : user.Id,
+    "withDownloads"             : withDownloads,
+    "permissionManageUsers"     : user.HasPermission(model.PermissionManageUsers),
+    "permissionManageTemplates" : user.HasPermission(model.PermissionManageTemplates),
+    "permissionManageSpaces"    : user.HasPermission(model.PermissionManageSpaces),
+    "permissionManageVolumes"   : user.HasPermission(model.PermissionManageVolumes),
+    "permissionManageDbService" : user.HasPermission(model.PermissionManageDbService),
+    "version"                   : build.Version,
+    "buildDate"                 : build.Date,
   }
 }

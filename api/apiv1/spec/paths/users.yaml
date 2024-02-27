@@ -26,6 +26,10 @@ post:
               type: string
               example: "password"
               description: The password of the user
+            db_password:
+              type: string
+              example: "password"
+              description: The database password of the user
             active:
               type: boolean
               description: Whether the user is active

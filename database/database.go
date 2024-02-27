@@ -82,6 +82,13 @@ type IDbDriver interface {
   SaveAgentState(agentState *model.AgentState) error
   DeleteAgentState(agentState *model.AgentState) error
   GetAgentState(id string) (*model.AgentState, error)
+
+  // Database Service
+  SaveDbService(dbService *model.DbService) error
+  DeleteDbService(dbService *model.DbService) error
+  GetDbService(id string) (*model.DbService, error)
+  GetDbServices() ([]*model.DbService, error)
+  GetDbServiceByName(name string) (*model.DbService, error)
 }
 
 // Initialize the database drivers

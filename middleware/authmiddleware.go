@@ -126,6 +126,18 @@ func ApiPermissionManageTemplates(next http.Handler) http.Handler {
   })
 }
 
+func ApiPermissionManageDbServices(next http.Handler) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    user := r.Context().Value("user").(*model.User)
+    if !user.HasPermission(model.PermissionManageDbService) {
+      rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage database services"})
+      return
+    }
+
+    next.ServeHTTP(w, r)
+  })
+}
+
 func ApiPermissionManageVolumes(next http.Handler) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     user := r.Context().Value("user").(*model.User)

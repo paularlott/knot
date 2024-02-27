@@ -108,6 +108,17 @@ func ApiRoutes() chi.Router {
       router.Delete("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteTemplateVar)
       router.Get("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplateVar)
     })
+
+    // Database Services
+    router.Route("/dbservice", func(router chi.Router) {
+      router.Use(middleware.ApiPermissionManageDbServices)
+
+      router.Get("/", HandleGetDbServices)
+      router.Post("/", HandleCreateDbService)
+      router.Post("/{dbservice_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateDbService)
+      router.Get("/{dbservice_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetDbService)
+      router.Delete("/{dbservice_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteDbService)
+    })
   })
 
   // Group routes that require authentication via agent token

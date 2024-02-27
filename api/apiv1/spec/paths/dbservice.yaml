@@ -1,0 +1,85 @@
+
+get:
+  summary: Get Database Services
+  description: Retrieve all defined database services.
+  operationId: getDbService
+  tags:
+    - DbService
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                dbservice_id:
+                  type: string
+                name:
+                  type: string
+                  maxLength: 64
+                db_type:
+                  type: string
+                  enum: [mysql]
+    '500':
+      $ref: '../responses/internal-server-error.yaml'
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []
+
+post:
+  summary: Create a Database Service
+  description: Create a new database service.
+  operationId: createDbService
+  tags:
+    - DbService
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 64
+            db_type:
+              type: string
+              enum: [mysql]
+            db_host:
+              type: string
+            db_port:
+              type: integer
+            db_user:
+              type: string
+            db_password:
+              type: string
+            proxy_host:
+              type: string
+            proxy_port:
+              type: integer
+            proxy_user:
+              type: string
+            proxy_password:
+              type: string
+  responses:
+    '201':
+      description: Service created successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+              dbservice_id:
+                type: string
+    '400':
+      $ref: "../responses/bad-request.yaml"
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []

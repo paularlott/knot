@@ -15,6 +15,7 @@ user_id CHAR(36) PRIMARY KEY,
 username VARCHAR(64) UNIQUE,
 email VARCHAR(255) UNIQUE,
 password VARCHAR(255),
+db_password VARCHAR(255),
 preferred_shell VARCHAR(8) DEFAULT 'zsh',
 timezone VARCHAR(128) DEFAULT 'UTC',
 ssh_public_key TEXT DEFAULT '',
@@ -157,6 +158,25 @@ tcp_ports MEDIUMTEXT,
 http_ports MEDIUMTEXT,
 expires_after TIMESTAMP,
 INDEX expires_after (expires_after)
+)`)
+  if err != nil {
+    return err
+  }
+
+  log.Debug().Msg("db: creating database service table")
+  _, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS dbservice (
+dbservice_id CHAR(36) PRIMARY KEY,
+name VARCHAR(64),
+db_type VARCHAR(64),
+db_host VARCHAR(255),
+db_port INT NOT NULL DEFAULT 0,
+db_user VARCHAR(64),
+db_password VARCHAR(255),
+proxy_host VARCHAR(255),
+proxy_port INT NOT NULL DEFAULT 0,
+proxy_user VARCHAR(64),
+proxy_password VARCHAR(255),
+UNIQUE name (name)
 )`)
   if err != nil {
     return err

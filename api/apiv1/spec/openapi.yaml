@@ -119,3 +119,8 @@ paths:
     $ref: paths/agents_{space_id}.yaml
   /agents/{space_id}/status:
     $ref: paths/agents_{space_id}_status.yaml
+
+  /api/v1/dbservice:
+    $ref: paths/dbservice.yaml
+  /api/v1/dbservice/{dbservice_id}:
+    $ref: paths/dbservice_{dbservice_id}.yaml

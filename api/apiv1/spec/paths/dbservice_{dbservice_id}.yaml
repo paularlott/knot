@@ -1,0 +1,124 @@
+post:
+  summary: Update a Database Service
+  description: Update a database service.
+  operationId: updateDbService
+  tags:
+    - DbService
+  parameters:
+    - name: group_id
+      in: path
+      required: true
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              maxLength: 64
+            db_type:
+              type: string
+              enum: [mysql]
+            db_host:
+              type: string
+            db_port:
+              type: integer
+            db_user:
+              type: string
+            db_password:
+              type: string
+            proxy_host:
+              type: string
+            proxy_port:
+              type: integer
+            proxy_user:
+              type: string
+            proxy_password:
+              type: string
+  responses:
+    '200':
+      description: Successful operation
+    '400':
+      $ref: '../responses/bad-request.yaml'
+    '403':
+      $ref: '../responses/forbidden.yaml'
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '500':
+      $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []
+
+delete:
+  summary: Delete Database Service
+  description: Delete a specified database service.
+  tags:
+    - DbService
+  operaionId: deleteDbService
+  parameters:
+    - in: path
+      name: dbservice_id
+      schema:
+        type: string
+      required: true
+      description: The ID of the database service to delete.
+  responses:
+    '200':
+      description: Successful operation.
+    '403':
+      $ref: '../responses/forbidden.yaml'
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '423':
+      $ref: '../responses/locked.yaml'
+    '500':
+      $ref: "../responses/internal-server-error.yaml"
+  security:
+    - BearerAuth: []
+
+get:
+  summary: Get a Database Service
+  description: Get a database service.
+  operationId: getDbService
+  tags:
+    - DbService
+  responses:
+    '200':
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+                maxLength: 64
+              db_type:
+                type: string
+                enum: [mysql]
+              db_host:
+                type: string
+              db_port:
+                type: integer
+              db_user:
+                type: string
+              db_password:
+                type: string
+              proxy_host:
+                type: string
+              proxy_port:
+                type: integer
+              proxy_user:
+                type: string
+              proxy_password:
+                type: string
+    '500':
+      $ref: '../responses/internal-server-error.yaml'
+    '403':
+      $ref: '../responses/forbidden.yaml'
+  security:
+    - BearerAuth: []

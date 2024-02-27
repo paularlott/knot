@@ -9,6 +9,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       email: "",
       password: "",
       password_confirm: "",
+      db_password: "",
       preferred_shell: "",
       ssh_public_key: "",
       timezone: "",
@@ -24,6 +25,7 @@ window.userForm = function(isEdit, userId, isProfile) {
     emailValid: true,
     passwordValid: true,
     confirmPasswordValid: true,
+    dbPasswordValid: true,
     shellValid: true,
     tzValid: true,
     maxSpacesValid: true,
@@ -65,6 +67,7 @@ window.userForm = function(isEdit, userId, isProfile) {
           this.formData.roles = user.roles;
           this.formData.groups = user.groups;
           this.formData.timezone = user.timezone;
+          this.formData.db_password = user.db_password;
         }
       } else {
         this.formData.preferred_shell = 'bash';
@@ -112,6 +115,9 @@ window.userForm = function(isEdit, userId, isProfile) {
     checkMaxSpaces() {
       return this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 100);
     },
+    checkDbPassword() {
+      return this.dbPasswordValid = validate.required(this.formData.db_password);
+    },
     submitData() {
       var err = false,
           self = this;
@@ -120,10 +126,11 @@ window.userForm = function(isEdit, userId, isProfile) {
       if(!isEdit || this.formData.password.length > 0 || this.formData.password_confirm.length > 0) {
         err = !this.checkPassword() || err;
         err = !this.checkConfirmPassword() || err;
-        err = !this.checkMaxSpaces() || err;
       }
+      err = !this.checkMaxSpaces() || err;
       err = !this.checkShell() || err;
       err = !this.checkTz() || err;
+      err = !this.checkDbPassword() || err;
       if(err) {
         return;
       }
@@ -142,6 +149,7 @@ window.userForm = function(isEdit, userId, isProfile) {
         roles: this.formData.roles,
         groups: this.formData.groups,
         timezone: this.formData.timezone,
+        db_password: this.formData.db_password
       };
 
       fetch(isEdit ? '/api/v1/users/' + userId : '/api/v1/users', {

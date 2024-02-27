@@ -77,6 +77,12 @@
                 <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
                 <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
               </dd>
+              <dt><label for="db_password">Database Password <em>*</em></label></dt>
+              <dd>
+                <input type="text" name="db_password" x-on:keyup.debounce.500ms="checkDbPassword()" :class="{'error': !dbPasswordValid}" placeholder="Database password" x-model="formData.db_password">
+                <div x-show="!dbPasswordValid" class="error-message">Database password required.</div>
+                <p class="description">The password to use for database connections when using knot to manage databases.</p>
+              </dd>
               {{ if and (not .isProfile) (and .isEdit .permissionManageUsers) (ne .user_id .user.id) }}
               <dt><label for="active">Active</label></dt>
               <dd class="checkbox-group">

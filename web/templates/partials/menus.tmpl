@@ -11,7 +11,10 @@
     {{ end }}
     {{ if .permissionManageUsers }}
     <li><a href="/users"><i class="bx bx-user"></i> Users</a></li>
-    <li><a href="/groups"><i class='bx bx-collection' ></i> Groups</a></li>
+    <li><a href="/groups"><i class='bx bx-collection'></i> Groups</a></li>
+    {{ end }}
+    {{ if .permissionManageDbService }}
+    <li><a href="/databases"><i class='bx bx-data'></i> Databases</a></li>
     {{ end }}
     <li><a href="/api-tokens"><i class="bx bx-key"></i> API Tokens</a></li>
   </ul>
