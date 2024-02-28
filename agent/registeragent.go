@@ -44,7 +44,9 @@ func Register(serverAddr string, nameserver string, spaceId string) {
     middleware.ServerURL = response.ServerURL
 
     // Authorize the SSK key
-    util.UpdateAuthorizedKeys(response.SSHKey)
+    if viper.GetBool("agent.update_authorized_keys") && viper.GetInt("agent.port.ssh") > 0 {
+      util.UpdateAuthorizedKeys(response.SSHKey)
+    }
 
     break
   }

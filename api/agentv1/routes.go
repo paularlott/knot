@@ -57,7 +57,10 @@ func Routes(cmd *cobra.Command) chi.Router {
     if len(TcpPortMap) > 0 {
       log.Info().Msg("Enabling proxy for TCP ports")
       router.HandleFunc("/tcp/{port}/", agentProxyTCP);
+    }
 
+    // If allowing HTTP ports then enable the proxy
+    if len(HttpPortMap) > 0 {
       log.Info().Msg("Enabling proxy for HTTP ports")
       router.HandleFunc("/http/{port}/*", agentProxyHTTP);
     }
