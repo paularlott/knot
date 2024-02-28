@@ -66,7 +66,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         }
       });
       await templateResponse.json().then(data => {
-        self.volume_size = data.volume_sizes;
+        self.volume_size = data.volume_sizes ? data.volume_sizes : [];
 
         for (var i = 0; i < self.volume_size.length; i++) {
           self.volume_size_valid[self.volume_size[i].id] = true;

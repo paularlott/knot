@@ -50,7 +50,7 @@
                 <ul>
                 <template x-for="(vs, idx) in volume_size" :key="idx">
                   <li x-show="vs.capacity_min != vs.capacity_max">
-                    <label for="name" x-text="volume_size_label[vs.id].label"></label>
+                    <label x-text="volume_size_label[vs.id].label"></label>
                     <input type="number" :class="{'error': !volume_size_valid[vs.id]}" :min="vs.capacity_min" :max="vs.capacity_max" :disabled="isEdit || vs.capacity_min == vs.capacity_max" :readonly="isEdit || vs.capacity_min == vs.capacity_max"  placeholder="Volume Size in GB" x-model="formData.volume_size[vs.id]" @blur.debounce.500ms="checkVolumeSize(vs.id)" />
                     <div x-show="!volume_size_valid[vs.id]" class="error-message">Please enter a valid volume size in GB.</div>
                     <div class="description" x-show="vs.capacity_min != vs.capacity_max">Between <span x-text="vs.capacity_min"></span>GB and <span x-text="vs.capacity_max"></span>GB</div>
