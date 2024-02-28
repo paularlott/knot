@@ -444,10 +444,13 @@ func updateSpacesSSHKey(user *model.User) {
         continue
       }
 
-      log.Debug().Msgf("Sending SSH public key to agent %s", space.Id)
-      client := rest.NewClient(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("server.namespace")), agentState.AccessToken, viper.GetBool("tls_skip_verify"))
-      if !agentv1.CallAgentUpdateAuthorizedKeys(client, user.SSHPublicKey) {
-        log.Debug().Msg("Failed to send SSH public key to agent")
+      // If agent accepting SSH keys then update
+      if agentState.SSHPort > 0 {
+        log.Debug().Msgf("Sending SSH public key to agent %s", space.Id)
+        client := rest.NewClient(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("server.namespace")), agentState.AccessToken, viper.GetBool("tls_skip_verify"))
+        if !agentv1.CallAgentUpdateAuthorizedKeys(client, user.SSHPublicKey) {
+          log.Debug().Msg("Failed to send SSH public key to agent")
+        }
       }
     }
   }
