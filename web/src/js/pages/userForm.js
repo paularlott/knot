@@ -9,6 +9,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       email: "",
       password: "",
       password_confirm: "",
+      service_password: "",
       preferred_shell: "",
       ssh_public_key: "",
       timezone: "",
@@ -24,6 +25,7 @@ window.userForm = function(isEdit, userId, isProfile) {
     emailValid: true,
     passwordValid: true,
     confirmPasswordValid: true,
+    servicePasswordValid: true,
     shellValid: true,
     tzValid: true,
     maxSpacesValid: true,
@@ -65,6 +67,7 @@ window.userForm = function(isEdit, userId, isProfile) {
           this.formData.roles = user.roles;
           this.formData.groups = user.groups;
           this.formData.timezone = user.timezone;
+          this.formData.service_password = user.service_password;
         }
       } else {
         this.formData.preferred_shell = 'bash';
@@ -112,6 +115,9 @@ window.userForm = function(isEdit, userId, isProfile) {
     checkMaxSpaces() {
       return this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 100);
     },
+    checkServicePassword() {
+      return this.servicePasswordValid = this.formData.service_password.length <= 255;
+    },
     submitData() {
       var err = false,
           self = this;
@@ -120,8 +126,9 @@ window.userForm = function(isEdit, userId, isProfile) {
       if(!isEdit || this.formData.password.length > 0 || this.formData.password_confirm.length > 0) {
         err = !this.checkPassword() || err;
         err = !this.checkConfirmPassword() || err;
-        err = !this.checkMaxSpaces() || err;
       }
+      err = !this.checkMaxSpaces() || err;
+      err = !this.checkServicePassword() || err;
       err = !this.checkShell() || err;
       err = !this.checkTz() || err;
       if(err) {
@@ -134,6 +141,7 @@ window.userForm = function(isEdit, userId, isProfile) {
         username: this.formData.username,
         email: this.formData.email,
         password: this.formData.password,
+        service_password: this.formData.service_password,
         preferred_shell: this.formData.preferred_shell,
         ssh_public_key: this.formData.ssh_public_key,
         active: this.formData.active,

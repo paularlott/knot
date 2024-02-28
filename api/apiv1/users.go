@@ -22,6 +22,7 @@ import (
 type UserRequest struct {
   Username string `json:"username"`
   Password string `json:"password"`
+  ServicePassword string `json:"service_password"`
   Email string `json:"email"`
   Roles []string `json:"roles"`
   Groups []string `json:"groups"`
@@ -86,6 +87,9 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 
   // Create the user
   userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.MaxDiskSpace)
+  if request.ServicePassword != "" {
+    userNew.ServicePassword = request.ServicePassword
+  }
   err = db.SaveUser(userNew)
   if err != nil {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
@@ -121,6 +125,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
     Id string `json:"user_id"`
     Username string `json:"username"`
     Email string `json:"email"`
+    ServicePassword string `json:"service_password"`
     Roles []string `json:"roles"`
     Groups []string `json:"groups"`
     Active bool `json:"active"`
@@ -137,6 +142,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
     Id: user.Id,
     Username: user.Username,
     Email: user.Email,
+    ServicePassword: user.ServicePassword,
     Roles: user.Roles,
     Groups: user.Groups,
     Active: user.Active,
@@ -296,6 +302,10 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
   user.SSHPublicKey = request.SSHPublicKey
   user.PreferredShell = request.PreferredShell
   user.Timezone = request.Timezone
+
+  if request.ServicePassword != "" {
+    user.ServicePassword = request.ServicePassword
+  }
 
   if activeUser.HasPermission(model.PermissionManageUsers) {
     if !validate.IsNumber(int(request.MaxSpaces), 0, 1000) {

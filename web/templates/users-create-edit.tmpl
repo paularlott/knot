@@ -60,7 +60,7 @@
                 </div>
                 <div x-show="!tzValid" class="error-message">Enter a valid Timezone.</div>
               </dd>
-              <dt><label for="password">SSH Public Key</label></dt>
+              <dt><label for="ssh_key">SSH Public Key</label></dt>
               <dd>
                 <textarea name="ssh_key" rows="8" placeholder="SSH Public Key" x-model="formData.ssh_public_key"></textarea>
                 <p class="description">If given this key will be added to the spaces to allow you to SSH into the space.</p>
@@ -77,6 +77,14 @@
                 <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
                 <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
               </dd>
+              {{ if .isProfile }}
+              <dt><label for="service_password">Service Password <em>*</em></label></dt>
+              <dd>
+                <input type="text" name="service_password" x-on:keyup.debounce.500ms="checkServicePassword()" :class="{'error': !servicePasswordValid}" placeholder="Service Password" x-model="formData.service_password">
+                <p class="description">A password made available for initializing services such as databases.</p>
+                <div x-show="!servicePasswordValid" class="error-message">The service password is required.</div>
+              </dd>
+              {{ end }}
               {{ if and (not .isProfile) (and .isEdit .permissionManageUsers) (ne .user_id .user.id) }}
               <dt><label for="active">Active</label></dt>
               <dd class="checkbox-group">

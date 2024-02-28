@@ -25,8 +25,8 @@ func (db *MySQLDriver) SaveUser(user *model.User) error {
   }
 
   // Assume update
-  result, err := tx.Exec("UPDATE users SET email=?, password=?, active=?, updated_at=?, last_login_at=?, ssh_public_key=?, roles=?, groups=?, preferred_shell=?, timezone=?, max_spaces=?, max_disk_space=? WHERE user_id=?",
-    user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.SSHPublicKey, roles, user.Groups, user.PreferredShell, user.Timezone, user.MaxSpaces, user.MaxDiskSpace, user.Id,
+  result, err := tx.Exec("UPDATE users SET email=?, password=?, active=?, updated_at=?, last_login_at=?, ssh_public_key=?, roles=?, groups=?, preferred_shell=?, timezone=?, max_spaces=?, max_disk_space=?, service_password=? WHERE user_id=?",
+    user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.SSHPublicKey, roles, user.Groups, user.PreferredShell, user.Timezone, user.MaxSpaces, user.MaxDiskSpace, user.ServicePassword, user.Id,
   )
   if err != nil {
     tx.Rollback()
@@ -35,8 +35,8 @@ func (db *MySQLDriver) SaveUser(user *model.User) error {
 
   // If no rows were updated then do an insert
   if rows, _ := result.RowsAffected(); rows == 0 {
-    _, err = tx.Exec("INSERT INTO users (user_id, username, email, password, active, updated_at, created_at, ssh_public_key, preferred_shell, roles, groups, timezone, max_spaces, max_disk_space) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      user.Id, user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), time.Now().UTC(), user.SSHPublicKey, user.PreferredShell, roles, user.Groups, user.Timezone, user.MaxSpaces, user.MaxDiskSpace,
+    _, err = tx.Exec("INSERT INTO users (user_id, username, email, password, active, updated_at, created_at, ssh_public_key, preferred_shell, roles, groups, timezone, max_spaces, max_disk_space, service_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      user.Id, user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), time.Now().UTC(), user.SSHPublicKey, user.PreferredShell, roles, user.Groups, user.Timezone, user.MaxSpaces, user.MaxDiskSpace, user.ServicePassword,
     )
     if err != nil {
       tx.Rollback()
@@ -65,7 +65,7 @@ func (db *MySQLDriver) getUsers(where string, args ...interface{}) ([]*model.Use
     where = "WHERE " + where
   }
 
-  rows, err := db.connection.Query(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, ssh_public_key, preferred_shell, roles, groups, timezone, max_spaces, max_disk_space FROM users %s ORDER BY username ASC", where), args ...)
+  rows, err := db.connection.Query(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, ssh_public_key, preferred_shell, roles, groups, timezone, max_spaces, max_disk_space, service_password FROM users %s ORDER BY username ASC", where), args ...)
   if err != nil {
     return nil, err
   }
@@ -74,7 +74,7 @@ func (db *MySQLDriver) getUsers(where string, args ...interface{}) ([]*model.Use
   for rows.Next() {
     var user = &model.User{}
 
-    err := rows.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.SSHPublicKey, &user.PreferredShell, &roles, &user.Groups, &user.Timezone, &user.MaxSpaces, &user.MaxDiskSpace)
+    err := rows.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.SSHPublicKey, &user.PreferredShell, &roles, &user.Groups, &user.Timezone, &user.MaxSpaces, &user.MaxDiskSpace, &user.ServicePassword)
     if err != nil {
       return nil, err
     }

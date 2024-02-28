@@ -19,10 +19,8 @@ const CONFIG_ENV_PREFIX = "KNOT"
 var (
   RootCmd = &cobra.Command{
     Use:   "knot",
-    Short: "knot is a proxy server using WebSockets to tunnel SSH and TCP connections",
-    Long: `Currently a proxy server and client that can use WebSockets to tunnel SSH and TCP connections between a local and remote system over WebSockets.
-
-It also helps with direct access to services identified by SRV records.`,
+    Short: "knot simplifies the deployment of development environments",
+    Long: `knot simplifies the deployment of development environments using a Nomad cluster for hosting of the container based services.`,
     Version: build.Version + " (" + build.Date + ")",
     Run: func(cmd *cobra.Command, args []string) {
       cmd.Help()

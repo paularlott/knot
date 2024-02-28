@@ -36,6 +36,8 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
       "id": "",
       "username": "",
       "timezone": "",
+      "email": "",
+      "servicePassword": "",
     },
     "server": map[string]interface{}{
       "url": viper.GetString("server.url"),
@@ -63,6 +65,8 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
       "id": user.Id,
       "username": user.Username,
       "timezone": user.Timezone,
+      "email": user.Email,
+      "servicePassword": user.ServicePassword,
     }
   }
 

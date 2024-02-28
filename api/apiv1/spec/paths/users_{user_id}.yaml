@@ -37,6 +37,10 @@ components:
         email:
           type: string
           description: The email of the user
+        service_password:
+          type: string
+          example: "password"
+          description: Option service password of the user, if empty a default one will be generated
         roles:
           type: array
           items:
@@ -113,6 +117,10 @@ post:
               type: string
               example: "password"
               description: The password of the user
+            service_password:
+              type: string
+              example: "password"
+              description: Option service password of the user, if empty a default one will be generated
             active:
               type: boolean
               description: Whether the user is active
