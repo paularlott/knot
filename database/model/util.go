@@ -23,6 +23,12 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
     agentURL = viper.GetString("server.url")
   }
 
+  // Get the wildcard domain without the *
+  wildcardDomain := viper.GetString("server.wildcard_domain");
+  if wildcardDomain != "" && wildcardDomain[0] == '*' {
+    wildcardDomain = wildcardDomain[1:]
+  }
+
   data := map[string]interface{}{
     "space": map[string]interface{}{
       "id":   "",
@@ -37,11 +43,12 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
       "username": "",
       "timezone": "",
       "email": "",
-      "servicePassword": "",
+      "service_password": "",
     },
     "server": map[string]interface{}{
       "url": viper.GetString("server.url"),
       "agent_url": agentURL,
+      "wildcard_domain": wildcardDomain,
     },
     "var": variables,
   }
@@ -66,7 +73,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
       "username": user.Username,
       "timezone": user.Timezone,
       "email": user.Email,
-      "servicePassword": user.ServicePassword,
+      "service_password": user.ServicePassword,
     }
   }
 
