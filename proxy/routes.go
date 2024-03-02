@@ -32,7 +32,7 @@ func Routes() chi.Router {
 // Setup proxying of URLs to ports within spaces
 func PortRoutes() chi.Router {
   router := chi.NewRouter()
-  router.Get("/*", HandleSpacesWebPortProxy)
+  router.HandleFunc("/*", HandleSpacesWebPortProxy)
 
   return router
 }
