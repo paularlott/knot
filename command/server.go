@@ -57,7 +57,7 @@ func init() {
   serverCmd.Flags().StringP("mysql-password", "", "", "The MySQL password to use.\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_PASSWORD environment variable if set.")
   serverCmd.Flags().StringP("mysql-database", "", "knot", "The MySQL database to use (default \"knot\").\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_DATABASE environment variable if set.")
   serverCmd.Flags().IntP("mysql-connection-max-idle", "", 2, "The maximum number of idle connections in the connection pool (default \"10\").\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_CONNECTION_MAX_IDLE environment variable if set.")
-  serverCmd.Flags().IntP("mysql-connection-max-open", "", 10, "The maximum number of open connections to the database (default \"10\").\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_CONNECTION_MAX_OPEN environment variable if set.")
+  serverCmd.Flags().IntP("mysql-connection-max-open", "", 100, "The maximum number of open connections to the database (default \"100\").\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_CONNECTION_MAX_OPEN environment variable if set.")
   serverCmd.Flags().IntP("mysql-connection-max-lifetime", "", 5, "The maximum amount of time in minutes a connection may be reused (default \"5\").\nOverrides the " + CONFIG_ENV_PREFIX + "_MYSQL_CONNECTION_MAX_LIFETIME environment variable if set.")
 
   // BadgerDB
@@ -166,10 +166,10 @@ var serverCmd = &cobra.Command{
     viper.SetDefault("server.mysql.database", "knot")
     viper.BindPFlag("server.mysql.connection_max_idle", cmd.Flags().Lookup("mysql-connection-max-idle"))
     viper.BindEnv("server.mysql.connection_max_idle", CONFIG_ENV_PREFIX + "_MYSQL_CONNECTION_MAX_IDLE")
-    viper.SetDefault("server.mysql.connection_max_idle", 2)
+    viper.SetDefault("server.mysql.connection_max_idle", 10)
     viper.BindPFlag("server.mysql.connection_max_open", cmd.Flags().Lookup("mysql-connection-max-open"))
     viper.BindEnv("server.mysql.connection_max_open", CONFIG_ENV_PREFIX + "_MYSQL_CONNECTION_MAX_OPEN")
-    viper.SetDefault("server.mysql.connection_max_open", 10)
+    viper.SetDefault("server.mysql.connection_max_open", 100)
     viper.BindPFlag("server.mysql.connection_max_lifetime", cmd.Flags().Lookup("mysql-connection-max-lifetime"))
     viper.BindEnv("server.mysql.connection_max_lifetime", CONFIG_ENV_PREFIX + "_MYSQL_CONNECTION_MAX_LIFETIME")
     viper.SetDefault("server.mysql.connection_max_lifetime", 5)

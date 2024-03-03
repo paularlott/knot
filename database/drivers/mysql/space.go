@@ -255,19 +255,21 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
 
     // If has a parent ID then load the parent space
     if parentId != "" {
-      rows, err := db.connection.Query("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash, volume_sizes, parent_space_id FROM spaces WHERE space_id = ?", parentId)
+      rows2, err := db.connection.Query("SELECT space_id, user_id, template_id, name, agent_url, created_at, updated_at, shell, is_deployed, volume_data, nomad_namespace, nomad_job_id, template_hash, volume_sizes, parent_space_id FROM spaces WHERE space_id = ?", parentId)
       if err != nil {
         return nil, err
       }
-      defer rows.Close()
+      defer rows2.Close()
 
-      if rows.Next() {
-        space, _, err = db.getRow(rows)
+      if rows2.Next() {
+        space, _, err = db.getRow(rows2)
         if err != nil {
           return nil, err
         }
       }
     }
+  } else {
+    return nil, fmt.Errorf("space not found")
   }
 
   return space, nil
