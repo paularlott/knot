@@ -21,6 +21,7 @@ type SpaceRequest struct {
   Shell string `json:"shell"`
   UserId string `json:"user_id"`
   VolumeSize map[string]int64 `json:"volume_size"`
+  AltNames []string `json:"alt_names"`
 }
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
@@ -179,6 +180,18 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
   w.WriteHeader(http.StatusOK)
 }
 
+func removeBlankAndDuplicates(names []string, primary string) []string {
+  encountered := map[string]bool{}
+  var newNames []string
+  for _, name := range names {
+    if name != "" && name != primary && !encountered[name] {
+      encountered[name] = true
+      newNames = append(newNames, name)
+    }
+  }
+  return newNames
+}
+
 func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
   db := database.GetInstance()
   request := SpaceRequest{}
@@ -189,6 +202,9 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
     return
   }
+
+  // Remove any blank alt names, any that match the primary name, and any duplicates
+  request.AltNames = removeBlankAndDuplicates(request.AltNames, request.Name)
 
   // If user give and not our ID and no permission to manage spaces then fail
   if request.UserId != "" && request.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
@@ -205,6 +221,14 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name, template, or address given for new space"})
     return
   }
+
+  for _, altName := range request.AltNames {
+    if !validate.Name(altName) {
+      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid alt name given for space"})
+      return
+    }
+  }
+
   if(!validate.OneOf(request.Shell, []string{"bash", "zsh", "fish", "sh"})) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid shell given for space"})
     return
@@ -228,7 +252,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
   if request.UserId != "" {
     forUserId = request.UserId
   }
-  space := model.NewSpace(request.Name, forUserId, request.AgentURL, request.TemplateId, request.Shell, &request.VolumeSize)
+  space := model.NewSpace(request.Name, forUserId, request.AgentURL, request.TemplateId, request.Shell, &request.VolumeSize, &request.AltNames)
 
   // Test if over quota
   if user.MaxDiskSpace > 0 {
@@ -280,6 +304,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 type SpaceServiceResponse struct {
+  Name string `json:"name"`
   HasCodeServer bool `json:"has_code_server"`
   HasSSH bool `json:"has_ssh"`
   HasHttpVNC bool `json:"has_http_vnc"`
@@ -328,6 +353,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
     }
   }
 
+  response.Name = space.Name
   response.IsDeployed = space.IsDeployed
 
   if space.TemplateId == model.MANUAL_TEMPLATE_ID {
@@ -465,10 +491,21 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
     request.AgentURL = ""
   }
 
+  // Remove any blank alt names, any that match the primary name, and any duplicates
+  request.AltNames = removeBlankAndDuplicates(request.AltNames, request.Name)
+
   if(!validate.Name(request.Name) || (request.TemplateId == model.MANUAL_TEMPLATE_ID && !validate.Uri(request.AgentURL))) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name, template, or address given for new space"})
     return
   }
+
+  for _, altName := range request.AltNames {
+    if !validate.Name(altName) {
+      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid alt name given for space"})
+      return
+    }
+  }
+
   if(!validate.OneOf(request.Shell, []string{"bash", "zsh", "fish", "sh"})) {
     rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid shell given for space"})
     return
@@ -486,6 +523,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
   space.TemplateId = request.TemplateId
   space.AgentURL = request.AgentURL
   space.Shell = request.Shell
+  space.AltNames = request.AltNames
 
   err = db.SaveSpace(space)
   if err != nil {
@@ -551,12 +589,14 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
     Username string `json:"username"`
     UserId string `json:"user_id"`
     VolumeSize map[string]int64 `json:"volume_size"`
+    AltNames []string `json:"alt_names"`
   }{
     Name: space.Name,
     AgentURL: space.AgentURL,
     TemplateId: space.TemplateId,
     Shell: space.Shell,
     VolumeSize: space.VolumeSizes,
+    AltNames: space.AltNames,
   }
 
   // Get the user

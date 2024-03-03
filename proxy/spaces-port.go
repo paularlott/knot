@@ -1,10 +1,8 @@
 package proxy
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strings"
 
@@ -38,22 +36,9 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 
   // Look up the IP + Port from consul / DNS
   target, _ := url.Parse(fmt.Sprintf("%s/tcp/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), port))
-  proxy := httputil.NewSingleHostReverseProxy(target)
-
-  originalDirector := proxy.Director
-  proxy.Director = func(r *http.Request) {
-    originalDirector(r)
-    r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
-  }
-
-  if viper.GetBool("tls_skip_verify") {
-    proxy.Transport = &http.Transport{
-      TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-    }
-  }
-
   r.URL.Path = ""
 
+  proxy := util.NewReverseProxy(target, &agentState.AccessToken)
   proxy.ServeHTTP(w, r)
 }
 
@@ -83,14 +68,14 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 
   // Load the space
   space, err := db.GetSpaceByName(user.Id, domainParts[1])
-  if err != nil {
+  if err != nil || space == nil {
     w.WriteHeader(http.StatusNotFound)
     return
   }
 
   // Get the space auth
   agentState, err := database.GetCacheInstance().GetAgentState(space.Id)
-  if err != nil {
+  if err != nil || agentState == nil {
     w.WriteHeader(http.StatusNotFound)
     return
   }
@@ -104,19 +89,6 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
     target, _ = url.Parse(fmt.Sprintf("%s/http/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), domainParts[2]))
   }
 
-  proxy := httputil.NewSingleHostReverseProxy(target)
-
-  originalDirector := proxy.Director
-  proxy.Director = func(r *http.Request) {
-    originalDirector(r)
-    r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
-  }
-
-  if viper.GetBool("tls_skip_verify") {
-    proxy.Transport = &http.Transport{
-      TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-    }
-  }
-
+  proxy := util.NewReverseProxy(target, &agentState.AccessToken)
   proxy.ServeHTTP(w, r)
 }

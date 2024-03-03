@@ -1,10 +1,8 @@
 package proxy
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strings"
 
@@ -44,21 +42,8 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 
   // Look up the IP + Port from consul / DNS
   target, _ := url.Parse(fmt.Sprintf("%s/terminal/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), shell))
-  proxy := httputil.NewSingleHostReverseProxy(target)
-
-  originalDirector := proxy.Director
-  proxy.Director = func(r *http.Request) {
-    originalDirector(r)
-    r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", agentState.AccessToken))
-  }
-
-  if viper.GetBool("tls_skip_verify") {
-    proxy.Transport = &http.Transport{
-      TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-    }
-  }
-
   r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/terminal/%s", spaceId, shell))
 
+  proxy := util.NewReverseProxy(target, &agentState.AccessToken)
   proxy.ServeHTTP(w, r)
 }

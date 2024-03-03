@@ -49,6 +49,10 @@ post:
               type: string
             shell:
               type: string
+            alt_names:
+              type: array
+              items:
+                type: string
   responses:
     '200':
       description: Space update successfully
@@ -99,6 +103,10 @@ get:
                   type: object
                   additionalProperties:
                     type: integer
+                alt_names:
+                  type: array
+                  items:
+                    type: string
     '404':
       $ref: "../responses/not-found.yaml"
 

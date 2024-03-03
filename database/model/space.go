@@ -29,11 +29,12 @@ type Space struct {
   VolumeData map[string]SpaceVolume `json:"volume_data"`
   VolumeSizes map[string]int64 `json:"volume_sizes"`
   IsDeployed bool `json:"is_deployed"`
+  AltNames []string `json:"alt_names"`
   CreatedAt time.Time `json:"created_at"`
   UpdatedAt time.Time `json:"updated_at"`
 }
 
-func NewSpace(name string, userId string, agentURL string, templateId string, shell string, volSizes *map[string]int64) *Space {
+func NewSpace(name string, userId string, agentURL string, templateId string, shell string, volSizes *map[string]int64, altNames *[]string) *Space {
   id, err := uuid.NewV7()
   if err != nil {
     log.Fatal().Msg(err.Error())
@@ -44,6 +45,7 @@ func NewSpace(name string, userId string, agentURL string, templateId string, sh
     UserId: userId,
     TemplateId: templateId,
     Name: name,
+    AltNames: *altNames,
     AgentURL: agentURL,
     Shell: shell,
     TemplateHash: "",

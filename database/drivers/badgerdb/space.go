@@ -23,7 +23,7 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space) error {
 
     // If new space or name changed check if the new name is unique
     if existingSpace == nil || space.Name != existingSpace.Name {
-      exists, err := db.keyExists(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, space.Name))
+      exists, err := db.keyExists(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(space.Name)))
       if err != nil {
         return err
       } else if exists {
@@ -57,6 +57,55 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space) error {
       return err
     }
 
+    // If existing space
+    if existingSpace != nil {
+
+      // Delete alternate names that are no longer in the list
+      for _, altName := range existingSpace.AltNames {
+        found := false
+        for _, name := range space.AltNames {
+          if altName == name {
+            found = true
+            break
+          }
+        }
+        if !found {
+          err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(altName))))
+          if err != nil {
+            return err
+          }
+        }
+      }
+    }
+
+    // Add alt names
+    for _, name := range space.AltNames {
+      found := false
+      if existingSpace != nil {
+        for _, altName := range existingSpace.AltNames {
+          if altName == name {
+            found = true
+            break
+          }
+        }
+      }
+
+      if !found {
+        // Check if the name is unique
+        exists, err := db.keyExists(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(name)))
+        if err != nil {
+          return err
+        } else if exists {
+          return fmt.Errorf("duplicate space name")
+        }
+
+        e = badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(name))), []byte(space.Id))
+        if err = txn.SetEntry(e); err != nil {
+          return err
+        }
+      }
+    }
+
     return nil
   })
 
@@ -83,6 +132,14 @@ func (db *BadgerDbDriver) DeleteSpace(space *model.Space) error {
     err = txn.Delete([]byte(fmt.Sprintf("SpacesByTemplateId:%s:%s", space.TemplateId, space.Id)))
     if err != nil {
       return err
+    }
+
+    // Delete alternate names
+    for _, name := range space.AltNames {
+      err = txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(name))))
+      if err != nil {
+        return err
+      }
     }
 
     return nil

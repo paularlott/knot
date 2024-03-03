@@ -16,7 +16,19 @@
               <dt><label for="name">Space Name <em>*</em></label></dt>
               <dd>
                 <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Space name" x-model="formData.name">
-                <div x-show="!nameValid" class="error-message">Space name can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+                <div x-show="!nameValid" class="error-message">Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+              </dd>
+              <dt><label>Additional Space Names</label> <button type="button" class="outline" x-on:click="addAltName()"><i class='bx bxs-message-square-add' ></i></button></dt>
+              <dd>
+                <template x-for="(name, index) in formData.alt_names" :key="index">
+                  <div class="additional-name">
+                    <div class="control">
+                      <input type="text" x-model="formData.alt_names[index]" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'error': !altNameValid[index]}" placeholder="Additional space name">
+                      <button type="button" class="outline" x-on:click="removeAltName(index)"><i class='bx bx-trash'></i></button>
+                    </div>
+                    <div x-show="!altNameValid[index]" class="error-message">Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+                  </div>
+                </template>
               </dd>
               <dt><label for="name">Template <em>*</em></label></dt>
               <dd>

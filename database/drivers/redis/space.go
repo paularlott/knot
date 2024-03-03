@@ -13,7 +13,34 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// Function to take a mutex lock on the redis database so we can do save operations without overwrites
+func (db *RedisDbDriver) mutexLock() error {
+
+  for i := 0; i < 10; i++ {
+    set, err := db.connection.SetNX(context.Background(), "SpacesWriteLock", "1", 10*time.Second).Result()
+    if err == nil && set {
+      return nil
+    }
+    time.Sleep(150 * time.Millisecond)
+  }
+  return fmt.Errorf("failed to lock")
+}
+
+// Function to release the mutex lock on the redis database
+func (db *RedisDbDriver) mutexUnlock() error {
+  _, err := db.connection.Del(context.Background(), "SpacesWriteLock").Result()
+  return err
+}
+
 func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
+
+  // Grab a mutex lock on the redis database, automatically release on function exit
+  err := db.mutexLock()
+  if err != nil {
+    return err
+  }
+  defer db.mutexUnlock()
+
   // Load the existing space
   existingSpace, _ := db.GetSpace(space.Id)
   if existingSpace == nil {
@@ -24,11 +51,33 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 
   // If new space or name changed check if the new name is unique
   if existingSpace == nil || space.Name != existingSpace.Name {
-    exists, err := db.keyExists(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, space.Name))
+    exists, err := db.keyExists(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(space.Name)))
     if err != nil {
       return err
     } else if exists {
       return fmt.Errorf("duplicate space name")
+    }
+  }
+
+  // If existing space then check if the key exists for each new alt name
+  for _, name := range space.AltNames {
+    found := false
+    if existingSpace != nil {
+      for _, altName := range existingSpace.AltNames {
+        if altName == name {
+          found = true
+          break
+        }
+      }
+    }
+
+    if !found {
+      exists, err := db.keyExists(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(name)))
+      if err != nil {
+        return err
+      } else if exists {
+        return fmt.Errorf("duplicate space name")
+      }
     }
   }
 
@@ -58,6 +107,47 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
     return err
   }
 
+  // If existing space
+  if existingSpace != nil {
+
+    // Delete alternate names that are no longer in the list
+    for _, altName := range existingSpace.AltNames {
+      found := false
+      for _, name := range space.AltNames {
+        if altName == name {
+          found = true
+          break
+        }
+      }
+      if !found {
+        err = db.connection.Del(context.Background(), fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(altName))).Err()
+        if err != nil {
+          return err
+        }
+      }
+    }
+  }
+
+  // Add alt names
+  for _, name := range space.AltNames {
+    found := false
+    if existingSpace != nil {
+      for _, altName := range existingSpace.AltNames {
+        if altName == name {
+          found = true
+          break
+        }
+      }
+    }
+
+    if !found {
+      err = db.connection.Set(context.Background(), fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(name)), space.Id, 0).Err()
+      if err != nil {
+        return err
+      }
+    }
+  }
+
   return nil
 }
 
@@ -80,6 +170,14 @@ func (db *RedisDbDriver) DeleteSpace(space *model.Space) error {
   err = db.connection.Del(context.Background(), fmt.Sprintf("SpacesByTemplateId:%s:%s", space.TemplateId, space.Id)).Err()
   if err != nil {
     return err
+  }
+
+  // Delete alternate names
+  for _, altName := range space.AltNames {
+    err = db.connection.Del(context.Background(), fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(altName))).Err()
+    if err != nil {
+      return err
+    }
   }
 
   return nil

@@ -32,10 +32,13 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *RESTClien
     },
   }
 
-  if insecureSkipVerify {
-    restClient.HTTPClient.Transport = &http.Transport{
-      TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-    }
+  restClient.HTTPClient.Transport = &http.Transport{
+    TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
+    MaxConnsPerHost: 32 * 2,
+    MaxIdleConns: 32 * 2,
+    MaxIdleConnsPerHost: 32,
+    IdleConnTimeout: 30 * time.Second,
+    DisableCompression: true,
   }
 
   return restClient

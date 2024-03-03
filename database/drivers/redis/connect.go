@@ -24,7 +24,7 @@ func (db *RedisDbDriver) keyExists(key string) (bool, error) {
   var exists = false
 
   v, err := db.connection.Get(context.Background(), key).Result()
-  if err == redis.Nil {
+  if err == nil {
     exists = v != ""
   }
 

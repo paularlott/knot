@@ -6,7 +6,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       agent_url: "",
       shell: preferredShell,
       user_id: forUserId,
-      volume_size: {}
+      volume_size: {},
+      alt_names: [],
     },
     template_id: templateId,
     loading: true,
@@ -19,6 +20,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     volume_size_label: {},
     isEdit: isEdit,
     hasEditableVolumeSizes: false,
+    altNameValid: [],
 
     async initData() {
       var self = this;
@@ -49,6 +51,13 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           } else {
             this.formData.user_id = "";
             this.forUsername = "";
+          }
+
+          // Set the alt names and mark all as valid
+          this.formData.alt_names = space.alt_names ? space.alt_names : [];
+          this.altNameValid = [];
+          for (var i = 0; i < this.formData.alt_names.length; i++) {
+            this.altNameValid.push(true);
           }
         }
       } else {
@@ -90,6 +99,14 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
 
       this.loading = false;
     },
+    async addAltName() {
+      this.altNameValid.push(true);
+      this.formData.alt_names.push('');
+    },
+    async removeAltName(index) {
+      this.formData.alt_names.splice(index, 1);
+      this.altNameValid.splice(index, 1);
+    },
     checkName() {
       // Update the labels
       for (var i = 0; i < this.volume_size.length; i++) {
@@ -97,6 +114,25 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       }
 
       return this.nameValid = validate.name(this.formData.name);
+    },
+    checkAltName(index) {
+      if(index >= 0 && index < this.formData.alt_names.length) {
+        var isValid = validate.name(this.formData.alt_names[index]) && this.formData.alt_names[index] !== this.formData.name;
+
+        // If valid then check for duplicate extra name
+        if(isValid) {
+          for (var i = 0; i < this.formData.alt_names.length; i++) {
+            if(i !== index && this.formData.alt_names[i] === this.formData.alt_names[index]) {
+              isValid = false;
+              break;
+            }
+          }
+        }
+
+        return this.altNameValid[index] = isValid;
+      } else {
+        return false;
+      }
     },
     checkAddress() {
       if(this.formData.template_id == "00000000-0000-0000-0000-000000000000") {
@@ -118,6 +154,19 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       // Check the sizes of all the volumes
       for (var i = 0; i < this.volume_size.length; i++) {
         err = !this.checkVolumeSize(this.volume_size[i].id) || err;
+      }
+
+      // Remove the blank alt names
+      for (var i = this.formData.alt_names.length - 1; i >= 0; i--) {
+        if(this.formData.alt_names[i] === '') {
+          this.formData.alt_names.splice(i, 1);
+          this.altNameValid.splice(i, 1);
+        }
+      }
+
+      // Check the alt names
+      for (var i = 0; i < this.formData.alt_names.length; i++) {
+        err = !this.checkAltName(i) || err;
       }
 
       if(err) {

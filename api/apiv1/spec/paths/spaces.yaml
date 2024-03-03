@@ -54,6 +54,10 @@ post:
               type: string
             user_id:
               type: string
+            alt_names:
+              type: array
+              items:
+                type: string
   responses:
     '201':
       description: Space created successfully

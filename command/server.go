@@ -206,8 +206,8 @@ var serverCmd = &cobra.Command{
 
     // Check manual template is present, create it if not
     db := database.GetInstance()
-    _, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
-    if err != nil {
+    tpl, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
+    if err != nil || tpl == nil {
       template := model.NewTemplate("Manual-Configuration", "Access a manually installed agent.", "manual", "", "", []string{})
       template.Id = model.MANUAL_TEMPLATE_ID
       db.SaveTemplate(template)

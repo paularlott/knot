@@ -73,6 +73,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       }).then((response) => {
         if (response.status === 200) {
           response.json().then((serviceState) => {
+            space.name = serviceState.name;
             space.has_code_server = serviceState.has_code_server;
             space.has_ssh = serviceState.has_ssh;
             space.has_terminal = serviceState.has_terminal;
@@ -81,6 +82,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             space.tcp_ports = serviceState.tcp_ports;
             space.http_ports = serviceState.http_ports;
             space.has_http_vnc = serviceState.has_http_vnc;
+            space.sshCmd = "ssh -o ProxyCommand='knot forward ssh %h' -o StrictHostKeyChecking=no " + username + "@" + serviceState.name;
 
             if (resetStateFlags) {
               space.starting = false;

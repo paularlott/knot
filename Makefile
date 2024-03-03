@@ -97,6 +97,11 @@ tag:
 create-release:
 	gh release create v$(VERSION) $(OUTPUT_DIR)/*.zip -t "Release $(VERSION)" -n "Knot $(VERSION)"
 
+.PHONY: run-server
+## Run the server for development
+run-server:
+	go run . server --log-level=debug --download-path=./bin
+
 .PHONY: help
 ## This help screen
 help:

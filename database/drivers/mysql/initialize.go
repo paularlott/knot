@@ -64,11 +64,12 @@ INDEX user_id (user_id)
   log.Debug().Msg("db: creating spaces table")
   _, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS spaces (
 space_id CHAR(36) PRIMARY KEY,
+parent_space_id CHAR(36) DEFAULT '',
 user_id CHAR(36),
-template_id CHAR(36),
+template_id CHAR(36) DEFAULT '',
 name VARCHAR(64),
-agent_url VARCHAR(255),
-shell VARCHAR(8),
+agent_url VARCHAR(255) DEFAULT '',
+shell VARCHAR(8) DEFAULT '',
 template_hash VARCHAR(32) DEFAUlT '',
 nomad_namespace VARCHAR(255) DEFAULT '',
 nomad_job_id VARCHAR(255) DEFAULT '',
@@ -79,7 +80,8 @@ created_at TIMESTAMP,
 updated_at TIMESTAMP,
 INDEX user_id (user_id),
 INDEX template_id (template_id),
-UNIQUE INDEX name (user_id, name)
+UNIQUE INDEX name (user_id, name),
+INDEX parent_space_id (parent_space_id)
 )`)
   if err != nil {
     return err
