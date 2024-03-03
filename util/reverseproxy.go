@@ -32,7 +32,7 @@ func NewReverseProxy(target *url.URL, accessToken *string) *httputil.ReverseProx
     MaxIdleConns: 32 * 2,
     MaxIdleConnsPerHost: 32,
     IdleConnTimeout: 30 * time.Second,
-    DisableCompression: true,
+    DisableCompression: false,
   }
 
   return proxy
