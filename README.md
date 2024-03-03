@@ -17,6 +17,8 @@ This project is designed to be used within trusted environments rather than on t
 - **Environment Templates:** Customizable templates for creating consistent development environments.
 - **Integration with Nomad:** Ensures seamless integration with Nomad for efficient cluster management.
 - **Quotas:** Limit by disk space usage and by number of spaces per user.
+- **Development URL Management:** Automatically generated URLs for development spaces.
+- **Support for VNC:** Support for web based VNC servers such as KasmVNC.
 
 ## Documentation
 
