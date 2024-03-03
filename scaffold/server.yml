@@ -19,9 +19,6 @@ server:
     user: root
     password: ""
     database: knot
-    connection_max_idle: 2
-    connection_max_open: 10
-    connection_max_lifetime: 5
 
   badgerdb:
     enabled: false
