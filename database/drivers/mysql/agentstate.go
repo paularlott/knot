@@ -24,8 +24,8 @@ func (db *MySQLDriver) SaveAgentState(state *model.AgentState) error {
   httpPorts, _ := json.Marshal(state.HttpPorts)
 
   // Assume update
-  result, err := tx.Exec("UPDATE agentstate SET access_token=?, has_code_server=?, ssh_port=?, vnc_http_port=?, has_terminal=?, tcp_ports=?, http_ports=?, expires_after=? WHERE space_id=?",
-    state.AccessToken, state.HasCodeServer, state.SSHPort, state.VNCHttpPort, state.HasTerminal, tcpPorts, httpPorts, state.ExpiresAfter, state.Id,
+  result, err := tx.Exec("UPDATE agentstate SET access_token=?, has_code_server=?, ssh_port=?, vnc_http_port=?, has_terminal=?, tcp_ports=?, http_ports=?, expires_after=?, agent_version=? WHERE space_id=?",
+    state.AccessToken, state.HasCodeServer, state.SSHPort, state.VNCHttpPort, state.HasTerminal, tcpPorts, httpPorts, state.ExpiresAfter, state.AgentVersion, state.Id,
   )
   if err != nil {
     tx.Rollback()
@@ -34,8 +34,8 @@ func (db *MySQLDriver) SaveAgentState(state *model.AgentState) error {
 
   // If no rows were updated then do an insert
   if rows, _ := result.RowsAffected(); rows == 0 {
-    _, err = tx.Exec("INSERT INTO agentstate (space_id, access_token, has_code_server, ssh_port, vnc_http_port, has_terminal, tcp_ports, http_ports, expires_after) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      state.Id, state.AccessToken, state.HasCodeServer, state.SSHPort, state.VNCHttpPort, state.HasTerminal, tcpPorts, httpPorts, state.ExpiresAfter,
+    _, err = tx.Exec("INSERT INTO agentstate (space_id, access_token, has_code_server, ssh_port, vnc_http_port, has_terminal, tcp_ports, http_ports, expires_after) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      state.Id, state.AccessToken, state.HasCodeServer, state.SSHPort, state.VNCHttpPort, state.HasTerminal, tcpPorts, httpPorts, state.ExpiresAfter, state.AgentVersion,
     )
     if err != nil {
       tx.Rollback()
@@ -68,7 +68,7 @@ func (db *MySQLDriver) getAgentState(query string, args ...interface{}) ([]*mode
     var tcpPorts string
     var httpPorts string
 
-    err := rows.Scan(&state.Id, &state.AccessToken, &state.HasCodeServer, &state.SSHPort, &state.VNCHttpPort, &state.HasTerminal, &tcpPorts, &httpPorts, &expiresAfter)
+    err := rows.Scan(&state.Id, &state.AccessToken, &state.HasCodeServer, &state.SSHPort, &state.VNCHttpPort, &state.HasTerminal, &tcpPorts, &httpPorts, &expiresAfter, &state.AgentVersion)
     if err != nil {
       return nil, err
     }
@@ -96,7 +96,7 @@ func (db *MySQLDriver) getAgentState(query string, args ...interface{}) ([]*mode
 }
 
 func (db *MySQLDriver) GetAgentState(id string) (*model.AgentState, error) {
-  states, err := db.getAgentState("SELECT space_id, access_token, has_code_server, ssh_port, vnc_http_port, has_terminal, tcp_ports, http_ports, expires_after FROM agentstate WHERE space_id = ?", id)
+  states, err := db.getAgentState("SELECT space_id, access_token, has_code_server, ssh_port, vnc_http_port, has_terminal, tcp_ports, http_ports, expires_after, agent_version FROM agentstate WHERE space_id = ?", id)
   if err != nil || len(states) == 0 {
     return nil, err
   }

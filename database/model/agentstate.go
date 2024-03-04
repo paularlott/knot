@@ -16,6 +16,7 @@ const (
 // Struct holding the state of an agent
 type AgentState struct {
 	Id string `json:"space_id"`
+  AgentVersion string `json:"agent_version"`
   AccessToken string `json:"access_token"`
   HasCodeServer bool `json:"has_code_server"`
   SSHPort int `json:"ssh_port"`
@@ -34,6 +35,7 @@ func NewAgentState(spaceId string) *AgentState {
 
   state := &AgentState{
     Id: spaceId,
+    AgentVersion: "",
     AccessToken: id.String(),
     HasCodeServer: false,
     SSHPort: 0,

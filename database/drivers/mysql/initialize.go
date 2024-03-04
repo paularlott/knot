@@ -152,6 +152,7 @@ updated_at TIMESTAMP
   _, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS agentstate (
 space_id CHAR(36) PRIMARY KEY,
 access_token CHAR(36),
+agent_version VARCHAR(32) NOT NULL DEFAULT '',
 has_code_server TINYINT NOT NULL DEFAULT 0,
 ssh_port INT NOT NULL DEFAULT 0,
 vnc_http_port INT NOT NULL DEFAULT 0,

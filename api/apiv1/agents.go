@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/api/agentv1"
+	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
@@ -89,6 +90,7 @@ func CallRegisterAgent(client *rest.RESTClient, spaceId string) (*AgentRegisterR
 }
 
 type AgentStatusRequest struct {
+  AgentVersion string `json:"agent_version"`
   HasCodeServer bool `json:"has_code_server"`
   SSHPort int `json:"ssh_port"`
   VNCHttpPort int `json:"vnc_http_port"`
@@ -115,6 +117,7 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
 
   // Test if an agent is registered for the space, in RegisteredAgents map
   if state, err := cache.GetAgentState(spaceId); err == nil {
+    state.AgentVersion = request.AgentVersion
     state.HasCodeServer = request.HasCodeServer
     state.SSHPort = request.SSHPort
     state.VNCHttpPort = request.VNCHttpPort
@@ -134,6 +137,7 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
 
 func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts []int, httpPorts []int) (int, error) {
   request := &AgentStatusRequest{
+    AgentVersion: build.Version,
     HasCodeServer: hasCodeServer,
     SSHPort: sshPort,
     VNCHttpPort: vncHttpPort,
