@@ -44,6 +44,7 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
   target, _ := url.Parse(fmt.Sprintf("%s/terminal/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), shell))
   r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/terminal/%s", spaceId, shell))
 
-  proxy := util.NewReverseProxy(target, &agentState.AccessToken)
+  token := "Bearer " + agentState.AccessToken
+  proxy := util.NewReverseProxy(target, &token)
   proxy.ServeHTTP(w, r)
 }

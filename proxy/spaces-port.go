@@ -38,7 +38,8 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
   target, _ := url.Parse(fmt.Sprintf("%s/tcp/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), port))
   r.URL.Path = ""
 
-  proxy := util.NewReverseProxy(target, &agentState.AccessToken)
+  token := "Bearer " + agentState.AccessToken
+  proxy := util.NewReverseProxy(target, &token)
   proxy.ServeHTTP(w, r)
 }
 
@@ -89,6 +90,7 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
     target, _ = url.Parse(fmt.Sprintf("%s/http/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), domainParts[2]))
   }
 
-  proxy := util.NewReverseProxy(target, &agentState.AccessToken)
+  token := "Bearer " + agentState.AccessToken
+  proxy := util.NewReverseProxy(target, &token)
   proxy.ServeHTTP(w, r)
 }

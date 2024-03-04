@@ -43,6 +43,7 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
   target, _ := url.Parse(fmt.Sprintf("%s/code-server/", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/")))
   r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/code-server", spaceId))
 
-  proxy := util.NewReverseProxy(target, &agentState.AccessToken)
+  token := "Bearer " + agentState.AccessToken
+  proxy := util.NewReverseProxy(target, &token)
   proxy.ServeHTTP(w, r)
 }

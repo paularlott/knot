@@ -2,7 +2,6 @@ package util
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -22,7 +21,7 @@ func NewReverseProxy(target *url.URL, accessToken *string) *httputil.ReverseProx
     req.Header.Set("X-Proxy", "knot " + build.Version)
 
     if accessToken != nil {
-      req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *accessToken))
+      req.Header.Set("Authorization", *accessToken)
     }
   }
 

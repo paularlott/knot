@@ -20,7 +20,7 @@ func agentProxyVNCHttp(w http.ResponseWriter, r *http.Request) {
 
   r.URL.Path = strings.TrimPrefix(r.URL.Path, "/vnc")
 
-  token := base64.StdEncoding.EncodeToString([]byte("knot:" + viper.GetString("agent.service_password")))
+  token := "Basic " + base64.StdEncoding.EncodeToString([]byte("knot:" + viper.GetString("agent.service_password")))
   proxy := util.NewReverseProxy(target, &token)
   proxy.ServeHTTP(w, r)
 }
