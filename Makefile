@@ -102,6 +102,11 @@ create-release:
 run-server:
 	go run . server --log-level=debug --download-path=./bin
 
+.PHONY: run-moon
+## Run the server for development
+run-moon:
+	go run . server --log-level=debug --download-path=./bin --config=.knot-moon.yml
+
 .PHONY: help
 ## This help screen
 help:

@@ -27,6 +27,9 @@
     <li><a href="/api-docs/"><i class="bx bx-code-alt"></i> API Docs</a></li>
     <li><a href="https://github.com/paularlott/knot/issues"><i class="bx bx-bug"></i> Report a Bug</a></li>
     <li><a href="https://github.com/paularlott/knot/"><i class="bx bxl-github"></i> Github</a></li>
+    {{ if .hasMoonKey }}
+    <li><span><i class='bx bx-current-location'></i> {{ .location }}</span></li>
+    {{ end }}
     <li class="version">v{{ .version }}</li>
   </ul>
 </nav>
