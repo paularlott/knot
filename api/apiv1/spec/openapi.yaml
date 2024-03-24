@@ -52,6 +52,8 @@ paths:
     $ref: paths/users.yaml
   /api/v1/users/{user_id}:
     $ref: paths/users_{user_id}.yaml
+  /api/v1/users/whoami:
+    $ref: paths/users_whoami.yaml
 
   /api/v1/groups:
     $ref: paths/groups.yaml
@@ -66,8 +68,12 @@ paths:
   /api/v1/sessions/{session_id}:
     $ref: paths/sessions_{session_id}.yaml
 
+  /api/v1/auth:
+    $ref: paths/auth.yaml
   /api/v1/auth/web:
     $ref: paths/auth_web.yaml
+  /api/v1/auth/logout:
+    $ref: paths/auth_logout.yaml
 
   /api/v1/tokens:
     $ref: paths/tokens.yaml

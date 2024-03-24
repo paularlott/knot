@@ -38,6 +38,7 @@ type IDbDriver interface {
 	DeleteSession(session *model.Session) error
 	GetSession(id string) (*model.Session, error)
 	GetSessionsForUser(userId string) ([]*model.Session, error)
+	GetSessions() ([]*model.Session, error)
 
 	// Tokens
 	SaveToken(token *model.Token) error

@@ -16,16 +16,16 @@ func ApiRoutes() chi.Router {
 		// Core
 		router.Get("/lookup/{service}", HandleLookup)
 		router.Get("/ping", HandlePing)
+		router.Post("/auth/logout", HandleLogout)
 
 		// Users
 		router.Route("/users", func(router chi.Router) {
-			if middleware.HasUsers {
-				router.Use(middleware.ApiPermissionManageUsers)
-			}
+			router.Use(middleware.ApiPermissionManageUsers)
 
 			router.Post("/", HandleCreateUser)
 			router.Get("/", HandleGetUsers)
 		})
+		router.Get("/users/whoami", HandleWhoAmI)
 		router.Route("/users/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
 			router.Use(middleware.ApiPermissionManageUsersOrSelf)
 
@@ -118,7 +118,10 @@ func ApiRoutes() chi.Router {
 	})
 
 	// Unauthenticated routes
-	router.Post("/auth/web", HandleAuthorization)
+	router.Route("/auth", func(router chi.Router) {
+		router.Post("/", HandleAuthorization)
+		router.Post("/web", HandleAuthorization)
+	})
 	router.Post("/agents/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleRegisterAgent)
 
 	return router

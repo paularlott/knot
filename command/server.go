@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/api/apiv1"
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
@@ -37,9 +38,9 @@ func init() {
 	serverCmd.Flags().StringP("wildcard-domain", "", "", "The wildcard domain to use for proxying to spaces.\nOverrides the "+CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN environment variable if set.")
 	serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the "+CONFIG_ENV_PREFIX+"_ENCRYPT environment variable if set.")
 	serverCmd.Flags().StringP("agent-url", "", "", "The URL agents should use to talk to the server (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_AGENT_URL environment variable if set.")
-	serverCmd.Flags().StringP("location", "", "planet", "The location of the server (defaults to the hostname).\nOverrides the "+CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
-	serverCmd.Flags().StringP("moon-of", "", "", "The address of the server this server is to become a moon of (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_MOON_OF environment variable if set.")
-	serverCmd.Flags().StringP("moon-key", "", "", "The key to use for moon communication (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_MOON_KEY environment variable if set.")
+	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to the hostname).\nOverrides the "+CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
+	serverCmd.Flags().StringP("core-server", "", "", "The address of the core server this server is to become a remote of (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_CORE_SERVER environment variable if set.")
+	serverCmd.Flags().StringP("remote-key", "", "", "The key to use for remote and core server communication (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REMOTE_KEY environment variable if set.")
 
 	// TLS
 	serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the "+CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -128,13 +129,13 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.location", CONFIG_ENV_PREFIX+"_LOCATION")
 		viper.SetDefault("server.location", hostname)
 
-		viper.BindPFlag("server.moon_of", cmd.Flags().Lookup("moon-of"))
-		viper.BindEnv("server.moon_of", CONFIG_ENV_PREFIX+"_MOON_OF")
-		viper.SetDefault("server.moon_of", "")
+		viper.BindPFlag("server.core_server", cmd.Flags().Lookup("core-server"))
+		viper.BindEnv("server.core_server", CONFIG_ENV_PREFIX+"_CORE_SERVER")
+		viper.SetDefault("server.core_server", "")
 
-		viper.BindPFlag("server.moon_key", cmd.Flags().Lookup("moon-key"))
-		viper.BindEnv("server.moon_key", CONFIG_ENV_PREFIX+"_MOON_KEY")
-		viper.SetDefault("server.moon_key", "")
+		viper.BindPFlag("server.remote_key", cmd.Flags().Lookup("remote-key"))
+		viper.BindEnv("server.remote_key", CONFIG_ENV_PREFIX+"_REMOTE_KEY")
+		viper.SetDefault("server.remote_key", "")
 
 		// TLS
 		viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
@@ -217,9 +218,9 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.redis.db", CONFIG_ENV_PREFIX+"_REDIS_DB")
 		viper.SetDefault("server.redis.db", 0)
 
-		// Set if moon or planet
-		viper.Set("server.is_moon", viper.GetString("server.moon_key") != "" && viper.GetString("server.moon_of") != "")
-		viper.Set("server.is_planet", viper.GetString("server.moon_key") != "" && viper.GetString("server.moon_of") == "")
+		// Set if remote or core server
+		viper.Set("server.is_remote", viper.GetString("server.remote_key") != "" && viper.GetString("server.core_server") != "")
+		viper.Set("server.is_core", viper.GetString("server.remote_key") != "" && viper.GetString("server.core_server") == "")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := viper.GetString("server.listen")
@@ -230,7 +231,7 @@ var serverCmd = &cobra.Command{
 		middleware.Initialize()
 
 		// Check manual template is present, create it if not
-		if !viper.GetBool("server.is_moon") {
+		if !viper.GetBool("server.is_remote") {
 			db := database.GetInstance()
 			tpl, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
 			if err != nil || tpl == nil {
@@ -238,6 +239,8 @@ var serverCmd = &cobra.Command{
 				template.Id = model.MANUAL_TEMPLATE_ID
 				db.SaveTemplate(template)
 			}
+		} else {
+			startRemoteServerServices()
 		}
 
 		router := chi.NewRouter()
@@ -386,4 +389,34 @@ var serverCmd = &cobra.Command{
 		log.Info().Msg("server: shutdown")
 		os.Exit(0)
 	},
+}
+
+func startRemoteServerServices() {
+	log.Info().Msg("server: starting remote server services")
+
+	// Start a go routine that runs once per hour and pings all sessions to keep them alive
+	go func() {
+		for {
+			time.Sleep(1 * time.Hour)
+
+			log.Debug().Msg("server: refreshing remote sessions")
+
+			db := database.GetCacheInstance()
+			sessions, err := db.GetSessions()
+			if err != nil {
+				log.Error().Msgf("failed to get sessions: %s", err.Error())
+				continue
+			}
+
+			for _, session := range sessions {
+				if session.TokenId != "" {
+					client := apiclient.NewRemoteSession(session.TokenId)
+					_, err := client.Ping()
+					if err != nil {
+						log.Error().Msgf("failed to ping session: %s", err.Error())
+					}
+				}
+			}
+		}
+	}()
 }

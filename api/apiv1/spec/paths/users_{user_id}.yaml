@@ -1,7 +1,7 @@
 get:
   tags:
     - Users
-  summary: Get a User by ID
+  summary: Get a User
   operaionId: getUser
   parameters:
     - name: user_id
@@ -16,74 +16,12 @@ get:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/User'
+            $ref: '../schemas/user.yaml'
     '400':
       $ref: "../responses/bad-request.yaml"
 
     '403':
       $ref: "../responses/forbidden.yaml"
-
-components:
-  schemas:
-    User:
-      type: object
-      properties:
-        user_id:
-          type: string
-          description: The ID of the user
-        username:
-          type: string
-          description: The username of the user
-        email:
-          type: string
-          description: The email of the user
-        service_password:
-          type: string
-          example: "password"
-          description: Option service password of the user, if empty a default one will be generated
-        roles:
-          type: array
-          items:
-            type: string
-          description: The roles of the user
-        groups:
-          type: array
-          items:
-            type: string
-          description: The groups of the user
-        active:
-          type: boolean
-          description: Whether the user is active
-        current:
-          type: boolean
-          description: Whether the user is the current user
-        last_login_at:
-          type: string
-          format: date-time
-          description: The last login time of the user
-        created_at:
-          type: string
-          format: date-time
-          description: The date and time the user was created
-        updated_at:
-          type: string
-          format: date-time
-          description: The date and time the user was last updated
-        ssh_public_key:
-          type: string
-          description: The SSH key for the user
-        preferred_shell:
-          type: string
-          description: The preferred shell of the user
-        timezone:
-          type: string
-          description: The timezone of the user
-        max_spaces:
-          type: integer
-          description: The maximum number of spaces the user can have, 0 for unlimited
-        max_disk_space:
-          type: integer
-          description: The maximum disk space the user can have, 0 for unlimited.
 
 post:
   tags:

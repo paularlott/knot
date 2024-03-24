@@ -18,7 +18,7 @@ var (
 )
 
 func Initialize() {
-	if !viper.GetBool("server.is_moon") {
+	if !viper.GetBool("server.is_remote") {
 		// Test if there's users present in the system
 		db := database.GetInstance()
 		hasUsers, err := db.HasUsers()
@@ -32,7 +32,7 @@ func Initialize() {
 			HasUsers = false
 		}
 	} else {
-		// Server is a moon so assume users exist as remote server provides user information
+		// Server is a remote so assume users exist as remote server provides user information
 		HasUsers = true
 	}
 }
@@ -85,7 +85,14 @@ func ApiAuth(next http.Handler) http.Handler {
 			} else {
 
 				// Get the session
-				session := GetSessionFromCookie(r)
+				var session *model.Session
+				remoteSession := r.Header.Get("X-Knot-Remote-Session")
+				if remoteSession != "" {
+					session, _ = cache.GetSession(remoteSession)
+				} else {
+					session = GetSessionFromCookie(r)
+				}
+
 				if session == nil {
 					returnUnauthorized(w)
 					return
@@ -147,7 +154,7 @@ func ApiPermissionManageVolumes(next http.Handler) http.Handler {
 func ApiPermissionManageUsers(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionManageUsers) {
+		if HasUsers && !user.HasPermission(model.PermissionManageUsers) {
 			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage users"})
 			return
 		}
@@ -191,6 +198,8 @@ func WebAuth(next http.Handler) http.Handler {
 
 		// Save the session to update its life
 		database.GetCacheInstance().SaveSession(session)
+
+		// TODO start a go routine to update the session on the core server in the background, if session has a token id
 
 		ctx := context.WithValue(r.Context(), "user", user)
 		ctx = context.WithValue(ctx, "session", session)

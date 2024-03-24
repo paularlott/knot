@@ -1,11 +1,11 @@
 post:
   tags:
     - Authorization
-  summary: Login Web User
+  summary: Login
   description: |
     Authenticate a user with the server and create a web access token.
 
-    A session is also opened and session cookie set within the response.
+    A session is also opened but no session cookie is set within the response.
   operaionId: LoginUser
   requestBody:
     required: true

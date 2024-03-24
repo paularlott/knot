@@ -1,0 +1,17 @@
+get:
+  tags:
+    - Users
+  summary: Get Logged In User
+  operaionId: getWhoAmI
+  responses:
+    '200':
+      description: A user
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/user.yaml'
+    '400':
+      $ref: "../responses/bad-request.yaml"
+
+    '403':
+      $ref: "../responses/forbidden.yaml"

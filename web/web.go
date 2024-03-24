@@ -237,7 +237,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes),
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
-		"hasMoonKey":                viper.GetString("server.moon_key") != "",
+		"hasRemoteKey":              viper.GetString("server.remote_key") != "",
 		"location":                  viper.GetString("server.location"),
+		"isRemote":                  viper.GetBool("server.is_remote"),
 	}
 }

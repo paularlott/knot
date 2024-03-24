@@ -11,108 +11,108 @@ import (
 
 // User object
 type User struct {
-  Id string `json:"user_id"`
-  Username string `json:"username"`
-  Email string `json:"email"`
-  Password string `json:"password"`
-  ServicePassword string `json:"service_password"`
-  SSHPublicKey string `json:"ssh_public_key"`
-  Roles JSONDbArray `json:"roles"`
-  Groups JSONDbArray `json:"groups"`
-  Active bool `json:"active"`
-  MaxSpaces int `json:"max_spaces"`
-  MaxDiskSpace int `json:"max_disk_space"`
-  PreferredShell string `json:"preferred_shell"`
-  Timezone string `json:"timezone"`
-  LastLoginAt *time.Time `json:"last_login_at"`
-  UpdatedAt time.Time `json:"updated_at"`
-  CreatedAt time.Time `json:"created_at"`
+	Id              string      `json:"user_id"`
+	Username        string      `json:"username"`
+	Email           string      `json:"email"`
+	Password        string      `json:"password"`
+	ServicePassword string      `json:"service_password"`
+	SSHPublicKey    string      `json:"ssh_public_key"`
+	Roles           JSONDbArray `json:"roles"`
+	Groups          JSONDbArray `json:"groups"`
+	Active          bool        `json:"active"`
+	MaxSpaces       int         `json:"max_spaces"`
+	MaxDiskSpace    int         `json:"max_disk_space"`
+	PreferredShell  string      `json:"preferred_shell"`
+	Timezone        string      `json:"timezone"`
+	LastLoginAt     *time.Time  `json:"last_login_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+	CreatedAt       time.Time   `json:"created_at"`
 }
 
 func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string, timezone string, maxSpaces int, maxDiskSpace int) *User {
-  id, err := uuid.NewV7()
-  if err != nil {
-    log.Fatal().Msg(err.Error())
-  }
+	id, err := uuid.NewV7()
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+	}
 
-  user := &User{
-    Id: id.String(),
-    Username: username,
-    Email: email,
-    Active: true,
-    SSHPublicKey: sshPublicKey,
-    PreferredShell: preferredShell,
-    Roles: roles,
-    Groups: groups,
-    Timezone: timezone,
-    MaxSpaces: maxSpaces,
-    MaxDiskSpace: maxDiskSpace,
-    ServicePassword: generateRandomString(16),
-  }
+	user := &User{
+		Id:              id.String(),
+		Username:        username,
+		Email:           email,
+		Active:          true,
+		SSHPublicKey:    sshPublicKey,
+		PreferredShell:  preferredShell,
+		Roles:           roles,
+		Groups:          groups,
+		Timezone:        timezone,
+		MaxSpaces:       maxSpaces,
+		MaxDiskSpace:    maxDiskSpace,
+		ServicePassword: generateRandomString(16),
+	}
 
-  user.SetPassword(password)
+	user.SetPassword(password)
 
-  return user
+	return user
 }
 
 // Set the password for the user
 func (u *User) SetPassword(password string) error {
-  // Create bcrypt password
-  bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-  if err == nil {
-    u.Password = string(bytes)
-  }
+	// Create bcrypt password
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err == nil {
+		u.Password = string(bytes)
+	}
 
-  return err
+	return err
 }
 
 // Check the password for the user
 func (u *User) CheckPassword(password string) bool {
-  return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)) == nil
+	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)) == nil
 }
 
 func (u *User) HasPermission(permission int) bool {
-  for _, role := range u.Roles {
+	for _, role := range u.Roles {
 
-    // If role exists in rolePermissions map then check if the permission belongs to the role
-    if permissions, ok := rolePermissions[role]; ok {
-      for _, p := range permissions {
-        if p == permission {
-          return true
-        }
-      }
-    }
-  }
+		// If role exists in rolePermissions map then check if the permission belongs to the role
+		if permissions, ok := rolePermissions[role]; ok {
+			for _, p := range permissions {
+				if p == permission {
+					return true
+				}
+			}
+		}
+	}
 
-  return false
+	return false
 }
 
 func (u *User) HasAnyGroup(groups *JSONDbArray) bool {
 
-  // If user has no groups then return false
-  if len(u.Groups) == 0 {
-    return false
-  }
+	// If user has no groups then return false
+	if len(u.Groups) == 0 {
+		return false
+	}
 
-  // If user has groups then check if any of the groups match
-  for _, group := range u.Groups {
-    for _, g := range *groups {
-      if g == group {
-        return true
-      }
-    }
-  }
+	// If user has groups then check if any of the groups match
+	for _, group := range u.Groups {
+		for _, g := range *groups {
+			if g == group {
+				return true
+			}
+		}
+	}
 
-  return false
+	return false
 }
 
 func generateRandomString(length int) string {
-    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-    seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-    b := make([]byte, length)
-    for i := range b {
-        b[i] = charset[seededRand.Intn(len(charset))]
-    }
-    return string(b)
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
 }
