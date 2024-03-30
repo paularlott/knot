@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/rest"
@@ -45,14 +46,25 @@ func returnUnauthorized(w http.ResponseWriter) {
 	})
 }
 
+func GetBearerToken(w http.ResponseWriter, r *http.Request) string {
+	// Get the auth token
+	var bearer string
+	fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &bearer)
+	if len(bearer) != 36 {
+		returnUnauthorized(w)
+		return ""
+	}
+
+	return bearer
+}
+
 func ApiAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		// If there's no users in the system then we don't check for authentication
 		if HasUsers {
-			var userId string
-			var err error
+			var userId string = ""
 
 			db := database.GetInstance()
 			cache := database.GetCacheInstance()
@@ -62,9 +74,8 @@ func ApiAuth(next http.Handler) http.Handler {
 			if authorization != "" {
 
 				// Get the auth token
-				var bearer string
-				fmt.Sscanf(authorization, "Bearer %s", &bearer)
-				if len(bearer) != 36 {
+				bearer := GetBearerToken(w, r)
+				if bearer == "" {
 					returnUnauthorized(w)
 					return
 				}
@@ -82,17 +93,16 @@ func ApiAuth(next http.Handler) http.Handler {
 
 				// Add the token to the context
 				ctx = context.WithValue(r.Context(), "access_token", token)
+
+				// If remote then setup the client
+				if viper.GetBool("server.is_remote") {
+					client := apiclient.NewRemoteToken(token.RemoteTokenId)
+					ctx = context.WithValue(ctx, "remote_client", client)
+				}
 			} else {
 
 				// Get the session
-				var session *model.Session
-				remoteSession := r.Header.Get("X-Knot-Remote-Session")
-				if remoteSession != "" {
-					session, _ = cache.GetSession(remoteSession)
-				} else {
-					session = GetSessionFromCookie(r)
-				}
-
+				session := GetSessionFromCookie(r)
 				if session == nil {
 					returnUnauthorized(w)
 					return
@@ -105,6 +115,12 @@ func ApiAuth(next http.Handler) http.Handler {
 
 				// Add the session to the context
 				ctx = context.WithValue(r.Context(), "session", session)
+
+				// If remote then setup the client
+				if viper.GetBool("server.is_remote") {
+					client := apiclient.NewRemoteSession(session.RemoteSessionId)
+					ctx = context.WithValue(ctx, "remote_client", client)
+				}
 			}
 
 			// Get the user
@@ -199,8 +215,6 @@ func WebAuth(next http.Handler) http.Handler {
 		// Save the session to update its life
 		database.GetCacheInstance().SaveSession(session)
 
-		// TODO start a go routine to update the session on the core server in the background, if session has a token id
-
 		ctx := context.WithValue(r.Context(), "user", user)
 		ctx = context.WithValue(ctx, "session", session)
 
@@ -226,6 +240,21 @@ func AgentAuth(next http.Handler) http.Handler {
 		var token string
 		fmt.Sscanf(authorization, "Bearer %s", &token)
 		if len(token) != 36 || token != state.AccessToken {
+			returnUnauthorized(w)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func RemoteServerAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// Get the auth token
+		var bearer string
+		fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &bearer)
+		if bearer != viper.GetString("server.remote_token") || viper.GetString("server.remote_token") == "" {
 			returnUnauthorized(w)
 			return
 		}

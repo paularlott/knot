@@ -3,9 +3,11 @@ package driver_mysql
 import (
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/paularlott/knot/database/model"
+
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 func (db *MySQLDriver) initialize() error {
@@ -38,7 +40,7 @@ INDEX active (active)
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS sessions (
 session_id CHAR(36) PRIMARY KEY,
 user_id CHAR(36),
-token_id CHAR(36),
+remote_session_id CHAR(36),
 ip VARCHAR(15),
 user_agent VARCHAR(255),
 data TEXT,
@@ -54,6 +56,7 @@ INDEX user_id (user_id)
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS tokens (
 token_id CHAR(36) PRIMARY KEY,
 user_id CHAR(36),
+remote_token_id CHAR(36),
 name VARCHAR(255),
 expires_after TIMESTAMP,
 INDEX expires_after (expires_after),
@@ -70,6 +73,7 @@ parent_space_id CHAR(36) DEFAULT '',
 user_id CHAR(36),
 template_id CHAR(36) DEFAULT '',
 name VARCHAR(64),
+location VARCHAR(64),
 agent_url VARCHAR(255) DEFAULT '',
 shell VARCHAR(8) DEFAULT '',
 template_hash VARCHAR(32) DEFAUlT '',
@@ -139,12 +143,14 @@ updated_at TIMESTAMP
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS volumes (
 volume_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
+location VARCHAR(64),
 definition MEDIUMTEXT,
 active TINYINT NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP,
 updated_user_id CHAR(36),
-updated_at TIMESTAMP
+updated_at TIMESTAMP,
+INDEX location (location)
 )`)
 	if err != nil {
 		return err
@@ -161,6 +167,17 @@ vnc_http_port INT NOT NULL DEFAULT 0,
 has_terminal TINYINT NOT NULL DEFAULT 0,
 tcp_ports MEDIUMTEXT,
 http_ports MEDIUMTEXT,
+expires_after TIMESTAMP,
+INDEX expires_after (expires_after)
+)`)
+	if err != nil {
+		return err
+	}
+
+	log.Debug().Msg("db: creating remote server table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS remoteservers (
+server_id CHAR(36) PRIMARY KEY,
+url VARCHAR(255),
 expires_after TIMESTAMP,
 INDEX expires_after (expires_after)
 )`)
@@ -196,6 +213,7 @@ INDEX expires_after (expires_after)
 		defer ticker.Stop()
 		for range ticker.C {
 		again:
+			log.Debug().Msg("db: running agent GC")
 			now := time.Now().UTC()
 			_, err := db.connection.Exec("DELETE FROM agentstate WHERE expires_after < ?", now)
 			if err != nil {
@@ -203,6 +221,23 @@ INDEX expires_after (expires_after)
 			}
 		}
 	}()
+
+	// Add a test to clean up expired remote servers
+	if viper.GetString("remote-key") != "" && viper.GetString("core-server") == "" {
+		go func() {
+			ticker := time.NewTicker(model.REMOTE_SERVER_GC_INTERVAL)
+			defer ticker.Stop()
+			for range ticker.C {
+			again:
+				log.Debug().Msg("db: running remote server GC")
+				now := time.Now().UTC()
+				_, err := db.connection.Exec("DELETE FROM remoteservers WHERE expires_after < ?", now)
+				if err != nil {
+					goto again
+				}
+			}
+		}()
+	}
 
 	return nil
 }

@@ -59,8 +59,8 @@ func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
 	if session != nil {
 
 		// Logout of the core server if this is a remote
-		if session.TokenId != "" {
-			client := apiclient.NewRemoteSession(session.TokenId)
+		if session.RemoteSessionId != "" {
+			client := apiclient.NewRemoteSession(session.RemoteSessionId)
 			err := client.Logout()
 			if err != nil {
 				log.Error().Msgf("failed to logout: %s", err.Error())

@@ -29,6 +29,7 @@ window.userForm = function(isEdit, userId, isProfile) {
     shellValid: true,
     tzValid: true,
     maxSpacesValid: true,
+    maxDiskSpaceValid: true,
     async initUsers() {
       focusElement('input[name="username"]');
 
@@ -113,7 +114,10 @@ window.userForm = function(isEdit, userId, isProfile) {
       return this.tzValid = validate.isOneOf(this.formData.timezone, window.Timezones);
     },
     checkMaxSpaces() {
-      return this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 100);
+      return this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 1000);
+    },
+    checkMaxDiskSpace() {
+      return this.maxDiskSpaceValid = validate.isNumber(this.formData.max_disk_space, 0, 1000000);
     },
     checkServicePassword() {
       return this.servicePasswordValid = this.formData.service_password.length <= 255;
@@ -128,6 +132,7 @@ window.userForm = function(isEdit, userId, isProfile) {
         err = !this.checkConfirmPassword() || err;
       }
       err = !this.checkMaxSpaces() || err;
+      err = !this.checkMaxDiskSpace() || err;
       err = !this.checkServicePassword() || err;
       err = !this.checkShell() || err;
       err = !this.checkTz() || err;
@@ -153,7 +158,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       };
 
       fetch(isEdit ? '/api/v1/users/' + userId : '/api/v1/users', {
-          method: 'POST',
+          method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
           },

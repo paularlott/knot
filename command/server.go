@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -40,7 +41,7 @@ func init() {
 	serverCmd.Flags().StringP("agent-url", "", "", "The URL agents should use to talk to the server (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_AGENT_URL environment variable if set.")
 	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to the hostname).\nOverrides the "+CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
 	serverCmd.Flags().StringP("core-server", "", "", "The address of the core server this server is to become a remote of (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_CORE_SERVER environment variable if set.")
-	serverCmd.Flags().StringP("remote-key", "", "", "The key to use for remote and core server communication (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REMOTE_KEY environment variable if set.")
+	serverCmd.Flags().StringP("remote-token", "", "", "The token to use for remote and core server communication (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REMOTE_TOKEN environment variable if set.")
 
 	// TLS
 	serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the "+CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -124,6 +125,7 @@ var serverCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal().Msgf("Error getting hostname: %v", err)
 		}
+		hostname = strings.Split(hostname, ".")[0]
 
 		viper.BindPFlag("server.location", cmd.Flags().Lookup("location"))
 		viper.BindEnv("server.location", CONFIG_ENV_PREFIX+"_LOCATION")
@@ -133,9 +135,9 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.core_server", CONFIG_ENV_PREFIX+"_CORE_SERVER")
 		viper.SetDefault("server.core_server", "")
 
-		viper.BindPFlag("server.remote_key", cmd.Flags().Lookup("remote-key"))
-		viper.BindEnv("server.remote_key", CONFIG_ENV_PREFIX+"_REMOTE_KEY")
-		viper.SetDefault("server.remote_key", "")
+		viper.BindPFlag("server.remote_token", cmd.Flags().Lookup("remote-token"))
+		viper.BindEnv("server.remote_token", CONFIG_ENV_PREFIX+"_REMOTE_TOKEN")
+		viper.SetDefault("server.remote_token", "")
 
 		// TLS
 		viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
@@ -219,8 +221,8 @@ var serverCmd = &cobra.Command{
 		viper.SetDefault("server.redis.db", 0)
 
 		// Set if remote or core server
-		viper.Set("server.is_remote", viper.GetString("server.remote_key") != "" && viper.GetString("server.core_server") != "")
-		viper.Set("server.is_core", viper.GetString("server.remote_key") != "" && viper.GetString("server.core_server") == "")
+		viper.Set("server.is_remote", viper.GetString("server.remote_token") != "" && viper.GetString("server.core_server") != "")
+		viper.Set("server.is_core", viper.GetString("server.remote_token") != "" && viper.GetString("server.core_server") == "")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := viper.GetString("server.listen")
@@ -392,7 +394,7 @@ var serverCmd = &cobra.Command{
 }
 
 func startRemoteServerServices() {
-	log.Info().Msg("server: starting remote server services")
+	log.Info().Msg("server: starting remote server session refresh services")
 
 	// Start a go routine that runs once per hour and pings all sessions to keep them alive
 	go func() {
@@ -409,8 +411,8 @@ func startRemoteServerServices() {
 			}
 
 			for _, session := range sessions {
-				if session.TokenId != "" {
-					client := apiclient.NewRemoteSession(session.TokenId)
+				if session.RemoteSessionId != "" {
+					client := apiclient.NewRemoteSession(session.RemoteSessionId)
 					_, err := client.Ping()
 					if err != nil {
 						log.Error().Msgf("failed to ping session: %s", err.Error())
@@ -419,4 +421,72 @@ func startRemoteServerServices() {
 			}
 		}
 	}()
+
+	// TODO Fix this, sync tokes, users etc
+
+	// Start a go routine to register with the core server and keep the registration alive
+	go func() {
+		log.Info().Msg("server: starting remote server registration")
+
+		for {
+			client := apiclient.NewClient(viper.GetString("server.core_server"), viper.GetString("server.remote_token"), viper.GetBool("tls_skip_verify"))
+
+			// Register the server with the core server
+			serverId, err := client.RegisterRemoteServer(viper.GetString("server.url"))
+			if err != nil {
+				log.Error().Msgf("failed to register remote server: %s", err.Error())
+				time.Sleep(model.REMOTE_SERVER_PING_INTERVAL)
+				continue
+			} else {
+				log.Info().Msgf("server: registered with core server as %s", serverId)
+				go syncRemoteUsers(client)
+			}
+
+			for {
+				time.Sleep(model.REMOTE_SERVER_PING_INTERVAL)
+
+				// Ping the core server to keep the registration alive
+				err = client.UpdateRemoteServer(serverId)
+				if err != nil {
+					log.Error().Msgf("failed to update remote server: %s", err.Error())
+					break
+				}
+			}
+		}
+	}()
+}
+
+func syncRemoteUsers(client *apiclient.ApiClient) {
+	db := database.GetInstance()
+
+	log.Info().Msg("server: syncing users from core server")
+
+	users, err := db.GetUsers()
+	if err != nil {
+		log.Error().Msgf("failed to get users: %s", err.Error())
+	} else {
+		for _, user := range users {
+			if user.Active {
+				remoteUser, err := client.GetUser(user.Id)
+				if err != nil {
+
+					// If error is user not found then delete the user
+					if err.Error() == "user not found" {
+						err := apiv1.DeleteUser(db, user)
+						if err != nil {
+							log.Error().Msgf("failed to delete user %s: %s", user.Id, err.Error())
+						}
+					} else {
+						log.Error().Msgf("failed to get user %s: %s", user.Id, err.Error())
+						break
+					}
+				} else {
+					db.SaveUser(remoteUser)
+					apiv1.UpdateUserSpaces(remoteUser)
+				}
+			}
+		}
+	}
+
+	log.Info().Msg("server: finished user sync from core server")
 }

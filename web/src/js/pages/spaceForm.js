@@ -6,16 +6,17 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       agent_url: "",
       shell: preferredShell,
       user_id: forUserId,
-      volume_size: {},
+      volume_sizes: {},
       alt_names: [],
     },
+    templates: [],
     template_id: templateId,
     loading: true,
     buttonLabel: isEdit ? 'Update Space' : 'Create Space',
     nameValid: true,
     addressValid: true,
     forUsername: forUserUsername,
-    volume_size: [],
+    volume_sizes: [],
     volume_size_valid: {},
     volume_size_label: {},
     isEdit: isEdit,
@@ -26,6 +27,14 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       var self = this;
 
       focusElement('input[name="name"]');
+
+      // Fetch the available templates
+      const templatesResponse = await fetch('/api/v1/templates', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.templates = await templatesResponse.json();
 
       if(isEdit) {
         const spaceResponse = await fetch('/api/v1/spaces/' + spaceId, {
@@ -43,7 +52,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.formData.template_id = this.template_id = space.template_id;
           this.formData.agent_url = space.agent_url;
           this.formData.shell = space.shell;
-          this.formData.volume_size = space.volume_size;
+          this.formData.volume_sizes = space.volume_sizes;
 
           if(space.user_id != userId) {
             this.formData.user_id = space.user_id;
@@ -75,24 +84,24 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         }
       });
       await templateResponse.json().then(data => {
-        self.volume_size = data.volume_sizes ? data.volume_sizes : [];
+        self.volume_sizes = data.volume_sizes ? data.volume_sizes : [];
 
-        for (var i = 0; i < self.volume_size.length; i++) {
-          self.volume_size_valid[self.volume_size[i].id] = true;
+        for (var i = 0; i < self.volume_sizes.length; i++) {
+          self.volume_size_valid[self.volume_sizes[i].id] = true;
 
-          var n = self.volume_size[i].name.replace(/\$\{\{.*\.space\.id.*\}\}/, '00000000-0000-0000-0000-000000000000');
-          self.volume_size_label[self.volume_size[i].id] = {
+          var n = self.volume_sizes[i].name.replace(/\$\{\{.*\.space\.id.*\}\}/, '00000000-0000-0000-0000-000000000000');
+          self.volume_size_label[self.volume_sizes[i].id] = {
             name: n,
             label: n.replace(/\$\{\{.*\.space\.name.*\}\}/, self.formData.name)
           }
 
-          if(self.volume_size[i].capacity_min !== self.volume_size[i].capacity_max) {
+          if(self.volume_sizes[i].capacity_min !== self.volume_sizes[i].capacity_max) {
             self.hasEditableVolumeSizes = true;
           }
 
           // If size not defined the use the min from self.volume_size[i].capacity_min
-          if(self.formData.volume_size[self.volume_size[i].id] === undefined) {
-            self.formData.volume_size[self.volume_size[i].id] = self.volume_size[i].capacity_min;
+          if(self.formData.volume_sizes[self.volume_sizes[i].id] === undefined) {
+            self.formData.volume_sizes[self.volume_sizes[i].id] = self.volume_sizes[i].capacity_min;
           }
         }
       });
@@ -109,8 +118,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     },
     checkName() {
       // Update the labels
-      for (var i = 0; i < this.volume_size.length; i++) {
-        this.volume_size_label[this.volume_size[i].id].label = this.volume_size_label[this.volume_size[i].id].name.replace(/\$\{\{.*\.space\.name.*\}\}/g, this.formData.name);
+      for (var i = 0; i < this.volume_sizes.length; i++) {
+        this.volume_size_label[this.volume_sizes[i].id].label = this.volume_size_label[this.volume_sizes[i].id].name.replace(/\$\{\{.*\.space\.name.*\}\}/g, this.formData.name);
       }
 
       return this.nameValid = validate.name(this.formData.name);
@@ -141,9 +150,9 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       return true;
     },
     checkVolumeSize(id) {
-      var volume = this.volume_size.find(volume => volume.id === id);
-      this.formData.volume_size[id] = parseInt(this.formData.volume_size[id]);
-      return this.volume_size_valid[id] = this.formData.volume_size[id] >= volume.capacity_min && this.formData.volume_size[id] <= volume.capacity_max;
+      var volume = this.volume_sizes.find(volume => volume.id === id);
+      this.formData.volume_sizes[id] = parseInt(this.formData.volume_sizes[id]);
+      return this.volume_size_valid[id] = this.formData.volume_sizes[id] >= volume.capacity_min && this.formData.volume_sizes[id] <= volume.capacity_max;
     },
     submitData() {
       var err = false,
@@ -152,8 +161,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       err = !this.checkAddress() || err;
 
       // Check the sizes of all the volumes
-      for (var i = 0; i < this.volume_size.length; i++) {
-        err = !this.checkVolumeSize(this.volume_size[i].id) || err;
+      for (var i = 0; i < this.volume_sizes.length; i++) {
+        err = !this.checkVolumeSize(this.volume_sizes[i].id) || err;
       }
 
       // Remove the blank alt names
@@ -177,7 +186,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       this.loading = true;
 
       fetch(isEdit ? '/api/v1/spaces/' + spaceId : '/api/v1/spaces', {
-          method: 'POST',
+          method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
           },

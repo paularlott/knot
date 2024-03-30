@@ -111,6 +111,10 @@ paths:
     $ref: paths/volumes_{volume_id}_start.yaml
   /api/v1/volumes/{volume_id}/stop:
     $ref: paths/volumes_{volume_id}_stop.yaml
+  /api/v1/volumes/{volume_id}/remote/start:
+    $ref: paths/volumes_{volume_id}_remote_start.yaml
+  /api/v1/volumes/{volume_id}/remote/stop:
+    $ref: paths/volumes_{volume_id}_remote_stop.yaml
 
   /proxy/port/{host}/{port}:
     $ref: paths/proxy_port_{host}_{port}.yaml
@@ -123,5 +127,10 @@ paths:
 
   /api/v1/agents/{space_id}:
     $ref: paths/agents_{space_id}.yaml
-  /agents/{space_id}/status:
+  /api/v1/agents/{space_id}/status:
     $ref: paths/agents_{space_id}_status.yaml
+
+  /api/v1/remote-servers:
+    $ref: paths/remote-servers.yaml
+  /api/v1/remote-servers/{server_id}/status:
+    $ref: paths/remote-servers_{server_id}_status.yaml

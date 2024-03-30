@@ -14,19 +14,19 @@ type AuthLogoutResponse struct {
 	Status bool `json:"status"`
 }
 
-func (c *ApiClient) Login(email string, password string) (string, error) {
+func (c *ApiClient) Login(email string, password string) (string, int, error) {
 	request := AuthLoginRequest{
 		Email:    email,
 		Password: password,
 	}
 	response := AuthLoginResponse{}
 
-	_, err := c.httpClient.Post("/api/v1/auth", &request, &response, 200)
+	code, err := c.httpClient.Post("/api/v1/auth", &request, &response, 200)
 	if err != nil {
-		return "", err
+		return "", code, err
 	}
 
-	return response.Token, nil
+	return response.Token, code, nil
 }
 
 func (c *ApiClient) Logout() error {

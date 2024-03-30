@@ -21,6 +21,8 @@ get:
                   type: string
                 active:
                   type: boolean
+                location:
+                  type: string
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':

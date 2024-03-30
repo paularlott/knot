@@ -64,9 +64,12 @@ window.volumeListComponent = function() {
         }
       }).then((response) => {
         if (response.status === 200) {
-          const volume = self.volumes.find(volume => volume.volume_id === volumeId);
-          volume.active = true;
-          volume.starting = false;
+          response.json().then((v) => {
+            const volume = self.volumes.find(volume => volume.volume_id === volumeId);
+            volume.active = true;
+            volume.starting = false;
+            volume.location = v.location;
+          });
 
           self.$dispatch('show-alert', { msg: "Volume started", type: 'success' });
         } else {
@@ -83,6 +86,7 @@ window.volumeListComponent = function() {
 
       const volume = self.volumes.find(volume => volume.volume_id === volumeId);
       volume.stopping = true;
+      volume.location = "";
 
       await fetch(`/api/v1/volumes/${volumeId}/stop`, {
         method: 'POST',
@@ -94,6 +98,7 @@ window.volumeListComponent = function() {
           const volume = self.volumes.find(volume => volume.volume_id === volumeId);
           volume.active = false;
           volume.stopping = false;
+          volume.location = "";
 
           self.$dispatch('show-alert', { msg: "Volume stopped", type: 'success' });
         } else {

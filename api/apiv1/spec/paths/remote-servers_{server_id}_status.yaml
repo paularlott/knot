@@ -1,0 +1,22 @@
+put:
+  tags:
+    - Remote Servers
+  summary: Update Remote Server Status
+  description: |
+    Update the status of a remote server.
+  operationId: updateRemoteStatus
+  parameters:
+    - name: server_id
+      in: path
+      required: true
+      schema:
+        type: uuid
+  responses:
+    '200':
+      description: Status updated successfully
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '401':
+      $ref: "../responses/unauthorized.yaml"
+  security:
+    - BearerAuth: []

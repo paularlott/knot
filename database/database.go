@@ -83,6 +83,12 @@ type IDbDriver interface {
 	SaveAgentState(agentState *model.AgentState) error
 	DeleteAgentState(agentState *model.AgentState) error
 	GetAgentState(id string) (*model.AgentState, error)
+
+	// Remote Servers
+	SaveRemoteServer(server *model.RemoteServer) error
+	DeleteRemoteServer(server *model.RemoteServer) error
+	GetRemoteServer(id string) (*model.RemoteServer, error)
+	GetRemoteServers() ([]*model.RemoteServer, error)
 }
 
 // Initialize the database drivers

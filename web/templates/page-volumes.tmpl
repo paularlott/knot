@@ -20,6 +20,7 @@
     <tr>
       <th class="id-col">Volume ID</th>
       <th>Name</th>
+      <th>Location</th>
       <th>Deployed</th>
       <th>&nbsp;</th>
     </tr>
@@ -34,12 +35,13 @@
           </div>
         </td>
         <td x-text="t.name"></td>
+        <td x-text="t.location"></td>
         <td>
           <span x-show="t.active" class="badge success">Running</span>
           <span x-show="!t.active" class="badge danger">Stopped</span>
         </td>
         <td>
-          <button class="outline" @click="t.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
+          <button class="outline" @click="t.showMenu = true" x-show="!t.active || t.location == '{{ .location }}'"><i class='bx bx-dots-vertical'></i></button>
           <div x-show="t.showMenu" @click.away="t.showMenu = false" @keydown.window.escape="t.showMenu = false" class="menu-popup">
             <button x-show="!t.active" x-bind:disabled="t.starting && t.stopping" @click="t.showMenu = false; editVolume(t.volume_id)"><i class='bx bx-edit' ></i> Edit</button>
             <button x-show="!t.active" x-bind:disabled="t.starting || t.stopping" @click="t.showMenu = false; startVolume(t.volume_id); t.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="t.starting">ing ...</span></button>
@@ -69,7 +71,7 @@
     <div class="modal">
       <div class="modal-body">
         <h2><i class='bx bxs-error'></i> Confirm Stop Volume</h2>
-        <p>Are you sure you want to stop the volume <span x-text="deleteConfirm.volume.name"></span>?</p>
+        <p>Are you sure you want to stop the volume <span x-text="stopConfirm.volume.name"></span>?</p>
         <p>Stopping the volume will delete any data that it contains.</p>
       </div>
       <div class="modal-footer">

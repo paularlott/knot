@@ -20,9 +20,13 @@ get:
             properties:
               name:
                 type: string
+              location:
+                type: string
               has_code_server:
                 type: boolean
               has_ssh:
+                type: boolean
+              has_http_vnc:
                 type: boolean
               has_terminal:
                 type: boolean

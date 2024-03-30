@@ -13,7 +13,16 @@ post:
       description: The ID of the volume to start.
   responses:
     '200':
-      description: Successful operation.
+      description: Successful operation
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+              location:
+                type: string
     '403':
       $ref: '../responses/forbidden.yaml'
     '404':

@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -17,6 +18,8 @@ import (
 func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	var userId string = ""
 	var tokenId string = ""
+	var statusCode int = 0
+	db := database.GetInstance()
 	request := apiclient.AuthLoginRequest{}
 
 	err := rest.BindJSON(w, r, &request)
@@ -36,14 +39,30 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		log.Debug().Msg("Forwarding request to core server")
 
 		client := apiclient.NewRemoteSession("")
-		tokenId, err = client.Login(request.Email, request.Password)
+		tokenId, statusCode, err = client.Login(request.Email, request.Password)
 		if err != nil {
+			if statusCode == http.StatusNotFound {
+				// Look for the user by email and if found delete it
+				user, err := db.GetUserByEmail(request.Email)
+				if err == nil {
+					DeleteUser(db, user)
+				}
+			} else if statusCode == http.StatusLocked {
+				// Look for the user by email and if found update it
+				user, err := db.GetUserByEmail(request.Email)
+				if err == nil && user.Active {
+					user.Active = false
+					db.SaveUser(user)
+					UpdateUserSpaces(user)
+				}
+			}
+
 			rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		// Query the core server for the user details
-		client.SetToken(tokenId)
+		client.SetAuthToken(tokenId)
 		user, err := client.WhoAmI()
 		if err != nil {
 			rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})
@@ -58,15 +77,30 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		go UpdateUserSpaces(user)
+
 		userId = user.Id
 
 	} else {
 
 		// Get the user & check the password
-		db := database.GetInstance()
 		user, err := db.GetUserByEmail(request.Email)
-		if err != nil || !user.CheckPassword(request.Password) {
-			rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: "invalid email or password"})
+		if err != nil || !user.Active || !user.CheckPassword(request.Password) {
+			code := http.StatusUnauthorized
+
+			// If request came from remote server then given more information
+			if viper.GetString("server.remote_token") != "" {
+				if viper.GetString("remote_token") == middleware.GetBearerToken(w, r) {
+					if user == nil {
+						code = http.StatusNotFound
+					} else if !user.Active {
+						code = http.StatusLocked
+					}
+				}
+			}
+
+			rest.SendJSON(code, w, ErrorResponse{Error: "invalid email or password"})
+
 			return
 		}
 
@@ -112,19 +146,26 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleLogout(w http.ResponseWriter, r *http.Request) {
-	session := r.Context().Value("session").(*model.Session)
+	result := false
+	value := r.Context().Value("session")
 
-	// Delete the session
-	if session != nil {
-		err := database.GetCacheInstance().DeleteSession(session)
-		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-			return
+	if value != nil {
+		session := value.(*model.Session)
+
+		// Delete the session
+		if session != nil {
+			err := database.GetCacheInstance().DeleteSession(session)
+			if err != nil {
+				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				return
+			}
+
+			result = true
 		}
 	}
 
 	// Return the authentication token
 	rest.SendJSON(http.StatusOK, w, apiclient.AuthLogoutResponse{
-		Status: true,
+		Status: result,
 	})
 }

@@ -2,6 +2,7 @@ package apiv1
 
 import (
 	"github.com/paularlott/knot/middleware"
+	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -30,7 +31,7 @@ func ApiRoutes() chi.Router {
 			router.Use(middleware.ApiPermissionManageUsersOrSelf)
 
 			router.Get("/", HandleGetUser)
-			router.Post("/", HandleUpdateUser)
+			router.Put("/", HandleUpdateUser)
 			router.Delete("/", HandleDeleteUser)
 		})
 
@@ -39,7 +40,7 @@ func ApiRoutes() chi.Router {
 			router.Use(middleware.ApiPermissionManageUsers)
 
 			router.Post("/", HandleCreateGroup)
-			router.Post("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateGroup)
+			router.Put("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateGroup)
 			router.Delete("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteGroup)
 			router.Get("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetGroup)
 		})
@@ -65,7 +66,7 @@ func ApiRoutes() chi.Router {
 		router.Route("/spaces", func(router chi.Router) {
 			router.Get("/", HandleGetSpaces)
 			router.Post("/", HandleCreateSpace)
-			router.Post("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateSpace)
+			router.Put("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateSpace)
 			router.Delete("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteSpace)
 			router.Get("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetSpace)
 			router.Get("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/service-state", HandleGetSpaceServiceState)
@@ -76,26 +77,33 @@ func ApiRoutes() chi.Router {
 
 		// Templates
 		router.Route("/templates", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionManageTemplates)
+			router.Group(func(router chi.Router) {
+				router.Use(middleware.ApiPermissionManageTemplates)
 
-			router.Post("/", HandleCreateTemplate)
-			router.Post("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateTemplate)
-			router.Delete("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteTemplate)
-			router.Get("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplate)
+				router.Get("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplate)
+				router.Post("/", HandleCreateTemplate)
+				router.Put("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateTemplate)
+				router.Delete("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteTemplate)
+			})
+
+			router.Get("/", HandleGetTemplates)
 		})
-		router.Get("/templates", HandleGetTemplates)
 
-		// Templates
+		// Volumes
 		router.Route("/volumes", func(router chi.Router) {
 			router.Use(middleware.ApiPermissionManageVolumes)
 
 			router.Get("/", HandleGetVolumes)
 			router.Post("/", HandleCreateVolume)
-			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateVolume)
+			router.Put("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateVolume)
 			router.Delete("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteVolume)
 			router.Get("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetVolume)
 			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/start", HandleVolumeStart)
 			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/stop", HandleVolumeStop)
+
+			// TODO REMOVE
+			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/remote/start", HandleVolumeStartRemote)
+			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/remote/stop", HandleVolumeStopRemote)
 		})
 
 		// Template Variables
@@ -104,7 +112,7 @@ func ApiRoutes() chi.Router {
 
 			router.Get("/", HandleGetTemplateVars)
 			router.Post("/", HandleCreateTemplateVar)
-			router.Post("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateTemplateVar)
+			router.Put("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateTemplateVar)
 			router.Delete("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteTemplateVar)
 			router.Get("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplateVar)
 		})
@@ -114,7 +122,7 @@ func ApiRoutes() chi.Router {
 	router.Group(func(router chi.Router) {
 		router.Use(middleware.AgentAuth)
 
-		router.Post("/agents/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/status", HandleAgentStatus)
+		router.Put("/agents/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/status", HandleAgentStatus)
 	})
 
 	// Unauthenticated routes
@@ -123,6 +131,27 @@ func ApiRoutes() chi.Router {
 		router.Post("/web", HandleAuthorization)
 	})
 	router.Post("/agents/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleRegisterAgent)
+
+	if viper.GetBool("server.is_core") {
+		router.Route("/remote-servers/{server_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
+			router.Use(middleware.RemoteServerAuth)
+			router.Put("/status", HandleUpdateRemoteServer)
+		})
+		router.Post("/remote-servers", HandleRegisterRemoteServer)
+
+		// Remote server authenticated routes
+		router.Route("/remote", func(router chi.Router) {
+			router.Use(middleware.RemoteServerAuth)
+
+			router.Route("/templatevars", func(router chi.Router) {
+				router.Get("/values", HandleRemoteGetTemplateVars)
+			})
+
+			router.Route("/templates", func(router chi.Router) {
+				router.Get("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplate)
+			})
+		})
+	}
 
 	return router
 }

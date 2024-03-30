@@ -36,6 +36,7 @@ export var validate = {
   },
 
   isNumber: function(value, min, max) {
+    value = Number(value);
     return Number.isInteger(value) && value >= min && value <= max;
   }
 };

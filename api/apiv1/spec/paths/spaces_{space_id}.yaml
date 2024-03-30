@@ -22,7 +22,7 @@ delete:
   security:
     - BearerAuth: []
 
-post:
+put:
   summary: Update a Space
   description: Update a space for the authenticated user.
   operationId: updateSpace
@@ -49,10 +49,16 @@ post:
               type: string
             shell:
               type: string
+            user_id:
+              type: uuid
             alt_names:
               type: array
               items:
                 type: string
+            volume_sizes:
+              type: array
+              items:
+                type: integer
   responses:
     '200':
       description: Space update successfully
@@ -77,36 +83,40 @@ get:
             items:
               type: object
               properties:
-                space_id:
-                  type: string
+                user_id:
+                  type: uuid
+                template_id:
+                  type: uuid
                 name:
                   type: string
-                template_name:
+                agent_url:
                   type: string
-                has_code_server:
-                  type: boolean
-                has_ssh:
-                  type: boolean
-                has_http_vnc:
-                  type: boolean
-                is_deployed:
-                  type: boolean
-                username:
+                shell:
                   type: string
-                user_id:
+                location:
                   type: string
-                tcp_ports:
+                volume_sizes:
                   type: array
                   items:
                     type: integer
-                volume_size:
-                  type: object
-                  additionalProperties:
-                    type: integer
+                is_deployed:
+                  type: boolean
                 alt_names:
                   type: array
                   items:
                     type: string
+                update_available:
+                  type: boolean
+                volume_data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: uuid
+                        example: 123e4567-e89b-12d3-a456-426614174000
+                      Namespace:
+                        type: string
     '404':
       $ref: "../responses/not-found.yaml"
 

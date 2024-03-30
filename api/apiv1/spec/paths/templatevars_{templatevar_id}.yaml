@@ -1,4 +1,4 @@
-post:
+put:
   summary: Update a Template Variable
   description: Update a template variable.
   operationId: updateTemplateVar

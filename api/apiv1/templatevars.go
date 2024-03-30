@@ -3,6 +3,7 @@ package apiv1
 import (
 	"net/http"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/rest"
@@ -11,158 +12,210 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type TemplateVarRequest struct {
-  Name string `json:"name"`
-  Value string `json:"value"`
-  Protected bool `json:"protected"`
-}
-
 func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
-  templateVars, err := database.GetInstance().GetTemplateVars()
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		templateVars, code, err := client.GetTemplateVars()
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  // Build a json array of data to return to the client
-  data := make([]struct {
-    Id string `json:"templatevar_id"`
-    Name string `json:"name"`
-    Protected bool `json:"protected"`
-  }, len(templateVars))
+		rest.SendJSON(http.StatusOK, w, templateVars)
+	} else {
+		templateVars, err := database.GetInstance().GetTemplateVars()
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  for i, variable := range templateVars {
-    data[i].Id = variable.Id
-    data[i].Name = variable.Name
-    data[i].Protected = variable.Protected
-  }
+		// Build a json array of data to return to the client
+		data := make([]apiclient.TemplateVar, len(templateVars))
 
-  rest.SendJSON(http.StatusOK, w, data)
+		for i, variable := range templateVars {
+			data[i].Id = variable.Id
+			data[i].Name = variable.Name
+			data[i].Protected = variable.Protected
+		}
+
+		rest.SendJSON(http.StatusOK, w, data)
+	}
 }
 
 func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
-  db := database.GetInstance()
-  user := r.Context().Value("user").(*model.User)
+	templateVarId := chi.URLParam(r, "templatevar_id")
 
-  templateVar, err := db.GetTemplateVar(chi.URLParam(r, "templatevar_id"))
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	request := apiclient.TemplateVarValue{}
+	err := rest.BindJSON(w, r, &request)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		return
+	}
 
-  request := TemplateVarRequest{}
-  err = rest.BindJSON(w, r, &request)
-  if err != nil {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	if !validate.Required(request.Name) || !validate.VarName(request.Name) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template variable name given"})
+		return
+	}
+	if !validate.MaxLength(request.Value, 10*1024*1024) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Value must be less than 10MB"})
+		return
+	}
 
-  if !validate.Required(request.Name) || !validate.VarName(request.Name) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template variable name given"})
-    return
-  }
-  if !validate.MaxLength(request.Value, 10*1024*1024) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Value must be less than 10MB"})
-    return
-  }
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		code, err := client.UpdateTemplateVar(templateVarId, request.Name, request.Value, request.Protected)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		db := database.GetInstance()
+		user := r.Context().Value("user").(*model.User)
 
-  templateVar.Name = request.Name
-  templateVar.Value = request.Value
-  templateVar.Protected = request.Protected
-  templateVar.UpdatedUserId = user.Id
+		templateVar, err := db.GetTemplateVar(templateVarId)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  err = db.SaveTemplateVar(templateVar)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+		templateVar.Name = request.Name
+		templateVar.Value = request.Value
+		templateVar.Protected = request.Protected
+		templateVar.UpdatedUserId = user.Id
 
-  w.WriteHeader(http.StatusOK)
+		err = db.SaveTemplateVar(templateVar)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
-  db := database.GetInstance()
-  user := r.Context().Value("user").(*model.User)
+	var id string
 
-  request := TemplateVarRequest{}
-  err := rest.BindJSON(w, r, &request)
-  if err != nil {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	db := database.GetInstance()
+	user := r.Context().Value("user").(*model.User)
 
-  if !validate.Required(request.Name) || !validate.VarName(request.Name) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template variable name given"})
-    return
-  }
-  if !validate.MaxLength(request.Value, 10*1024*1024) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Value must be less than 10MB"})
-    return
-  }
+	request := apiclient.TemplateVarValue{}
+	err := rest.BindJSON(w, r, &request)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		return
+	}
 
-  templateVar := model.NewTemplateVar(request.Name, request.Value, request.Protected, user.Id)
+	if !validate.Required(request.Name) || !validate.VarName(request.Name) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template variable name given"})
+		return
+	}
+	if !validate.MaxLength(request.Value, 10*1024*1024) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Value must be less than 10MB"})
+		return
+	}
 
-  err = db.SaveTemplateVar(templateVar)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		var code int
+		var err error
 
-  // Return the ID
-  rest.SendJSON(http.StatusCreated, w, struct {
-    Status bool `json:"status"`
-    TemplateVarID string `json:"templatevar_id"`
-  }{
-    Status: true,
-    TemplateVarID: templateVar.Id,
-  })
+		client := remoteClient.(*apiclient.ApiClient)
+		id, code, err = client.CreateTemplateVar(request.Name, request.Value, request.Protected)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		templateVar := model.NewTemplateVar(request.Name, request.Value, request.Protected, user.Id)
+
+		err = db.SaveTemplateVar(templateVar)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		id = templateVar.Id
+	}
+
+	// Return the ID
+	rest.SendJSON(http.StatusCreated, w, &apiclient.TemplateVarCreateResponse{
+		Status: true,
+		Id:     id,
+	})
 }
 
 func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
-  db := database.GetInstance()
-  templateVar, err := db.GetTemplateVar(chi.URLParam(r, "templatevar_id"))
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	templateVarId := chi.URLParam(r, "templatevar_id")
 
-  // Delete the template variable
-  err = db.DeleteTemplateVar(templateVar)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		code, err := client.DeleteTemplateVar(templateVarId)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		db := database.GetInstance()
+		templateVar, err := db.GetTemplateVar(templateVarId)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  w.WriteHeader(http.StatusOK)
+		// Delete the template variable
+		err = db.DeleteTemplateVar(templateVar)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
-  templateVarId := chi.URLParam(r, "templatevar_id")
+	templateVarId := chi.URLParam(r, "templatevar_id")
 
-  db := database.GetInstance()
-  templateVar, err := db.GetTemplateVar(templateVarId)
-  if err != nil {
-    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		templateVar, code, err := client.GetTemplateVar(templateVarId)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  var val string
+		rest.SendJSON(http.StatusOK, w, templateVar)
+	} else {
+		db := database.GetInstance()
+		templateVar, err := db.GetTemplateVar(templateVarId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+		if templateVar == nil {
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "Template variable not found"})
+			return
+		}
 
-  if templateVar.Protected {
-    val = ""
-  } else {
-    val = templateVar.Value
-  }
+		var val string
 
-  data := struct {
-    Name string `json:"name"`
-    Value string `json:"value"`
-    Protected bool `json:"protected"`
-  }{
-    Name: templateVar.Name,
-    Value: val,
-    Protected: templateVar.Protected,
-  }
+		if templateVar.Protected {
+			val = ""
+		} else {
+			val = templateVar.Value
+		}
 
-  rest.SendJSON(http.StatusOK, w, data)
+		data := &apiclient.TemplateVarValue{
+			Name:      templateVar.Name,
+			Value:     val,
+			Protected: templateVar.Protected,
+		}
+
+		rest.SendJSON(http.StatusOK, w, data)
+	}
 }

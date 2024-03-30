@@ -23,7 +23,7 @@ get:
     '403':
       $ref: "../responses/forbidden.yaml"
 
-post:
+put:
   tags:
     - Users
   summary: Update User

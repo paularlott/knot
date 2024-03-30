@@ -96,15 +96,15 @@
               {{ if and (not .isProfile) .permissionManageUsers }}
               <dt><label>Maximum Spaces</label></dt>
               <dd>
-                <input type="number" name="max_spaces" x-model="formData.max_spaces" min="0" max="1000">
+                <input type="number" name="max_spaces" x-model="formData.max_spaces" min="0" max="1000" x-on:keyup.debounce.500ms="checkMaxSpaces()" :class="{'error': !maxSpacesValid}" >
                 <p class="description">The maximum number of spaces this user can create, 0 for unlimited.</p>
                 <div x-show="!maxSpacesValid" class="error-message">Enter a valid number between 0 and 1000.</div>
               </dd>
               <dt><label>Maximum Disk Space</label></dt>
               <dd>
-                <input type="number" name="max_disk_space" x-model="formData.max_disk_space" min="0" max="1000000">
+                <input type="number" name="max_disk_space" x-model="formData.max_disk_space" min="0" max="1000000" x-on:keyup.debounce.500ms="checkMaxDiskSpace()" :class="{'error': !maxDiskSpaceValid}" >
                 <p class="description">The maximum number amount of disk space available to the user in GB, 0 for unlimited.</p>
-                <div x-show="!maxSpacesValid" class="error-message">Enter a valid number between 0 and 1000000.</div>
+                <div x-show="!maxDiskSpaceValid" class="error-message">Enter a valid number between 0 and 1000000.</div>
               </dd>
               <dt><label>Roles</label></dt>
               <dd class="checkbox-group">

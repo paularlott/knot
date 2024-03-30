@@ -3,7 +3,6 @@ package apiv1
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/apiclient"
@@ -20,24 +19,11 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type UserRequest struct {
-	Username        string   `json:"username"`
-	Password        string   `json:"password"`
-	ServicePassword string   `json:"service_password"`
-	Email           string   `json:"email"`
-	Roles           []string `json:"roles"`
-	Groups          []string `json:"groups"`
-	Active          bool     `json:"active"`
-	MaxSpaces       int      `json:"max_spaces"`
-	MaxDiskSpace    int      `json:"max_disk_space"`
-	SSHPublicKey    string   `json:"ssh_public_key"`
-	PreferredShell  string   `json:"preferred_shell"`
-	Timezone        string   `json:"timezone"`
-}
-
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
+	newUserId := ""
+
 	db := database.GetInstance()
-	request := UserRequest{}
+	request := apiclient.CreateUserRequest{}
 
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
@@ -68,6 +54,10 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid max spaces"})
 		return
 	}
+	if !validate.IsNumber(int(request.MaxDiskSpace), 0, 1000000) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid max disk space"})
+		return
+	}
 
 	// Check roles give are present in the system
 	for _, role := range request.Roles {
@@ -77,48 +67,82 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Check the groups are present in the system
-	for _, groupId := range request.Groups {
-		_, err := db.GetGroup(groupId)
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+
+		code := 0
+		newUserId, code, err = client.CreateUser(&request)
 		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
-	}
+	} else {
+		// Check the groups are present in the system
+		for _, groupId := range request.Groups {
+			_, err := db.GetGroup(groupId)
+			if err != nil {
+				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+				return
+			}
+		}
 
-	// Create the user
-	userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.MaxDiskSpace)
-	if request.ServicePassword != "" {
-		userNew.ServicePassword = request.ServicePassword
-	}
-	err = db.SaveUser(userNew)
-	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
-		return
-	}
+		// Create the user
+		userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.MaxDiskSpace)
+		if request.ServicePassword != "" {
+			userNew.ServicePassword = request.ServicePassword
+		}
+		err = db.SaveUser(userNew)
+		if err != nil {
+			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-	// Tell the middleware that users are present
-	middleware.HasUsers = true
+		newUserId = userNew.Id
+
+		// Tell the middleware that users are present
+		middleware.HasUsers = true
+	}
 
 	// Return the user ID
-	rest.SendJSON(http.StatusCreated, w, struct {
-		Status bool   `json:"status"`
-		UserID string `json:"user_id"`
-	}{
+	rest.SendJSON(http.StatusCreated, w, &apiclient.CreateUserResponse{
 		Status: true,
-		UserID: userNew.Id,
+		UserId: newUserId,
 	})
 }
 
 func HandleGetUser(w http.ResponseWriter, r *http.Request) {
+	var user *model.User
+	var err error
+
+	db := database.GetInstance()
 	activeUser := r.Context().Value("user").(*model.User)
 	userId := chi.URLParam(r, "user_id")
 
-	db := database.GetInstance()
-	user, err := db.GetUser(userId)
-	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
-		return
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+
+		user, err = client.GetUser(userId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		// Save the user local
+		err = db.SaveUser(user)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		user, err = db.GetUser(userId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 	}
 
 	// Build a json array of data to return to the client
@@ -180,22 +204,6 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 	rest.SendJSON(http.StatusOK, w, &userData)
 }
 
-type UserInfoResponse struct {
-	Id                   string     `json:"user_id"`
-	Username             string     `json:"username"`
-	Email                string     `json:"email"`
-	Roles                []string   `json:"roles"`
-	Groups               []string   `json:"groups"`
-	Active               bool       `json:"active"`
-	MaxSpaces            int        `json:"max_spaces"`
-	MaxDiskSpace         int        `json:"max_disk_space"`
-	Current              bool       `json:"current"`
-	LastLoginAt          *time.Time `json:"last_login_at"`
-	NumberSpaces         int        `json:"number_spaces"`
-	NumberSpacesDeployed int        `json:"number_spaces_deployed"`
-	UsedDiskSpace        int        `json:"used_disk_space"`
-}
-
 func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
 	requiredState := r.URL.Query().Get("state")
@@ -203,75 +211,88 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 		requiredState = "all"
 	}
 
-	db := database.GetInstance()
-	users, err := db.GetUsers()
-	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-		return
-	}
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		userData, err := client.GetUsers(requiredState)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-	// Build a json array of data to return to the client
-	var userData []*UserInfoResponse
+		rest.SendJSON(http.StatusOK, w, userData)
+	} else {
+		var userData []*apiclient.UserInfoResponse
 
-	for _, user := range users {
-		if requiredState == "all" || (requiredState == "active" && user.Active) || (requiredState == "inactive" && !user.Active) {
-			data := UserInfoResponse{}
+		db := database.GetInstance()
+		users, err := db.GetUsers()
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-			data.Id = user.Id
-			data.Username = user.Username
-			data.Email = user.Email
-			data.Roles = user.Roles
-			data.Groups = user.Groups
-			data.Active = user.Active
-			data.MaxSpaces = user.MaxSpaces
-			data.MaxDiskSpace = user.MaxDiskSpace
-			data.Current = user.Id == activeUser.Id
+		for _, user := range users {
+			if requiredState == "all" || (requiredState == "active" && user.Active) || (requiredState == "inactive" && !user.Active) {
+				data := &apiclient.UserInfoResponse{}
 
-			if user.LastLoginAt != nil {
-				t := user.LastLoginAt.UTC()
-				data.LastLoginAt = &t
-			} else {
-				data.LastLoginAt = nil
-			}
+				data.Id = user.Id
+				data.Username = user.Username
+				data.Email = user.Email
+				data.Roles = user.Roles
+				data.Groups = user.Groups
+				data.Active = user.Active
+				data.MaxSpaces = user.MaxSpaces
+				data.MaxDiskSpace = user.MaxDiskSpace
+				data.Current = user.Id == activeUser.Id
 
-			// Find the number of spaces the user has
-			spaces, err := db.GetSpacesForUser(user.Id)
-			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-				return
-			}
-
-			var deployed int = 0
-			var diskSpace int = 0
-			for _, space := range spaces {
-				if space.IsDeployed {
-					deployed++
+				if user.LastLoginAt != nil {
+					t := user.LastLoginAt.UTC()
+					data.LastLoginAt = &t
+				} else {
+					data.LastLoginAt = nil
 				}
 
-				sSize, err := calcSpaceDiskUsage(space)
+				// Find the number of spaces the user has
+				spaces, err := db.GetSpacesForUser(user.Id)
 				if err != nil {
 					rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 					return
 				}
 
-				diskSpace += sSize
+				var deployed int = 0
+				var diskSpace int = 0
+				for _, space := range spaces {
+					if space.IsDeployed {
+						deployed++
+					}
+
+					sSize, err := calcSpaceDiskUsage(space)
+					if err != nil {
+						rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+						return
+					}
+
+					diskSpace += sSize
+				}
+
+				data.NumberSpaces = len(spaces)
+				data.NumberSpacesDeployed = deployed
+				data.UsedDiskSpace = diskSpace
+
+				userData = append(userData, data)
 			}
-
-			data.NumberSpaces = len(spaces)
-			data.NumberSpacesDeployed = deployed
-			data.UsedDiskSpace = diskSpace
-
-			userData = append(userData, &data)
 		}
-	}
 
-	rest.SendJSON(http.StatusOK, w, userData)
+		rest.SendJSON(http.StatusOK, w, userData)
+	}
 }
 
 func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
 	userId := chi.URLParam(r, "user_id")
-	request := UserRequest{}
+	request := apiclient.UpdateUserRequest{}
+	db := database.GetInstance()
 
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
@@ -302,7 +323,6 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load the existing user
-	db := database.GetInstance()
 	user, err := db.GetUser(userId)
 	if err != nil {
 		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
@@ -336,15 +356,6 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Check the groups are present in the system
-		for _, groupId := range request.Groups {
-			_, err := db.GetGroup(groupId)
-			if err != nil {
-				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
-				return
-			}
-		}
-
 		if activeUser.Id != user.Id {
 			user.Active = request.Active
 		}
@@ -355,6 +366,27 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.MaxDiskSpace = request.MaxDiskSpace
 	}
 
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+
+		err = client.UpdateUser(user)
+		if err != nil {
+			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		// Check the groups are present in the system
+		for _, groupId := range request.Groups {
+			_, err := db.GetGroup(groupId)
+			if err != nil {
+				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+				return
+			}
+		}
+	}
+
 	// Save
 	err = db.SaveUser(user)
 	if err != nil {
@@ -362,23 +394,8 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the user is disabled then stop all spaces
-	if !user.Active {
-		spaces, err := db.GetSpacesForUser(user.Id)
-		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		// Get the nomad client
-		nomadClient := nomad.NewClient()
-		for _, space := range spaces {
-			nomadClient.DeleteSpaceJob(space)
-		}
-	} else {
-		// Update the SSH key on the agents
-		go updateSpacesSSHKey(user)
-	}
+	// Update the user's spaces, ssh keys or stop spaces
+	go UpdateUserSpaces(user)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -394,18 +411,39 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		err := client.DeleteUser(userId)
+		if err != nil {
+			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
 	// Load the user to delete
 	toDelete, err := db.GetUser(userId)
-	if err != nil {
+	if err != nil && remoteClient == nil {
 		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: fmt.Sprintf("user %s not found", userId)})
 		return
 	}
 
+	if toDelete != nil {
+		if err := DeleteUser(db, toDelete); err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
 	// Stop all spaces and delete all volumes
 	spaces, err := db.GetSpacesForUser(toDelete.Id)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-		return
+		return err
 	}
 
 	// Get the nomad client
@@ -414,26 +452,23 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		// Stop the job
 		err = nomadClient.DeleteSpaceJob(space)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-			return
+			return err
 		}
 
 		// Delete the volumes
 		err = nomadClient.DeleteSpaceVolumes(space)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-			return
+			return err
 		}
 	}
 
 	// Delete the user
 	err = db.DeleteUser(toDelete)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-		return
+		return err
 	}
 
-	w.WriteHeader(http.StatusOK)
+	return nil
 }
 
 func updateSpacesSSHKey(user *model.User) {
@@ -471,4 +506,25 @@ func updateSpacesSSHKey(user *model.User) {
 	}
 
 	log.Debug().Msgf("Finished updating agent SSH key for user %s", user.Id)
+}
+
+func UpdateUserSpaces(user *model.User) {
+	// If the user is disabled then stop all spaces
+	if !user.Active {
+		spaces, err := database.GetInstance().GetSpacesForUser(user.Id)
+		if err != nil {
+			return
+		}
+
+		// Get the nomad client
+		nomadClient := nomad.NewClient()
+		for _, space := range spaces {
+			if space.IsDeployed {
+				nomadClient.DeleteSpaceJob(space)
+			}
+		}
+	} else {
+		// Update the SSH key on the agents
+		updateSpacesSSHKey(user)
+	}
 }

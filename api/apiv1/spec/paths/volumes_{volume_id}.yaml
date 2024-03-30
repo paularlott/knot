@@ -1,4 +1,4 @@
-post:
+put:
   summary: Update a Volume
   description: Update a volume.
   operationId: updateVolume

@@ -11,25 +11,28 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/database/model"
 	"github.com/rs/zerolog/log"
 )
 
 type RESTClient struct {
-	baseURL    string
-	token      string
-	tokenKey   string
-	tokenValue string
-	userAgent  string
-	HTTPClient *http.Client
+	baseURL          string
+	token            string
+	tokenKey         string
+	tokenValue       string
+	userAgent        string
+	useSessionCookie bool
+	HTTPClient       *http.Client
 }
 
 func NewClient(baseURL string, token string, insecureSkipVerify bool) *RESTClient {
 	restClient := &RESTClient{
-		baseURL:    strings.TrimSuffix(baseURL, "/"),
-		token:      token,
-		tokenKey:   "Authorization",
-		tokenValue: "Bearer %s",
-		userAgent:  "knot v" + build.Version,
+		baseURL:          strings.TrimSuffix(baseURL, "/"),
+		token:            token,
+		tokenKey:         "Authorization",
+		tokenValue:       "Bearer %s",
+		userAgent:        "knot v" + build.Version,
+		useSessionCookie: false,
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -49,6 +52,16 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *RESTClien
 
 func (c *RESTClient) SetUserAgent(userAgent string) *RESTClient {
 	c.userAgent = userAgent
+	return c
+}
+
+func (c *RESTClient) SetBaseUrl(baseURL string) *RESTClient {
+	c.baseURL = strings.TrimSuffix(baseURL, "/")
+	return c
+}
+
+func (c *RESTClient) UseSessionCookie(useCookie bool) *RESTClient {
+	c.useSessionCookie = useCookie
 	return c
 }
 
@@ -72,18 +85,37 @@ func (c *RESTClient) SetTokenValue(value string) *RESTClient {
 	return c
 }
 
+func (c *RESTClient) setHeaders(req *http.Request) {
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", c.userAgent)
+	if c.token != "" {
+
+		// If set the session cookie if using session cookies; else set the token header
+		if c.useSessionCookie {
+			cookie := &http.Cookie{
+				Name:     model.WEBUI_SESSION_COOKIE,
+				Value:    c.token,
+				Path:     "/",
+				HttpOnly: true,
+				Secure:   false,
+				SameSite: http.SameSiteLaxMode,
+			}
+
+			req.AddCookie(cookie)
+		} else {
+			req.Header.Set(c.tokenKey, fmt.Sprintf(c.tokenValue, c.token))
+		}
+	}
+}
+
 func (c *RESTClient) Get(path string, response interface{}) (int, error) {
 	req, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return 0, err
 	}
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-	if c.token != "" {
-		req.Header.Set(c.tokenKey, fmt.Sprintf(c.tokenValue, c.token))
-	}
-
+	c.setHeaders(req)
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return 0, err
@@ -110,13 +142,7 @@ func (c *RESTClient) SendData(method string, path string, request interface{}, r
 		return 0, err
 	}
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", c.userAgent)
-	if c.token != "" {
-		req.Header.Set(c.tokenKey, fmt.Sprintf(c.tokenValue, c.token))
-	}
-
+	c.setHeaders(req)
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return 0, err

@@ -12,16 +12,16 @@ const WEBUI_SESSION_COOKIE = "__KNOT_WEBUI_SESSION"
 
 // Session object
 type Session struct {
-	Id           string                 `json:"session_id"`
-	Ip           string                 `json:"ip"`
-	UserId       string                 `json:"user_id"`
-	TokenId      string                 `json:"token_id"`
-	UserAgent    string                 `json:"user_agent"`
-	Values       map[string]interface{} `json:"data"`
-	ExpiresAfter time.Time              `json:"expires_after"`
+	Id              string                 `json:"session_id"`
+	Ip              string                 `json:"ip"`
+	UserId          string                 `json:"user_id"`
+	RemoteSessionId string                 `json:"remote_session_id"`
+	UserAgent       string                 `json:"user_agent"`
+	Values          map[string]interface{} `json:"data"`
+	ExpiresAfter    time.Time              `json:"expires_after"`
 }
 
-func NewSession(r *http.Request, userId string, tokenId string) *Session {
+func NewSession(r *http.Request, userId string, remoteSessionId string) *Session {
 
 	// Get the users IP
 	ip := r.Header.Get("X-Forwarded-For")
@@ -35,12 +35,12 @@ func NewSession(r *http.Request, userId string, tokenId string) *Session {
 	}
 
 	session := &Session{
-		Id:        id.String(),
-		Ip:        ip,
-		UserId:    userId,
-		TokenId:   tokenId,
-		UserAgent: r.UserAgent(),
-		Values:    make(map[string]interface{}),
+		Id:              id.String(),
+		Ip:              ip,
+		UserId:          userId,
+		RemoteSessionId: remoteSessionId,
+		UserAgent:       r.UserAgent(),
+		Values:          make(map[string]interface{}),
 	}
 
 	return session

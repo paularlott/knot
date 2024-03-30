@@ -1,4 +1,4 @@
-post:
+put:
   summary: Update a Template
   description: Update a template.
   operationId: updateTemplate
@@ -110,6 +110,8 @@ get:
                 type: integer
               deployed:
                 type: integer
+              hash:
+                type: string
               groups:
                 type: array
                 items:

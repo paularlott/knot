@@ -22,5 +22,7 @@ properties:
     type: array
     items:
       type: integer
-  volume_size:
+  volume_sizes:
     type: integer
+  location:
+    type: string

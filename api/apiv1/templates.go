@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/rest"
@@ -14,281 +15,340 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type TemplateRequest struct {
-  Name string `json:"name"`
-  Job string `json:"job"`
-  Description string `json:"description"`
-  Volumes string `json:"volumes"`
-  Groups []string `json:"groups"`
-}
-
-type TemplateResponse struct {
-  Id string `json:"template_id"`
-  Name string `json:"name"`
-  Description string `json:"description"`
-  Usage int `json:"usage"`
-  Deployed int `json:"deployed"`
-  Groups []string `json:"groups"`
-}
-
 func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
-  user := r.Context().Value("user").(*model.User)
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
 
-  // Get the query parameter user_id if present load the user
-  userId := r.URL.Query().Get("user_id")
-  if userId != "" {
-    if !user.HasPermission(model.PermissionManageSpaces) {
-      rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "Permission denied"})
-      return
-    }
+		templates, code, err := client.GetTemplates()
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-    var err error
-    user, err = database.GetInstance().GetUser(userId)
-    if err != nil {
-      rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-      return
-    }
-    if user == nil {
-      rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "User not found"})
-      return
-    }
-  }
+		rest.SendJSON(http.StatusOK, w, templates)
+	} else {
+		user := r.Context().Value("user").(*model.User)
 
-  templates, err := database.GetInstance().GetTemplates()
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+		// Get the query parameter user_id if present load the user
+		userId := r.URL.Query().Get("user_id")
+		if userId != "" {
+			if !user.HasPermission(model.PermissionManageSpaces) {
+				rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "Permission denied"})
+				return
+			}
 
-  // Build a json array of data to return to the client
-  templateResponse := []*TemplateResponse{}
+			var err error
+			user, err = database.GetInstance().GetUser(userId)
+			if err != nil {
+				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				return
+			}
+			if user == nil {
+				rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "User not found"})
+				return
+			}
+		}
 
-  for _, template := range templates {
+		templates, err := database.GetInstance().GetTemplates()
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-    // If the template has groups and no overlap with the user's groups then skip
-    if !user.HasPermission(model.PermissionManageTemplates) && len(template.Groups) > 0 && !user.HasAnyGroup(&template.Groups) {
-      continue
-    }
+		// Build a json array of data to return to the client
+		templateResponse := []*apiclient.TemplateResponse{}
 
-    templateData := &TemplateResponse{}
+		for _, template := range templates {
 
-    templateData.Id = template.Id
-    templateData.Name = template.Name
-    templateData.Description = template.Description
-    templateData.Groups = template.Groups
+			// If the template has groups and no overlap with the user's groups then skip
+			if !user.HasPermission(model.PermissionManageTemplates) && len(template.Groups) > 0 && !user.HasAnyGroup(&template.Groups) {
+				continue
+			}
 
-    // Find the number of spaces using this template
-    spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
-    if err != nil {
-      rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-      return
-    }
+			templateData := &apiclient.TemplateResponse{}
 
-    var deployed int = 0
-    for _, space := range spaces {
-      if space.IsDeployed {
-        deployed++
-      }
-    }
+			templateData.Id = template.Id
+			templateData.Name = template.Name
+			templateData.Description = template.Description
+			templateData.Groups = template.Groups
 
-    templateData.Usage = len(spaces)
-    templateData.Deployed = deployed
+			// Find the number of spaces using this template
+			spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
+			if err != nil {
+				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				return
+			}
 
-    templateResponse = append(templateResponse, templateData)
-  }
+			var deployed int = 0
+			for _, space := range spaces {
+				if space.IsDeployed {
+					deployed++
+				}
+			}
 
-  rest.SendJSON(http.StatusOK, w, templateResponse)
+			templateData.Usage = len(spaces)
+			templateData.Deployed = deployed
+
+			templateResponse = append(templateResponse, templateData)
+		}
+
+		rest.SendJSON(http.StatusOK, w, templateResponse)
+	}
 }
 
 func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
-  db := database.GetInstance()
-  user := r.Context().Value("user").(*model.User)
+	templateId := chi.URLParam(r, "template_id")
 
-  template, err := database.GetInstance().GetTemplate(chi.URLParam(r, "template_id"))
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	request := apiclient.TemplateRequest{}
+	err := rest.BindJSON(w, r, &request)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		return
+	}
 
-  request := TemplateRequest{}
-  err = rest.BindJSON(w, r, &request)
-  if err != nil {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template name given"})
+		return
+	}
+	if !validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Job is required and must be less than 10MB"})
+		return
+	}
+	if !validate.MaxLength(request.Volumes, 10*1024*1024) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volumes must be less than 10MB"})
+		return
+	}
 
-  if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template name given"})
-    return
-  }
-  if !validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Job is required and must be less than 10MB"})
-    return
-  }
-  if !validate.MaxLength(request.Volumes, 10*1024*1024) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volumes must be less than 10MB"})
-    return
-  }
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
 
-  // Check the groups are present in the system
-  for _, groupId := range request.Groups {
-    _, err := db.GetGroup(groupId)
-    if err != nil {
-      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
-      return
-    }
-  }
+		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		db := database.GetInstance()
+		user := r.Context().Value("user").(*model.User)
 
-  template.Name = request.Name
-  template.Description = request.Description
-  template.Job = request.Job
-  template.Volumes = request.Volumes
-  template.UpdatedUserId = user.Id
-  template.Groups = request.Groups
-  template.UpdateHash()
+		template, err := database.GetInstance().GetTemplate(templateId)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  err = database.GetInstance().SaveTemplate(template)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+		// Check the groups are present in the system
+		for _, groupId := range request.Groups {
+			_, err := db.GetGroup(groupId)
+			if err != nil {
+				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+				return
+			}
+		}
 
-  w.WriteHeader(http.StatusOK)
+		template.Name = request.Name
+		template.Description = request.Description
+		template.Job = request.Job
+		template.Volumes = request.Volumes
+		template.UpdatedUserId = user.Id
+		template.Groups = request.Groups
+		template.UpdateHash()
+
+		err = database.GetInstance().SaveTemplate(template)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
-  db := database.GetInstance()
-  user := r.Context().Value("user").(*model.User)
+	var templateId string
 
-  request := TemplateRequest{}
-  err := rest.BindJSON(w, r, &request)
-  if err != nil {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	request := apiclient.TemplateRequest{}
+	err := rest.BindJSON(w, r, &request)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		return
+	}
 
-  if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template name given"})
-    return
-  }
-  if !validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Job is required and must be less than 10MB"})
-    return
-  }
-  if !validate.MaxLength(request.Volumes, 10*1024*1024) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volumes must be less than 10MB"})
-    return
-  }
+	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template name given"})
+		return
+	}
+	if !validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Job is required and must be less than 10MB"})
+		return
+	}
+	if !validate.MaxLength(request.Volumes, 10*1024*1024) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volumes must be less than 10MB"})
+		return
+	}
 
-  // Check the groups are present in the system
-  for _, groupId := range request.Groups {
-    _, err := db.GetGroup(groupId)
-    if err != nil {
-      rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
-      return
-    }
-  }
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
 
-  template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups)
+		var code int
+		var err error
 
-  err = database.GetInstance().SaveTemplate(template)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		db := database.GetInstance()
+		user := r.Context().Value("user").(*model.User)
 
-  // Return the ID
-  rest.SendJSON(http.StatusCreated, w, struct {
-    Status bool `json:"status"`
-    TemplateID string `json:"template_id"`
-  }{
-    Status: true,
-    TemplateID: template.Id,
-  })
+		// Check the groups are present in the system
+		for _, groupId := range request.Groups {
+			_, err := db.GetGroup(groupId)
+			if err != nil {
+				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+				return
+			}
+		}
+
+		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups)
+
+		err = database.GetInstance().SaveTemplate(template)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		templateId = template.Id
+	}
+
+	// Return the ID
+	rest.SendJSON(http.StatusCreated, w, &apiclient.TemplateCreateResponse{
+		Status: true,
+		Id:     templateId,
+	})
 }
 
 func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
-  template, err := database.GetInstance().GetTemplate(chi.URLParam(r, "template_id"))
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	templateId := chi.URLParam(r, "template_id")
 
-  // Don't allow the manual template to be deleted
-  if template.Id == model.MANUAL_TEMPLATE_ID {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Manual template cannot be deleted"})
-    return
-  }
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
 
-  // Delete the template
-  err = database.GetInstance().DeleteTemplate(template)
-  if err != nil {
-    if errors.Is(err, database.ErrTemplateInUse) {
-      rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: err.Error()})
-    } else {
-      rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    }
-    return
-  }
+		code, err := client.DeleteTemplate(templateId)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		template, err := database.GetInstance().GetTemplate(templateId)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  w.WriteHeader(http.StatusOK)
+		// Don't allow the manual template to be deleted
+		if template.Id == model.MANUAL_TEMPLATE_ID {
+			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Manual template cannot be deleted"})
+			return
+		}
+
+		// Find if any spaces are using this template and deny deletion
+		spaces, err := database.GetInstance().GetSpacesByTemplateId(templateId)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		if len(spaces) > 0 {
+			rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "Template is in use by spaces"})
+			return
+		}
+
+		// Delete the template
+		err = database.GetInstance().DeleteTemplate(template)
+		if err != nil {
+			if errors.Is(err, database.ErrTemplateInUse) {
+				rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: err.Error()})
+			} else {
+				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			}
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
-  templateId := chi.URLParam(r, "template_id")
+	templateId := chi.URLParam(r, "template_id")
 
-  db := database.GetInstance()
-  template, err := db.GetTemplate(templateId)
-  if err != nil {
-    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
 
-  // Find the number of spaces using this template
-  spaces, err := db.GetSpacesByTemplateId(templateId)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+		template, code, err := client.GetTemplate(templateId)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  var deployed int = 0
-  for _, space := range spaces {
-    if space.IsDeployed {
-      deployed++
-    }
-  }
+		rest.SendJSON(http.StatusOK, w, template)
+	} else {
+		db := database.GetInstance()
+		template, err := db.GetTemplate(templateId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  volumes, _ := template.GetVolumes(nil, nil, nil, false);
+		// Find the number of spaces using this template
+		spaces, err := db.GetSpacesByTemplateId(templateId)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  var volumeList []map[string]interface{}
-  for _, volume := range volumes.Volumes {
-    volumeList = append(volumeList, map[string]interface{}{
-      "id":           volume.Id,
-      "name":         volume.Name,
-      "capacity_min": math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64)) / (1024 * 1024 * 1024))),
-      "capacity_max": math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64)) / (1024 * 1024 * 1024))),
-    })
-  }
+		var deployed int = 0
+		for _, space := range spaces {
+			if space.IsDeployed {
+				deployed++
+			}
+		}
 
-  data := struct {
-    Name string `json:"name"`
-    Job string `json:"job"`
-    Description string `json:"description"`
-    Volumes string `json:"volumes"`
-    Usage int `json:"usage"`
-    Deployed int `json:"deployed"`
-    Groups []string `json:"groups"`
-    VolumeSizes []map[string]interface{} `json:"volume_sizes"`
-  }{
-    Name: template.Name,
-    Description: template.Description,
-    Job: template.Job,
-    Volumes: template.Volumes,
-    Usage: len(spaces),
-    Deployed: deployed,
-    Groups: template.Groups,
-    VolumeSizes: volumeList,
-  }
+		volumes, _ := template.GetVolumes(nil, nil, nil, false)
 
-  rest.SendJSON(http.StatusOK, w, data)
+		var volumeList []map[string]interface{}
+		for _, volume := range volumes.Volumes {
+			volumeList = append(volumeList, map[string]interface{}{
+				"id":           volume.Id,
+				"name":         volume.Name,
+				"capacity_min": math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))),
+				"capacity_max": math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64))/(1024*1024*1024))),
+			})
+		}
+
+		data := apiclient.TemplateDetails{
+			Name:        template.Name,
+			Description: template.Description,
+			Job:         template.Job,
+			Volumes:     template.Volumes,
+			Usage:       len(spaces),
+			Hash:        template.Hash,
+			Deployed:    deployed,
+			Groups:      template.Groups,
+			VolumeSizes: volumeList,
+		}
+
+		rest.SendJSON(http.StatusOK, w, &data)
+	}
 }

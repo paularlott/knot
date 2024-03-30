@@ -45,7 +45,7 @@ window.userGroupForm = function(isEdit, groupId) {
       this.loading = true;
 
       fetch(isEdit ? '/api/v1/groups/' + groupId : '/api/v1/groups', {
-          method: 'POST',
+          method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
