@@ -2,6 +2,7 @@ package apiclient
 
 import (
 	"errors"
+	"time"
 
 	"github.com/paularlott/knot/database/model"
 )
@@ -133,4 +134,32 @@ func (c *ApiClient) RemoteFetchTemplateHashes() (*map[string]string, error) {
 	}
 
 	return &response, nil
+}
+
+func (c *ApiClient) RemoteGetSpace(spaceId string) (*model.Space, int, error) {
+	response := &SpaceDefinition{}
+
+	code, err := c.httpClient.Get("/api/v1/remote/spaces/"+spaceId, &response)
+	if err != nil {
+		return nil, code, err
+	}
+
+	space := &model.Space{
+		Id:           spaceId,
+		UserId:       response.UserId,
+		TemplateId:   response.TemplateId,
+		Name:         response.Name,
+		AltNames:     response.AltNames,
+		AgentURL:     response.AgentURL,
+		Shell:        response.Shell,
+		TemplateHash: "",
+		IsDeployed:   response.IsDeployed,
+		VolumeData:   response.VolumeData,
+		VolumeSizes:  response.VolumeSizes,
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
+		Location:     response.Location,
+	}
+
+	return space, code, nil
 }

@@ -19,6 +19,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	var userId string = ""
 	var tokenId string = ""
 	var statusCode int = 0
+
 	db := database.GetInstance()
 	request := apiclient.AuthLoginRequest{}
 

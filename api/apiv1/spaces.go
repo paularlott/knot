@@ -744,10 +744,12 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		user := r.Context().Value("user").(*model.User)
-		if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
-			return
+		if r.Context().Value("user") != nil {
+			user := r.Context().Value("user").(*model.User)
+			if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+				rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
+				return
+			}
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -437,7 +438,7 @@ func startRemoteServerServices() {
 				continue
 			} else {
 				log.Info().Msgf("server: registered with core server as %s", serverId)
-				// FIXME				go syncRemoteUsers(client)
+				go syncCachedItems(client)
 			}
 
 			for {
@@ -457,39 +458,35 @@ func startRemoteServerServices() {
 	go apiv1.SyncTemplateHashes()
 }
 
-// TODO Fix this, sync tokes, users etc
+var syncMutex = &sync.Mutex{}
 
-func syncRemoteUsers(client *apiclient.ApiClient) {
+func syncCachedItems(client *apiclient.ApiClient) {
+	syncMutex.Lock()
+	defer syncMutex.Unlock()
+
 	db := database.GetInstance()
 
 	log.Info().Msg("server: syncing users from core server")
-
 	users, err := db.GetUsers()
 	if err != nil {
-		log.Error().Msgf("failed to get users: %s", err.Error())
+		log.Error().Msgf("server: failed to get users: %s", err.Error())
 	} else {
 		for _, user := range users {
-			if user.Active {
-				remoteUser, err := client.GetUser(user.Id)
-				if err != nil {
-
-					// If error is user not found then delete the user
-					if err.Error() == "user not found" {
-						err := apiv1.DeleteUser(db, user)
-						if err != nil {
-							log.Error().Msgf("failed to delete user %s: %s", user.Id, err.Error())
-						}
-					} else {
-						log.Error().Msgf("failed to get user %s: %s", user.Id, err.Error())
-						break
-					}
+			log.Debug().Msgf("server: syncing user %s", user.Username)
+			remoteUser, err := client.RemoteGetUser(user.Id)
+			if err != nil {
+				// If error is user not found, delete the user
+				if strings.Contains(err.Error(), "user not found") {
+					log.Debug().Msgf("server: deleting user %s", user.Username)
+					apiv1.DeleteUser(db, user)
 				} else {
-					db.SaveUser(remoteUser)
-					apiv1.UpdateUserSpaces(remoteUser)
+					log.Error().Msgf("server: failed to get user %s: %s", user.Username, err.Error())
 				}
+			} else {
+				db.SaveUser(remoteUser)
+				apiv1.UpdateUserSpaces(remoteUser)
 			}
 		}
 	}
-
 	log.Info().Msg("server: finished user sync from core server")
 }
