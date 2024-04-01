@@ -100,10 +100,6 @@ func ApiRoutes() chi.Router {
 			router.Get("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetVolume)
 			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/start", HandleVolumeStart)
 			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/stop", HandleVolumeStop)
-
-			// TODO REMOVE
-			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/remote/start", HandleVolumeStartRemote)
-			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/remote/stop", HandleVolumeStopRemote)
 		})
 
 		// Template Variables
@@ -161,6 +157,10 @@ func ApiRoutes() chi.Router {
 
 				router.Route("/users", func(router chi.Router) {
 					router.Get("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetUser)
+				})
+
+				router.Route("/volumes", func(router chi.Router) {
+					router.Put("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateVolumeRemote)
 				})
 			}
 

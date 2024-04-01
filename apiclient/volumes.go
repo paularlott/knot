@@ -12,6 +12,7 @@ type VolumeInfo struct {
 type VolumeDefinition struct {
 	Name       string `json:"name"`
 	Definition string `json:"definition"`
+	Location   string `json:"location"`
 	Active     bool   `json:"active"`
 }
 
@@ -98,6 +99,23 @@ func (c *ApiClient) GetVolume(volumeId string) (*VolumeDefinition, int, error) {
 	return &response, code, nil
 }
 
+func (c *ApiClient) GetVolumeObject(volumeId string) (*model.Volume, int, error) {
+	response, code, err := c.GetVolume(volumeId)
+	if err != nil {
+		return nil, code, err
+	}
+
+	volume := &model.Volume{
+		Id:         volumeId,
+		Name:       response.Name,
+		Definition: response.Definition,
+		Location:   response.Location,
+		Active:     response.Active,
+	}
+
+	return volume, code, nil
+}
+
 func (c *ApiClient) StartVolume(volumeId string) (*StartVolumeResponse, int, error) {
 	response := StartVolumeResponse{}
 
@@ -111,42 +129,4 @@ func (c *ApiClient) StartVolume(volumeId string) (*StartVolumeResponse, int, err
 
 func (c *ApiClient) StopVolume(volumeId string) (int, error) {
 	return c.httpClient.Post("/api/v1/volumes/"+volumeId+"/stop", nil, nil, 200)
-}
-
-func (c *ApiClient) StartVolumeRemote(volumeId string, location string) (*model.Volume, map[string]interface{}, int, error) {
-	request := VolumeStartRequest{
-		Location: location,
-	}
-
-	response := VolumeStartResponse{}
-
-	code, err := c.httpClient.Post("/api/v1/volumes/"+volumeId+"/remote/start", &request, &response, 200)
-	if err != nil {
-		return nil, nil, code, err
-	}
-
-	volume := model.NewVolume(response.Name, response.Definition, "")
-	volume.Id = volumeId
-	volume.Location = response.Location
-
-	return volume, response.Variables, code, nil
-}
-
-func (c *ApiClient) StopVolumeRemote(volumeId string, location string) (*model.Volume, map[string]interface{}, int, error) {
-	request := VolumeStopRequest{
-		Location: location,
-	}
-
-	response := VolumeStopResponse{}
-
-	code, err := c.httpClient.Post("/api/v1/volumes/"+volumeId+"/remote/stop", &request, &response, 200)
-	if err != nil {
-		return nil, nil, code, err
-	}
-
-	volume := model.NewVolume(response.Name, response.Definition, "")
-	volume.Id = volumeId
-	volume.Location = response.Location
-
-	return volume, response.Variables, code, nil
 }

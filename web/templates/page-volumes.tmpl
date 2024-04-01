@@ -46,6 +46,7 @@
             <button x-show="!t.active" x-bind:disabled="t.starting && t.stopping" @click="t.showMenu = false; editVolume(t.volume_id)"><i class='bx bx-edit' ></i> Edit</button>
             <button x-show="!t.active" x-bind:disabled="t.starting || t.stopping" @click="t.showMenu = false; startVolume(t.volume_id); t.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="t.starting">ing ...</span></button>
             <button x-show="t.active" x-bind:disabled="t.starting || t.stopping" @click="t.showMenu = false; stopConfirm.show = true; stopConfirm.volume = t"><i class='bx bx-stop-circle' ></i> Stop<span x-show="t.stopping">ping ...</span></button>
+            <hr x-show="!t.active && !t.starting && !t.stopping" />
             <button x-show="!t.active && !t.starting && !t.stopping" @click="t.showMenu = false; deleteConfirm.show = true; deleteConfirm.volume = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
           </div>
         </td>

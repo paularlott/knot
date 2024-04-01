@@ -112,3 +112,14 @@ func (c *ApiClient) RemoteUpdateSpace(space *model.Space) (int, error) {
 func (c *ApiClient) RemoteDeleteSpace(spaceId string) (int, error) {
 	return c.httpClient.Delete("/api/v1/remote/spaces/"+spaceId, nil, nil, 200)
 }
+
+func (c *ApiClient) RemoteUpdateVolume(volume *model.Volume) (int, error) {
+	request := VolumeDefinition{
+		Name:       volume.Name,
+		Definition: volume.Definition,
+		Location:   volume.Location,
+		Active:     volume.Active,
+	}
+
+	return c.httpClient.Put("/api/v1/remote/volumes/"+volume.Id, request, nil, 200)
+}

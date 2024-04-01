@@ -427,7 +427,7 @@ func startRemoteServerServices() {
 		log.Info().Msg("server: starting remote server registration")
 
 		for {
-			client := apiclient.NewClient(viper.GetString("server.core_server"), viper.GetString("server.remote_token"), viper.GetBool("tls_skip_verify"))
+			client := apiclient.NewRemoteServerClient(viper.GetString("server.core_server"))
 
 			// Register the server with the core server
 			serverId, err := client.RegisterRemoteServer(viper.GetString("server.url"))

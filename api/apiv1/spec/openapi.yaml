@@ -111,10 +111,6 @@ paths:
     $ref: paths/volumes_{volume_id}_start.yaml
   /api/v1/volumes/{volume_id}/stop:
     $ref: paths/volumes_{volume_id}_stop.yaml
-  /api/v1/volumes/{volume_id}/remote/start:
-    $ref: paths/volumes_{volume_id}_remote_start.yaml
-  /api/v1/volumes/{volume_id}/remote/stop:
-    $ref: paths/volumes_{volume_id}_remote_stop.yaml
 
   /proxy/port/{host}/{port}:
     $ref: paths/proxy_port_{host}_{port}.yaml

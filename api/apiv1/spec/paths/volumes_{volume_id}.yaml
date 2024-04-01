@@ -90,6 +90,8 @@ get:
               definition:
                 type: string
                 description: A YAML formatted string describing the volumes to be created
+              location:
+                type: string
               active:
                 type: boolean
     '500':

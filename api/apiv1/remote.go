@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/util/validate"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -28,6 +29,47 @@ func HandleRemoteGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.SendJSON(http.StatusOK, w, data)
+}
+
+func HandleUpdateVolumeRemote(w http.ResponseWriter, r *http.Request) {
+	volemeId := chi.URLParam(r, "volume_id")
+
+	request := apiclient.VolumeDefinition{}
+	err := rest.BindJSON(w, r, &request)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid volume name given"})
+		return
+	}
+	if !validate.MaxLength(request.Definition, 10*1024*1024) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volume definition must be less than 10MB"})
+		return
+	}
+
+	db := database.GetInstance()
+
+	volume, err := database.GetInstance().GetVolume(volemeId)
+	if err != nil {
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	volume.Name = request.Name
+	volume.Definition = request.Definition
+	volume.Location = request.Location
+	volume.Active = request.Active
+
+	err = db.SaveVolume(volume)
+	if err != nil {
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func HandleNotifyUserUpdate(w http.ResponseWriter, r *http.Request) {
