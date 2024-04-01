@@ -43,7 +43,6 @@ user_id CHAR(36),
 remote_session_id CHAR(36),
 ip VARCHAR(15),
 user_agent VARCHAR(255),
-data TEXT,
 expires_after TIMESTAMP,
 INDEX expires_after (expires_after),
 INDEX user_id (user_id)
