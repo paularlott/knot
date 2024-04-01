@@ -685,7 +685,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, space := range spaces {
-		if space.IsDeployed {
+		if space.IsDeployed && (space.Location == "" || space.Location == viper.GetString("server.location")) {
 			err = nomadClient.DeleteSpaceJob(space)
 			if err != nil {
 				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
