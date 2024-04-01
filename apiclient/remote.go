@@ -123,3 +123,14 @@ func (c *ApiClient) RemoteUpdateVolume(volume *model.Volume) (int, error) {
 
 	return c.httpClient.Put("/api/v1/remote/volumes/"+volume.Id, request, nil, 200)
 }
+
+func (c *ApiClient) RemoteFetchTemplateHashes() (*map[string]string, error) {
+	response := make(map[string]string)
+
+	_, err := c.httpClient.Get("/api/v1/remote/templates/hashes", &response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}

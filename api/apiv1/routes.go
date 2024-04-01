@@ -142,6 +142,7 @@ func ApiRoutes() chi.Router {
 
 				router.Route("/templates", func(router chi.Router) {
 					router.Get("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplate)
+					router.Get("/hashes", HandleGetTemplateHashes)
 				})
 
 				router.Route("/spaces", func(router chi.Router) {

@@ -37,15 +37,16 @@ type SpaceInfo struct {
 }
 
 type SpaceServiceState struct {
-	Name          string `json:"name"`
-	Location      string `json:"location"`
-	HasCodeServer bool   `json:"has_code_server"`
-	HasSSH        bool   `json:"has_ssh"`
-	HasHttpVNC    bool   `json:"has_http_vnc"`
-	HasTerminal   bool   `json:"has_terminal"`
-	IsDeployed    bool   `json:"is_deployed"`
-	TcpPorts      []int  `json:"tcp_ports"`
-	HttpPorts     []int  `json:"http_ports"`
+	Name            string `json:"name"`
+	Location        string `json:"location"`
+	HasCodeServer   bool   `json:"has_code_server"`
+	HasSSH          bool   `json:"has_ssh"`
+	HasHttpVNC      bool   `json:"has_http_vnc"`
+	HasTerminal     bool   `json:"has_terminal"`
+	IsDeployed      bool   `json:"is_deployed"`
+	TcpPorts        []int  `json:"tcp_ports"`
+	HttpPorts       []int  `json:"http_ports"`
+	UpdateAvailable bool   `json:"update_available"`
 }
 
 type SpaceDefinition struct {

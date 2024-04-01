@@ -452,6 +452,9 @@ func startRemoteServerServices() {
 			}
 		}
 	}()
+
+	// Start a go routine to fetch the list of template hashes from the core server
+	go apiv1.SyncTemplateHashes()
 }
 
 // TODO Fix this, sync tokes, users etc

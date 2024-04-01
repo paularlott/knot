@@ -372,17 +372,13 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	response.Location = space.Location
 	response.IsDeployed = space.IsDeployed
 
-	// TODO Implement the template update available check as a periodic job, add hash to get templates call, cache the value in ram
-	/* 	if space.TemplateId == model.MANUAL_TEMPLATE_ID {
-	   		response.UpdateAvailable = false
-	   	} else {
-	   		template, err := db.GetTemplate(space.TemplateId)
-	   		if err != nil {
-	   			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-	   			return
-	   		}
-	   		response.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
-	   	} */
+	// Check if the template has been updated
+	hash, ok := templateHashes[space.TemplateId]
+	if space.TemplateId == model.MANUAL_TEMPLATE_ID || !ok {
+		response.UpdateAvailable = false
+	} else {
+		response.UpdateAvailable = space.IsDeployed && space.TemplateHash != hash
+	}
 
 	rest.SendJSON(http.StatusOK, w, response)
 }

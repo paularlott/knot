@@ -72,6 +72,21 @@ func HandleUpdateVolumeRemote(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func HandleGetTemplateHashes(w http.ResponseWriter, r *http.Request) {
+	templates, err := database.GetInstance().GetTemplates()
+	if err != nil {
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	data := make(map[string]string, len(templates))
+	for _, template := range templates {
+		data[template.Id] = template.Hash
+	}
+
+	rest.SendJSON(http.StatusOK, w, data)
+}
+
 func HandleNotifyUserUpdate(w http.ResponseWriter, r *http.Request) {
 	userId := chi.URLParam(r, "user_id")
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
@@ -13,7 +14,29 @@ import (
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
+
+var (
+	templateHashes = make(map[string]string)
+)
+
+func SyncTemplateHashes() {
+	log.Info().Msg("server: starting remote server template hash sync")
+
+	for {
+		client := apiclient.NewRemoteServerClient(viper.GetString("server.core_server"))
+		hashes, err := client.RemoteFetchTemplateHashes()
+		if err != nil {
+			log.Error().Msgf("failed to fetch template hashes: %s", err.Error())
+		} else {
+			templateHashes = *hashes
+		}
+
+		time.Sleep(model.REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL)
+	}
+}
 
 func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 	// If remote client present then forward the request
