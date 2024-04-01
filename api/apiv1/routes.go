@@ -132,24 +132,47 @@ func ApiRoutes() chi.Router {
 	})
 	router.Post("/agents/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleRegisterAgent)
 
-	if viper.GetBool("server.is_core") {
-		router.Route("/remote-servers/{server_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
-			router.Use(middleware.RemoteServerAuth)
-			router.Put("/status", HandleUpdateRemoteServer)
-		})
-		router.Post("/remote-servers", HandleRegisterRemoteServer)
-
+	// Additional endpoints exposed by remote and core servers
+	if viper.GetBool("server.is_core") || viper.GetBool("server.is_remote") {
 		// Remote server authenticated routes
 		router.Route("/remote", func(router chi.Router) {
 			router.Use(middleware.RemoteServerAuth)
 
-			router.Route("/templatevars", func(router chi.Router) {
-				router.Get("/values", HandleRemoteGetTemplateVars)
-			})
+			// Core server
+			if viper.GetBool("server.is_core") {
+				router.Route("/templatevars", func(router chi.Router) {
+					router.Get("/values", HandleRemoteGetTemplateVars)
+				})
 
-			router.Route("/templates", func(router chi.Router) {
-				router.Get("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplate)
-			})
+				router.Route("/templates", func(router chi.Router) {
+					router.Get("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplate)
+				})
+
+				router.Route("/spaces", func(router chi.Router) {
+					router.Put("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateSpace)
+					router.Delete("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteSpace)
+				})
+
+				// Register and health update of servers
+				router.Route("/servers", func(router chi.Router) {
+					router.Post("/", HandleRegisterRemoteServer)
+					router.Put("/{server_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateRemoteServer)
+				})
+
+				router.Route("/users", func(router chi.Router) {
+					router.Get("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetUser)
+				})
+			}
+
+			// Remote server
+			if viper.GetBool("server.is_remote") {
+				router.Route("/notify", func(router chi.Router) {
+					router.Route("/users", func(router chi.Router) {
+						router.Post("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleNotifyUserUpdate)
+						router.Delete("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleNotifyUserDelete)
+					})
+				})
+			}
 		})
 	}
 

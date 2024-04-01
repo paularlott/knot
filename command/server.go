@@ -422,8 +422,6 @@ func startRemoteServerServices() {
 		}
 	}()
 
-	// TODO Fix this, sync tokes, users etc
-
 	// Start a go routine to register with the core server and keep the registration alive
 	go func() {
 		log.Info().Msg("server: starting remote server registration")
@@ -439,7 +437,7 @@ func startRemoteServerServices() {
 				continue
 			} else {
 				log.Info().Msgf("server: registered with core server as %s", serverId)
-				go syncRemoteUsers(client)
+				// FIXME				go syncRemoteUsers(client)
 			}
 
 			for {
@@ -455,6 +453,8 @@ func startRemoteServerServices() {
 		}
 	}()
 }
+
+// TODO Fix this, sync tokes, users etc
 
 func syncRemoteUsers(client *apiclient.ApiClient) {
 	db := database.GetInstance()

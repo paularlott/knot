@@ -188,6 +188,7 @@ INDEX expires_after (expires_after)
 	log.Debug().Msg("db: MySQL is initialized")
 
 	// Add a task to clean up expired sessions
+	log.Debug().Msg("db: starting session GC")
 	go func() {
 		ticker := time.NewTicker(15 * time.Minute)
 		defer ticker.Stop()
@@ -208,6 +209,7 @@ INDEX expires_after (expires_after)
 	}()
 
 	// Add a task to clean up expired agent states
+	log.Debug().Msg("db: starting agent GC")
 	go func() {
 		ticker := time.NewTicker(model.AGENT_STATE_GC_INTERVAL)
 		defer ticker.Stop()
@@ -223,7 +225,8 @@ INDEX expires_after (expires_after)
 	}()
 
 	// Add a test to clean up expired remote servers
-	if viper.GetString("remote-key") != "" && viper.GetString("core-server") == "" {
+	if viper.GetBool("server.is_core") {
+		log.Debug().Msg("db: starting remote server GC")
 		go func() {
 			ticker := time.NewTicker(model.REMOTE_SERVER_GC_INTERVAL)
 			defer ticker.Stop()

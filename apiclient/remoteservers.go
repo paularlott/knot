@@ -16,7 +16,7 @@ func (c *ApiClient) RegisterRemoteServer(url string) (string, error) {
 
 	response := RegisterRemoteServerResponse{}
 
-	_, err := c.httpClient.Post("/api/v1/remote-servers", &request, &response, 201)
+	_, err := c.httpClient.Post("/api/v1/remote/servers", &request, &response, 201)
 	if err != nil {
 		return "", err
 	}
@@ -25,6 +25,16 @@ func (c *ApiClient) RegisterRemoteServer(url string) (string, error) {
 }
 
 func (c *ApiClient) UpdateRemoteServer(serverId string) error {
-	_, err := c.httpClient.Put("/api/v1/remote-servers/"+serverId+"/status", nil, nil, 200)
+	_, err := c.httpClient.Put("/api/v1/remote/servers/"+serverId, nil, nil, 200)
+	return err
+}
+
+func (c *ApiClient) NotifyRemoteUserUpdate(userId string) error {
+	_, err := c.httpClient.Post("/api/v1/remote/notify/users/"+userId, nil, nil, 200)
+	return err
+}
+
+func (c *ApiClient) NotifyRemoteUserDelete(userId string) error {
+	_, err := c.httpClient.Delete("/api/v1/remote/notify/users/"+userId, nil, nil, 200)
 	return err
 }

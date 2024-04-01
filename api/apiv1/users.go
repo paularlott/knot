@@ -114,10 +114,15 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	var user *model.User
+	var activeUser *model.User = nil
 	var err error
 
 	db := database.GetInstance()
-	activeUser := r.Context().Value("user").(*model.User)
+
+	if r.Context().Value("user") != nil {
+		activeUser = r.Context().Value("user").(*model.User)
+	}
+
 	userId := chi.URLParam(r, "user_id")
 
 	// If remote client present then forward the request
@@ -159,7 +164,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		SSHPublicKey:    user.SSHPublicKey,
 		PreferredShell:  user.PreferredShell,
 		Timezone:        user.Timezone,
-		Current:         user.Id == activeUser.Id,
+		Current:         activeUser != nil && user.Id == activeUser.Id,
 		LastLoginAt:     nil,
 		CreatedAt:       user.CreatedAt.UTC(),
 		UpdatedAt:       user.UpdatedAt.UTC(),
@@ -207,6 +212,7 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
 	requiredState := r.URL.Query().Get("state")
+	inLocation := r.URL.Query().Get("location")
 	if requiredState == "" {
 		requiredState = "all"
 	}
@@ -215,7 +221,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
-		userData, err := client.GetUsers(requiredState)
+		userData, err := client.GetUsers(requiredState, viper.GetString("server.location"))
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
@@ -261,10 +267,15 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 				}
 
 				var deployed int = 0
+				var deployedInLocation int = 0
 				var diskSpace int = 0
 				for _, space := range spaces {
 					if space.IsDeployed {
 						deployed++
+
+						if inLocation != "" && space.Location == inLocation {
+							deployedInLocation++
+						}
 					}
 
 					sSize, err := calcSpaceDiskUsage(space)
@@ -278,6 +289,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 				data.NumberSpaces = len(spaces)
 				data.NumberSpacesDeployed = deployed
+				data.NumberSpacesDeployedInLocation = deployedInLocation
 				data.UsedDiskSpace = diskSpace
 
 				userData = append(userData, data)
@@ -329,10 +341,6 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update the user password
-	if len(request.Password) > 0 {
-		user.SetPassword(request.Password)
-	}
 	user.Email = request.Email
 	user.SSHPublicKey = request.SSHPublicKey
 	user.PreferredShell = request.PreferredShell
@@ -371,12 +379,19 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
+		user.Password = request.Password
+
 		err = client.UpdateUser(user)
 		if err != nil {
 			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
+		// Update the user password
+		if len(request.Password) > 0 {
+			user.SetPassword(request.Password)
+		}
+
 		// Check the groups are present in the system
 		for _, groupId := range request.Groups {
 			_, err := db.GetGroup(groupId)
@@ -396,6 +411,26 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Update the user's spaces, ssh keys or stop spaces
 	go UpdateUserSpaces(user)
+
+	// If core server then notify all remote servers of the change
+	if viper.GetBool("server.is_core") {
+		go func() {
+			remoteServers, err := database.GetCacheInstance().GetRemoteServers()
+			if err != nil {
+				log.Error().Msgf("Failed to get remote servers: %s", err)
+			} else {
+				for _, remoteServer := range remoteServers {
+					log.Debug().Msgf("Notifying remote server %s of update of user %s", remoteServer.Url, user.Username)
+
+					client := apiclient.NewRemoteServerClient(remoteServer.Url)
+					err := client.NotifyRemoteUserUpdate(user.Id)
+					if err != nil {
+						log.Error().Msgf("Failed to notify remote server %s of update for user %s: %s", remoteServer.Url, user.Username, err)
+					}
+				}
+			}
+		}()
+	}
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -436,36 +471,99 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// If core server then notify all remote servers of the change
+	if viper.GetBool("server.is_core") {
+		go func() {
+			remoteServers, err := database.GetCacheInstance().GetRemoteServers()
+			if err != nil {
+				log.Error().Msgf("Failed to get remote servers: %s", err)
+			} else {
+				for _, remoteServer := range remoteServers {
+					log.Debug().Msgf("Notifying remote server %s of delete of user %s", remoteServer.Url, toDelete.Username)
+
+					client := apiclient.NewRemoteServerClient(remoteServer.Url)
+					err := client.NotifyRemoteUserDelete(toDelete.Id)
+					if err != nil {
+						log.Error().Msgf("Failed to notify remote server %s of delete of user %s: %s", remoteServer.Url, toDelete.Username, err)
+					}
+				}
+			}
+		}()
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
 func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
+	var hasError = false
+
+	log.Debug().Msgf("delete user: Deleting user %s", toDelete.Id)
+
 	// Stop all spaces and delete all volumes
 	spaces, err := db.GetSpacesForUser(toDelete.Id)
 	if err != nil {
 		return err
 	}
 
+	// If this is a remote then tell the core server of the space update
+	var api *apiclient.ApiClient = nil
+	if viper.GetBool("server.is_remote") {
+		api = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
+	}
+
 	// Get the nomad client
 	nomadClient := nomad.NewClient()
 	for _, space := range spaces {
-		// Stop the job
-		err = nomadClient.DeleteSpaceJob(space)
-		if err != nil {
-			return err
+		log.Debug().Msgf("delete user: Deleting space %s", space.Id)
+
+		if space.Location == viper.GetString("server.location") {
+			log.Debug().Msgf("delete user: Deleting space %s from nomad", space.Id)
+
+			// Stop the job
+			if space.IsDeployed {
+				err = nomadClient.DeleteSpaceJob(space)
+				if err != nil {
+					log.Debug().Msgf("delete user: Failed to delete space job %s: %s", space.Id, err)
+					hasError = true
+					break
+				}
+			}
+
+			// Delete the volumes
+			err = nomadClient.DeleteSpaceVolumes(space)
+			if err != nil {
+				log.Debug().Msgf("delete user: Failed to delete space volumes %s: %s", space.Id, err)
+				hasError = true
+				break
+			}
+
+			// Notify the core server
+			if api != nil {
+				_, err := api.RemoteDeleteSpace(space.Id)
+				if err != nil {
+					log.Error().Msgf("Failed to delete space %s on core server: %s", space.Id, err)
+				}
+			}
 		}
 
-		// Delete the volumes
-		err = nomadClient.DeleteSpaceVolumes(space)
-		if err != nil {
-			return err
-		}
+		db.DeleteSpace(space)
 	}
 
 	// Delete the user
-	err = db.DeleteUser(toDelete)
-	if err != nil {
-		return err
+	if !hasError {
+		err = db.DeleteUser(toDelete)
+		if err != nil {
+			return err
+		}
+
+		// Find sessions for the user and delete them
+		cache := database.GetCacheInstance()
+		sessions, err := cache.GetSessionsForUser(toDelete.Id)
+		if err == nil && sessions != nil {
+			for _, session := range sessions {
+				cache.DeleteSession(session)
+			}
+		}
 	}
 
 	return nil
@@ -489,8 +587,11 @@ func updateSpacesSSHKey(user *model.User) {
 		if space.IsDeployed {
 			// Get the agent state
 			agentState, err := cache.GetAgentState(space.Id)
-			if err != nil && agentState != nil {
-				log.Debug().Msgf("Failed to get agent state for space %s: %s", space.Id, err)
+			if err != nil || agentState == nil {
+				// Silently ignore if space is on a different server
+				if space.Location == "" || space.Location == viper.GetString("server.location") {
+					log.Debug().Msgf("Agent state not found for space %s", space.Id)
+				}
 				continue
 			}
 
@@ -508,6 +609,7 @@ func updateSpacesSSHKey(user *model.User) {
 	log.Debug().Msgf("Finished updating agent SSH key for user %s", user.Id)
 }
 
+// For disabled users ensure all spaces are stopped, for enabled users update the SSH key on the agents
 func UpdateUserSpaces(user *model.User) {
 	// If the user is disabled then stop all spaces
 	if !user.Active {
@@ -516,11 +618,24 @@ func UpdateUserSpaces(user *model.User) {
 			return
 		}
 
+		// If this is a remote then tell the core server of the space update
+		var api *apiclient.ApiClient = nil
+		if viper.GetBool("server.is_remote") {
+			api = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
+		}
+
 		// Get the nomad client
 		nomadClient := nomad.NewClient()
 		for _, space := range spaces {
-			if space.IsDeployed {
+			if space.IsDeployed && (space.Location == "" || space.Location == viper.GetString("server.location")) {
 				nomadClient.DeleteSpaceJob(space)
+
+				if api != nil {
+					_, err := api.RemoteUpdateSpace(space)
+					if err != nil {
+						log.Error().Msgf("Failed to update space %s: %s", space.Id, err)
+					}
+				}
 			}
 		}
 	} else {

@@ -13,6 +13,8 @@ import (
 )
 
 func HandleRegisterRemoteServer(w http.ResponseWriter, r *http.Request) {
+	var remoteServer *model.RemoteServer
+
 	cache := database.GetCacheInstance()
 
 	request := apiclient.RegisterRemoteServerRequest{}
@@ -24,12 +26,34 @@ func HandleRegisterRemoteServer(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Msgf("remote server registering url %s", request.Url)
 
-	server := model.NewRemoteServer(request.Url)
-	cache.SaveRemoteServer(server)
+	// Load the current list of remote servers
+	servers, err := cache.GetRemoteServers()
+	if err != nil {
+		log.Error().Msgf("error loading remote servers: %s", err)
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: "error loading remote servers"})
+		return
+	}
+
+	// Check if the server is already registered
+	for _, server := range servers {
+		if server.Url == request.Url {
+			log.Debug().Msgf("remote server %s already registered", request.Url)
+			remoteServer = server
+			break
+		}
+	}
+
+	// If the server is not already registered, create a new one
+	if remoteServer == nil {
+		remoteServer = model.NewRemoteServer(request.Url)
+	}
+
+	// Save or force update of server access time
+	cache.SaveRemoteServer(remoteServer)
 
 	response := apiclient.RegisterRemoteServerResponse{
 		Status:   true,
-		ServerId: server.Id,
+		ServerId: remoteServer.Id,
 	}
 	rest.SendJSON(http.StatusCreated, w, &response)
 }
@@ -45,6 +69,7 @@ func HandleUpdateRemoteServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Save to update the access time
 	cache.SaveRemoteServer(server)
 
 	rest.SendJSON(http.StatusOK, w, nil)

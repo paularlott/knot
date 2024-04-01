@@ -130,7 +130,7 @@ paths:
   /api/v1/agents/{space_id}/status:
     $ref: paths/agents_{space_id}_status.yaml
 
-  /api/v1/remote-servers:
+  /api/v1/remote/servers:
     $ref: paths/remote-servers.yaml
-  /api/v1/remote-servers/{server_id}/status:
-    $ref: paths/remote-servers_{server_id}_status.yaml
+  /api/v1/remote/remote/{server_id}:
+    $ref: paths/remote-servers_{server_id}.yaml

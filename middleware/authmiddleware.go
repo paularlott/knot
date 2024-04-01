@@ -50,7 +50,7 @@ func GetBearerToken(w http.ResponseWriter, r *http.Request) string {
 	// Get the auth token
 	var bearer string
 	fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &bearer)
-	if len(bearer) != 36 {
+	if len(bearer) < 1 {
 		returnUnauthorized(w)
 		return ""
 	}

@@ -36,9 +36,9 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
 	// If this is a remote then the request needs to be forwarded to the core server
 	if viper.GetBool("server.is_remote") {
-		log.Debug().Msg("Forwarding request to core server")
+		log.Debug().Msg("Forwarding auth request to core server")
 
-		client := apiclient.NewRemoteSession("")
+		client := apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
 		tokenId, statusCode, err = client.Login(request.Email, request.Password)
 		if err != nil {
 			if statusCode == http.StatusNotFound {
@@ -62,7 +62,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Query the core server for the user details
-		client.SetAuthToken(tokenId)
+		client.SetAuthToken(tokenId).UseSessionCookie(true)
 		user, err := client.WhoAmI()
 		if err != nil {
 			rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})
@@ -89,13 +89,11 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 			code := http.StatusUnauthorized
 
 			// If request came from remote server then given more information
-			if viper.GetString("server.remote_token") != "" {
-				if viper.GetString("remote_token") == middleware.GetBearerToken(w, r) {
-					if user == nil {
-						code = http.StatusNotFound
-					} else if !user.Active {
-						code = http.StatusLocked
-					}
+			if viper.GetString("server.remote_token") != "" && viper.GetString("server.remote_token") == middleware.GetBearerToken(w, r) {
+				if user == nil {
+					code = http.StatusNotFound
+				} else if !user.Active {
+					code = http.StatusLocked
 				}
 			}
 

@@ -2,6 +2,7 @@ package apiclient
 
 import (
 	"errors"
+	"net/url"
 	"time"
 
 	"github.com/paularlott/knot/database/model"
@@ -49,19 +50,20 @@ type CreateUserResponse struct {
 }
 
 type UserInfoResponse struct {
-	Id                   string     `json:"user_id"`
-	Username             string     `json:"username"`
-	Email                string     `json:"email"`
-	Roles                []string   `json:"roles"`
-	Groups               []string   `json:"groups"`
-	Active               bool       `json:"active"`
-	MaxSpaces            int        `json:"max_spaces"`
-	MaxDiskSpace         int        `json:"max_disk_space"`
-	Current              bool       `json:"current"`
-	LastLoginAt          *time.Time `json:"last_login_at"`
-	NumberSpaces         int        `json:"number_spaces"`
-	NumberSpacesDeployed int        `json:"number_spaces_deployed"`
-	UsedDiskSpace        int        `json:"used_disk_space"`
+	Id                             string     `json:"user_id"`
+	Username                       string     `json:"username"`
+	Email                          string     `json:"email"`
+	Roles                          []string   `json:"roles"`
+	Groups                         []string   `json:"groups"`
+	Active                         bool       `json:"active"`
+	MaxSpaces                      int        `json:"max_spaces"`
+	MaxDiskSpace                   int        `json:"max_disk_space"`
+	Current                        bool       `json:"current"`
+	LastLoginAt                    *time.Time `json:"last_login_at"`
+	NumberSpaces                   int        `json:"number_spaces"`
+	NumberSpacesDeployed           int        `json:"number_spaces_deployed"`
+	NumberSpacesDeployedInLocation int        `json:"number_spaces_deployed_in_location"`
+	UsedDiskSpace                  int        `json:"used_disk_space"`
 }
 type UserInfo = UserInfoResponse
 
@@ -138,10 +140,13 @@ func (c *ApiClient) WhoAmI() (*model.User, error) {
 	return user, nil
 }
 
-func (c *ApiClient) GetUsers(state string) (*[]UserInfo, error) {
+func (c *ApiClient) GetUsers(state string, location string) (*[]UserInfo, error) {
 	response := []UserInfo{}
 
-	_, err := c.httpClient.Get("/api/v1/users?state="+state, &response)
+	stateEncoded := url.QueryEscape(state)
+	locationEncoded := url.QueryEscape(location)
+
+	_, err := c.httpClient.Get("/api/v1/users?state="+stateEncoded+"&location="+locationEncoded, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +157,7 @@ func (c *ApiClient) GetUsers(state string) (*[]UserInfo, error) {
 func (c *ApiClient) UpdateUser(user *model.User) error {
 	request := UpdateUserRequest{
 		Username:        user.Username,
+		Password:        user.Password,
 		Email:           user.Email,
 		ServicePassword: user.ServicePassword,
 		Roles:           user.Roles,
@@ -174,9 +180,5 @@ func (c *ApiClient) UpdateUser(user *model.User) error {
 
 func (c *ApiClient) DeleteUser(userId string) error {
 	_, err := c.httpClient.Delete("/api/v1/users/"+userId, nil, nil, 200)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

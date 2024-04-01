@@ -106,14 +106,19 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
+	var user *model.User = nil
+
 	spaceId := chi.URLParam(r, "space_id")
-	user := r.Context().Value("user").(*model.User)
 	db := database.GetInstance()
 	cache := database.GetCacheInstance()
 
+	if r.Context().Value("user") != nil {
+		user = r.Context().Value("user").(*model.User)
+	}
+
 	// Load the space if not found or doesn't belong to the user then treat both as not found
 	space, err := db.GetSpace(spaceId)
-	if err != nil || (space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces)) {
+	if err != nil || (user != nil && space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces)) {
 		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: fmt.Sprintf("space %s not found", spaceId)})
 		return
 	}
@@ -367,7 +372,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	response.Location = space.Location
 	response.IsDeployed = space.IsDeployed
 
-	// TODO Implement the template update available check as a periodic job
+	// TODO Implement the template update available check as a periodic job, add hash to get templates call, cache the value in ram
 	/* 	if space.TemplateId == model.MANUAL_TEMPLATE_ID {
 	   		response.UpdateAvailable = false
 	   	} else {
@@ -577,10 +582,14 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
+	var user *model.User = nil
 	spaceId := chi.URLParam(r, "space_id")
 
 	db := database.GetInstance()
-	user := r.Context().Value("user").(*model.User)
+
+	if r.Context().Value("user") != nil {
+		user = r.Context().Value("user").(*model.User)
+	}
 
 	space, err := db.GetSpace(spaceId)
 	if err != nil {
@@ -588,7 +597,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+	if user != nil && space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
 		return
 	}
