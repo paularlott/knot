@@ -556,17 +556,37 @@ func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
 			return err
 		}
 
-		// Find sessions for the user and delete them
-		cache := database.GetCacheInstance()
-		sessions, err := cache.GetSessionsForUser(toDelete.Id)
-		if err == nil && sessions != nil {
-			for _, session := range sessions {
-				cache.DeleteSession(session)
-			}
-		}
+		removeUsersSessions(toDelete)
+		removeUsersTokens(toDelete)
 	}
 
 	return nil
+}
+
+// Delete the sessions owned by a user
+func removeUsersSessions(user *model.User) {
+	cache := database.GetCacheInstance()
+
+	// Find sessions for the user and delete them
+	sessions, err := cache.GetSessionsForUser(user.Id)
+	if err == nil && sessions != nil {
+		for _, session := range sessions {
+			cache.DeleteSession(session)
+		}
+	}
+}
+
+// Delete the tokens owned by a user
+func removeUsersTokens(user *model.User) {
+	db := database.GetInstance()
+
+	// Find API tokens for the user and delete them
+	tokens, err := db.GetTokensForUser(user.Id)
+	if err == nil && tokens != nil {
+		for _, token := range tokens {
+			db.DeleteToken(token)
+		}
+	}
 }
 
 func updateSpacesSSHKey(user *model.User) {
@@ -638,6 +658,9 @@ func UpdateUserSpaces(user *model.User) {
 				}
 			}
 		}
+
+		// Kill the sessions to logout the user, but leave the tokens there until they expire
+		removeUsersSessions(user)
 	} else {
 		// Update the SSH key on the agents
 		updateSpacesSSHKey(user)
