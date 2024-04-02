@@ -9,11 +9,11 @@ import (
 
 // Session object
 type Token struct {
-	Id            string    `json:"token_id"`
-	UserId        string    `json:"user_id"`
-	RemoteTokenId string    `json:"remote_token_id"`
-	Name          string    `json:"name"`
-	ExpiresAfter  time.Time `json:"expires_after"`
+	Id           string    `json:"token_id"`
+	UserId       string    `json:"user_id"`
+	SessionId    string    `json:"session_id"`
+	Name         string    `json:"name"`
+	ExpiresAfter time.Time `json:"expires_after"`
 }
 
 func NewToken(name string, userId string) *Token {
@@ -23,10 +23,10 @@ func NewToken(name string, userId string) *Token {
 	}
 
 	token := &Token{
-		Id:            id.String(),
-		UserId:        userId,
-		RemoteTokenId: "",
-		Name:          name,
+		Id:        id.String(),
+		UserId:    userId,
+		SessionId: "",
+		Name:      name,
 	}
 
 	return token

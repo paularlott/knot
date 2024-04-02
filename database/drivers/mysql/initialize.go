@@ -55,7 +55,7 @@ INDEX user_id (user_id)
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS tokens (
 token_id CHAR(36) PRIMARY KEY,
 user_id CHAR(36),
-remote_token_id CHAR(36),
+session_id CHAR(36),
 name VARCHAR(255),
 expires_after TIMESTAMP,
 INDEX expires_after (expires_after),

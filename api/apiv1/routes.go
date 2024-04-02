@@ -159,6 +159,7 @@ func ApiRoutes() chi.Router {
 
 				router.Route("/users", func(router chi.Router) {
 					router.Get("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetUser)
+					router.Post("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/session", HandleRemoteCreateUserSession)
 				})
 
 				router.Route("/volumes", func(router chi.Router) {

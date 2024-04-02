@@ -74,3 +74,27 @@ func HandleUpdateRemoteServer(w http.ResponseWriter, r *http.Request) {
 
 	rest.SendJSON(http.StatusOK, w, nil)
 }
+
+func HandleRemoteCreateUserSession(w http.ResponseWriter, r *http.Request) {
+	userId := chi.URLParam(r, "user_id")
+	db := database.GetInstance()
+	cache := database.GetCacheInstance()
+
+	// Load the user from the local database
+	user, err := db.GetUser(userId)
+	if err != nil {
+		log.Debug().Msgf("remote user %s not found", userId)
+		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "remote user not found"})
+		return
+	}
+
+	// Create a new session
+	session := model.NewSession(r, user.Id, "")
+	cache.SaveSession(session)
+
+	// Return the session token
+	rest.SendJSON(http.StatusCreated, w, apiclient.CreateRemoteSessionResponse{
+		Status:    true,
+		SessionId: session.Id,
+	})
+}

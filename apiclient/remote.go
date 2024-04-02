@@ -14,6 +14,11 @@ type TemplateVarValues struct {
 	Value     string `json:"value"`
 }
 
+type CreateRemoteSessionResponse struct {
+	Status    bool   `json:"status"`
+	SessionId string `json:"session_id"`
+}
+
 func (c *ApiClient) GetTemplateVarValues() ([]*model.TemplateVar, int, error) {
 	response := &[]TemplateVarValues{}
 
@@ -162,4 +167,15 @@ func (c *ApiClient) RemoteGetSpace(spaceId string) (*model.Space, int, error) {
 	}
 
 	return space, code, nil
+}
+
+func (c *ApiClient) RemoteCreateUserSession(userId string) (string, int, error) {
+	response := &CreateRemoteSessionResponse{}
+
+	code, err := c.httpClient.Post("/api/v1/remote/users/"+userId+"/session", nil, response, 201)
+	if err != nil {
+		return "", code, err
+	}
+
+	return response.SessionId, code, nil
 }

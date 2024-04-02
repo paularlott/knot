@@ -20,7 +20,7 @@ func (db *MySQLDriver) SaveToken(token *model.Token) error {
 	token.ExpiresAfter = time.Now().UTC().Add(time.Hour * 168)
 
 	// Assume update
-	result, err := tx.Exec("UPDATE tokens SET expires_after=?, name=? WHERE token_id=?", token.ExpiresAfter.UTC(), token.Name, token.Id)
+	result, err := tx.Exec("UPDATE tokens SET expires_after=?, name=?, session_id=? WHERE token_id=?", token.ExpiresAfter.UTC(), token.Name, token.SessionId, token.Id)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -28,7 +28,7 @@ func (db *MySQLDriver) SaveToken(token *model.Token) error {
 
 	// If no rows were updated then do an insert
 	if rows, _ := result.RowsAffected(); rows == 0 {
-		_, err = tx.Exec("INSERT INTO tokens (token_id, name, expires_after, user_id, remote_token_id) VALUES (?, ?, ?, ?, ?)", token.Id, token.Name, token.ExpiresAfter.UTC(), token.UserId, token.RemoteTokenId)
+		_, err = tx.Exec("INSERT INTO tokens (token_id, name, expires_after, user_id, session_id) VALUES (?, ?, ?, ?, ?)", token.Id, token.Name, token.ExpiresAfter.UTC(), token.UserId, token.SessionId)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -58,7 +58,7 @@ func (db *MySQLDriver) getTokens(query string, args ...interface{}) ([]*model.To
 		var token = &model.Token{}
 		var expiresAfter string
 
-		err := rows.Scan(&token.Id, &token.Name, &expiresAfter, &token.UserId, &token.RemoteTokenId)
+		err := rows.Scan(&token.Id, &token.Name, &expiresAfter, &token.UserId, &token.SessionId)
 		if err != nil {
 			return nil, err
 		}
@@ -76,7 +76,7 @@ func (db *MySQLDriver) getTokens(query string, args ...interface{}) ([]*model.To
 }
 
 func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
-	tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id,remote_token_id FROM tokens WHERE token_id = ?", id)
+	tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id,session_id FROM tokens WHERE token_id = ?", id)
 	if len(tokens) == 0 {
 		return nil, fmt.Errorf("token not found")
 	}
@@ -88,7 +88,7 @@ func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
 }
 
 func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
-	tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id,remote_token_id FROM tokens WHERE user_id = ?", userId)
+	tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id,session_id FROM tokens WHERE user_id = ?", userId)
 	if err != nil {
 		return nil, err
 	}

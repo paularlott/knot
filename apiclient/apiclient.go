@@ -44,6 +44,11 @@ func NewRemoteServerClient(baseURL string) *ApiClient {
 	return NewClient(baseURL, viper.GetString("server.remote_token"), viper.GetBool("server.tls_skip_verify"))
 }
 
+func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {
+	c.httpClient.AppendUserAgent(userAgent)
+	return c
+}
+
 func (c *ApiClient) UseSessionCookie(useCookie bool) *ApiClient {
 	c.httpClient.UseSessionCookie(useCookie)
 	return c
