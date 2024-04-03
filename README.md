@@ -19,6 +19,7 @@ This project is designed to be used within trusted environments rather than on t
 - **Quotas:** Limit by disk space usage and by number of spaces per user.
 - **Development URL Management:** Automatically generated URLs for development spaces.
 - **Support for VNC:** Support for web based VNC servers such as KasmVNC.
+- **Remote Servers** Maximize performance by deploying environment close to developers but manage templates and users from one central location.
 
 ## Documentation
 
