@@ -7,12 +7,19 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"syscall"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/term"
 )
 
 func init() {
+
+	connectCmd.Flags().BoolP("use-web-auth", "", false, "If given then authorization will be done via the web interface.")
+	connectCmd.Flags().StringP("username", "u", "", "Username to use for authentication.\nOverrides the "+CONFIG_ENV_PREFIX+"_USERNAME environment variable if set.")
+
 	RootCmd.AddCommand(connectCmd)
 }
 
@@ -22,6 +29,8 @@ var connectCmd = &cobra.Command{
 	Long:  `Authenticate the client with a remote server and save the server address and access key.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		var token string
+
 		server := args[0]
 
 		// If server doesn't start with http or https, assume https
@@ -44,23 +53,77 @@ var connectCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		// Build the registration URL
-		u.Path = "/api-tokens/create/" + url.PathEscape(hostname)
+		hostname = "knot client " + hostname
 
-		// Open the server URL in the default browser
-		err = open(u.String())
-		if err != nil {
-			fmt.Println("Failed to open server URL, you will need to generate the API token manually")
-			os.Exit(1)
-		}
+		// If using web authentication
+		if cmd.Flags().Lookup("use-web-auth").Value.String() == "true" {
 
-		// Accept a string from the user and save it in the variable token
-		var token string
-		fmt.Print("Enter token: ")
-		_, err = fmt.Scanln(&token)
-		if err != nil {
-			fmt.Println("Failed to read token, you will need to generate the API token manually")
-			os.Exit(1)
+			// Build the registration URL
+			u.Path = "/api-tokens/create/" + url.PathEscape(hostname)
+
+			// Open the server URL in the default browser
+			err = open(u.String())
+			if err != nil {
+				fmt.Println("Failed to open server URL, you will need to generate the API token manually")
+				os.Exit(1)
+			}
+
+			// Accept a string from the user and save it in the variable token
+			fmt.Print("Enter token: ")
+			_, err = fmt.Scanln(&token)
+			if err != nil {
+				fmt.Println("Failed to read token, you will need to generate the API token manually")
+				os.Exit(1)
+			}
+		} else {
+			var username string = cmd.Flags().Lookup("username").Value.String()
+			var password []byte
+			var err error
+
+			// If username not given then prompt for it
+			if username == "" {
+
+				// Prompt the user to enter their username
+				fmt.Print("Enter username: ")
+				_, err = fmt.Scanln(&username)
+				if err != nil {
+					fmt.Println("Failed to read username")
+					os.Exit(1)
+				}
+			}
+
+			// Prompt the user to enter their password
+			fmt.Print("Enter password: ")
+			password, err = term.ReadPassword(int(syscall.Stdin))
+			if err != nil {
+				fmt.Println("Failed to read password")
+				os.Exit(1)
+			}
+			fmt.Println()
+
+			// Check username and password given
+			if username == "" || string(password) == "" {
+				fmt.Println("Username and password must be given")
+				os.Exit(1)
+			}
+
+			// Open an API connection to the server
+			client := apiclient.NewClient(server, "", viper.GetBool("server.tls_skip_verify"))
+			sessionToken, _, _ := client.Login(username, string(password))
+			if sessionToken == "" {
+				fmt.Println("Failed to login")
+				os.Exit(1)
+			}
+
+			// Use the session token for future requests
+			client.UseSessionCookie(true).SetAuthToken(sessionToken)
+
+			// Create an API token
+			token, _, err = client.CreateToken(hostname)
+			if err != nil || token == "" {
+				fmt.Println("Failed to create token")
+				os.Exit(1)
+			}
 		}
 
 		// Update the client config with the server information
