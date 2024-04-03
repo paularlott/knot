@@ -3,6 +3,7 @@
 !/bin/.gitignore
 /node_modules
 .knot.yml
+.knot-moon.yml
 /.parcel-cache
 /knot-server.nomad
 /web/public_html/api-docs/*

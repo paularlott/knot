@@ -144,7 +144,7 @@ window.templateForm = function(isEdit, templateId) {
       this.loading = true;
 
       fetch(isEdit ? '/api/v1/templates/' + templateId : '/api/v1/templates', {
-          method: 'POST',
+          method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
           },

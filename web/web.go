@@ -20,169 +20,169 @@ import (
 )
 
 var (
-  //go:embed public_html/*
-  publicHTML embed.FS
+	//go:embed public_html/*
+	publicHTML embed.FS
 
-  //go:embed templates/*.tmpl templates/partials/*.tmpl templates/layouts/*.tmpl
-  tmplFiles embed.FS
+	//go:embed templates/*.tmpl templates/partials/*.tmpl templates/layouts/*.tmpl
+	tmplFiles embed.FS
 )
 
 func Routes() chi.Router {
-  log.Info().Msg("server: adding routes")
+	log.Info().Msg("server: adding routes")
 
-  router := chi.NewRouter()
+	router := chi.NewRouter()
 
-  // Page not found
-  router.NotFound(showPageNotFound)
+	// Page not found
+	router.NotFound(showPageNotFound)
 
-  // Serve static content
-  router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-    rctx := chi.RouteContext(r.Context())
-    pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+	// Serve static content
+	router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+		rctx := chi.RouteContext(r.Context())
+		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
 
-    fsys := fs.FS(publicHTML)
-    contentStatic, _ := fs.Sub(fsys, "public_html")
+		fsys := fs.FS(publicHTML)
+		contentStatic, _ := fs.Sub(fsys, "public_html")
 
-    // Test if file r.URL.Path exists in contentStatic
-    fileName := strings.TrimPrefix(r.URL.Path, "/")
-    if strings.HasSuffix(fileName, "/") || fileName == "" {
-      fileName = fileName + "index.html"
-    }
+		// Test if file r.URL.Path exists in contentStatic
+		fileName := strings.TrimPrefix(r.URL.Path, "/")
+		if strings.HasSuffix(fileName, "/") || fileName == "" {
+			fileName = fileName + "index.html"
+		}
 
-    file, err := contentStatic.Open(fileName)
-    if err != nil {
-      showPageNotFound(w, r)
-      return
-    }
-    file.Close()
+		file, err := contentStatic.Open(fileName)
+		if err != nil {
+			showPageNotFound(w, r)
+			return
+		}
+		file.Close()
 
-    fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
-    fs.ServeHTTP(w, r)
-  })
+		fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
+		fs.ServeHTTP(w, r)
+	})
 
-  // Group routes that require authentication
-  router.Group(func(router chi.Router) {
-    router.Use(middleware.WebAuth)
+	// Group routes that require authentication
+	router.Group(func(router chi.Router) {
+		router.Use(middleware.WebAuth)
 
-    router.Get("/clients", HandleSimplePage)
-    router.Get("/sessions", HandleSimplePage)
-    router.Get("/space-quota-reached", HandleSimplePage)
-    router.Get("/profile", HandleUserProfilePage)
-    router.Get("/logout", HandleLogoutPage)
+		router.Get("/clients", HandleSimplePage)
+		router.Get("/sessions", HandleSimplePage)
+		router.Get("/space-quota-reached", HandleSimplePage)
+		router.Get("/profile", HandleUserProfilePage)
+		router.Get("/logout", HandleLogoutPage)
 
-    router.Get("/terminal/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTerminalPage)
+		router.Get("/terminal/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTerminalPage)
 
-    router.Route("/api-tokens", func(router chi.Router) {
-      router.Get("/", HandleSimplePage)
-      router.Get("/create", HandleSimplePage)
-      router.Get("/create/{token_name}", HandleTokenCreatePage)
-    })
+		router.Route("/api-tokens", func(router chi.Router) {
+			router.Get("/", HandleSimplePage)
+			router.Get("/create", HandleSimplePage)
+			router.Get("/create/{token_name}", HandleTokenCreatePage)
+		})
 
-    router.Route("/spaces", func(router chi.Router) {
-      router.Get("/", HandleListSpaces)
-      router.Get("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleListSpaces)
-      router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
-      router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
-      router.Get("/edit/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesEdit)
-    })
+		router.Route("/spaces", func(router chi.Router) {
+			router.Get("/", HandleListSpaces)
+			router.Get("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleListSpaces)
+			router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
+			router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
+			router.Get("/edit/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesEdit)
+		})
 
-    router.Route("/templates", func(router chi.Router) {
-      router.Use(checkPermissionManageTemplates)
+		router.Route("/templates", func(router chi.Router) {
+			router.Use(checkPermissionManageTemplates)
 
-      router.Get("/create", HandleTemplateCreate)
-      router.Get("/edit/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateEdit)
-    })
-    router.Get("/templates", HandleSimplePage)
+			router.Get("/create", HandleTemplateCreate)
+			router.Get("/edit/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateEdit)
+		})
+		router.Get("/templates", HandleSimplePage)
 
-    router.Route("/variables", func(router chi.Router) {
-      router.Use(checkPermissionManageTemplates)
+		router.Route("/variables", func(router chi.Router) {
+			router.Use(checkPermissionManageTemplates)
 
-      router.Get("/", HandleSimplePage)
-      router.Get("/create", HandleTemplateVarCreate)
-      router.Get("/edit/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateVarEdit)
-    })
+			router.Get("/", HandleSimplePage)
+			router.Get("/create", HandleTemplateVarCreate)
+			router.Get("/edit/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateVarEdit)
+		})
 
-    router.Route("/users", func(router chi.Router) {
-      router.Use(checkPermissionManageUsers)
+		router.Route("/users", func(router chi.Router) {
+			router.Use(checkPermissionManageUsers)
 
-      router.Get("/", HandleSimplePage)
-      router.Get("/create", HandleUserCreate)
-      router.Get("/edit/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUserEdit)
-    })
+			router.Get("/", HandleSimplePage)
+			router.Get("/create", HandleUserCreate)
+			router.Get("/edit/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUserEdit)
+		})
 
-    router.Route("/groups", func(router chi.Router) {
-      router.Use(checkPermissionManageUsers)
+		router.Route("/groups", func(router chi.Router) {
+			router.Use(checkPermissionManageUsers)
 
-      router.Get("/", HandleSimplePage)
-      router.Get("/create", HandleGroupCreate)
-      router.Get("/edit/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGroupEdit)
-    })
+			router.Get("/", HandleSimplePage)
+			router.Get("/create", HandleGroupCreate)
+			router.Get("/edit/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGroupEdit)
+		})
 
-    router.Route("/volumes", func(router chi.Router) {
-      router.Use(checkPermissionManageVolumes)
+		router.Route("/volumes", func(router chi.Router) {
+			router.Use(checkPermissionManageVolumes)
 
-      router.Get("/", HandleSimplePage)
-      router.Get("/create", HandleVolumeCreate)
-      router.Get("/edit/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleVolumeEdit)
-    })
-  })
+			router.Get("/", HandleSimplePage)
+			router.Get("/create", HandleVolumeCreate)
+			router.Get("/edit/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleVolumeEdit)
+		})
+	})
 
-  // Routes without authentication
-  if !middleware.HasUsers {
-    router.Get("/initial-system-setup", HandleInitialSystemSetupPage)
-  }
-  router.Get("/login", HandleLoginPage)
-  router.Get("/health", HandleHealthPage)
+	// Routes without authentication
+	if !middleware.HasUsers {
+		router.Get("/initial-system-setup", HandleInitialSystemSetupPage)
+	}
+	router.Get("/login", HandleLoginPage)
+	router.Get("/health", HandleHealthPage)
 
-  // If download path set then enable serving of the download folder
-  downloadPath := viper.GetString("server.download_path")
-  if downloadPath != "" {
-    log.Info().Msgf("server: enabling download endpoint, source folder %s", downloadPath)
+	// If download path set then enable serving of the download folder
+	downloadPath := viper.GetString("server.download_path")
+	if downloadPath != "" {
+		log.Info().Msgf("server: enabling download endpoint, source folder %s", downloadPath)
 
-    router.Get("/download/*", func(w http.ResponseWriter, r *http.Request) {
-      filePath := r.URL.Path[len("/download/"):]
-      http.ServeFile(w, r, filepath.Join(downloadPath, filePath))
-    })
-  }
+		router.Get("/download/*", func(w http.ResponseWriter, r *http.Request) {
+			filePath := r.URL.Path[len("/download/"):]
+			http.ServeFile(w, r, filepath.Join(downloadPath, filePath))
+		})
+	}
 
-  return router
+	return router
 }
 
 func showPageNotFound(w http.ResponseWriter, r *http.Request) {
-  tmpl, err := newTemplate("page-404.tmpl")
-  if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
+	tmpl, err := newTemplate("page-404.tmpl")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-  w.WriteHeader(http.StatusNotFound)
-  err = tmpl.Execute(w, nil)
-  if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
+	w.WriteHeader(http.StatusNotFound)
+	err = tmpl.Execute(w, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
 
 func showPageForbidden(w http.ResponseWriter, r *http.Request) {
-  tmpl, err := newTemplate("page-403.tmpl")
-  if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
+	tmpl, err := newTemplate("page-403.tmpl")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-  w.WriteHeader(http.StatusForbidden)
-  err = tmpl.Execute(w, nil)
-  if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
+	w.WriteHeader(http.StatusForbidden)
+	err = tmpl.Execute(w, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }
 
 // Initialize a new template
-func newTemplate(name string) (*template.Template, error){
+func newTemplate(name string) (*template.Template, error) {
 
-  // Add a function to allow passing of KV pairs to templates
-  funcs := map[string]any{
+	// Add a function to allow passing of KV pairs to templates
+	funcs := map[string]any{
 		"map": func(pairs ...any) (map[string]any, error) {
 			if len(pairs)%2 != 0 {
 				return nil, errors.New("map requires key value pairs")
@@ -202,40 +202,43 @@ func newTemplate(name string) (*template.Template, error){
 		},
 	}
 
-  // Check if template exists
-  file, err := tmplFiles.Open(fmt.Sprintf("templates/%s", name))
-  if err != nil {
-    return nil, nil
-  }
-  file.Close()
+	// Check if template exists
+	file, err := tmplFiles.Open(fmt.Sprintf("templates/%s", name))
+	if err != nil {
+		return nil, nil
+	}
+	file.Close()
 
-  // Create the template
-  tmpl, err := template.New(name).Funcs(funcs).ParseFS(tmplFiles, "templates/partials/*.tmpl", "templates/layouts/*.tmpl", fmt.Sprintf("templates/%s", name))
-  if err != nil {
-    return nil, err
-  }
+	// Create the template
+	tmpl, err := template.New(name).Funcs(funcs).ParseFS(tmplFiles, "templates/partials/*.tmpl", "templates/layouts/*.tmpl", fmt.Sprintf("templates/%s", name))
+	if err != nil {
+		return nil, err
+	}
 
-  return tmpl, err
+	return tmpl, err
 }
 
 func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}) {
-  user := r.Context().Value("user").(*model.User)
+	user := r.Context().Value("user").(*model.User)
 
-  withDownloads := false
-  downloadPath := viper.GetString("server.download_path")
-  if downloadPath != "" {
-    withDownloads = true
-  }
+	withDownloads := false
+	downloadPath := viper.GetString("server.download_path")
+	if downloadPath != "" {
+		withDownloads = true
+	}
 
-  return user, map[string]interface{}{
-    "username"                 : user.Username,
-    "user_id"                  : user.Id,
-    "withDownloads"            : withDownloads,
-    "permissionManageUsers"    : user.HasPermission(model.PermissionManageUsers),
-    "permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
-    "permissionManageSpaces"   : user.HasPermission(model.PermissionManageSpaces),
-    "permissionManageVolumes"  : user.HasPermission(model.PermissionManageVolumes),
-    "version"                  : build.Version,
-    "buildDate"                : build.Date,
-  }
+	return user, map[string]interface{}{
+		"username":                  user.Username,
+		"user_id":                   user.Id,
+		"withDownloads":             withDownloads,
+		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers),
+		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
+		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces),
+		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes),
+		"version":                   build.Version,
+		"buildDate":                 build.Date,
+		"hasRemoteToken":            viper.GetString("server.remote_token") != "",
+		"location":                  viper.GetString("server.location"),
+		"isRemote":                  viper.GetBool("server.is_remote"),
+	}
 }

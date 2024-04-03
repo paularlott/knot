@@ -83,7 +83,7 @@ window.variableForm = function(isEdit, templateVarId) {
       this.loading = true;
 
       fetch(isEdit ? '/api/v1/templatevars/' + templateVarId : '/api/v1/templatevars', {
-          method: 'POST',
+          method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
           },

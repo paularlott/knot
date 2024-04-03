@@ -11,87 +11,87 @@ import (
 
 func (db *MySQLDriver) SaveToken(token *model.Token) error {
 
-  tx, err := db.connection.Begin()
-  if err != nil {
-    return err
-  }
+	tx, err := db.connection.Begin()
+	if err != nil {
+		return err
+	}
 
-  // Calculate the expiration time as now + 1 week
-  token.ExpiresAfter = time.Now().UTC().Add(time.Hour * 168)
+	// Calculate the expiration time as now + 1 week
+	token.ExpiresAfter = time.Now().UTC().Add(time.Hour * 168)
 
-  // Assume update
-  result, err := tx.Exec("UPDATE tokens SET expires_after=?, name=? WHERE token_id=?", token.ExpiresAfter.UTC(), token.Name, token.Id)
-  if err != nil {
-    tx.Rollback()
-    return err
-  }
+	// Assume update
+	result, err := tx.Exec("UPDATE tokens SET expires_after=?, name=?, session_id=? WHERE token_id=?", token.ExpiresAfter.UTC(), token.Name, token.SessionId, token.Id)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-  // If no rows were updated then do an insert
-  if rows, _ := result.RowsAffected(); rows == 0 {
-    _, err = tx.Exec("INSERT INTO tokens (token_id, name, expires_after, user_id) VALUES (?, ?, ?, ?)", token.Id, token.Name, token.ExpiresAfter.UTC(), token.UserId)
-    if err != nil {
-      tx.Rollback()
-      return err
-    }
-  }
+	// If no rows were updated then do an insert
+	if rows, _ := result.RowsAffected(); rows == 0 {
+		_, err = tx.Exec("INSERT INTO tokens (token_id, name, expires_after, user_id, session_id) VALUES (?, ?, ?, ?, ?)", token.Id, token.Name, token.ExpiresAfter.UTC(), token.UserId, token.SessionId)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
 
-  tx.Commit()
+	tx.Commit()
 
-  return nil
+	return nil
 }
 
 func (db *MySQLDriver) DeleteToken(token *model.Token) error {
-  _, err := db.connection.Exec("DELETE FROM tokens WHERE token_id = ?", token.Id)
-  return err
+	_, err := db.connection.Exec("DELETE FROM tokens WHERE token_id = ?", token.Id)
+	return err
 }
 
 func (db *MySQLDriver) getTokens(query string, args ...interface{}) ([]*model.Token, error) {
-  var tokens []*model.Token
+	var tokens []*model.Token
 
-  rows, err := db.connection.Query(query, args ...)
-  if err != nil {
-    return nil, err
-  }
-  defer rows.Close()
+	rows, err := db.connection.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-  for rows.Next() {
-    var token = &model.Token{}
-    var expiresAfter string
+	for rows.Next() {
+		var token = &model.Token{}
+		var expiresAfter string
 
-    err := rows.Scan(&token.Id, &token.Name, &expiresAfter, &token.UserId)
-    if err != nil {
-      return nil, err
-    }
+		err := rows.Scan(&token.Id, &token.Name, &expiresAfter, &token.UserId, &token.SessionId)
+		if err != nil {
+			return nil, err
+		}
 
-    // Parse the dates
-    token.ExpiresAfter, err = time.Parse("2006-01-02 15:04:05", expiresAfter)
-    if err != nil {
-      return nil, err
-    }
+		// Parse the dates
+		token.ExpiresAfter, err = time.Parse("2006-01-02 15:04:05", expiresAfter)
+		if err != nil {
+			return nil, err
+		}
 
-    tokens = append(tokens, token)
-  }
+		tokens = append(tokens, token)
+	}
 
-  return tokens, nil
+	return tokens, nil
 }
 
 func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
-  tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id FROM tokens WHERE token_id = ?", id)
-  if len(tokens) == 0 {
-    return nil, fmt.Errorf("token not found")
-  }
-  if err != nil {
-    return nil, err
-  }
+	tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id,session_id FROM tokens WHERE token_id = ?", id)
+	if len(tokens) == 0 {
+		return nil, fmt.Errorf("token not found")
+	}
+	if err != nil {
+		return nil, err
+	}
 
-  return tokens[0], nil
+	return tokens[0], nil
 }
 
 func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
-  tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id FROM tokens WHERE user_id = ?", userId)
-  if err != nil {
-    return nil, err
-  }
+	tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id,session_id FROM tokens WHERE user_id = ?", userId)
+	if err != nil {
+		return nil, err
+	}
 
-  return tokens, nil
+	return tokens, nil
 }

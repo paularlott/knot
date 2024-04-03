@@ -27,7 +27,7 @@ post:
             - password
             - email
   responses:
-    '201':
+    '200':
       description: User authenticated successfully
       content:
         application/json:

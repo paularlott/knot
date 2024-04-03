@@ -1,4 +1,4 @@
-post:
+put:
   summary: Update a Group
   description: Update a group.
   operationId: updateGroup
@@ -75,6 +75,8 @@ get:
           schema:
             type: object
             properties:
+              id:
+                type: uuid
               name:
                 type: string
     '500':

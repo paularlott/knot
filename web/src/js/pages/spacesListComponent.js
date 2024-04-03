@@ -1,4 +1,4 @@
-window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain) {
+window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, location) {
   return {
     loading: true,
     spaces: [],
@@ -58,10 +58,25 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         space.showIdPopup = false;
         space.showSSHPopup = false;
         space.showPortMenu = false;
-        space.sshCmd = "ssh -o ProxyCommand='knot forward ssh %h' -o StrictHostKeyChecking=no " + username + "@" + space.name;
-        this.timerIDs[space.space_id] = setInterval(async () => {
-          await this.fetchServiceState(space);
-        }, 5000);
+
+        // Setup the available services
+        space.update_available = false;
+        space.is_deployed = false;
+        space.has_code_server = false;
+        space.has_ssh = false;
+        space.has_terminal = false;
+        space.has_http_vnc = false;
+        space.tcp_ports = [];
+        space.http_ports = [];
+        space.is_local = space.location == '' || location == space.location;
+
+        if(space.is_local) {
+          this.fetchServiceState(space, true);
+
+          this.timerIDs[space.space_id] = setInterval(async () => {
+            await this.fetchServiceState(space);
+          }, 5000);
+        }
       });
       this.loading = false;
     },
@@ -74,6 +89,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         if (response.status === 200) {
           response.json().then((serviceState) => {
             space.name = serviceState.name;
+            space.location = serviceState.location;
             space.has_code_server = serviceState.has_code_server;
             space.has_ssh = serviceState.has_ssh;
             space.has_terminal = serviceState.has_terminal;
@@ -83,11 +99,18 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             space.http_ports = serviceState.http_ports;
             space.has_http_vnc = serviceState.has_http_vnc;
             space.sshCmd = "ssh -o ProxyCommand='knot forward ssh %h' -o StrictHostKeyChecking=no " + username + "@" + serviceState.name;
+            space.is_local = space.location == '' || location == space.location;
 
             if (resetStateFlags) {
               space.starting = false;
               space.stopping = false;
               space.deleting = false;
+            }
+
+            // If space is not local then stop the timer
+            if (!space.is_local) {
+              clearInterval(this.timerIDs[space.space_id]);
+              delete this.timerIDs[space.space_id];
             }
           });
         } if (response.status === 401) {

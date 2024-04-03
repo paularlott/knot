@@ -1,0 +1,38 @@
+post:
+  tags:
+    - Remote Servers
+  summary: Register a Remote Server
+  description: |
+    Register a remote server with the root server.
+  operationId: registerRemote
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            url:
+              type: string
+              example: https://knot-remote.example.com
+              description: The URL of the remote server registering.
+  responses:
+    '201':
+      description: Remote server registered successfully
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: boolean
+              server_id:
+                type: string
+                description: The Id assigned to the remote server.
+                format: uuid
+    '404':
+      $ref: "../responses/not-found.yaml"
+    '423':
+      $ref: "../responses/locked.yaml"
+  security:
+    - BearerAuth: []

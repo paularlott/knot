@@ -21,7 +21,24 @@ get:
           schema:
             type: array
             items:
-              $ref: '../schemas/space.yaml'
+              type: object
+              properties:
+                space_id:
+                  type: uuid
+                name:
+                  type: string
+                template_name:
+                  type: string
+                template_id:
+                  type: uuid
+                location:
+                  type: string
+                username:
+                  type: string
+                user_id:
+                  type: string
+                volume_sizes:
+                  type: integer
     '500':
       $ref: '../responses/internal-server-error.yaml'
   security:
@@ -40,10 +57,6 @@ post:
         schema:
           type: object
           properties:
-            volume_size:
-              type: object
-              additionalProperties:
-                type: integer
             name:
               type: string
             agent_url:
@@ -53,11 +66,15 @@ post:
             shell:
               type: string
             user_id:
-              type: string
+              type: uuid
             alt_names:
               type: array
               items:
                 type: string
+            volume_sizes:
+              type: array
+              items:
+                type: integer
   responses:
     '201':
       description: Space created successfully

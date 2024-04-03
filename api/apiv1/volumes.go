@@ -2,7 +2,9 @@ package apiv1
 
 import (
 	"net/http"
+	"strings"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/nomad"
@@ -10,247 +12,401 @@ import (
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/spf13/viper"
 )
 
-type VolumeRequest struct {
-  Name string `json:"name"`
-  Definition string `json:"definition"`
-}
-
 func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
-  volumes, err := database.GetInstance().GetVolumes()
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
 
-  // Build a json array of data to return to the client
-  volumeData := make([]struct {
-    Id string `json:"volume_id"`
-    Name string `json:"name"`
-    Active bool `json:"active"`
-  }, len(volumes))
+		volumes, code, err := client.GetVolumes()
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  for i, volume := range volumes {
-    volumeData[i].Id = volume.Id
-    volumeData[i].Name = volume.Name
-    volumeData[i].Active = volume.Active
-  }
+		rest.SendJSON(http.StatusOK, w, volumes)
+	} else {
+		volumes, err := database.GetInstance().GetVolumes()
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  rest.SendJSON(http.StatusOK, w, volumeData)
+		// Build a json array of data to return to the client
+		volumeData := make([]apiclient.VolumeInfo, len(volumes))
+
+		for i, volume := range volumes {
+			volumeData[i].Id = volume.Id
+			volumeData[i].Name = volume.Name
+			volumeData[i].Active = volume.Active
+			volumeData[i].Location = volume.Location
+		}
+
+		rest.SendJSON(http.StatusOK, w, volumeData)
+	}
 }
 
 func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
-  db := database.GetInstance()
-  user := r.Context().Value("user").(*model.User)
+	volemeId := chi.URLParam(r, "volume_id")
 
-  volume, err := database.GetInstance().GetVolume(chi.URLParam(r, "volume_id"))
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	request := apiclient.UpdateVolumeRequest{}
+	err := rest.BindJSON(w, r, &request)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		return
+	}
 
-  request := VolumeRequest{}
-  err = rest.BindJSON(w, r, &request)
-  if err != nil {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid volume name given"})
+		return
+	}
+	if !validate.MaxLength(request.Definition, 10*1024*1024) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volume definition must be less than 10MB"})
+		return
+	}
 
-  if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid volume name given"})
-    return
-  }
-  if !validate.MaxLength(request.Definition, 10*1024*1024) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volume definition must be less than 10MB"})
-    return
-  }
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
 
-  volume.Name = request.Name
-  volume.Definition = request.Definition
-  volume.UpdatedUserId = user.Id
+		code, err := client.UpdateVolume(volemeId, request.Name, request.Definition)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		db := database.GetInstance()
+		user := r.Context().Value("user").(*model.User)
 
-  err = db.SaveVolume(volume)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+		volume, err := database.GetInstance().GetVolume(volemeId)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  w.WriteHeader(http.StatusOK)
+		volume.Name = request.Name
+		volume.Definition = request.Definition
+		volume.UpdatedUserId = user.Id
+
+		err = db.SaveVolume(volume)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
-  db := database.GetInstance()
-  user := r.Context().Value("user").(*model.User)
+	request := apiclient.CreateVolumeRequest{}
+	err := rest.BindJSON(w, r, &request)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		return
+	}
 
-  request := VolumeRequest{}
-  err := rest.BindJSON(w, r, &request)
-  if err != nil {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid volume name given"})
+		return
+	}
+	if !validate.MaxLength(request.Definition, 10*1024*1024) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volume definition must be less than 10MB"})
+		return
+	}
 
-  if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid volume name given"})
-    return
-  }
-  if !validate.MaxLength(request.Definition, 10*1024*1024) {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volume definition must be less than 10MB"})
-    return
-  }
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
 
-  volume := model.NewVolume(request.Name, request.Definition, user.Id)
+		response, code, err := client.CreateVolume(request.Name, request.Definition)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  err = db.SaveVolume(volume)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+		rest.SendJSON(http.StatusCreated, w, response)
+	} else {
+		db := database.GetInstance()
+		user := r.Context().Value("user").(*model.User)
 
-  // Return the ID
-  rest.SendJSON(http.StatusCreated, w, struct {
-    Status bool `json:"status"`
-    TemplateID string `json:"volume_id"`
-  }{
-    Status: true,
-    TemplateID: volume.Id,
-  })
+		volume := model.NewVolume(request.Name, request.Definition, user.Id)
+
+		err = db.SaveVolume(volume)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		// Return the ID
+		rest.SendJSON(http.StatusCreated, w, &apiclient.VolumeCreateResponse{
+			Status:   true,
+			VolumeId: volume.Id,
+		})
+	}
 }
 
 func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
-  db := database.GetInstance()
+	volumeId := chi.URLParam(r, "volume_id")
 
-  volume, err := db.GetVolume(chi.URLParam(r, "volume_id"))
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
 
-  // If the volume is active then don't delete
-  if volume.Active {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Cannot delete an active volume"})
-    return
-  }
+		code, err := client.DeleteVolume(volumeId)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		db := database.GetInstance()
 
-  // Delete the volume
-  err = database.GetInstance().DeleteVolume(volume)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+		volume, err := db.GetVolume(volumeId)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  w.WriteHeader(http.StatusOK)
+		// If the volume is active then don't delete
+		if volume.Active {
+			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Cannot delete an active volume"})
+			return
+		}
+
+		// Delete the volume
+		err = database.GetInstance().DeleteVolume(volume)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
-  volumeId := chi.URLParam(r, "volume_id")
+	volumeId := chi.URLParam(r, "volume_id")
 
-  db := database.GetInstance()
-  volume, err := db.GetVolume(volumeId)
-  if err != nil {
-    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
 
-  data := struct {
-    Name string `json:"name"`
-    Definition string `json:"definition"`
-    Active bool `json:"active"`
-  }{
-    Name: volume.Name,
-    Definition: volume.Definition,
-    Active: volume.Active,
-  }
+		volume, code, err := client.GetVolume(volumeId)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-  rest.SendJSON(http.StatusOK, w, data)
+		rest.SendJSON(http.StatusOK, w, volume)
+	} else {
+		db := database.GetInstance()
+		volume, err := db.GetVolume(volumeId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		data := apiclient.VolumeDefinition{
+			Name:       volume.Name,
+			Definition: volume.Definition,
+			Active:     volume.Active,
+			Location:   volume.Location,
+		}
+
+		rest.SendJSON(http.StatusOK, w, &data)
+	}
 }
 
 func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
-//  user := r.Context().Value("user").(*model.User)
-  db := database.GetInstance()
+	var client *apiclient.ApiClient = nil
+	var clientRemote *apiclient.ApiClient = nil
+	var volume *model.Volume
+	var err error
+	var code int
 
-  volume, err := db.GetVolume(chi.URLParam(r, "volume_id"))
+	db := database.GetInstance()
 
-  if err != nil {
-    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	volumeId := chi.URLParam(r, "volume_id")
 
-  // If the volume is already running then fail
-  if volume.Active {
-    rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "volume is running"})
-    return
-  }
+	// If remote client present then fetch the volume information from the remote
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client = remoteClient.(*apiclient.ApiClient)
 
-  // Add the variables
-  variables, err := db.GetTemplateVars()
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+		volume, code, err = client.GetVolumeObject(volumeId)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		volume, err = db.GetVolume(volumeId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
 
-  vars := make(map[string]interface{})
-  for _, variable := range variables {
-    vars[variable.Name] = variable.Value
-  }
+	// If the volume is already running then fail
+	if volume.Active {
+		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "volume is running"})
+		return
+	}
 
-  // Get the nomad client
-  nomadClient := nomad.NewClient()
+	// If the volume has a location and it is not this server then fail
+	if volume.Location != "" && volume.Location != viper.GetString("server.location") {
+		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "volume is used by another server"})
+		return
+	}
 
-  // Create volumes
-  err = nomadClient.CreateVolume(volume, &vars)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	var variables []*model.TemplateVar
 
-  // Mark volume as started
-  volume.Active = true
-  db.SaveVolume(volume)
+	if client != nil {
+		// Open new client with remote access
+		clientRemote = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
 
-  w.WriteHeader(http.StatusOK)
+		// Get the template variables
+		variables, code, err = clientRemote.GetTemplateVarValues()
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		// Add the variables
+		variables, err = db.GetTemplateVars()
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
+	vars := make(map[string]interface{})
+	for _, variable := range variables {
+		vars[variable.Name] = variable.Value
+	}
+
+	// Mark volume as started
+	volume.Location = viper.GetString("server.location")
+	volume.Active = true
+
+	// Get the nomad client
+	nomadClient := nomad.NewClient()
+
+	// Create volumes
+	err = nomadClient.CreateVolume(volume, &vars)
+	if err != nil {
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if clientRemote != nil {
+		// Tell remote volume started
+		code, err = clientRemote.RemoteUpdateVolume(volume)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		db.SaveVolume(volume)
+	}
+
+	rest.SendJSON(http.StatusOK, w, &apiclient.StartVolumeResponse{
+		Status:   true,
+		Location: volume.Location,
+	})
 }
 
 func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
-  db := database.GetInstance()
+	var client *apiclient.ApiClient = nil
+	var clientRemote *apiclient.ApiClient = nil
+	var volume *model.Volume
+	var err error
+	var code int
 
-  volume, err := db.GetVolume(chi.URLParam(r, "volume_id"))
-  if err != nil {
-    rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	db := database.GetInstance()
 
-  // If the volume is not running then fail
-  if !volume.Active {
-    rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "volume not running"})
-    return
-  }
+	volumeId := chi.URLParam(r, "volume_id")
 
- // Add the variables
-  variables, err := db.GetTemplateVars()
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client = remoteClient.(*apiclient.ApiClient)
 
-  vars := make(map[string]interface{})
-  for _, variable := range variables {
-    vars[variable.Name] = variable.Value
-  }
+		volume, code, err = client.GetVolumeObject(volumeId)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		volume, err = db.GetVolume(volumeId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
 
-  // Get the nomad client
-  nomadClient := nomad.NewClient()
+	// If the volume is not running or not this server then fail
+	if !volume.Active || volume.Location != viper.GetString("server.location") {
+		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "volume not running"})
+		return
+	}
 
-  // Create volumes
-  err = nomadClient.DeleteVolume(volume, &vars)
-  if err != nil {
-    rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	var variables []*model.TemplateVar
 
-  // Record the space as not deployed
-  volume.Active = false
-  db.SaveVolume(volume)
+	if client != nil {
+		// Open new client with remote access
+		clientRemote = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
 
-  w.WriteHeader(http.StatusOK)
+		// Get the template variables
+		variables, code, err = clientRemote.GetTemplateVarValues()
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		// Add the variables
+		variables, err = db.GetTemplateVars()
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
+	vars := make(map[string]interface{})
+	for _, variable := range variables {
+		vars[variable.Name] = variable.Value
+	}
+
+	// Record the volume as not deployed
+	volume.Location = ""
+	volume.Active = false
+
+	// Get the nomad client
+	nomadClient := nomad.NewClient()
+
+	// Delete the volume
+	err = nomadClient.DeleteVolume(volume, &vars)
+	if err != nil && !strings.Contains(err.Error(), "volume not found") {
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if clientRemote != nil {
+		// Tell remote volume started
+		code, err = clientRemote.RemoteUpdateVolume(volume)
+		if err != nil {
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		db.SaveVolume(volume)
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

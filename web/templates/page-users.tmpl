@@ -55,7 +55,10 @@
         <td>
           <span x-text="u.number_spaces"></span> <span x-show="u.max_spaces > 0">/ <span x-text="u.max_spaces"></span></span>
         </td>
-        <td x-text="u.number_spaces_deployed"></td>
+        <td>
+          Total: <span x-text="u.number_spaces_deployed"></span>
+          <span x-show="u.number_spaces_deployed"><br />Local: <span x-text="u.number_spaces_deployed_in_location"></span></span>
+        </td>
         <td>
           <span x-text="u.used_disk_space + 'GB'"></span> <span x-show="u.max_disk_space">/ <span x-text="u.max_disk_space + 'GB'"></span></span>
         </td>
@@ -65,9 +68,11 @@
           <button class="outline" @click="u.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
           <div x-show="u.showMenu" @click.away="u.showMenu = false" @keydown.window.escape="u.showMenu = false" class="menu-popup">
             <button @click="editUser(u.user_id)"><i class='bx bx-edit' ></i> Edit</button>
-            <button @click="userSpaces(u.user_id)"><i class='bx bx-cloud' ></i> Spaces</button>
-            <button x-show="u.number_spaces_deployed > 0" @click="stopConfirm.show = true; stopConfirm.user = u" class="danger"><i class='bx bx-error-alt'></i> Stop Spaces</button>
+            <button x-show="u.number_spaces_deployed > 0" @click="userSpaces(u.user_id)"><i class='bx bx-cloud' ></i> View Spaces</button>
+            <hr x-show="!u.current" />
             <button x-show="!u.current" @click="deleteConfirm.show = true; deleteConfirm.user = u" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
+            <hr x-show="u.number_spaces_deployed_in_location > 0" />
+            <button x-show="u.number_spaces_deployed_in_location > 0" @click="stopConfirm.show = true; stopConfirm.user = u" class="danger"><i class='bx bx-error-alt'></i> Stop Spaces</button>
           </div>
         </td>
       </tr>

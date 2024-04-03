@@ -1,10 +1,10 @@
-post:
+put:
   tags:
     - Agents
   summary: Update Agent Status
   description: |
     Update the agents status and the services it provides.
-  operationId: registerAgent
+  operationId: UpdateAgentStatus
   parameters:
     - name: space_id
       in: path
@@ -28,7 +28,7 @@ post:
               type: boolean
   responses:
     '200':
-      description: Agent registered successfully
+      description: Agent updated successfully
       content:
         application/json:
           schema:

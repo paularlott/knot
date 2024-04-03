@@ -82,7 +82,7 @@ window.volumeForm = function(isEdit, volumeId) {
       this.loading = true;
 
       fetch(isEdit ? '/api/v1/volumes/' + volumeId : '/api/v1/volumes', {
-          method: 'POST',
+          method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
