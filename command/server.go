@@ -226,7 +226,7 @@ var serverCmd = &cobra.Command{
 		viper.Set("server.is_core", viper.GetString("server.remote_token") != "" && viper.GetString("server.core_server") == "")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		listen := viper.GetString("server.listen")
+		listen := FixListenAddress(viper.GetString("server.listen"))
 
 		log.Info().Msgf("server: starting on: %s", listen)
 
