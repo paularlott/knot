@@ -30,7 +30,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *ApiClient
 }
 
 func NewRemoteToken(token string) *ApiClient {
-	c := NewClient(viper.GetString("server.core_server"), token, viper.GetBool("server.tls_skip_verify"))
+	c := NewClient(viper.GetString("server.core_server"), token, viper.GetBool("tls_skip_verify"))
 	return c
 }
 
@@ -41,7 +41,7 @@ func NewRemoteSession(token string) *ApiClient {
 }
 
 func NewRemoteServerClient(baseURL string) *ApiClient {
-	return NewClient(baseURL, viper.GetString("server.remote_token"), viper.GetBool("server.tls_skip_verify"))
+	return NewClient(baseURL, viper.GetString("server.remote_token"), viper.GetBool("tls_skip_verify"))
 }
 
 func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {

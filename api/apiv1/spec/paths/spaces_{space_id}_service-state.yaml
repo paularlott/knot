@@ -42,5 +42,7 @@ get:
                   type: integer
               update_available:
                 type: boolean
+              is_remote:
+                type: boolean
   security:
     - BearerAuth: []

@@ -371,6 +371,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	response.Name = space.Name
 	response.Location = space.Location
 	response.IsDeployed = space.IsDeployed
+	response.IsRemote = space.Location != "" && space.Location != viper.GetString("server.location")
 
 	// Check if the template has been updated
 	hash, ok := templateHashes[space.TemplateId]

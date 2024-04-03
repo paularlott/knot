@@ -47,6 +47,7 @@ type SpaceServiceState struct {
 	TcpPorts        []int  `json:"tcp_ports"`
 	HttpPorts       []int  `json:"http_ports"`
 	UpdateAvailable bool   `json:"update_available"`
+	IsRemote        bool   `json:"is_remote"`
 }
 
 type SpaceDefinition struct {
@@ -76,7 +77,7 @@ func (c *ApiClient) GetSpaces(userId string) ([]*SpaceInfo, int, error) {
 func (c *ApiClient) GetSpaceServiceState(spaceId string) (*SpaceServiceState, int, error) {
 	response := &SpaceServiceState{}
 
-	code, err := c.httpClient.Get("/api/v1/spaces/"+spaceId+"/service_state", &response)
+	code, err := c.httpClient.Get("/api/v1/spaces/"+spaceId+"/service-state", &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -159,4 +160,12 @@ func (c *ApiClient) CreateSpace(space *model.Space) (int, error) {
 
 func (c *ApiClient) DeleteSpace(spaceId string) (int, error) {
 	return c.httpClient.Delete("/api/v1/spaces/"+spaceId, nil, nil, 200)
+}
+
+func (c *ApiClient) StartSpace(spaceId string) (int, error) {
+	return c.httpClient.Post("/api/v1/spaces/"+spaceId+"/start", nil, nil, 200)
+}
+
+func (c *ApiClient) StopSpace(spaceId string) (int, error) {
+	return c.httpClient.Post("/api/v1/spaces/"+spaceId+"/stop", nil, nil, 200)
 }

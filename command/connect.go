@@ -18,6 +18,7 @@ import (
 func init() {
 
 	connectCmd.Flags().BoolP("use-web-auth", "", false, "If given then authorization will be done via the web interface.")
+	connectCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
 	connectCmd.Flags().StringP("username", "u", "", "Username to use for authentication.\nOverrides the "+CONFIG_ENV_PREFIX+"_USERNAME environment variable if set.")
 
 	RootCmd.AddCommand(connectCmd)
@@ -108,7 +109,7 @@ var connectCmd = &cobra.Command{
 			}
 
 			// Open an API connection to the server
-			client := apiclient.NewClient(server, "", viper.GetBool("server.tls_skip_verify"))
+			client := apiclient.NewClient(server, "", cmd.Flags().Lookup("tls-skip-verify").Value.String() == "true")
 			sessionToken, _, _ := client.Login(username, string(password))
 			if sessionToken == "" {
 				fmt.Println("Failed to login")
