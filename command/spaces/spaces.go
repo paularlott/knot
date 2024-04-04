@@ -16,6 +16,8 @@ func init() {
 	spacesCmd.AddCommand(listCmd)
 	spacesCmd.AddCommand(startCmd)
 	spacesCmd.AddCommand(stopCmd)
+	spacesCmd.AddCommand(createCmd)
+	spacesCmd.AddCommand(deleteCmd)
 }
 
 var spacesCmd = &cobra.Command{

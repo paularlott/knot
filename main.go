@@ -10,6 +10,7 @@ import (
 	_ "github.com/paularlott/knot/command/forward"
 	_ "github.com/paularlott/knot/command/proxy"
 	_ "github.com/paularlott/knot/command/spaces"
+	_ "github.com/paularlott/knot/command/templates"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

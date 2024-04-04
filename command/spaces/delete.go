@@ -9,13 +9,21 @@ import (
 	"github.com/spf13/viper"
 )
 
-var stopCmd = &cobra.Command{
-	Use:   "stop <space> [flags]",
-	Short: "Stop a space",
-	Long:  `Stop the named space.`,
+var deleteCmd = &cobra.Command{
+	Use:   "delete <space> [flags]",
+	Short: "Delete a space",
+	Long:  `Delete a stopped space, all data will be lost.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Stopping space: ", args[0])
+
+		// Prompt the user to confirm the deletion
+		var confirm string
+		fmt.Printf("Are you sure you want to delete the space %s and all data? (yes/no): ", args[0])
+		fmt.Scanln(&confirm)
+		if confirm != "yes" {
+			fmt.Println("Deletion cancelled.")
+			return
+		}
 
 		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
 
@@ -40,13 +48,13 @@ var stopCmd = &cobra.Command{
 			return
 		}
 
-		// Stop the space
-		_, err = client.StopSpace(spaceId)
+		// Delete the space
+		_, err = client.DeleteSpace(spaceId)
 		if err != nil {
-			fmt.Println("Error stopping space: ", err)
+			fmt.Println("Error deleting space: ", err)
 			return
 		}
 
-		fmt.Println("Space stopped: ", args[0])
+		fmt.Println("Space deleted: ", args[0])
 	},
 }
