@@ -16,6 +16,8 @@ func init() {
 	templatesCmd.AddCommand(listCmd)
 	templatesCmd.AddCommand(createCmd)
 	templatesCmd.AddCommand(deleteCmd)
+	templatesCmd.AddCommand(exportCmd)
+	templatesCmd.AddCommand(updateCmd)
 }
 
 var templatesCmd = &cobra.Command{

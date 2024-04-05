@@ -351,13 +351,16 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		volumes, _ := template.GetVolumes(nil, nil, nil, false)
 
 		var volumeList []map[string]interface{}
-		for _, volume := range volumes.Volumes {
-			volumeList = append(volumeList, map[string]interface{}{
-				"id":           volume.Id,
-				"name":         volume.Name,
-				"capacity_min": math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))),
-				"capacity_max": math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64))/(1024*1024*1024))),
-			})
+
+		if volumes != nil {
+			for _, volume := range volumes.Volumes {
+				volumeList = append(volumeList, map[string]interface{}{
+					"id":           volume.Id,
+					"name":         volume.Name,
+					"capacity_min": math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))),
+					"capacity_max": math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64))/(1024*1024*1024))),
+				})
+			}
 		}
 
 		data := apiclient.TemplateDetails{
