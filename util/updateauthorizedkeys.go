@@ -50,7 +50,7 @@ func UpdateAuthorizedKeys(key string) error {
 		}
 	}
 
-	// If key not found add it to lines
+	// If key not found add it
 	if !keyFound {
 		log.Debug().Msg("Adding key to authorized_keys")
 
@@ -59,7 +59,7 @@ func UpdateAuthorizedKeys(key string) error {
 		lines = append(lines, "#===KNOT-END===")
 
 		// Write lines to authorized_keys file
-		file, err := os.OpenFile(os.Getenv("HOME")+"/.ssh/authorized_keys", os.O_CREATE|os.O_WRONLY, 0700)
+		file, err := os.OpenFile(os.Getenv("HOME")+"/.ssh/authorized_keys", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0700)
 		if err != nil {
 			return err
 		}
