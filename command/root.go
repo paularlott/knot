@@ -8,7 +8,6 @@ import (
 	"github.com/paularlott/knot/build"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -36,37 +35,6 @@ func init() {
 
 	RootCmd.PersistentFlags().StringP("config", "c", "", "Config file (default is "+CONFIG_FILE_NAME+"."+CONFIG_FILE_TYPE+" in the current directory or $HOME/).\nOverrides the "+CONFIG_ENV_PREFIX+"_CONFIG environment variable if set.")
 	RootCmd.PersistentFlags().StringP("log-level", "", "info", "Log level (debug, info, warn, error, fatal, panic).\nOverrides the "+CONFIG_ENV_PREFIX+"_LOGLEVEL environment variable if set.")
-
-	RootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-		if cmd.Name() != "connect" {
-			viper.BindPFlag("config", RootCmd.PersistentFlags().Lookup("config"))
-			viper.BindEnv("config", CONFIG_ENV_PREFIX+"_CONFIG")
-			viper.BindPFlag("log.level", RootCmd.PersistentFlags().Lookup("log-level"))
-			viper.BindEnv("log.level", CONFIG_ENV_PREFIX+"_LOGLEVEL")
-
-			// If config file given then use it
-			cfgFile := viper.GetString("config")
-			if cfgFile != "" {
-				viper.SetConfigFile(cfgFile)
-				if err := viper.ReadInConfig(); err != nil {
-					log.Fatal().Msgf("missing config file: %s", viper.ConfigFileUsed())
-				}
-			}
-
-			switch viper.GetString("log.level") {
-			case "debug":
-				zerolog.SetGlobalLevel(zerolog.DebugLevel)
-			case "info":
-				zerolog.SetGlobalLevel(zerolog.InfoLevel)
-			case "warn":
-				zerolog.SetGlobalLevel(zerolog.WarnLevel)
-			case "error":
-				zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-			default:
-				zerolog.SetGlobalLevel(zerolog.WarnLevel)
-			}
-		}
-	}
 }
 
 func initConfig() {
@@ -83,7 +51,31 @@ func initConfig() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	//viper.AutomaticEnv() // Read in environment variables that match
 
+	viper.BindPFlag("config", RootCmd.PersistentFlags().Lookup("config"))
+	viper.BindEnv("config", CONFIG_ENV_PREFIX+"_CONFIG")
+	viper.BindPFlag("log.level", RootCmd.PersistentFlags().Lookup("log-level"))
+	viper.BindEnv("log.level", CONFIG_ENV_PREFIX+"_LOGLEVEL")
+
+	// If config file given then use it
+	cfgFile := viper.GetString("config")
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+	}
+
 	viper.ReadInConfig()
+
+	switch viper.GetString("log.level") {
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	case "warn":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	default:
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	}
 }
 
 func Execute() {
