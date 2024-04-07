@@ -23,18 +23,40 @@ var (
 )
 
 func SyncTemplateHashes() {
-	log.Info().Msg("server: starting remote server template hash sync")
+	if viper.GetBool("server.is_remote") {
+		log.Info().Msg("server: starting remote server template hash sync")
 
-	for {
-		client := apiclient.NewRemoteServerClient(viper.GetString("server.core_server"))
-		hashes, err := client.RemoteFetchTemplateHashes()
-		if err != nil {
-			log.Error().Msgf("failed to fetch template hashes: %s", err.Error())
-		} else {
-			templateHashes = *hashes
+		for {
+			client := apiclient.NewRemoteServerClient(viper.GetString("server.core_server"))
+			hashes, err := client.RemoteFetchTemplateHashes()
+			if err != nil {
+				log.Error().Msgf("failed to fetch template hashes: %s", err.Error())
+			} else {
+				templateHashes = *hashes
+			}
+
+			time.Sleep(model.REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL)
 		}
+	} else {
+		log.Info().Msg("server: starting local template hash sync")
 
-		time.Sleep(model.REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL)
+		for {
+			db := database.GetInstance()
+
+			templates, err := db.GetTemplates()
+			if err != nil {
+				log.Error().Msgf("failed to fetch templates: %s", err.Error())
+			} else {
+				newHashes := make(map[string]string)
+				for _, template := range templates {
+					newHashes[template.Id] = template.Hash
+				}
+
+				templateHashes = newHashes
+			}
+
+			time.Sleep(model.REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL)
+		}
 	}
 }
 

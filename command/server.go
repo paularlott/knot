@@ -246,6 +246,9 @@ var serverCmd = &cobra.Command{
 			startRemoteServerServices()
 		}
 
+		// Sync the template hashes either local or remote
+		go apiv1.SyncTemplateHashes()
+
 		router := chi.NewRouter()
 
 		// Get the wildcard domain, if blank just start up the server to respond on any domain
@@ -453,9 +456,6 @@ func startRemoteServerServices() {
 			}
 		}
 	}()
-
-	// Start a go routine to fetch the list of template hashes from the core server
-	go apiv1.SyncTemplateHashes()
 }
 
 var syncMutex = &sync.Mutex{}
