@@ -13,16 +13,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-type dnsCacheEntry struct {
-	Msg  *dns.Msg
-	Time time.Time
-}
-
-var (
-	dnsCache   = make(map[string]*dnsCacheEntry)
-	cacheMutex sync.Mutex
-)
-
 // Handler to forward DNS requests to consul servers or DNS servers
 func forwardDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
 	c := new(dns.Client)
@@ -31,39 +21,19 @@ func forwardDNSHandler(w dns.ResponseWriter, r *dns.Msg) {
 
 	log.Debug().Msgf("dns: received request for %s", r.Question[0].Name)
 
-	// Check if the request is in the cache
-	cacheMutex.Lock()
-	if entry, ok := dnsCache[r.Question[0].Name]; ok {
-		// If the cache entry is too old and remove it
-		if time.Since(entry.Time) > 10*time.Second {
-			delete(dnsCache, r.Question[0].Name)
-		} else {
-			log.Debug().Msgf("dns: cache hit for %s", r.Question[0].Name)
-			in = entry.Msg
-		}
+	if strings.HasSuffix(r.Question[0].Name, "consul.") {
+		in, err = parallelExchange(c, r, viper.GetStringSlice("resolver.consul"), "8600")
+	} else {
+		in, err = parallelExchange(c, r, viper.GetStringSlice("resolver.nameservers"), "53")
 	}
-	cacheMutex.Unlock()
 
-	if in == nil {
-		if strings.HasSuffix(r.Question[0].Name, "consul.") {
-			in, err = parallelExchange(c, r, viper.GetStringSlice("resolver.consul"), "8600")
-		} else {
-			in, err = parallelExchange(c, r, viper.GetStringSlice("resolver.nameservers"), "53")
-		}
+	// If error then log and return DNS name not found
+	if err != nil || in == nil {
+		log.Error().Msgf("dns: failed to forward request: %s\n", err.Error())
 
-		// If error then log and return DNS name not found
-		if err != nil || in == nil {
-			log.Error().Msgf("dns: failed to forward request: %s\n", err.Error())
-
-			in = new(dns.Msg)
-			in.SetReply(r)
-			in.SetRcode(r, dns.RcodeNameError)
-		}
-
-		// Cache the response
-		cacheMutex.Lock()
-		dnsCache[r.Question[0].Name] = &dnsCacheEntry{Msg: in, Time: time.Now()}
-		cacheMutex.Unlock()
+		in = new(dns.Msg)
+		in.SetReply(r)
+		in.SetRcode(r, dns.RcodeNameError)
 	}
 
 	w.WriteMsg(in)
