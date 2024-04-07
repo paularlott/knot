@@ -45,6 +45,9 @@ func init() {
 	agentCmd.Flags().BoolP("use-tls", "", true, "Enable TLS.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_USE_TLS environment variable if set.")
 	agentCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
 
+	// DNS Forwarding
+	agentCmd.Flags().StringP("dns-listen", "", "", "The address and port to listen on for DNS requests (defaults to disabled).\nOverrides the "+command.CONFIG_ENV_PREFIX+"_DNS_LISTEN environment variable if set.")
+
 	command.RootCmd.AddCommand(agentCmd)
 }
 
@@ -119,6 +122,10 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
 		viper.BindPFlag("resolver.nameservers", cmd.Flags().Lookup("nameserver"))
 		viper.BindEnv("resolver.nameservers", command.CONFIG_ENV_PREFIX+"_NAMESERVERS")
+
+		viper.BindPFlag("agent.dns_listen", cmd.Flags().Lookup("dns-listen"))
+		viper.BindEnv("agent.dns_listen", command.CONFIG_ENV_PREFIX+"_DNS_LISTEN")
+		viper.SetDefault("agent.dns_listen", "")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := command.FixListenAddress(viper.GetString("agent.listen"))
@@ -169,6 +176,11 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
 		// Pings the server periodically to keep the agent alive
 		go agent.ReportState(serverAddr, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), tcpPorts, httpPorts)
+
+		// Start the DNS forwarder if enabled
+		if viper.GetString("agent.dns_listen") != "" {
+			go agent.ForwardDNS()
+		}
 
 		log.Info().Msgf("agent: listening on: %s", listen)
 
