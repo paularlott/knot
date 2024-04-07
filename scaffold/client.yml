@@ -2,5 +2,10 @@
 client:
   # URL of the knot server
   server: http://127.0.0.1:3000
-  # Optional nameserver to use for SRV lookups
-  # nameserver: 1.1.1.1:53
+
+# Optional nameservers to use for SRV lookups
+#resolver:
+#  consul:
+#    - 192.168.0.4:8600
+#  nameservers:
+#    - 192.168.0.2:53

@@ -32,7 +32,8 @@ import (
 
 func init() {
 	serverCmd.Flags().StringP("listen", "l", "", "The address to listen on (default \"127.0.0.1:3000\").\nOverrides the "+CONFIG_ENV_PREFIX+"_LISTEN environment variable if set.")
-	serverCmd.Flags().StringP("nameserver", "n", "", "The nameserver to use for SRV lookups (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_NAMESERVER environment variable if set.")
+	serverCmd.Flags().StringSliceP("consul", "", []string{}, "The address of the consul server to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_CONSUL_SERVERS environment variable if set.")
+	serverCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	serverCmd.Flags().StringP("url", "u", "", "The URL to use for the server (default \"http://127.0.0.1:3000\").\nOverrides the "+CONFIG_ENV_PREFIX+"_URL environment variable if set.")
 	serverCmd.Flags().BoolP("enable-proxy", "", false, "Enable the proxy server functionality.\nOverrides the "+CONFIG_ENV_PREFIX+"_ENABLE_PROXY environment variable if set.")
 	serverCmd.Flags().BoolP("terminal-webgl", "", true, "Enable WebGL terminal renderer.\nOverrides the "+CONFIG_ENV_PREFIX+"_WEBGL environment variable if set.")
@@ -97,9 +98,11 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.wildcard_domain", CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN")
 		viper.SetDefault("server.wildcard_domain", "")
 
-		viper.BindPFlag("server.nameserver", cmd.Flags().Lookup("nameserver"))
-		viper.BindEnv("server.nameserver", CONFIG_ENV_PREFIX+"_NAMESERVER")
-		viper.SetDefault("server.nameserver", "")
+		viper.BindPFlag("resolver.consul", cmd.Flags().Lookup("consul"))
+		viper.BindEnv("resolver.consul", CONFIG_ENV_PREFIX+"_CONSUL_SERVERS")
+
+		viper.BindPFlag("resolver.nameservers", cmd.Flags().Lookup("nameserver"))
+		viper.BindEnv("resolver.nameservers", CONFIG_ENV_PREFIX+"_NAMESERVERS")
 
 		viper.BindPFlag("server.enable_proxy", cmd.Flags().Lookup("enable-proxy"))
 		viper.BindEnv("server.enable_proxy", CONFIG_ENV_PREFIX+"_ENABLE_PROXY")

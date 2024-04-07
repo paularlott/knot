@@ -27,7 +27,8 @@ import (
 func init() {
 	agentCmd.Flags().StringP("server", "s", "", "The address of the server to connect to.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
 	agentCmd.Flags().StringP("space-id", "", "", "The ID of the space the agent is providing.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_SPACEID environment variable if set.")
-	agentCmd.Flags().StringP("nameserver", "n", "", "The nameserver to use for SRV lookups (default use system resolver).\nOverrides the "+command.CONFIG_ENV_PREFIX+"_NAMESERVER environment variable if set.")
+	agentCmd.Flags().StringSliceP("consul", "", []string{}, "The address of the consul server to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+command.CONFIG_ENV_PREFIX+"_CONSUL_SERVERS environment variable if set.")
+	agentCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+command.CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	agentCmd.Flags().StringP("listen", "l", "0.0.0.0:3000", "The address and port to listen on.")
 	agentCmd.Flags().IntP("code-server-port", "", 0, "The port code-server is running on.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT environment variable if set.")
 	agentCmd.Flags().IntP("ssh-port", "", 0, "The port sshd is running on.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_SSH_PORT environment variable if set.")
@@ -60,10 +61,6 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
 		viper.BindPFlag("agent.space_id", cmd.Flags().Lookup("space-id"))
 		viper.BindEnv("agent.space_id", command.CONFIG_ENV_PREFIX+"_SPACEID")
-
-		viper.BindPFlag("agent.nameserver", cmd.Flags().Lookup("nameserver"))
-		viper.BindEnv("agent.nameserver", command.CONFIG_ENV_PREFIX+"_NAMESERVER")
-		viper.SetDefault("agent.nameserver", "")
 
 		viper.BindPFlag("agent.listen", cmd.Flags().Lookup("listen"))
 		viper.BindEnv("agent.listen", command.CONFIG_ENV_PREFIX+"_LISTEN")
@@ -115,11 +112,17 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		viper.BindPFlag("tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
 		viper.BindEnv("tls_skip_verify", command.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
 		viper.SetDefault("tls_skip_verify", true)
+
+		// DNS
+		viper.BindPFlag("resolver.consul", cmd.Flags().Lookup("consul"))
+		viper.BindEnv("resolver.consul", command.CONFIG_ENV_PREFIX+"_CONSUL_SERVERS")
+
+		viper.BindPFlag("resolver.nameservers", cmd.Flags().Lookup("nameserver"))
+		viper.BindEnv("resolver.nameservers", command.CONFIG_ENV_PREFIX+"_NAMESERVERS")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := command.FixListenAddress(viper.GetString("agent.listen"))
 		serverAddr := viper.GetString("agent.server")
-		nameserver := viper.GetString("agent.nameserver")
 		spaceId := viper.GetString("agent.space_id")
 
 		// Build a map of the available tcp ports
@@ -165,7 +168,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		router.Mount("/", agentv1.Routes(cmd))
 
 		// Pings the server periodically to keep the agent alive
-		go agent.ReportState(serverAddr, nameserver, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), tcpPorts, httpPorts)
+		go agent.ReportState(serverAddr, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), tcpPorts, httpPorts)
 
 		log.Info().Msgf("agent: listening on: %s", listen)
 

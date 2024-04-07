@@ -11,7 +11,6 @@ import (
 	"github.com/paularlott/knot/util"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/spf13/viper"
 )
 
 func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +40,7 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Look up the IP + Port from consul / DNS
-	target, _ := url.Parse(fmt.Sprintf("%s/terminal/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), shell))
+	target, _ := url.Parse(fmt.Sprintf("%s/terminal/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL()), "/"), shell))
 	r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/terminal/%s", spaceId, shell))
 
 	token := "Bearer " + agentState.AccessToken

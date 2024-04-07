@@ -11,7 +11,6 @@ import (
 	"github.com/paularlott/knot/util"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/spf13/viper"
 )
 
 func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +39,7 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Look up the IP + Port from consul / DNS
-	target, _ := url.Parse(fmt.Sprintf("%s/code-server/", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/")))
+	target, _ := url.Parse(fmt.Sprintf("%s/code-server/", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL()), "/")))
 	r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/code-server", spaceId))
 
 	token := "Bearer " + agentState.AccessToken

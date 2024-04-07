@@ -11,7 +11,6 @@ import (
 	"github.com/paularlott/knot/util"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/spf13/viper"
 )
 
 func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +34,7 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Look up the IP + Port from consul / DNS
-	target, _ := url.Parse(fmt.Sprintf("%s/tcp/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), port))
+	target, _ := url.Parse(fmt.Sprintf("%s/tcp/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL()), "/"), port))
 	r.URL.Path = ""
 
 	token := "Bearer " + agentState.AccessToken
@@ -85,9 +84,9 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 
 	// If the last part is VNC then doing proxy for HTTP based VNC server
 	if domainParts[2] == "vnc" {
-		target, _ = url.Parse(fmt.Sprintf("%s/vnc/", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/")))
+		target, _ = url.Parse(fmt.Sprintf("%s/vnc/", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL()), "/")))
 	} else {
-		target, _ = url.Parse(fmt.Sprintf("%s/http/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL(), viper.GetString("agent.nameserver")), "/"), domainParts[2]))
+		target, _ = url.Parse(fmt.Sprintf("%s/http/%s", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL()), "/"), domainParts[2]))
 	}
 
 	token := "Bearer " + agentState.AccessToken

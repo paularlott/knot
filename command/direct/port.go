@@ -10,7 +10,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var portCmd = &cobra.Command{
@@ -41,17 +40,24 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
 				cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")
 			}
 
-			host, err = util.GetIP(service, viper.GetString("client.nameserver"))
-		} else {
-			host, port, err = util.GetTargetFromSRV(service, viper.GetString("client.nameserver"))
-		}
+			ips, err := util.LookupIP(service)
+			if err != nil {
+				cobra.CheckErr("Failed to find service")
+			}
 
-		if err != nil {
-			cobra.CheckErr("Failed to find service")
+			host = (*ips)[0]
+		} else {
+			hostPorts, err := util.LookupSRV(service)
+			if err != nil {
+				cobra.CheckErr("Failed to find service")
+			}
+
+			host = (*hostPorts)[0].Host
+			port = (*hostPorts)[0].Port
 		}
 
 		log.Info().Msgf("port: listening on %s", listen)
-		log.Info().Msgf("port: forwarding ro %s (%s:%s)", args[0], host, port)
+		log.Info().Msgf("port: forwarding to %s (%s:%s)", args[0], host, port)
 
 		listener, err := net.Listen("tcp", listen)
 		if err != nil {

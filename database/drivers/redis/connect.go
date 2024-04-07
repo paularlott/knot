@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-type RedisDbDriver struct{
-  connection *redis.Client
+type RedisDbDriver struct {
+	connection *redis.Client
 }
 
 func convertRedisError(err error) error {
@@ -21,37 +21,37 @@ func convertRedisError(err error) error {
 }
 
 func (db *RedisDbDriver) keyExists(key string) (bool, error) {
-  var exists = false
+	var exists = false
 
-  v, err := db.connection.Get(context.Background(), key).Result()
-  if err == nil {
-    exists = v != ""
-  }
+	v, err := db.connection.Get(context.Background(), key).Result()
+	if err == nil {
+		exists = v != ""
+	}
 
-  return exists, convertRedisError(err)
+	return exists, convertRedisError(err)
 }
 
 func (db *RedisDbDriver) Connect() error {
-  log.Debug().Msg("db: connecting to Redis")
+	log.Debug().Msg("db: connecting to Redis")
 
-  // If the host starts with srv+ then lookup the SRV record
-  host := viper.GetString("server.redis.host")
-  if host[:4] == "srv+" {
-    hostSrv, portSrv, err := util.GetTargetFromSRV(host[4:], viper.GetString("server.nameserver"))
-    if err != nil {
-      log.Fatal().Err(err).Msg("db: failed to lookup SRV record for Redis Server")
-    }
+	// If the host starts with srv+ then lookup the SRV record
+	host := viper.GetString("server.redis.host")
+	if host[:4] == "srv+" {
+		hostPort, err := util.LookupSRV(host[4:])
+		if err != nil {
+			log.Fatal().Err(err).Msg("db: failed to lookup SRV record for Redis Server")
+		}
 
-    host = hostSrv + ":" + portSrv
-  }
+		host = (*hostPort)[0].Host + ":" + (*hostPort)[0].Port
+	}
 
-  log.Debug().Msgf("db: connecting to redis server: %s, db: %d", host, viper.GetInt("server.redis.db"))
+	log.Debug().Msgf("db: connecting to redis server: %s, db: %d", host, viper.GetInt("server.redis.db"))
 
-  db.connection = redis.NewClient(&redis.Options{
-    Addr    : host,
-    Password: viper.GetString("server.redis.password"),
-    DB      : viper.GetInt("server.redis.db"),
-  })
+	db.connection = redis.NewClient(&redis.Options{
+		Addr:     host,
+		Password: viper.GetString("server.redis.password"),
+		DB:       viper.GetInt("server.redis.db"),
+	})
 
-  return nil
+	return nil
 }

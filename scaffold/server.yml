@@ -2,8 +2,6 @@
 server:
   # Address and port to listen on
   listen: http://127.0.0.1:3000
-  # Optional nameserver to use for SRV lookups
-  # nameserver: 1.1.1.1:53
 
   # Disable Proxy functionality
   disable_proxy: false
@@ -34,3 +32,10 @@ server:
   nomad:
     addr: http://127.0.0.1:4646
     token: ""
+
+# Optional nameservers to use for SRV lookups
+#resolver:
+#  consul:
+#    - 192.168.0.4:8600
+#  nameservers:
+#    - 192.168.0.2:53

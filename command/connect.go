@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/paularlott/knot/apiclient"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/term"
