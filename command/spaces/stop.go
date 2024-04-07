@@ -19,8 +19,15 @@ var stopCmd = &cobra.Command{
 
 		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
 
+		// Get the current user
+		user, err := client.WhoAmI()
+		if err != nil {
+			fmt.Println("Error getting user: ", err)
+			return
+		}
+
 		// Get a list of available spaces
-		spaces, _, err := client.GetSpaces("")
+		spaces, _, err := client.GetSpaces(user.Id)
 		if err != nil {
 			fmt.Println("Error getting spaces: ", err)
 			return
