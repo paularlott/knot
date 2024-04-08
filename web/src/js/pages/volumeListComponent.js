@@ -24,7 +24,8 @@ window.volumeListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      this.volumes = await response.json();
+      volList = await response.json();
+      this.volumes = volList.volumes;
 
       this.volumes.forEach(volume => {
         volume.showIdPopup = false;

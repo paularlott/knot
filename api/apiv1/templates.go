@@ -103,7 +103,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Build a json array of data to return to the client
-		templateResponse := []*apiclient.TemplateResponse{}
+		templateResponse := apiclient.TemplateList{}
 
 		for _, template := range templates {
 
@@ -112,7 +112,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			templateData := &apiclient.TemplateResponse{}
+			templateData := apiclient.TemplateInfo{}
 
 			templateData.Id = template.Id
 			templateData.Name = template.Name
@@ -136,7 +136,8 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			templateData.Usage = len(spaces)
 			templateData.Deployed = deployed
 
-			templateResponse = append(templateResponse, templateData)
+			templateResponse.Templates = append(templateResponse.Templates, templateData)
+			templateResponse.Count++
 		}
 
 		rest.SendJSON(http.StatusOK, w, templateResponse)

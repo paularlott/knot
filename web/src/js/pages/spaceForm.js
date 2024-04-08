@@ -34,7 +34,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           'Content-Type': 'application/json'
         }
       });
-      this.templates = await templatesResponse.json();
+      templateList = await templatesResponse.json();
+      this.templates = templateList.templates;
 
       if(isEdit) {
         const spaceResponse = await fetch('/api/v1/spaces/' + spaceId, {

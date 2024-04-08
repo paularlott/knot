@@ -11,18 +11,24 @@ get:
       content:
         application/json:
           schema:
-            type: array
-            items:
-              type: object
-              properties:
-                volume_id:
-                  type: string
-                name:
-                  type: string
-                active:
-                  type: boolean
-                location:
-                  type: string
+            type: object
+            properties:
+              count:
+                type: integer
+                description: The total number of volumes
+              volumes:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    volume_id:
+                      type: string
+                    name:
+                      type: string
+                    active:
+                      type: boolean
+                    location:
+                      type: string
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':

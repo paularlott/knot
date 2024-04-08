@@ -17,26 +17,32 @@ get:
       content:
         application/json:
           schema:
-            type: array
-            items:
-              type: object
-              properties:
-                template_id:
-                  type: string
-                name:
-                  type: string
-                description:
-                  type: string
-                usage:
-                  type: integer
-                deployed:
-                  type: integer
-                groups:
-                  type: array
-                  items:
-                    type: string
-                    example: ["00000000-0000-0000-0000-000000000000"]
-                  description: The IDs of the groups assigned to the template.
+            type: object
+            properties:
+              count:
+                type: integer
+                description: The total number of templates
+              templates:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    template_id:
+                      type: string
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    usage:
+                      type: integer
+                    deployed:
+                      type: integer
+                    groups:
+                      type: array
+                      items:
+                        type: string
+                        example: ["00000000-0000-0000-0000-000000000000"]
+                      description: The IDs of the groups assigned to the template.
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':

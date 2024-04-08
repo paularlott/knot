@@ -19,26 +19,32 @@ get:
       content:
         application/json:
           schema:
-            type: array
-            items:
-              type: object
-              properties:
-                space_id:
-                  type: uuid
-                name:
-                  type: string
-                template_name:
-                  type: string
-                template_id:
-                  type: uuid
-                location:
-                  type: string
-                username:
-                  type: string
-                user_id:
-                  type: string
-                volume_sizes:
-                  type: integer
+            type: object
+            properties:
+              count:
+                type: integer
+                description: The total number of spaces
+              spaces:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    space_id:
+                      type: uuid
+                    name:
+                      type: string
+                    template_name:
+                      type: string
+                    template_id:
+                      type: uuid
+                    location:
+                      type: string
+                    username:
+                      type: string
+                    user_id:
+                      type: string
+                    volume_sizes:
+                      type: integer
     '500':
       $ref: '../responses/internal-server-error.yaml'
   security:

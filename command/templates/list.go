@@ -29,7 +29,7 @@ var listCmd = &cobra.Command{
 		data := [][]string{}
 
 		data = append(data, []string{"Name", "Description"})
-		for _, template := range *templates {
+		for _, template := range templates.Templates {
 			desc := strings.ReplaceAll(template.Description, "\n", " ")
 			data = append(data, []string{template.Name, desc})
 		}

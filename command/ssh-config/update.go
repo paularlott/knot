@@ -27,7 +27,7 @@ var sshConfigUpdateCmd = &cobra.Command{
 
 		// For all spaces query the service state and build a list of those that are deployed and have SSH exposed
 		sshConfig := ""
-		for _, space := range spaces {
+		for _, space := range spaces.Spaces {
 			state, _, err := client.GetSpaceServiceState(space.Id)
 			if err != nil {
 				fmt.Println("Error getting space state: ", err)

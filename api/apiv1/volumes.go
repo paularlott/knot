@@ -36,13 +36,20 @@ func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Build a json array of data to return to the client
-		volumeData := make([]apiclient.VolumeInfo, len(volumes))
+		volumeData := apiclient.VolumeInfoList{
+			Count:   0,
+			Volumes: []apiclient.VolumeInfo{},
+		}
 
-		for i, volume := range volumes {
-			volumeData[i].Id = volume.Id
-			volumeData[i].Name = volume.Name
-			volumeData[i].Active = volume.Active
-			volumeData[i].Location = volume.Location
+		for _, volume := range volumes {
+			v := apiclient.VolumeInfo{
+				Id:       volume.Id,
+				Name:     volume.Name,
+				Active:   volume.Active,
+				Location: volume.Location,
+			}
+			volumeData.Volumes = append(volumeData.Volumes, v)
+			volumeData.Count++
 		}
 
 		rest.SendJSON(http.StatusOK, w, volumeData)

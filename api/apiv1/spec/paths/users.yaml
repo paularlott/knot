@@ -92,7 +92,7 @@ post:
 get:
   tags:
     - Users
-  summary: Get the Users
+  summary: Get Users
   description: Get the list of users within the system.
   operaionId: listUsers
   parameters:
@@ -113,8 +113,14 @@ get:
       content:
         application/json:
           schema:
-            type: array
-            items:
+            type: object
+            properties:
+              count:
+                type: integer
+                description: The total number of users
+              users:
+                type: array
+                items:
                   $ref: '#/components/schemas/User'
 
     '400':

@@ -16,7 +16,9 @@ window.groupListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      this.groups = await response.json();
+      groupList = await response.json();
+      this.groups = groupList.groups;
+
       this.loading = false;
       this.groups.forEach(group => {
         group.showIdPopup = false;

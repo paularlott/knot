@@ -45,7 +45,8 @@ window.userForm = function(isEdit, userId, isProfile) {
           'Content-Type': 'application/json'
         }
       });
-      this.groups = await groupsResponse.json();
+      groupsList = await groupsResponse.json();
+      this.groups = groupsList.groups;
 
       if(isEdit) {
         const userResponse = await fetch('/api/v1/users/' + userId, {

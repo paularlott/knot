@@ -33,14 +33,17 @@ window.userListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      this.groups = await groupsResponse.json();
+      groupList = await groupsResponse.json();
+      this.groups = groupList.groups;
 
       const response = await fetch('/api/v1/users', {
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      this.users = await response.json();
+      usersList = await response.json();
+      this.users = usersList.users;
+
       this.loading = false;
       this.users.forEach(user => {
         user.showIdPopup = false;

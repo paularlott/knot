@@ -33,11 +33,18 @@ func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Build a json array of data to return to the client
-		data := make([]apiclient.GroupInfo, len(groups))
+		data := apiclient.GroupInfoList{
+			Count:  0,
+			Groups: []apiclient.GroupInfo{},
+		}
 
-		for i, group := range groups {
-			data[i].Id = group.Id
-			data[i].Name = group.Name
+		for _, group := range groups {
+			g := apiclient.GroupInfo{
+				Id:   group.Id,
+				Name: group.Name,
+			}
+			data.Groups = append(data.Groups, g)
+			data.Count++
 		}
 
 		rest.SendJSON(http.StatusOK, w, data)

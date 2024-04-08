@@ -49,7 +49,7 @@ type CreateUserResponse struct {
 	UserId string `json:"user_id"`
 }
 
-type UserInfoResponse struct {
+type UserInfo struct {
 	Id                             string     `json:"user_id"`
 	Username                       string     `json:"username"`
 	Email                          string     `json:"email"`
@@ -65,7 +65,10 @@ type UserInfoResponse struct {
 	NumberSpacesDeployedInLocation int        `json:"number_spaces_deployed_in_location"`
 	UsedDiskSpace                  int        `json:"used_disk_space"`
 }
-type UserInfo = UserInfoResponse
+type UserInfoList struct {
+	Count int        `json:"count"`
+	Users []UserInfo `json:"users"`
+}
 
 func (c *ApiClient) CreateUser(request *CreateUserRequest) (string, int, error) {
 	response := CreateUserResponse{}
@@ -140,8 +143,8 @@ func (c *ApiClient) WhoAmI() (*model.User, error) {
 	return user, nil
 }
 
-func (c *ApiClient) GetUsers(state string, location string) (*[]UserInfo, error) {
-	response := []UserInfo{}
+func (c *ApiClient) GetUsers(state string, location string) (*UserInfoList, error) {
+	response := UserInfoList{}
 
 	stateEncoded := url.QueryEscape(state)
 	locationEncoded := url.QueryEscape(location)

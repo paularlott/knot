@@ -11,14 +11,20 @@ get:
       content:
         application/json:
           schema:
-            type: array
-            items:
-              type: object
-              properties:
-                group_id:
-                  type: string
-                name:
-                  type: string
+            type: object
+            properties:
+              count:
+                type: integer
+                description: The total number of groups
+              groups:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    group_id:
+                      type: string
+                    name:
+                      type: string
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':

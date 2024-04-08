@@ -229,7 +229,10 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 		rest.SendJSON(http.StatusOK, w, userData)
 	} else {
-		var userData []*apiclient.UserInfoResponse
+		var userData = &apiclient.UserInfoList{
+			Count: 0,
+			Users: []apiclient.UserInfo{},
+		}
 
 		db := database.GetInstance()
 		users, err := db.GetUsers()
@@ -240,7 +243,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 		for _, user := range users {
 			if requiredState == "all" || (requiredState == "active" && user.Active) || (requiredState == "inactive" && !user.Active) {
-				data := &apiclient.UserInfoResponse{}
+				data := apiclient.UserInfo{}
 
 				data.Id = user.Id
 				data.Username = user.Username
@@ -292,7 +295,8 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 				data.NumberSpacesDeployedInLocation = deployedInLocation
 				data.UsedDiskSpace = diskSpace
 
-				userData = append(userData, data)
+				userData.Users = append(userData.Users, data)
+				userData.Count++
 			}
 		}
 

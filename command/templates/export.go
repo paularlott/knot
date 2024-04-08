@@ -35,7 +35,7 @@ var exportCmd = &cobra.Command{
 
 		// Find the ID of the template from the name
 		var templateId string = ""
-		for _, template := range *templates {
+		for _, template := range templates.Templates {
 			if template.Name == args[0] {
 				templateId = template.Id
 				break

@@ -16,8 +16,9 @@ import (
 )
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
+	var spaceData *apiclient.SpaceInfoList
+
 	userId := r.URL.Query().Get("user_id")
-	spaceData := []*apiclient.SpaceInfo{}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -59,7 +60,12 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Build a json array of token data to return to the client
+		// Build a json array of space data to return to the client
+		spaceData = &apiclient.SpaceInfoList{
+			Count:  0,
+			Spaces: []apiclient.SpaceInfo{},
+		}
+
 		for _, space := range spaces {
 			var templateName string
 
@@ -75,7 +81,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 				templateName = "None (" + space.AgentURL + ")"
 			}
 
-			s := &apiclient.SpaceInfo{}
+			s := apiclient.SpaceInfo{}
 
 			s.Id = space.Id
 			s.Name = space.Name
@@ -98,7 +104,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			spaceData = append(spaceData, s)
+			spaceData.Spaces = append(spaceData.Spaces, s)
+			spaceData.Count++
 		}
 	}
 

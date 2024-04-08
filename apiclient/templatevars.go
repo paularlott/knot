@@ -12,13 +12,18 @@ type TemplateVar struct {
 	Protected bool   `json:"protected"`
 }
 
+type TemplateVarList struct {
+	Count       int           `json:"count"`
+	TemplateVar []TemplateVar `json:"variables"`
+}
+
 type TemplateVarCreateResponse struct {
 	Status bool   `json:"status"`
 	Id     string `json:"templatevar_id"`
 }
 
-func (c *ApiClient) GetTemplateVars() (*[]TemplateVar, int, error) {
-	response := &[]TemplateVar{}
+func (c *ApiClient) GetTemplateVars() (*TemplateVarList, int, error) {
+	response := &TemplateVarList{}
 
 	code, err := c.httpClient.Get("/api/v1/templatevars", response)
 	if err != nil {

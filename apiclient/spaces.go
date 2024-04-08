@@ -36,6 +36,11 @@ type SpaceInfo struct {
 	VolumeSize   int    `json:"volume_size"`
 }
 
+type SpaceInfoList struct {
+	Count  int         `json:"count"`
+	Spaces []SpaceInfo `json:"spaces"`
+}
+
 type SpaceServiceState struct {
 	Name            string `json:"name"`
 	Location        string `json:"location"`
@@ -63,8 +68,8 @@ type SpaceDefinition struct {
 	VolumeData  map[string]model.SpaceVolume `json:"volume_data"`
 }
 
-func (c *ApiClient) GetSpaces(userId string) ([]*SpaceInfo, int, error) {
-	response := []*SpaceInfo{}
+func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
+	response := &SpaceInfoList{}
 
 	code, err := c.httpClient.Get("/api/v1/spaces?user_id="+userId, &response)
 	if err != nil {

@@ -13,13 +13,18 @@ type TemplateCreateResponse struct {
 	Id     string `json:"template_id"`
 }
 
-type TemplateResponse struct {
+type TemplateInfo struct {
 	Id          string   `json:"template_id"`
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Usage       int      `json:"usage"`
 	Deployed    int      `json:"deployed"`
 	Groups      []string `json:"groups"`
+}
+
+type TemplateList struct {
+	Count     int            `json:"count"`
+	Templates []TemplateInfo `json:"templates"`
 }
 
 type TemplateDetails struct {
@@ -34,8 +39,8 @@ type TemplateDetails struct {
 	VolumeSizes []map[string]interface{} `json:"volume_sizes"`
 }
 
-func (c *ApiClient) GetTemplates() (*[]TemplateResponse, int, error) {
-	response := &[]TemplateResponse{}
+func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
+	response := &TemplateList{}
 
 	code, err := c.httpClient.Get("/api/v1/templates", response)
 	if err != nil {

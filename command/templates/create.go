@@ -71,7 +71,7 @@ var createCmd = &cobra.Command{
 
 		// Convert group names to IDs
 		groupIds := []string{}
-		for _, group := range *groups {
+		for _, group := range groups.Groups {
 			for _, name := range viper.GetStringSlice("group") {
 				if group.Name == name {
 					groupIds = append(groupIds, group.Id)

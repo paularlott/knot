@@ -37,7 +37,7 @@ var listCmd = &cobra.Command{
 
 		data = append(data, []string{"Name", "Template", "Location", "Status", "Ports"})
 
-		for _, space := range spaces {
+		for _, space := range spaces.Spaces {
 			status := ""
 			template := ""
 			ports := ""

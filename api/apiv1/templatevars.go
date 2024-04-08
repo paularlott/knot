@@ -31,12 +31,19 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Build a json array of data to return to the client
-		data := make([]apiclient.TemplateVar, len(templateVars))
+		data := apiclient.TemplateVarList{
+			Count:       0,
+			TemplateVar: []apiclient.TemplateVar{},
+		}
 
-		for i, variable := range templateVars {
-			data[i].Id = variable.Id
-			data[i].Name = variable.Name
-			data[i].Protected = variable.Protected
+		for _, variable := range templateVars {
+			v := apiclient.TemplateVar{
+				Id:        variable.Id,
+				Name:      variable.Name,
+				Protected: variable.Protected,
+			}
+			data.TemplateVar = append(data.TemplateVar, v)
+			data.Count++
 		}
 
 		rest.SendJSON(http.StatusOK, w, data)

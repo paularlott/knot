@@ -20,7 +20,8 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             'Content-Type': 'application/json'
           }
         });
-        this.users = await usersResponse.json();
+        usersList = await usersResponse.json();
+        this.users = usersList.users;
       }
 
       this.getSpaces();
@@ -49,7 +50,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           'Content-Type': 'application/json'
         }
       });
-      this.spaces = await response.json();
+      spacesList = await response.json();
+      this.spaces = spacesList.spaces;
+
       this.spaces.forEach(space => {
         space.starting = false;
         space.stopping = false;

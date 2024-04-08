@@ -5,6 +5,11 @@ type GroupInfo struct {
 	Name string `json:"name"`
 }
 
+type GroupInfoList struct {
+	Count  int         `json:"count"`
+	Groups []GroupInfo `json:"groups"`
+}
+
 type UserGroupRequest struct {
 	Name string `json:"name"`
 }
@@ -14,8 +19,8 @@ type GroupResponse struct {
 	Id     string `json:"group_id"`
 }
 
-func (c *ApiClient) GetGroups() (*[]GroupInfo, int, error) {
-	response := &[]GroupInfo{}
+func (c *ApiClient) GetGroups() (*GroupInfoList, int, error) {
+	response := &GroupInfoList{}
 
 	code, err := c.httpClient.Get("/api/v1/groups", response)
 	if err != nil {

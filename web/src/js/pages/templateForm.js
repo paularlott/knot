@@ -22,7 +22,8 @@ window.templateForm = function(isEdit, templateId) {
           'Content-Type': 'application/json'
         }
       });
-      this.groups = await groupsResponse.json();
+      groupsList = await groupsResponse.json();
+      this.groups = groupsList.groups;
 
       if(isEdit) {
         const templateResponse = await fetch('/api/v1/templates/' + templateId, {

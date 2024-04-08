@@ -17,7 +17,8 @@ window.templateVarListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      this.variables = await response.json();
+      variableList = await response.json();
+      this.variables = variableList.variables;
 
       this.variables.forEach(variable => {
         variable.showIdPopup = false;

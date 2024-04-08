@@ -35,7 +35,7 @@ var stopCmd = &cobra.Command{
 
 		// Find the space by name
 		var spaceId string = ""
-		for _, space := range spaces {
+		for _, space := range spaces.Spaces {
 			if space.Name == args[0] {
 				spaceId = space.Id
 				break

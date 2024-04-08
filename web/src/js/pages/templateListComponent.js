@@ -32,7 +32,8 @@ window.templateListComponent = function(canManageSpaces) {
             'Content-Type': 'application/json'
           }
         });
-        this.users = await usersResponse.json();
+        usersList = await usersResponse.json();
+        this.users = usersList.users;
       }
 
       const groupsResponse = await fetch('/api/v1/groups', {
@@ -40,14 +41,16 @@ window.templateListComponent = function(canManageSpaces) {
           'Content-Type': 'application/json'
         }
       });
-      this.groups = await groupsResponse.json();
+      groupsList = await groupsResponse.json();
+      this.groups = groupsList.groups;
 
       const response = await fetch('/api/v1/templates', {
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      this.templates = await response.json();
+      templateList = await response.json();
+      this.templates = templateList.templates;
 
       this.templates.forEach(template => {
         template.showIdPopup = false;

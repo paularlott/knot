@@ -9,6 +9,11 @@ type VolumeInfo struct {
 	Location string `json:"location"`
 }
 
+type VolumeInfoList struct {
+	Count   int          `json:"count"`
+	Volumes []VolumeInfo `json:"volumes"`
+}
+
 type VolumeDefinition struct {
 	Name       string `json:"name"`
 	Definition string `json:"definition"`
@@ -48,8 +53,8 @@ type StartVolumeResponse struct {
 	Location string `json:"location"`
 }
 
-func (c *ApiClient) GetVolumes() (*[]VolumeInfo, int, error) {
-	response := &[]VolumeInfo{}
+func (c *ApiClient) GetVolumes() (*VolumeInfoList, int, error) {
+	response := &VolumeInfoList{}
 
 	code, err := c.httpClient.Get("/api/v1/volumes", response)
 	if err != nil {
