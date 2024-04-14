@@ -11,7 +11,7 @@ import (
 
 const (
 	MANUAL_TEMPLATE_ID                         = "00000000-0000-0000-0000-000000000000"
-	REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL = 1 * time.Minute
+	REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL = 30 * time.Second
 )
 
 // Template object
