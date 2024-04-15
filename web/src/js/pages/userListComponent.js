@@ -18,6 +18,7 @@ window.userListComponent = function() {
     users: [],
     roles: [],
     groups: [],
+    searchTerm: '',
 
     async getUsers() {
       this.loading = true;
@@ -119,6 +120,21 @@ window.userListComponent = function() {
 
       this.getUsers();
       this.stopConfirm.show = false
-    }
+    },
+    async searchChanged() {
+      let term = this.searchTerm.toLowerCase();
+
+      // For all users if name or email address contains the term show; else hide
+      this.users.forEach(u => {
+        if(term.length == 0) {
+          u.searchHide = false;
+        } else {
+          u.searchHide = !(
+            u.username.toLowerCase().includes(term) ||
+            u.email.toLowerCase().includes(term)
+          );
+        }
+      });
+    },
   };
 }

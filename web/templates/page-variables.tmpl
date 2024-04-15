@@ -9,11 +9,17 @@
       <div class="box">
         <h2>Variables</h2>
 
-        <div class="text-right">
-          <a href="/variables/create" class="button"><i class="bx bx-plus"></i> Create Variable</a>
-        </div>
-
 <div x-data="templateVarListComponent()" x-init="getTemplateVars">
+
+  <div class="row">
+    <div class="col-sm-4 col-sm-offset-4 col-sm-order-2 text-right">
+      <a href="/variables/create" class="button"><i class="bx bx-plus"></i> Create Variable</a>
+    </div>
+    <div class="col-sm-4 col-sm-order-1">
+      <input type="search" id="search" name="search" x-model="searchTerm" placeholder="Search" x-on:input="searchChanged">
+    </div>
+  </div>
+
   {{ template "loading" . }}
   <table class="action" x-show="!loading" x-cloak>
     <thead>
@@ -26,7 +32,7 @@
     </thead>
     <tbody>
     <template x-for="v in variables" :key="v.templatevar_id">
-      <tr>
+      <tr x-show="!v.searchHide">
         <td class="id-col">
           <button @click="v.showIdPopup = true" class="show-id" x-text="v.templatevar_id"></button>
           <div x-show="v.showIdPopup" @click.away="v.showIdPopup = false" @keydown.window.escape="v.showIdPopup = false" class="id-popup">

@@ -9,6 +9,8 @@ window.templateVarListComponent = function() {
       }
     },
     variables: [],
+    searchTerm: '',
+
     async getTemplateVars() {
       this.loading = true;
 
@@ -44,6 +46,18 @@ window.templateVarListComponent = function() {
         }
       });
       this.getTemplateVars();
+    },
+    async searchChanged() {
+      let term = this.searchTerm.toLowerCase();
+
+      // For all variabkes if name contains the term show; else hide
+      this.variables.forEach(v => {
+        if(term.length == 0) {
+          v.searchHide = false;
+        } else {
+          v.searchHide = !v.name.toLowerCase().includes(term);
+        }
+      });
     },
   };
 }

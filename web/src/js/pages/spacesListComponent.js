@@ -13,6 +13,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     forUserId: forUserId,
     canManageSpaces: canManageSpaces,
     users: [],
+    searchTerm: '',
     async init() {
       if(this.canManageSpaces) {
         const usersResponse = await fetch('/api/v1/users?state=active', {
@@ -206,6 +207,21 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     },
     async openWindowForVNC(spaceId, spaceName) {
       openVNC(spaceId, wildcardDomain, username, spaceName);
-    }
+    },
+    async searchChanged() {
+      let term = this.searchTerm.toLowerCase();
+
+      // For all spaces if name or template name contains the term show; else hide
+      this.spaces.forEach(space => {
+        if(term.length == 0) {
+          space.searchHide = false;
+        } else {
+          space.searchHide = !(
+            space.name.toLowerCase().includes(term) ||
+            space.template_name.toLowerCase().includes(term)
+          );
+        }
+      });
+    },
   };
 }

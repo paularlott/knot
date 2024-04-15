@@ -16,6 +16,8 @@ window.volumeListComponent = function() {
       }
     },
     volumes: [],
+    searchTerm: '',
+
     async getVolumes() {
       this.loading = true;
 
@@ -107,6 +109,18 @@ window.volumeListComponent = function() {
         }
       }).catch((error) => {
         self.$dispatch('show-alert', { msg: "Volume could not be stopped: " + error, type: 'error' });
+      });
+    },
+    async searchChanged() {
+      let term = this.searchTerm.toLowerCase();
+
+      // For all volumes if name contains the term show; else hide
+      this.volumes.forEach(v => {
+        if(term.length == 0) {
+          v.searchHide = false;
+        } else {
+          v.searchHide = !v.name.toLowerCase().includes(term);
+        }
       });
     },
   };

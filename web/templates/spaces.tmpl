@@ -12,7 +12,7 @@
 <div x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .location }}')" x-init="getSpaces">
 
   <div class="row">
-    <div class="col-sm-4">
+    <div class="col-sm-4 col-sm-offset-4 col-sm-order-2">
       <div class="selectControl" x-show="canManageSpaces">
         <select id="user" name="user" x-model="forUserId" x-on:change="userChanged">
           <option value="" x-bind:selected="forUserId === ''">All Users</option>
@@ -22,7 +22,8 @@
         </select>
       </div>
     </div>
-    <div class="col-sm-8">
+    <div class="col-sm-4 col-sm-order-1">
+      <input type="search" id="search" name="search" x-model="searchTerm" placeholder="Search" x-on:input="searchChanged">
     </div>
   </div>
 
@@ -42,7 +43,7 @@
     </thead>
     <tbody>
     <template x-for="s in spaces" :key="s.space_id">
-      <tr>
+      <tr x-show="!s.searchHide">
         <td class="id-col">
           <button @click="s.showIdPopup = true" class="show-id" x-text="s.space_id"></button>
           <div x-show="s.showIdPopup" @click.away="s.showIdPopup = false" @keydown.window.escape="s.showIdPopup = false" class="id-popup">

@@ -9,6 +9,8 @@ window.groupListComponent = function() {
       }
     },
     groups: [],
+    searchTerm: '',
+
     async getGroups() {
       this.loading = true;
       const response = await fetch('/api/v1/groups', {
@@ -42,6 +44,18 @@ window.groupListComponent = function() {
         }
       });
       this.getGroups();
+    },
+    async searchChanged() {
+      let term = this.searchTerm.toLowerCase();
+
+      // For all groups if name contains the term show; else hide
+      this.groups.forEach(g => {
+        if(term.length == 0) {
+          g.searchHide = false;
+        } else {
+          g.searchHide = !g.name.toLowerCase().includes(term);
+        }
+      });
     },
   };
 }

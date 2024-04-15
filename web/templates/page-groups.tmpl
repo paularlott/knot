@@ -9,12 +9,18 @@
       <div class="box">
         <h2>Groups</h2>
 
-        <div class="text-right">
-          <a href="/groups/create" class="button"><i class="bx bx-plus"></i> Create Group</a>
-        </div>
-
 <div x-data="groupListComponent()" x-init="getGroups">
-  {{ template "loading" . }}
+
+  <div class="row">
+    <div class="col-sm-4 col-sm-offset-4 col-sm-order-2 text-right">
+      <a href="/groups/create" class="button"><i class="bx bx-plus"></i> Create Group</a>
+    </div>
+    <div class="col-sm-4 col-sm-order-1">
+      <input type="search" id="search" name="search" x-model="searchTerm" placeholder="Search" x-on:input="searchChanged">
+    </div>
+  </div>
+
+ {{ template "loading" . }}
   <table class="action" x-show="!loading" x-cloak>
     <thead>
     <tr>
@@ -25,7 +31,7 @@
     </thead>
     <tbody>
     <template x-for="g in groups" :key="g.group_id">
-      <tr>
+      <tr x-show="!g.searchHide">
         <td class="id-col">
           <button @click="g.showIdPopup = true" class="show-id" x-text="g.group_id"></button>
           <div x-show="g.showIdPopup" @click.away="g.showIdPopup = false" @keydown.window.escape="g.showIdPopup = false" class="id-popup">

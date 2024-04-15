@@ -22,6 +22,7 @@ window.templateListComponent = function(canManageSpaces) {
     groups: [],
     canManageSpaces: canManageSpaces,
     users: [],
+    searchTerm: '',
 
     async getTemplates() {
       this.loading = true;
@@ -118,6 +119,21 @@ window.templateListComponent = function(canManageSpaces) {
               return;
             }
           });
+        }
+      });
+    },
+    async searchChanged() {
+      let term = this.searchTerm.toLowerCase();
+
+      // For all templates if name or description contains the term show; else hide
+      this.templates.forEach(template => {
+        if(term.length == 0) {
+          template.searchHide = false;
+        } else {
+          template.searchHide = !(
+            template.name.toLowerCase().includes(term) ||
+            template.description.toLowerCase().includes(term)
+          );
         }
       });
     },

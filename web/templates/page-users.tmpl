@@ -9,11 +9,17 @@
       <div class="box">
         <h2>Users</h2>
 
-        <div class="text-right">
-          <a href="/users/create" class="button"><i class="bx bx-plus"></i> Create User</a>
-        </div>
-
 <div x-data="userListComponent()" x-init="getUsers">
+
+  <div class="row">
+    <div class="col-sm-4 col-sm-offset-4 col-sm-order-2 text-right">
+      <a href="/users/create" class="button"><i class="bx bx-plus"></i> Create User</a>
+    </div>
+    <div class="col-sm-4 col-sm-order-1">
+      <input type="search" id="search" name="search" x-model="searchTerm" placeholder="Search" x-on:input="searchChanged">
+    </div>
+  </div>
+
   {{ template "loading" . }}
   <table class="action" x-show="!loading" x-cloak>
     <thead>
@@ -33,7 +39,7 @@
     </thead>
     <tbody>
     <template x-for="u in users" :key="u.user_id">
-      <tr>
+      <tr x-show="!u.searchHide">
         <td class="id-col">
           <button @click="u.showIdPopup = true" class="show-id" x-text="u.user_id"></button>
           <div x-show="u.showIdPopup" @click.away="u.showIdPopup = false" @keydown.window.escape="u.showIdPopup = false" class="id-popup">

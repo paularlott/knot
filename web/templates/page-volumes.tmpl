@@ -9,11 +9,17 @@
       <div class="box">
         <h2>Volumes</h2>
 
-        <div class="text-right">
-          <a href="/volumes/create" class="button"><i class="bx bx-plus"></i> Create Volume</a>
-        </div>
-
 <div x-data="volumeListComponent()" x-init="getVolumes">
+
+  <div class="row">
+    <div class="col-sm-4 col-sm-offset-4 col-sm-order-2 text-right">
+      <a href="/volumes/create" class="button"><i class="bx bx-plus"></i> Create Volume</a>
+    </div>
+    <div class="col-sm-4 col-sm-order-1">
+      <input type="search" id="search" name="search" x-model="searchTerm" placeholder="Search" x-on:input="searchChanged">
+    </div>
+  </div>
+
   {{ template "loading" . }}
   <table class="action" x-show="!loading" x-cloak>
     <thead>
@@ -26,28 +32,28 @@
     </tr>
     </thead>
     <tbody>
-    <template x-for="t in volumes" :key="t.volume_id">
-      <tr>
+    <template x-for="v in volumes" :key="v.volume_id">
+      <tr x-show="!v.searchHide">
         <td class="id-col">
-          <button @click="t.showIdPopup = true" class="show-id" x-text="t.volume_id"></button>
-          <div x-show="t.showIdPopup" @click.away="t.showIdPopup = false" @keydown.window.escape="t.showIdPopup = false" class="id-popup">
-            <input type="text" x-model="t.volume_id" readonly>
+          <button @click="v.showIdPopup = true" class="show-id" x-text="v.volume_id"></button>
+          <div x-show="v.showIdPopup" @click.away="v.showIdPopup = false" @keydown.window.escape="v.showIdPopup = false" class="id-popup">
+            <input type="text" x-model="v.volume_id" readonly>
           </div>
         </td>
-        <td x-text="t.name"></td>
-        <td x-text="t.location"></td>
+        <td x-text="v.name"></td>
+        <td x-text="v.location"></td>
         <td>
-          <span x-show="t.active" class="badge success">Running</span>
-          <span x-show="!t.active" class="badge danger">Stopped</span>
+          <span x-show="v.active" class="badge success">Running</span>
+          <span x-show="!v.active" class="badge danger">Stopped</span>
         </td>
         <td>
-          <button class="outline" @click="t.showMenu = true" x-show="!t.active || t.location == '{{ .location }}'"><i class='bx bx-dots-vertical'></i></button>
-          <div x-show="t.showMenu" @click.away="t.showMenu = false" @keydown.window.escape="t.showMenu = false" class="menu-popup">
-            <button x-show="!t.active" x-bind:disabled="t.starting && t.stopping" @click="t.showMenu = false; editVolume(t.volume_id)"><i class='bx bx-edit' ></i> Edit</button>
-            <button x-show="!t.active" x-bind:disabled="t.starting || t.stopping" @click="t.showMenu = false; startVolume(t.volume_id); t.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="t.starting">ing ...</span></button>
-            <button x-show="t.active" x-bind:disabled="t.starting || t.stopping" @click="t.showMenu = false; stopConfirm.show = true; stopConfirm.volume = t"><i class='bx bx-stop-circle' ></i> Stop<span x-show="t.stopping">ping ...</span></button>
-            <hr x-show="!t.active && !t.starting && !t.stopping" />
-            <button x-show="!t.active && !t.starting && !t.stopping" @click="t.showMenu = false; deleteConfirm.show = true; deleteConfirm.volume = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
+          <button class="outline" @click="v.showMenu = true" x-show="!v.active || v.location == '{{ .location }}'"><i class='bx bx-dots-vertical'></i></button>
+          <div x-show="v.showMenu" @click.away="v.showMenu = false" @keydown.window.escape="v.showMenu = false" class="menu-popup">
+            <button x-show="!v.active" x-bind:disabled="v.starting && v.stopping" @click="v.showMenu = false; editVolume(v.volume_id)"><i class='bx bx-edit' ></i> Edit</button>
+            <button x-show="!v.active" x-bind:disabled="v.starting || v.stopping" @click="v.showMenu = false; startVolume(v.volume_id); v.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="v.starting">ing ...</span></button>
+            <button x-show="v.active" x-bind:disabled="v.starting || v.stopping" @click="v.showMenu = false; stopConfirm.show = true; stopConfirm.volume = t"><i class='bx bx-stop-circle' ></i> Stop<span x-show="v.stopping">ping ...</span></button>
+            <hr x-show="!v.active && !v.starting && !v.stopping" />
+            <button x-show="!v.active && !v.starting && !v.stopping" @click="v.showMenu = false; deleteConfirm.show = true; deleteConfirm.volume = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
           </div>
         </td>
       </tr>

@@ -9,13 +9,18 @@
       <div class="box">
         <h2>Templates</h2>
 
-        {{ if .permissionManageTemplates }}
-        <div class="text-right">
-          <a href="/templates/create" class="button"><i class="bx bx-plus"></i> Create Template</a>
-        </div>
-        {{ end }}
-
 <div x-data="templateListComponent({{ .permissionManageSpaces }})" x-init="getTemplates">
+
+  <div class="row">
+    <div class="col-sm-4 col-sm-offset-4 col-sm-order-2 text-right">
+      {{ if .permissionManageTemplates }}
+      <a href="/templates/create" class="button"><i class="bx bx-plus"></i> Create Template</a>
+      {{ end }}
+    </div>
+    <div class="col-sm-4 col-sm-order-1">
+      <input type="search" id="search" name="search" x-model="searchTerm" placeholder="Search" x-on:input="searchChanged">
+    </div>
+  </div>
 
   {{ template "loading" . }}
   <table class="action" x-show="!loading" x-cloak>
@@ -33,7 +38,7 @@
     </thead>
     <tbody>
     <template x-for="t in templates" :key="t.template_id">
-      <tr>
+      <tr x-show="!t.searchHide">
         <td class="id-col">
           <button @click="t.showIdPopup = true" class="show-id" x-text="t.template_id"></button>
           <div x-show="t.showIdPopup" @click.away="t.showIdPopup = false" @keydown.window.escape="t.showIdPopup = false" class="id-popup">

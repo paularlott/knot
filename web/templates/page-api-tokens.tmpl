@@ -9,11 +9,17 @@
       <div class="box">
         <h2>API Tokens</h2>
 
-        <div class="text-right">
-          <a href="/api-tokens/create" class="button"><i class="bx bx-plus"></i> Create Token</a>
-        </div>
-
 <div x-data="apiTokensComponent()" x-init="getTokens">
+
+  <div class="row">
+    <div class="col-sm-4 col-sm-offset-4 col-sm-order-2 text-right">
+      <a href="/api-tokens/create" class="button"><i class="bx bx-plus"></i> Create Token</a>
+    </div>
+    <div class="col-sm-4 col-sm-order-1">
+      <input type="search" id="search" name="search" x-model="searchTerm" placeholder="Search" x-on:input="searchChanged">
+    </div>
+  </div>
+
   {{ template "loading" . }}
   <table class="action" x-show="!loading" x-cloak>
     <thead>
@@ -25,7 +31,7 @@
     </thead>
     <tbody>
     <template x-for="t in tokens" :key="t.token_id">
-      <tr>
+      <tr x-show="!t.searchHide">
         <td x-text="t.token_id" class="no-wrap"></td>
         <td x-text="t.name"></td>
         <td><button @click="deleteConfirm.show = true; deleteConfirm.token = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button></td>

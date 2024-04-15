@@ -9,6 +9,8 @@ window.apiTokensComponent = function() {
         name: ''
       }
     },
+    searchTerm: '',
+
     async getTokens() {
       this.loading = true;
       const response = await fetch('/api/v1/tokens', {
@@ -34,6 +36,18 @@ window.apiTokensComponent = function() {
         }
       });
       this.getTokens();
+    },
+    async searchChanged() {
+      let term = this.searchTerm.toLowerCase();
+
+      // For all tokens if name contains the term show; else hide
+      this.tokens.forEach(t => {
+        if(term.length == 0) {
+          t.searchHide = false;
+        } else {
+          t.searchHide = !t.name.toLowerCase().includes(term);
+        }
+      });
     },
   };
 }
