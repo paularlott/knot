@@ -62,6 +62,7 @@ EOF
       service {
         name = "${NOMAD_JOB_NAME}"
         port = "knot_port"
+        address = "${attr.unique.network.ip-address}"
 
         # Expose the port on a domain name
         # tags = [
