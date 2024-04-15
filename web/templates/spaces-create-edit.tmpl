@@ -33,7 +33,7 @@
               <dt><label for="name">Template <em>*</em></label></dt>
               <dd>
                 <div class="selectControl">
-                  <select id="template" name="template" x-model="template_id" readonly disabled>
+                  <select id="template" name="template" x-model="formData.template_id" readonly disabled>
                     <template x-for="template in templates" :key="template.template_id">
                       <option :value="template.template_id" x-text="template.name"></option>
                     </template>

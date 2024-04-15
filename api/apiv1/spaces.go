@@ -644,7 +644,6 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.AgentURL = request.AgentURL
 	space.Shell = request.Shell
 	space.AltNames = request.AltNames
-	space.IsDeployed = request.IsDeployed
 	space.Location = request.Location
 
 	// If remote client present then forward the request

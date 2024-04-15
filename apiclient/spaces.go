@@ -14,7 +14,6 @@ type SpaceRequest struct {
 	UserId      string           `json:"user_id"`
 	VolumeSizes map[string]int64 `json:"volume_sizes"`
 	AltNames    []string         `json:"alt_names"`
-	IsDeployed  bool             `json:"is_deployed"`
 	Location    string           `json:"location"`
 }
 type CreateSpaceRequest = SpaceRequest
@@ -127,7 +126,6 @@ func (c *ApiClient) UpdateSpace(space *model.Space) (int, error) {
 		AgentURL:    space.AgentURL,
 		Shell:       space.Shell,
 		VolumeSizes: space.VolumeSizes,
-		IsDeployed:  space.IsDeployed,
 		Location:    space.Location,
 	}
 

@@ -103,7 +103,6 @@ func (c *ApiClient) RemoteUpdateSpace(space *model.Space) (int, error) {
 		AgentURL:    space.AgentURL,
 		Shell:       space.Shell,
 		VolumeSizes: space.VolumeSizes,
-		IsDeployed:  space.IsDeployed,
 		Location:    space.Location,
 	}
 
