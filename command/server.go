@@ -16,6 +16,7 @@ import (
 
 	"github.com/paularlott/knot/api/apiv1"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
@@ -231,6 +232,7 @@ var serverCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := FixListenAddress(viper.GetString("server.listen"))
 
+		log.Info().Msgf("server: starting knot version: %s", build.Version)
 		log.Info().Msgf("server: starting on: %s", listen)
 
 		// Initialize the middleware, test if users are present

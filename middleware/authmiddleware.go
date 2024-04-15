@@ -196,10 +196,12 @@ func ApiPermissionManageVolumes(next http.Handler) http.Handler {
 
 func ApiPermissionManageUsers(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if HasUsers && !user.HasPermission(model.PermissionManageUsers) {
-			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage users"})
-			return
+		if HasUsers {
+			user := r.Context().Value("user").(*model.User)
+			if HasUsers && !user.HasPermission(model.PermissionManageUsers) {
+				rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage users"})
+				return
+			}
 		}
 
 		next.ServeHTTP(w, r)
