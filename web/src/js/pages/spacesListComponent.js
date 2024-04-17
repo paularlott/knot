@@ -218,7 +218,8 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         } else {
           space.searchHide = !(
             space.name.toLowerCase().includes(term) ||
-            space.template_name.toLowerCase().includes(term)
+            space.template_name.toLowerCase().includes(term) ||
+            space.location.toLowerCase().includes(term)
           );
         }
       });
