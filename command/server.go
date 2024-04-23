@@ -396,7 +396,7 @@ var serverCmd = &cobra.Command{
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		server.Shutdown(ctx)
-		fmt.Println("\r")
+		fmt.Print("\r")
 		log.Info().Msg("server: shutdown")
 		os.Exit(0)
 	},
