@@ -23,7 +23,7 @@ var (
 		Long: `knot is a management tool for developer environments running within a Nomad cluster.
 
 It offers both a user-friendly web interface and a command line interface to streamline the deployment process and simplify access.`,
-		Version: build.Version + " (" + build.Date + ")",
+		Version: build.Version,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
