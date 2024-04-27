@@ -58,7 +58,7 @@ EOF
         memory = 512
       }
 
-      # Knot Agent Port
+      # Knot Server Port
       service {
         name = "${NOMAD_JOB_NAME}"
         port = "knot_port"
