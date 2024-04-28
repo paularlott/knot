@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
@@ -30,6 +31,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 
 		spaceData, code, err = client.GetSpaces(userId)
 		if err != nil {
+			log.Error().Msgf("HandleGetSpaces: GetSpaces: %s", err.Error())
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -49,12 +51,14 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		if userId == "" {
 			spaces, err = db.GetSpaces()
 			if err != nil {
+				log.Error().Msgf("HandleGetSpaces: GetSpaces: %s", err.Error())
 				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 				return
 			}
 		} else {
 			spaces, err = db.GetSpacesForUser(userId)
 			if err != nil {
+				log.Error().Msgf("HandleGetSpaces: GetSpacesForUser: %s", err.Error())
 				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 				return
 			}
@@ -92,6 +96,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			// Get the user
 			u, err := db.GetUser(space.UserId)
 			if err != nil {
+				log.Error().Msgf("HandleGetSpaces: GetUser: %s", err.Error())
 				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 				return
 			}
@@ -100,6 +105,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 
 			s.VolumeSize, err = calcSpaceDiskUsage(space)
 			if err != nil {
+				log.Error().Msgf("HandleGetSpaces: calcSpaceDiskUsage: %s", err.Error())
 				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 				return
 			}
@@ -143,6 +149,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 
 		code, err := client.DeleteSpace(spaceId)
 		if err != nil {
+			log.Error().Msgf("HandleDeleteSpace: %s", err.Error())
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -156,6 +163,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		// Delete volumes
 		err = nomadClient.DeleteSpaceVolumes(space)
 		if err != nil {
+			log.Error().Msgf("HandleDeleteSpace: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -170,6 +178,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	// Delete the space
 	err = db.DeleteSpace(space)
 	if err != nil {
+		log.Error().Msgf("HandleDeleteSpace: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -196,6 +205,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
+		log.Error().Msgf("HandleCreateSpace: %s", err.Error())
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -331,6 +341,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 
 				space, code, err = client.GetSpace(spaceId)
 				if err != nil || space == nil {
+					log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
 					rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 					return
 				}
@@ -338,6 +349,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 				// Save the space
 				err = db.SaveSpace(space)
 				if err != nil {
+					log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
 					rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 					return
 				}
@@ -346,6 +358,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
+			log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -403,6 +416,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
+		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -415,6 +429,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		var spaceRemote *model.Space
 		spaceRemote, code, err = client.GetSpace(spaceId)
 		if err != nil || space == nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -449,6 +464,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		// Get the template
 		template, code, err = clientRemote.GetTemplateObject(space.TemplateId)
 		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -456,6 +472,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		// Get the template variables
 		variables, code, err = clientRemote.GetTemplateVarValues()
 		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -463,6 +480,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		// Get the template
 		template, err = db.GetTemplate(space.TemplateId)
 		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -470,6 +488,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		// Get the variables
 		variables, err = db.GetTemplateVars()
 		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -488,6 +507,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	// Create volumes
 	err = nomadClient.CreateSpaceVolumes(user, template, space, &vars)
 	if err != nil {
+		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -495,6 +515,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	// Start the job
 	err = nomadClient.CreateSpaceJob(user, template, space, &vars)
 	if err != nil {
+		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -503,6 +524,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	if client != nil {
 		code, err = client.UpdateSpace(space)
 		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -523,6 +545,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
+		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
 		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -541,6 +564,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		var spaceRemote *model.Space
 		spaceRemote, code, err = client.GetSpace(spaceId)
 		if err != nil || space == nil {
+			log.Error().Msgf("HandleSpaceStop: %s", err.Error())
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -559,6 +583,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	// Stop the job
 	err = nomadClient.DeleteSpaceJob(space)
 	if err != nil {
+		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -577,6 +602,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	if client != nil {
 		code, err = client.UpdateSpace(space)
 		if err != nil {
+			log.Error().Msgf("HandleSpaceStop: %s", err.Error())
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -597,6 +623,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 
 	space, err := db.GetSpace(spaceId)
 	if err != nil {
+		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -609,6 +636,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.UpdateSpaceRequest{}
 	err = rest.BindJSON(w, r, &request)
 	if err != nil {
+		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -653,6 +681,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 
 		code, err := client.UpdateSpace(space)
 		if err != nil {
+			log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -667,6 +696,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 
 	err = db.SaveSpace(space)
 	if err != nil {
+		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -691,6 +721,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 		if space.IsDeployed && (space.Location == "" || space.Location == viper.GetString("server.location")) {
 			err = nomadClient.DeleteSpaceJob(space)
 			if err != nil {
+				log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
 				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 				return
 			} else {
@@ -700,6 +731,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 					client := remoteClient.(*apiclient.ApiClient)
 					code, err := client.UpdateSpace(space)
 					if err != nil {
+						log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
 						rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 						return
 					}
@@ -733,6 +765,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		var spaceRemote *model.Space
 		spaceRemote, code, err = client.GetSpace(spaceId)
 		if err != nil || space == nil {
+			log.Error().Msgf("HandleGetSpace: %s", err.Error())
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -747,6 +780,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		// Save the space
 		err = database.GetInstance().SaveSpace(space)
 		if err != nil {
+			log.Error().Msgf("HandleGetSpace: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}

@@ -11,6 +11,11 @@ import (
 // Parse an input string and resolve knot variables
 func ResolveVariables(srcString string, t *Template, space *Space, user *User, variables *map[string]interface{}) (string, error) {
 
+	// If no variables are provided then create an empty map
+	if variables == nil {
+		variables = &map[string]interface{}{}
+	}
+
 	// Passe the YAML string through the template engine to resolve variables
 	tmpl, err := template.New("tmpl").Delims("${{", "}}").Parse(srcString)
 	if err != nil {
