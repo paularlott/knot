@@ -42,7 +42,7 @@ func init() {
 	serverCmd.Flags().StringP("wildcard-domain", "", "", "The wildcard domain to use for proxying to spaces.\nOverrides the "+CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN environment variable if set.")
 	serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the "+CONFIG_ENV_PREFIX+"_ENCRYPT environment variable if set.")
 	serverCmd.Flags().StringP("agent-url", "", "", "The URL agents should use to talk to the server (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_AGENT_URL environment variable if set.")
-	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to the hostname).\nOverrides the "+CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
+	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to NOMAD_DC or hostname).\nOverrides the "+CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
 	serverCmd.Flags().StringP("core-server", "", "", "The address of the core server this server is to become a remote of (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_CORE_SERVER environment variable if set.")
 	serverCmd.Flags().StringP("remote-token", "", "", "The token to use for remote and core server communication (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REMOTE_TOKEN environment variable if set.")
 
@@ -126,11 +126,16 @@ var serverCmd = &cobra.Command{
 		viper.SetDefault("server.agent_url", "")
 
 		// Get the hostname
-		hostname, err := os.Hostname()
-		if err != nil {
-			log.Fatal().Msgf("Error getting hostname: %v", err)
+		hostname := os.Getenv("NOMAD_DC")
+		if hostname == "" {
+			var err error
+
+			hostname, err = os.Hostname()
+			if err != nil {
+				log.Fatal().Msgf("Error getting hostname: %v", err)
+			}
+			hostname = strings.Split(hostname, ".")[0]
 		}
-		hostname = strings.Split(hostname, ".")[0]
 
 		viper.BindPFlag("server.location", cmd.Flags().Lookup("location"))
 		viper.BindEnv("server.location", CONFIG_ENV_PREFIX+"_LOCATION")
