@@ -16,7 +16,8 @@ type MySQLDriver struct {
 	connection *sql.DB
 }
 
-func (db *MySQLDriver) Connect() error {
+// Performs the real connection to the database, we use this to reconnect if the database moves to a new server etc.
+func (db *MySQLDriver) realConnect() error {
 	log.Debug().Msg("db: connecting to MySQL")
 
 	host := viper.GetString("server.mysql.host")
@@ -24,15 +25,25 @@ func (db *MySQLDriver) Connect() error {
 
 	// If the host starts with srv+ then lookup the SRV record
 	if host[:4] == "srv+" {
-		hostPort, err := util.LookupSRV(host[4:])
-		if err != nil {
-			log.Fatal().Err(err).Msg("db: failed to lookup SRV record for MySQL database")
-		}
+		for i := 0; i < 10; i++ {
+			hostPort, err := util.LookupSRV(host[4:])
+			if err != nil {
+				if i == 9 {
+					log.Fatal().Err(err).Msg("db: failed to lookup SRV record for MySQL database aborting after 10 attempts")
+				} else {
+					log.Error().Err(err).Msg("db: failed to lookup SRV record for MySQL database")
+				}
+				time.Sleep(3 * time.Second)
+				continue
+			}
 
-		host = (*hostPort)[0].Host
-		port, err = strconv.Atoi((*hostPort)[0].Port)
-		if err != nil {
-			log.Fatal().Err(err).Msg("db: failed to convert MySQL port to integer")
+			host = (*hostPort)[0].Host
+			port, err = strconv.Atoi((*hostPort)[0].Port)
+			if err != nil {
+				log.Fatal().Err(err).Msg("db: failed to convert MySQL port to integer")
+			}
+
+			break
 		}
 	}
 
@@ -49,10 +60,43 @@ func (db *MySQLDriver) Connect() error {
 		db.connection.SetMaxOpenConns(viper.GetInt("server.mysql.connection_max_open"))
 		db.connection.SetMaxIdleConns(viper.GetInt("server.mysql.connection_max_idle"))
 
+		log.Debug().Msg("db: connected to MySQL")
+	} else {
+		log.Fatal().Err(err).Msg("db: failed to connect to MySQL")
+	}
+
+	return err
+}
+
+func (db *MySQLDriver) Connect() error {
+	err := db.realConnect()
+	if err == nil {
 		err := db.initialize()
 		if err != nil {
 			log.Fatal().Err(err).Msg("db: failed to initialize MySQL database")
 		}
+	}
+
+	// If the host starts with srv+ then start a go routine to monitor the database
+	host := viper.GetString("server.mysql.host")
+	if host[:4] == "srv+" {
+		go func() {
+			for {
+				time.Sleep(10 * time.Second)
+
+				log.Debug().Msg("db: testing MySQL connection")
+
+				// Ping the database
+				err := db.connection.Ping()
+				if err != nil {
+					log.Error().Err(err).Msg("db: failed to ping MySQL database")
+					db.connection.Close()
+
+					// Attempt to reconnect
+					db.realConnect()
+				}
+			}
+		}()
 	}
 
 	return err
