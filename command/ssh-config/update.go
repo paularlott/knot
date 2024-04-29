@@ -40,6 +40,7 @@ var sshConfigUpdateCmd = &cobra.Command{
 				sshConfig += "Host knot." + space.Name + "\n"
 				sshConfig += "  HostName knot." + space.Name + "\n"
 				sshConfig += "  StrictHostKeyChecking=no\n"
+				sshConfig += "  LogLevel ERROR\n"
 				sshConfig += "  UserKnownHostsFile=/dev/null\n"
 				sshConfig += "  ProxyCommand knot forward ssh " + space.Name + "\n"
 			}
