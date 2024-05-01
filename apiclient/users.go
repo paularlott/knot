@@ -19,6 +19,7 @@ type UserResponse struct {
 	MaxSpaces       int        `json:"max_spaces"`
 	MaxDiskSpace    int        `json:"max_disk_space"`
 	SSHPublicKey    string     `json:"ssh_public_key"`
+	GitHubUsername  string     `json:"github_username"`
 	PreferredShell  string     `json:"preferred_shell"`
 	Timezone        string     `json:"timezone"`
 	Current         bool       `json:"current"`
@@ -38,6 +39,7 @@ type userRequest struct {
 	MaxSpaces       int      `json:"max_spaces"`
 	MaxDiskSpace    int      `json:"max_disk_space"`
 	SSHPublicKey    string   `json:"ssh_public_key"`
+	GitHubUsername  string   `json:"github_username"`
 	PreferredShell  string   `json:"preferred_shell"`
 	Timezone        string   `json:"timezone"`
 }
@@ -99,6 +101,7 @@ func (c *ApiClient) GetUser(userId string) (*model.User, error) {
 		Email:           response.Email,
 		ServicePassword: response.ServicePassword,
 		SSHPublicKey:    response.SSHPublicKey,
+		GitHubUsername:  response.GitHubUsername,
 		Roles:           response.Roles,
 		Groups:          response.Groups,
 		Active:          response.Active,
@@ -128,6 +131,7 @@ func (c *ApiClient) WhoAmI() (*model.User, error) {
 		Email:           response.Email,
 		ServicePassword: response.ServicePassword,
 		SSHPublicKey:    response.SSHPublicKey,
+		GitHubUsername:  response.GitHubUsername,
 		Roles:           response.Roles,
 		Groups:          response.Groups,
 		Active:          response.Active,
@@ -169,6 +173,7 @@ func (c *ApiClient) UpdateUser(user *model.User) error {
 		MaxSpaces:       user.MaxSpaces,
 		MaxDiskSpace:    user.MaxDiskSpace,
 		SSHPublicKey:    user.SSHPublicKey,
+		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
 		Timezone:        user.Timezone,
 	}

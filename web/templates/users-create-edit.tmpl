@@ -60,6 +60,12 @@
                 </div>
                 <div x-show="!tzValid" class="error-message">Enter a valid Timezone.</div>
               </dd>
+              <dt><label for="github_username">GitHub Username</label></dt>
+              <dd>
+                <input type="text" name="github_username" x-on:keyup.debounce.500ms="checkGithubUsername()" :class="{'error': !githubUsernameValid}" placeholder="GitHub Username" x-model="formData.github_username">
+                <p class="description">If the GitHub username is given then the public SSH keys are loaded from it by the agent.</p>
+                <div x-show="!githubUsernameValid" class="error-message">Enter a valid GitHub username.</div>
+              </dd>
               <dt><label for="ssh_key">SSH Public Key</label></dt>
               <dd>
                 <textarea name="ssh_key" rows="8" placeholder="SSH Public Key" x-model="formData.ssh_public_key"></textarea>

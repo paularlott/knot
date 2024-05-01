@@ -2,17 +2,31 @@ package util
 
 import (
 	"bufio"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/rs/zerolog/log"
 )
 
-func UpdateAuthorizedKeys(key string) error {
+func UpdateAuthorizedKeys(key string, githubUsername string) error {
 	var lines []string
-	keyFound := false
+	var keys string = key
 
 	log.Debug().Msg("Start updating authorized_keys")
+
+	// If the github username is not empty, then download the keys from github
+	if githubUsername != "" {
+		log.Debug().Msg("Downloading keys from GitHub")
+		githubKeys, err := GetGitHubKeys(githubUsername)
+		if err == nil {
+			if keys != "" {
+				keys += "\n"
+			}
+			keys += githubKeys
+		}
+	}
 
 	// If the file doesn't exist, create it
 	if _, err := os.Stat(os.Getenv("HOME") + "/.ssh/authorized_keys"); os.IsNotExist(err) {
@@ -38,10 +52,6 @@ func UpdateAuthorizedKeys(key string) error {
 				inBlock = false
 			} else if !inBlock {
 				lines = append(lines, line)
-			} else if inBlock && line == key {
-				// key already exists
-				keyFound = true
-				break
 			}
 		}
 
@@ -50,29 +60,46 @@ func UpdateAuthorizedKeys(key string) error {
 		}
 	}
 
-	// If key not found add it
-	if !keyFound {
+	// If keys then add them to the authorized_keys
+	if keys != "" {
 		log.Debug().Msg("Adding key to authorized_keys")
 
 		lines = append(lines, "#===KNOT-START===")
-		lines = append(lines, key)
+		lines = append(lines, keys)
 		lines = append(lines, "#===KNOT-END===")
+	}
 
-		// Write lines to authorized_keys file
-		file, err := os.OpenFile(os.Getenv("HOME")+"/.ssh/authorized_keys", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0700)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
+	// Write lines to authorized_keys file
+	file, err := os.OpenFile(os.Getenv("HOME")+"/.ssh/authorized_keys", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0700)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
-		for _, line := range lines {
-			file.WriteString(line + "\n")
-		}
-	} else {
-		log.Debug().Msg("Key already in authorized_keys")
+	for _, line := range lines {
+		file.WriteString(line + "\n")
 	}
 
 	log.Debug().Msg("Done updating authorized_keys")
 
 	return nil
+}
+
+// Download the public keys from GitHub, https://github.com/<username>.keys
+func GetGitHubKeys(username string) (string, error) {
+	log.Debug().Msgf("Downloading keys from GitHub for %s", username)
+
+	// Download the keys from GitHub
+	resp, err := http.Get("https://github.com/" + username + ".keys")
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
 }

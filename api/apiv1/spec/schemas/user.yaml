@@ -41,6 +41,9 @@ properties:
     type: string
     format: date-time
     description: The date and time the user was last updated
+  github_username:
+    type: string
+    description: The GitHub username of the user
   ssh_public_key:
     type: string
     description: The SSH key for the user

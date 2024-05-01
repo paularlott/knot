@@ -36,6 +36,9 @@ post:
             ssh_public_key:
               type: string
               description: The SSH key for the user
+            github_username:
+              type: string
+              description: The GitHub username of the user
             preferred_shell:
               type: string
               description: The preferred shell of the user

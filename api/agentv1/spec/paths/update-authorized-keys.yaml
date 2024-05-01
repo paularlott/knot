@@ -10,6 +10,10 @@ post:
           properties:
             key:
               type: string
+              description: The public key to add to the authorized_keys file
+            github_username:
+              type: string
+              description: The GitHub username of the user
   responses:
     '200':
       description: authorized_keys updated successfully

@@ -12,6 +12,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       service_password: "",
       preferred_shell: "",
       ssh_public_key: "",
+      github_username: "",
       timezone: "",
       active: true,
       max_spaces: 0,
@@ -30,6 +31,7 @@ window.userForm = function(isEdit, userId, isProfile) {
     tzValid: true,
     maxSpacesValid: true,
     maxDiskSpaceValid: true,
+    githubUsernameValid: true,
     async initUsers() {
       focusElement('input[name="username"]');
 
@@ -63,6 +65,7 @@ window.userForm = function(isEdit, userId, isProfile) {
           this.formData.email = user.email;
           this.formData.preferred_shell = user.preferred_shell;
           this.formData.ssh_public_key = user.ssh_public_key;
+          this.formData.github_username = user.github_username;
           this.formData.active = user.active;
           this.formData.max_spaces = user.max_spaces;
           this.formData.max_disk_space = user.max_disk_space;
@@ -123,6 +126,9 @@ window.userForm = function(isEdit, userId, isProfile) {
     checkServicePassword() {
       return this.servicePasswordValid = this.formData.service_password.length <= 255;
     },
+    checkGithubUsername() {
+      return this.githubUsernameValid = this.formData.github_username.length <= 255;
+    },
     submitData() {
       var err = false,
           self = this;
@@ -137,6 +143,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       err = !this.checkServicePassword() || err;
       err = !this.checkShell() || err;
       err = !this.checkTz() || err;
+      err = !this.checkGithubUsername() || err;
       if(err) {
         return;
       }
@@ -150,6 +157,7 @@ window.userForm = function(isEdit, userId, isProfile) {
         service_password: this.formData.service_password,
         preferred_shell: this.formData.preferred_shell,
         ssh_public_key: this.formData.ssh_public_key,
+        github_username: this.formData.github_username,
         active: this.formData.active,
         max_spaces: parseInt(this.formData.max_spaces),
         max_disk_space: parseInt(this.formData.max_disk_space),

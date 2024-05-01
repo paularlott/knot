@@ -17,10 +17,11 @@ import (
 )
 
 type AgentRegisterResponse struct {
-	Status      bool   `json:"status"`
-	AccessToken string `json:"access_token"`
-	ServerURL   string `json:"server_url"`
-	SSHKey      string `json:"ssh_key"`
+	Status         bool   `json:"status"`
+	AccessToken    string `json:"access_token"`
+	ServerURL      string `json:"server_url"`
+	SSHKey         string `json:"ssh_key"`
+	GitHubUsername string `json:"github_username"`
 }
 
 func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
@@ -75,10 +76,11 @@ func HandleRegisterAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := AgentRegisterResponse{
-		Status:      true,
-		AccessToken: state.AccessToken,
-		ServerURL:   serverURL,
-		SSHKey:      user.SSHPublicKey,
+		Status:         true,
+		AccessToken:    state.AccessToken,
+		ServerURL:      serverURL,
+		SSHKey:         user.SSHPublicKey,
+		GitHubUsername: user.GitHubUsername,
 	}
 	rest.SendJSON(http.StatusOK, w, response)
 }

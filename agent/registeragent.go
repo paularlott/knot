@@ -45,7 +45,7 @@ func Register(serverAddr string, spaceId string) {
 
 		// Authorize the SSK key
 		if viper.GetBool("agent.update_authorized_keys") && viper.GetInt("agent.port.ssh") > 0 {
-			util.UpdateAuthorizedKeys(response.SSHKey)
+			util.UpdateAuthorizedKeys(response.SSHKey, response.GitHubUsername)
 		}
 
 		break

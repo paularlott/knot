@@ -58,6 +58,10 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid max disk space"})
 		return
 	}
+	if !validate.MaxLength(request.GitHubUsername, 255) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "GitHub username too long"})
+		return
+	}
 
 	// Check roles give are present in the system
 	for _, role := range request.Roles {
@@ -89,7 +93,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Create the user
-		userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.MaxDiskSpace)
+		userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.MaxDiskSpace, request.GitHubUsername)
 		if request.ServicePassword != "" {
 			userNew.ServicePassword = request.ServicePassword
 		}
@@ -162,6 +166,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		MaxSpaces:       user.MaxSpaces,
 		MaxDiskSpace:    user.MaxDiskSpace,
 		SSHPublicKey:    user.SSHPublicKey,
+		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
 		Timezone:        user.Timezone,
 		Current:         activeUser != nil && user.Id == activeUser.Id,
@@ -193,6 +198,7 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		MaxSpaces:       user.MaxSpaces,
 		MaxDiskSpace:    user.MaxDiskSpace,
 		SSHPublicKey:    user.SSHPublicKey,
+		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
 		Timezone:        user.Timezone,
 		Current:         true,
@@ -337,6 +343,10 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid timezone"})
 		return
 	}
+	if !validate.MaxLength(request.GitHubUsername, 255) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "GitHub username too long"})
+		return
+	}
 
 	// Load the existing user
 	user, err := db.GetUser(userId)
@@ -347,6 +357,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	user.Email = request.Email
 	user.SSHPublicKey = request.SSHPublicKey
+	user.GitHubUsername = request.GitHubUsername
 	user.PreferredShell = request.PreferredShell
 	user.Timezone = request.Timezone
 
@@ -623,7 +634,7 @@ func updateSpacesSSHKey(user *model.User) {
 			if agentState.SSHPort > 0 {
 				log.Debug().Msgf("Sending SSH public key to agent %s", space.Id)
 				client := rest.NewClient(util.ResolveSRVHttp(space.GetAgentURL()), agentState.AccessToken, viper.GetBool("tls_skip_verify"))
-				if !agentv1.CallAgentUpdateAuthorizedKeys(client, user.SSHPublicKey) {
+				if !agentv1.CallAgentUpdateAuthorizedKeys(client, user.SSHPublicKey, user.GitHubUsername) {
 					log.Debug().Msg("Failed to send SSH public key to agent")
 				}
 			}

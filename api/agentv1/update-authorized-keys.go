@@ -11,55 +11,59 @@ import (
 )
 
 type AgentUpdateAuthorizedKeysRequest struct {
-  Key string `json:"key"`
+	Key            string `json:"key"`
+	GitHubUsername string `json:"github_username"`
 }
 
 type AgentUpdateAuthorizedKeysResponse struct {
-  Status bool `json:"status"`
+	Status bool `json:"status"`
 }
 
 var (
-  lastPublicSSHKey string = ""
+	lastPublicSSHKey   string = ""
+	lastGitHubUsername string = ""
 )
 
 func HandleAgentUpdateAuthorizedKeys(w http.ResponseWriter, r *http.Request) {
-  request := AgentUpdateAuthorizedKeysRequest{}
+	request := AgentUpdateAuthorizedKeysRequest{}
 
-  err := rest.BindJSON(w, r, &request)
-  if err != nil {
-    rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
-    return
-  }
+	err := rest.BindJSON(w, r, &request)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		return
+	}
 
-  if viper.GetBool("agent.update_authorized_keys") && viper.GetInt("agent.port.ssh") > 0 {
-    // If the key is the same as the last key then skip
-    if request.Key != lastPublicSSHKey {
-      log.Debug().Msg("updating authorized_keys")
+	if viper.GetBool("agent.update_authorized_keys") && viper.GetInt("agent.port.ssh") > 0 {
+		// If the key is the same as the last key then skip
+		if request.Key != lastPublicSSHKey || request.GitHubUsername != lastGitHubUsername {
+			log.Debug().Msg("updating authorized_keys")
 
-      lastPublicSSHKey = request.Key
-      err = util.UpdateAuthorizedKeys(request.Key)
-      if err != nil {
-        log.Debug().Msgf("failed to update authorized_keys: %s", err)
-      }
-    } else {
-      log.Debug().Msg("authorized_keys already up to date")
-    }
-  }
+			lastPublicSSHKey = request.Key
+			lastGitHubUsername = request.GitHubUsername
+			err = util.UpdateAuthorizedKeys(request.Key, request.GitHubUsername)
+			if err != nil {
+				log.Debug().Msgf("failed to update authorized_keys: %s", err)
+			}
+		} else {
+			log.Debug().Msg("authorized_keys already up to date")
+		}
+	}
 
-  rest.SendJSON(http.StatusOK, w, AgentUpdateAuthorizedKeysResponse{
-    Status: true,
-  })
+	rest.SendJSON(http.StatusOK, w, AgentUpdateAuthorizedKeysResponse{
+		Status: true,
+	})
 }
 
-func CallAgentUpdateAuthorizedKeys(client *rest.RESTClient, sshKey string) bool {
-  response := &AgentUpdateAuthorizedKeysResponse{}
-  statusCode, err := client.Post(
-    "/update-authorized-keys",
-    AgentUpdateAuthorizedKeysRequest{
-      Key: sshKey,
-    },
-    response,
-    http.StatusOK,
-  )
-  return statusCode == http.StatusOK && err == nil && response.Status
+func CallAgentUpdateAuthorizedKeys(client *rest.RESTClient, sshKey string, githubUsername string) bool {
+	response := &AgentUpdateAuthorizedKeysResponse{}
+	statusCode, err := client.Post(
+		"/update-authorized-keys",
+		AgentUpdateAuthorizedKeysRequest{
+			Key:            sshKey,
+			GitHubUsername: githubUsername,
+		},
+		response,
+		http.StatusOK,
+	)
+	return statusCode == http.StatusOK && err == nil && response.Status
 }
