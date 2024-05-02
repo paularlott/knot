@@ -39,10 +39,9 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		db := database.GetInstance()
 		user := r.Context().Value("user").(*model.User)
 
-		// If user doesn't have permission to manage spaces and filter user ID doesn't match the user return an empty list
-		if !user.HasPermission(model.PermissionManageSpaces) && userId != user.Id {
-			rest.SendJSON(http.StatusOK, w, []struct{}{})
-			return
+		spaceData = &apiclient.SpaceInfoList{
+			Count:  0,
+			Spaces: []apiclient.SpaceInfo{},
 		}
 
 		var spaces []*model.Space
@@ -56,6 +55,12 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
+			// If user doesn't have permission to manage spaces and filter user ID doesn't match the user return an empty list
+			if !user.HasPermission(model.PermissionManageSpaces) && userId != user.Id {
+				rest.SendJSON(http.StatusOK, w, spaceData)
+				return
+			}
+
 			spaces, err = db.GetSpacesForUser(userId)
 			if err != nil {
 				log.Error().Msgf("HandleGetSpaces: GetSpacesForUser: %s", err.Error())
@@ -65,11 +70,6 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Build a json array of space data to return to the client
-		spaceData = &apiclient.SpaceInfoList{
-			Count:  0,
-			Spaces: []apiclient.SpaceInfo{},
-		}
-
 		for _, space := range spaces {
 			var templateName string
 

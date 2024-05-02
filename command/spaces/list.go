@@ -33,27 +33,10 @@ var listCmd = &cobra.Command{
 		}
 
 		data := [][]string{}
-		templateCache := make(map[string]*apiclient.TemplateDetails)
-
 		data = append(data, []string{"Name", "Template", "Location", "Status", "Ports"})
-
 		for _, space := range spaces.Spaces {
 			status := ""
-			template := ""
 			ports := ""
-
-			// If space.TemplateId is not in the templateCache, get the template details
-			if _, ok := templateCache[space.TemplateId]; !ok {
-				templateDetails, _, err := client.GetTemplate(space.TemplateId)
-				if err != nil {
-					fmt.Println("Error getting template details: ", err)
-					return
-				}
-				templateCache[space.TemplateId] = templateDetails
-				template = templateDetails.Name
-			} else {
-				template = templateCache[space.TemplateId].Name
-			}
 
 			// Get the status for the space
 			state, code, err := client.GetSpaceServiceState(space.Id)
@@ -81,7 +64,7 @@ var listCmd = &cobra.Command{
 				}
 			}
 
-			data = append(data, []string{space.Name, template, space.Location, status, ports})
+			data = append(data, []string{space.Name, space.TemplateName, space.Location, status, ports})
 		}
 
 		util.PrintTable(data)
