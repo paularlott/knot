@@ -1,6 +1,8 @@
 package nomad
 
 import (
+	"time"
+
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/spf13/viper"
@@ -134,8 +136,9 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 		return err
 	}
 
-	// Record deployed
-	space.IsDeployed = true
+	// Record deploying
+	space.IsPending = true
+	space.IsDeployed = false
 	space.TemplateHash = template.Hash
 	space.Location = viper.GetString("server.location")
 	err = db.SaveSpace(space)
@@ -144,7 +147,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 		return err
 	}
 
-	log.Debug().Msgf("nomad: created space job %s as %s", space.Id, space.NomadJobId)
+	client.MonitorJobState(space)
 
 	return nil
 }
@@ -158,7 +161,8 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
 		return err
 	}
 
-	space.IsDeployed = false
+	// Record stopping
+	space.IsPending = true
 
 	db := database.GetInstance()
 	err = db.SaveSpace(space)
@@ -167,7 +171,50 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
 		return err
 	}
 
-	log.Debug().Msgf("nomad: deleted space job %s, %s", space.Id, space.NomadJobId)
+	client.MonitorJobState(space)
 
 	return nil
+}
+
+func (client *NomadClient) MonitorJobState(space *model.Space) {
+	go func() {
+		log.Info().Msgf("nomad: watching job %s status for change", space.NomadJobId)
+
+		for {
+			code, data, err := client.ReadJob(space.NomadJobId, space.NomadNamespace)
+			if err != nil && code != 404 {
+				log.Error().Msgf("nomad: reading space job %s, error: %s", space.NomadJobId, err)
+			} else {
+				log.Debug().Msgf("nomad: reading space job %s, status: %s", space.NomadJobId, data["Status"])
+
+				if code == 200 && data["Status"] == "running" {
+					// If waiting for job to start then done
+					if space.IsPending && !space.IsDeployed {
+						log.Info().Msgf("nomad: space job %s is running", space.NomadJobId)
+
+						space.IsPending = false
+						space.IsDeployed = true
+						err = database.GetInstance().SaveSpace(space)
+						if err != nil {
+							log.Error().Msgf("nomad: updating space job %s error %s", space.NomadJobId, err)
+						}
+						break
+					}
+				} else if code == 404 || data["Status"] == "dead" {
+					log.Info().Msgf("nomad: space job %s is dead", space.NomadJobId)
+
+					space.IsPending = false
+					space.IsDeployed = false
+					err = database.GetInstance().SaveSpace(space)
+					if err != nil {
+						log.Error().Msgf("nomad: updating space job %s error %s", space.NomadJobId, err)
+					}
+					break
+				}
+			}
+
+			// Sleep for a bit
+			time.Sleep(3 * time.Second)
+		}
+	}()
 }

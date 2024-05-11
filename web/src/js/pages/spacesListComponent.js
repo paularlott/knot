@@ -55,9 +55,6 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       this.spaces = spacesList.spaces;
 
       this.spaces.forEach(space => {
-        space.starting = false;
-        space.stopping = false;
-        space.deleting = false;
         space.showMenu = false;
         space.showIdPopup = false;
         space.showSSHPopup = false;
@@ -66,6 +63,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         // Setup the available services
         space.update_available = false;
         space.is_deployed = false;
+        space.is_pending = false;
         space.has_code_server = false;
         space.has_ssh = false;
         space.has_terminal = false;
@@ -84,7 +82,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       });
       this.loading = false;
     },
-    async fetchServiceState(space, resetStateFlags = false) {
+    async fetchServiceState(space) {
       await fetch(`/api/v1/spaces/${space.space_id}/service-state`, {
         headers: {
           'Content-Type': 'application/json'
@@ -98,18 +96,13 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             space.has_ssh = serviceState.has_ssh;
             space.has_terminal = serviceState.has_terminal;
             space.is_deployed = serviceState.is_deployed;
+            space.is_pending = serviceState.is_pending;
             space.update_available = serviceState.update_available;
             space.tcp_ports = serviceState.tcp_ports;
             space.http_ports = serviceState.http_ports;
             space.has_http_vnc = serviceState.has_http_vnc;
             space.sshCmd = "ssh -o ProxyCommand='knot forward ssh %h' -o StrictHostKeyChecking=no " + username + "@" + serviceState.name;
             space.is_local = space.location == '' || location == space.location;
-
-            if (resetStateFlags) {
-              space.starting = false;
-              space.stopping = false;
-              space.deleting = false;
-            }
 
             // If space is not local then stop the timer
             if (!space.is_local) {
@@ -143,7 +136,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         }
       }).then((response) => {
         if (response.status === 200) {
-          self.$dispatch('show-alert', { msg: "Space started", type: 'success' });
+          self.$dispatch('show-alert', { msg: "Space starting", type: 'success' });
         } else {
           response.json().then((data) => {
             self.$dispatch('show-alert', { msg: "Space could not be started: " + data.error, type: 'error' });
@@ -166,7 +159,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         }
       }).then((response) => {
         if (response.status === 200) {
-          self.$dispatch('show-alert', { msg: "Space stopped", type: 'success' });
+          self.$dispatch('show-alert', { msg: "Space stopping", type: 'success' });
         } else {
           self.$dispatch('show-alert', { msg: "Space could not be stopped", type: 'error' });
         }

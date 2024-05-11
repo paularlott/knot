@@ -52,7 +52,13 @@ var listCmd = &cobra.Command{
 				if state.IsRemote {
 					status = "Remote"
 				} else if state.IsDeployed {
-					status = "Running"
+					if state.IsPending {
+						status = "Stopping"
+					} else {
+						status = "Running"
+					}
+				} else if state.IsPending {
+					status = "Starting"
 				}
 
 				// The list of TCP ports

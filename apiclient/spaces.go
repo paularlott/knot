@@ -48,6 +48,7 @@ type SpaceServiceState struct {
 	HasHttpVNC      bool   `json:"has_http_vnc"`
 	HasTerminal     bool   `json:"has_terminal"`
 	IsDeployed      bool   `json:"is_deployed"`
+	IsPending       bool   `json:"is_pending"`
 	TcpPorts        []int  `json:"tcp_ports"`
 	HttpPorts       []int  `json:"http_ports"`
 	UpdateAvailable bool   `json:"update_available"`
@@ -63,6 +64,7 @@ type SpaceDefinition struct {
 	Location    string                       `json:"location"`
 	AltNames    []string                     `json:"alt_names"`
 	IsDeployed  bool                         `json:"is_deployed"`
+	IsPending   bool                         `json:"is_pending"`
 	VolumeSizes map[string]int64             `json:"volume_sizes"`
 	VolumeData  map[string]model.SpaceVolume `json:"volume_data"`
 }
@@ -107,6 +109,7 @@ func (c *ApiClient) GetSpace(spaceId string) (*model.Space, int, error) {
 		Shell:        response.Shell,
 		TemplateHash: "",
 		IsDeployed:   response.IsDeployed,
+		IsPending:    response.IsPending,
 		VolumeData:   response.VolumeData,
 		VolumeSizes:  response.VolumeSizes,
 		CreatedAt:    time.Now().UTC(),

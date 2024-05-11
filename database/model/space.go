@@ -30,6 +30,7 @@ type Space struct {
 	VolumeData     map[string]SpaceVolume `json:"volume_data"`
 	VolumeSizes    map[string]int64       `json:"volume_sizes"`
 	IsDeployed     bool                   `json:"is_deployed"`
+	IsPending      bool                   `json:"is_pending"` // Flags if the space is pending a state change, starting or stopping
 	AltNames       []string               `json:"alt_names"`
 	CreatedAt      time.Time              `json:"created_at"`
 	UpdatedAt      time.Time              `json:"updated_at"`
@@ -51,6 +52,7 @@ func NewSpace(name string, userId string, agentURL string, templateId string, sh
 		Shell:        shell,
 		TemplateHash: "",
 		IsDeployed:   false,
+		IsPending:    false,
 		VolumeData:   make(map[string]SpaceVolume),
 		VolumeSizes:  *volSizes,
 		CreatedAt:    time.Now().UTC(),

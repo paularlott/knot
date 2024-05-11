@@ -128,7 +128,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 
 			var deployed int = 0
 			for _, space := range spaces {
-				if space.IsDeployed {
+				if space.IsDeployed || space.IsPending {
 					deployed++
 				}
 			}
@@ -366,7 +366,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 
 		var deployed int = 0
 		for _, space := range spaces {
-			if space.IsDeployed {
+			if space.IsDeployed || space.IsPending {
 				deployed++
 			}
 		}

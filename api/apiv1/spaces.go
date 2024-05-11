@@ -136,8 +136,8 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the space is running then fail
-	if space.IsDeployed {
+	// If the space is running or changing state then fail
+	if space.IsDeployed || space.IsPending {
 		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space is running"})
 		return
 	}
@@ -391,6 +391,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	response.Name = space.Name
 	response.Location = space.Location
 	response.IsDeployed = space.IsDeployed
+	response.IsPending = space.IsPending
 	response.IsRemote = space.Location != "" && space.Location != viper.GetString("server.location")
 
 	// Check if the template has been updated
@@ -442,8 +443,8 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		space.VolumeSizes = spaceRemote.VolumeSizes
 	}
 
-	// If the space is already running then fail
-	if space.IsDeployed {
+	// If the space is already running or changing state then fail
+	if space.IsDeployed || space.IsPending {
 		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space is running"})
 		return
 	}
@@ -550,8 +551,8 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the space is not running then fail
-	if !space.IsDeployed {
+	// If the space is not running or changing state then fail
+	if !space.IsDeployed || space.IsPending {
 		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space not running"})
 		return
 	}
@@ -587,10 +588,6 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 		return
 	}
-
-	// Record the space as not deployed
-	space.IsDeployed = false
-	db.SaveSpace(space)
 
 	// Delete the agent state
 	state, _ := cache.GetAgentState(space.Id)
@@ -803,6 +800,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		Location:    space.Location,
 		AltNames:    space.AltNames,
 		IsDeployed:  space.IsDeployed,
+		IsPending:   space.IsPending,
 		VolumeSizes: space.VolumeSizes,
 		VolumeData:  space.VolumeData,
 	}

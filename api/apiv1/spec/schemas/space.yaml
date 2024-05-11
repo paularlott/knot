@@ -14,6 +14,9 @@ properties:
     type: boolean
   is_deployed:
     type: boolean
+  is_pending:
+    type: boolean
+    description: If the service is pending a state change.
   username:
     type: string
   user_id:

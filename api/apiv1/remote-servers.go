@@ -24,7 +24,7 @@ func HandleRegisterRemoteServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debug().Msgf("remote server registering url %s", request.Url)
+	log.Info().Msgf("remote server registering url %s", request.Url)
 
 	// Load the current list of remote servers
 	servers, err := cache.GetRemoteServers()

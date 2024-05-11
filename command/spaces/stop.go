@@ -54,6 +54,6 @@ var stopCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println("Space stopped: ", args[0])
+		fmt.Println("Space stopping: ", args[0])
 	},
 }

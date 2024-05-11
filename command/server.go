@@ -22,6 +22,7 @@ import (
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/web"
 
 	"github.com/go-chi/chi/v5"
@@ -255,6 +256,9 @@ var serverCmd = &cobra.Command{
 		} else {
 			startRemoteServerServices()
 		}
+
+		// Check for local spaces that are pending state changes and setup watches
+		startupCheckPendingSpaces()
 
 		// Sync the template hashes either local or remote
 		go apiv1.SyncTemplateHashes()
@@ -499,4 +503,26 @@ func syncCachedItems(client *apiclient.ApiClient) {
 		}
 	}
 	log.Info().Msg("server: finished user sync from core server")
+}
+
+func startupCheckPendingSpaces() {
+	log.Info().Msg("server: checking for pending spaces")
+
+	db := database.GetInstance()
+	spaces, err := db.GetSpaces()
+	if err != nil {
+		log.Fatal().Msgf("server: failed to get spaces: %s", err.Error())
+	} else {
+		nomadClient := nomad.NewClient()
+
+		for _, space := range spaces {
+			// If space on this server and pending then monitor it
+			if space.Location == viper.GetString("server.location") && space.IsPending {
+				log.Info().Msgf("server: found pending space %s", space.Name)
+				nomadClient.MonitorJobState(space)
+			}
+		}
+	}
+
+	log.Info().Msg("server: finished checking for pending spaces")
 }

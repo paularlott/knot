@@ -279,7 +279,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 				var deployedInLocation int = 0
 				var diskSpace int = 0
 				for _, space := range spaces {
-					if space.IsDeployed {
+					if space.IsDeployed || space.IsPending {
 						deployed++
 
 						if inLocation != "" && space.Location == inLocation {
