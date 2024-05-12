@@ -36,7 +36,7 @@ var listCmd = &cobra.Command{
 		data = append(data, []string{"Name", "Template", "Location", "Status", "Ports"})
 		for _, space := range spaces.Spaces {
 			status := ""
-			ports := ""
+			ports := make([]string, 0)
 
 			// Get the status for the space
 			state, code, err := client.GetSpaceServiceState(space.Id)
@@ -63,16 +63,27 @@ var listCmd = &cobra.Command{
 					status = "Starting"
 				}
 
+				// The list of HTTP ports
+				for _, port := range state.HttpPorts {
+					ports = append(ports, fmt.Sprintf("%d", port))
+				}
+
 				// The list of TCP ports
-				for i, port := range state.TcpPorts {
-					if i > 0 {
-						ports += ", "
-					}
-					ports += fmt.Sprintf("%d", port)
+				for _, port := range state.TcpPorts {
+					ports = append(ports, fmt.Sprintf("%d", port))
 				}
 			}
 
-			data = append(data, []string{space.Name, space.TemplateName, space.Location, status, ports})
+			// Join the ports array into a comma separated string
+			portText := ""
+			if len(ports) > 0 {
+				portText = ports[0]
+				for i := 1; i < len(ports); i++ {
+					portText = portText + ", " + ports[i]
+				}
+			}
+
+			data = append(data, []string{space.Name, space.TemplateName, space.Location, status, portText})
 		}
 
 		util.PrintTable(data)
