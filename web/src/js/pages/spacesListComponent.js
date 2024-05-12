@@ -25,7 +25,12 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         this.users = usersList.users;
       }
 
-      this.getSpaces();
+      this.getSpaces(true);
+
+      // Start a timer to look for new spaces every 15 seconds
+      setInterval(async () => {
+        this.getSpaces(false);
+      }, 15000);
     },
     async userChanged() {
       this.loading = true;
@@ -37,48 +42,73 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         this.forUsername = user.username;
       }
 
-      this.getSpaces();
+      this.getSpaces(true);
     },
-    async getSpaces() {
-      // Clear all timers
-      Object.keys(this.timerIDs).forEach((key) => {
-        clearInterval(this.timerIDs[key]);
-      });
-      this.timerIDs = [];
+    async getSpaces(replaceAll) {
+      // Clear all timers if replacing all
+      if(replaceAll) {
+        Object.keys(this.timerIDs).forEach((key) => {
+          clearInterval(this.timerIDs[key]);
+        });
+        this.timerIDs = [];
+        this.spaces = [];
+        this.loading = true;
+      }
 
       const response = await fetch('/api/v1/spaces?user_id=' + this.forUserId, {
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      spacesList = await response.json();
-      this.spaces = spacesList.spaces;
 
-      this.spaces.forEach(space => {
-        space.showMenu = false;
-        space.showIdPopup = false;
-        space.showSSHPopup = false;
-        space.showPortMenu = false;
+      if(response.status === 401) {
+        window.location.href = '/login?redirect=' + window.location.pathname;
+        return;
+      } else if(response.status === 200) {
+        var spacesAdded = false;
 
-        // Setup the available services
-        space.update_available = false;
-        space.is_deployed = false;
-        space.is_pending = false;
-        space.is_deleting = false;
-        space.has_code_server = false;
-        space.has_ssh = false;
-        space.has_terminal = false;
-        space.has_http_vnc = false;
-        space.tcp_ports = [];
-        space.http_ports = [];
-        space.is_local = space.location == '' || location == space.location;
+        spacesList = await response.json();
+        spacesList.spaces.forEach(async space => {
+          // If this space isn't in this.spaces then add it
+          if(!this.spaces.find(s => s.space_id === space.space_id)) {
+            // Menus
+            space.showMenu = false;
+            space.showIdPopup = false;
+            space.showSSHPopup = false;
+            space.showPortMenu = false;
 
-        this.fetchServiceState(space);
-        this.timerIDs[space.space_id] = setInterval(async () => {
-          await this.fetchServiceState(space);
-        }, 5000);
-      });
-      this.loading = false;
+            // Setup the available services
+            space.update_available = false;
+            space.is_deployed = false;
+            space.is_pending = false;
+            space.is_deleting = false;
+            space.has_code_server = false;
+            space.has_ssh = false;
+            space.has_terminal = false;
+            space.has_http_vnc = false;
+            space.tcp_ports = [];
+            space.http_ports = [];
+            space.is_local = space.location == '' || location == space.location;
+
+            this.spaces.push(space);
+            spacesAdded = true;
+
+            // Lookup the space and update it's state
+            const s2 = this.spaces.find(s2 => s2.space_id === space.space_id);
+            await this.fetchServiceState(s2);
+            this.timerIDs[s2.space_id] = setInterval(async () => {
+              await this.fetchServiceState(s2);
+            }, 5000);
+          }
+        });
+
+        // If spaces added then sort them by name
+        if(spacesAdded) {
+          this.spaces.sort((a, b) => (a.name > b.name) ? 1 : -1);
+        }
+
+        this.loading = false;
+      }
     },
     async fetchServiceState(space) {
       await fetch(`/api/v1/spaces/${space.space_id}/service-state`, {
@@ -170,7 +200,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         }
       }).then((response) => {
         if (response.status === 200) {
-          self.$dispatch('show-alert', { msg: "Space deleted", type: 'success' });
+          self.$dispatch('show-alert', { msg: "Space deleting", type: 'success' });
         } else {
           self.$dispatch('show-alert', { msg: "Space could not be deleted", type: 'error' });
         }
@@ -179,7 +209,6 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
         space.showMenu = false;
-        this.getSpaces();
       });
     },
     editSpace(spaceId) {

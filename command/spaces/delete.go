@@ -55,6 +55,6 @@ var deleteCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println("Space deleted: ", args[0])
+		fmt.Println("Space deleting: ", args[0])
 	},
 }

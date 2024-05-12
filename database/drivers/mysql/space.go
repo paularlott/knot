@@ -46,7 +46,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
 	volumeSizes, _ := json.Marshal(space.VolumeSizes)
 
 	// Assume update
-	result, err := tx.Exec("UPDATE spaces SET name=?, template_id=?, agent_url=?, updated_at=?, shell=?, is_deployed=?, is_deleting=?, is_pending=?, volume_data=?, volume_sizes=?, nomad_namespace=?, nomad_job_id=?, template_hash=?, location=? WHERE space_id=?",
+	result, err := tx.Exec("UPDATE spaces SET name=?, template_id=?, agent_url=?, updated_at=?, shell=?, is_deployed=?, is_pending=?, is_deleting=?, volume_data=?, volume_sizes=?, nomad_namespace=?, nomad_job_id=?, template_hash=?, location=? WHERE space_id=?",
 		space.Name, space.TemplateId, space.AgentURL, time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, volumeSizes, space.NomadNamespace, space.NomadJobId, space.TemplateHash, space.Location, space.Id,
 	)
 	if err != nil {

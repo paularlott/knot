@@ -179,7 +179,11 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 			if err != nil && code != 404 {
 				log.Error().Msgf("nomad: reading space job %s, error: %s", space.NomadJobId, err)
 			} else {
-				log.Debug().Msgf("nomad: reading space job %s, status: %s", space.NomadJobId, data["Status"])
+				if code == 404 {
+					log.Debug().Msgf("nomad: reading space job %s, status: %s", space.NomadJobId, "404")
+				} else {
+					log.Debug().Msgf("nomad: reading space job %s, status: %s", space.NomadJobId, data["Status"])
+				}
 
 				if code == 200 && data["Status"] == "running" {
 					// If waiting for job to start then done
