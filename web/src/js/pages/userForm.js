@@ -21,7 +21,9 @@ window.userForm = function(isEdit, userId, isProfile) {
       groups: [],
     },
     loading: true,
-    buttonLabel: (isEdit ? 'Update ' : 'Create ') + entity,
+    buttonLabel: isEdit ? 'Update' : 'Create ' + entity,
+    stayOnPage: true,
+    isEdit: isEdit,
     usernameValid: true,
     emailValid: true,
     passwordValid: true,
@@ -148,7 +150,9 @@ window.userForm = function(isEdit, userId, isProfile) {
         return;
       }
 
-      this.buttonLabel = (isEdit ? 'Updating ' : 'Creating ') + entity + '...';
+      if(this.stayOnPage) {
+        this.buttonLabel = (isEdit ? 'Updating ' : 'Creating ') + entity + '...';
+      }
 
       data = {
         username: this.formData.username,
@@ -175,7 +179,11 @@ window.userForm = function(isEdit, userId, isProfile) {
         })
         .then((response) => {
           if (response.status === 200) {
-            self.$dispatch('show-alert', { msg: entity + " updated", type: 'success' });
+            if(this.stayOnPage) {
+              self.$dispatch('show-alert', { msg: entity + " updated", type: 'success' });
+            } else {
+              window.location.href = isProfile ? '/profile' : '/users';
+            }
           } else if (response.status === 201) {
             window.location.href = '/users';
           } else {
@@ -188,7 +196,7 @@ window.userForm = function(isEdit, userId, isProfile) {
           self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = (isEdit ? 'Update ' : 'Create ') + entity;
+          this.buttonLabel = isEdit ? 'Update' : 'Create ' + entity;
         })
     },
   }

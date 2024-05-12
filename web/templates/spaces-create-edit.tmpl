@@ -71,7 +71,7 @@
                 </ul>
               </dd>
               <dt></dt>
-              <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
+              <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"> <input type="submit" value="Save" x-show="isEdit" x-on:click="stayOnPage=false"></dd>
             </dl>
           </form>
         </div>

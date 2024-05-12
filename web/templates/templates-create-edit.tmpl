@@ -45,7 +45,7 @@
                 </template>
               </dd>
             <dt></dt>
-            <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
+            <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"> <input x-show="isEdit" type="submit" value="Save" :disabled="loading" x-on:click="stayOnPage=false"></dd>
           </dl>
         </form>
 

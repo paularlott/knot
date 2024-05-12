@@ -6,7 +6,9 @@ window.variableForm = function(isEdit, templateVarId) {
       protected: false,
     },
     loading: true,
-    buttonLabel: isEdit ? 'Update Variable' : 'Create Variable',
+    buttonLabel: isEdit ? 'Update' : 'Create Variable',
+    isEdit: isEdit,
+    stayOnPage: true,
     nameValid: true,
     valueValid: true,
 
@@ -79,7 +81,9 @@ window.variableForm = function(isEdit, templateVarId) {
         return;
       }
 
-      this.buttonLabel = isEdit ? 'Updating variable...' : 'Create variable...'
+      if(this.stayOnPage) {
+        this.buttonLabel = isEdit ? 'Updating variable...' : 'Create variable...'
+      }
       this.loading = true;
 
       fetch(isEdit ? '/api/v1/templatevars/' + templateVarId : '/api/v1/templatevars', {
@@ -91,7 +95,11 @@ window.variableForm = function(isEdit, templateVarId) {
         })
         .then((response) => {
           if (response.status === 200) {
-            self.$dispatch('show-alert', { msg: "Variable updated", type: 'success' });
+            if(self.stayOnPage) {
+              self.$dispatch('show-alert', { msg: "Variable updated", type: 'success' });
+            } else {
+              window.location.href = '/variables';
+            }
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Variable created", type: 'success' });
             response.json().then(function(data) {
@@ -107,7 +115,7 @@ window.variableForm = function(isEdit, templateVarId) {
           self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update Variable' : 'Create Variable';
+          this.buttonLabel = isEdit ? 'Update' : 'Create Variable';
           this.loading = false;
         })
     },

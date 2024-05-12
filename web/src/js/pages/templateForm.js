@@ -10,7 +10,9 @@ window.templateForm = function(isEdit, templateId) {
       groups: [],
     },
     loading: true,
-    buttonLabel: isEdit ? 'Update Template' : 'Create Template',
+    isEdit: isEdit,
+    stayOnPage: true,
+    buttonLabel: isEdit ? 'Update' : 'Create Template',
     nameValid: true,
     jobValid: true,
     volValid: true,
@@ -141,7 +143,9 @@ window.templateForm = function(isEdit, templateId) {
         return;
       }
 
-      this.buttonLabel = isEdit ? 'Updating template...' : 'Create template...'
+      if(this.stayOnPage) {
+        this.buttonLabel = isEdit ? 'Updating template...' : 'Create template...'
+      }
       this.loading = true;
 
       fetch(isEdit ? '/api/v1/templates/' + templateId : '/api/v1/templates', {
@@ -153,6 +157,12 @@ window.templateForm = function(isEdit, templateId) {
         })
         .then((response) => {
           if (response.status === 200) {
+
+            if(!this.stayOnPage) {
+              window.location.href = '/templates';
+              return;
+            }
+
             self.$dispatch('show-alert', { msg: "Template updated", type: 'success' });
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Template created", type: 'success' });
@@ -169,7 +179,7 @@ window.templateForm = function(isEdit, templateId) {
           self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update Template' : 'Create Template';
+          this.buttonLabel = isEdit ? 'Update' : 'Create Template';
           this.loading = false;
         })
     },

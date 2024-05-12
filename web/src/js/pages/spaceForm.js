@@ -12,7 +12,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     templates: [],
     template_id: templateId,
     loading: true,
-    buttonLabel: isEdit ? 'Update Space' : 'Create Space',
+    buttonLabel: isEdit ? 'Update' : 'Create Space',
     nameValid: true,
     addressValid: true,
     forUsername: forUserUsername,
@@ -20,6 +20,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     volume_size_valid: {},
     volume_size_label: {},
     isEdit: isEdit,
+    stayOnPage: true,
     hasEditableVolumeSizes: false,
     altNameValid: [],
 
@@ -183,7 +184,9 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         return;
       }
 
-      this.buttonLabel = isEdit ? 'Updating space...' : 'Creating space...'
+      if(this.stayOnPage) {
+        this.buttonLabel = isEdit ? 'Updating space...' : 'Creating space...'
+      }
       this.loading = true;
 
       fetch(isEdit ? '/api/v1/spaces/' + spaceId : '/api/v1/spaces', {
@@ -195,7 +198,11 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         })
         .then((response) => {
           if (response.status === 200) {
-            self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
+            if(this.stayOnPage) {
+              self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
+            } else {
+              window.location.href = '/spaces';
+            }
           } else if (response.status === 201) {
             window.location.href = '/spaces' + (this.forUserId ? '/' + this.forUserId : '');
           } else if (response.status === 507) {
@@ -210,7 +217,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update Space' : 'Create Space';
+          this.buttonLabel = isEdit ? 'Update' : 'Create Space';
           this.loading = false;
         })
     },

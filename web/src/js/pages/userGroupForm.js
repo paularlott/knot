@@ -5,8 +5,10 @@ window.userGroupForm = function(isEdit, groupId) {
       name: "",
     },
     loading: true,
-    buttonLabel: isEdit ? 'Update Group' : 'Create Group',
+    buttonLabel: isEdit ? 'Update' : 'Create Group',
     nameValid: true,
+    isEdit: isEdit,
+    stayOnPage: true,
 
     async initData() {
       focusElement('input[name="name"]');
@@ -41,7 +43,9 @@ window.userGroupForm = function(isEdit, groupId) {
         return;
       }
 
-      this.buttonLabel = isEdit ? 'Updating group...' : 'Create group...'
+      if(this.stayOnPage) {
+        this.buttonLabel = isEdit ? 'Updating group...' : 'Create group...'
+      }
       this.loading = true;
 
       fetch(isEdit ? '/api/v1/groups/' + groupId : '/api/v1/groups', {
@@ -53,7 +57,11 @@ window.userGroupForm = function(isEdit, groupId) {
         })
         .then((response) => {
           if (response.status === 200) {
-            self.$dispatch('show-alert', { msg: "Group Updated", type: 'success' });
+            if(this.stayOnPage) {
+              self.$dispatch('show-alert', { msg: "Group Updated", type: 'success' });
+            } else {
+              window.location.href = '/groups';
+            }
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Group Created", type: 'success' });
             response.json().then(function(data) {
@@ -69,7 +77,7 @@ window.userGroupForm = function(isEdit, groupId) {
           self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update Group' : 'Create Group';
+          this.buttonLabel = isEdit ? 'Update' : 'Create Group';
           this.loading = false;
         })
     },
