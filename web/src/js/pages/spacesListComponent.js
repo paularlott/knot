@@ -73,13 +73,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         space.http_ports = [];
         space.is_local = space.location == '' || location == space.location;
 
-        if(space.is_local) {
-          this.fetchServiceState(space, true);
-
-          this.timerIDs[space.space_id] = setInterval(async () => {
-            await this.fetchServiceState(space);
-          }, 5000);
-        }
+        this.fetchServiceState(space);
+        this.timerIDs[space.space_id] = setInterval(async () => {
+          await this.fetchServiceState(space);
+        }, 5000);
       });
       this.loading = false;
     },
@@ -105,20 +102,11 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             space.has_http_vnc = serviceState.has_http_vnc;
             space.sshCmd = "ssh -o ProxyCommand='knot forward ssh %h' -o StrictHostKeyChecking=no " + username + "@" + serviceState.name;
             space.is_local = space.location == '' || location == space.location;
-
-            // If space is not local then stop the timer
-            if (!space.is_local) {
-              clearInterval(this.timerIDs[space.space_id]);
-              delete this.timerIDs[space.space_id];
-            }
           });
         } else if (response.status === 401) {
           window.location.href = '/login?redirect=' + window.location.pathname;
         } else {
-          space.has_code_server = space.has_ssh = space.has_terminal = false;
-          space.tcp_ports = space.http_ports = [];
-
-          // If 404 then remove the space from the array
+          // Remove the space from the array
           this.spaces = this.spaces.filter(s => s.space_id !== space.space_id);
 
           // If time exists for the space then clear it

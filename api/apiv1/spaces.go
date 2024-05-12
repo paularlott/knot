@@ -435,7 +435,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 	// If the space is already running or changing state then fail
 	if space.IsDeployed || space.IsPending || space.IsDeleting {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space cannot be deleted"})
+		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space cannot be started"})
 		return
 	}
 
@@ -543,7 +543,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 
 	// If the space is not running or changing state then fail
 	if !space.IsDeployed || space.IsPending || space.IsDeleting {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space cannot be deleted"})
+		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space cannot be stopped"})
 		return
 	}
 
