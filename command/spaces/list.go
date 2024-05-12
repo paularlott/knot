@@ -57,6 +57,8 @@ var listCmd = &cobra.Command{
 					} else {
 						status = "Running"
 					}
+				} else if state.IsDeleting {
+					status = "Deleting"
 				} else if state.IsPending {
 					status = "Starting"
 				}

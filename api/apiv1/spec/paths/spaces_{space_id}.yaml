@@ -104,6 +104,9 @@ get:
                 is_pending:
                   type: boolean
                   description: If the service is pending a state change.
+                is_deleting:
+                  type: boolean
+                  description: If the service is being deleted.
                 alt_names:
                   type: array
                   items:

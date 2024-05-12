@@ -123,7 +123,6 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 
 	spaceId := chi.URLParam(r, "space_id")
 	db := database.GetInstance()
-	cache := database.GetCacheInstance()
 
 	if r.Context().Value("user") != nil {
 		user = r.Context().Value("user").(*model.User)
@@ -137,8 +136,8 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the space is running or changing state then fail
-	if space.IsDeployed || space.IsPending {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space is running"})
+	if space.IsDeployed || space.IsPending || space.IsDeleting {
+		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space cannot be deleted"})
 		return
 	}
 
@@ -157,30 +156,20 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 
 	// If space is running on this server then delete it from nomad
 	if space.Location == viper.GetString("server.location") {
-		// Get the nomad client
-		nomadClient := nomad.NewClient()
+		// Mark the space as deleting and delete it in the background
+		space.IsDeleting = true
+		db.SaveSpace(space)
 
-		// Delete volumes
-		err = nomadClient.DeleteSpaceVolumes(space)
+		// Delete the space in the background
+		RealDeleteSpace(space)
+	} else {
+		// Delete the space
+		err = db.DeleteSpace(space)
 		if err != nil {
 			log.Error().Msgf("HandleDeleteSpace: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
-
-		// Delete the agent state if present
-		state, _ := cache.GetAgentState(space.Id)
-		if state != nil {
-			cache.DeleteAgentState(state)
-		}
-	}
-
-	// Delete the space
-	err = db.DeleteSpace(space)
-	if err != nil {
-		log.Error().Msgf("HandleDeleteSpace: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-		return
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -392,6 +381,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	response.Location = space.Location
 	response.IsDeployed = space.IsDeployed
 	response.IsPending = space.IsPending
+	response.IsDeleting = space.IsDeleting
 	response.IsRemote = space.Location != "" && space.Location != viper.GetString("server.location")
 
 	// Check if the template has been updated
@@ -444,8 +434,8 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the space is already running or changing state then fail
-	if space.IsDeployed || space.IsPending {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space is running"})
+	if space.IsDeployed || space.IsPending || space.IsDeleting {
+		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space cannot be deleted"})
 		return
 	}
 
@@ -552,8 +542,8 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the space is not running or changing state then fail
-	if !space.IsDeployed || space.IsPending {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space not running"})
+	if !space.IsDeployed || space.IsPending || space.IsDeleting {
+		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space cannot be deleted"})
 		return
 	}
 
@@ -801,6 +791,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		AltNames:    space.AltNames,
 		IsDeployed:  space.IsDeployed,
 		IsPending:   space.IsPending,
+		IsDeleting:  space.IsDeleting,
 		VolumeSizes: space.VolumeSizes,
 		VolumeData:  space.VolumeData,
 	}
@@ -820,4 +811,44 @@ func calcSpaceDiskUsage(space *model.Space) (int, error) {
 	}
 
 	return size, nil
+}
+
+func RealDeleteSpace(space *model.Space) {
+	go func() {
+		log.Info().Msgf("api: RealDeleteSpace: deleting %s", space.Id)
+
+		db := database.GetInstance()
+		cache := database.GetCacheInstance()
+
+		// Get the nomad client
+		nomadClient := nomad.NewClient()
+
+		// Delete volumes on failure we log the error and revert the space to not deleting
+		err := nomadClient.DeleteSpaceVolumes(space)
+		if err != nil {
+			log.Error().Msgf("api: RealDeleteSpace %s", err.Error())
+
+			space.IsDeleting = false
+			db.SaveSpace(space)
+			return
+		}
+
+		// Delete the agent state if present
+		state, _ := cache.GetAgentState(space.Id)
+		if state != nil {
+			cache.DeleteAgentState(state)
+		}
+
+		// Delete the space
+		err = db.DeleteSpace(space)
+		if err != nil {
+			log.Error().Msgf("api: RealDeleteSpace %s", err.Error())
+
+			space.IsDeleting = false
+			db.SaveSpace(space)
+			return
+		}
+
+		log.Info().Msgf("api: RealDeleteSpace: deleted %s", space.Id)
+	}()
 }

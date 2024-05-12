@@ -159,6 +159,7 @@ func (c *ApiClient) RemoteGetSpace(spaceId string) (*model.Space, int, error) {
 		TemplateHash: "",
 		IsDeployed:   response.IsDeployed,
 		IsPending:    response.IsPending,
+		IsDeleting:   response.IsDeleting,
 		VolumeData:   response.VolumeData,
 		VolumeSizes:  response.VolumeSizes,
 		CreatedAt:    time.Now().UTC(),

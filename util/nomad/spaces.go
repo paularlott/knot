@@ -85,17 +85,11 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 	for _, volume := range space.VolumeData {
 		err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
 		if err != nil {
-			db.SaveSpace(space) // Save the space to capture the volumes
 			return err
 		}
 
 		delete(space.VolumeData, volume.Id)
-	}
-
-	// Save the space with the volume data
-	err := db.SaveSpace(space)
-	if err != nil {
-		return err
+		db.SaveSpace(space)
 	}
 
 	log.Debug().Msg("nomad: volumes deleted")

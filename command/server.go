@@ -521,6 +521,12 @@ func startupCheckPendingSpaces() {
 				log.Info().Msgf("server: found pending space %s", space.Name)
 				nomadClient.MonitorJobState(space)
 			}
+
+			// If deleting then delete it
+			if space.IsDeleting && (space.Location == "" || space.Location == viper.GetString("server.location")) {
+				log.Info().Msgf("server: found deleting space %s", space.Name)
+				apiv1.RealDeleteSpace(space)
+			}
 		}
 	}
 
