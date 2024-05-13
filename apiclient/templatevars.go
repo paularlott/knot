@@ -2,6 +2,7 @@ package apiclient
 
 type TemplateVarValue struct {
 	Name      string `json:"name"`
+	Location  string `json:"location"`
 	Value     string `json:"value"`
 	Protected bool   `json:"protected"`
 }
@@ -9,6 +10,7 @@ type TemplateVarValue struct {
 type TemplateVar struct {
 	Id        string `json:"templatevar_id"`
 	Name      string `json:"name"`
+	Location  string `json:"location"`
 	Protected bool   `json:"protected"`
 }
 
@@ -33,9 +35,10 @@ func (c *ApiClient) GetTemplateVars() (*TemplateVarList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateTemplateVar(templateVarId string, name string, value string, protected bool) (int, error) {
+func (c *ApiClient) UpdateTemplateVar(templateVarId string, name string, location string, value string, protected bool) (int, error) {
 	request := TemplateVarValue{
 		Name:      name,
+		Location:  location,
 		Value:     value,
 		Protected: protected,
 	}
@@ -43,9 +46,10 @@ func (c *ApiClient) UpdateTemplateVar(templateVarId string, name string, value s
 	return c.httpClient.Put("/api/v1/templatevars/"+templateVarId, request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplateVar(name string, value string, protected bool) (string, int, error) {
+func (c *ApiClient) CreateTemplateVar(name string, location string, value string, protected bool) (string, int, error) {
 	request := TemplateVarValue{
 		Name:      name,
+		Location:  location,
 		Value:     value,
 		Protected: protected,
 	}

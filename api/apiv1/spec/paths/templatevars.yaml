@@ -25,6 +25,8 @@ get:
                       type: string
                     name:
                       type: string
+                    location:
+                      type: string
                     protected:
                       type: boolean
     '500':
@@ -48,6 +50,9 @@ post:
           type: object
           properties:
             name:
+              type: string
+              maxLength: 64
+            location:
               type: string
               maxLength: 64
             value:

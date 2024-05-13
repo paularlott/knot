@@ -101,9 +101,7 @@ window.volumeForm = function(isEdit, volumeId) {
             }
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Volume created", type: 'success' });
-            response.json().then(function(data) {
-              window.location.href = '/volumes/edit/' + data.volume_id;
-            });
+            window.location.href = '/volumes';
           } else {
             response.json().then((data) => {
               self.$dispatch('show-alert', { msg: "Failed to update the volume, " + data.error, type: 'error' });

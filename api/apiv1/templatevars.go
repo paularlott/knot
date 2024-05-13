@@ -40,6 +40,7 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 			v := apiclient.TemplateVar{
 				Id:        variable.Id,
 				Name:      variable.Name,
+				Location:  variable.Location,
 				Protected: variable.Protected,
 			}
 			data.TemplateVar = append(data.TemplateVar, v)
@@ -68,11 +69,15 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Value must be less than 10MB"})
 		return
 	}
+	if !validate.MaxLength(request.Location, 64) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Location must be less than 64 characters"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
-		code, err := client.UpdateTemplateVar(templateVarId, request.Name, request.Value, request.Protected)
+		code, err := client.UpdateTemplateVar(templateVarId, request.Name, request.Location, request.Value, request.Protected)
 		if err != nil {
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
@@ -88,6 +93,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		}
 
 		templateVar.Name = request.Name
+		templateVar.Location = request.Location
 		templateVar.Value = request.Value
 		templateVar.Protected = request.Protected
 		templateVar.UpdatedUserId = user.Id
@@ -123,6 +129,10 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Value must be less than 10MB"})
 		return
 	}
+	if !validate.MaxLength(request.Location, 64) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Location must be less than 64 characters"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
@@ -130,13 +140,13 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		var err error
 
 		client := remoteClient.(*apiclient.ApiClient)
-		id, code, err = client.CreateTemplateVar(request.Name, request.Value, request.Protected)
+		id, code, err = client.CreateTemplateVar(request.Name, request.Location, request.Value, request.Protected)
 		if err != nil {
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
-		templateVar := model.NewTemplateVar(request.Name, request.Value, request.Protected, user.Id)
+		templateVar := model.NewTemplateVar(request.Name, request.Location, request.Value, request.Protected, user.Id)
 
 		err = db.SaveTemplateVar(templateVar)
 		if err != nil {
@@ -220,6 +230,7 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 		data := &apiclient.TemplateVarValue{
 			Name:      templateVar.Name,
 			Value:     val,
+			Location:  templateVar.Location,
 			Protected: templateVar.Protected,
 		}
 

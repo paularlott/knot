@@ -130,6 +130,7 @@ updated_at TIMESTAMP
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS templatevars (
 templatevar_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
+location VARCHAR(64),
 value MEDIUMTEXT,
 protected TINYINT NOT NULL DEFAULT 0,
 created_user_id CHAR(36),

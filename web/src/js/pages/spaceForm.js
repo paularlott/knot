@@ -204,7 +204,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
               window.location.href = '/spaces';
             }
           } else if (response.status === 201) {
-            window.location.href = '/spaces' + (this.forUserId ? '/' + this.forUserId : '');
+            window.location.href = '/spaces';
           } else if (response.status === 507) {
             self.$dispatch('show-alert', { msg: "Failed to create space, storage limit reached", type: 'error' });
           } else {

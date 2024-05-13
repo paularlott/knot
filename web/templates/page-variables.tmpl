@@ -26,6 +26,7 @@
     <tr>
       <th class="id-col">Variable ID</th>
       <th>Name</th>
+      <th>Location</th>
       <th>Protected</th>
       <th>&nbsp;</th>
     </tr>
@@ -40,6 +41,7 @@
           </div>
         </td>
         <td x-text="v.name"></td>
+        <td x-text="v.location"></td>
         <td x-text="v.protected ? 'Yes' : 'No'"></td>
         <td>
             <button @click="editTemplateVar(v.templatevar_id)"><i class='bx bx-edit' ></i> Edit</button>

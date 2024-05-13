@@ -23,6 +23,9 @@ put:
             value:
               type: string
               description: The value of the template variable.
+            location:
+              type: string
+              maxLength: 64
             protected:
               type: boolean
               description: Whether the template variable is protected with encryption.

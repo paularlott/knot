@@ -64,9 +64,7 @@ window.userGroupForm = function(isEdit, groupId) {
             }
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Group Created", type: 'success' });
-            response.json().then(function(data) {
-              window.location.href = '/groups/edit/' + data.group_id;
-            });
+            window.location.href = '/groups';
           } else {
             response.json().then((data) => {
               self.$dispatch('show-alert', { msg: "Failed to update the group, " + data.error, type: 'error' });

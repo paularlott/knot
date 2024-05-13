@@ -2,6 +2,7 @@ window.variableForm = function(isEdit, templateVarId) {
   return {
     formData: {
       name: "",
+      location: "",
       value: "",
       protected: false,
     },
@@ -28,6 +29,7 @@ window.variableForm = function(isEdit, templateVarId) {
           const v = await response.json();
 
           this.formData.name = v.name;
+          this.formData.location = v.location;
           this.formData.value = v.value;
           this.formData.protected = v.protected;
         }
@@ -102,9 +104,7 @@ window.variableForm = function(isEdit, templateVarId) {
             }
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Variable created", type: 'success' });
-            response.json().then(function(data) {
-              window.location.href = '/variables/edit/' + data.templatevar_id;
-            });
+            window.location.href = '/variables';
           } else {
             response.json().then((data) => {
               self.$dispatch('show-alert', { msg: "Failed to update the variable, " + data.error, type: 'error' });

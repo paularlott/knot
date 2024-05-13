@@ -17,6 +17,11 @@
               <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Variable name" x-model="formData.name">
               <div x-show="!nameValid" class="error-message">Variable name can only contain the letters a - Z, 0 - 9 and _, max 64 characters.</div>
             </dd>
+            <dd>
+              <input type="text" name="location" x-on:keyup.debounce.500ms="checkLocation()" :class="{'error': !locationValid}" placeholder="Optional Location Restriction" x-model="formData.location">
+              <div x-show="!locationValid" class="error-message">Location is limited to 64 characters.</div>
+              <div class="description">Location is an optional field that can be used to restrict the use of this variable to a specific location. If set, the variable will only be available in the specified location.</div>
+            </dd>
             <dt><label for="protected">Protected</label></dt>
             <dd>
               <input type="checkbox" name="protected" x-model="formData.protected">

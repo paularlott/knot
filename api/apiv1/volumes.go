@@ -295,7 +295,9 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 
 	vars := make(map[string]interface{})
 	for _, variable := range variables {
-		vars[variable.Name] = variable.Value
+		if variable.Location == "" || variable.Location == viper.GetString("server.location") {
+			vars[variable.Name] = variable.Value
+		}
 	}
 
 	// Mark volume as started
@@ -387,7 +389,9 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 
 	vars := make(map[string]interface{})
 	for _, variable := range variables {
-		vars[variable.Name] = variable.Value
+		if variable.Location == "" || variable.Location == viper.GetString("server.location") {
+			vars[variable.Name] = variable.Value
+		}
 	}
 
 	// Record the volume as not deployed

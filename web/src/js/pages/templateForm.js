@@ -166,9 +166,7 @@ window.templateForm = function(isEdit, templateId) {
             self.$dispatch('show-alert', { msg: "Template updated", type: 'success' });
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Template created", type: 'success' });
-            response.json().then(function(data) {
-              window.location.href = '/templates/edit/' + data.template_id;
-            });
+            window.location.href = '/templates';
           } else {
             response.json().then((data) => {
               self.$dispatch('show-alert', { msg: "Failed to update the template, " + data.error, type: 'error' });
