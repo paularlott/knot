@@ -30,6 +30,9 @@ post:
                 type: string
                 description: The Id assigned to the remote server.
                 format: uuid
+              version:
+                type: string
+                description: The version of the remote server.
     '404':
       $ref: "../responses/not-found.yaml"
     '423':

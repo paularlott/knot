@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/rest"
@@ -54,6 +55,7 @@ func HandleRegisterRemoteServer(w http.ResponseWriter, r *http.Request) {
 	response := apiclient.RegisterRemoteServerResponse{
 		Status:   true,
 		ServerId: remoteServer.Id,
+		Version:  build.Version,
 	}
 	rest.SendJSON(http.StatusCreated, w, &response)
 }

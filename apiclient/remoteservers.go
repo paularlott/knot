@@ -7,9 +7,10 @@ type RegisterRemoteServerRequest struct {
 type RegisterRemoteServerResponse struct {
 	Status   bool   `json:"status"`
 	ServerId string `json:"server_id"`
+	Version  string `json:"version"`
 }
 
-func (c *ApiClient) RegisterRemoteServer(url string) (string, error) {
+func (c *ApiClient) RegisterRemoteServer(url string) (string, string, error) {
 	request := RegisterRemoteServerRequest{
 		Url: url,
 	}
@@ -18,10 +19,10 @@ func (c *ApiClient) RegisterRemoteServer(url string) (string, error) {
 
 	_, err := c.httpClient.Post("/api/v1/remote/servers", &request, &response, 201)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return response.ServerId, nil
+	return response.ServerId, response.Version, nil
 }
 
 func (c *ApiClient) UpdateRemoteServer(serverId string) error {

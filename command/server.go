@@ -448,13 +448,15 @@ func startRemoteServerServices() {
 			client := apiclient.NewRemoteServerClient(viper.GetString("server.core_server"))
 
 			// Register the server with the core server
-			serverId, err := client.RegisterRemoteServer(viper.GetString("server.url"))
+			serverId, serverVersion, err := client.RegisterRemoteServer(viper.GetString("server.url"))
 			if err != nil {
 				log.Error().Msgf("failed to register remote server: %s", err.Error())
 				time.Sleep(model.REMOTE_SERVER_PING_INTERVAL)
 				continue
+			} else if !strings.HasPrefix(serverVersion, build.Version[:strings.LastIndex(build.Version, ".")]) {
+				log.Fatal().Msgf("server: core server version %s does not match server version %s", serverVersion, build.Version)
 			} else {
-				log.Info().Msgf("server: registered with core server as %s", serverId)
+				log.Info().Msgf("server: registered with core server (v%s) as %s", serverVersion, serverId)
 				go syncCachedItems(client)
 			}
 
