@@ -33,7 +33,8 @@ func init() {
 	agentCmd.Flags().IntP("code-server-port", "", 0, "The port code-server is running on.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT environment variable if set.")
 	agentCmd.Flags().IntP("ssh-port", "", 0, "The port sshd is running on.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_SSH_PORT environment variable if set.")
 	agentCmd.Flags().StringSliceP("tcp-port", "", []string{}, "Can be specified multiple times to give the list of TCP ports to be exposed to the client.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_TCP_PORT environment variable if set.")
-	agentCmd.Flags().StringSliceP("http-port", "", []string{}, "Can be specified multiple times to give the list of ports to be exposed via the web interface.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_HTTP_PORT environment variable if set.")
+	agentCmd.Flags().StringSliceP("http-port", "", []string{}, "Can be specified multiple times to give the list of http ports to be exposed via the web interface.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_HTTP_PORT environment variable if set.")
+	agentCmd.Flags().StringSliceP("https-port", "", []string{}, "Can be specified multiple times to give the list of https ports to be exposed via the web interface.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_HTTPS_PORT environment variable if set.")
 	agentCmd.Flags().BoolP("update-authorized-keys", "", true, "If given then the agent will update the authorized_keys file with the SSH public key of the user.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_UPDATE_AUTHORIZED_KEYS environment variable if set.")
 	agentCmd.Flags().BoolP("enable-terminal", "", true, "If given then the agent will enable the web terminal.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_ENABLE_TERMINAL environment variable if set.")
 	agentCmd.Flags().IntP("vnc-http-port", "", 0, "The port to use for VNC over HTTP.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_VNC_HTTP_PORT environment variable if set.")
@@ -86,6 +87,9 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
 		viper.BindPFlag("agent.port.http_port", cmd.Flags().Lookup("http-port"))
 		viper.BindEnv("agent.port.http_port", command.CONFIG_ENV_PREFIX+"_HTTP_PORT")
+
+		viper.BindPFlag("agent.port.https_port", cmd.Flags().Lookup("https-port"))
+		viper.BindEnv("agent.port.https_port", command.CONFIG_ENV_PREFIX+"_HTTPS_PORT")
 
 		viper.BindPFlag("agent.update_authorized_keys", cmd.Flags().Lookup("update-authorized-keys"))
 		viper.BindEnv("agent.update_authorized_keys", command.CONFIG_ENV_PREFIX+"_UPDATE_AUTHORIZED_KEYS")
@@ -160,6 +164,17 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 			httpPorts = append(httpPorts, portInt)
 		}
 
+		// Build a map of available https ports
+		ports = viper.GetStringSlice("agent.port.https_port")
+		httpsPorts := []int{}
+		agentv1.HttpsPortMap = make(map[string]bool, len(ports))
+		for _, port := range ports {
+			agentv1.HttpsPortMap[port] = true
+
+			portInt, _ := strconv.Atoi(port)
+			httpsPorts = append(httpsPorts, portInt)
+		}
+
 		// Check address given and valid URL
 		if serverAddr == "" || !validate.Uri(serverAddr) {
 			log.Fatal().Msg("server address is required")
@@ -175,7 +190,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		router.Mount("/", agentv1.Routes(cmd))
 
 		// Pings the server periodically to keep the agent alive
-		go agent.ReportState(serverAddr, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), tcpPorts, httpPorts)
+		go agent.ReportState(serverAddr, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), tcpPorts, &httpPorts, &httpsPorts)
 
 		// Start the DNS forwarder if enabled
 		if viper.GetString("agent.dns_listen") != "" {

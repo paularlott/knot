@@ -137,7 +137,7 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
 	rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "agent not found"})
 }
 
-func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts []int, httpPorts []int) (int, error) {
+func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts []int, httpPorts *[]int) (int, error) {
 	request := &AgentStatusRequest{
 		AgentVersion:  build.Version,
 		HasCodeServer: hasCodeServer,
@@ -145,7 +145,7 @@ func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServe
 		VNCHttpPort:   vncHttpPort,
 		HasTerminal:   hasTerminal,
 		TcpPorts:      tcpPorts,
-		HttpPorts:     httpPorts,
+		HttpPorts:     *httpPorts,
 	}
 	response := &AgentStatusResponse{}
 	statusCode, err := client.Put(fmt.Sprintf("/api/v1/agents/%s/status", spaceId), request, response, http.StatusOK)

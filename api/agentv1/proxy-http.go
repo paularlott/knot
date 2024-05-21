@@ -11,25 +11,32 @@ import (
 )
 
 var (
-  HttpPortMap map[string]bool
+	HttpPortMap  map[string]bool
+	HttpsPortMap map[string]bool
 )
 
 func agentProxyHTTP(w http.ResponseWriter, r *http.Request) {
-  port := chi.URLParam(r, "port")
+	var target *url.URL
 
-  log.Debug().Msgf("proxy of http port %s", port)
+	port := chi.URLParam(r, "port")
 
-  // Check port is in the list of allowed ports
-  if !HttpPortMap[port] {
-    log.Error().Msgf("proxy of http port %s is not allowed", port)
-    w.WriteHeader(http.StatusForbidden)
-    return
-  }
+	log.Debug().Msgf("proxy of http port %s", port)
 
-  target, _ := url.Parse("http://127.0.0.1:" + port)
-  proxy := httputil.NewSingleHostReverseProxy(target)
+	// If port in http map then proxy to http
+	if HttpPortMap[port] {
+		target, _ = url.Parse("http://127.0.0.1:" + port)
+	} else if HttpsPortMap[port] {
+		// If port in https map then proxy to https
+		target, _ = url.Parse("https://127.0.0.1:" + port)
+	} else {
+		log.Error().Msgf("proxy of http port %s is not allowed", port)
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, "/http/" + port)
+	proxy := httputil.NewSingleHostReverseProxy(target)
 
-  proxy.ServeHTTP(w, r)
+	r.URL.Path = strings.TrimPrefix(r.URL.Path, "/http/"+port)
+
+	proxy.ServeHTTP(w, r)
 }
