@@ -18,6 +18,8 @@ put:
         schema:
           type: object
           properties:
+            agent_version:
+              type: string
             has_code_server:
               type: boolean
             ssh_port:
@@ -26,6 +28,14 @@ put:
               type: integer
             has_terminal:
               type: boolean
+            tcp_ports:
+              type: array
+              items:
+                type: integer
+            http_ports:
+              type: array
+              items:
+                type: integer
   responses:
     '200':
       description: Agent updated successfully
