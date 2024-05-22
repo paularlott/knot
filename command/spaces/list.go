@@ -64,13 +64,29 @@ var listCmd = &cobra.Command{
 				}
 
 				// The list of HTTP ports
-				for _, port := range state.HttpPorts {
-					ports = append(ports, fmt.Sprintf("%d", port))
+				for port, desc := range state.HttpPorts {
+					var p string
+
+					if port == desc {
+						p = port
+					} else {
+						p = fmt.Sprintf("%s (%s)", desc, port)
+					}
+
+					ports = append(ports, p)
 				}
 
 				// The list of TCP ports
-				for _, port := range state.TcpPorts {
-					ports = append(ports, fmt.Sprintf("%d", port))
+				for port, desc := range state.TcpPorts {
+					var p string
+
+					if port == desc {
+						p = port
+					} else {
+						p = fmt.Sprintf("%s (%s)", desc, port)
+					}
+
+					ports = append(ports, p)
 				}
 			}
 

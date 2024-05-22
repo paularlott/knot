@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	HttpPortMap  map[string]bool
-	HttpsPortMap map[string]bool
+	HttpPortMap  map[string]string
+	HttpsPortMap map[string]string
 )
 
 func agentProxyHTTP(w http.ResponseWriter, r *http.Request) {
@@ -24,10 +24,10 @@ func agentProxyHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Msgf("proxy of http port %s", port)
 
-	// If port in http map then proxy to http
-	if HttpPortMap[port] {
+	if _, ok := HttpPortMap[port]; ok {
+		// If port in http map then proxy to http
 		target, _ = url.Parse("http://127.0.0.1:" + port)
-	} else if HttpsPortMap[port] {
+	} else if _, ok := HttpsPortMap[port]; ok {
 		// If port in https map then proxy to https
 		target, _ = url.Parse("https://127.0.0.1:" + port)
 	} else {

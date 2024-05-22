@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/api/apiv1"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
@@ -16,13 +17,17 @@ import (
 	"github.com/spf13/viper"
 )
 
-func ReportState(serverAddr string, spaceId string, codeServerPort int, sshPort int, vncHttpPort int, tcpPorts []int, httpPorts *[]int, httpsPorts *[]int) {
+func ReportState(serverAddr string, spaceId string, codeServerPort int, sshPort int, vncHttpPort int) {
 	var failCount = 0
 
 	// Combine the http and https port arrays into a single array
-	var webPorts []int
-	webPorts = append(webPorts, *httpPorts...)
-	webPorts = append(webPorts, *httpsPorts...)
+	webPorts := make(map[string]string)
+	for key, value := range agentv1.HttpPortMap {
+		webPorts[key] = value
+	}
+	for key, value := range agentv1.HttpsPortMap {
+		webPorts[key] = value
+	}
 
 	// Register the agent with the server
 	Register(serverAddr, spaceId)
@@ -69,7 +74,7 @@ func ReportState(serverAddr string, spaceId string, codeServerPort int, sshPort 
 		log.Debug().Msgf("Report agent state to server: SSH %d, Code Server %d, VNC Http %d, Code Server Alive %t", sshAlivePort, codeServerPort, vncAliveHttpPort, codeServerAlive)
 
 		client := rest.NewClient(util.ResolveSRVHttp(middleware.ServerURL), middleware.AgentSpaceKey, viper.GetBool("tls_skip_verify"))
-		statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort, vncAliveHttpPort, viper.GetBool("agent.enable_terminal"), tcpPorts, &webPorts)
+		statusCode, err := apiv1.CallUpdateAgentStatus(client, spaceId, codeServerAlive, sshAlivePort, vncAliveHttpPort, viper.GetBool("agent.enable_terminal"), &agentv1.TcpPortMap, &webPorts)
 		if err != nil {
 			log.Info().Msgf("failed to ping server: %d, %s", statusCode, err.Error())
 			failCount++

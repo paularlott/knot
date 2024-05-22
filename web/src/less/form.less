@@ -118,6 +118,16 @@ button, .button {
   }
 }
 
+.menu-popup {
+  .outline {
+    border: 1px solid darken(@lightBorderColor, 10%);
+
+    &:hover {
+      background-color: darken(@darkBorderColor, 5%);
+    }
+  }
+}
+
 a.button {
   display: inline-block;
 }
@@ -133,6 +143,16 @@ body.light {
 
       &:hover {
         background-color: @lightBorderColor;
+      }
+    }
+  }
+
+  .menu-popup {
+    .outline {
+      border: 1px solid darken(@lightBorderColor, 15%);
+
+      &:hover {
+        background-color: darken(@lightBorderColor, 5%);
       }
     }
   }
@@ -332,19 +352,14 @@ form {
 }
 
 .tcp-port {
-  .standardFont;
-  .user-select();
   color: @buttonColor;
   background-color: transparent;
-  border: none;
-  border-radius: .5rem;
-  padding: .5rem 1.5rem;
-  text-decoration: none;
-  white-space: nowrap;
-  text-align: center;
-  color: @darkFontColor;
-  background-color: transparent;
   border: 1px solid @lightBorderColor;
+  cursor: default;
+
+  &:hover {
+    background-color: transparent;
+  }
 }
 
 body.light {

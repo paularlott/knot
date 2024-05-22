@@ -92,13 +92,13 @@ func CallRegisterAgent(client *rest.RESTClient, spaceId string) (*AgentRegisterR
 }
 
 type AgentStatusRequest struct {
-	AgentVersion  string `json:"agent_version"`
-	HasCodeServer bool   `json:"has_code_server"`
-	SSHPort       int    `json:"ssh_port"`
-	VNCHttpPort   int    `json:"vnc_http_port"`
-	HasTerminal   bool   `json:"has_terminal"`
-	TcpPorts      []int  `json:"tcp_ports"`
-	HttpPorts     []int  `json:"http_ports"`
+	AgentVersion  string            `json:"agent_version"`
+	HasCodeServer bool              `json:"has_code_server"`
+	SSHPort       int               `json:"ssh_port"`
+	VNCHttpPort   int               `json:"vnc_http_port"`
+	HasTerminal   bool              `json:"has_terminal"`
+	TcpPorts      map[string]string `json:"tcp_ports"`
+	HttpPorts     map[string]string `json:"http_ports"`
 }
 
 type AgentStatusResponse struct {
@@ -137,14 +137,14 @@ func HandleAgentStatus(w http.ResponseWriter, r *http.Request) {
 	rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "agent not found"})
 }
 
-func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts []int, httpPorts *[]int) (int, error) {
+func CallUpdateAgentStatus(client *rest.RESTClient, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string) (int, error) {
 	request := &AgentStatusRequest{
 		AgentVersion:  build.Version,
 		HasCodeServer: hasCodeServer,
 		SSHPort:       sshPort,
 		VNCHttpPort:   vncHttpPort,
 		HasTerminal:   hasTerminal,
-		TcpPorts:      tcpPorts,
+		TcpPorts:      *tcpPorts,
 		HttpPorts:     *httpPorts,
 	}
 	response := &AgentStatusResponse{}

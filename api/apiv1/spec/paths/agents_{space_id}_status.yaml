@@ -29,13 +29,13 @@ put:
             has_terminal:
               type: boolean
             tcp_ports:
-              type: array
-              items:
-                type: integer
+              type: object
+              additionalProperties:
+                type: string
             http_ports:
-              type: array
-              items:
-                type: integer
+              type: object
+              additionalProperties:
+                type: string
   responses:
     '200':
       description: Agent updated successfully

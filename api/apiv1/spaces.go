@@ -360,8 +360,8 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 		response.HasSSH = false
 		response.HasTerminal = false
 		response.HasHttpVNC = false
-		response.TcpPorts = []int{}
-		response.HttpPorts = []int{}
+		response.TcpPorts = make(map[string]string)
+		response.HttpPorts = make(map[string]string)
 	} else {
 		response.HasCodeServer = state.HasCodeServer
 		response.HasSSH = state.SSHPort > 0
@@ -371,7 +371,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 
 		// If wildcard domain is set then offer the http ports
 		if viper.GetString("server.wildcard_domain") == "" {
-			response.HttpPorts = []int{}
+			response.HttpPorts = make(map[string]string)
 		} else {
 			response.HttpPorts = state.HttpPorts
 		}
@@ -383,6 +383,11 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	response.IsPending = space.IsPending
 	response.IsDeleting = space.IsDeleting
 	response.IsRemote = space.Location != "" && space.Location != viper.GetString("server.location")
+
+	// If template is manual then force IsDeployed to true
+	if space.TemplateId == model.MANUAL_TEMPLATE_ID {
+		response.IsDeployed = true
+	}
 
 	// Check if the template has been updated
 	hash, ok := templateHashes[space.TemplateId]

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -138,41 +138,56 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
 		// Build a map of the available tcp ports
 		ports := viper.GetStringSlice("agent.port.tcp_port")
-		tcpPorts := []int{}
-		agentv1.TcpPortMap = make(map[string]bool, len(ports))
+		agentv1.TcpPortMap = make(map[string]string, len(ports))
 		for _, port := range ports {
-			agentv1.TcpPortMap[port] = true
+			var name string
+			if strings.Contains(port, "=") {
+				parts := strings.Split(port, "=")
+				port = parts[0]
+				name = parts[1]
+			} else {
+				name = port
+			}
 
-			portInt, _ := strconv.Atoi(port)
-			tcpPorts = append(tcpPorts, portInt)
+			agentv1.TcpPortMap[port] = name
 		}
 
 		// Add the ssh port to the map
 		sshPort := viper.GetInt("agent.port.ssh")
 		if sshPort != 0 {
-			agentv1.TcpPortMap[fmt.Sprintf("%d", sshPort)] = true
+			agentv1.TcpPortMap[fmt.Sprintf("%d", sshPort)] = "SSH"
 		}
 
 		// Build a map of available http ports
 		ports = viper.GetStringSlice("agent.port.http_port")
-		httpPorts := []int{}
-		agentv1.HttpPortMap = make(map[string]bool, len(ports))
+		agentv1.HttpPortMap = make(map[string]string, len(ports))
 		for _, port := range ports {
-			agentv1.HttpPortMap[port] = true
+			var name string
+			if strings.Contains(port, "=") {
+				parts := strings.Split(port, "=")
+				port = parts[0]
+				name = parts[1]
+			} else {
+				name = port
+			}
 
-			portInt, _ := strconv.Atoi(port)
-			httpPorts = append(httpPorts, portInt)
+			agentv1.HttpPortMap[port] = name
 		}
 
 		// Build a map of available https ports
 		ports = viper.GetStringSlice("agent.port.https_port")
-		httpsPorts := []int{}
-		agentv1.HttpsPortMap = make(map[string]bool, len(ports))
+		agentv1.HttpsPortMap = make(map[string]string, len(ports))
 		for _, port := range ports {
-			agentv1.HttpsPortMap[port] = true
+			var name string
+			if strings.Contains(port, "=") {
+				parts := strings.Split(port, "=")
+				port = parts[0]
+				name = parts[1]
+			} else {
+				name = port
+			}
 
-			portInt, _ := strconv.Atoi(port)
-			httpsPorts = append(httpsPorts, portInt)
+			agentv1.HttpsPortMap[port] = name
 		}
 
 		// Check address given and valid URL
@@ -190,7 +205,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		router.Mount("/", agentv1.Routes(cmd))
 
 		// Pings the server periodically to keep the agent alive
-		go agent.ReportState(serverAddr, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), tcpPorts, &httpPorts, &httpsPorts)
+		go agent.ReportState(serverAddr, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"))
 
 		// Start the DNS forwarder if enabled
 		if viper.GetString("agent.dns_listen") != "" {

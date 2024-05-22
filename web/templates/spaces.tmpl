@@ -69,7 +69,6 @@
         </td>
         <td>
           <span x-show="s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}'">
-            <button class="outline" x-show="s.has_ssh" @click="s.showSSHPopup = true"><i class='bx bxs-terminal' ></i> SSH</button>
             <div x-show="s.showSSHPopup" @click.away="s.showSSHPopup = false" @keydown.window.escape="s.showSSHPopup = false" class="space-ssh-popup">
               <input type="text" x-model="s.sshCmd" readonly>
             </div>
@@ -77,13 +76,13 @@
             <button class="outline" x-show="s.has_http_vnc" @click="openWindowForVNC(s.space_id, s.name)"><i class='bx bx-desktop' ></i> Desktop</button>
             <button class="outline" x-show="s.has_code_server" @click="openCodeServer(s.space_id)"><i class='bx bx-code-alt' ></i> Code</button>
             <button class="outline" x-show="s.has_terminal" @click="openTerminal(s.space_id)"><i class='bx bx-terminal'></i> Terminal</button>
-            <button class="outline" x-show="(s.tcp_ports && s.tcp_ports.length) || (s.http_ports && s.http_ports.length)" @click="s.showPortMenu = true"><i class='bx bx-network-chart'></i> Ports</button>
+            <button class="outline" x-show="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length)" @click="s.showPortMenu = true"><i class='bx bx-network-chart'></i> Ports</button>
             <div x-show="s.showPortMenu" @click.away="s.showPortMenu = false" @keydown.window.escape="s.showPortMenu = false" class="menu-popup">
-              <template x-for="port in s.http_ports" :key="port">
-                <button x-text="port" @click="openWindowForPort(s.space_id, s.name, port); s.showPortMenu = false;"></button>
+              <template x-for="[key, value] in Object.entries(s.http_ports)" :key="key">
+                <button x-text="key==value ? key : value + ' (' + key + ')'" @click="openWindowForPort(s.space_id, s.name, key); s.showPortMenu = false;"></button>
               </template>
-              <template x-for="port in s.tcp_ports" :key="port">
-                <div class="tcp-port" x-text="port"></div>
+              <template x-for="[key, value] in Object.entries(s.tcp_ports)" :key="key">
+                <button disabled="disabled" class="tcp-port" x-text="key==value ? key : value + ' (' + key + ')'"></button>
               </template>
             </div>
           </span>
@@ -95,6 +94,7 @@
             <button x-show="s.is_deployed && !s.is_pending && s.template_id != '00000000-0000-0000-0000-000000000000'" @click="stopSpace(s.space_id); s.is_pending = true"><i class='bx bx-stop-circle' ></i> Stop</button>
             <hr x-show="!s.is_deployed" />
             <button x-show="!s.is_deployed && !s.is_pending" @click="deleteConfirm.show = true; deleteConfirm.space = s; s.is_deleting = true" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
+            <button class="outline" x-show="s.has_ssh" @click="s.showSSHPopup = true; s.showMenu = false"><i class='bx bxs-terminal' ></i> SSH</button>
           </div>
         </td>
       </tr>

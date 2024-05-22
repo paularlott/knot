@@ -41,19 +41,19 @@ type SpaceInfoList struct {
 }
 
 type SpaceServiceState struct {
-	Name            string `json:"name"`
-	Location        string `json:"location"`
-	HasCodeServer   bool   `json:"has_code_server"`
-	HasSSH          bool   `json:"has_ssh"`
-	HasHttpVNC      bool   `json:"has_http_vnc"`
-	HasTerminal     bool   `json:"has_terminal"`
-	IsDeployed      bool   `json:"is_deployed"`
-	IsPending       bool   `json:"is_pending"`
-	IsDeleting      bool   `json:"is_deleting"`
-	TcpPorts        []int  `json:"tcp_ports"`
-	HttpPorts       []int  `json:"http_ports"`
-	UpdateAvailable bool   `json:"update_available"`
-	IsRemote        bool   `json:"is_remote"`
+	Name            string            `json:"name"`
+	Location        string            `json:"location"`
+	HasCodeServer   bool              `json:"has_code_server"`
+	HasSSH          bool              `json:"has_ssh"`
+	HasHttpVNC      bool              `json:"has_http_vnc"`
+	HasTerminal     bool              `json:"has_terminal"`
+	IsDeployed      bool              `json:"is_deployed"`
+	IsPending       bool              `json:"is_pending"`
+	IsDeleting      bool              `json:"is_deleting"`
+	TcpPorts        map[string]string `json:"tcp_ports"`
+	HttpPorts       map[string]string `json:"http_ports"`
+	UpdateAvailable bool              `json:"update_available"`
+	IsRemote        bool              `json:"is_remote"`
 }
 
 type SpaceDefinition struct {
