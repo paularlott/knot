@@ -1,10 +1,12 @@
 package agentv1
 
 import (
+	"crypto/tls"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -35,6 +37,14 @@ func agentProxyHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = &http.Transport{
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		MaxConnsPerHost:     32 * 2,
+		MaxIdleConns:        32 * 2,
+		MaxIdleConnsPerHost: 32,
+		IdleConnTimeout:     30 * time.Second,
+		DisableCompression:  false,
+	}
 
 	r.URL.Path = strings.TrimPrefix(r.URL.Path, "/http/"+port)
 
