@@ -13,15 +13,21 @@ func UpdateSSHConfig(sshConfig string) error {
 
 	log.Debug().Msg("Start updating .ssh/config")
 
+	// Get the users home directory
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
 	// If the file doesn't exist, create it
-	if _, err := os.Stat(os.Getenv("HOME") + "/.ssh/config"); os.IsNotExist(err) {
+	if _, err := os.Stat(home + "/.ssh/config"); os.IsNotExist(err) {
 		// Create the .ssh folder if it doesn't exist and make it private
-		err := os.MkdirAll(os.Getenv("HOME")+"/.ssh", 0700)
+		err := os.MkdirAll(home+"/.ssh", 0700)
 		if err != nil {
 			return err
 		}
 	} else {
-		file, err := os.Open(os.Getenv("HOME") + "/.ssh/config")
+		file, err := os.Open(home + "/.ssh/config")
 		if err != nil {
 			return err
 		}
@@ -56,7 +62,7 @@ func UpdateSSHConfig(sshConfig string) error {
 	}
 
 	// Write lines to .ssh/config file
-	file, err := os.OpenFile(os.Getenv("HOME")+"/.ssh/config", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0700)
+	file, err := os.OpenFile(home+"/.ssh/config", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0700)
 	if err != nil {
 		return err
 	}
