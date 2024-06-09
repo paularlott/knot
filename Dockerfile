@@ -1,4 +1,4 @@
-FROM ${DOCKER_HUB}library/alpine:3.19.0
+FROM ${DOCKER_HUB}library/alpine:3.20.0
 
 # Upgrade to the latest versions
 RUN apk update \
