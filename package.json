@@ -25,7 +25,7 @@
     "@xterm/addon-serialize": "^0.12.0",
     "@xterm/addon-unicode11": "^0.7.0",
     "@xterm/addon-web-links": "^0.10.0",
-    "@xterm/addon-webgl": "^0.17.0",
+    "@xterm/addon-webgl": "^0.18.0",
     "ace-builds": "^1.32.9",
     "alpinejs": "^3.13.8",
     "@xterm/xterm": "^5.4.0"
