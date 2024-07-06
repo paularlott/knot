@@ -130,7 +130,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 			Value:    session.Id,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   false,
+			Secure:   viper.GetBool("server.tls.use_tls"),
 			SameSite: http.SameSiteLaxMode,
 		}
 
