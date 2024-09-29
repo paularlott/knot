@@ -9,7 +9,7 @@ window.groupListComponent = function() {
       }
     },
     groups: [],
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('group-search-term').using(sessionStorage),
 
     async getGroups() {
       this.loading = true;
@@ -20,6 +20,9 @@ window.groupListComponent = function() {
       });
       groupList = await response.json();
       this.groups = groupList.groups;
+
+      // Apply search filter
+      this.searchChanged();
 
       this.loading = false;
       this.groups.forEach(group => {

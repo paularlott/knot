@@ -22,7 +22,7 @@ window.templateListComponent = function(canManageSpaces) {
     groups: [],
     canManageSpaces: canManageSpaces,
     users: [],
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('template-search-term').using(sessionStorage),
 
     async getTemplates() {
       this.loading = true;
@@ -67,6 +67,9 @@ window.templateListComponent = function(canManageSpaces) {
           });
         });
       });
+
+      // Apply search filter
+      this.searchChanged();
 
       this.loading = false;
     },

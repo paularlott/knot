@@ -9,7 +9,7 @@ window.apiTokensComponent = function() {
         name: ''
       }
     },
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('apitoken-search-term').using(sessionStorage),
 
     async getTokens() {
       this.loading = true;
@@ -19,6 +19,10 @@ window.apiTokensComponent = function() {
         }
       });
       this.tokens = await response.json();
+
+      // Apply search filter
+      this.searchChanged();
+
       this.loading = false;
     },
     async deleteToken(tokenId) {

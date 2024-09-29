@@ -16,7 +16,7 @@ window.volumeListComponent = function() {
       }
     },
     volumes: [],
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('vol-search-term').using(sessionStorage),
 
     async getVolumes() {
       this.loading = true;
@@ -35,6 +35,9 @@ window.volumeListComponent = function() {
         volume.starting = false;
         volume.stopping = false;
       });
+
+      // Apply search filter
+      this.searchChanged();
 
       this.loading = false;
     },

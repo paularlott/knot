@@ -18,7 +18,7 @@ window.userListComponent = function() {
     users: [],
     roles: [],
     groups: [],
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('user-search-term').using(sessionStorage),
 
     async getUsers() {
       this.loading = true;
@@ -78,6 +78,9 @@ window.userListComponent = function() {
           });
         });
       });
+
+      // Apply search filter
+      this.searchChanged();
     },
     editUser(userId) {
       window.location.href = `/users/edit/${userId}`;

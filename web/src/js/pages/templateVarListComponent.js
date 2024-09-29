@@ -9,7 +9,7 @@ window.templateVarListComponent = function() {
       }
     },
     variables: [],
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('var-search-term').using(sessionStorage),
 
     async getTemplateVars() {
       this.loading = true;
@@ -25,6 +25,9 @@ window.templateVarListComponent = function() {
       this.variables.forEach(variable => {
         variable.showIdPopup = false;
       });
+
+      // Apply search filter
+      this.searchChanged();
 
       this.loading = false;
     },

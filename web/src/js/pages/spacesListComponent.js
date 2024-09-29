@@ -13,7 +13,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     forUserId: forUserId,
     canManageSpaces: canManageSpaces,
     users: [],
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('spaces-search-term').using(sessionStorage),
     async init() {
       if(this.canManageSpaces) {
         const usersResponse = await fetch('/api/v1/users?state=active', {
@@ -106,6 +106,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         if(spacesAdded) {
           this.spaces.sort((a, b) => (a.name > b.name) ? 1 : -1);
         }
+
+        // Apply search filter
+        this.searchChanged();
 
         this.loading = false;
       }

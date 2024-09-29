@@ -35,7 +35,7 @@ window.variableForm = function(isEdit, templateVarId) {
         }
       }
 
-      let darkMode = JSON.parse(localStorage.getItem('darkMode'));
+      let darkMode = JSON.parse(localStorage.getItem('_x_darkMode'));
       if(darkMode == null)
         darkMode = true;
 
