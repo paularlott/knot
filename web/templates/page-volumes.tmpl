@@ -51,9 +51,9 @@
           <div x-show="v.showMenu" @click.away="v.showMenu = false" @keydown.window.escape="v.showMenu = false" class="menu-popup">
             <button x-show="!v.active" x-bind:disabled="v.starting && v.stopping" @click="v.showMenu = false; editVolume(v.volume_id)"><i class='bx bx-edit' ></i> Edit</button>
             <button x-show="!v.active" x-bind:disabled="v.starting || v.stopping" @click="v.showMenu = false; startVolume(v.volume_id); v.starting = true"><i class='bx bx-play-circle' ></i> Start<span x-show="v.starting">ing ...</span></button>
-            <button x-show="v.active" x-bind:disabled="v.starting || v.stopping" @click="v.showMenu = false; stopConfirm.show = true; stopConfirm.volume = t"><i class='bx bx-stop-circle' ></i> Stop<span x-show="v.stopping">ping ...</span></button>
+            <button x-show="v.active" x-bind:disabled="v.starting || v.stopping" @click="v.showMenu = false; stopConfirm.show = true; stopConfirm.volume = v"><i class='bx bx-stop-circle' ></i> Stop<span x-show="v.stopping">ping ...</span></button>
             <hr x-show="!v.active && !v.starting && !v.stopping" />
-            <button x-show="!v.active && !v.starting && !v.stopping" @click="v.showMenu = false; deleteConfirm.show = true; deleteConfirm.volume = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
+            <button x-show="!v.active && !v.starting && !v.stopping" @click="v.showMenu = false; deleteConfirm.show = true; deleteConfirm.volume = v" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
           </div>
         </td>
       </tr>
