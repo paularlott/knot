@@ -91,7 +91,7 @@
           <div x-show="s.showMenu" @click.away="s.showMenu = false" @keydown.window.escape="s.showMenu = false" class="menu-popup">
             <button x-show="!s.is_deployed && !s.is_pending && s.template_id != '00000000-0000-0000-0000-000000000000'" @click="startSpace(s.space_id); s.is_pending = true"><i class='bx bx-play-circle' ></i> Start</button>
             <button x-show="!s.is_pending" @click="editSpace(s.space_id)"><i class='bx bx-edit' ></i> Edit</button>
-            <button x-show="s.is_deployed && !s.is_pending && s.template_id != '00000000-0000-0000-0000-000000000000'" @click="stopSpace(s.space_id); s.is_pending = true"><i class='bx bx-stop-circle' ></i> Stop</button>
+            <button x-show="(s.is_deployed || s.is_pending) && s.template_id != '00000000-0000-0000-0000-000000000000'" @click="stopSpace(s.space_id); s.is_pending = true"><i class='bx bx-stop-circle' ></i> Stop</button>
             <hr x-show="!s.is_deployed" />
             <button x-show="!s.is_deployed && !s.is_pending" @click="deleteConfirm.show = true; deleteConfirm.space = s; s.is_deleting = true" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
             <button class="outline" x-show="s.has_ssh" @click="s.showSSHPopup = true; s.showMenu = false"><i class='bx bxs-terminal' ></i> SSH</button>
