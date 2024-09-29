@@ -63,7 +63,7 @@
             <span x-show="!s.is_deployed && s.is_pending" class="badge warning">Starting</span>
             <span x-show="s.is_deployed && s.is_pending" class="badge warning">Stopping</span>
             <span x-show="s.is_deleting" class="badge danger">Deleting</span>
-            <span x-show="s.update_available" class="badge update">Update Available</span>
+            <span x-show="s.update_available && !s.is_pending" class="badge update">Update Available</span>
           </div>
           <span x-show="s.is_local && s.is_deployed && s.template_id == '00000000-0000-0000-0000-000000000000'" class="badge warning">Listening</span>
         </td>
