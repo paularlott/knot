@@ -75,9 +75,10 @@ func init() {
 
 	// Redis
 	serverCmd.Flags().BoolP("redis-enabled", "", false, "Enable Redis database backend.\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_ENABLED environment variable if set.")
-	serverCmd.Flags().StringP("redis-host", "", "localhost:6379", "The redis server (default \"localhost:6379\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_HOST environment variable if set.")
+	serverCmd.Flags().StringSliceP("redis-hosts", "", []string{"localhost:6379"}, "The redis server(s), can be specified multiple times (default \"localhost:6379\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_HOSTS environment variable if set.")
 	serverCmd.Flags().StringP("redis-password", "", "", "The password to use for the redis server.\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_PASSWORD environment variable if set.")
 	serverCmd.Flags().IntP("redis-db", "", 0, "The redis database to use (default \"0\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_DB environment variable if set.")
+	serverCmd.Flags().StringP("redis-master-name", "", "", "The name of the master to use for failover clients (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME environment variable if set.")
 
 	RootCmd.AddCommand(serverCmd)
 }
@@ -221,15 +222,18 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.redis.enabled", cmd.Flags().Lookup("redis-enabled"))
 		viper.BindEnv("server.redis.enabled", CONFIG_ENV_PREFIX+"_REDIS_ENABLED")
 		viper.SetDefault("server.redis.enabled", false)
-		viper.BindPFlag("server.redis.host", cmd.Flags().Lookup("redis-host"))
-		viper.BindEnv("server.redis.host", CONFIG_ENV_PREFIX+"_REDIS_HOST")
-		viper.SetDefault("server.redis.host", "localhost:6379")
+		viper.BindPFlag("server.redis.hosts", cmd.Flags().Lookup("redis-hosts"))
+		viper.BindEnv("server.redis.hosts", CONFIG_ENV_PREFIX+"_REDIS_HOSTS")
+		viper.SetDefault("server.redis.hosts", []string{"localhost:6379"})
 		viper.BindPFlag("server.redis.password", cmd.Flags().Lookup("redis-password"))
 		viper.BindEnv("server.redis.password", CONFIG_ENV_PREFIX+"_REDIS_PASSWORD")
 		viper.SetDefault("server.redis.password", "")
 		viper.BindPFlag("server.redis.db", cmd.Flags().Lookup("redis-db"))
 		viper.BindEnv("server.redis.db", CONFIG_ENV_PREFIX+"_REDIS_DB")
 		viper.SetDefault("server.redis.db", 0)
+		viper.BindPFlag("server.redis.master_name", cmd.Flags().Lookup("redis-master-name"))
+		viper.BindEnv("server.redis.master_name", CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME")
+		viper.SetDefault("server.redis.master_name", "")
 
 		// Set if remote or core server
 		viper.Set("server.is_remote", viper.GetString("server.remote_token") != "" && viper.GetString("server.core_server") != "")

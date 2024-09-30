@@ -139,8 +139,6 @@ func initDrivers() {
 				if err != nil {
 					log.Debug().Msg("db: failed to connect to redis")
 					dbCacheInstance = dbInstance
-				} else {
-					log.Debug().Msg("db: connected to redis")
 				}
 			} else {
 				// Use the main driver

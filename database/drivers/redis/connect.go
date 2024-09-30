@@ -11,7 +11,7 @@ import (
 )
 
 type RedisDbDriver struct {
-	connection *redis.Client
+	connection redis.UniversalClient
 }
 
 func convertRedisError(err error) error {
@@ -36,33 +36,34 @@ func (db *RedisDbDriver) keyExists(key string) (bool, error) {
 func (db *RedisDbDriver) realConnect() {
 	log.Debug().Msg("db: connecting to Redis")
 
-	// If the host starts with srv+ then lookup the SRV record
-	host := viper.GetString("server.redis.host")
-	if host[:4] == "srv+" {
-		for i := 0; i < 10; i++ {
-			hostPort, err := util.LookupSRV(host[4:])
-			if err != nil {
-				if i == 9 {
-					log.Fatal().Err(err).Msg("db: failed to lookup SRV record for Redis server aborting after 10 attempts")
-				} else {
-					log.Error().Err(err).Msg("db: failed to lookup SRV record for Redis server")
+	// Look through the list of hosts and any that start with srv+ lookup the SRV record
+	hosts := viper.GetStringSlice("server.redis.hosts")
+	for idx, host := range hosts {
+		if host[:4] == "srv+" {
+			for i := 0; i < 10; i++ {
+				hostPort, err := util.LookupSRV(host[4:])
+				if err != nil {
+					if i == 9 {
+						log.Fatal().Err(err).Msg("db: failed to lookup SRV record for Redis server aborting after 10 attempts")
+					} else {
+						log.Error().Err(err).Msg("db: failed to lookup SRV record for Redis server")
+					}
+					time.Sleep(3 * time.Second)
+					continue
 				}
-				time.Sleep(3 * time.Second)
-				continue
+
+				hosts[idx] = (*hostPort)[0].Host + ":" + (*hostPort)[0].Port
 			}
-
-			host = (*hostPort)[0].Host + ":" + (*hostPort)[0].Port
-
-			break
 		}
 	}
 
-	log.Debug().Msgf("db: connecting to redis server: %s, db: %d", host, viper.GetInt("server.redis.db"))
+	log.Debug().Msgf("db: connecting to redis server: %s, db: %d", hosts, viper.GetInt("server.redis.db"))
 
-	db.connection = redis.NewClient(&redis.Options{
-		Addr:     host,
-		Password: viper.GetString("server.redis.password"),
-		DB:       viper.GetInt("server.redis.db"),
+	db.connection = redis.NewUniversalClient(&redis.UniversalOptions{
+		Addrs:      hosts,
+		Password:   viper.GetString("server.redis.password"),
+		DB:         viper.GetInt("server.redis.db"),
+		MasterName: viper.GetString("server.redis.master_name"),
 	})
 
 	log.Debug().Msg("db: connected to Redis")
@@ -71,24 +72,25 @@ func (db *RedisDbDriver) realConnect() {
 func (db *RedisDbDriver) Connect() error {
 	db.realConnect()
 
-	// If the host starts with srv+ then start a go routine to monitor the connection
-	host := viper.GetString("server.redis.host")
-	if host[:4] == "srv+" {
-		go func() {
-			for {
-				time.Sleep(10 * time.Second)
+	// TODO this should always monitor and reconnect if the connection is lost
+	/* 	// If the host starts with srv+ then start a go routine to monitor the connection
+	   	host := viper.GetStringSlice("server.redis.host")
+	   	if host[:4] == "srv+" {
+	   		go func() {
+	   			for {
+	   				time.Sleep(10 * time.Second)
 
-				log.Debug().Msg("db: testing Redis connection")
+	   				log.Debug().Msg("db: testing Redis connection")
 
-				_, err := db.connection.Ping(context.Background()).Result()
-				if err != nil {
-					log.Error().Err(err).Msg("db: redis connection lost")
-					db.connection.Close()
-					db.realConnect()
-				}
-			}
-		}()
-	}
+	   				_, err := db.connection.Ping(context.Background()).Result()
+	   				if err != nil {
+	   					log.Error().Err(err).Msg("db: redis connection lost")
+	   					db.connection.Close()
+	   					db.realConnect()
+	   				}
+	   			}
+	   		}()
+	   	} */
 
 	return nil
 }
