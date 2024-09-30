@@ -72,25 +72,21 @@ func (db *RedisDbDriver) realConnect() {
 func (db *RedisDbDriver) Connect() error {
 	db.realConnect()
 
-	// TODO this should always monitor and reconnect if the connection is lost
-	/* 	// If the host starts with srv+ then start a go routine to monitor the connection
-	   	host := viper.GetStringSlice("server.redis.host")
-	   	if host[:4] == "srv+" {
-	   		go func() {
-	   			for {
-	   				time.Sleep(10 * time.Second)
+	// Monitor the connection and reconnect if the connection is lost
+	go func() {
+		for {
+			time.Sleep(10 * time.Second)
 
-	   				log.Debug().Msg("db: testing Redis connection")
+			log.Debug().Msg("db: testing Redis connection")
 
-	   				_, err := db.connection.Ping(context.Background()).Result()
-	   				if err != nil {
-	   					log.Error().Err(err).Msg("db: redis connection lost")
-	   					db.connection.Close()
-	   					db.realConnect()
-	   				}
-	   			}
-	   		}()
-	   	} */
+			_, err := db.connection.Ping(context.Background()).Result()
+			if err != nil {
+				log.Error().Err(err).Msg("db: redis connection lost")
+				db.connection.Close()
+				db.realConnect()
+			}
+		}
+	}()
 
 	return nil
 }
