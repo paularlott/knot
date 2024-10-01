@@ -22,7 +22,7 @@
               <textarea name="description" id="description" placeholder="Description"></textarea>
             </dd>
             <dt><label for="job">Nomad Job (HCL) <em>*</em></label></dt>
-            <dd class="grow">
+            <dd class="grow large-editor">
               <div :class="{'error': !jobValid, 'editor-wrap': true}">
                 <textarea name="job" id="job"></textarea>
                 <div x-show="!jobValid" class="error-message">Template is required.</div>
