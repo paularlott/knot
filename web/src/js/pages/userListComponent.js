@@ -20,8 +20,16 @@ window.userListComponent = function() {
     groups: [],
     searchTerm: Alpine.$persist('').as('user-search-term').using(sessionStorage),
 
+    async init() {
+      this.getUsers();
+
+      // Start a timer to look for updates
+      setInterval(async () => {
+        this.getUsers();
+      }, 15000);
+    },
+
     async getUsers() {
-      this.loading = true;
       const rolesResponse = await fetch('/api/v1/roles', {
         headers: {
           'Content-Type': 'application/json'

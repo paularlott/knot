@@ -9,7 +9,7 @@
       <div class="box">
         <h2>Active Sessions</h2>
 
-<div x-data="sessionsListComponent()" x-init="getSessions">
+<div x-data="sessionsListComponent()">
   {{ template "loading" . }}
   <table class="action" x-show="!loading" x-cloak>
     <thead>

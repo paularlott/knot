@@ -24,9 +24,16 @@ window.templateListComponent = function(canManageSpaces) {
     users: [],
     searchTerm: Alpine.$persist('').as('template-search-term').using(sessionStorage),
 
-    async getTemplates() {
-      this.loading = true;
+    async init() {
+      this.getTemplates();
 
+      // Start a timer to look for updates
+      setInterval(async () => {
+        this.getTemplates();
+      }, 15000);
+    },
+
+    async getTemplates() {
       if(this.canManageSpaces) {
         const usersResponse = await fetch('/api/v1/users?state=active', {
           headers: {

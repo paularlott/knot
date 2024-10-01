@@ -18,9 +18,16 @@ window.volumeListComponent = function() {
     volumes: [],
     searchTerm: Alpine.$persist('').as('vol-search-term').using(sessionStorage),
 
-    async getVolumes() {
-      this.loading = true;
+    async init() {
+      this.getVolumes();
 
+      // Start a timer to look for updates
+      setInterval(async () => {
+        this.getVolumes();
+      }, 15000);
+    },
+
+    async getVolumes() {
       const response = await fetch('/api/v1/volumes', {
         headers: {
           'Content-Type': 'application/json'

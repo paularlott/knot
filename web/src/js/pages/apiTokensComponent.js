@@ -11,8 +11,16 @@ window.apiTokensComponent = function() {
     },
     searchTerm: Alpine.$persist('').as('apitoken-search-term').using(sessionStorage),
 
+    async init() {
+      this.getTokens();
+
+      // Start a timer to look for updates
+      setInterval(async () => {
+        this.getTokens();
+      }, 15000);
+    },
+
     async getTokens() {
-      this.loading = true;
       const response = await fetch('/api/v1/tokens', {
         headers: {
           'Content-Type': 'application/json'

@@ -11,8 +11,16 @@ window.groupListComponent = function() {
     groups: [],
     searchTerm: Alpine.$persist('').as('group-search-term').using(sessionStorage),
 
+    async init() {
+      this.getGroups();
+
+      // Start a timer to look for updates
+      setInterval(async () => {
+        this.getGroups();
+      }, 15000);
+    },
+
     async getGroups() {
-      this.loading = true;
       const response = await fetch('/api/v1/groups', {
         headers: {
           'Content-Type': 'application/json'
