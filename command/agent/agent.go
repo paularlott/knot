@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/agent"
+	"github.com/paularlott/knot/agent/dnsproxy"
 	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/util"
@@ -27,8 +28,7 @@ import (
 func init() {
 	agentCmd.Flags().StringP("server", "s", "", "The address of the server to connect to.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
 	agentCmd.Flags().StringP("space-id", "", "", "The ID of the space the agent is providing.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_SPACEID environment variable if set.")
-	agentCmd.Flags().StringSliceP("consul", "", []string{}, "The address of the consul server to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+command.CONFIG_ENV_PREFIX+"_CONSUL_SERVERS environment variable if set.")
-	agentCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+command.CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
+	agentCmd.Flags().StringSliceP("nameservers", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+command.CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	agentCmd.Flags().StringP("listen", "l", "0.0.0.0:3000", "The address and port to listen on.")
 	agentCmd.Flags().IntP("code-server-port", "", 0, "The port code-server is running on.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT environment variable if set.")
 	agentCmd.Flags().IntP("ssh-port", "", 0, "The port sshd is running on.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_SSH_PORT environment variable if set.")
@@ -48,6 +48,7 @@ func init() {
 
 	// DNS Forwarding
 	agentCmd.Flags().StringP("dns-listen", "", "", "The address and port to listen on for DNS requests (defaults to disabled).\nOverrides the "+command.CONFIG_ENV_PREFIX+"_DNS_LISTEN environment variable if set.")
+	agentCmd.Flags().Uint16P("dns-refresh-max-age", "", 180, "If a cached entry has been used within this number of seconds of it expiring then auto refresh.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_MAX_AGE environment variable if set.")
 
 	command.RootCmd.AddCommand(agentCmd)
 }
@@ -121,15 +122,15 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		viper.SetDefault("tls_skip_verify", true)
 
 		// DNS
-		viper.BindPFlag("resolver.consul", cmd.Flags().Lookup("consul"))
-		viper.BindEnv("resolver.consul", command.CONFIG_ENV_PREFIX+"_CONSUL_SERVERS")
-
 		viper.BindPFlag("resolver.nameservers", cmd.Flags().Lookup("nameserver"))
 		viper.BindEnv("resolver.nameservers", command.CONFIG_ENV_PREFIX+"_NAMESERVERS")
 
-		viper.BindPFlag("agent.dns_listen", cmd.Flags().Lookup("dns-listen"))
-		viper.BindEnv("agent.dns_listen", command.CONFIG_ENV_PREFIX+"_DNS_LISTEN")
-		viper.SetDefault("agent.dns_listen", "")
+		viper.BindPFlag("dns.listen", cmd.Flags().Lookup("dns-listen"))
+		viper.BindEnv("dns.listen", command.CONFIG_ENV_PREFIX+"_DNS_LISTEN")
+
+		viper.BindPFlag("dns.refresh_max_age", cmd.Flags().Lookup("dns-refresh-max-age"))
+		viper.BindEnv("dns.refresh_max_age", command.CONFIG_ENV_PREFIX+"_MAX_AGE")
+		viper.SetDefault("dns.refresh_max_age", 180)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := command.FixListenAddress(viper.GetString("agent.listen"))
@@ -208,8 +209,9 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		go agent.ReportState(serverAddr, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"))
 
 		// Start the DNS forwarder if enabled
-		if viper.GetString("agent.dns_listen") != "" {
-			go agent.ForwardDNS()
+		if viper.GetString("dns.listen") != "" {
+			dnsproxy := dnsproxy.NewDNSProxy()
+			go dnsproxy.RunServer()
 		}
 
 		log.Info().Msgf("agent: listening on: %s", listen)

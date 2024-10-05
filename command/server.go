@@ -34,7 +34,6 @@ import (
 
 func init() {
 	serverCmd.Flags().StringP("listen", "l", "", "The address to listen on (default \"127.0.0.1:3000\").\nOverrides the "+CONFIG_ENV_PREFIX+"_LISTEN environment variable if set.")
-	serverCmd.Flags().StringSliceP("consul", "", []string{}, "The address of the consul server to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_CONSUL_SERVERS environment variable if set.")
 	serverCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	serverCmd.Flags().StringP("url", "u", "", "The URL to use for the server (default \"http://127.0.0.1:3000\").\nOverrides the "+CONFIG_ENV_PREFIX+"_URL environment variable if set.")
 	serverCmd.Flags().BoolP("enable-proxy", "", false, "Enable the proxy server functionality.\nOverrides the "+CONFIG_ENV_PREFIX+"_ENABLE_PROXY environment variable if set.")
@@ -100,9 +99,6 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.wildcard_domain", cmd.Flags().Lookup("wildcard-domain"))
 		viper.BindEnv("server.wildcard_domain", CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN")
 		viper.SetDefault("server.wildcard_domain", "")
-
-		viper.BindPFlag("resolver.consul", cmd.Flags().Lookup("consul"))
-		viper.BindEnv("resolver.consul", CONFIG_ENV_PREFIX+"_CONSUL_SERVERS")
 
 		viper.BindPFlag("resolver.nameservers", cmd.Flags().Lookup("nameserver"))
 		viper.BindEnv("resolver.nameservers", CONFIG_ENV_PREFIX+"_NAMESERVERS")
