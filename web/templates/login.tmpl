@@ -3,22 +3,24 @@
 {{ define "pageTitle" }}Login{{ end }}
 
 {{ define "mainContent" }}
-<div x-data="loginUserForm('{{ .redirect }}')">
-  <form action="" method="POST" @submit.prevent="submitData">
-    <dl>
-      <dt><label for="email">Email <em>*</em></label></dt>
-      <dd>
-        <input type="text" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'error': !emailValid}" placeholder="Email address" x-model="formData.email">
-        <div x-show="!emailValid" class="error-message">Enter a valid email address.</div>
-      </dd>
-      <dt><label for="password">Password <em>*</em></label></dt>
-      <dd>
-        <input type="password" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'error': !passwordValid}" placeholder="Password" x-model="formData.password">
-        <div x-show="!passwordValid" class="error-message">Enter your password.</div>
-      </dd>
-      <dt></dt>
-      <dd><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" class="full-width"></dd>
-    </dl>
+<div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
+  <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> knot
+</div>
+
+<div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-xl dark:bg-gray-800" x-data="loginUserForm('{{ .redirect }}')">
+  <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Sign in to knot</h2>
+  <form class="mt-8 space-y-6" action="#" action="" method="POST" @submit.prevent="submitData">
+    <div>
+      <label for="email" class="form-label">Your email</label>
+      <input type="email" name="email" class="form-field" placeholder="name@company.com" required="" x-on:keyup.debounce.500ms="checkEmail()" x-model="formData.email" :class="{'form-field-error': !emailValid}">
+      <div class="error-message" x-show="!emailValid" x-cloak>Enter a valid email address.</div>
+    </div>
+    <div>
+      <label for="password" class="form-label">Your password</label>
+      <input type="password" name="password" id="password" placeholder="your password" class="form-field" required="" x-on:keyup.debounce.500ms="checkPassword()" x-model="formData.password" :class="{'form-field-error': !passwordValid}">
+      <div class="error-message" x-show="!passwordValid" x-cloak>Enter your password.</div>
+    </div>
+    <button type="submit" class="btn-primary" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></button>
   </form>
 </div>
 

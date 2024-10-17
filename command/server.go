@@ -45,6 +45,8 @@ func init() {
 	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to NOMAD_DC or hostname).\nOverrides the "+CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
 	serverCmd.Flags().StringP("core-server", "", "", "The address of the core server this server is to become a remote of (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_CORE_SERVER environment variable if set.")
 	serverCmd.Flags().StringP("remote-token", "", "", "The token to use for remote and core server communication (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REMOTE_TOKEN environment variable if set.")
+	serverCmd.Flags().StringP("html-path", "", "", "The optional path to the html files to serve, if not given then then internal files are used.\nOverrides the "+CONFIG_ENV_PREFIX+"_HTML_PATH environment variable if set.")
+	serverCmd.Flags().StringP("template-path", "", "", "The optional path to the template files to serve, if not given then then internal files are used.\nOverrides the "+CONFIG_ENV_PREFIX+"_TEMPLATE_PATH environment variable if set.")
 
 	// TLS
 	serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the "+CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -114,6 +116,14 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.download_path", cmd.Flags().Lookup("download-path"))
 		viper.BindEnv("server.download_path", CONFIG_ENV_PREFIX+"_DOWNLOAD_PATH")
 		viper.SetDefault("server.download_path", "")
+
+		viper.BindPFlag("server.html_path", cmd.Flags().Lookup("html-path"))
+		viper.BindEnv("server.html_path", CONFIG_ENV_PREFIX+"_HTML_PATH")
+		viper.SetDefault("server.html_path", "")
+
+		viper.BindPFlag("server.template_path", cmd.Flags().Lookup("template-path"))
+		viper.BindEnv("server.template_path", CONFIG_ENV_PREFIX+"_TEMPLATE_PATH")
+		viper.SetDefault("server.template_path", "")
 
 		viper.BindPFlag("server.encrypt", cmd.Flags().Lookup("encrypt"))
 		viper.BindEnv("server.encrypt", CONFIG_ENV_PREFIX+"_ENCRYPT")

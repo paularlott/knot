@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -20,7 +21,7 @@ import (
 )
 
 var (
-	//go:embed public_html/*
+	//go:embed public_html/api-docs public_html/assets public_html/images public_html/index.html
 	publicHTML embed.FS
 
 	//go:embed templates/*.tmpl templates/partials/*.tmpl templates/layouts/*.tmpl
@@ -40,24 +41,39 @@ func Routes() chi.Router {
 		rctx := chi.RouteContext(r.Context())
 		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
 
-		fsys := fs.FS(publicHTML)
-		contentStatic, _ := fs.Sub(fsys, "public_html")
-
-		// Test if file r.URL.Path exists in contentStatic
+		// Serve index.html if path is empty
 		fileName := strings.TrimPrefix(r.URL.Path, "/")
 		if strings.HasSuffix(fileName, "/") || fileName == "" {
 			fileName = fileName + "index.html"
 		}
 
-		file, err := contentStatic.Open(fileName)
-		if err != nil {
-			showPageNotFound(w, r)
-			return
-		}
-		file.Close()
+		// If server.html_path is given then serve the files from that path otherwise serve the embedded files
+		htmlPath := viper.GetString("server.html_path")
+		if htmlPath != "" {
+			// If the file does exist then return a 404
+			info, err := os.Stat(filepath.Join(htmlPath, fileName))
+			if os.IsNotExist(err) || info.IsDir() {
+				showPageNotFound(w, r)
+				return
+			}
 
-		fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
-		fs.ServeHTTP(w, r)
+			fs := http.StripPrefix(pathPrefix, http.FileServer(http.Dir(htmlPath)))
+			fs.ServeHTTP(w, r)
+		} else {
+			fsys := fs.FS(publicHTML)
+			contentStatic, _ := fs.Sub(fsys, "public_html")
+
+			// Test if file r.URL.Path exists in contentStatic
+			file, err := contentStatic.Open(fileName)
+			if err != nil {
+				showPageNotFound(w, r)
+				return
+			}
+			file.Close()
+
+			fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
+			fs.ServeHTTP(w, r)
+		}
 	})
 
 	// Group routes that require authentication
@@ -202,10 +218,37 @@ func newTemplate(name string) (*template.Template, error) {
 		},
 	}
 
+	// If server.template_path is given then serve the files from that path otherwise serve the embedded files
+	templatePath := viper.GetString("server.template_path")
+	if templatePath != "" {
+		// Check if template exists in the given template_path
+		filePath := filepath.Join(templatePath, name)
+		fmt.Println(filePath)
+
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			return nil, errors.New("template not found")
+		}
+
+		// Create the template from the given template_path
+		tmpl, err := template.New(name).Funcs(funcs).ParseGlob(filepath.Join(templatePath, "layouts", "*.tmpl"))
+		if err != nil {
+			return nil, err
+		}
+		tmpl, err = tmpl.ParseGlob(filepath.Join(templatePath, "partials", "*.tmpl"))
+		if err != nil {
+			return nil, err
+		}
+		tmpl, err = tmpl.ParseFiles(filePath)
+		if err != nil {
+			return nil, err
+		}
+		return tmpl, nil
+	}
+
 	// Check if template exists
 	file, err := tmplFiles.Open(fmt.Sprintf("templates/%s", name))
 	if err != nil {
-		return nil, nil
+		return nil, errors.New("template not found")
 	}
 	file.Close()
 

@@ -3,81 +3,88 @@
 {{ define "pageTitle" }}{{ if .isEdit }}Edit Space{{ else }}Create Space{{ end }}{{ end }}
 
 {{ define "mainContent" }}
-<div class="content">
-  <div class="row">
-    <div class="col-sm-6 col-sm-offset-3">
-      <div class="box">
-        <div x-data="spaceForm({{ .isEdit }}, '{{ .spaceId }}', '{{ .user_id }}', '{{ .preferredShell }}', '{{ .forUserId }}', '{{ .forUserUsername }}', '{{ .templateId }}')" x-init="initData">
-          <h2>{{ if .isEdit }}Edit Space{{ else }}Create Space{{ end }} <span x-show="formData.user_id.length">for <span x-text="forUsername"></span></span></h2>
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
+  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="spaceForm({{ .isEdit }}, '{{ .spaceId }}', '{{ .user_id }}', '{{ .preferredShell }}', '{{ .forUserId }}', '{{ .forUserUsername }}', '{{ .templateId }}')" x-init="initData">
 
-          {{ template "loading" . }}
-          <form action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
-            <dl>
-              <dt><label for="name">Space Name <em>*</em></label></dt>
-              <dd>
-                <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Space name" x-model="formData.name">
-                <div x-show="!nameValid" class="error-message">Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
-              </dd>
-              <dt><label>Additional Space Names</label> <button type="button" class="outline" x-on:click="addAltName()"><i class='bx bxs-message-square-add' ></i></button></dt>
-              <dd>
-                <template x-for="(name, index) in formData.alt_names" :key="index">
-                  <div class="additional-name">
-                    <div class="control">
-                      <input type="text" x-model="formData.alt_names[index]" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'error': !altNameValid[index]}" placeholder="Additional space name">
-                      <button type="button" class="outline" x-on:click="removeAltName(index)"><i class='bx bx-trash'></i></button>
-                    </div>
-                    <div x-show="!altNameValid[index]" class="error-message">Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
-                  </div>
-                </template>
-              </dd>
-              <dt><label for="name">Template <em>*</em></label></dt>
-              <dd>
-                <div class="selectControl">
-                  <select id="template" name="template" x-model="formData.template_id" readonly disabled>
-                    <template x-for="template in templates" :key="template.template_id">
-                      <option :value="template.template_id" x-text="template.name"></option>
-                    </template>
-                  </select>
-                </div>
-              </dd>
-              <dt x-show="formData.template_id === '00000000-0000-0000-0000-000000000000'"><label for="name">Agent URL <em>*</em></label></dt>
-              <dd x-show="formData.template_id === '00000000-0000-0000-0000-000000000000'">
-                <input type="url" name="address" x-on:keyup.debounce.500ms="checkAddress()" :class="{'error': !addressValid}" placeholder="URL of agent" x-model="formData.agent_url">
-                <div x-show="!addressValid" class="error-message">When template is None this must be a valid URL.</div>
-              </dd>
-              <dt><label for="name">Terminal Shell <em>*</em></label></dt>
-              <dd>
-                <div class="selectControl">
-                  <select id="shell" name="shell" x-model="formData.shell">
-                    <option value="bash">Bash</option>
-                    <option value="zsh">Zsh</option>
-                    <option value="fish">fish</option>
-                    <option value="sh">Bourne</option>
-                  </select>
-                </div>
-                <div class="description">The shell that will be used when you open a web terminal in this space.</div>
-              </dd>
-              <dt x-show="!isEdit && hasEditableVolumeSizes"><label for="name">Volume Size(s) <em>*</em></label></dt>
-              <dd x-show="!isEdit && hasEditableVolumeSizes">
-                <ul>
-                <template x-for="(vs, idx) in volume_sizes" :key="idx">
-                  <li x-show="vs.capacity_min != vs.capacity_max">
-                    <label x-text="volume_size_label[vs.id].label"></label>
-                    <input type="number" :class="{'error': !volume_size_valid[vs.id]}" :min="vs.capacity_min" :max="vs.capacity_max" :disabled="isEdit || vs.capacity_min == vs.capacity_max" :readonly="isEdit || vs.capacity_min == vs.capacity_max"  placeholder="Volume Size in GB" x-model="formData.volume_sizes[vs.id]" @blur.debounce.500ms="checkVolumeSize(vs.id)" />
-                    <div x-show="!volume_size_valid[vs.id]" class="error-message">Please enter a valid volume size in GB.</div>
-                    <div class="description" x-show="vs.capacity_min != vs.capacity_max">Between <span x-text="vs.capacity_min"></span>GB and <span x-text="vs.capacity_max"></span>GB</div>
-                  </li>
-                </template>
-                </ul>
-              </dd>
-              <dt></dt>
-              <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"> <input type="submit" value="Save" x-show="isEdit" x-on:click="stayOnPage=false"></dd>
-            </dl>
-          </form>
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Space{{ else }}Create Space{{ end }} <span x-show="formData.user_id.length">for <span x-text="forUsername"></span></span></h1>
+    </div>
+
+    <dl class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
+      {{ template "loading" . }}
+      <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
+        <div>
+          <label for="name" class="form-label">Space Name</label>
+          <input type="text" class="form-field" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" x-model="formData.name">
+          <div x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+        </div>
+        <div>
+          <div class="flex items-center mb-1">
+            <label class="form-label mb-0 mr-2">Additional Space Names</label>
+            <button type="button" x-on:click="addAltName()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              <span class="sr-only">Add</span>
+            </button>
+          </div>
+          <template x-for="(name, index) in formData.alt_names" :key="index">
+            <div class="mb-2">
+              <div class="flex items-center">
+                <input type="text" class="form-field mr-2" x-model="formData.alt_names[index]" x-on:keyup.debounce.500ms="checkAltName(index)" :class="{'form-field-error': !altNameValid[index]}" placeholder="Additional space name">
+                <button type="button" x-on:click="removeAltName(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                  </svg> <span class="sr-only">Remove</span>
+                </button>
+              </div>
+              <div x-show="!altNameValid[index]" class="error-message">Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+            </div>
+          </template>
+        </div>
+        <div>
+          <label for="name" class="form-label">Template</label>
+          <select id="template" name="template" x-model="formData.template_id" readonly disabled class="form-field">
+            <template x-for="template in templates" :key="template.template_id">
+              <option :value="template.template_id" x-text="template.name"></option>
+            </template>
+          </select>
+        </div>
+        <div x-show="formData.template_id === '00000000-0000-0000-0000-000000000000'">
+          <label for="name" class="form-label">Agent URL</label>
+          <input type="url" class="form-field" name="address" x-on:keyup.debounce.500ms="checkAddress()" :class="{'form-field-error': !addressValid}" placeholder="URL of agent" x-model="formData.agent_url">
+          <div x-show="!addressValid" class="error-message" x-cloak>When template is Manual-Configuration this must be a valid URL.</div>
+        </div>
+        <div>
+          <label for="name" class="form-label">Terminal Shell</label>
+          <select class="form-field" name="shell" x-model="formData.shell">
+            <option value="bash">Bash</option>
+            <option value="zsh">Zsh</option>
+            <option value="fish">fish</option>
+            <option value="sh">Bourne</option>
+          </select>
+          <div class="description">The shell that will be used when you open a web terminal in this space.</div>
+        </div>
+        <div x-show="!isEdit && hasEditableVolumeSizes">
+          <label for="name" class="form-label">Volume Size(s)</label>
+          <ul class="list-none">
+            <template x-for="(vs, idx) in volume_sizes" :key="idx">
+              <li x-show="vs.capacity_min != vs.capacity_max">
+                <label x-text="volume_size_label[vs.id].label" class="form-label"></label>
+                <input type="number" class="form-field" :class="{'form-field-error': !volume_size_valid[vs.id]}" :min="vs.capacity_min" :max="vs.capacity_max" :disabled="isEdit || vs.capacity_min == vs.capacity_max" :readonly="isEdit || vs.capacity_min == vs.capacity_max"  placeholder="Volume Size in GB" x-model="formData.volume_sizes[vs.id]" @blur.debounce.500ms="checkVolumeSize(vs.id)" />
+                <div x-show="!volume_size_valid[vs.id]" class="error-message" x-cloak>Please enter a valid volume size in GB.</div>
+                <div class="description" x-show="vs.capacity_min != vs.capacity_max">Between <span x-text="vs.capacity_min"></span>GB and <span x-text="vs.capacity_max"></span>GB</div>
+              </li>
+            </template>
+          </ul>
         </div>
 
-      </div>
+        <button type="submit" class="btn-primary" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
+        <button type="submit" class="btn-primary" x-show="isEdit" x-on:click="stayOnPage=false">Save</button>
+      </form>
+
     </div>
   </div>
-</div>
+</main>
 {{ end }}

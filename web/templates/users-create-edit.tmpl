@@ -9,136 +9,139 @@
 {{ end }}
 
 {{ define "mainContent" }}
-<div class="content">
-  <div class="row">
-    <div class="col-sm-12">
-      <div class="box">
-        {{ if .isProfile }}
-        <h2>Profile</h2>
-        {{ else }}
-        <h2>{{ if .isEdit }}Edit User{{ else }}Create User{{ end }}</h2>
-        {{ end }}
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
+  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="userForm({{ .isEdit }}, '{{ .user.id }}', {{ .isProfile }})" x-init="initUsers">
 
-        <div x-data="userForm({{ .isEdit }}, '{{ .user.id }}', {{ .isProfile }})" x-init="initUsers">
-          {{ template "loading" . }}
-          <form action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
-            <dl>
-              <dt><label for="username">Username <em>*</em></label></dt>
-              <dd>
-                <input type="text" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
-                <div x-show="!usernameValid" class="error-message">Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
-              </dd>
-              <dt><label for="email">Email <em>*</em></label></dt>
-              <dd>
-                <input type="text" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'error': !emailValid}" placeholder="Email address" x-model="formData.email">
-                <div x-show="!emailValid" class="error-message">Enter a valid email address.</div>
-              </dd>
-              <dt><label for="shell">Preferred Shell</label></dt>
-              <dd>
-                <div class="selectControl">
-                  <select id="shell" name="shell" x-model="formData.preferred_shell">
-                    <option value="bash">Bash</option>
-                    <option value="zsh">Zsh</option>
-                    <option value="fish">fish</option>
-                    <option value="sh">Bourne</option>
-                  </select>
-                </div>
-                <p class="description">The shell that will be used when you open a web terminal in this space.</p>
-                <div x-show="!shellValid" class="error-message">Select a valid shell.</div>
-              </dd>
-              <dt><label for="tz">Timezone</label></dt>
-              <dd>
-                <div x-data="autocompleter()" x-init="loadOptions" class="autocomplete" data-parent-variable="timezone" @refresh-autocompleter.window="refresh()">
-                    <input x-model="search" type="search" placeholder="Search..." @focus="showList = true" @blur.debounce.200ms="showList = false">
-                    <div class="autocomplete-list" x-show="showList">
-                      <ul>
-                          <template x-for="(option, index) in filteredOptions" :key="index">
-                              <li @click="selectOption(option)" x-text="option"></li>
-                          </template>
-                      </ul>
-                    </div>
-                </div>
-                <div x-show="!tzValid" class="error-message">Enter a valid Timezone.</div>
-              </dd>
-              <dt><label for="github_username">GitHub Username</label></dt>
-              <dd>
-                <input type="text" name="github_username" x-on:keyup.debounce.500ms="checkGithubUsername()" :class="{'error': !githubUsernameValid}" placeholder="GitHub Username" x-model="formData.github_username">
-                <p class="description">If the GitHub username is given then the public SSH keys are loaded from it by the agent.</p>
-                <div x-show="!githubUsernameValid" class="error-message">Enter a valid GitHub username.</div>
-              </dd>
-              <dt><label for="ssh_key">SSH Public Key</label></dt>
-              <dd>
-                <textarea name="ssh_key" rows="8" placeholder="SSH Public Key" x-model="formData.ssh_public_key"></textarea>
-                <p class="description">If given this key will be added to the spaces to allow you to SSH into the space.</p>
-              <dt><label for="password">Password {{ if not .isProfile }}<em>*</em>{{ end }}</label></dt>
-              <dd>
-                <input type="password" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'error': !passwordValid}" placeholder="Password" x-model="formData.password">
-                {{ if .isProfile }}
-                <p class="description">Leave blank to keep the current password.</p>
-                {{ end }}
-                <div x-show="!passwordValid" class="error-message">Password must be at least 8 characters.</div>
-              </dd>
-              <dt><label for="confirm_password">Confirm Password {{ if not .isProfile }}<em>*</em>{{ end }}</label></dt>
-              <dd>
-                <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
-                <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
-              </dd>
-              {{ if .isProfile }}
-              <dt><label for="service_password">Service Password <em>*</em></label></dt>
-              <dd>
-                <input type="text" name="service_password" x-on:keyup.debounce.500ms="checkServicePassword()" :class="{'error': !servicePasswordValid}" placeholder="Service Password" x-model="formData.service_password">
-                <p class="description">A password made available for initializing services such as databases.</p>
-                <div x-show="!servicePasswordValid" class="error-message">The service password is required.</div>
-              </dd>
-              {{ end }}
-              {{ if and (not .isProfile) (and .isEdit .permissionManageUsers) (ne .user_id .user.id) }}
-              <dt><label for="active">Active</label></dt>
-              <dd class="checkbox-group">
-                <label class="checkbox">
-                  <input type="checkbox" id="active" name="active" x-model="formData.active"> <span x-text="formData.active ? 'Yes' : 'No'"></span>
-                </label>
-              </dd>
-              {{ end }}
-              {{ if and (not .isProfile) .permissionManageUsers }}
-              <dt><label>Maximum Spaces</label></dt>
-              <dd>
-                <input type="number" name="max_spaces" x-model="formData.max_spaces" min="0" max="1000" x-on:keyup.debounce.500ms="checkMaxSpaces()" :class="{'error': !maxSpacesValid}" >
-                <p class="description">The maximum number of spaces this user can create, 0 for unlimited.</p>
-                <div x-show="!maxSpacesValid" class="error-message">Enter a valid number between 0 and 1000.</div>
-              </dd>
-              <dt><label>Maximum Disk Space</label></dt>
-              <dd>
-                <input type="number" name="max_disk_space" x-model="formData.max_disk_space" min="0" max="1000000" x-on:keyup.debounce.500ms="checkMaxDiskSpace()" :class="{'error': !maxDiskSpaceValid}" >
-                <p class="description">The maximum number amount of disk space available to the user in GB, 0 for unlimited.</p>
-                <div x-show="!maxDiskSpaceValid" class="error-message">Enter a valid number between 0 and 1000000.</div>
-              </dd>
-              <dt><label>Roles</label></dt>
-              <dd class="checkbox-group">
-                <template x-for="(role, index) in roles" :key="index">
-                  <label class="checkbox">
-                    <input type="checkbox" :id="'role-' + index" name="roles[]" :value="role.id_role" :checked="formData.roles.includes(role.id_role)" @change="toggleRole(role.id_role)">
-                    <span x-text="role.role_name"></span>
-                  </label>
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">
+        {{ if .isProfile }}Profile{{ else }}{{ if .isEdit }}Edit User{{ else }}Create User{{ end }}{{ end }}
+      </h1>
+    </div>
+
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
+      {{ template "loading" . }}
+      <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
+        <div>
+          <label for="username" class="form-label">Username</label>
+          <input type="text" class="form-field" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
+          <div x-show="!usernameValid" class="error-message" x-cloak>Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+        </div>
+        <div>
+          <label for="email" class="form-label">Email</label>
+          <input type="email" class="form-field" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'form-field-error': !emailValid}" placeholder="Email address" x-model="formData.email">
+          <div x-show="!emailValid" class="error-message" x-cloak>Enter a valid email address.</div>
+        </div>
+        <div>
+          <label for="shell" class="form-label">Preferred Shell</label>
+          <select id="shell" class="form-field" name="shell" x-model="formData.preferred_shell">
+            <option value="bash">Bash</option>
+            <option value="zsh">Zsh</option>
+            <option value="fish">fish</option>
+            <option value="sh">Bourne</option>
+          </select>
+          <p class="description">The shell that will be used when you open a web terminal in this space.</p>
+          <div x-show="!shellValid" class="error-message" x-cloak>Select a valid shell.</div>
+        </div>
+        <div>
+          <label for="tz" class="form-label">Timezone</label>
+          <div x-data="autocompleter()" x-init="loadOptions" data-parent-variable="timezone" @refresh-autocompleter.window="refresh()" class="relative">
+            <input x-model="search" class="form-field" type="search" placeholder="Search..." @focus="showList = true" @blur.debounce.200ms="showList = false">
+            <div x-show="showList" x-cloak class="max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+              <ul class="list-none">
+                <template x-for="(option, index) in filteredOptions" :key="index">
+                  <li @click="selectOption(option)" x-text="option" class="my-1 cursor-pointer nav-item text-sm"></li>
                 </template>
-              </dd>
-              <dt><label>Groups</label></dt>
-              <dd class="checkbox-group">
-                <template x-for="(group, index) in groups" :key="index">
-                  <label class="checkbox">
-                    <input type="checkbox" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
-                    <span x-text="group.name"></span>
-                  </label>
-                </template>
-              </dd>
-              {{ end }}
-              <dt></dt>
-              <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" x-on:click="stayOnPage=true"> <input type="submit" value="Save" x-show="isEdit" x-on:click="stayOnPage=false"></dd>
-            </dl>
-          </form>
+              </ul>
+            </div>
+          </div>
+          <div x-show="!tzValid" class="error-message">Enter a valid Timezone.</div>
+        </div>
+        <div>
+          <label for="github_username" class="form-label">GitHub Username</label>
+          <input type="text" class="form-field" name="github_username" x-on:keyup.debounce.500ms="checkGithubUsername()" :class="{'form-field-error': !githubUsernameValid}" placeholder="GitHub Username" x-model="formData.github_username">
+          <p class="description">If the GitHub username is given then the public SSH keys are loaded from it by the agent.</p>
+          <div x-show="!githubUsernameValid" class="error-message" x-cloak>Enter a valid GitHub username.</div>
+        </div>
+        <div>
+          <label for="ssh_key" class="form-label">SSH Public Key</label>
+          <textarea class="form-field" name="ssh_key" rows="8" placeholder="SSH Public Key" x-model="formData.ssh_public_key"></textarea>
+          <p class="description">If given this key will be added to the spaces to allow you to SSH into the space.</p>
+        </div>
+        <div>
+          <label for="password" class="form-label">Password</label>
+          <input type="password" class="form-field" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" placeholder="Password" x-model="formData.password">
+          {{ if .isProfile }}
+          <p class="description">Leave blank to keep the current password.</p>
+          {{ end }}
+          <div x-show="!passwordValid" class="error-message" x-cloak>Password must be at least 8 characters.</div>
+        </div>
+        <div>
+          <label for="confirm_password" class="form-label">Confirm Password</label>
+          <input type="password" class="form-field" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
+          <div x-show="!confirmPasswordValid" class="error-message" x-cloak>Both passwords must match.</div>
+        </div>
+        {{ if .isProfile }}
+        <div>
+          <label for="service_password" class="form-label">Service Password</label>
+          <input type="text" class="form-field" name="service_password" x-on:keyup.debounce.500ms="checkServicePassword()" :class="{'form-field-error': !servicePasswordValid}" placeholder="Service Password" x-model="formData.service_password">
+          <p class="description">A password made available for initializing services such as databases.</p>
+          <div x-show="!servicePasswordValid" class="error-message" x-cloak>The service password is required.</div>
+        </div>
+        {{ end }}
+        {{ if and (not .isProfile) (and .isEdit .permissionManageUsers) (ne .user_id .user.id) }}
+        <div>
+          <label class="inline-flex items-center mb-5 cursor-pointer">
+            <input type="checkbox" id="active" name="active" x-model="formData.active" class="sr-only peer">
+            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
+          </label>
+        </div>
+        {{ end }}
+        {{ if and (not .isProfile) .permissionManageUsers }}
+        <div>
+          <label class="form-label">Maximum Spaces</label>
+          <input type="number" class="form-field" name="max_spaces" x-model="formData.max_spaces" min="0" max="1000" x-on:keyup.debounce.500ms="checkMaxSpaces()" :class="{'form-field-error': !maxSpacesValid}" >
+          <p class="description">The maximum number of spaces this user can create, 0 for unlimited.</p>
+          <div x-show="!maxSpacesValid" class="error-message" x-cloak>Enter a valid number between 0 and 1000.</div>
+        </div>
+        <div>
+          <label class="form-label">Maximum Disk Space</label>
+          <input type="number" class="form-field" name="max_disk_space" x-model="formData.max_disk_space" min="0" max="1000000" x-on:keyup.debounce.500ms="checkMaxDiskSpace()" :class="{'form-field-error': !maxDiskSpaceValid}" >
+          <p class="description">The maximum number amount of disk space available to the user in GB, 0 for unlimited.</p>
+          <div x-show="!maxDiskSpaceValid" class="error-message" x-cloak>Enter a valid number between 0 and 1000000.</div>
         </div>
 
-      </div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">
+          <div class="col-span-1">
+            <label class="form-label">Roles</label>
+            <template x-for="(role, index) in roles" :key="index">
+              <label class="flex items-center cursor-pointer mb-2">
+                <input type="checkbox" class="sr-only peer" :id="'role-' + index" name="roles[]" :value="role.id_role" :checked="formData.roles.includes(role.id_role)" @change="toggleRole(role.id_role)">
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="role.role_name"></span>
+              </label>
+            </template>
+          </div>
+          <div class="col-span-1">
+            <label class="form-label">Groups</label>
+            <template x-for="(group, index) in groups" :key="index">
+              <label class="flex items-center cursor-pointer mb-2">
+                <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="group.name"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+        {{ end }}
+
+        <button type="submit" class="btn-primary" :value="buttonLabel" x-text="buttonLabel" x-on:click="stayOnPage=true"></button>
+        <button type="submit" class="btn-primary" value="Save" x-show="isEdit" x-on:click="stayOnPage=false">Save</button>
+
+      </form>
+
     </div>
   </div>
-</div>
+</main>
 {{ end }}

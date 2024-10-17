@@ -37,8 +37,6 @@ window.volumeListComponent = function() {
       this.volumes = volList.volumes;
 
       this.volumes.forEach(volume => {
-        volume.showIdPopup = false;
-        volume.showMenu = false;
         volume.starting = false;
         volume.stopping = false;
       });

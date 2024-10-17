@@ -1,126 +1,211 @@
 {{ template "layout-base.tmpl" . }}
 
-{{ define "pageTitle" }}Space{{ end }}
+{{ define "pageTitle" }}Spaces{{ end }}
 
 {{ define "mainContent" }}
-<div class="content">
-  <div class="row">
-    <div class="col-sm-12">
-      <div class="box">
-        <h2>Spaces</h2>
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .location }}')">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
 
-<div x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .location }}')">
-
-  <div class="row">
-    <div class="col-sm-4 col-sm-offset-4 col-sm-order-2">
-      <div class="selectControl" x-show="canManageSpaces">
-        <select id="user" name="user" x-model="forUserId" x-on:change="userChanged">
-          <option value="" x-bind:selected="forUserId === ''">All Users</option>
-          <template x-for="user in users" :key="user.user_id">
-            <option x-bind:value="user.user_id" x-text="user.username" x-bind:selected="user.user_id === forUserId"></option>
-          </template>
-        </select>
-      </div>
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Spaces</h1>
     </div>
-    <div class="col-sm-4 col-sm-order-1">
-      <input type="search" id="search" name="search" x-model="searchTerm" placeholder="Search" x-on:input="searchChanged">
-    </div>
-  </div>
 
-  {{ template "loading" . }}
-  <table class="action" x-show="!loading" x-cloak>
-    <thead>
-    <tr>
-      <th class="id-col">Space ID</th>
-      <th>Name</th>
-      <th>Template</th>
-      <th>User</th>
-      <th>Disk</th>
-      <th>Location</th>
-      <th>Status</th>
-      <th>&nbsp;</th>
-    </tr>
-    </thead>
-    <tbody>
-    <template x-for="s in spaces" :key="s.space_id">
-      <tr x-show="!s.searchHide">
-        <td class="id-col">
-          <button @click="s.showIdPopup = true" class="show-id" x-text="s.space_id"></button>
-          <div x-show="s.showIdPopup" @click.away="s.showIdPopup = false" @keydown.window.escape="s.showIdPopup = false" class="id-popup">
-            <input type="text" x-model="s.space_id" readonly>
-          </div>
-        </td>
-        <td x-text="s.name"></td>
-        <td x-text="s.template_name"></td>
-        <td x-text="s.username"></td>
-        <td x-text="s.volume_size + 'GB'"></td>
-        <td x-text="s.location"></td>
-        <td>
-          <span x-show="!s.is_local" class="badge remote">Remote</span>
-
-          <div x-show="s.is_local && s.template_id != '00000000-0000-0000-0000-000000000000'">
-            <span x-show="s.is_deployed && !s.is_pending" class="badge success">Running</span>
-            <span x-show="!s.is_deployed && s.is_pending" class="badge warning">Starting</span>
-            <span x-show="s.is_deployed && s.is_pending" class="badge warning">Stopping</span>
-            <span x-show="s.is_deleting" class="badge danger">Deleting</span>
-            <span x-show="s.update_available && !s.is_pending" class="badge update">Update Available</span>
-          </div>
-          <span x-show="s.is_local && s.is_deployed && s.template_id == '00000000-0000-0000-0000-000000000000'" class="badge warning">Listening</span>
-        </td>
-        <td>
-          <span x-show="s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}'">
-            <div x-show="s.showSSHPopup" @click.away="s.showSSHPopup = false" @keydown.window.escape="s.showSSHPopup = false" class="space-ssh-popup">
-              <input type="text" x-model="s.sshCmd" readonly>
-            </div>
-
-            <button class="outline" x-show="s.has_http_vnc" @click="openWindowForVNC(s.space_id, s.name)"><i class='bx bx-desktop' ></i> Desktop</button>
-            <button class="outline" x-show="s.has_code_server" @click="openCodeServer(s.space_id)"><i class='bx bx-code-alt' ></i> Code</button>
-            <button class="outline" x-show="s.has_terminal" @click="openTerminal(s.space_id)"><i class='bx bx-terminal'></i> Terminal</button>
-            <button class="outline" x-show="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length)" @click="s.showPortMenu = true"><i class='bx bx-network-chart'></i> Ports</button>
-            <div x-show="s.showPortMenu" @click.away="s.showPortMenu = false" @keydown.window.escape="s.showPortMenu = false" class="menu-popup">
-              <template x-for="[key, value] in Object.entries(s.http_ports)" :key="key">
-                <button x-text="key==value ? key : value + ' (' + key + ')'" @click="openWindowForPort(s.space_id, s.name, key); s.showPortMenu = false;"></button>
+    <form class="col-span-full sm:flex justify-between">
+      <div x-show="canManageSpaces" class="sm:order-2">
+          <label for="countries" class="sr-only">Select an option</label>
+          <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 justify-end">
+            <select x-show="!loading" class="form-field bg-white" name="user" x-model="forUserId" x-on:change="userChanged">
+              <option value="" x-bind:selected="forUserId === ''">All Users</option>
+              <template x-for="user in users" :key="user.user_id">
+                <option x-bind:value="user.user_id" x-text="user.username" x-bind:selected="user.user_id === forUserId"></option>
               </template>
-              <template x-for="[key, value] in Object.entries(s.tcp_ports)" :key="key">
-                <button disabled="disabled" class="tcp-port" x-text="key==value ? key : value + ' (' + key + ')'"></button>
-              </template>
-            </div>
-          </span>
-
-          <button x-show="s.is_local" class="outline" @click="s.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
-          <div x-show="s.showMenu" @click.away="s.showMenu = false" @keydown.window.escape="s.showMenu = false" class="menu-popup">
-            <button x-show="!s.is_deployed && !s.is_pending && s.template_id != '00000000-0000-0000-0000-000000000000'" @click="startSpace(s.space_id); s.is_pending = true"><i class='bx bx-play-circle' ></i> Start</button>
-            <button x-show="!s.is_pending" @click="editSpace(s.space_id)"><i class='bx bx-edit' ></i> Edit</button>
-            <button x-show="(s.is_deployed || s.is_pending) && s.template_id != '00000000-0000-0000-0000-000000000000'" @click="stopSpace(s.space_id); s.is_pending = true"><i class='bx bx-stop-circle' ></i> Stop</button>
-            <hr x-show="!s.is_deployed" />
-            <button x-show="!s.is_deployed && !s.is_pending" @click="deleteConfirm.show = true; deleteConfirm.space = s; s.is_deleting = true" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
-            <button class="outline" x-show="s.has_ssh" @click="s.showSSHPopup = true; s.showMenu = false"><i class='bx bxs-terminal' ></i> SSH</button>
+            </select>
           </div>
-        </td>
-      </tr>
-    </template>
-    </tbody>
-  </table>
-
-
-  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
-    <div class="modal">
-      <div class="modal-body">
-        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
-        <p>Are you sure you want to delete the space <span x-text="deleteConfirm.space.name"></span>?</p>
-        <p>Deleting the space will also delete any template volumes and the data they contain.</p>
       </div>
-      <div class="modal-footer">
-        <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false">Cancel</button>
-        <button class="danger" @click="deleteSpace(deleteConfirm.space.space_id); deleteConfirm.space.is_deleting=true; deleteConfirm.show = false">Delete</button>
+      <div class="sm:order-1">
+        <label for="search" class="sr-only">Search</label>
+        <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96">
+          <input type="search" name="search" class="form-field bg-white" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+        </div>
       </div>
+    </form>
+
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
+      {{ template "loading" . }}
+      <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+            <tr>
+              <th scope="col" class="px-6 py-3">Name</th>
+              <th scope="col" class="px-6 py-3">Template</th>
+              <th scope="col" class="px-6 py-3">User</th>
+              <th scope="col" class="px-6 py-3">Disk</th>
+              <th scope="col" class="px-6 py-3">Location</th>
+              <th scope="col" class="px-6 py-3">Status</th>
+              <th scope="col" class="px-6 py-3">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="s in spaces" :key="s.space_id">
+              <tr x-show="!s.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                <td class="px-6 py-4" x-text="s.name"></td>
+                <td class="px-6 py-4" x-text="s.template_name"></td>
+                <td class="px-6 py-4" x-text="s.username"></td>
+                <td class="px-6 py-4" x-text="s.volume_size + 'GB'"></td>
+                <td class="px-6 py-4" x-text="s.location"></td>
+                <td class="px-6 py-4">
+                  <span x-show="!s.is_local" class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10 my-0.5">Remote</span>
+
+                  <div x-show="s.is_local && s.template_id != '00000000-0000-0000-0000-000000000000'">
+                    <span x-show="s.is_deployed && !s.is_pending" class="inline-flex overflow-hidden rounded-lg border border-green-500 px-1 py-0.5 text-sm font-medium text-green-500 bg-green-500/10 my-0.5">Running</span>
+                    <span x-show="!s.is_deployed && s.is_pending" class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10 my-0.5">Starting</span>
+                    <span x-show="s.is_deployed && s.is_pending" class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10 my-0.5">Stopping</span>
+                    <span x-show="s.is_deleting" class="inline-flex overflow-hidden rounded-lg border border-red-500 px-1 py-0.5 text-sm font-medium text-red-500 bg-red-500/10 my-0.5">Deleting</span>
+                    <span x-show="s.update_available && !s.is_pending" class="inline-flex overflow-hidden rounded-lg border border-cyan-500 px-1 py-0.5 text-sm font-medium text-cyan-500 bg-cyan-500/10 text-nowrap my-0.5">Update Available</span>
+                  </div>
+
+                  <span x-show="s.is_local && s.is_deployed && s.template_id == '00000000-0000-0000-0000-000000000000'" class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10">Listening</span>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center justify-end">
+                    <div x-show="s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}'" class="flex items-center justify-end">
+
+                      <div x-data x-show="s.has_http_vnc" x-cloak>
+                        <button @click="openWindowForVNC(s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+                          </svg><span class="sr-only">Desktop</span>
+                        </button>
+                        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-4 py-1 block whitespace-nowrap text-sm text-white bg-gray-400 dark:bg-gray-900 rounded-lg shadow-sm" role="tooltip" x-cloak>Desktop</div>
+                      </div>
+
+                      <div x-data x-show="s.has_code_server" x-cloak>
+                        <button @click="openCodeServer(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+                          </svg><span class="sr-only">Code</span>
+                        </button>
+                        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-4 py-1 block whitespace-nowrap text-sm text-white bg-gray-400 dark:bg-gray-900 rounded-lg shadow-sm" role="tooltip" x-cloak>Code</div>
+                      </div>
+
+                      <div x-data x-show="s.has_terminal" x-cloak>
+                        <button @click="openTerminal(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" />
+                          </svg><span class="sr-only">Terminal</span>
+                        </button>
+                        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-4 py-1 block whitespace-nowrap text-sm text-white bg-gray-400 dark:bg-gray-900 rounded-lg shadow-sm" role="tooltip" x-cloak>Terminal</div>
+                      </div>
+
+                      <div x-data x-show="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length)" x-cloak>
+                        <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+                          </svg><span class="sr-only">Ports</span>
+                        </button>
+                        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-4 py-1 block whitespace-nowrap text-sm text-white bg-gray-400 dark:bg-gray-900 rounded-lg shadow-sm" role="tooltip" x-cloak>Ports</div>
+
+                        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+                          <template x-for="[key, value] in Object.entries(s.http_ports)" :key="key">
+                            <button x-text="key==value ? key : value + ' (' + key + ')'" @click="openWindowForPort(s.space_id, s.name, key); s.showPortMenu = false;" class="nav-item text-sm px-4 w-full" role="menuitem"></button>
+                          </template>
+                          <hr x-show="Object.entries(s.http_ports).length && Object.entries(s.tcp_ports).length" class="my-2" />
+                          <template x-for="[key, value] in Object.entries(s.tcp_ports)" :key="key">
+                            <button disabled="disabled" x-text="key==value ? key : value + ' (' + key + ')'" class="nav-item text-sm px-4 w-full hover:bg-transparent hover:dark:bg-transparent" role="menuitem"></button>
+                          </template>
+                        </div>
+                      </div>
+
+                      <div x-data x-show="s.has_ssh">
+                        <button @click="$refs.panel.toggle"  @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
+                            <path fill-rule="evenodd" d="M2.25 6a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V6Zm3.97.97a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 0 1 0-1.06Zm4.28 4.28a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clip-rule="evenodd" />
+                          </svg><span class="sr-only">SSH</span>
+                        </button>
+                        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-4 py-1 block whitespace-nowrap text-sm text-white bg-gray-400 dark:bg-gray-900 rounded-lg shadow-sm" role="tooltip" x-cloak>SSH</div>
+
+                        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap w-full max-w-lg" x-cloak>
+                          <input type="text" x-model="s.sshCmd" readonly class="form-field w-full">
+                        </div>
+                      </div>
+                    </div>
+
+                    <div x-data x-show="s.is_local" x-cloak>
+                      <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
+                          <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
+                        </svg><span class="sr-only">More</span>
+                      </button>
+
+                      <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+                        <button x-show="!s.is_deployed && !s.is_pending && s.template_id != '00000000-0000-0000-0000-000000000000'" @click="$refs.panel.close; startSpace(s.space_id); s.is_pending = true" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z" />
+                          </svg> Start
+                        </button>
+                        <button x-show="!s.is_pending" @click="$refs.panel.close; editSpace(s.space_id)"class="group nav-item text-sm px-4 w-full" role="menuitem">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                          </svg> Edit
+                        </button>
+                        <button x-show="(s.is_deployed || s.is_pending) && s.template_id != '00000000-0000-0000-0000-000000000000'" @click="$refs.panel.close; stopSpace(s.space_id); s.is_pending = true" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
+                          </svg> Stop
+                        </button>
+                        <hr x-show="!s.is_deployed && !s.is_pending" class="my-2" />
+                        <button x-show="!s.is_deployed && !s.is_pending" @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.space = s; s.is_deleting = true" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                          </svg> Delete
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Modal -->
+      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false; deleteConfirm.space.deleting = false" @click.self="deleteConfirm.show = false; deleteConfirm.space.deleting = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-sm sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+        <!-- Modal Dialog -->
+        <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+          <!-- Dialog Header -->
+          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
+            <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Confirm Delete</h3>
+            <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false" aria-label="close modal">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <!-- Dialog Body -->
+          <div class="px-4 py-4 text-center">
+            <p>Are you sure you want to delete the space <strong x-text="deleteConfirm.space.name"></strong>?</p>
+            <p>Deleting the space will also delete any template volumes and the data they contain.</p>
+          </div>
+          <!-- Dialog Footer -->
+          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
+              <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Keep Space</button>
+              <button @click="deleteSpace(deleteConfirm.space.space_id); deleteConfirm.space.is_deleting=true; deleteConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Delete Space</button>
+          </div>
+        </div>
+      </div>
+
     </div>
-  </div>
 
-</div>
-
-      </div>
-    </div>
   </div>
-</div>
+</main>
 {{ end }}

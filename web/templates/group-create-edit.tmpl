@@ -3,28 +3,27 @@
 {{ define "pageTitle" }}{{ if .isEdit }}Edit Group{{ else }}Create Group{{ end }}{{ end }}
 
 {{ define "mainContent" }}
-<div class="content">
-  <div class="row">
-    <div class="col-sm-6 col-sm-offset-3">
-      <div class="box" x-data="userGroupForm({{ .isEdit }}, '{{ .groupId }}')" x-init="initData()">
-        <h2>{{ if .isEdit }}Edit Group{{ else }}Create Group{{ end }}</h2>
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
+  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="userGroupForm({{ .isEdit }}, '{{ .groupId }}')" x-init="initData()">
 
-        {{ template "loading" . }}
-        <form action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
-          <dl>
-            <dt><label for="name">Name <em>*</em></label></dt>
-            <dd>
-              <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Group name" x-model="formData.name">
-              <div x-show="!nameValid" class="error-message">Group name can be a max 64 characters.</div>
-            </dd>
-            <dt></dt>
-            <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"> <input type="submit" value="Save" x-show="isEdit" x-on:click="stayOnPage=false"></dd>
-          </dl>
-        </form>
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Group{{ else }}Create Group{{ end }}</h1>
+    </div>
 
-      </div>
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
+      {{ template "loading" . }}
+      <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
+        <div>
+          <label for="name" class="form-label">Name</label>
+          <input type="text" name="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Group name" x-model="formData.name">
+          <div x-show="!nameValid" class="error-message" x-cloak="">Group name can be a max 64 characters.</div>
+        </div>
+        <button type="submit" class="btn-primary" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
+        <button type="submit" class="btn-primary" x-show="isEdit" x-on:click="stayOnPage=false">Save</button>
+      </form>
+
     </div>
   </div>
-</div>
-
+</main>
 {{ end }}

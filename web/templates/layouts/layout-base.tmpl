@@ -3,40 +3,82 @@
   <head>
     {{ template "head-meta" . }}
   </head>
-  <body {{ template "init-theme" . }}>
+  <body class="bg-gray-50 dark:bg-gray-900 font-nunito" x-data="{ sidebarOpen: false, darkMode: $persist(true) }" :class="{ 'dark': darkMode }">
+    <div class="dark:bg-gray-900 h-screen">
 
-    <div class="layout">
-      <aside>
-        <header>
-          <h1><img src="images/logo-dark.svg" alt="knot Logo" /></h1>
-        </header>
-        <div class="menu">
-          {{ template "main-menu" . }}
-        </div>
-        <div class="menu2">
-          {{ template "main-menu2" . }}
-        </div>
-      </aside>
-      <div class="content-container">
-        <header>
-          <form>
-            <input type="checkbox" :value="darkMode" @change="darkMode = !darkMode; $dispatch('theme-change', {dark_theme: darkMode})" name="theme" class="light-dark">
-          </form>
+      <!-- Top Nav -->
+      <nav class="fixed z-30 w-full bg-white border-b border-grey-200 dark:bg-gray-800 dark:border-gray-700">
+        <div class="px-3 py-3 lg:px-5 lg:pl-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <button @click="sidebarOpen = !sidebarOpen" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5 lg:hidden">
+                <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                  <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5 7h14M5 12h14M5 17h10"/>
+                </svg>
+              </button>
 
-          <div x-data="{ showMenu: false }" class="user-menu">
-            <button class="outline" @click="showMenu = true">{{ .username }}</button>
-            <div x-cloak x-show="showMenu" @click.away="showMenu = false" @keydown.window.escape="showMenu = false" class="menu-popup">
-              <a href="/profile" class="button outline"><i class='bx bx-user-circle'></i> My Profile</a>
-              <a href="/sessions" class="button outline"><i class="bx bx-cookie"></i> My Sessions</a>
-              <a href="/logout" class="button outline"><i class="bx bx-log-out-circle"></i> Logout</a>
+              <a href="/" class="flex ml-2 md:mr-24">
+                <img src="images/logo.svg" class="h-8 mr-3" alt="knot Logo">
+                <span class="self-center text-xl font-semibold sm:text-2xl whitespace-nowrap dark:text-white">knot</span>
+              </a>
+            </div>
+            <div class="flex items-center">
+              <button @click="darkMode = !darkMode; $dispatch('theme-change', {dark_theme: darkMode})" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                <svg x-show="!darkMode" class="w-5 h-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 0 1 .162.819A8.97 8.97 0 0 0 9 6a9 9 0 0 0 9 9 8.97 8.97 0 0 0 3.463-.69.75.75 0 0 1 .981.98 10.503 10.503 0 0 1-9.694 6.46c-5.799 0-10.5-4.7-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 0 1 .818.162Z" clip-rule="evenodd" />
+                </svg>
+                <svg x-show="darkMode" class="w-5 h-5" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2.25a.75.75 0 0 1 .75.75v2.25a.75.75 0 0 1-1.5 0V3a.75.75 0 0 1 .75-.75ZM7.5 12a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM18.894 6.166a.75.75 0 0 0-1.06-1.06l-1.591 1.59a.75.75 0 1 0 1.06 1.061l1.591-1.59ZM21.75 12a.75.75 0 0 1-.75.75h-2.25a.75.75 0 0 1 0-1.5H21a.75.75 0 0 1 .75.75ZM17.834 18.894a.75.75 0 0 0 1.06-1.06l-1.59-1.591a.75.75 0 1 0-1.061 1.06l1.59 1.591ZM12 18a.75.75 0 0 1 .75.75V21a.75.75 0 0 1-1.5 0v-2.25A.75.75 0 0 1 12 18ZM7.758 17.303a.75.75 0 0 0-1.061-1.06l-1.591 1.59a.75.75 0 0 0 1.06 1.061l1.591-1.59ZM6 12a.75.75 0 0 1-.75.75H3a.75.75 0 0 1 0-1.5h2.25A.75.75 0 0 1 6 12ZM6.697 7.757a.75.75 0 0 0 1.06-1.06l-1.59-1.591a.75.75 0 0 0-1.061 1.06l1.59 1.591Z" />
+                </svg>
+              </button>
+
+              <div class="ml-2 relative" x-data>
+                <button @click="$refs.userMenu.toggle" type="button" class="group flex items-center border border-grey-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5" aria-expanded="false">
+                  <svg class="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path fill-rule="evenodd" d="M3 6.75A.75.75 0 0 1 3.75 6h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 6.75ZM3 12a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 12Zm0 5.25a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75Z" clip-rule="evenodd" />
+                  </svg> {{ .username }}
+                </button>
+
+                <div x-ref="userMenu" x-float.teleport.placement.bottom-end.flip @click.away="$refs.userMenu.toggle" x-cloak class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+                  {{ template "menu-user" . }}
+                </div>
+              </div>
             </div>
           </div>
+        </div>
+      </nav>
 
-        </header>
+      <div class="flex pt-16 overflow-hidden">
 
-{{ block "mainContent" . }}{{ end }}
+        <!-- Side Menu -->
+        <aside :class="{'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen}" class="fixed top-0 left-0 z-20 flex flex-col flex-shrink-0 w-64 h-full pt-16 font-normal duration-75 lg:flex transition-width lg:translate-x-0" aria-label="Sidebar">
+          <div class="relative flex flex-col flex-1 min-h-0 pt-0 bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+            <div class="flex flex-col flex-1 pt-5 pb-4 overflow-y-auto">
+              <div class="flex-1 px-3 space-y-1 bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                {{ template "main-menu" . }}
+
+                <div class="pt-2 space-y-2">
+                  {{ template "main-menu2" . }}
+                </div>
+              </div>
+            </div>
+            <div class="px-4 mb-2 flex-grow-0 flex-shrink-0">
+              <div class="mt-2 text-sm text-center text-gray-500 dark:text-gray-400">
+                {{ if .hasRemoteToken }}
+                Location: {{ .location }}<br />
+                {{ end }}
+                v{{ .version }}
+              </div>
+            </div>
+          </div>
+        </aside>
+        <div :class="{'block': sidebarOpen, 'hidden': !sidebarOpen}" @click="sidebarOpen = false" class="fixed inset-0 z-10 bg-gray-900/50 dark:bg-gray-900/90 lg:hidden"></div>
+
+        <!-- Main Content -->
+        {{ block "mainContent" . }}{{ end }}
 
       </div>
+
     </div>
 
 {{ template "alerts" . }}

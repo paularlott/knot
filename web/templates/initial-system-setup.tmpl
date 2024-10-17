@@ -3,33 +3,38 @@
 {{ define "pageTitle" }}Initialize System{{ end }}
 
 {{ define "mainContent" }}
-<div x-data="createInitialUserForm()">
-  <form action="" method="POST" @submit.prevent="submitData">
-    <dl>
-      <dt><label for="username">Username <em>*</em></label></dt>
-      <dd>
-        <input type="text" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username">
-        <div x-show="!usernameValid" class="error-message">Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
-      </dd>
-      <dt><label for="email">Email <em>*</em></label></dt>
-      <dd>
-        <input type="text" name="email" x-on:keyup.debounce.500ms="checkEmail()" :class="{'error': !emailValid}" placeholder="Email address" x-model="formData.email">
-        <div x-show="!emailValid" class="error-message">Enter a valid email address.</div>
-      </dd>
-      <dt><label for="password">Password <em>*</em></label></dt>
-      <dd>
-        <input type="password" name="password" x-on:keyup.debounce.500ms="checkPassword()" :class="{'error': !passwordValid}" placeholder="Password" x-model="formData.password">
-        <div x-show="!passwordValid" class="error-message">Password must be at least 8 characters.</div>
-      </dd>
-      <dt><label for="confirm_password">Confirm Password <em>*</em></label></dt>
-      <dd>
-        <input type="password" name="confirm_password" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
-        <div x-show="!confirmPasswordValid" class="error-message">Both passwords must match.</div>
-      </dd>
-      <dt></dt>
-      <dd><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" class="full-width"></dd>
-    </dl>
+<div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
+  <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> knot
+</div>
+
+<div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-xl dark:bg-gray-800" x-data="createInitialUserForm()">
+  <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Create Admin User</h2>
+
+  <form action="" method="POST" @submit.prevent="submitData" class="mt-8 space-y-6">
+    <div>
+      <label for="username" class="form-label">Username</label>
+      <input type="text" name="username" class="form-field" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username">
+      <div class="error-message" x-show="!usernameValid" x-cloak>Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+    </div>
+    <div>
+      <label for="email" class="form-label">Email</label>
+      <input type="email" name="email" class="form-field" x-on:keyup.debounce.500ms="checkEmail()" :class="{'form-field-error': !emailValid}" placeholder="Email address" x-model="formData.email">
+      <div class="error-message" x-show="!emailValid" x-cloak=>Enter a valid email address.</div>
+    </div>
+    <div>
+      <label for="password" class="form-label">Password</label>
+      <input type="password" name="password" class="form-field" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" placeholder="Password" x-model="formData.password">
+      <div class="error-message" x-show="!passwordValid" x-cloak>Password must be at least 8 characters.</div>
+    </div>
+    <div>
+      <label for="confirm_password" class="form-label">Confirm Password</label>
+      <input type="password" name="confirm_password" class="form-field" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
+      <div class="error-message" x-show="!confirmPasswordValid" x-cloak>Both passwords must match.</div>
+    </div>
+
+    <button type="submit" class="btn-primary" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></button>
   </form>
+
 </div>
 
 <script>

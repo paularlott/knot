@@ -71,12 +71,6 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         spacesList.spaces.forEach(async space => {
           // If this space isn't in this.spaces then add it
           if(!this.spaces.find(s => s.space_id === space.space_id)) {
-            // Menus
-            space.showMenu = false;
-            space.showIdPopup = false;
-            space.showSSHPopup = false;
-            space.showPortMenu = false;
-
             // Setup the available services
             space.update_available = false;
             space.is_deployed = false;
@@ -169,7 +163,6 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         self.$dispatch('show-alert', { msg: "Space could not be started: " + error, type: 'error' });
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
-        space.showMenu = false;
         this.fetchServiceState(space, true);
       });
     },
@@ -190,7 +183,6 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         self.$dispatch('show-alert', { msg: "Space could not be stopped: " + error, type: 'error' });
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
-        space.showMenu = false;
         this.fetchServiceState(space, true);
       });
     },
@@ -211,7 +203,6 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         self.$dispatch('show-alert', { msg: "Space could not be deleted: " + error, type: 'error' });
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
-        space.showMenu = false;
       });
     },
     editSpace(spaceId) {

@@ -55,8 +55,6 @@ window.userListComponent = function() {
 
       this.loading = false;
       this.users.forEach(user => {
-        user.showIdPopup = false;
-        user.showMenu = false;
 
         // Make last_login_at human readable data time in the browser's timezone
         if (user.last_login_at) {
