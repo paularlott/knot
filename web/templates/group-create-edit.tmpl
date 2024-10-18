@@ -19,7 +19,7 @@
           <input type="text" name="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Group name" x-model="formData.name">
           <div x-show="!nameValid" class="error-message" x-cloak="">Group name can be a max 64 characters.</div>
         </div>
-        <button type="submit" class="btn-primary" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
+        <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
         <button type="submit" class="btn-primary" x-show="isEdit" x-on:click="stayOnPage=false">Save</button>
       </form>
 

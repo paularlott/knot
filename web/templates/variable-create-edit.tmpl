@@ -41,7 +41,7 @@
           <div x-show="!valueValid" class="error-message" x-cloak>Value must be less than 10MB.</div>
         </div>
 
-        <button type="submit" class="btn-primary" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
+        <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
         <button type="submit" class="btn-primary" x-show="isEdit" x-on:click="stayOnPage=false">Save</button>
 
       </form>

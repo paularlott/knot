@@ -44,7 +44,7 @@
   }
 
   .btn-primary {
-    @apply w-full px-5 py-3 text-base font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 sm:text-sm sm:w-auto dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none disabled:cursor-not-allowed;
+    @apply w-full px-5 py-3 text-base font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 sm:text-sm sm:w-auto dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none disabled:cursor-not-allowed focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800;
   }
 
   .nav-item {
