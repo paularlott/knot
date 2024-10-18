@@ -55,7 +55,7 @@
               {{ if .permissionManageTemplates }}
               <td class="px-6 py-4">
                 <template x-for="group in t.group_names">
-                  <span class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10 m-0.5 text-nowrap" x-text="group"></span>
+                  <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 text-nowrap" x-text="group"></span>
                 </template>
               </td>
               <td class="px-6 py-4" x-text="t.usage"></td>

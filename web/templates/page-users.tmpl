@@ -53,12 +53,12 @@
               <td x-text="u.email" class="px-6 py-4"></td>
               <td class="px-6 py-4">
                 <template x-for="role in u.role_names">
-                  <span class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10 m-0.5 text-nowrap" x-text="role"></span>
+                  <span class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap" x-text="role"></span>
                 </template>
               </td>
               <td class="px-6 py-4">
                 <template x-for="group in u.group_names">
-                  <span class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10 m-0.5 text-nowrap" x-text="group"></span>
+                  <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 text-nowrap" x-text="group"></span>
                 </template>
               </td>
               <td class="px-6 py-4">

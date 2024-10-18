@@ -55,17 +55,17 @@
                 <td class="px-6 py-4" x-text="s.volume_size + 'GB'"></td>
                 <td class="px-6 py-4" x-text="s.location"></td>
                 <td class="px-6 py-4">
-                  <span x-show="!s.is_local" class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10 my-0.5">Remote</span>
+                  <span x-show="!s.is_local" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Remote</span>
 
                   <div x-show="s.is_local && s.template_id != '00000000-0000-0000-0000-000000000000'">
-                    <span x-show="s.is_deployed && !s.is_pending" class="inline-flex overflow-hidden rounded-lg border border-green-500 px-1 py-0.5 text-sm font-medium text-green-500 bg-green-500/10 my-0.5">Running</span>
-                    <span x-show="!s.is_deployed && s.is_pending" class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10 my-0.5">Starting</span>
-                    <span x-show="s.is_deployed && s.is_pending" class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10 my-0.5">Stopping</span>
-                    <span x-show="s.is_deleting" class="inline-flex overflow-hidden rounded-lg border border-red-500 px-1 py-0.5 text-sm font-medium text-red-500 bg-red-500/10 my-0.5">Deleting</span>
-                    <span x-show="s.update_available && !s.is_pending" class="inline-flex overflow-hidden rounded-lg border border-cyan-500 px-1 py-0.5 text-sm font-medium text-cyan-500 bg-cyan-500/10 text-nowrap my-0.5">Update Available</span>
+                    <span x-show="s.is_deployed && !s.is_pending" class="inline-block bg-green-100 text-green-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-green-400 border border-green-400">Running</span>
+                    <span x-show="!s.is_deployed && s.is_pending" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Starting</span>
+                    <span x-show="s.is_deployed && s.is_pending" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Stopping</span>
+                    <span x-show="s.is_deleting" class="inline-block bg-red-100 text-red-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-red-400 border border-red-400">Deleting</span>
+                    <span x-show="s.update_available && !s.is_pending" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Update Available</span>
                   </div>
 
-                  <span x-show="s.is_local && s.is_deployed && s.template_id == '00000000-0000-0000-0000-000000000000'" class="inline-flex overflow-hidden rounded-lg border border-yellow-500 px-1 py-0.5 text-sm font-medium text-yellow-500 bg-yellow-500/10">Listening</span>
+                  <span x-show="s.is_local && s.is_deployed && s.template_id == '00000000-0000-0000-0000-000000000000'" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Listening</span>
                 </td>
                 <td class="px-6 py-4">
                   <div class="flex items-center justify-end">
