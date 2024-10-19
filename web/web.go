@@ -194,7 +194,9 @@ func showPageNotFound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNotFound)
-	err = tmpl.Execute(w, nil)
+	err = tmpl.Execute(w, map[string]interface{}{
+		"version": build.Version,
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -209,7 +211,9 @@ func showPageForbidden(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusForbidden)
-	err = tmpl.Execute(w, nil)
+	err = tmpl.Execute(w, map[string]interface{}{
+		"version": build.Version,
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
