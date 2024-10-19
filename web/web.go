@@ -14,10 +14,10 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 var (
