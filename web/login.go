@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
@@ -45,6 +46,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 
 		data := map[string]interface{}{
 			"redirect": redirect,
+			"version":  build.Version,
 		}
 
 		err = tmpl.Execute(w, data)

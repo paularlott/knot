@@ -14,10 +14,10 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -47,6 +47,9 @@ func Routes() chi.Router {
 			fileName = fileName + "index.html"
 		}
 
+		// Add headers to allow caching for 4 hours
+		w.Header().Set("Cache-Control", "public, max-age=14400")
+
 		// If server.html_path is given then serve the files from that path otherwise serve the embedded files
 		htmlPath := viper.GetString("server.html_path")
 		if htmlPath != "" {
@@ -57,19 +60,38 @@ func Routes() chi.Router {
 				return
 			}
 
+			// Calculate the ETag and set it
+			etag := fmt.Sprintf("%x", info.ModTime().Unix())
+			w.Header().Set("ETag", etag)
+
+			// Check if the ETag matches and return 304 if it does
+			if match := r.Header.Get("If-None-Match"); match == etag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+
+			// Serve the file
 			fs := http.StripPrefix(pathPrefix, http.FileServer(http.Dir(htmlPath)))
 			fs.ServeHTTP(w, r)
 		} else {
 			fsys := fs.FS(publicHTML)
 			contentStatic, _ := fs.Sub(fsys, "public_html")
 
-			// Test if file r.URL.Path exists in contentStatic
-			file, err := contentStatic.Open(fileName)
+			// Check if the file exists in the embedded files
+			_, err := fs.Stat(contentStatic, fileName)
 			if err != nil {
 				showPageNotFound(w, r)
 				return
 			}
-			file.Close()
+
+			// Set ETag header to the version
+			w.Header().Set("ETag", build.Version)
+
+			// Check if the ETag matches and return 304 if it does
+			if match := r.Header.Get("If-None-Match"); match == build.Version {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
 
 			fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
 			fs.ServeHTTP(w, r)
@@ -172,7 +194,9 @@ func showPageNotFound(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNotFound)
-	err = tmpl.Execute(w, nil)
+	err = tmpl.Execute(w, map[string]interface{}{
+		"version": build.Version,
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -187,7 +211,9 @@ func showPageForbidden(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusForbidden)
-	err = tmpl.Execute(w, nil)
+	err = tmpl.Execute(w, map[string]interface{}{
+		"version": build.Version,
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -223,8 +249,6 @@ func newTemplate(name string) (*template.Template, error) {
 	if templatePath != "" {
 		// Check if template exists in the given template_path
 		filePath := filepath.Join(templatePath, name)
-		fmt.Println(filePath)
-
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			return nil, errors.New("template not found")
 		}
