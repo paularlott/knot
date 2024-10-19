@@ -31,7 +31,7 @@ window.volumeForm = function(isEdit, volumeId) {
         }
       }
 
-      let darkMode = JSON.parse(localStorage.getItem('darkMode'));
+      let darkMode = JSON.parse(localStorage.getItem('_x_darkMode'));
       if(darkMode == null)
         darkMode = true;
 

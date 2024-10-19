@@ -3,127 +3,183 @@
 {{ define "pageTitle" }}Templates{{ end }}
 
 {{ define "mainContent" }}
-<div class="content">
-  <div class="row">
-    <div class="col-sm-12">
-      <div class="box">
-        <h2>Templates</h2>
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="templateListComponent({{ .permissionManageSpaces }})">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
 
-<div x-data="templateListComponent({{ .permissionManageSpaces }})" x-init="getTemplates">
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Templates</h1>
+    </div>
 
-  <div class="row">
-    <div class="col-sm-4 col-sm-offset-4 col-sm-order-2 text-right">
+    <form class="col-span-full sm:flex justify-between">
+      <div>
+        <label for="search" class="sr-only">Search</label>
+        <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96">
+          <input type="search" name="search" class="form-field bg-white" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+        </div>
+      </div>
       {{ if .permissionManageTemplates }}
-      <a href="/templates/create" class="button"><i class="bx bx-plus"></i> Create Template</a>
+      <div>
+        <a href="/templates/create" class="btn-primary flex items-center mt-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
+            <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+          </svg>
+          Create Template
+        </a>
+      </div>
       {{ end }}
-    </div>
-    <div class="col-sm-4 col-sm-order-1">
-      <input type="search" id="search" name="search" x-model="searchTerm" placeholder="Search" x-on:input="searchChanged">
-    </div>
-  </div>
+    </form>
 
-  {{ template "loading" . }}
-  <table class="action" x-show="!loading" x-cloak>
-    <thead>
-    <tr>
-      <th class="id-col">Template ID</th>
-      <th>Name</th>
-      {{ if .permissionManageTemplates }}
-      <th>Groups</th>
-      <th>Usage</th>
-      <th>Deployed</th>
-      {{ end}}
-      <th>&nbsp;</th>
-    </tr>
-    </thead>
-    <tbody>
-    <template x-for="t in templates" :key="t.template_id">
-      <tr x-show="!t.searchHide">
-        <td class="id-col">
-          <button @click="t.showIdPopup = true" class="show-id" x-text="t.template_id"></button>
-          <div x-show="t.showIdPopup" @click.away="t.showIdPopup = false" @keydown.window.escape="t.showIdPopup = false" class="id-popup">
-            <input type="text" x-model="t.template_id" readonly>
-          </div>
-        </td>
-        <td>
-          <div x-text="t.name"></div>
-          <div x-show="t.description.length > 0" x-text="t.description"></div>
-        </td>
-        {{ if .permissionManageTemplates }}
-        <td>
-          <template x-for="group in t.group_names">
-            <span class="badge info" x-text="group"></span>
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
+      {{ template "loading" . }}
+      <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+            <tr>
+              <th scope="col" class="px-6 py-3">Name</th>
+              {{ if .permissionManageTemplates }}
+              <th scope="col" class="px-6 py-3">Groups</th>
+              <th scope="col" class="px-6 py-3">Usage</th>
+              <th scope="col" class="px-6 py-3">Deployed</th>
+              {{ end}}
+              <th scope="col" class="px-6 py-3">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+          <template x-for="t in templates" :key="t.template_id">
+            <tr x-show="!t.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <td class="px-6 py-4">
+                <div x-text="t.name"></div>
+                <div x-show="t.description.length > 0" x-text="t.description" class="text-xs"></div>
+              </td>
+              {{ if .permissionManageTemplates }}
+              <td class="px-6 py-4">
+                <template x-for="group in t.group_names">
+                  <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 text-nowrap" x-text="group"></span>
+                </template>
+              </td>
+              <td class="px-6 py-4" x-text="t.usage"></td>
+              <td class="px-6 py-4" x-text="t.deployed"></td>
+              {{ end }}
+              <td class="px-6 py-4">
+                <div class="flex items-center justify-end">
+                  {{ if not .permissionManageTemplates }}
+                  <button @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center mt-1 text-xs">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-3">
+                      <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+                    </svg> Create Space
+                  </button>
+                  {{ else }}
+                  <div x-data>
+                    <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
+                        <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
+                      </svg><span class="sr-only">More</span>
+                    </button>
+
+                    <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+                      <button @click="$refs.panel.close; createSpaceFromTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                        <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+                        </svg> Create Space
+                      </button>
+                      <button @click="$refs.panel.close; editTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                        </svg> Edit
+                      </button>
+                      <hr x-show="t.usage === 0 && t.template_id != '00000000-0000-0000-0000-000000000000'" x-cloak class="my-2" />
+                      <button x-show="t.usage === 0 && t.template_id != '00000000-0000-0000-0000-000000000000'" x-cloak @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.template = t" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg> Delete
+                      </button>
+                      <hr x-show="canManageSpaces" x-cloak class="my-2" />
+                      <button x-show="canManageSpaces" x-cloak @click="$refs.panel.close; chooseUser.show = true; chooseUser.invalidTemplate = false; chooseUser.template = t" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                        <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+                        </svg> Create Space For &hellip;
+                      </button>
+                    </div>
+                  </div>
+                  {{ end }}
+                </div>
+              </td>
+            </tr>
           </template>
-        </td>
-        <td x-text="t.usage"></td>
-        <td x-text="t.deployed"></td>
-        {{ end }}
-        <td>
-          {{ if not .permissionManageTemplates }}
-          <button @click="createSpaceFromTemplate(t.template_id)"><i class='bx bx-cloud' ></i> Create Space</button>
-          {{ else }}
-          <button class="outline" @click="t.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
-          <div x-show="t.showMenu" @click.away="t.showMenu = false" @keydown.window.escape="t.showMenu = false" class="menu-popup">
-            <button @click="createSpaceFromTemplate(t.template_id)"><i class='bx bx-cloud' ></i> Create Space</button>
-            <button @click="editTemplate(t.template_id)"><i class='bx bx-edit' ></i> Edit</button>
-            <hr x-show="t.usage === 0 && t.template_id != '00000000-0000-0000-0000-000000000000'" />
-            <button x-show="t.usage === 0 && t.template_id != '00000000-0000-0000-0000-000000000000'" @click="deleteConfirm.show = true; deleteConfirm.template = t" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
-            <hr x-show="canManageSpaces" />
-            <button x-show="canManageSpaces" @click="chooseUser.show = true; chooseUser.invalidTemplate = false; chooseUser.template = t" class="danger create-space-for"><i class='bx bx-cloud' ></i> Create Space For</button>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Modal choose user -->
+      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" @click.self="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-sm sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+        <!-- Modal Dialog -->
+        <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+          <!-- Dialog Header -->
+          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
+            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Select User</h3>
+            <button @click="chooseUser.show = false;" aria-label="close modal">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
-          {{ end }}
-        </td>
-      </tr>
-    </template>
-    </tbody>
-  </table>
+          <!-- Dialog Body -->
+          <div class="px-4 py-4">
 
-  <div class="modal-tint" x-show="chooseUser.show" x-cloak>
-    <div class="modal">
-      <div class="modal-body">
-        <h2>Select User</h2>
-        <p>Select the user to create the space for.</p>
+            <p>Select the user to create the space for.</p>
 
-        <div class="row">
-          <div class="col-sm-12">
-            <div class="selectControl" x-show="canManageSpaces">
-              <select id="user" name="user" x-model="chooseUser.forUserId">
+            <div x-show="canManageSpaces">
+              <select id="user" name="user" x-model="chooseUser.forUserId" class="form-field mt-2">
                 <option value="" x-bind:selected="chooseUser.forUserId === ''">Select Users</option>
                 <template x-for="user in users" :key="user.user_id">
                   <option x-bind:value="user.user_id" x-text="user.username" x-bind:selected="user.user_id === chooseUser.forUserId"></option>
                 </template>
               </select>
             </div>
-            <div x-show="chooseUser.invalidUser" class="error-message">Select a valid user.</div>
-            <div x-show="chooseUser.invalidTemplate" class="error-message">The selected user can't create a space from the chosen template.</div>
+            <div x-show="chooseUser.invalidUser" class="error-message" x-cloak>Select a valid user.</div>
+            <div x-show="chooseUser.invalidTemplate" class="error-message" x-cloak>The selected user can't create a space from the chosen template.</div>
+
+          </div>
+          <!-- Dialog Footer -->
+          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
+              <button @click="chooseUser.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              <button @click="createSpaceAs" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Create Space</button>
           </div>
         </div>
+      </div>
 
+      <!-- Modal delete -->
+      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" @click.self="deleteConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-sm sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+        <!-- Modal Dialog -->
+        <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+          <!-- Dialog Header -->
+          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
+            <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Confirm Delete</h3>
+            <button @click="deleteConfirm.show = false;" aria-label="close modal">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <!-- Dialog Body -->
+          <div class="px-4 py-4 text-center">
+            <p>Are you sure you want to delete the template <strong x-text="deleteConfirm.template.name"></strong>?</p>
+          </div>
+          <!-- Dialog Footer -->
+          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
+              <button @click="deleteConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Keep Template</button>
+              <button @click="deleteTemplate(deleteConfirm.template.template_id); deleteConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Delete Template</button>
+          </div>
+        </div>
       </div>
-      <div class="modal-footer">
-        <button @click="chooseUser.show = false">Cancel</button>
-        <button class="danger" @click="createSpaceAs">Create Space</button>
-      </div>
+
     </div>
   </div>
-
-  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak>
-    <div class="modal">
-      <div class="modal-body">
-        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
-        <p>Are you sure you want to delete the template <span x-text="deleteConfirm.template.name"></span>?</p>
-      </div>
-      <div class="modal-footer">
-        <button @click="deleteConfirm.show = false">Cancel</button>
-        <button class="danger" @click="deleteTemplate(deleteConfirm.template.template_id); deleteConfirm.show = false">Delete</button>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-      </div>
-    </div>
-  </div>
-</div>
+</main>
 {{ end }}

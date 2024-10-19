@@ -1,3 +1,4 @@
+/* Styles for the editor */
 .ace_editor {
   font-size: .95rem;
   font-weight: 400;
@@ -9,23 +10,33 @@
 
 .editor-wrap {
   height: 100%;
-  border: 1px solid @darkBorderColor;
+  border: 1px solid #d1d5db;
+  border-radius: .5rem;
+  overflow: hidden;
 
   &.error {
-    border-color: @inputErrorColor;
+    border-color: #ef4444;
   }
 }
 
-body.light {
+.dark {
   .editor-wrap {
-    border-color: @lightBorderColor;
+    border-color: #4b5563;
 
-    &.error {
-      border-color: @inputErrorColor;
+    &.form-field-error {
+      border-color: #b91c1c;
     }
   }
 }
 
 .short-editor .ace_editor {
-  min-height: 150px;
+  min-height: 80px;
+}
+
+.mid-editor .ace_editor {
+  min-height: 300px;
+}
+
+.large-editor .ace_editor {
+  min-height: 600px;
 }

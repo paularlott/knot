@@ -3,63 +3,68 @@
 {{ define "pageTitle" }}Clients{{ end }}
 
 {{ define "mainContent" }}
-<div class="content">
-  <div class="row">
-    <div class="col-sm-12">
-      <div class="box">
-        <h2>Clients</h2>
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
 
-  <h3>macOS &amp; Linux with Homebrew</h3>
-
-  <pre class="code"><code>brew install paularlott/tap/knot</code></pre>
-
-  <h3>All Platforms</h3>
-
-  <table class="action">
-    <thead>
-    <tr>
-      <th>Platform</th>
-      <th>Architecture</th>
-      <th>&nbsp;</th>
-    </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Linux</td>
-        <td>amd64</td>
-        <td><a href="/download/knot_linux_amd64.zip" class="button">Download</a></td>
-      </tr>
-      <tr>
-        <td>Linux</td>
-        <td>arm64</td>
-        <td><a href="/download/knot_linux_arm64.zip" class="button">Download</a></td>
-      </tr>
-      <tr>
-        <td>macOS</td>
-        <td>amd64</td>
-        <td><a href="/download/knot_darwin_amd64.zip" class="button">Download</a></td>
-      </tr>
-      <tr>
-        <td>macOS</td>
-        <td>arm64</td>
-        <td><a href="/download/knot_darwin_arm64.zip" class="button">Download</a></td>
-      </tr>
-      <tr>
-        <td>Windows</td>
-        <td>amd64</td>
-        <td><a href="/download/knot_windows_amd64.exe.zip" class="button">Download</a></td>
-      </tr>
-      <tr>
-        <td>Windows</td>
-        <td>arm64</td>
-        <td><a href="/download/knot_windows_arm64.exe.zip" class="button">Download</a></td>
-      </tr>
-    </tbody>
-  </table>
-
-      </div>
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Clients</h1>
     </div>
-  </div>
-</div>
 
+    <div class="col-span-2 p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+      <h2 class="mb-4 text-xl font-semibold dark:text-white">macOS &amp; Linux with Homebrew</h2>
+
+      <pre class="font-jbmono bg-gray-100 dark:bg-gray-900 p-4 rounded-md text-sm text-gray-800 dark:text-gray-50"><code class="font-jbmono">brew install paularlott/tap/knot</code></pre>
+    </div>
+
+    <div class="col-span-2 p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+      <h2 class="mb-4 text-xl font-semibold dark:text-white">All Platforms</h2>
+
+      <div class="relative overflow-x-auto sm:rounded-lg">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+            <tr>
+              <th scope="col" class="px-6 py-3">Platform</th>
+              <th scope="col" class="px-6 py-3">Architecture</th>
+              <th scope="col" class="px-6 py-3">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <td class="px-6 py-4">Linux</td>
+              <td class="px-6 py-4">amd64</td>
+              <td class="px-6 py-4"><a href="/download/knot_linux_amd64.zip" class="btn-primary">Download</a></td>
+            </tr>
+            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <td class="px-6 py-4">Linux</td>
+              <td class="px-6 py-4">arm64</td>
+              <td class="px-6 py-4"><a href="/download/knot_linux_arm64.zip" class="btn-primary">Download</a></td>
+            </tr>
+            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <td class="px-6 py-4">macOS</td>
+              <td class="px-6 py-4">amd64</td>
+              <td class="px-6 py-4"><a href="/download/knot_darwin_amd64.zip" class="btn-primary">Download</a></td>
+            </tr>
+            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <td class="px-6 py-4">macOS</td>
+              <td class="px-6 py-4">arm64</td>
+              <td class="px-6 py-4"><a href="/download/knot_darwin_arm64.zip" class="btn-primary">Download</a></td>
+            </tr>
+            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <td class="px-6 py-4">Windows</td>
+              <td class="px-6 py-4">amd64</td>
+              <td class="px-6 py-4"><a href="/download/knot_windows_amd64.exe.zip" class="btn-primary">Download</a></td>
+            </tr>
+            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <td class="px-6 py-4">Windows</td>
+              <td class="px-6 py-4">arm64</td>
+              <td class="px-6 py-4"><a href="/download/knot_windows_arm64.exe.zip" class="btn-primary">Download</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </div>
+</main>
 {{ end }}

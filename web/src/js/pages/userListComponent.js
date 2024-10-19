@@ -18,10 +18,18 @@ window.userListComponent = function() {
     users: [],
     roles: [],
     groups: [],
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('user-search-term').using(sessionStorage),
+
+    async init() {
+      this.getUsers();
+
+      // Start a timer to look for updates
+      setInterval(async () => {
+        this.getUsers();
+      }, 15000);
+    },
 
     async getUsers() {
-      this.loading = true;
       const rolesResponse = await fetch('/api/v1/roles', {
         headers: {
           'Content-Type': 'application/json'
@@ -47,8 +55,6 @@ window.userListComponent = function() {
 
       this.loading = false;
       this.users.forEach(user => {
-        user.showIdPopup = false;
-        user.showMenu = false;
 
         // Make last_login_at human readable data time in the browser's timezone
         if (user.last_login_at) {
@@ -78,6 +84,9 @@ window.userListComponent = function() {
           });
         });
       });
+
+      // Apply search filter
+      this.searchChanged();
     },
     editUser(userId) {
       window.location.href = `/users/edit/${userId}`;

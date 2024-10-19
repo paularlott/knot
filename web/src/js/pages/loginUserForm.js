@@ -5,7 +5,7 @@ window.loginUserForm = function(redirect) {
       password: "",
     },
     loading: false,
-    buttonLabel: 'Login',
+    buttonLabel: 'Login to Your Account',
     emailValid: true,
     passwordValid: true,
     redirect: redirect,
@@ -53,7 +53,7 @@ window.loginUserForm = function(redirect) {
           self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = 'Login';
+          this.buttonLabel = 'Login to Your Account';
           this.loading = false;
         })
     },

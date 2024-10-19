@@ -58,9 +58,13 @@ apidocs:
 	npx @redocly/cli build-docs --output ./web/public_html/api-docs/agent/index.html --config ./redocly-config-agent.yaml --disableGoogleFont
 	sed -i '' 's|<script src="https.*</script>||g' ./web/public_html/api-docs/agent/index.html
 
-## Compile LESS and JavaScript
+## Compile LESS/CSS and JavaScript
 webassets:
 	npx vite build
+
+## Watch for changes in LESS, CSS, JavaScript files and recompile
+watch:
+	npx vite build --watch
 
 .PHONY: clean
 ## Remove the previous build
@@ -100,12 +104,12 @@ create-release:
 .PHONY: run-server
 ## Run the server for development
 run-server:
-	go run . server --log-level=debug --download-path=./bin
+	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates
 
 .PHONY: run-remote
 ## Run a remote server for development
 run-remote:
-	go run . server --log-level=debug --download-path=./bin --config=.knot-moon.yml
+	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-moon.yml
 
 .PHONY: help
 ## This help screen

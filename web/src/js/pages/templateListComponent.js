@@ -22,11 +22,18 @@ window.templateListComponent = function(canManageSpaces) {
     groups: [],
     canManageSpaces: canManageSpaces,
     users: [],
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('template-search-term').using(sessionStorage),
+
+    async init() {
+      this.getTemplates();
+
+      // Start a timer to look for updates
+      setInterval(async () => {
+        this.getTemplates();
+      }, 15000);
+    },
 
     async getTemplates() {
-      this.loading = true;
-
       if(this.canManageSpaces) {
         const usersResponse = await fetch('/api/v1/users?state=active', {
           headers: {
@@ -55,7 +62,6 @@ window.templateListComponent = function(canManageSpaces) {
 
       this.templates.forEach(template => {
         template.showIdPopup = false;
-        template.showMenu = false;
 
         // Convert group IDs to names
         template.group_names = [];
@@ -67,6 +73,9 @@ window.templateListComponent = function(canManageSpaces) {
           });
         });
       });
+
+      // Apply search filter
+      this.searchChanged();
 
       this.loading = false;
     },
@@ -110,7 +119,7 @@ window.templateListComponent = function(canManageSpaces) {
           response.json().then((templates) => {
 
             // If the selected template is in the list then created
-            var template = templates.find(template => template.template_id === this.chooseUser.template.template_id);
+            var template = templates.templates.find(template => template.template_id === this.chooseUser.template.template_id);
             if(template) {
               this.chooseUser.show = false;
               window.location.href = `/spaces/create/${this.chooseUser.template.template_id}/${this.chooseUser.forUserId}`;

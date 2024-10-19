@@ -1,5 +1,6 @@
 import {defineConfig} from 'vite';
 import {resolve} from 'path';
+import tailwindcss from "tailwindcss";
 
 export default defineConfig({
   base: "/assets/",
@@ -17,10 +18,20 @@ export default defineConfig({
         dir: 'web/public_html/assets/',
       },
       input: {
-        app: resolve(__dirname, 'web/src/js/app.js'),
+        knot: resolve(__dirname, 'web/src/js/knot.js'),
         terminal: resolve(__dirname, 'web/src/js/terminal.js'),
         nunito: resolve(__dirname, 'web/src/less/nunito.less'),
       },
-    }
+    },
+    css: {
+      postcss: {
+        plugins: [tailwindcss()],
+      },
+      preprocessorOptions: {
+        less: {
+          javascriptEnabled: true,
+        },
+      },
+    },
   }
 });

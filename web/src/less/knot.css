@@ -1,0 +1,57 @@
+@import 'ace-editor.less';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  @font-face {
+    font-family: 'Nunito';
+    font-style: normal;
+    font-weight: 100 700;
+    font-display: swap;
+    src: url(fonts/nunito.woff2) format('woff2');
+  }
+
+  @font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(fonts/jetbrainsmono.woff2) format('woff2');
+  }
+}
+
+@layer components {
+  .form-label {
+    @apply block mb-2 text-sm font-medium text-gray-900 dark:text-white;
+  }
+
+  .form-field {
+    @apply bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:outline-none focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:border-blue-500;
+  }
+
+  .form-field-error {
+    @apply border-red-500 focus:border-red-500 dark:border-red-500 dark:focus:border-red-500;
+  }
+
+  .error-message {
+    @apply pl-0.5 text-red-500 dark:text-red-700 text-sm;
+  }
+
+  .description {
+    @apply text-sm text-gray-500 dark:text-gray-600;
+  }
+
+  .btn-primary {
+    @apply w-full px-5 py-3 text-base font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 sm:text-sm sm:w-auto dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none disabled:cursor-not-allowed focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800;
+  }
+
+  .nav-item {
+    @apply flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 border-none my-1;
+  }
+
+  .nav-item-icon {
+    @apply w-6 h-6 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white;
+  }
+}

@@ -9,11 +9,18 @@ window.templateVarListComponent = function() {
       }
     },
     variables: [],
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('var-search-term').using(sessionStorage),
+
+    async init() {
+      this.getTemplateVars();
+
+      // Start a timer to look for updates
+      setInterval(async () => {
+        this.getTemplateVars();
+      }, 15000);
+    },
 
     async getTemplateVars() {
-      this.loading = true;
-
       const response = await fetch('/api/v1/templatevars', {
         headers: {
           'Content-Type': 'application/json'
@@ -25,6 +32,9 @@ window.templateVarListComponent = function() {
       this.variables.forEach(variable => {
         variable.showIdPopup = false;
       });
+
+      // Apply search filter
+      this.searchChanged();
 
       this.loading = false;
     },

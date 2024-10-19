@@ -1,7 +1,10 @@
-import '../less/app.less';
+import '../less/knot.css';
 
 import Alpine from 'alpinejs';
 import persist from '@alpinejs/persist';
+import AlpineFloatingUI from "@awcodes/alpine-floating-ui";
+import focus from '@alpinejs/focus';
+
 import { validate } from './validators.js';
 import {} from './timezones.js';
 import {} from './components/autocompleter.js';
@@ -31,7 +34,9 @@ window.focusElement = function(selector) {
 }
 
 window.Alpine = Alpine;
-Alpine.plugin(persist)
+Alpine.plugin(persist);
+Alpine.plugin(AlpineFloatingUI);
+Alpine.plugin(focus);
 Alpine.start();
 
 window.openTerminal = function(spaceId) {

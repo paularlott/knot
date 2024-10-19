@@ -12,6 +12,7 @@ window.variableForm = function(isEdit, templateVarId) {
     stayOnPage: true,
     nameValid: true,
     valueValid: true,
+    locationValid: true,
 
     async initData() {
       focusElement('input[name="name"]');
@@ -35,7 +36,7 @@ window.variableForm = function(isEdit, templateVarId) {
         }
       }
 
-      let darkMode = JSON.parse(localStorage.getItem('darkMode'));
+      let darkMode = JSON.parse(localStorage.getItem('_x_darkMode'));
       if(darkMode == null)
         darkMode = true;
 
@@ -73,12 +74,16 @@ window.variableForm = function(isEdit, templateVarId) {
     checkValue() {
       return this.valueValid = validate.maxLength(this.formData.value, 10 * 1024 * 1024);
     },
+    checkLocation() {
+      return this.locationValid = validate.maxLength(this.formData.location, 64);
+    },
 
     async submitData() {
       var err = false,
           self = this;
       err = !this.checkName() || err;
       err = !this.checkValue() || err;
+      err = !this.checkLocation() || err;
       if(err) {
         return;
       }

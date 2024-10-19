@@ -3,54 +3,65 @@
 {{ define "pageTitle" }}{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}{{ end }}
 
 {{ define "mainContent" }}
-<div class="content full-height">
-  <div class="row">
-    <div class="col-sm-12">
-      <div class="box full-height" x-data="templateForm({{ .isEdit }}, '{{ .templateId }}')" x-init="initData">
-        <h2>{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}</h2>
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
+  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="templateForm({{ .isEdit }}, '{{ .templateId }}')" x-init="initData">
 
-        {{ template "loading" . }}
-        <form action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
-          <dl>
-            <dt><label for="name">Name <em>*</em></label></dt>
-            <dd>
-              <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Template name" x-model="formData.name">
-              <div x-show="!nameValid" class="error-message">Template name can be a max 64 characters.</div>
-            </dd>
-            <dt><label for="description">Description</label></dt>
-            <dd class="short-editor">
-              <textarea name="description" id="description" placeholder="Description"></textarea>
-            </dd>
-            <dt><label for="job">Nomad Job (HCL) <em>*</em></label></dt>
-            <dd class="grow">
-              <div :class="{'error': !jobValid, 'editor-wrap': true}">
-                <textarea name="job" id="job"></textarea>
-                <div x-show="!jobValid" class="error-message">Template is required.</div>
-              </div>
-            </dd>
-            <dt><label for="vol">Volume Definition (YAML)</label></dt>
-            <dd>
-              <div :class="{'error': !volValid, 'editor-wrap': true}">
-                <textarea name="vol" id="vol"></textarea>
-                <div x-show="!volValid" class="error-message">Volume definition must be valid YAML.</div>
-              </div>
-            </dd>
-            <dt><label>Restrict to Groups</label></dt>
-              <dd class="checkbox-group">
-                <template x-for="(group, index) in groups" :key="index">
-                  <label class="checkbox">
-                    <input type="checkbox" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
-                    <span x-text="group.name"></span>
-                  </label>
-                </template>
-              </dd>
-            <dt></dt>
-            <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"> <input x-show="isEdit" type="submit" value="Save" :disabled="loading" x-on:click="stayOnPage=false"></dd>
-          </dl>
-        </form>
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}</h1>
+    </div>
 
-      </div>
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
+      {{ template "loading" . }}
+      <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
+        <div>
+          <label for="name" class="form-label">Name</label>
+          <input type="text" class="form-field" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Template name" x-model="formData.name">
+          <div x-show="!nameValid" class="error-message" x-cloak>Template name can be a max 64 characters.</div>
+        </div>
+        <div>
+          <label for="description" class="form-label">Description</label>
+          <div class="short-editor">
+            <div class="editor-wrap">
+              <textarea name="description" class="form-field" id="description" placeholder="Description"></textarea>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label for="job" class="form-label">Nomad Job (HCL)</label>
+          <div class="large-editor">
+            <div :class="{'form-field-error': !jobValid, 'editor-wrap': true}">
+              <textarea name="job" class="form-field" id="job"></textarea>
+            </div>
+            <div x-show="!jobValid" class="error-message" x-cloak>Template is required.</div>
+          </div>
+        </div>
+        <div>
+          <label for="vol" class="form-label">Volume Definition (YAML)</label>
+          <div class="mid-editor">
+            <div :class="{'form-field-error': !volValid, 'editor-wrap': true}">
+              <textarea name="vol" class="form-field" id="vol"></textarea>
+            </div>
+            <div x-show="!volValid" class="error-message" x-cloak>Volume definition must be valid YAML.</div>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Restrict to Groups</label>
+          <template x-for="(group, index) in groups" :key="index">
+            <label class="flex items-center cursor-pointer mb-2">
+              <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="group.name"></span>
+            </label>
+          </template>
+        </div>
+
+        <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
+        <button x-show="isEdit" class="btn-primary" type="submit" :disabled="loading" x-on:click="stayOnPage=false">Save</button>
+
+      </form>
+
     </div>
   </div>
-</div>
+</main>
 {{ end }}

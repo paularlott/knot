@@ -3,28 +3,25 @@
 {{ define "pageTitle" }}Create API Token{{ end }}
 
 {{ define "mainContent" }}
-<div class="content">
-  <div class="row">
-    <div class="col-sm-6 col-sm-offset-3">
-      <div class="box">
-        <h2>Create API Token</h2>
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
+  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="createTokenForm()">
 
-        <div x-data="createTokenForm()">
-          <form action="" method="POST" @submit.prevent="submitData">
-            <dl>
-              <dt><label for="name">Token Name <em>*</em></label></dt>
-              <dd>
-                <input type="text" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'error': !nameValid}" placeholder="Token name" x-model="formData.name">
-                <div x-show="!nameValid" class="error-message">The token name is required and must be shorter than 255 characters.</div>
-              </dd>
-              <dt></dt>
-              <dd class="text-right"><input type="submit" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></dd>
-            </dl>
-          </form>
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Create API Token</h1>
+    </div>
+
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
+      <form class="space-y-6" action="" method="POST" @submit.prevent="submitData">
+        <div>
+          <label for="name" class="form-label">Token Name</label>
+          <input type="text" name="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Token name" x-model="formData.name">
+          <div x-show="!nameValid" class="error-message" x-cloak="">The token name is required and must be shorter than 255 characters.</div>
         </div>
+        <button type="submit" class="btn-primary" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></button>
+      </form>
 
-      </div>
     </div>
   </div>
-</div>
+</main>
 {{ end }}

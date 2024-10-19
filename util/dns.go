@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
@@ -18,8 +19,82 @@ type HostPort struct {
 	Port string
 }
 
+var (
+	configLoaded   = false
+	defaultServers = []string{}
+	domainServers  = map[string][]string{}
+)
+
+func getResolvers(record string) *[]string {
+	// If load loaded then load the nameserver config
+	if !configLoaded {
+		configLoaded = true
+
+		// Load the default nameservers
+		for _, s := range viper.GetStringSlice("resolver.nameservers") {
+			// If the nameserver doesn't have a port, add the default port 53
+			if _, _, err := net.SplitHostPort(s); err != nil {
+				defaultServers = append(defaultServers, net.JoinHostPort(s, "53"))
+			} else {
+				defaultServers = append(defaultServers, s)
+			}
+		}
+
+		log.Debug().Msgf("dns: default servers: %+v", defaultServers)
+
+		// Load the domain specific nameservers
+		domains := viper.GetStringMap("resolver.domains")
+		for domain, servers := range domains {
+			// Append a . to the domain if it doesn't have one
+			if !strings.HasSuffix(domain, ".") {
+				domain = domain + "."
+			}
+
+			log.Debug().Msgf("dns: domain: %s, servers: %+v", domain, servers)
+
+			domainServers[domain] = make([]string, len(servers.([]interface{})))
+			for _, s := range servers.([]interface{}) {
+				// If the nameserver doesn't have a port, add the default port 53
+				if _, _, err := net.SplitHostPort(s.(string)); err != nil {
+					domainServers[domain] = append(domainServers[domain], net.JoinHostPort(s.(string), "53"))
+				} else {
+					domainServers[domain] = append(domainServers[domain], s.(string))
+				}
+			}
+		}
+	}
+
+	if !strings.HasSuffix(record, ".") {
+		record = record + "."
+	}
+
+	var servers *[]string = nil
+
+	// Look through the domains map to see if we have a specific servers for this domain
+	for domain, ns := range domainServers {
+		if strings.HasSuffix(record, domain) {
+			log.Debug().Msgf("Using Servers for %s: %+v", domain, ns)
+			servers = &ns
+			break
+		}
+	}
+
+	// If no specific servers are found, use the default servers
+	if servers == nil {
+		if len(defaultServers) == 0 {
+			log.Debug().Msg("Using system default nameservers")
+			return nil
+		} else {
+			log.Debug().Msgf("Using Default Servers: %+v", defaultServers)
+			servers = &defaultServers
+		}
+	}
+
+	return servers
+}
+
 // Run a parallel SRV query against a list of servers and return the first successful result
-func lookupSRVWithFallback(service string, servers []string, defaultPort string) ([]*net.SRV, error) {
+func lookupSRV(service string, servers []string) ([]*net.SRV, error) {
 	result := make(chan []*net.SRV, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -28,15 +103,8 @@ func lookupSRVWithFallback(service string, servers []string, defaultPort string)
 	wg.Add(len(servers))
 
 	for _, server := range servers {
-		go func(server string) {
+		go func() {
 			defer wg.Done()
-
-			parts := strings.Split(server, ":")
-			ip := parts[0]
-			port := defaultPort
-			if len(parts) > 1 {
-				port = parts[1]
-			}
 
 			resolver := &net.Resolver{
 				PreferGo: true,
@@ -44,7 +112,7 @@ func lookupSRVWithFallback(service string, servers []string, defaultPort string)
 					dialer := &net.Dialer{
 						Timeout: 5 * time.Second,
 					}
-					return dialer.DialContext(ctx, "udp", net.JoinHostPort(ip, port))
+					return dialer.DialContext(ctx, "udp", server)
 				},
 			}
 
@@ -56,7 +124,7 @@ func lookupSRVWithFallback(service string, servers []string, defaultPort string)
 				default:
 				}
 			}
-		}(server)
+		}()
 	}
 
 	go func() {
@@ -72,7 +140,7 @@ func lookupSRVWithFallback(service string, servers []string, defaultPort string)
 }
 
 // Run a parallel IP against a list of servers and return the first successful result
-func lookupIPWithFallback(host string, servers []string, defaultPort string) (*[]net.IP, error) {
+func lookupIP(host string, servers []string) (*[]net.IP, error) {
 	result := make(chan *[]net.IP, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -81,15 +149,8 @@ func lookupIPWithFallback(host string, servers []string, defaultPort string) (*[
 	wg.Add(len(servers))
 
 	for _, server := range servers {
-		go func(server string) {
+		go func() {
 			defer wg.Done()
-
-			parts := strings.Split(server, ":")
-			ip := parts[0]
-			port := defaultPort
-			if len(parts) > 1 {
-				port = parts[1]
-			}
 
 			resolver := &net.Resolver{
 				PreferGo: true,
@@ -97,7 +158,7 @@ func lookupIPWithFallback(host string, servers []string, defaultPort string) (*[
 					dialer := &net.Dialer{
 						Timeout: 5 * time.Second,
 					}
-					return dialer.DialContext(ctx, "udp", net.JoinHostPort(ip, port))
+					return dialer.DialContext(ctx, "udp", server)
 				},
 			}
 
@@ -109,7 +170,7 @@ func lookupIPWithFallback(host string, servers []string, defaultPort string) (*[
 				default:
 				}
 			}
-		}(server)
+		}()
 	}
 
 	go func() {
@@ -127,20 +188,8 @@ func lookupIPWithFallback(host string, servers []string, defaultPort string) (*[
 // Look up the address of a service via a DNS SRV lookup against either consul servers or nameservers
 func LookupSRV(service string) (*[]HostPort, error) {
 	var hostPorts []HostPort = make([]HostPort, 0)
-	var ns *[]string = nil
-	var port string = "53"
 
-	nameservers := viper.GetStringSlice("resolver.nameservers")
-	consulServers := viper.GetStringSlice("resolver.consul")
-
-	// If the service ends .consul then use the consul servers if they are given
-	if (strings.HasSuffix(service, ".consul") || strings.HasSuffix(service, ".consul.")) && consulServers != nil && len(consulServers) > 0 {
-		ns = &consulServers
-		port = "8600"
-	} else if nameservers != nil && len(nameservers) > 0 {
-		ns = &nameservers
-	}
-
+	ns := getResolvers(service)
 	if ns == nil {
 		// Not using custom nameservers then use the default
 		resolver := net.DefaultResolver
@@ -156,10 +205,10 @@ func LookupSRV(service string) (*[]HostPort, error) {
 			}
 		}
 	} else {
-		srvAddrs, err := lookupSRVWithFallback(service, *ns, port)
+		srvAddrs, err := lookupSRV(service, *ns)
 		if err == nil && len(srvAddrs) > 0 {
 			for _, srvAddr := range srvAddrs {
-				ips, err := lookupIPWithFallback(srvAddr.Target, *ns, port)
+				ips, err := lookupIP(srvAddr.Target, *ns)
 				if err == nil && len(*ips) > 0 {
 					for _, ip := range *ips {
 						hostPorts = append(hostPorts, HostPort{Host: ip.String(), Port: strconv.Itoa(int(srvAddr.Port))})
@@ -178,20 +227,8 @@ func LookupSRV(service string) (*[]HostPort, error) {
 
 func LookupIP(host string) (*[]string, error) {
 	var hosts []string = make([]string, 0)
-	var ns *[]string = nil
-	var port string = "53"
 
-	nameservers := viper.GetStringSlice("resolver.nameservers")
-	consulServers := viper.GetStringSlice("resolver.consul")
-
-	// If the service ends .consul then use the consul servers if they are given
-	if (strings.HasSuffix(host, ".consul") || strings.HasSuffix(host, ".consul.")) && consulServers != nil && len(consulServers) > 0 {
-		ns = &consulServers
-		port = "8600"
-	} else if nameservers != nil && len(nameservers) > 0 {
-		ns = &nameservers
-	}
-
+	ns := getResolvers(host)
 	if ns == nil {
 		// Not using custom nameservers then use the default
 		resolver := net.DefaultResolver
@@ -202,7 +239,7 @@ func LookupIP(host string) (*[]string, error) {
 			}
 		}
 	} else {
-		ips, err := lookupIPWithFallback(host, *ns, port)
+		ips, err := lookupIP(host, *ns)
 		if err == nil && len(*ips) > 0 {
 			for _, ip := range *ips {
 				hosts = append(hosts, ip.String())

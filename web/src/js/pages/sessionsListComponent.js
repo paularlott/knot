@@ -8,8 +8,17 @@ window.sessionsListComponent = function() {
         session_id: ''
       }
     },
+
+    async init() {
+      this.getSessions();
+
+      // Start a timer to look for updates
+      setInterval(async () => {
+        this.getSessions();
+      }, 15000);
+    },
+
     async getSessions() {
-      this.loading = true;
       const response = await fetch('/api/v1/sessions', {
         headers: {
           'Content-Type': 'application/json'

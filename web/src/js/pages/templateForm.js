@@ -47,7 +47,7 @@ window.templateForm = function(isEdit, templateId) {
         }
       }
 
-      let darkMode = JSON.parse(localStorage.getItem('darkMode'));
+      let darkMode = this.darkMode;
       if(darkMode == null)
         darkMode = true;
 
@@ -55,7 +55,7 @@ window.templateForm = function(isEdit, templateId) {
       let editor = ace.edit('job');
       editor.session.setValue(this.formData.job);
       editor.session.on('change', () => {
-          this.formData.job = editor.getValue();
+        this.formData.job = editor.getValue();
       });
       editor.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
       editor.session.setMode("ace/mode/terraform");
@@ -72,7 +72,7 @@ window.templateForm = function(isEdit, templateId) {
       let editorVol = ace.edit('vol');
       editorVol.session.setValue(this.formData.volumes);
       editorVol.session.on('change', () => {
-          this.formData.volumes = editorVol.getValue();
+        this.formData.volumes = editorVol.getValue();
       });
       editorVol.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
       editorVol.session.setMode("ace/mode/yaml");
@@ -90,7 +90,7 @@ window.templateForm = function(isEdit, templateId) {
       let editorDesc = ace.edit('description');
       editorDesc.session.setValue(this.formData.description);
       editorDesc.session.on('change', () => {
-          this.formData.description = editorDesc.getValue();
+        this.formData.description = editorDesc.getValue();
       });
       editorDesc.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
       editorDesc.session.setMode("ace/mode/text");

@@ -16,11 +16,18 @@ window.volumeListComponent = function() {
       }
     },
     volumes: [],
-    searchTerm: '',
+    searchTerm: Alpine.$persist('').as('vol-search-term').using(sessionStorage),
+
+    async init() {
+      this.getVolumes();
+
+      // Start a timer to look for updates
+      setInterval(async () => {
+        this.getVolumes();
+      }, 15000);
+    },
 
     async getVolumes() {
-      this.loading = true;
-
       const response = await fetch('/api/v1/volumes', {
         headers: {
           'Content-Type': 'application/json'
@@ -30,11 +37,12 @@ window.volumeListComponent = function() {
       this.volumes = volList.volumes;
 
       this.volumes.forEach(volume => {
-        volume.showIdPopup = false;
-        volume.showMenu = false;
         volume.starting = false;
         volume.stopping = false;
       });
+
+      // Apply search filter
+      this.searchChanged();
 
       this.loading = false;
     },

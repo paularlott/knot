@@ -34,7 +34,6 @@ import (
 
 func init() {
 	serverCmd.Flags().StringP("listen", "l", "", "The address to listen on (default \"127.0.0.1:3000\").\nOverrides the "+CONFIG_ENV_PREFIX+"_LISTEN environment variable if set.")
-	serverCmd.Flags().StringSliceP("consul", "", []string{}, "The address of the consul server to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_CONSUL_SERVERS environment variable if set.")
 	serverCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	serverCmd.Flags().StringP("url", "u", "", "The URL to use for the server (default \"http://127.0.0.1:3000\").\nOverrides the "+CONFIG_ENV_PREFIX+"_URL environment variable if set.")
 	serverCmd.Flags().BoolP("enable-proxy", "", false, "Enable the proxy server functionality.\nOverrides the "+CONFIG_ENV_PREFIX+"_ENABLE_PROXY environment variable if set.")
@@ -46,6 +45,8 @@ func init() {
 	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to NOMAD_DC or hostname).\nOverrides the "+CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
 	serverCmd.Flags().StringP("core-server", "", "", "The address of the core server this server is to become a remote of (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_CORE_SERVER environment variable if set.")
 	serverCmd.Flags().StringP("remote-token", "", "", "The token to use for remote and core server communication (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REMOTE_TOKEN environment variable if set.")
+	serverCmd.Flags().StringP("html-path", "", "", "The optional path to the html files to serve, if not given then then internal files are used.\nOverrides the "+CONFIG_ENV_PREFIX+"_HTML_PATH environment variable if set.")
+	serverCmd.Flags().StringP("template-path", "", "", "The optional path to the template files to serve, if not given then then internal files are used.\nOverrides the "+CONFIG_ENV_PREFIX+"_TEMPLATE_PATH environment variable if set.")
 
 	// TLS
 	serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the "+CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -75,9 +76,10 @@ func init() {
 
 	// Redis
 	serverCmd.Flags().BoolP("redis-enabled", "", false, "Enable Redis database backend.\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_ENABLED environment variable if set.")
-	serverCmd.Flags().StringP("redis-host", "", "localhost:6379", "The redis server (default \"localhost:6379\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_HOST environment variable if set.")
+	serverCmd.Flags().StringSliceP("redis-hosts", "", []string{"localhost:6379"}, "The redis server(s), can be specified multiple times (default \"localhost:6379\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_HOSTS environment variable if set.")
 	serverCmd.Flags().StringP("redis-password", "", "", "The password to use for the redis server.\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_PASSWORD environment variable if set.")
 	serverCmd.Flags().IntP("redis-db", "", 0, "The redis database to use (default \"0\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_DB environment variable if set.")
+	serverCmd.Flags().StringP("redis-master-name", "", "", "The name of the master to use for failover clients (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME environment variable if set.")
 
 	RootCmd.AddCommand(serverCmd)
 }
@@ -100,9 +102,6 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.wildcard_domain", CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN")
 		viper.SetDefault("server.wildcard_domain", "")
 
-		viper.BindPFlag("resolver.consul", cmd.Flags().Lookup("consul"))
-		viper.BindEnv("resolver.consul", CONFIG_ENV_PREFIX+"_CONSUL_SERVERS")
-
 		viper.BindPFlag("resolver.nameservers", cmd.Flags().Lookup("nameserver"))
 		viper.BindEnv("resolver.nameservers", CONFIG_ENV_PREFIX+"_NAMESERVERS")
 
@@ -117,6 +116,14 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.download_path", cmd.Flags().Lookup("download-path"))
 		viper.BindEnv("server.download_path", CONFIG_ENV_PREFIX+"_DOWNLOAD_PATH")
 		viper.SetDefault("server.download_path", "")
+
+		viper.BindPFlag("server.html_path", cmd.Flags().Lookup("html-path"))
+		viper.BindEnv("server.html_path", CONFIG_ENV_PREFIX+"_HTML_PATH")
+		viper.SetDefault("server.html_path", "")
+
+		viper.BindPFlag("server.template_path", cmd.Flags().Lookup("template-path"))
+		viper.BindEnv("server.template_path", CONFIG_ENV_PREFIX+"_TEMPLATE_PATH")
+		viper.SetDefault("server.template_path", "")
 
 		viper.BindPFlag("server.encrypt", cmd.Flags().Lookup("encrypt"))
 		viper.BindEnv("server.encrypt", CONFIG_ENV_PREFIX+"_ENCRYPT")
@@ -221,15 +228,18 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.redis.enabled", cmd.Flags().Lookup("redis-enabled"))
 		viper.BindEnv("server.redis.enabled", CONFIG_ENV_PREFIX+"_REDIS_ENABLED")
 		viper.SetDefault("server.redis.enabled", false)
-		viper.BindPFlag("server.redis.host", cmd.Flags().Lookup("redis-host"))
-		viper.BindEnv("server.redis.host", CONFIG_ENV_PREFIX+"_REDIS_HOST")
-		viper.SetDefault("server.redis.host", "localhost:6379")
+		viper.BindPFlag("server.redis.hosts", cmd.Flags().Lookup("redis-hosts"))
+		viper.BindEnv("server.redis.hosts", CONFIG_ENV_PREFIX+"_REDIS_HOSTS")
+		viper.SetDefault("server.redis.hosts", []string{"localhost:6379"})
 		viper.BindPFlag("server.redis.password", cmd.Flags().Lookup("redis-password"))
 		viper.BindEnv("server.redis.password", CONFIG_ENV_PREFIX+"_REDIS_PASSWORD")
 		viper.SetDefault("server.redis.password", "")
 		viper.BindPFlag("server.redis.db", cmd.Flags().Lookup("redis-db"))
 		viper.BindEnv("server.redis.db", CONFIG_ENV_PREFIX+"_REDIS_DB")
 		viper.SetDefault("server.redis.db", 0)
+		viper.BindPFlag("server.redis.master_name", cmd.Flags().Lookup("redis-master-name"))
+		viper.BindEnv("server.redis.master_name", CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME")
+		viper.SetDefault("server.redis.master_name", "")
 
 		// Set if remote or core server
 		viper.Set("server.is_remote", viper.GetString("server.remote_token") != "" && viper.GetString("server.core_server") != "")

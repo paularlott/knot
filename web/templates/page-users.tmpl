@@ -3,120 +3,182 @@
 {{ define "pageTitle" }}Users{{ end }}
 
 {{ define "mainContent" }}
-<div class="content">
-  <div class="row">
-    <div class="col-sm-12">
-      <div class="box">
-        <h2>Users</h2>
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="userListComponent()">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
 
-<div x-data="userListComponent()" x-init="getUsers">
-
-  <div class="row">
-    <div class="col-sm-4 col-sm-offset-4 col-sm-order-2 text-right">
-      <a href="/users/create" class="button"><i class="bx bx-plus"></i> Create User</a>
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Users</h1>
     </div>
-    <div class="col-sm-4 col-sm-order-1">
-      <input type="search" id="search" name="search" x-model="searchTerm" placeholder="Search" x-on:input="searchChanged">
-    </div>
-  </div>
 
-  {{ template "loading" . }}
-  <table class="action" x-show="!loading" x-cloak>
-    <thead>
-    <tr>
-      <th class="id-col">User ID</th>
-      <th>Username</th>
-      <th>Email</th>
-      <th>Roles</th>
-      <th>Groups</th>
-      <th>Spaces</th>
-      <th>Deployed</th>
-      <th>Disk Space</th>
-      <th>Active</th>
-      <th>Last Login</th>
-      <th>&nbsp;</th>
-    </tr>
-    </thead>
-    <tbody>
-    <template x-for="u in users" :key="u.user_id">
-      <tr x-show="!u.searchHide">
-        <td class="id-col">
-          <button @click="u.showIdPopup = true" class="show-id" x-text="u.user_id"></button>
-          <div x-show="u.showIdPopup" @click.away="u.showIdPopup = false" @keydown.window.escape="u.showIdPopup = false" class="id-popup">
-            <input type="text" x-model="u.user_id" readonly>
-          </div>
-        </td>
-        <td x-text="u.username"></td>
-        <td x-text="u.email"></td>
-        <td>
-          <template x-for="role in u.role_names">
-            <span class="badge info" x-text="role"></span>
+    <form class="col-span-full sm:flex justify-between">
+      <div>
+        <label for="search" class="sr-only">Search</label>
+        <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96">
+          <input type="search" name="search" class="form-field bg-white" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+        </div>
+      </div>
+      <div>
+        <a href="/users/create" class="btn-primary flex items-center mt-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
+            <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+          </svg>
+          Create User
+        </a>
+      </div>
+    </form>
+
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
+      {{ template "loading" . }}
+      <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+            <tr>
+              <th scope="col" class="px-6 py-3">Username</th>
+              <th scope="col" class="px-6 py-3">Email</th>
+              <th scope="col" class="px-6 py-3">Roles</th>
+              <th scope="col" class="px-6 py-3">Groups</th>
+              <th scope="col" class="px-6 py-3">Spaces</th>
+              <th scope="col" class="px-6 py-3">Deployed</th>
+              <th scope="col" class="px-6 py-3">Disk Space</th>
+              <th scope="col" class="px-6 py-3">Active</th>
+              <th scope="col" class="px-6 py-3">Last Login</th>
+              <th scope="col" class="px-6 py-3">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+          <template x-for="u in users" :key="u.user_id">
+            <tr x-show="!u.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <td x-text="u.username" class="px-6 py-4"></td>
+              <td x-text="u.email" class="px-6 py-4"></td>
+              <td class="px-6 py-4">
+                <template x-for="role in u.role_names">
+                  <span class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap" x-text="role"></span>
+                </template>
+              </td>
+              <td class="px-6 py-4">
+                <template x-for="group in u.group_names">
+                  <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 text-nowrap" x-text="group"></span>
+                </template>
+              </td>
+              <td class="px-6 py-4">
+                <span x-text="u.number_spaces"></span> <span x-show="u.max_spaces > 0">/ <span x-text="u.max_spaces"></span></span>
+              </td>
+              <td class="px-6 py-4">
+                Total: <span x-text="u.number_spaces_deployed"></span>
+                <span x-show="u.number_spaces_deployed"><br />Local: <span x-text="u.number_spaces_deployed_in_location"></span></span>
+              </td>
+              <td class="px-6 py-4">
+                <span x-text="u.used_disk_space + 'GB'"></span> <span x-show="u.max_disk_space">/ <span x-text="u.max_disk_space + 'GB'"></span></span>
+              </td>
+              <td x-text="u.active ? 'Yes' : 'No'" class="px-6 py-4"></td>
+              <td x-text="u.last_login_at" class="px-6 py-4"></td>
+              <td class="px-6 py-4">
+                <div class="flex items-center justify-end" x-data>
+                  <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
+                      <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
+                    </svg><span class="sr-only">More</span>
+                  </button>
+
+                  <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+                    <button @click="editUser(u.user_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                      </svg> Edit
+                    </button>
+                    <button x-show="u.number_spaces_deployed > 0" @click="userSpaces(u.user_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+                      </svg> View Spaces
+                    </button>
+
+                    <hr x-show="!u.current" class="my-2" />
+                    <button x-show="!u.current" @click="deleteConfirm.show = true; deleteConfirm.user = u" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                      </svg> Delete
+                    </button>
+
+                    <hr x-show="u.number_spaces_deployed_in_location > 0" class="my-2" />
+                    <button x-show="u.number_spaces_deployed_in_location > 0" @click="stopConfirm.show = true; stopConfirm.user = u" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
+                      </svg> Stop Spaces
+                    </button>
+                  </div>
+                </div>
+              </td>
+            </tr>
           </template>
-        </td>
-        <td>
-          <template x-for="group in u.group_names">
-            <span class="badge info" x-text="group"></span>
-          </template>
-        </td>
-        <td>
-          <span x-text="u.number_spaces"></span> <span x-show="u.max_spaces > 0">/ <span x-text="u.max_spaces"></span></span>
-        </td>
-        <td>
-          Total: <span x-text="u.number_spaces_deployed"></span>
-          <span x-show="u.number_spaces_deployed"><br />Local: <span x-text="u.number_spaces_deployed_in_location"></span></span>
-        </td>
-        <td>
-          <span x-text="u.used_disk_space + 'GB'"></span> <span x-show="u.max_disk_space">/ <span x-text="u.max_disk_space + 'GB'"></span></span>
-        </td>
-        <td x-text="u.active ? 'Yes' : 'No'"></td>
-        <td x-text="u.last_login_at"></td>
-        <td>
-          <button class="outline" @click="u.showMenu = true"><i class='bx bx-dots-vertical'></i></button>
-          <div x-show="u.showMenu" @click.away="u.showMenu = false" @keydown.window.escape="u.showMenu = false" class="menu-popup">
-            <button @click="editUser(u.user_id)"><i class='bx bx-edit' ></i> Edit</button>
-            <button x-show="u.number_spaces_deployed > 0" @click="userSpaces(u.user_id)"><i class='bx bx-cloud' ></i> View Spaces</button>
-            <hr x-show="!u.current" />
-            <button x-show="!u.current" @click="deleteConfirm.show = true; deleteConfirm.user = u" class="danger"><i class="bx bx-error-circle"></i> Delete</button>
-            <hr x-show="u.number_spaces_deployed_in_location > 0" />
-            <button x-show="u.number_spaces_deployed_in_location > 0" @click="stopConfirm.show = true; stopConfirm.user = u" class="danger"><i class='bx bx-error-alt'></i> Stop Spaces</button>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Modal delete -->
+      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" @click.self="deleteConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-sm sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+        <!-- Modal Dialog -->
+        <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+          <!-- Dialog Header -->
+          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
+            <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Confirm Delete</h3>
+            <button @click="deleteConfirm.show = false;" aria-label="close modal">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
-        </td>
-      </tr>
-    </template>
-    </tbody>
-  </table>
+          <!-- Dialog Body -->
+          <div class="px-4 py-4 text-center">
+            <p>Are you sure you want to delete the user <strong x-text="deleteConfirm.user.username"></strong>?</p>
+            <p>All spaces will be stopped and deleted, any data in template volumes will be deleted.</p>
+          </div>
+          <!-- Dialog Footer -->
+          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
+              <button @click="deleteConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Keep User</button>
+              <button @click="deleteUser(deleteConfirm.user.user_id)" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Delete User</button>
+          </div>
+        </div>
+      </div>
 
-  <div class="modal-tint" x-show="deleteConfirm.show" x-cloak style="display: none;">
-    <div class="modal">
-      <div class="modal-body">
-        <h2><i class='bx bxs-error'></i> Confirm Delete</h2>
-        <p>Are you sure you want to delete the user <span x-text="deleteConfirm.user.username"></span>?</p>
-        <p>All spaces will be stopped and deleted, any data in template volumes will be deleted.</p>
+      <!-- Modal stop -->
+      <div x-cloak x-show="stopConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="stopConfirm.show" @keydown.esc.window="stopConfirm.show = false" @click.self="stopConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-sm sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+        <!-- Modal Dialog -->
+        <div x-show="stopConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+          <!-- Dialog Header -->
+          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
+            <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Confirm Stop Spaces</h3>
+            <button @click="stopConfirm.show = false;" aria-label="close modal">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <!-- Dialog Body -->
+          <div class="px-4 py-4 text-center">
+            <p>Are you sure you want to stop all spaces for the user <strong x-text="stopConfirm.user.username"></strong>?</p>
+          </div>
+          <!-- Dialog Footer -->
+          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
+              <button @click="stopConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+              <button @click="stopSpaces(stopConfirm.user.user_id)" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Stop Spaces</button>
+          </div>
+        </div>
       </div>
-      <div class="modal-footer">
-        <button @click="deleteConfirm.show = false">Cancel</button>
-        <button class="danger" @click="deleteUser(deleteConfirm.user.user_id)">Delete</button>
-      </div>
+
     </div>
-  </div>
 
-  <div class="modal-tint" x-show="stopConfirm.show" x-cloak style="display: none;">
-    <div class="modal">
-      <div class="modal-body">
-        <h2><i class='bx bxs-error'></i> Confirm Stop Spaces</h2>
-        <p>Are you sure you want to stop all spaces for the user <span x-text="stopConfirm.user.username"></span>?</p>
-      </div>
-      <div class="modal-footer">
-        <button @click="stopConfirm.show = false">Cancel</button>
-        <button class="danger" @click="stopSpaces(stopConfirm.user.user_id)">Stop Spaces</button>
-      </div>
-    </div>
   </div>
-
-</div>
-
-      </div>
-    </div>
-  </div>
-</div>
+</main>
 {{ end }}
