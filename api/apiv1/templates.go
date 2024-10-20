@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
@@ -19,7 +20,8 @@ import (
 )
 
 var (
-	templateHashes = make(map[string]string)
+	templateHashMutex = &sync.Mutex{}
+	templateHashes    = make(map[string]string)
 )
 
 func SyncTemplateHashes() {
@@ -43,6 +45,8 @@ func SyncTemplateHashes() {
 		for {
 			db := database.GetInstance()
 
+			templateHashMutex.Lock()
+
 			templates, err := db.GetTemplates()
 			if err != nil {
 				log.Error().Msgf("failed to fetch templates: %s", err.Error())
@@ -54,6 +58,8 @@ func SyncTemplateHashes() {
 
 				templateHashes = newHashes
 			}
+
+			templateHashMutex.Unlock()
 
 			time.Sleep(model.REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL)
 		}
@@ -203,6 +209,10 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.UpdatedUserId = user.Id
 		template.Groups = request.Groups
 		template.UpdateHash()
+
+		templateHashMutex.Lock()
+		defer templateHashMutex.Unlock()
+		templateHashes[template.Id] = template.Hash
 
 		err = database.GetInstance().SaveTemplate(template)
 		if err != nil {
