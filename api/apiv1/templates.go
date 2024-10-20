@@ -377,11 +377,22 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 
 		if volumes != nil {
 			for _, volume := range volumes.Volumes {
+				var capacityMin int64 = 0
+				var capacityMax int64 = 0
+
+				if volume.CapacityMin != nil {
+					capacityMin = int64(math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))))
+				}
+
+				if volume.CapacityMax != nil {
+					capacityMax = int64(math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64))/(1024*1024*1024))))
+				}
+
 				volumeList = append(volumeList, map[string]interface{}{
 					"id":           volume.Id,
 					"name":         volume.Name,
-					"capacity_min": math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))),
-					"capacity_max": math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64))/(1024*1024*1024))),
+					"capacity_min": capacityMin,
+					"capacity_max": capacityMax,
 				})
 			}
 		}
