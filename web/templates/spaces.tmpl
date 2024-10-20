@@ -7,11 +7,17 @@
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
 
     <div class="mb-4 col-span-full xl:mb-2">
-      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Spaces</h1>
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">
+        {{ if eq .user_id .forUserId }}
+          Spaces
+        {{ else }}
+          Spaces for {{ .forUserUsername }}
+        {{ end }}
+      </h1>
     </div>
 
     <form class="col-span-full sm:flex justify-between">
-      <div x-show="canManageSpaces" class="sm:order-2">
+      <div x-show="canManageSpaces && !showingSpecificUser" class="sm:order-2">
           <label for="countries" class="sr-only">Select an option</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 justify-end">
             <select x-show="!loading" class="form-field bg-white" name="user" x-model="forUserId" x-on:change="userChanged">

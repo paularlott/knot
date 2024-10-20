@@ -417,6 +417,22 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If user doesn't have permission to manage spaces and not their space then fail
+	if user.Id != space.UserId && !user.HasPermission(model.PermissionManageSpaces) {
+		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	// If the space is owned by a different user then load the user
+	if user.Id != space.UserId {
+		user, err = db.GetUser(space.UserId)
+		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
 	// If remote then need to pull the space from the remote
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
@@ -537,6 +553,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	var space *model.Space
 	var client *apiclient.ApiClient = nil
 
+	user := r.Context().Value("user").(*model.User)
 	spaceId := chi.URLParam(r, "space_id")
 	db := database.GetInstance()
 	cache := database.GetCacheInstance()
@@ -545,6 +562,12 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
 		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If user doesn't have permission to manage spaces and not their space then fail
+	if user.Id != space.UserId && !user.HasPermission(model.PermissionManageSpaces) {
+		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
 		return
 	}
 
