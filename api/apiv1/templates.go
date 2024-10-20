@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
@@ -19,7 +20,8 @@ import (
 )
 
 var (
-	templateHashes = make(map[string]string)
+	templateHashMutex = &sync.Mutex{}
+	templateHashes    = make(map[string]string)
 )
 
 func SyncTemplateHashes() {
@@ -43,6 +45,8 @@ func SyncTemplateHashes() {
 		for {
 			db := database.GetInstance()
 
+			templateHashMutex.Lock()
+
 			templates, err := db.GetTemplates()
 			if err != nil {
 				log.Error().Msgf("failed to fetch templates: %s", err.Error())
@@ -54,6 +58,8 @@ func SyncTemplateHashes() {
 
 				templateHashes = newHashes
 			}
+
+			templateHashMutex.Unlock()
 
 			time.Sleep(model.REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL)
 		}
@@ -203,6 +209,10 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.UpdatedUserId = user.Id
 		template.Groups = request.Groups
 		template.UpdateHash()
+
+		templateHashMutex.Lock()
+		defer templateHashMutex.Unlock()
+		templateHashes[template.Id] = template.Hash
 
 		err = database.GetInstance().SaveTemplate(template)
 		if err != nil {
@@ -377,11 +387,22 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 
 		if volumes != nil {
 			for _, volume := range volumes.Volumes {
+				var capacityMin int64 = 0
+				var capacityMax int64 = 0
+
+				if volume.CapacityMin != nil {
+					capacityMin = int64(math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))))
+				}
+
+				if volume.CapacityMax != nil {
+					capacityMax = int64(math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64))/(1024*1024*1024))))
+				}
+
 				volumeList = append(volumeList, map[string]interface{}{
 					"id":           volume.Id,
 					"name":         volume.Name,
-					"capacity_min": math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))),
-					"capacity_max": math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64))/(1024*1024*1024))),
+					"capacity_min": capacityMin,
+					"capacity_max": capacityMax,
 				})
 			}
 		}

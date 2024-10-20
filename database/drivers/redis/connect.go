@@ -11,6 +11,7 @@ import (
 )
 
 type RedisDbDriver struct {
+	prefix     string
 	connection redis.UniversalClient
 }
 
@@ -70,6 +71,13 @@ func (db *RedisDbDriver) realConnect() {
 }
 
 func (db *RedisDbDriver) Connect() error {
+
+	// If prefix doesn't end with : append it
+	db.prefix = viper.GetString("server.redis.key_prefix")
+	if db.prefix != "" && db.prefix[len(db.prefix)-1:] != ":" {
+		db.prefix += ":"
+	}
+
 	db.realConnect()
 
 	// Monitor the connection and reconnect if the connection is lost

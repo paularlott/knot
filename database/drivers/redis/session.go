@@ -18,12 +18,12 @@ func (db *RedisDbDriver) SaveSession(session *model.Session) error {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("Sessions:%s", session.Id), data, time.Hour*2).Err()
+	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, session.Id), data, time.Hour*2).Err()
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("SessionsByUserId:%s:%s", session.UserId, session.Id), session.Id, time.Hour*2).Err()
+	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSessionsByUserId:%s:%s", db.prefix, session.UserId, session.Id), session.Id, time.Hour*2).Err()
 	if err != nil {
 		return err
 	}
@@ -32,12 +32,12 @@ func (db *RedisDbDriver) SaveSession(session *model.Session) error {
 }
 
 func (db *RedisDbDriver) DeleteSession(session *model.Session) error {
-	err := db.connection.Del(context.Background(), fmt.Sprintf("Sessions:%s", session.Id)).Err()
+	err := db.connection.Del(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, session.Id)).Err()
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Del(context.Background(), fmt.Sprintf("SessionsByUserId:%s:%s", session.UserId, session.Id)).Err()
+	err = db.connection.Del(context.Background(), fmt.Sprintf("%sSessionsByUserId:%s:%s", db.prefix, session.UserId, session.Id)).Err()
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func (db *RedisDbDriver) DeleteSession(session *model.Session) error {
 func (db *RedisDbDriver) GetSession(id string) (*model.Session, error) {
 	var session = &model.Session{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("Sessions:%s", id)).Result()
+	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, id)).Result()
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -64,9 +64,9 @@ func (db *RedisDbDriver) GetSession(id string) (*model.Session, error) {
 func (db *RedisDbDriver) GetSessionsForUser(userId string) ([]*model.Session, error) {
 	var sessions []*model.Session
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("SessionsByUserId:%s:*", userId), 0).Iterator()
+	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSessionsByUserId:%s:*", db.prefix, userId), 0).Iterator()
 	for iter.Next(context.Background()) {
-		session, err := db.GetSession(iter.Val()[54:])
+		session, err := db.GetSession(iter.Val()[len(fmt.Sprintf("%sSessionsByUserId:00000000-0000-0000-0000-000000000000:", db.prefix)):])
 		if err != nil {
 			return nil, err
 		}
@@ -83,9 +83,9 @@ func (db *RedisDbDriver) GetSessionsForUser(userId string) ([]*model.Session, er
 func (db *RedisDbDriver) GetSessions() ([]*model.Session, error) {
 	var sessions []*model.Session
 
-	iter := db.connection.Scan(context.Background(), 0, "Sessions:*", 0).Iterator()
+	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSessions:*", db.prefix), 0).Iterator()
 	for iter.Next(context.Background()) {
-		session, err := db.GetSession(iter.Val()[9:])
+		session, err := db.GetSession(iter.Val()[len(fmt.Sprintf("%sSessions:", db.prefix)):])
 		if err != nil {
 			return nil, err
 		}

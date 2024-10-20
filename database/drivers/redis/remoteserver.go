@@ -18,17 +18,17 @@ func (db *RedisDbDriver) SaveRemoteServer(server *model.RemoteServer) error {
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("RemoteServer:%s", server.Id), data, model.REMOTE_SERVER_TIMEOUT).Err()
+	return db.connection.Set(context.Background(), fmt.Sprintf("%sRemoteServer:%s", db.prefix, server.Id), data, model.REMOTE_SERVER_TIMEOUT).Err()
 }
 
 func (db *RedisDbDriver) DeleteRemoteServer(server *model.RemoteServer) error {
-	return db.connection.Del(context.Background(), fmt.Sprintf("RemoteServer:%s", server.Id)).Err()
+	return db.connection.Del(context.Background(), fmt.Sprintf("%sRemoteServer:%s", db.prefix, server.Id)).Err()
 }
 
 func (db *RedisDbDriver) GetRemoteServer(id string) (*model.RemoteServer, error) {
 	var server = &model.RemoteServer{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("RemoteServer:%s", id)).Result()
+	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sRemoteServer:%s", db.prefix, id)).Result()
 	if err != nil {
 		return nil, convertRedisError(err)
 	}
@@ -44,7 +44,7 @@ func (db *RedisDbDriver) GetRemoteServer(id string) (*model.RemoteServer, error)
 func (db *RedisDbDriver) GetRemoteServers() ([]*model.RemoteServer, error) {
 	var servers []*model.RemoteServer
 
-	keys, err := db.connection.Keys(context.Background(), "RemoteServer:*").Result()
+	keys, err := db.connection.Keys(context.Background(), fmt.Sprintf("%sRemoteServer:*", db.prefix)).Result()
 	if err != nil {
 		return nil, convertRedisError(err)
 	}

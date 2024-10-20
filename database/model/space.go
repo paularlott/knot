@@ -89,7 +89,9 @@ func (space *Space) GetStorageSize(template *Template) (int, error) {
 	// Calculate the volume sizes
 	var sizeGB int = 0
 	for _, volume := range volumes.Volumes {
-		sizeGB += int(math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))))
+		if volume.CapacityMin != nil {
+			sizeGB += int(math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))))
+		}
 	}
 
 	return sizeGB, nil
