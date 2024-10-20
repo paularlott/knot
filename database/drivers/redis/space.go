@@ -17,7 +17,7 @@ import (
 func (db *RedisDbDriver) mutexLock() error {
 
 	for i := 0; i < 10; i++ {
-		set, err := db.connection.SetNX(context.Background(), "SpacesWriteLock", "1", 10*time.Second).Result()
+		set, err := db.connection.SetNX(context.Background(), fmt.Sprintf("%sSpacesWriteLock", db.prefix), "1", 10*time.Second).Result()
 		if err == nil && set {
 			return nil
 		}
@@ -28,7 +28,7 @@ func (db *RedisDbDriver) mutexLock() error {
 
 // Function to release the mutex lock on the redis database
 func (db *RedisDbDriver) mutexUnlock() error {
-	_, err := db.connection.Del(context.Background(), "SpacesWriteLock").Result()
+	_, err := db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesWriteLock", db.prefix)).Result()
 	return err
 }
 
@@ -51,7 +51,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 
 	// If new space or name changed check if the new name is unique
 	if existingSpace == nil || space.Name != existingSpace.Name {
-		exists, err := db.keyExists(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(space.Name)))
+		exists, err := db.keyExists(fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(space.Name)))
 		if err != nil {
 			return err
 		} else if exists {
@@ -72,7 +72,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 		}
 
 		if !found {
-			exists, err := db.keyExists(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(name)))
+			exists, err := db.keyExists(fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(name)))
 			if err != nil {
 				return err
 			} else if exists {
@@ -87,29 +87,29 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("Spaces:%s", space.Id), data, 0).Err()
+	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpaces:%s", db.prefix, space.Id), data, 0).Err()
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("SpacesByUserId:%s:%s", space.UserId, space.Id), space.Id, 0).Err()
+	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.UserId, space.Id), space.Id, 0).Err()
 	if err != nil {
 		return err
 	}
 
 	if existingSpace != nil && existingSpace.Name != space.Name {
-		err = db.connection.Del(context.Background(), fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(existingSpace.Name))).Err()
+		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(existingSpace.Name))).Err()
 		if err != nil {
 			return err
 		}
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(space.Name)), space.Id, 0).Err()
+	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(space.Name)), space.Id, 0).Err()
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("SpacesByTemplateId:%s:%s", space.TemplateId, space.Id), space.Id, 0).Err()
+	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByTemplateId:%s:%s", db.prefix, space.TemplateId, space.Id), space.Id, 0).Err()
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 				}
 			}
 			if !found {
-				err = db.connection.Del(context.Background(), fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(altName))).Err()
+				err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName))).Err()
 				if err != nil {
 					return err
 				}
@@ -148,7 +148,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 		}
 
 		if !found {
-			err = db.connection.Set(context.Background(), fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(name)), space.Id, 0).Err()
+			err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(name)), space.Id, 0).Err()
 			if err != nil {
 				return err
 			}
@@ -159,29 +159,29 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 }
 
 func (db *RedisDbDriver) DeleteSpace(space *model.Space) error {
-	err := db.connection.Del(context.Background(), fmt.Sprintf("Spaces:%s", space.Id)).Err()
+	err := db.connection.Del(context.Background(), fmt.Sprintf("%sSpaces:%s", db.prefix, space.Id)).Err()
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Del(context.Background(), fmt.Sprintf("SpacesByUserId:%s:%s", space.UserId, space.Id)).Err()
+	err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.UserId, space.Id)).Err()
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Del(context.Background(), fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(space.Name))).Err()
+	err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(space.Name))).Err()
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Del(context.Background(), fmt.Sprintf("SpacesByTemplateId:%s:%s", space.TemplateId, space.Id)).Err()
+	err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByTemplateId:%s:%s", db.prefix, space.TemplateId, space.Id)).Err()
 	if err != nil {
 		return err
 	}
 
 	// Delete alternate names
 	for _, altName := range space.AltNames {
-		err = db.connection.Del(context.Background(), fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(altName))).Err()
+		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName))).Err()
 		if err != nil {
 			return err
 		}
@@ -193,7 +193,7 @@ func (db *RedisDbDriver) DeleteSpace(space *model.Space) error {
 func (db *RedisDbDriver) GetSpace(id string) (*model.Space, error) {
 	var space = &model.Space{}
 
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("Spaces:%s", id)).Result()
+	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sSpaces:%s", db.prefix, id)).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return nil, fmt.Errorf("space not found")
@@ -212,9 +212,9 @@ func (db *RedisDbDriver) GetSpace(id string) (*model.Space, error) {
 func (db *RedisDbDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
 	var spaces []*model.Space
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("SpacesByUserId:%s:*", userId), 0).Iterator()
+	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSpacesByUserId:%s:*", db.prefix, userId), 0).Iterator()
 	for iter.Next(context.Background()) {
-		space, err := db.GetSpace(iter.Val()[52:])
+		space, err := db.GetSpace(iter.Val()[len(fmt.Sprintf("%sSpacesByUserId:00000000-0000-0000-0000-000000000000:", db.prefix)):])
 		if err != nil {
 			return nil, err
 		}
@@ -234,7 +234,7 @@ func (db *RedisDbDriver) GetSpacesForUser(userId string) ([]*model.Space, error)
 }
 
 func (db *RedisDbDriver) GetSpaceByName(userId string, spaceName string) (*model.Space, error) {
-	v, err := db.connection.Get(context.Background(), fmt.Sprintf("SpacesByUserIdByName:%s:%s", userId, strings.ToLower(spaceName))).Result()
+	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, userId, strings.ToLower(spaceName))).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -245,9 +245,9 @@ func (db *RedisDbDriver) GetSpaceByName(userId string, spaceName string) (*model
 func (db *RedisDbDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space, error) {
 	var spaces []*model.Space
 
-	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("SpacesByTemplateId:%s:*", templateId), 0).Iterator()
+	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSpacesByTemplateId:%s:*", db.prefix, templateId), 0).Iterator()
 	for iter.Next(context.Background()) {
-		space, err := db.GetSpace(iter.Val()[56:])
+		space, err := db.GetSpace(iter.Val()[len(fmt.Sprintf("%sSpacesByTemplateId:00000000-0000-0000-0000-000000000000:", db.prefix)):])
 		if err != nil {
 			return nil, err
 		}
@@ -269,9 +269,9 @@ func (db *RedisDbDriver) GetSpacesByTemplateId(templateId string) ([]*model.Spac
 func (db *RedisDbDriver) GetSpaces() ([]*model.Space, error) {
 	var spaces []*model.Space
 
-	iter := db.connection.Scan(context.Background(), 0, "Spaces:*", 0).Iterator()
+	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSpaces:*", db.prefix), 0).Iterator()
 	for iter.Next(context.Background()) {
-		space, err := db.GetSpace(iter.Val()[7:])
+		space, err := db.GetSpace(iter.Val()[len(fmt.Sprintf("%sSpaces:", db.prefix)):])
 		if err != nil {
 			return nil, err
 		}

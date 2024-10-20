@@ -28,6 +28,8 @@ func init() {
 	adminCmd.PersistentFlags().StringP("redis-host", "", "localhost:6379", "The redis server (default \"localhost:6379\").\nOverrides the "+command.CONFIG_ENV_PREFIX+"_REDIS_HOST environment variable if set.")
 	adminCmd.PersistentFlags().StringP("redis-password", "", "", "The password to use for the redis server.\nOverrides the "+command.CONFIG_ENV_PREFIX+"_REDIS_PASSWORD environment variable if set.")
 	adminCmd.PersistentFlags().IntP("redis-db", "", 0, "The redis database to use (default \"0\").\nOverrides the "+command.CONFIG_ENV_PREFIX+"_REDIS_DB environment variable if set.")
+	adminCmd.Flags().StringP("redis-master-name", "", "", "The name of the master to use for failover clients (default \"\").\nOverrides the "+command.CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME environment variable if set.")
+	adminCmd.PersistentFlags().StringP("redis-key-prefix", "", "", "The prefix to use for all keys in the redis database (default \"\").\nOverrides the "+command.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX environment variable if set.")
 
 	command.RootCmd.AddCommand(adminCmd)
 	adminCmd.AddCommand(renameLocationCmd)
@@ -89,6 +91,13 @@ var adminCmd = &cobra.Command{
 		viper.BindPFlag("server.redis.db", cmd.Flags().Lookup("redis-db"))
 		viper.BindEnv("server.redis.db", command.CONFIG_ENV_PREFIX+"_REDIS_DB")
 		viper.SetDefault("server.redis.db", 0)
+		viper.BindPFlag("server.redis.master_name", cmd.Flags().Lookup("redis-master-name"))
+		viper.BindEnv("server.redis.master_name", command.CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME")
+		viper.SetDefault("server.redis.master_name", "")
+		viper.BindPFlag("server.redis.key_prefix", cmd.Flags().Lookup("redis-key-prefix"))
+		viper.BindEnv("server.redis.key_prefix", command.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX")
+		viper.SetDefault("server.redis.key_prefix", "")
+
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()

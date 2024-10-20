@@ -80,6 +80,7 @@ func init() {
 	serverCmd.Flags().StringP("redis-password", "", "", "The password to use for the redis server.\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_PASSWORD environment variable if set.")
 	serverCmd.Flags().IntP("redis-db", "", 0, "The redis database to use (default \"0\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_DB environment variable if set.")
 	serverCmd.Flags().StringP("redis-master-name", "", "", "The name of the master to use for failover clients (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME environment variable if set.")
+	serverCmd.Flags().StringP("redis-key-prefix", "", "", "The prefix to use for all keys in the redis database (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX environment variable if set.")
 
 	RootCmd.AddCommand(serverCmd)
 }
@@ -240,6 +241,9 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.redis.master_name", cmd.Flags().Lookup("redis-master-name"))
 		viper.BindEnv("server.redis.master_name", CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME")
 		viper.SetDefault("server.redis.master_name", "")
+		viper.BindPFlag("server.redis.key_prefix", cmd.Flags().Lookup("redis-key-prefix"))
+		viper.BindEnv("server.redis.key_prefix", CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX")
+		viper.SetDefault("server.redis.key_prefix", "")
 
 		// Set if remote or core server
 		viper.Set("server.is_remote", viper.GetString("server.remote_token") != "" && viper.GetString("server.core_server") != "")
