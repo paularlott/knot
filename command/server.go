@@ -47,6 +47,7 @@ func init() {
 	serverCmd.Flags().StringP("remote-token", "", "", "The token to use for remote and core server communication (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REMOTE_TOKEN environment variable if set.")
 	serverCmd.Flags().StringP("html-path", "", "", "The optional path to the html files to serve, if not given then then internal files are used.\nOverrides the "+CONFIG_ENV_PREFIX+"_HTML_PATH environment variable if set.")
 	serverCmd.Flags().StringP("template-path", "", "", "The optional path to the template files to serve, if not given then then internal files are used.\nOverrides the "+CONFIG_ENV_PREFIX+"_TEMPLATE_PATH environment variable if set.")
+	serverCmd.Flags().StringP("agent-path", "", "", "The optional path to the agent files to serve, if not given then then internal files are used.\nOverrides the "+CONFIG_ENV_PREFIX+"_AGENT_PATH environment variable if set.")
 
 	// TLS
 	serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the "+CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -125,6 +126,10 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.template_path", cmd.Flags().Lookup("template-path"))
 		viper.BindEnv("server.template_path", CONFIG_ENV_PREFIX+"_TEMPLATE_PATH")
 		viper.SetDefault("server.template_path", "")
+
+		viper.BindPFlag("server.agent_path", cmd.Flags().Lookup("agent-path"))
+		viper.BindEnv("server.agent_path", CONFIG_ENV_PREFIX+"_AGENT_PATH")
+		viper.SetDefault("server.agent_path", "")
 
 		viper.BindPFlag("server.encrypt", cmd.Flags().Lookup("encrypt"))
 		viper.BindEnv("server.encrypt", CONFIG_ENV_PREFIX+"_ENCRYPT")

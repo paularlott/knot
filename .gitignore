@@ -1,6 +1,8 @@
 .DS_Store
 /bin/*
 !/bin/.gitignore
+/web/agents/*
+!/web/agents/.gitignore
 /node_modules
 .knot.yml
 .knot-moon.yml
