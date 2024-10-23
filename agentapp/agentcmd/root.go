@@ -18,7 +18,7 @@ const CONFIG_ENV_PREFIX = "KNOT"
 
 var (
 	RootCmd = &cobra.Command{
-		Use:   "knot",
+		Use:   "knot-agent",
 		Short: "knot simplifies the deployment of development environments",
 		Long: `knot is a management tool for developer environments running within a Nomad cluster.
 

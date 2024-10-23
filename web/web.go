@@ -27,7 +27,7 @@ var (
 	//go:embed templates/*.tmpl templates/partials/*.tmpl templates/layouts/*.tmpl
 	tmplFiles embed.FS
 
-	//go:embed agents/*.bz2
+	//go:embed agents/*.zip
 	agentFiles embed.FS
 )
 

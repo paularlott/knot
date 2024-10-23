@@ -36,17 +36,21 @@ all: agents $(PLATFORMS)
 .PHONY: $(PLATFORMS)
 $(PLATFORMS): legal/license.txt legal/notice.txt apidocs webassets
 	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) go build $(BUILD_FLAGS) -o $(OUTPUT_DIR)/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,) .
-	cd $(OUTPUT_DIR); mv $(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,) knot$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,); zip $(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,).zip knot$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,)
+	cd $(OUTPUT_DIR); \
+	mv $(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,) knot$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,); \
+	zip $(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,).zip knot$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,)
 
 .PHONY: agents
 ## Build the agent binaries
 agents: $(addsuffix -agent,$(AGENT_PLATFORMS))
+	rm -f $(AGENT_OUTPUT_DIR)/knot-agent
 
 .PHONY: $(addsuffix -agent,$(AGENT_PLATFORMS))
 $(addsuffix -agent,$(AGENT_PLATFORMS)):
-	rm -f $(AGENT_OUTPUT_DIR)/$(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,).bz2
 	GOOS=$(word 1,$(subst /, ,$(subst -agent,,$@))) GOARCH=$(word 2,$(subst /, ,$(subst -agent,,$@))) go build $(BUILD_FLAGS) -o $(AGENT_OUTPUT_DIR)/$(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,) ./agentapp
-	cd $(AGENT_OUTPUT_DIR); bzip2 -9 $(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,)
+	cd $(AGENT_OUTPUT_DIR); \
+	mv $(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,) knot-agent$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,); \
+	zip $(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,).zip knot-agent$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,)
 
 .PHONY: checksums
 ## Show the ZIP file checksums
