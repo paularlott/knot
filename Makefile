@@ -4,6 +4,9 @@ PROJECT_NAME := knot
 # Set the platforms to build for
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 
+# Set the platforms to build the agents for
+AGENT_PLATFORMS := linux/amd64 linux/arm64
+
 # Build time
 BUILT_AT := $(shell date +%Y%m%d.%H%M%S%z)
 
@@ -13,24 +16,41 @@ BUILD_FLAGS := -ldflags="-s -w -X github.com/paularlott/knot/build.Date=$(BUILT_
 # Set the output directory
 OUTPUT_DIR := bin
 
+# Set the output directory for the agents
+AGENT_OUTPUT_DIR := web/agents
+
 # Get the VERSION from go run ./scripts/getversion
 VERSION := $(shell go run ./scripts/getversion)
 
 default: all
 
-.PHONY: build
+.PHONY: agents build
 ## Build the binary for the current platform
-build: legal/license.txt legal/notice.txt
+build: agents legal/license.txt legal/notice.txt
 	go build $(BUILD_FLAGS) -o $(OUTPUT_DIR)/$(PROJECT_NAME) .
 
 .PHONY: all
 ## Build the binary for all platforms
-all: $(PLATFORMS)
+all: agents $(PLATFORMS)
 
 .PHONY: $(PLATFORMS)
 $(PLATFORMS): legal/license.txt legal/notice.txt apidocs webassets
 	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) go build $(BUILD_FLAGS) -o $(OUTPUT_DIR)/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,) .
-	cd $(OUTPUT_DIR); mv $(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,) knot$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,); zip $(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,).zip knot$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,)
+	cd $(OUTPUT_DIR); \
+	mv $(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,) knot$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,); \
+	zip $(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,).zip knot$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,)
+
+.PHONY: agents
+## Build the agent binaries
+agents: $(addsuffix -agent,$(AGENT_PLATFORMS))
+	rm -f $(AGENT_OUTPUT_DIR)/knot-agent
+
+.PHONY: $(addsuffix -agent,$(AGENT_PLATFORMS))
+$(addsuffix -agent,$(AGENT_PLATFORMS)):
+	GOOS=$(word 1,$(subst /, ,$(subst -agent,,$@))) GOARCH=$(word 2,$(subst /, ,$(subst -agent,,$@))) go build $(BUILD_FLAGS) -o $(AGENT_OUTPUT_DIR)/$(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,) ./agentapp
+	cd $(AGENT_OUTPUT_DIR); \
+	mv $(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,) knot-agent$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,); \
+	zip $(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,).zip knot-agent$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,)
 
 .PHONY: checksums
 ## Show the ZIP file checksums
@@ -70,6 +90,7 @@ watch:
 ## Remove the previous build
 clean:
 	rm -rf $(OUTPUT_DIR)/*
+	rm -rf $(AGENT_OUTPUT_DIR)/*
 	rm -rf legal/license.txt
 	rm -rf legal/notice.txt
 	rm -rf web/public_html/api-docs/index.html
@@ -104,7 +125,7 @@ create-release:
 .PHONY: run-server
 ## Run the server for development
 run-server:
-	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates
+	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --agent-path=./web/agents
 
 .PHONY: run-remote
 ## Run a remote server for development

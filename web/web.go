@@ -26,6 +26,9 @@ var (
 
 	//go:embed templates/*.tmpl templates/partials/*.tmpl templates/layouts/*.tmpl
 	tmplFiles embed.FS
+
+	//go:embed agents/*.zip
+	agentFiles embed.FS
 )
 
 func Routes() chi.Router {
@@ -93,6 +96,43 @@ func Routes() chi.Router {
 				return
 			}
 
+			fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
+			fs.ServeHTTP(w, r)
+		}
+	})
+
+	// Serve agent files
+	router.Get("/agents/*", func(w http.ResponseWriter, r *http.Request) {
+		rctx := chi.RouteContext(r.Context())
+		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
+		fileName := strings.TrimPrefix(r.URL.Path, "/")
+
+		agentPath := viper.GetString("server.agent_path")
+		if agentPath != "" {
+			// Strip agents/ from the path
+			fileName = strings.TrimPrefix(fileName, "agents/")
+
+			// If the file does exist then return a 404
+			info, err := os.Stat(filepath.Join(agentPath, fileName))
+			if os.IsNotExist(err) || info.IsDir() {
+				showPageNotFound(w, r)
+				return
+			}
+
+			// Serve the file
+			fs := http.StripPrefix(pathPrefix, http.FileServer(http.Dir(agentPath)))
+			fs.ServeHTTP(w, r)
+		} else {
+			// Check if the file exists in the embedded files
+			fsys := fs.FS(agentFiles)
+			contentStatic, _ := fs.Sub(fsys, "agents")
+			_, err := fs.Stat(agentFiles, fileName)
+			if err != nil {
+				showPageNotFound(w, r)
+				return
+			}
+
+			// Serve the file
 			fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
 			fs.ServeHTTP(w, r)
 		}
