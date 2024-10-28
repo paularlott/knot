@@ -13,14 +13,11 @@ import (
 )
 
 func agentProxyVNCHttp(w http.ResponseWriter, r *http.Request) {
-  target, _ := url.Parse(fmt.Sprintf("https://127.0.0.1:%d", vncHttpServerPort))
+	target, _ := url.Parse(fmt.Sprintf("https://127.0.0.1:%d", vncHttpServerPort))
 
-  fmt.Println("Proxying to", target)
-  fmt.Println("password ", viper.GetString("agent.service_password"))
+	r.URL.Path = strings.TrimPrefix(r.URL.Path, "/vnc")
 
-  r.URL.Path = strings.TrimPrefix(r.URL.Path, "/vnc")
-
-  token := "Basic " + base64.StdEncoding.EncodeToString([]byte("knot:" + viper.GetString("agent.service_password")))
-  proxy := util.NewReverseProxy(target, &token)
-  proxy.ServeHTTP(w, r)
+	token := "Basic " + base64.StdEncoding.EncodeToString([]byte("knot:"+viper.GetString("agent.service_password")))
+	proxy := util.NewReverseProxy(target, &token)
+	proxy.ServeHTTP(w, r)
 }
