@@ -19,6 +19,7 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/agenttransport"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
@@ -34,6 +35,7 @@ import (
 
 func init() {
 	serverCmd.Flags().StringP("listen", "l", "", "The address to listen on (default \"127.0.0.1:3000\").\nOverrides the "+CONFIG_ENV_PREFIX+"_LISTEN environment variable if set.")
+	serverCmd.Flags().StringP("listen-agent", "", "", "The address to listen on for agent connections (default \"127.0.0.1:3010\").\nOverrides the "+CONFIG_ENV_PREFIX+"_LISTEN_AGENT environment variable if set.")
 	serverCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	serverCmd.Flags().StringP("url", "u", "", "The URL to use for the server (default \"http://127.0.0.1:3000\").\nOverrides the "+CONFIG_ENV_PREFIX+"_URL environment variable if set.")
 	serverCmd.Flags().BoolP("enable-proxy", "", false, "Enable the proxy server functionality.\nOverrides the "+CONFIG_ENV_PREFIX+"_ENABLE_PROXY environment variable if set.")
@@ -99,6 +101,10 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.url", cmd.Flags().Lookup("url"))
 		viper.BindEnv("server.url", CONFIG_ENV_PREFIX+"_URL")
 		viper.SetDefault("server.url", "http://127.0.0.1:3000")
+
+		viper.BindPFlag("server.listen_agent", cmd.Flags().Lookup("listen-agent"))
+		viper.BindEnv("server.listen_agent", CONFIG_ENV_PREFIX+"_LISTEN_AGENT")
+		viper.SetDefault("server.listen_agent", "127.0.0.1:3010")
 
 		viper.BindPFlag("server.wildcard_domain", cmd.Flags().Lookup("wildcard-domain"))
 		viper.BindEnv("server.wildcard_domain", CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN")
@@ -391,6 +397,10 @@ var serverCmd = &cobra.Command{
 				}
 			}
 		}
+
+		// Start the agent transport server
+		agentServer := agenttransport.NewAgentTransportServer(FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
+		agentServer.ListenAndServe()
 
 		// Run the http server
 		server := &http.Server{
