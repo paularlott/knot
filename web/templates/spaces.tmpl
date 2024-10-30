@@ -55,7 +55,7 @@
                 <td class="px-6 py-4">
                   <div x-text="s.name"></div>
                   <div class="text-xs" x-text="s.template_name"></div>
-                  <div x-show="s.is_local && s.template_id == '00000000-0000-0000-0000-000000000000'" class="text-xs mt-2" x-text="s.space_id"></div>
+                  <div x-show="s.is_local && s.template_id == '00000000-0000-0000-0000-000000000000'" class="inline-block text-xs mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg" x-text="s.space_id"></div>
                 </td>
                 <td class="px-6 py-4" x-text="s.username" x-show="forUserId == ''"></td>
                 <td class="px-6 py-4">
