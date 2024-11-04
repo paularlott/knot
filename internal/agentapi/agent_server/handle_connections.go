@@ -1,0 +1,151 @@
+package agent_server
+
+import (
+	"net"
+	"time"
+
+	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/internal/agentapi/msg"
+
+	"github.com/hashicorp/yamux"
+	"github.com/rs/zerolog/log"
+)
+
+func handleAgentConnection(conn net.Conn) {
+	defer conn.Close()
+
+	// New connection therefore we just wait for the registration message
+	var registerMsg msg.Register
+	if err := msg.ReadMessage(conn, &registerMsg); err != nil {
+		log.Error().Msgf("Error reading register message: %v", err)
+		return
+	}
+
+	// Create response message
+	response := msg.RegisterResponse{
+		Success:        false,
+		SSHKey:         "",
+		GitHubUsername: "",
+	}
+
+	// Check if the agent is already registered
+	session := GetSession(registerMsg.SpaceId)
+	if session != nil {
+
+		// Ping the old agent, if it fails then delete and allow the new agent to register
+		if session.Ping() {
+			log.Error().Msgf("Agent already registered: %s", registerMsg.SpaceId)
+			msg.WriteMessage(conn, &response)
+			return
+		}
+
+		// Delete the old agent session
+		RemoveSession(registerMsg.SpaceId)
+	}
+
+	db := database.GetInstance()
+
+	// Load the space from the database
+	space, err := db.GetSpace(registerMsg.SpaceId)
+	if err != nil {
+		log.Error().Msgf("agent: unknown space: %s", registerMsg.SpaceId)
+		msg.WriteMessage(conn, &response)
+		return
+	}
+
+	// Load the user that owns the space
+	user, err := db.GetUser(space.UserId)
+	if err != nil {
+		log.Error().Msgf("agent: unknown user: %s", space.UserId)
+		msg.WriteMessage(conn, &response)
+		return
+	}
+
+	// Create a new session and start listening
+	session = NewSession(registerMsg.SpaceId, registerMsg.Version)
+	sessionMutex.Lock()
+	sessions[registerMsg.SpaceId] = session
+	sessionMutex.Unlock()
+
+	// Return the SSH key and GitHub username
+	response.Success = true
+	response.SSHKey = user.SSHPublicKey
+	response.GitHubUsername = user.GitHubUsername
+
+	// Write the response
+	if err := msg.WriteMessage(conn, &response); err != nil {
+		log.Error().Msgf("Error writing register response: %v", err)
+
+		// Terminate the session
+		RemoveSession(registerMsg.SpaceId)
+		return
+	}
+
+	// Open the mux session
+	session.MuxSession, err = yamux.Server(conn, nil)
+	if err != nil {
+		log.Error().Msgf("agent: creating mux session: %v", err)
+		RemoveSession(registerMsg.SpaceId)
+		return
+	}
+
+	// Loop forever waiting for connections on the mux session
+	for {
+		// Accept a new connection
+		stream, err := session.MuxSession.Accept()
+		if err != nil {
+
+			// If error is session shutdown
+			if err == yamux.ErrSessionShutdown {
+				log.Info().Msgf("agent: session shutdown: %s", session.Id)
+				return
+			}
+
+			log.Error().Msgf("agent: accepting connection: %v", err)
+
+			// Destroy the session
+			RemoveSession(registerMsg.SpaceId)
+			return
+		}
+
+		// Handle the connection
+		go handleAgentSession(stream)
+	}
+}
+
+func handleAgentSession(stream net.Conn) {
+	defer stream.Close()
+
+	// Read the command
+	cmd, err := msg.ReadCommand(stream)
+	if err != nil {
+		log.Error().Msgf("agent: reading command: %v", err)
+		return
+	}
+
+	switch cmd {
+	case msg.MSG_UPDATE_STATE:
+
+		// Read the state message
+		var state msg.AgentState
+		if err := msg.ReadMessage(stream, &state); err != nil {
+			log.Error().Msgf("agent: reading state message: %v", err)
+			return
+		}
+
+		// Get the session and update the state
+		session := GetSession(state.SpaceId)
+		if session != nil {
+			session.HasCodeServer = state.HasCodeServer
+			session.SSHPort = state.SSHPort
+			session.VNCHttpPort = state.VNCHttpPort
+			session.HasTerminal = state.HasTerminal
+			session.TcpPorts = state.TcpPorts
+			session.HttpPorts = state.HttpPorts
+			session.ExpiresAfter = time.Now().UTC().Add(AGENT_SESSION_TIMEOUT)
+		}
+
+	default:
+		log.Error().Msgf("agent: unknown command from agent: %d", cmd)
+	}
+}
