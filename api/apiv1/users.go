@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/paularlott/knot/api/agentv1"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -606,7 +606,6 @@ func removeUsersTokens(user *model.User) {
 
 func updateSpacesSSHKey(user *model.User) {
 	db := database.GetInstance()
-	cache := database.GetCacheInstance()
 
 	log.Debug().Msgf("Updating agent SSH key for user %s", user.Id)
 
@@ -619,10 +618,10 @@ func updateSpacesSSHKey(user *model.User) {
 
 	// Loop through all spaces updating the active ones
 	for _, space := range spaces {
-		if space.IsDeployed {
+		if space.IsDeployed || space.TemplateId == model.MANUAL_TEMPLATE_ID {
 			// Get the agent state
-			agentState, err := cache.GetAgentState(space.Id)
-			if err != nil || agentState == nil {
+			agentState := agent_server.GetSession(space.Id)
+			if agentState == nil {
 				// Silently ignore if space is on a different server
 				if space.Location == "" || space.Location == viper.GetString("server.location") {
 					log.Debug().Msgf("Agent state not found for space %s", space.Id)
@@ -633,9 +632,8 @@ func updateSpacesSSHKey(user *model.User) {
 			// If agent accepting SSH keys then update
 			if agentState.SSHPort > 0 {
 				log.Debug().Msgf("Sending SSH public key to agent %s", space.Id)
-				client := rest.NewClient(util.ResolveSRVHttp(space.GetAgentURL()), agentState.AccessToken, viper.GetBool("tls_skip_verify"))
-				if !agentv1.CallAgentUpdateAuthorizedKeys(client, user.SSHPublicKey, user.GitHubUsername) {
-					log.Debug().Msg("Failed to send SSH public key to agent")
+				if err := agentState.SendUpdateAuthorizedKeys(user.SSHPublicKey, user.GitHubUsername); err != nil {
+					log.Debug().Msgf("Failed to send SSH public key to agent: %s", err)
 				}
 			}
 		}

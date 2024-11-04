@@ -114,19 +114,11 @@ func ApiRoutes() chi.Router {
 		})
 	})
 
-	// Group routes that require authentication via agent token
-	router.Group(func(router chi.Router) {
-		router.Use(middleware.AgentAuth)
-
-		router.Put("/agents/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/status", HandleAgentStatus)
-	})
-
 	// Unauthenticated routes
 	router.Route("/auth", func(router chi.Router) {
 		router.Post("/", HandleAuthorization)
 		router.Post("/web", HandleAuthorization)
 	})
-	router.Post("/agents/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleRegisterAgent)
 
 	// Additional endpoints exposed by remote and core servers
 	if viper.GetBool("server.is_core") || viper.GetBool("server.is_remote") {

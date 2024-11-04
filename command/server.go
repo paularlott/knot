@@ -19,7 +19,7 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/agenttransport"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
@@ -35,7 +35,7 @@ import (
 
 func init() {
 	serverCmd.Flags().StringP("listen", "l", "", "The address to listen on (default \"127.0.0.1:3000\").\nOverrides the "+CONFIG_ENV_PREFIX+"_LISTEN environment variable if set.")
-	serverCmd.Flags().StringP("listen-agent", "", "", "The address to listen on for agent connections (default \"127.0.0.1:3010\").\nOverrides the "+CONFIG_ENV_PREFIX+"_LISTEN_AGENT environment variable if set.")
+	serverCmd.Flags().StringP("listen-agent", "", "", "The address to listen on for agent connections (default \":3010\").\nOverrides the "+CONFIG_ENV_PREFIX+"_LISTEN_AGENT environment variable if set.")
 	serverCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	serverCmd.Flags().StringP("url", "u", "", "The URL to use for the server (default \"http://127.0.0.1:3000\").\nOverrides the "+CONFIG_ENV_PREFIX+"_URL environment variable if set.")
 	serverCmd.Flags().BoolP("enable-proxy", "", false, "Enable the proxy server functionality.\nOverrides the "+CONFIG_ENV_PREFIX+"_ENABLE_PROXY environment variable if set.")
@@ -43,7 +43,7 @@ func init() {
 	serverCmd.Flags().StringP("download-path", "", "", "The path to serve download files from if set.\nOverrides the "+CONFIG_ENV_PREFIX+"_DOWNLOAD_PATH environment variable if set.")
 	serverCmd.Flags().StringP("wildcard-domain", "", "", "The wildcard domain to use for proxying to spaces.\nOverrides the "+CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN environment variable if set.")
 	serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the "+CONFIG_ENV_PREFIX+"_ENCRYPT environment variable if set.")
-	serverCmd.Flags().StringP("agent-url", "", "", "The URL agents should use to talk to the server (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_AGENT_URL environment variable if set.")
+	serverCmd.Flags().StringP("agent-addr", "", "", "The address agents should use to talk to the server (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_AGENT_ADDR environment variable if set.")
 	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to NOMAD_DC or hostname).\nOverrides the "+CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
 	serverCmd.Flags().StringP("core-server", "", "", "The address of the core server this server is to become a remote of (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_CORE_SERVER environment variable if set.")
 	serverCmd.Flags().StringP("remote-token", "", "", "The token to use for remote and core server communication (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REMOTE_TOKEN environment variable if set.")
@@ -96,7 +96,7 @@ var serverCmd = &cobra.Command{
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("server.listen", cmd.Flags().Lookup("listen"))
 		viper.BindEnv("server.listen", CONFIG_ENV_PREFIX+"_LISTEN")
-		viper.SetDefault("server.listen", "127.0.0.1:3000")
+		viper.SetDefault("server.listen", ":3000")
 
 		viper.BindPFlag("server.url", cmd.Flags().Lookup("url"))
 		viper.BindEnv("server.url", CONFIG_ENV_PREFIX+"_URL")
@@ -141,9 +141,9 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.encrypt", CONFIG_ENV_PREFIX+"_ENCRYPT")
 		viper.SetDefault("server.encrypt", "")
 
-		viper.BindPFlag("server.agent_url", cmd.Flags().Lookup("agent-url"))
-		viper.BindEnv("server.agent_url", CONFIG_ENV_PREFIX+"_AGENT_URL")
-		viper.SetDefault("server.agent_url", "")
+		viper.BindPFlag("server.agent_addr", cmd.Flags().Lookup("agent-addr"))
+		viper.BindEnv("server.agent_addr", CONFIG_ENV_PREFIX+"_AGENT_ADDR")
+		viper.SetDefault("server.agent_addr", "")
 
 		// Get the hostname
 		hostname := os.Getenv("NOMAD_DC")
@@ -262,6 +262,11 @@ var serverCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := FixListenAddress(viper.GetString("server.listen"))
+
+		// If agent address not given then don't start
+		if viper.GetString("server.agent_addr") == "" {
+			log.Fatal().Msg("server: agent address not given")
+		}
 
 		log.Info().Msgf("server: starting knot version: %s", build.Version)
 		log.Info().Msgf("server: starting on: %s", listen)
@@ -398,9 +403,8 @@ var serverCmd = &cobra.Command{
 			}
 		}
 
-		// Start the agent transport server
-		agentServer := agenttransport.NewAgentTransportServer(FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
-		agentServer.ListenAndServe()
+		// Start the agent server
+		agent_server.ListenAndServe(FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
 
 		// Run the http server
 		server := &http.Server{

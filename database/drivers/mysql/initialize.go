@@ -159,24 +159,6 @@ INDEX location (location)
 		return err
 	}
 
-	log.Debug().Msg("db: creating agent state table")
-	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS agentstate (
-space_id CHAR(36) PRIMARY KEY,
-access_token CHAR(36),
-agent_version VARCHAR(32) NOT NULL DEFAULT '',
-has_code_server TINYINT NOT NULL DEFAULT 0,
-ssh_port INT NOT NULL DEFAULT 0,
-vnc_http_port INT NOT NULL DEFAULT 0,
-has_terminal TINYINT NOT NULL DEFAULT 0,
-tcp_ports MEDIUMTEXT,
-http_ports MEDIUMTEXT,
-expires_after TIMESTAMP,
-INDEX expires_after (expires_after)
-)`)
-	if err != nil {
-		return err
-	}
-
 	log.Debug().Msg("db: creating remote server table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS remoteservers (
 server_id CHAR(36) PRIMARY KEY,
@@ -205,22 +187,6 @@ INDEX expires_after (expires_after)
 			}
 
 			_, err = db.connection.Exec("DELETE FROM tokens WHERE expires_after < ?", now)
-			if err != nil {
-				goto again
-			}
-		}
-	}()
-
-	// Add a task to clean up expired agent states
-	log.Debug().Msg("db: starting agent GC")
-	go func() {
-		ticker := time.NewTicker(model.AGENT_STATE_GC_INTERVAL)
-		defer ticker.Stop()
-		for range ticker.C {
-		again:
-			log.Debug().Msg("db: running agent GC")
-			now := time.Now().UTC()
-			_, err := db.connection.Exec("DELETE FROM agentstate WHERE expires_after < ?", now)
 			if err != nil {
 				goto again
 			}

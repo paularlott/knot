@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -315,7 +316,6 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	spaceId := chi.URLParam(r, "space_id")
 
 	db := database.GetInstance()
-	cache := database.GetCacheInstance()
 
 	space, err := db.GetSpace(spaceId)
 	if err != nil || space == nil {
@@ -354,7 +354,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := apiclient.SpaceServiceState{}
-	state, _ := cache.GetAgentState(spaceId)
+	state := agent_server.GetSession(spaceId)
 	if state == nil {
 		response.HasCodeServer = false
 		response.HasSSH = false
@@ -556,7 +556,6 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	spaceId := chi.URLParam(r, "space_id")
 	db := database.GetInstance()
-	cache := database.GetCacheInstance()
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
@@ -610,10 +609,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the agent state
-	state, _ := cache.GetAgentState(space.Id)
-	if state != nil {
-		cache.DeleteAgentState(state)
-	}
+	agent_server.RemoveSession(space.Id)
 
 	// Update the remote
 	if client != nil {
@@ -848,7 +844,6 @@ func RealDeleteSpace(space *model.Space) {
 		log.Info().Msgf("api: RealDeleteSpace: deleting %s", space.Id)
 
 		db := database.GetInstance()
-		cache := database.GetCacheInstance()
 
 		// Get the nomad client
 		nomadClient := nomad.NewClient()
@@ -864,10 +859,7 @@ func RealDeleteSpace(space *model.Space) {
 		}
 
 		// Delete the agent state if present
-		state, _ := cache.GetAgentState(space.Id)
-		if state != nil {
-			cache.DeleteAgentState(state)
-		}
+		agent_server.RemoveSession(space.Id)
 
 		// Delete the space
 		err = db.DeleteSpace(space)

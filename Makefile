@@ -75,8 +75,6 @@ legal/notice.txt: NOTICE.txt
 apidocs:
 	npx @redocly/cli build-docs --output ./web/public_html/api-docs/index.html --config ./redocly-config.yaml --disableGoogleFont
 	sed -i '' 's|<script src="https.*</script>||g' ./web/public_html/api-docs/index.html
-	npx @redocly/cli build-docs --output ./web/public_html/api-docs/agent/index.html --config ./redocly-config-agent.yaml --disableGoogleFont
-	sed -i '' 's|<script src="https.*</script>||g' ./web/public_html/api-docs/agent/index.html
 
 ## Compile LESS/CSS and JavaScript
 webassets:

@@ -11,6 +11,7 @@ const (
 	REMOTE_SERVER_PING_INTERVAL = 10 * time.Second
 	REMOTE_SERVER_GC_INTERVAL   = 20 * time.Second
 	REMOTE_SERVER_TIMEOUT       = 30 * time.Second
+	AGENT_STATE_TIMEOUT         = 15 * time.Second
 )
 
 // Struct holding the state of a remote server

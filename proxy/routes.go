@@ -8,31 +8,31 @@ import (
 )
 
 func Routes() chi.Router {
-  router := chi.NewRouter()
+	router := chi.NewRouter()
 
-  router.Use(middleware.ApiAuth)
+	router.Use(middleware.ApiAuth)
 
-  if viper.GetBool("server.enable_proxy") {
-    router.Get("/port/{host}/{port:\\d+}", HandleWSProxyServer)
-  }
+	if viper.GetBool("server.enable_proxy") {
+		router.Get("/port/{host}/{port:\\d+}", HandleWSProxyServer)
+	}
 
-  router.Route("/spaces/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
-    router.Get("/code-server/*", HandleSpacesCodeServerProxy)
-    router.Get("/terminal/{shell:^[a-zA-Z0-9]+$}", HandleSpacesTerminalProxy)
-  })
+	router.Route("/spaces/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
+		router.Get("/code-server/*", HandleSpacesCodeServerProxy)
+		router.Get("/terminal/{shell:^[a-zA-Z0-9]+$}", HandleSpacesTerminalProxy)
+	})
 
-  router.Route("/spaces/{space_name:^[a-zA-Z0-9]{1,64}$}", func(router chi.Router) {
-    router.Get("/ssh/*", HandleSpacesSSHProxy)
-    router.Get("/port/{port}", HandleSpacesPortProxy)
-  })
+	router.Route("/spaces/{space_name:^[a-zA-Z0-9-]{1,64}$}", func(router chi.Router) {
+		router.Get("/ssh/*", HandleSpacesSSHProxy)
+		router.Get("/port/{port}", HandleSpacesPortProxy)
+	})
 
-  return router
+	return router
 }
 
 // Setup proxying of URLs to ports within spaces
 func PortRoutes() chi.Router {
-  router := chi.NewRouter()
-  router.HandleFunc("/*", HandleSpacesWebPortProxy)
+	router := chi.NewRouter()
+	router.HandleFunc("/*", HandleSpacesWebPortProxy)
 
-  return router
+	return router
 }

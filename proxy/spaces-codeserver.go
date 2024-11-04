@@ -8,7 +8,8 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/agentapi/msg"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -31,18 +32,36 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the space auth
-	agentState, err := database.GetCacheInstance().GetAgentState(space.Id)
-	if err != nil || agentState == nil {
+	// Get the space session
+	agentSession := agent_server.GetSession(space.Id)
+	if agentSession == nil || !agentSession.HasCodeServer {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	// Look up the IP + Port from consul / DNS
-	target, _ := url.Parse(fmt.Sprintf("%s/code-server/", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL()), "/")))
+	// Open a new stream to the agent
+	stream, err := agentSession.MuxSession.Open()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer stream.Close()
+
+	// Write the terminal command
+	err = msg.WriteCommand(stream, msg.MSG_CODE_SERVER)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/code-server", spaceId))
 
-	token := "Bearer " + agentState.AccessToken
-	proxy := util.NewReverseProxy(target, &token)
+	targetURL, err := url.Parse("http://127.0.0.1/")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	proxy := createAgentReverseProxy(targetURL, stream, nil)
 	proxy.ServeHTTP(w, r)
 }

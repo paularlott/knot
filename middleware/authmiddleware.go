@@ -252,31 +252,6 @@ func WebAuth(next http.Handler) http.Handler {
 	})
 }
 
-func AgentAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		spaceId := chi.URLParam(r, "space_id")
-		authorization := r.Header.Get("Authorization")
-
-		// Fetch the registered space, if not found then fail
-		state, err := database.GetCacheInstance().GetAgentState(spaceId)
-		if err != nil || authorization == "" || state == nil {
-			returnUnauthorized(w)
-			return
-		}
-
-		// Get the auth token
-		var token string
-		fmt.Sscanf(authorization, "Bearer %s", &token)
-		if len(token) != 36 || token != state.AccessToken {
-			returnUnauthorized(w)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
 func RemoteServerAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

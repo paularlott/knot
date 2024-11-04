@@ -79,11 +79,6 @@ type IDbDriver interface {
 	GetVolume(id string) (*model.Volume, error)
 	GetVolumes() ([]*model.Volume, error)
 
-	// Agent State
-	SaveAgentState(agentState *model.AgentState) error
-	DeleteAgentState(agentState *model.AgentState) error
-	GetAgentState(id string) (*model.AgentState, error)
-
 	// Remote Servers
 	SaveRemoteServer(server *model.RemoteServer) error
 	DeleteRemoteServer(server *model.RemoteServer) error

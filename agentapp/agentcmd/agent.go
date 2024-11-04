@@ -1,34 +1,23 @@
 package agentcmd
 
 import (
-	"context"
-	"crypto/tls"
 	"fmt"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
-	"time"
 
-	"github.com/paularlott/knot/agent"
 	"github.com/paularlott/knot/agent/dnsproxy"
-	"github.com/paularlott/knot/api/agentv1"
-	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/validate"
+	"github.com/paularlott/knot/internal/agentapi/agent_client"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 func init() {
-	agentCmd.Flags().StringP("server", "s", "", "The address of the server to connect to.\nOverrides the "+CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
+	agentCmd.Flags().StringP("server", "s", "", "The address of the server to connect to.\nOverrides the "+CONFIG_ENV_PREFIX+"_SERVER_AGENT environment variable if set.")
 	agentCmd.Flags().StringP("space-id", "", "", "The ID of the space the agent is providing.\nOverrides the "+CONFIG_ENV_PREFIX+"_SPACEID environment variable if set.")
 	agentCmd.Flags().StringSliceP("nameservers", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
-	agentCmd.Flags().StringP("listen", "l", "0.0.0.0:3000", "The address and port to listen on.")
 	agentCmd.Flags().IntP("code-server-port", "", 0, "The port code-server is running on.\nOverrides the "+CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT environment variable if set.")
 	agentCmd.Flags().IntP("ssh-port", "", 0, "The port sshd is running on.\nOverrides the "+CONFIG_ENV_PREFIX+"_SSH_PORT environment variable if set.")
 	agentCmd.Flags().StringSliceP("tcp-port", "", []string{}, "Can be specified multiple times to give the list of TCP ports to be exposed to the client.\nOverrides the "+CONFIG_ENV_PREFIX+"_TCP_PORT environment variable if set.")
@@ -61,14 +50,10 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 	Args: cobra.NoArgs,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("agent.server", cmd.Flags().Lookup("server"))
-		viper.BindEnv("agent.server", CONFIG_ENV_PREFIX+"_SERVER")
+		viper.BindEnv("agent.server", CONFIG_ENV_PREFIX+"_SERVER_AGENT")
 
 		viper.BindPFlag("agent.space_id", cmd.Flags().Lookup("space-id"))
 		viper.BindEnv("agent.space_id", CONFIG_ENV_PREFIX+"_SPACEID")
-
-		viper.BindPFlag("agent.listen", cmd.Flags().Lookup("listen"))
-		viper.BindEnv("agent.listen", CONFIG_ENV_PREFIX+"_LISTEN")
-		viper.SetDefault("agent.listen", "0.0.0.0:3000")
 
 		viper.BindPFlag("agent.port.code_server", cmd.Flags().Lookup("code-server-port"))
 		viper.BindEnv("agent.port.code_server", CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT")
@@ -132,66 +117,11 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		viper.SetDefault("dns.refresh_max_age", 180)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		listen := FixListenAddress(viper.GetString("agent.listen"))
 		serverAddr := viper.GetString("agent.server")
 		spaceId := viper.GetString("agent.space_id")
 
-		// Build a map of the available tcp ports
-		ports := viper.GetStringSlice("agent.port.tcp_port")
-		agentv1.TcpPortMap = make(map[string]string, len(ports))
-		for _, port := range ports {
-			var name string
-			if strings.Contains(port, "=") {
-				parts := strings.Split(port, "=")
-				port = parts[0]
-				name = parts[1]
-			} else {
-				name = port
-			}
-
-			agentv1.TcpPortMap[port] = name
-		}
-
-		// Add the ssh port to the map
-		sshPort := viper.GetInt("agent.port.ssh")
-		if sshPort != 0 {
-			agentv1.TcpPortMap[fmt.Sprintf("%d", sshPort)] = "SSH"
-		}
-
-		// Build a map of available http ports
-		ports = viper.GetStringSlice("agent.port.http_port")
-		agentv1.HttpPortMap = make(map[string]string, len(ports))
-		for _, port := range ports {
-			var name string
-			if strings.Contains(port, "=") {
-				parts := strings.Split(port, "=")
-				port = parts[0]
-				name = parts[1]
-			} else {
-				name = port
-			}
-
-			agentv1.HttpPortMap[port] = name
-		}
-
-		// Build a map of available https ports
-		ports = viper.GetStringSlice("agent.port.https_port")
-		agentv1.HttpsPortMap = make(map[string]string, len(ports))
-		for _, port := range ports {
-			var name string
-			if strings.Contains(port, "=") {
-				parts := strings.Split(port, "=")
-				port = parts[0]
-				name = parts[1]
-			} else {
-				name = port
-			}
-
-			agentv1.HttpsPortMap[port] = name
-		}
-
 		// Check address given and valid URL
-		if serverAddr == "" || !validate.Uri(serverAddr) {
+		if serverAddr == "" {
 			log.Fatal().Msg("server address is required")
 		}
 
@@ -200,90 +130,15 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 			log.Fatal().Msg("space-id is required and must be a valid space ID")
 		}
 
-		// Initialize the router API
-		router := chi.NewRouter()
-		router.Mount("/", agentv1.Routes(cmd))
-
-		// Pings the server periodically to keep the agent alive
-		go agent.ReportState(serverAddr, spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"))
-
 		// Start the DNS forwarder if enabled
 		if viper.GetString("dns.listen") != "" {
 			dnsproxy := dnsproxy.NewDNSProxy()
 			go dnsproxy.RunServer()
 		}
 
-		log.Info().Msgf("agent: listening on: %s", listen)
-
-		var tlsConfig *tls.Config = nil
-
-		// If server should use TLS
-		useTLS := viper.GetBool("agent.tls.use_tls")
-		if useTLS {
-			log.Debug().Msg("agent: using TLS")
-
-			// If have both a cert and key file, use them
-			certFile := viper.GetString("agent.tls.cert_file")
-			keyFile := viper.GetString("agent.tls.key_file")
-			if certFile != "" && keyFile != "" {
-				log.Info().Msgf("agent: using cert file: %s", certFile)
-				log.Info().Msgf("agent: using key file: %s", keyFile)
-
-				serverTLSCert, err := tls.LoadX509KeyPair(certFile, keyFile)
-				if err != nil {
-					log.Fatal().Msgf("Error loading certificate and key file: %v", err)
-				}
-
-				tlsConfig = &tls.Config{
-					Certificates: []tls.Certificate{serverTLSCert},
-				}
-			} else {
-				// Otherwise generate a self-signed cert
-				log.Info().Msg("agent: generating self-signed certificate")
-
-				// Add the agents service Id to the cert
-				var sslDomains []string
-				sslDomains = append(sslDomains, fmt.Sprintf("knot-%s.service.consul", viper.GetString("agent.space_id")))
-				sslDomains = append(sslDomains, "localhost")
-
-				cert, key, err := util.GenerateCertificate(sslDomains, []net.IP{net.ParseIP("127.0.0.1")})
-				if err != nil {
-					log.Fatal().Msgf("Error generating certificate and key: %v", err)
-				}
-
-				serverTLSCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
-				if err != nil {
-					log.Fatal().Msgf("Error generating server TLS cert: %v", err)
-				}
-
-				tlsConfig = &tls.Config{
-					Certificates: []tls.Certificate{serverTLSCert},
-				}
-			}
-		}
-
-		// Run the http server
-		server := &http.Server{
-			Addr:         listen,
-			Handler:      router,
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 10 * time.Second,
-			TLSConfig:    tlsConfig,
-		}
-
-		if useTLS {
-			go func() {
-				if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-					log.Fatal().Msg(err.Error())
-				}
-			}()
-		} else {
-			go func() {
-				if err := server.ListenAndServe(); err != http.ErrServerClosed {
-					log.Fatal().Msg(err.Error())
-				}
-			}()
-		}
+		// Open agent connection to the server
+		agent_client.ConnectAndServe(serverAddr, spaceId)
+		go agent_client.ReportState(spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), viper.GetBool("agent.enable_terminal"))
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -291,9 +146,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		// Block until we receive our signal.
 		<-c
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		server.Shutdown(ctx)
+		agent_client.Shutdown()
 		fmt.Println("\r")
 		log.Info().Msg("agent: shutdown")
 		os.Exit(0)

@@ -1,13 +1,12 @@
 package proxy
 
 import (
-	"fmt"
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/util"
 
 	"github.com/go-chi/chi/v5"
@@ -25,18 +24,40 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the space auth
-	agentState, err := database.GetCacheInstance().GetAgentState(space.Id)
-	if err != nil || agentState == nil || agentState.SSHPort == 0 {
+	// Get the space session
+	agentSession := agent_server.GetSession(space.Id)
+	if agentSession == nil || agentSession.SSHPort == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	// Look up the IP + Port from consul / DNS
-	target, _ := url.Parse(fmt.Sprintf("%s/tcp/%d", strings.TrimSuffix(util.ResolveSRVHttp(space.GetAgentURL()), "/"), agentState.SSHPort))
-	r.URL.Path = strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/proxy/spaces/%s/ssh", spaceName))
+	// Open a new stream to the agent
+	stream, err := agentSession.MuxSession.Open()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer stream.Close()
 
-	token := "Bearer " + agentState.AccessToken
-	proxy := util.NewReverseProxy(target, &token)
-	proxy.ServeHTTP(w, r)
+	// Write the command
+	if err := msg.WriteCommand(stream, msg.MSG_PROXY_TCP_PORT); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if err := msg.WriteMessage(stream, &msg.TcpPort{
+		Port: uint16(agentSession.SSHPort),
+	}); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// Upgrade the connection to a websocket
+	ws := util.UpgradeToWS(w, r)
+	if ws == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	copier := util.NewCopier(stream, ws)
+	copier.Run()
 }

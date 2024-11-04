@@ -182,7 +182,7 @@ window.userForm = function(isEdit, userId, isProfile) {
             if(this.stayOnPage) {
               self.$dispatch('show-alert', { msg: entity + " updated", type: 'success' });
             } else {
-              window.location.href = isProfile ? '/profile' : '/users';
+              window.location.href = isProfile ? '/' : '/users';
             }
           } else if (response.status === 201) {
             window.location.href = '/users';
