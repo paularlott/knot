@@ -2,7 +2,6 @@ package command
 
 import (
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/paularlott/knot/build"
@@ -115,17 +114,4 @@ func GetServerAddr() ServerAddr {
 	flags.WsServer = "ws" + flags.HttpServer[4:]
 
 	return flags
-}
-
-func FixListenAddress(address string) string {
-	if address == "" {
-		return ""
-	}
-
-	// If the address is just numbers then assume it's a port and prefix with a colon
-	if _, err := strconv.Atoi(address); err == nil {
-		return ":" + address
-	}
-
-	return address
 }

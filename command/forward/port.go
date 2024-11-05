@@ -5,6 +5,7 @@ import (
 
 	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/proxy"
+	"github.com/paularlott/knot/util"
 	"github.com/spf13/cobra"
 )
 
@@ -25,6 +26,6 @@ var portCmd = &cobra.Command{
 			cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")
 		}
 
-		proxy.RunTCPForwarderViaAgent(cfg.WsServer, command.FixListenAddress(args[0]), args[1], port, cfg.ApiToken)
+		proxy.RunTCPForwarderViaAgent(cfg.WsServer, util.FixListenAddress(args[0]), args[1], port, cfg.ApiToken)
 	},
 }

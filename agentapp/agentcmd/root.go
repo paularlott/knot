@@ -2,7 +2,6 @@ package agentcmd
 
 import (
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/paularlott/knot/build"
@@ -82,50 +81,4 @@ func Execute() {
 	if err := RootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
-}
-
-type ServerAddr struct {
-	HttpServer string
-	WsServer   string
-	ApiToken   string
-}
-
-// Read the server configuration information and generate the websocket address
-func GetServerAddr() ServerAddr {
-	flags := ServerAddr{}
-
-	flags.HttpServer = viper.GetString("client.server")
-	flags.ApiToken = viper.GetString("client.token")
-
-	// If flags.server empty then throw and error
-	if flags.HttpServer == "" {
-		cobra.CheckErr("Missing proxy server address")
-	}
-
-	if flags.ApiToken == "" {
-		cobra.CheckErr("Missing API token")
-	}
-
-	if !strings.HasPrefix(flags.HttpServer, "http://") && !strings.HasPrefix(flags.HttpServer, "https://") {
-		flags.HttpServer = "https://" + flags.HttpServer
-	}
-
-	// Fix up the address to a websocket address
-	flags.HttpServer = strings.TrimSuffix(flags.HttpServer, "/")
-	flags.WsServer = "ws" + flags.HttpServer[4:]
-
-	return flags
-}
-
-func FixListenAddress(address string) string {
-	if address == "" {
-		return ""
-	}
-
-	// If the address is just numbers then assume it's a port and prefix with a colon
-	if _, err := strconv.Atoi(address); err == nil {
-		return ":" + address
-	}
-
-	return address
 }

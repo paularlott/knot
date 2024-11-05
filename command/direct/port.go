@@ -5,7 +5,6 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/util"
 
 	"github.com/rs/zerolog/log"
@@ -28,7 +27,7 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
 		var port string
 		var err error
 
-		listen := command.FixListenAddress(args[0])
+		listen := util.FixListenAddress(args[0])
 		service := args[1]
 
 		if len(args) == 3 {

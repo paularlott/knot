@@ -261,7 +261,7 @@ var serverCmd = &cobra.Command{
 		viper.Set("server.is_core", viper.GetString("server.remote_token") != "" && viper.GetString("server.core_server") == "")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		listen := FixListenAddress(viper.GetString("server.listen"))
+		listen := util.FixListenAddress(viper.GetString("server.listen"))
 
 		// If agent address not given then don't start
 		if viper.GetString("server.agent_endpoint") == "" {
@@ -404,7 +404,7 @@ var serverCmd = &cobra.Command{
 		}
 
 		// Start the agent server
-		agent_server.ListenAndServe(FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
+		agent_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
 
 		// Run the http server
 		server := &http.Server{

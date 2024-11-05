@@ -5,6 +5,7 @@ import (
 
 	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/proxy"
+	"github.com/paularlott/knot/util"
 
 	"github.com/spf13/cobra"
 )
@@ -35,6 +36,6 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
 			port = 0
 		}
 
-		proxy.RunTCPForwarderViaProxy(cfg.WsServer, cfg.ApiToken, command.FixListenAddress(args[0]), args[1], port)
+		proxy.RunTCPForwarderViaProxy(cfg.WsServer, cfg.ApiToken, util.FixListenAddress(args[0]), args[1], port)
 	},
 }
