@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 
 	"github.com/hashicorp/yamux"
@@ -82,7 +83,17 @@ func handleAgentConnection(conn net.Conn) {
 	}
 
 	// Open the mux session
-	session.MuxSession, err = yamux.Server(conn, nil)
+	session.MuxSession, err = yamux.Server(conn, &yamux.Config{
+		AcceptBacklog:          256,
+		EnableKeepAlive:        true,
+		KeepAliveInterval:      30 * time.Second,
+		ConnectionWriteTimeout: 10 * time.Second,
+		MaxStreamWindowSize:    256 * 1024,
+		StreamCloseTimeout:     5 * time.Minute,
+		StreamOpenTimeout:      75 * time.Second,
+		LogOutput:              nil,
+		Logger:                 logger.NewMuxLogger(),
+	})
 	if err != nil {
 		log.Error().Msgf("agent: creating mux session: %v", err)
 		RemoveSession(registerMsg.SpaceId)

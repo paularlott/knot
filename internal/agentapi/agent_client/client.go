@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/util"
 
@@ -169,7 +170,17 @@ func ConnectAndServe(server string, spaceId string) {
 			}
 
 			// Open the mux session
-			muxSession, err = yamux.Client(conn, nil)
+			muxSession, err = yamux.Client(conn, &yamux.Config{
+				AcceptBacklog:          256,
+				EnableKeepAlive:        true,
+				KeepAliveInterval:      30 * time.Second,
+				ConnectionWriteTimeout: 10 * time.Second,
+				MaxStreamWindowSize:    256 * 1024,
+				StreamCloseTimeout:     5 * time.Minute,
+				StreamOpenTimeout:      75 * time.Second,
+				LogOutput:              nil,
+				Logger:                 logger.NewMuxLogger(),
+			})
 			if err != nil {
 				log.Error().Msgf("agent: creating mux session: %v", err)
 				conn.Close()
