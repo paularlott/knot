@@ -11,7 +11,6 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/util"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -42,41 +41,13 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Open a new stream to the agent
-	stream, err := agentSession.MuxSession.Open()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	defer stream.Close()
-
-	// Write the command
-	if err := msg.WriteCommand(stream, msg.MSG_PROXY_TCP_PORT); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
 	portInt, err := strconv.Atoi(port)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if err := msg.WriteMessage(stream, &msg.TcpPort{
-		Port: uint16(portInt),
-	}); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 
-	// Upgrade the connection to a websocket
-	ws := util.UpgradeToWS(w, r)
-	if ws == nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	copier := util.NewCopier(stream, ws)
-	copier.Run()
+	proxyAgentPort(w, r, agentSession, uint16(portInt))
 }
 
 // Proxy a web port for a space or VNC, the transport is http and the agent works out the http / https connection
