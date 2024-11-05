@@ -43,7 +43,7 @@ func init() {
 	serverCmd.Flags().StringP("download-path", "", "", "The path to serve download files from if set.\nOverrides the "+CONFIG_ENV_PREFIX+"_DOWNLOAD_PATH environment variable if set.")
 	serverCmd.Flags().StringP("wildcard-domain", "", "", "The wildcard domain to use for proxying to spaces.\nOverrides the "+CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN environment variable if set.")
 	serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the "+CONFIG_ENV_PREFIX+"_ENCRYPT environment variable if set.")
-	serverCmd.Flags().StringP("agent-addr", "", "", "The address agents should use to talk to the server (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_AGENT_ADDR environment variable if set.")
+	serverCmd.Flags().StringP("agent-endpoint", "", "", "The address agents should use to talk to the server (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT environment variable if set.")
 	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to NOMAD_DC or hostname).\nOverrides the "+CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
 	serverCmd.Flags().StringP("core-server", "", "", "The address of the core server this server is to become a remote of (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_CORE_SERVER environment variable if set.")
 	serverCmd.Flags().StringP("remote-token", "", "", "The token to use for remote and core server communication (default \"\").\nOverrides the "+CONFIG_ENV_PREFIX+"_REMOTE_TOKEN environment variable if set.")
@@ -141,9 +141,9 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.encrypt", CONFIG_ENV_PREFIX+"_ENCRYPT")
 		viper.SetDefault("server.encrypt", "")
 
-		viper.BindPFlag("server.agent_addr", cmd.Flags().Lookup("agent-addr"))
-		viper.BindEnv("server.agent_addr", CONFIG_ENV_PREFIX+"_AGENT_ADDR")
-		viper.SetDefault("server.agent_addr", "")
+		viper.BindPFlag("server.agent_endpoint", cmd.Flags().Lookup("agent-endpoint"))
+		viper.BindEnv("server.agent_endpoint", CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT")
+		viper.SetDefault("server.agent_endpoint", "")
 
 		// Get the hostname
 		hostname := os.Getenv("NOMAD_DC")
@@ -264,8 +264,8 @@ var serverCmd = &cobra.Command{
 		listen := FixListenAddress(viper.GetString("server.listen"))
 
 		// If agent address not given then don't start
-		if viper.GetString("server.agent_addr") == "" {
-			log.Fatal().Msg("server: agent address not given")
+		if viper.GetString("server.agent_endpoint") == "" {
+			log.Fatal().Msg("server: agent endpoint not given")
 		}
 
 		log.Info().Msgf("server: starting knot version: %s", build.Version)

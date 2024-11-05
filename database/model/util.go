@@ -46,7 +46,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 		},
 		"server": map[string]interface{}{
 			"url":             viper.GetString("server.url"),
-			"agent_addr":      viper.GetString("server.agent_addr"),
+			"agent_endpoint":  viper.GetString("server.agent_endpoint"),
 			"wildcard_domain": wildcardDomain,
 			"location":        viper.GetString("server.location"),
 		},

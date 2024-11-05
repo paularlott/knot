@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	agentCmd.Flags().StringP("server", "s", "", "The address of the server to connect to.\nOverrides the "+CONFIG_ENV_PREFIX+"_SERVER_AGENT environment variable if set.")
+	agentCmd.Flags().StringP("endpoint", "", "", "The address of the server to connect to.\nOverrides the "+CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT environment variable if set.")
 	agentCmd.Flags().StringP("space-id", "", "", "The ID of the space the agent is providing.\nOverrides the "+CONFIG_ENV_PREFIX+"_SPACEID environment variable if set.")
 	agentCmd.Flags().StringSliceP("nameservers", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	agentCmd.Flags().IntP("code-server-port", "", 0, "The port code-server is running on.\nOverrides the "+CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT environment variable if set.")
@@ -49,8 +49,8 @@ var agentCmd = &cobra.Command{
 The agent will listen on the port specified by the --listen flag and proxy requests to the code-server instance running on the host.`,
 	Args: cobra.NoArgs,
 	PreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("agent.server", cmd.Flags().Lookup("server"))
-		viper.BindEnv("agent.server", CONFIG_ENV_PREFIX+"_SERVER_AGENT")
+		viper.BindPFlag("agent.endpoint", cmd.Flags().Lookup("endpoint"))
+		viper.BindEnv("agent.endpoint", CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT")
 
 		viper.BindPFlag("agent.space_id", cmd.Flags().Lookup("space-id"))
 		viper.BindEnv("agent.space_id", CONFIG_ENV_PREFIX+"_SPACEID")
@@ -117,7 +117,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		viper.SetDefault("dns.refresh_max_age", 180)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		serverAddr := viper.GetString("agent.server")
+		serverAddr := viper.GetString("agent.endpoint")
 		spaceId := viper.GetString("agent.space_id")
 
 		// Check address given and valid URL
