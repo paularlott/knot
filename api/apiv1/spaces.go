@@ -82,8 +82,6 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 				} else {
 					templateName = template.Name
 				}
-			} else {
-				templateName = "None (" + space.AgentURL + ")"
 			}
 
 			s := apiclient.SpaceInfo{}
@@ -209,13 +207,8 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If template given then ensure the address is removed
-	if request.TemplateId != model.MANUAL_TEMPLATE_ID {
-		request.AgentURL = ""
-	}
-
-	if !validate.Name(request.Name) || (request.TemplateId == model.MANUAL_TEMPLATE_ID && !validate.Uri(request.AgentURL)) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name, template, or address given for new space"})
+	if !validate.Name(request.Name) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name or template given for new space"})
 		return
 	}
 
@@ -236,7 +229,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	if request.UserId != "" {
 		forUserId = request.UserId
 	}
-	space := model.NewSpace(request.Name, forUserId, request.AgentURL, request.TemplateId, request.Shell, &request.VolumeSizes, &request.AltNames)
+	space := model.NewSpace(request.Name, forUserId, request.TemplateId, request.Shell, &request.VolumeSizes, &request.AltNames)
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -449,7 +442,6 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		// Load the space from disk and merge the remote space into it
 		space.Name = spaceRemote.Name
 		space.AltNames = spaceRemote.AltNames
-		space.AgentURL = spaceRemote.AgentURL
 		space.Shell = spaceRemote.Shell
 		space.VolumeSizes = spaceRemote.VolumeSizes
 	}
@@ -592,7 +584,6 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		// Load the space from disk and merge the remote space into it
 		space.Name = spaceRemote.Name
 		space.AltNames = spaceRemote.AltNames
-		space.AgentURL = spaceRemote.AgentURL
 		space.Shell = spaceRemote.Shell
 		space.VolumeSizes = spaceRemote.VolumeSizes
 	}
@@ -654,16 +645,11 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If template given then ensure the address is removed
-	if request.TemplateId != model.MANUAL_TEMPLATE_ID {
-		request.AgentURL = ""
-	}
-
 	// Remove any blank alt names, any that match the primary name, and any duplicates
 	request.AltNames = removeBlankAndDuplicates(request.AltNames, request.Name)
 
-	if !validate.Name(request.Name) || (request.TemplateId == model.MANUAL_TEMPLATE_ID && !validate.Uri(request.AgentURL)) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name, template, or address given for new space"})
+	if !validate.Name(request.Name) {
+		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name or template given for new space"})
 		return
 	}
 
@@ -682,7 +668,6 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	// Update the space
 	space.Name = request.Name
 	space.TemplateId = request.TemplateId
-	space.AgentURL = request.AgentURL
 	space.Shell = request.Shell
 	space.AltNames = request.AltNames
 	space.Location = request.Location
@@ -786,7 +771,6 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		// Merge the remote space into it
 		space.Name = spaceRemote.Name
 		space.AltNames = spaceRemote.AltNames
-		space.AgentURL = spaceRemote.AgentURL
 		space.Shell = spaceRemote.Shell
 		space.VolumeSizes = spaceRemote.VolumeSizes
 
@@ -811,7 +795,6 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		UserId:      space.UserId,
 		TemplateId:  space.TemplateId,
 		Name:        space.Name,
-		AgentURL:    space.AgentURL,
 		Shell:       space.Shell,
 		Location:    space.Location,
 		AltNames:    space.AltNames,

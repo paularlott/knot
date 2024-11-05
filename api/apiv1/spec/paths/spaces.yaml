@@ -65,8 +65,6 @@ post:
           properties:
             name:
               type: string
-            agent_url:
-              type: string
             template_id:
               type: string
             shell:

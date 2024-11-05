@@ -65,7 +65,6 @@ var createCmd = &cobra.Command{
 			TemplateId:  templateId,
 			Name:        args[0],
 			AltNames:    []string{},
-			AgentURL:    "",
 			Shell:       shell,
 			VolumeSizes: make(map[string]int64),
 		}

@@ -3,7 +3,6 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     formData: {
       name: "",
       template_id: "",
-      agent_url: "",
       shell: preferredShell,
       user_id: forUserId,
       volume_sizes: {},
@@ -52,7 +51,6 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
 
           this.formData.name = space.name;
           this.formData.template_id = this.template_id = space.template_id;
-          this.formData.agent_url = space.agent_url;
           this.formData.shell = space.shell;
           this.formData.volume_sizes = space.volume_sizes;
 
@@ -145,12 +143,6 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         return false;
       }
     },
-    checkAddress() {
-      if(this.formData.template_id == "00000000-0000-0000-0000-000000000000") {
-        return this.addressValid = validate.uri(this.formData.agent_url);
-      }
-      return true;
-    },
     checkVolumeSize(id) {
       var volume = this.volume_sizes.find(volume => volume.id === id);
       this.formData.volume_sizes[id] = parseInt(this.formData.volume_sizes[id]);
@@ -160,7 +152,6 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       var err = false,
           self = this;
       err = !this.checkName() || err;
-      err = !this.checkAddress() || err;
 
       // Check the sizes of all the volumes
       for (var i = 0; i < this.volume_sizes.length; i++) {

@@ -1,13 +1,11 @@
 package model
 
 import (
-	"fmt"
 	"math"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 type SpaceVolume struct {
@@ -21,7 +19,6 @@ type Space struct {
 	UserId         string                 `json:"user_id"`
 	TemplateId     string                 `json:"template_id"`
 	Name           string                 `json:"name"`
-	AgentURL       string                 `json:"agent_url"`
 	Shell          string                 `json:"shell"`
 	Location       string                 `json:"location"`
 	TemplateHash   string                 `json:"template_hash"`
@@ -37,7 +34,7 @@ type Space struct {
 	UpdatedAt      time.Time              `json:"updated_at"`
 }
 
-func NewSpace(name string, userId string, agentURL string, templateId string, shell string, volSizes *map[string]int64, altNames *[]string) *Space {
+func NewSpace(name string, userId string, templateId string, shell string, volSizes *map[string]int64, altNames *[]string) *Space {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -49,7 +46,6 @@ func NewSpace(name string, userId string, agentURL string, templateId string, sh
 		TemplateId:   templateId,
 		Name:         name,
 		AltNames:     *altNames,
-		AgentURL:     agentURL,
 		Shell:        shell,
 		TemplateHash: "",
 		IsDeployed:   false,
@@ -63,18 +59,6 @@ func NewSpace(name string, userId string, agentURL string, templateId string, sh
 	}
 
 	return space
-}
-
-func (space *Space) GetAgentURL() string {
-	if space.AgentURL == "" {
-		if viper.GetBool("server.tls.agent_use_tls") {
-			return fmt.Sprintf("srv+https://knot-%s.service.consul", space.Id)
-		} else {
-			return fmt.Sprintf("srv+http://knot-%s.service.consul", space.Id)
-		}
-	} else {
-		return space.AgentURL
-	}
 }
 
 // Get the storage size for the space in GB

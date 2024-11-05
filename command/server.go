@@ -312,7 +312,6 @@ var serverCmd = &cobra.Command{
 
 			log.Debug().Msgf("Host: %s", u.Host)
 			log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
-			log.Debug().Msgf("Agent URL: %s", viper.GetString("server.agent_url"))
 
 			hr := hostrouter.New()
 			hr.Map(wildcardDomain, func() chi.Router {
@@ -370,16 +369,6 @@ var serverCmd = &cobra.Command{
 				}
 				sslDomains = append(sslDomains, u.Host)
 				sslDomains = append(sslDomains, "localhost")
-
-				// If have an agent url then add it's domain
-				agentURL := viper.GetString("server.agent_url")
-				if agentURL != "" {
-					u, err := url.Parse(agentURL)
-					if err != nil {
-						log.Fatal().Msg(err.Error())
-					}
-					sslDomains = append(sslDomains, u.Host)
-				}
 
 				// If wildcard domain given add it
 				wildcardDomain := viper.GetString("server.wildcard_domain")
