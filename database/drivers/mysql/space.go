@@ -56,7 +56,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
 
 	// If no rows were updated then do an insert
 	if rows, _ := result.RowsAffected(); rows == 0 {
-		_, err = tx.Exec("INSERT INTO spaces (space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, volume_sizes, nomad_namespace, nomad_job_id, template_hash, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		_, err = tx.Exec("INSERT INTO spaces (space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, volume_sizes, nomad_namespace, nomad_job_id, template_hash, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			space.Id, space.UserId, space.TemplateId, space.Name, time.Now().UTC(), time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, volumeSizes, space.NomadNamespace, space.NomadJobId, space.TemplateHash, space.Location,
 		)
 		if err != nil {

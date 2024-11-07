@@ -48,6 +48,12 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		var spaces []*model.Space
 		var err error
 
+		// If user doesn't have permission to manage spaces and filter user ID doesn't match the user return an empty list
+		if !user.HasPermission(model.PermissionManageSpaces) && userId != user.Id {
+			rest.SendJSON(http.StatusOK, w, spaceData)
+			return
+		}
+
 		if userId == "" {
 			spaces, err = db.GetSpaces()
 			if err != nil {
@@ -56,12 +62,6 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			// If user doesn't have permission to manage spaces and filter user ID doesn't match the user return an empty list
-			if !user.HasPermission(model.PermissionManageSpaces) && userId != user.Id {
-				rest.SendJSON(http.StatusOK, w, spaceData)
-				return
-			}
-
 			spaces, err = db.GetSpacesForUser(userId)
 			if err != nil {
 				log.Error().Msgf("HandleGetSpaces: GetSpacesForUser: %s", err.Error())

@@ -11,7 +11,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       }
     },
     showingSpecificUser: userId !== forUserId,
-    forUserId: userId ==  forUserId ? Alpine.$persist(forUserId).as('forUserId').using(sessionStorage) : forUserId,
+    forUserId: userId == forUserId && canManageSpaces ? Alpine.$persist(forUserId).as('forUserId').using(sessionStorage) : forUserId,
     canManageSpaces: canManageSpaces,
     users: [],
     searchTerm: Alpine.$persist('').as('spaces-search-term').using(sessionStorage),
@@ -28,7 +28,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         // Look through the users list and change the one that matches the userId to be Your spaces
         this.users.forEach(user => {
           if(user.user_id === userId) {
-            user.username = "Your Spaces";
+            user.username = "My Spaces";
           }
         });
       }
