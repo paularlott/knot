@@ -288,6 +288,11 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// If manual template then force location to be this server
+	if space.TemplateId == model.MANUAL_TEMPLATE_ID {
+		space.Location = viper.GetString("server.location")
+	}
+
 	// Save the space
 	err = database.GetInstance().SaveSpace(space)
 	if err != nil {
@@ -689,6 +694,11 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
 			return
+		}
+
+		// If manual template then force location to be this server
+		if request.TemplateId == model.MANUAL_TEMPLATE_ID {
+			space.Location = viper.GetString("server.location")
 		}
 	}
 
