@@ -360,6 +360,8 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 		response.HasHttpVNC = false
 		response.TcpPorts = make(map[string]string)
 		response.HttpPorts = make(map[string]string)
+		response.HasVSCodeTunnel = false
+		response.VSCodeTunnel = ""
 	} else {
 		response.HasCodeServer = state.HasCodeServer
 		response.HasSSH = state.SSHPort > 0
@@ -373,6 +375,9 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 		} else {
 			response.HttpPorts = state.HttpPorts
 		}
+
+		response.HasVSCodeTunnel = state.HasVSCodeTunnel
+		response.VSCodeTunnel = state.VSCodeTunnelName
 	}
 
 	response.Name = space.Name

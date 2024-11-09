@@ -7,16 +7,18 @@ import (
 )
 
 type AgentState struct {
-	SpaceId       string
-	HasCodeServer bool
-	SSHPort       int
-	VNCHttpPort   int
-	HasTerminal   bool
-	TcpPorts      map[string]string
-	HttpPorts     map[string]string
+	SpaceId          string
+	HasCodeServer    bool
+	SSHPort          int
+	VNCHttpPort      int
+	HasTerminal      bool
+	TcpPorts         map[string]string
+	HttpPorts        map[string]string
+	HasVSCodeTunnel  bool
+	VSCodeTunnelName string
 }
 
-func SendState(conn net.Conn, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string) error {
+func SendState(conn net.Conn, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string, hasVSCodeTunnel bool, vscodeTunnelName string) error {
 	// Write the state command
 	err := WriteCommand(conn, MSG_UPDATE_STATE)
 	if err != nil {
@@ -26,13 +28,15 @@ func SendState(conn net.Conn, spaceId string, hasCodeServer bool, sshPort int, v
 
 	// Write the state message
 	err = WriteMessage(conn, &AgentState{
-		SpaceId:       spaceId,
-		HasCodeServer: hasCodeServer,
-		SSHPort:       sshPort,
-		VNCHttpPort:   vncHttpPort,
-		HasTerminal:   hasTerminal,
-		TcpPorts:      *tcpPorts,
-		HttpPorts:     *httpPorts,
+		SpaceId:          spaceId,
+		HasCodeServer:    hasCodeServer,
+		SSHPort:          sshPort,
+		VNCHttpPort:      vncHttpPort,
+		HasTerminal:      hasTerminal,
+		TcpPorts:         *tcpPorts,
+		HttpPorts:        *httpPorts,
+		HasVSCodeTunnel:  hasVSCodeTunnel,
+		VSCodeTunnelName: vscodeTunnelName,
 	})
 	if err != nil {
 		log.Error().Msgf("agent: writing state message: %v", err)

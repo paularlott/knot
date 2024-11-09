@@ -149,6 +149,7 @@ func Routes() chi.Router {
 		router.Get("/logout", HandleLogoutPage)
 
 		router.Get("/terminal/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTerminalPage)
+		router.Get("/terminal/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/{vsc:vscode-tunnel}", HandleTerminalPage)
 
 		router.Route("/api-tokens", func(router chi.Router) {
 			router.Get("/", HandleSimplePage)

@@ -40,7 +40,7 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 
 	// Get the agent session, fail if no session or terminal is not enabled
 	agentSession := agent_server.GetSession(space.Id)
-	if agentSession == nil || !agentSession.HasTerminal {
+	if agentSession == nil || (shell == "vscode-terminal" && !agentSession.HasCodeServer) || (shell != "vscode-terminal" && !agentSession.HasTerminal) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -53,20 +53,29 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 	}
 	defer stream.Close()
 
-	// Write the terminal command
-	err = msg.WriteCommand(stream, msg.MSG_TERMINAL)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	if shell == "vscode-tunnel" {
+		// Write the terminal command
+		err = msg.WriteCommand(stream, msg.MSG_VSCODE_TUNNEL_TERMINAL)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Write the terminal command
+		err = msg.WriteCommand(stream, msg.MSG_TERMINAL)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 
-	// Write the terminal request
-	err = msg.WriteMessage(stream, &msg.Terminal{
-		Shell: shell,
-	})
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		// Write the terminal request
+		err = msg.WriteMessage(stream, &msg.Terminal{
+			Shell: shell,
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Upgrade the connection to a websocket

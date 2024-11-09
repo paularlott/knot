@@ -264,6 +264,11 @@ func handleAgentClientStream(stream net.Conn) {
 			startTerminal(stream, terminal.Shell)
 		}
 
+	case msg.MSG_VSCODE_TUNNEL_TERMINAL:
+		if viper.GetString("agent.vscode_tunnel") != "" {
+			startVSCodeTunnelTerminal(stream)
+		}
+
 	case msg.MSG_CODE_SERVER:
 		if viper.GetInt("agent.port.code_server") > 0 {
 			proxyTcp(stream, fmt.Sprintf("%d", viper.GetInt("agent.port.code_server")))

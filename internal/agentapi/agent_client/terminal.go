@@ -7,6 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/spf13/viper"
 
 	"github.com/creack/pty"
 	"github.com/rs/zerolog/log"
@@ -52,6 +53,50 @@ func startTerminal(conn net.Conn, shell string) {
 			log.Error().Msgf("unable to close connection")
 		}
 	}()
+
+	runTerminal(conn, tty)
+}
+
+func startVSCodeTunnelTerminal(conn net.Conn) {
+
+	// Check requested shell exists, if not find one
+	var tty *os.File
+	var cmd *exec.Cmd
+	var err error
+
+	cmd = exec.Command("screen", "-r", viper.GetString("agent.vscode_tunnel"))
+	cmd.Env = os.Environ()
+
+	if tty, err = pty.Start(cmd); err != nil {
+		log.Error().Msgf("failed to start shell: %s", err)
+		return
+	}
+
+	// Kill the process and clean up
+	defer func() {
+		// Send detach control sequence to screen
+		if _, err := tty.Write([]byte{0x1b, 0x1b, 0x64}); err != nil {
+			log.Error().Msgf("failed to send detach control sequence to screen: %s", err)
+		}
+
+		if err := cmd.Process.Kill(); err != nil {
+			log.Error().Msgf("unable to kill shell")
+		}
+		if _, err := cmd.Process.Wait(); err != nil {
+			log.Error().Msgf("unable to wait for shell to exit")
+		}
+		if err := tty.Close(); err != nil {
+			log.Error().Msgf("unable to close tty")
+		}
+		if err := conn.Close(); err != nil {
+			log.Error().Msgf("unable to close connection")
+		}
+	}()
+
+	runTerminal(conn, tty)
+}
+
+func runTerminal(conn net.Conn, tty *os.File) {
 
 	// tty to net
 	go func() {

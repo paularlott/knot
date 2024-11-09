@@ -44,10 +44,22 @@ window.openTerminal = function(spaceId) {
   return false;
 }
 
+window.openTerminalTunnel = function(spaceId) {
+  window.open('/terminal/' + spaceId + '/vscode-tunnel', 'spaces_' + spaceId + '_tunnel', 'width=800,height=500');
+  return false;
+}
+
 window.openCodeServer = function(spaceId) {
   const maxWidth = Math.min(window.innerWidth, 1440);
   const maxHeight = window.innerHeight;
   window.open('/proxy/spaces/' + spaceId + '/code-server/', 'spaces_' + spaceId + '_code_server', 'width=' + maxWidth + ',height=' + maxHeight);
+  return false;
+}
+
+window.openVSCodeDev = function(tunnelName) {
+  const maxWidth = Math.min(window.innerWidth, 1440);
+  const maxHeight = window.innerHeight;
+  window.open('https://vscode.dev/tunnel/' + tunnelName, 'vscodedev', 'width=' + maxWidth + ',height=' + maxHeight);
   return false;
 }
 

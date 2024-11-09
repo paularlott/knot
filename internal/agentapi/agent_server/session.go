@@ -11,16 +11,18 @@ import (
 
 // Struct holding the state / registration information of an agent
 type Session struct {
-	Id            string            `msgpack:"space_id"`
-	Version       string            `msgpack:"version"`
-	HasCodeServer bool              `msgpack:"has_code_server"`
-	SSHPort       int               `msgpack:"ssh_port"`
-	VNCHttpPort   int               `msgpack:"vnc_http_port"`
-	HasTerminal   bool              `msgpack:"has_terminal"`
-	TcpPorts      map[string]string `msgpack:"tcp_ports"`
-	HttpPorts     map[string]string `msgpack:"http_ports"`
-	ExpiresAfter  time.Time         `msgpack:"-"`
-	MuxSession    *yamux.Session    `msgpack:"-"`
+	Id               string            `msgpack:"space_id"`
+	Version          string            `msgpack:"version"`
+	HasCodeServer    bool              `msgpack:"has_code_server"`
+	SSHPort          int               `msgpack:"ssh_port"`
+	VNCHttpPort      int               `msgpack:"vnc_http_port"`
+	HasTerminal      bool              `msgpack:"has_terminal"`
+	TcpPorts         map[string]string `msgpack:"tcp_ports"`
+	HttpPorts        map[string]string `msgpack:"http_ports"`
+	HasVSCodeTunnel  bool              `msgpack:"has_vscode_tunnel"`
+	VSCodeTunnelName string            `msgpack:"vscode_tunnel_name"`
+	ExpiresAfter     time.Time         `msgpack:"-"`
+	MuxSession       *yamux.Session    `msgpack:"-"`
 }
 
 // creates a new agent session

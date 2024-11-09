@@ -19,6 +19,7 @@ const (
 	MSG_PROXY_TCP_PORT
 	MSG_PROXY_VNC
 	MSG_PROXY_HTTP
+	MSG_VSCODE_TUNNEL_TERMINAL
 )
 
 func WriteCommand(conn net.Conn, cmdType byte) error {

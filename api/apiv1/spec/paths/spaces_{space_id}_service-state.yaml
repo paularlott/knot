@@ -30,6 +30,10 @@ get:
                 type: boolean
               has_terminal:
                 type: boolean
+              has_vscode_tunnel:
+                type: boolean
+              vscode_tunnel_name:
+                type: string
               is_deployed:
                 type: boolean
               is_pending:

@@ -53,6 +53,8 @@ type SpaceServiceState struct {
 	HttpPorts       map[string]string `json:"http_ports"`
 	UpdateAvailable bool              `json:"update_available"`
 	IsRemote        bool              `json:"is_remote"`
+	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
+	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
 }
 
 type SpaceDefinition struct {

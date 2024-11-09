@@ -27,6 +27,8 @@ func init() {
 	agentCmd.Flags().BoolP("enable-terminal", "", true, "If given then the agent will enable the web terminal.\nOverrides the "+CONFIG_ENV_PREFIX+"_ENABLE_TERMINAL environment variable if set.")
 	agentCmd.Flags().IntP("vnc-http-port", "", 0, "The port to use for VNC over HTTP.\nOverrides the "+CONFIG_ENV_PREFIX+"_VNC_HTTP_PORT environment variable if set.")
 	agentCmd.Flags().StringP("service-password", "", "", "The password to use for the agent.\nOverrides the "+CONFIG_ENV_PREFIX+"_SERVICE_PASSWORD environment variable if set.")
+	agentCmd.Flags().StringP("vscode-tunnel", "", "", "The name of the screen running the Visual Studio Code tunnel.\nOverrides the "+CONFIG_ENV_PREFIX+"_VSCODE_TUNNEL environment variable if set.")
+	agentCmd.Flags().StringP("vscode-binary", "", "~/.local/bin/code", "The path to the code binary to use for the agent (defaults \"~/.local/bin/code\").\nOverrides the "+CONFIG_ENV_PREFIX+"_VSCODE_BINARY environment variable if set.")
 
 	// TLS
 	agentCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the agent.\nOverrides the "+CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -88,6 +90,14 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		viper.BindEnv("agent.service_password", CONFIG_ENV_PREFIX+"_SERVICE_PASSWORD")
 		viper.SetDefault("agent.service_password", "")
 
+		viper.BindPFlag("agent.vscode_tunnel", cmd.Flags().Lookup("vscode-tunnel"))
+		viper.BindEnv("agent.vscode_tunnel", CONFIG_ENV_PREFIX+"_VSCODE_TUNNEL")
+		viper.SetDefault("agent.vscode_tunnel", "")
+
+		viper.BindPFlag("agent.vscode_binary", cmd.Flags().Lookup("vscode-binary"))
+		viper.BindEnv("agent.vscode_binary", CONFIG_ENV_PREFIX+"_VSCODE_BINARY")
+		viper.SetDefault("agent.vscode_binary", "~/.local/bin/code")
+
 		// TLS
 		viper.BindPFlag("agent.tls.cert_file", cmd.Flags().Lookup("cert-file"))
 		viper.BindEnv("agent.tls.cert_file", CONFIG_ENV_PREFIX+"_CERT_FILE")
@@ -138,7 +148,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
 		// Open agent connection to the server
 		agent_client.ConnectAndServe(serverAddr, spaceId)
-		go agent_client.ReportState(spaceId, viper.GetInt("agent.port.code_server"), viper.GetInt("agent.port.ssh"), viper.GetInt("agent.port.vnc_http"), viper.GetBool("agent.enable_terminal"))
+		go agent_client.ReportState(spaceId)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)

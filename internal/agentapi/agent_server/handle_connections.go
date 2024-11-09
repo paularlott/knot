@@ -153,6 +153,8 @@ func handleAgentSession(stream net.Conn) {
 			session.HasTerminal = state.HasTerminal
 			session.TcpPorts = state.TcpPorts
 			session.HttpPorts = state.HttpPorts
+			session.HasVSCodeTunnel = state.HasVSCodeTunnel
+			session.VSCodeTunnelName = state.VSCodeTunnelName
 			session.ExpiresAfter = time.Now().UTC().Add(AGENT_SESSION_TIMEOUT)
 		}
 
