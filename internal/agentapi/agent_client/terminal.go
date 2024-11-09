@@ -64,7 +64,7 @@ func startVSCodeTunnelTerminal(conn net.Conn) {
 	var cmd *exec.Cmd
 	var err error
 
-	cmd = exec.Command("screen", "-r", viper.GetString("agent.vscode_tunnel"))
+	cmd = exec.Command("screen", "-d", "-r", viper.GetString("agent.vscode_tunnel"))
 	cmd.Env = os.Environ()
 
 	if tty, err = pty.Start(cmd); err != nil {
