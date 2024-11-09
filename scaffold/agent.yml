@@ -1,10 +1,9 @@
 agent:
-  # URL of the knot server
-  server: http://127.0.0.1:3000
+  # Address of the knot server agent port
+  endpoint: 127.0.0.1:3010
+
   # Optional nameserver to use for SRV lookups
   # nameserver: 1.1.1.1:53
-    # Address and port to listen on
-  listen: http://127.0.0.1:3000
 
   # ID of the space the agent is for
   space-id: cbac644f-cc9d-4991-9e99-2b421d70c126
