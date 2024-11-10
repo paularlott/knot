@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/paularlott/knot/agent/agentcmd"
+	agentcmd "github.com/paularlott/knot/agent/cmd"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

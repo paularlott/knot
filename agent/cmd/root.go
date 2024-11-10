@@ -3,6 +3,7 @@ package agentcmd
 import (
 	"os"
 
+	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 
@@ -28,6 +29,8 @@ func init() {
 
 	RootCmd.PersistentFlags().StringP("config", "c", "", "Config file (default is "+config.CONFIG_FILE_NAME+"."+config.CONFIG_FILE_TYPE+" in the current directory or $HOME/).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CONFIG environment variable if set.")
 	RootCmd.PersistentFlags().StringP("log-level", "", "info", "Log level (debug, info, warn, error, fatal, panic).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOGLEVEL environment variable if set.")
+
+	RootCmd.AddCommand(agentcmd.AgentCmd)
 }
 
 func initConfig() {
