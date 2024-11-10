@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,8 +20,8 @@ import (
 func init() {
 
 	connectCmd.Flags().BoolP("use-web-auth", "", false, "If given then authorization will be done via the web interface.")
-	connectCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
-	connectCmd.Flags().StringP("username", "u", "", "Username to use for authentication.\nOverrides the "+CONFIG_ENV_PREFIX+"_USERNAME environment variable if set.")
+	connectCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
+	connectCmd.Flags().StringP("username", "u", "", "Username to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_USERNAME environment variable if set.")
 
 	RootCmd.AddCommand(connectCmd)
 }
@@ -137,7 +138,7 @@ var connectCmd = &cobra.Command{
 			home, err := os.UserHomeDir()
 			cobra.CheckErr(err)
 
-			err = viper.WriteConfigAs(home + "/" + CONFIG_FILE_NAME + "." + CONFIG_FILE_TYPE)
+			err = viper.WriteConfigAs(home + "/" + config.CONFIG_FILE_NAME + "." + config.CONFIG_FILE_TYPE)
 			if err != nil {
 				fmt.Println("Failed to create config file")
 				os.Exit(1)

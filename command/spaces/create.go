@@ -4,15 +4,15 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/config"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 func init() {
-	createCmd.Flags().StringP("shell", "", "bash", "The shell to use for the space (sh, bash, zsh or fish).\nOverrides the "+command.CONFIG_ENV_PREFIX+"_SHELL environment variable if set.")
+	createCmd.Flags().StringP("shell", "", "bash", "The shell to use for the space (sh, bash, zsh or fish).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SHELL environment variable if set.")
 }
 
 var createCmd = &cobra.Command{
@@ -22,7 +22,7 @@ var createCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("shell", cmd.Flags().Lookup("shell"))
-		viper.BindEnv("shell", command.CONFIG_ENV_PREFIX+"_SHELL")
+		viper.BindEnv("shell", config.CONFIG_ENV_PREFIX+"_SHELL")
 		viper.SetDefault("shell", "bash")
 	},
 	Run: func(cmd *cobra.Command, args []string) {

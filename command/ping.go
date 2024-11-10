@@ -5,13 +5,14 @@ import (
 	"os"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 func init() {
-	pingCmd.Flags().StringP("server", "s", "", "The address of the remote server to proxy through.\nOverrides the "+CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
+	pingCmd.Flags().StringP("server", "s", "", "The address of the remote server to proxy through.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
 
 	RootCmd.AddCommand(pingCmd)
 }
@@ -23,7 +24,7 @@ var pingCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("client.server", cmd.Flags().Lookup("server"))
-		viper.BindEnv("client.server", CONFIG_ENV_PREFIX+"_SERVER")
+		viper.BindEnv("client.server", config.CONFIG_ENV_PREFIX+"_SERVER")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := GetServerAddr()
