@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/paularlott/knot/agentapp/agentcmd/agentcmd"
+	"github.com/paularlott/knot/agent/agentcmd/agentcmd"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 

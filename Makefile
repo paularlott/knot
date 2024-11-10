@@ -47,7 +47,7 @@ agents: $(addsuffix -agent,$(AGENT_PLATFORMS))
 
 .PHONY: $(addsuffix -agent,$(AGENT_PLATFORMS))
 $(addsuffix -agent,$(AGENT_PLATFORMS)):
-	GOOS=$(word 1,$(subst /, ,$(subst -agent,,$@))) GOARCH=$(word 2,$(subst /, ,$(subst -agent,,$@))) go build $(BUILD_FLAGS) -o $(AGENT_OUTPUT_DIR)/$(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,) ./agentapp
+	GOOS=$(word 1,$(subst /, ,$(subst -agent,,$@))) GOARCH=$(word 2,$(subst /, ,$(subst -agent,,$@))) go build $(BUILD_FLAGS) -o $(AGENT_OUTPUT_DIR)/$(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,) ./agent
 	cd $(AGENT_OUTPUT_DIR); \
 	mv $(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,) knot-agent$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,); \
 	zip $(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,).zip knot-agent$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,)

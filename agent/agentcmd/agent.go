@@ -1,7 +1,7 @@
 package agentcmd
 
 import (
-	"github.com/paularlott/knot/agentapp/agentcmd/agentcmd"
+	"github.com/paularlott/knot/agent/agentcmd/agentcmd"
 )
 
 func init() {
