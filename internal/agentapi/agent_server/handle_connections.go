@@ -4,6 +4,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
@@ -24,6 +25,7 @@ func handleAgentConnection(conn net.Conn) {
 
 	// Create response message
 	response := msg.RegisterResponse{
+		Version:        build.Version,
 		Success:        false,
 		SSHKey:         "",
 		GitHubUsername: "",

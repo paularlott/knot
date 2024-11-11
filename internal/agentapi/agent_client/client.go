@@ -160,7 +160,7 @@ func ConnectAndServe(server string, spaceId string) {
 				continue
 			}
 
-			log.Info().Msgf("agent: registered with server: %s", serverAddr)
+			log.Info().Msgf("agent: registered with server: %s (%s)", serverAddr, response.Version)
 
 			// Update the authorized keys file
 			if viper.GetBool("agent.update_authorized_keys") && viper.GetInt("agent.port.ssh") > 0 {
