@@ -393,6 +393,8 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the template has been updated
+	templateHashMutex.RLock()
+	defer templateHashMutex.RUnlock()
 	hash, ok := templateHashes[space.TemplateId]
 	if space.TemplateId == model.MANUAL_TEMPLATE_ID || !ok {
 		response.UpdateAvailable = false

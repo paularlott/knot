@@ -292,7 +292,7 @@ var serverCmd = &cobra.Command{
 		startupCheckPendingSpaces()
 
 		// Sync the template hashes either local or remote
-		go apiv1.SyncTemplateHashes()
+		apiv1.SyncTemplateHashes()
 
 		router := chi.NewRouter()
 

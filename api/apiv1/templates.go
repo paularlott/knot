@@ -20,49 +20,45 @@ import (
 )
 
 var (
-	templateHashMutex = &sync.Mutex{}
+	templateHashMutex = &sync.RWMutex{}
 	templateHashes    = make(map[string]string)
 )
 
 func SyncTemplateHashes() {
 	if viper.GetBool("server.is_remote") {
-		log.Info().Msg("server: starting remote server template hash sync")
+		go func() {
+			log.Info().Msg("server: starting remote server template hash sync")
 
-		for {
-			client := apiclient.NewRemoteServerClient(viper.GetString("server.core_server"))
-			hashes, err := client.RemoteFetchTemplateHashes()
-			if err != nil {
-				log.Error().Msgf("failed to fetch template hashes: %s", err.Error())
-			} else {
-				templateHashes = *hashes
-			}
-
-			time.Sleep(model.REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL)
-		}
-	} else {
-		log.Info().Msg("server: starting local template hash sync")
-
-		for {
-			db := database.GetInstance()
-
-			templateHashMutex.Lock()
-
-			templates, err := db.GetTemplates()
-			if err != nil {
-				log.Error().Msgf("failed to fetch templates: %s", err.Error())
-			} else {
-				newHashes := make(map[string]string)
-				for _, template := range templates {
-					newHashes[template.Id] = template.Hash
+			for {
+				client := apiclient.NewRemoteServerClient(viper.GetString("server.core_server"))
+				hashes, err := client.RemoteFetchTemplateHashes()
+				if err != nil {
+					log.Error().Msgf("failed to fetch template hashes: %s", err.Error())
+				} else {
+					templateHashes = *hashes
 				}
 
-				templateHashes = newHashes
+				time.Sleep(model.REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL)
 			}
+		}()
+	} else {
+		log.Info().Msg("server: loading template hashes")
 
-			templateHashMutex.Unlock()
+		db := database.GetInstance()
 
-			time.Sleep(model.REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL)
+		// Load the template hashes from the database
+		templateHashMutex.Lock()
+
+		templates, err := db.GetTemplates()
+		if err != nil {
+			log.Fatal().Msgf("server: failed to load templates: %s", err.Error())
 		}
+
+		for _, template := range templates {
+			templateHashes[template.Id] = template.Hash
+		}
+
+		templateHashMutex.Unlock()
 	}
 }
 
@@ -210,15 +206,15 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.Groups = request.Groups
 		template.UpdateHash()
 
-		templateHashMutex.Lock()
-		defer templateHashMutex.Unlock()
-		templateHashes[template.Id] = template.Hash
-
 		err = database.GetInstance().SaveTemplate(template)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
+
+		templateHashMutex.Lock()
+		defer templateHashMutex.Unlock()
+		templateHashes[template.Id] = template.Hash
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -282,6 +278,10 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		templateId = template.Id
+
+		templateHashMutex.Lock()
+		defer templateHashMutex.Unlock()
+		templateHashes[template.Id] = template.Hash
 	}
 
 	// Return the ID
