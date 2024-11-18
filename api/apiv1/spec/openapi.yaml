@@ -115,8 +115,3 @@ paths:
 
   /api/v1/ping:
     $ref: paths/ping.yaml
-
-  /api/v1/remote/servers:
-    $ref: paths/remote-servers.yaml
-  /api/v1/remote/remote/{server_id}:
-    $ref: paths/remote-servers_{server_id}.yaml

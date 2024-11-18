@@ -44,7 +44,7 @@
             <tr x-show="!t.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
               <td x-text="t.token_id" class="px-6 py-4 text-nowrap"></td>
               <td x-text="t.name" class="px-6 py-4"></td>
-              <td>
+              <td class="px-6 py-4">
                 <div class="flex items-center justify-end">
                   <button @click="deleteConfirm.show = true; deleteConfirm.token = t" class="group flex items-center cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">

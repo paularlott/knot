@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
@@ -37,7 +38,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
 	// If this is a remote then the request needs to be forwarded to the core server
 	if viper.GetBool("server.is_remote") {
-		log.Debug().Msg("Forwarding auth request to core server")
+		log.Debug().Msg("Forwarding auth request to origin server")
 
 		client := apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
 		tokenId, statusCode, err = client.Login(request.Email, request.Password)
@@ -46,7 +47,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 				// Look for the user by email and if found delete it
 				user, err := db.GetUserByEmail(request.Email)
 				if err == nil {
-					DeleteUser(db, user)
+					api_utils.DeleteUser(db, user)
 				}
 			} else if statusCode == http.StatusLocked {
 				// Look for the user by email and if found update it
@@ -54,7 +55,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 				if err == nil && user.Active {
 					user.Active = false
 					db.SaveUser(user)
-					UpdateUserSpaces(user)
+					api_utils.UpdateUserSpaces(user)
 				}
 			}
 
@@ -78,7 +79,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		go UpdateUserSpaces(user)
+		go api_utils.UpdateUserSpaces(user)
 
 		userId = user.Id
 
@@ -142,6 +143,9 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		Status: true,
 		Token:  session.Id,
 	})
+}
+
+func HandleAuthIdUserToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleLogout(w http.ResponseWriter, r *http.Request) {

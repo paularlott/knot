@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -103,6 +104,8 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
+
+		leaf.UpdateTemplateVar(templateVar)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -154,6 +157,8 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		leaf.UpdateTemplateVar(templateVar)
+
 		id = templateVar.Id
 	}
 
@@ -189,6 +194,8 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
+
+		leaf.DeleteTemplateVar(templateVarId)
 	}
 
 	w.WriteHeader(http.StatusOK)

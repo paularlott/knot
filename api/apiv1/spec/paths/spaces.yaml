@@ -67,6 +67,8 @@ post:
               type: string
             template_id:
               type: string
+            location:
+              type: string
             shell:
               type: string
             user_id:

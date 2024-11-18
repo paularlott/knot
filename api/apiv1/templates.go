@@ -5,64 +5,20 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"sync"
-	"time"
 
+	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
-
-var (
-	templateHashMutex = &sync.RWMutex{}
-	templateHashes    = make(map[string]string)
-)
-
-func SyncTemplateHashes() {
-	if viper.GetBool("server.is_remote") {
-		go func() {
-			log.Info().Msg("server: starting remote server template hash sync")
-
-			for {
-				client := apiclient.NewRemoteServerClient(viper.GetString("server.core_server"))
-				hashes, err := client.RemoteFetchTemplateHashes()
-				if err != nil {
-					log.Error().Msgf("failed to fetch template hashes: %s", err.Error())
-				} else {
-					templateHashes = *hashes
-				}
-
-				time.Sleep(model.REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL)
-			}
-		}()
-	} else {
-		log.Info().Msg("server: loading template hashes")
-
-		db := database.GetInstance()
-
-		// Load the template hashes from the database
-		templateHashMutex.Lock()
-
-		templates, err := db.GetTemplates()
-		if err != nil {
-			log.Fatal().Msgf("server: failed to load templates: %s", err.Error())
-		}
-
-		for _, template := range templates {
-			templateHashes[template.Id] = template.Hash
-		}
-
-		templateHashMutex.Unlock()
-	}
-}
 
 func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
+
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
@@ -183,7 +139,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		db := database.GetInstance()
 		user := r.Context().Value("user").(*model.User)
 
-		template, err := database.GetInstance().GetTemplate(templateId)
+		template, err := db.GetTemplate(templateId)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
@@ -206,15 +162,14 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.Groups = request.Groups
 		template.UpdateHash()
 
-		err = database.GetInstance().SaveTemplate(template)
+		err = db.SaveTemplate(template)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		templateHashMutex.Lock()
-		defer templateHashMutex.Unlock()
-		templateHashes[template.Id] = template.Hash
+		api_utils.UpdateTemplateHash(template.Id, template.Hash)
+		leaf.UpdateTemplate(template)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -279,9 +234,8 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 		templateId = template.Id
 
-		templateHashMutex.Lock()
-		defer templateHashMutex.Unlock()
-		templateHashes[template.Id] = template.Hash
+		api_utils.UpdateTemplateHash(template.Id, template.Hash)
+		leaf.UpdateTemplate(template)
 	}
 
 	// Return the ID
@@ -339,6 +293,9 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+
+		api_utils.DeleteTemplateHash(template.Id)
+		leaf.DeleteTemplate(template.Id)
 	}
 
 	w.WriteHeader(http.StatusOK)

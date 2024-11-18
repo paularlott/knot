@@ -7,8 +7,11 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/leaf"
+	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
+	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -52,6 +55,13 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// if running on a leaf then notify the origin server
+	if viper.GetBool("server.is_remote") {
+		origin.DeleteToken(token)
+	}
+
+	leaf.DeleteToken(token.Id)
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -80,6 +90,12 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
 		return
+	}
+
+	// if running on a leaf then notify the origin server
+	if viper.GetBool("server.is_remote") {
+		token.Name += " (" + viper.GetString("server.location") + ")"
+		origin.MirrorToken(token)
 	}
 
 	// Return the Token ID

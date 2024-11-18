@@ -18,24 +18,27 @@ func (db *MySQLDriver) SaveTemplateVar(templateVar *model.TemplateVar) error {
 
 	val := templateVar.GetValueEncrypted()
 
-	// Assume update
-	result, err := tx.Exec("UPDATE templatevars SET name=?, location=?, value=?, protected=?, updated_user_id=?, updated_at=? WHERE templatevar_id=?",
-		templateVar.Name, templateVar.Location, val, templateVar.Protected, templateVar.UpdatedUserId, time.Now().UTC(), templateVar.Id,
-	)
+	// Test if the PK exists in the database
+	var doUpdate bool
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM templatevars WHERE templatevar_id=?)", templateVar.Id).Scan(&doUpdate)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	// If no rows were updated then do an insert
-	if rows, _ := result.RowsAffected(); rows == 0 {
+	// Update
+	if doUpdate {
+		_, err = tx.Exec("UPDATE templatevars SET name=?, location=?, value=?, protected=?, updated_user_id=?, updated_at=? WHERE templatevar_id=?",
+			templateVar.Name, templateVar.Location, val, templateVar.Protected, templateVar.UpdatedUserId, time.Now().UTC(), templateVar.Id,
+		)
+	} else {
 		_, err = tx.Exec("INSERT INTO templatevars (templatevar_id, name, location, value, protected, created_user_id, created_at, updated_user_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			templateVar.Id, templateVar.Name, templateVar.Location, val, templateVar.Protected, templateVar.CreatedUserId, time.Now().UTC(), templateVar.CreatedUserId, time.Now().UTC(),
 		)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
+	}
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 
 	tx.Commit()

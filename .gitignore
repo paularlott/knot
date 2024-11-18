@@ -5,7 +5,8 @@
 !/web/agents/.gitignore
 /node_modules
 .knot.yml
-.knot-moon.yml
+.knot-leaf1.yml
+.knot-leaf2.yml
 /.parcel-cache
 /knot-server.nomad
 /web/public_html/api-docs/*

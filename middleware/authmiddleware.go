@@ -96,34 +96,9 @@ func ApiAuth(next http.Handler) http.Handler {
 
 				// If remote then setup the client
 				if viper.GetBool("server.is_remote") {
-					// Create the API client
-					client := apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
+					// Create a remote access client
+					client := apiclient.NewRemoteToken(token.Id)
 					client.AppendUserAgent("(token " + token.Id + ")")
-
-					// If the token doesn't have a session or if the session can't be loaded create a new session
-					session, err := cache.GetSession(token.SessionId)
-					if err != nil || session == nil {
-
-						// Create a remote session for the user of the token
-						remoteSessionId, _, err := client.RemoteCreateUserSession(userId)
-						if err != nil {
-							log.Error().Msgf("failed to create remote session: %s", err.Error())
-							returnUnauthorized(w)
-							return
-						}
-
-						// Create a local session to tie the remote and local together
-						session = model.NewSession(r, userId, remoteSessionId)
-
-						token.SessionId = session.Id
-						db.SaveToken(token)
-					}
-
-					// Save the session to keep it alive
-					cache.SaveSession(session)
-
-					// Change the API client to use the session
-					client.UseSessionCookie(true).SetAuthToken(session.RemoteSessionId)
 					ctx = context.WithValue(ctx, "remote_client", client)
 				}
 			} else {
@@ -252,7 +227,7 @@ func WebAuth(next http.Handler) http.Handler {
 	})
 }
 
-func RemoteServerAuth(next http.Handler) http.Handler {
+func LeafServerAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// Get the auth token

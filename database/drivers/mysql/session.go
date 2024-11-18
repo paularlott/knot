@@ -18,20 +18,23 @@ func (db *MySQLDriver) SaveSession(session *model.Session) error {
 	// Calculate the expiration time as now + 2 hours
 	session.ExpiresAfter = time.Now().UTC().Add(time.Hour * 2)
 
-	// Assume update
-	result, err := tx.Exec("UPDATE sessions SET expires_after=? WHERE session_id=?", session.ExpiresAfter.UTC(), session.Id)
+	// Test if the PK exists in the database
+	var doUpdate bool
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM sessions WHERE session_id=?)", session.Id).Scan(&doUpdate)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	// If no rows were updated then do an insert
-	if rows, _ := result.RowsAffected(); rows == 0 {
+	// Update
+	if doUpdate {
+		_, err = tx.Exec("UPDATE sessions SET expires_after=? WHERE session_id=?", session.ExpiresAfter.UTC(), session.Id)
+	} else {
 		_, err = tx.Exec("INSERT INTO sessions (session_id, expires_after, ip, user_id, user_agent, remote_session_id) VALUES (?, ?, ?, ?, ?, ?)", session.Id, session.ExpiresAfter.UTC(), session.Ip, session.UserId, session.UserAgent, session.RemoteSessionId)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
+	}
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 
 	tx.Commit()

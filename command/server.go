@@ -10,10 +10,10 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
+	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/api/apiv1"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/build"
@@ -21,6 +21,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/origin_leaf"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
@@ -275,6 +276,9 @@ var serverCmd = &cobra.Command{
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()
 
+		// Load template hashes
+		api_utils.LoadTemplateHashes()
+
 		// Check manual template is present, create it if not
 		if !viper.GetBool("server.is_remote") {
 			db := database.GetInstance()
@@ -285,14 +289,15 @@ var serverCmd = &cobra.Command{
 				db.SaveTemplate(template)
 			}
 		} else {
-			startRemoteServerServices()
+			// this is a leaf node, connect to the origin server
+			origin_leaf.LeafConnectAndServe(viper.GetString("server.core_server"))
+
+			// start route to keep remote sessions alive
+			remoteSessionKeepAlive()
 		}
 
 		// Check for local spaces that are pending state changes and setup watches
 		startupCheckPendingSpaces()
-
-		// Sync the template hashes either local or remote
-		apiv1.SyncTemplateHashes()
 
 		router := chi.NewRouter()
 
@@ -408,13 +413,13 @@ var serverCmd = &cobra.Command{
 		if useTLS {
 			go func() {
 				if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-					log.Fatal().Msg(err.Error())
+					log.Fatal().Msgf("server: %v", err.Error())
 				}
 			}()
 		} else {
 			go func() {
 				if err := server.ListenAndServe(); err != http.ErrServerClosed {
-					log.Fatal().Msg(err.Error())
+					log.Fatal().Msgf("server: %v", err.Error())
 				}
 			}()
 		}
@@ -434,15 +439,16 @@ var serverCmd = &cobra.Command{
 	},
 }
 
-func startRemoteServerServices() {
+// periodically ping the origin server to keep remote sessions allive
+func remoteSessionKeepAlive() {
 	log.Info().Msg("server: starting remote server session refresh services")
 
 	// Start a go routine that runs once per hour and pings all sessions to keep them alive
 	go func() {
 		for {
-			time.Sleep(1 * time.Hour)
+			time.Sleep(30 * time.Minute)
 
-			log.Debug().Msg("server: refreshing remote sessions")
+			log.Debug().Msg("leaf: refreshing remote sessions")
 
 			db := database.GetCacheInstance()
 			sessions, err := db.GetSessions()
@@ -451,8 +457,10 @@ func startRemoteServerServices() {
 				continue
 			}
 
+			var count int = 0
 			for _, session := range sessions {
 				if session.RemoteSessionId != "" {
+					count++
 					client := apiclient.NewRemoteSession(session.RemoteSessionId)
 					_, err := client.Ping()
 					if err != nil {
@@ -460,74 +468,10 @@ func startRemoteServerServices() {
 					}
 				}
 			}
+
+			log.Debug().Msgf("leaf: refreshed %d remote sessions", count)
 		}
 	}()
-
-	// Start a go routine to register with the core server and keep the registration alive
-	go func() {
-		log.Info().Msg("server: starting remote server registration")
-
-		for {
-			client := apiclient.NewRemoteServerClient(viper.GetString("server.core_server"))
-
-			// Register the server with the core server
-			serverId, serverVersion, err := client.RegisterRemoteServer(viper.GetString("server.url"))
-			if err != nil {
-				log.Error().Msgf("failed to register remote server: %s", err.Error())
-				time.Sleep(model.REMOTE_SERVER_PING_INTERVAL)
-				continue
-			} else if !strings.HasPrefix(serverVersion, build.Version[:strings.LastIndex(build.Version, ".")]) {
-				log.Fatal().Msgf("server: core server version %s does not match server version %s", serverVersion, build.Version)
-			} else {
-				log.Info().Msgf("server: registered with core server (v%s) as %s", serverVersion, serverId)
-				go syncCachedItems(client)
-			}
-
-			for {
-				time.Sleep(model.REMOTE_SERVER_PING_INTERVAL)
-
-				// Ping the core server to keep the registration alive
-				err = client.UpdateRemoteServer(serverId)
-				if err != nil {
-					log.Error().Msgf("failed to update remote server: %s", err.Error())
-					break
-				}
-			}
-		}
-	}()
-}
-
-var syncMutex = &sync.Mutex{}
-
-func syncCachedItems(client *apiclient.ApiClient) {
-	syncMutex.Lock()
-	defer syncMutex.Unlock()
-
-	db := database.GetInstance()
-
-	log.Info().Msg("server: syncing users from core server")
-	users, err := db.GetUsers()
-	if err != nil {
-		log.Error().Msgf("server: failed to get users: %s", err.Error())
-	} else {
-		for _, user := range users {
-			log.Debug().Msgf("server: syncing user %s", user.Username)
-			remoteUser, err := client.RemoteGetUser(user.Id)
-			if err != nil {
-				// If error is user not found, delete the user
-				if strings.Contains(err.Error(), "user not found") {
-					log.Debug().Msgf("server: deleting user %s", user.Username)
-					apiv1.DeleteUser(db, user)
-				} else {
-					log.Error().Msgf("server: failed to get user %s: %s", user.Username, err.Error())
-				}
-			} else {
-				db.SaveUser(remoteUser)
-				apiv1.UpdateUserSpaces(remoteUser)
-			}
-		}
-	}
-	log.Info().Msg("server: finished user sync from core server")
 }
 
 func startupCheckPendingSpaces() {

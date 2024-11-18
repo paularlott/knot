@@ -149,6 +149,7 @@ func (c *ApiClient) CreateSpace(space *model.Space) (int, error) {
 		AltNames:    space.AltNames,
 		Shell:       space.Shell,
 		VolumeSizes: space.VolumeSizes,
+		Location:    space.Location,
 	}
 
 	response := &CreateSpaceResponse{}

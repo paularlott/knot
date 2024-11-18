@@ -3,11 +3,8 @@ package driver_mysql
 import (
 	"time"
 
-	"github.com/paularlott/knot/database/model"
-
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 func (db *MySQLDriver) initialize() error {
@@ -42,7 +39,7 @@ INDEX active (active)
 session_id CHAR(36) PRIMARY KEY,
 user_id CHAR(36),
 remote_session_id CHAR(36),
-ip VARCHAR(15),
+ip VARCHAR(256),
 user_agent VARCHAR(255),
 expires_after TIMESTAMP,
 INDEX expires_after (expires_after),
@@ -158,17 +155,6 @@ INDEX location (location)
 		return err
 	}
 
-	log.Debug().Msg("db: creating remote server table")
-	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS remoteservers (
-server_id CHAR(36) PRIMARY KEY,
-url VARCHAR(255),
-expires_after TIMESTAMP,
-INDEX expires_after (expires_after)
-)`)
-	if err != nil {
-		return err
-	}
-
 	log.Debug().Msg("db: MySQL is initialized")
 
 	// Add a task to clean up expired sessions
@@ -191,24 +177,6 @@ INDEX expires_after (expires_after)
 			}
 		}
 	}()
-
-	// Add a test to clean up expired remote servers
-	if viper.GetBool("server.is_core") {
-		log.Debug().Msg("db: starting remote server GC")
-		go func() {
-			ticker := time.NewTicker(model.REMOTE_SERVER_GC_INTERVAL)
-			defer ticker.Stop()
-			for range ticker.C {
-			again:
-				log.Debug().Msg("db: running remote server GC")
-				now := time.Now().UTC()
-				_, err := db.connection.Exec("DELETE FROM remoteservers WHERE expires_after < ?", now)
-				if err != nil {
-					goto again
-				}
-			}
-		}()
-	}
 
 	return nil
 }

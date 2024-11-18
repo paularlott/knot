@@ -4,18 +4,17 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
@@ -137,13 +136,6 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		user, err = client.GetUser(userId)
 		if err != nil {
 			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		// Save the user local
-		err = db.SaveUser(user)
-		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -349,10 +341,30 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load the existing user
-	user, err := db.GetUser(userId)
-	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
-		return
+	var existsLocal bool = true
+	var user *model.User
+	var client *apiclient.ApiClient = nil
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client = remoteClient.(*apiclient.ApiClient)
+
+		user, err = client.GetUser(userId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		// Test if the user exists locally
+		_, err = db.GetUser(userId)
+		if err != nil {
+			existsLocal = false
+		}
+	} else {
+		user, err = db.GetUser(userId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 	}
 
 	user.Email = request.Email
@@ -389,11 +401,8 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.MaxDiskSpace = request.MaxDiskSpace
 	}
 
-	// If remote client present then forward the request
-	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
-		client := remoteClient.(*apiclient.ApiClient)
-
+	// If on leaf
+	if client != nil {
 		user.Password = request.Password
 
 		err = client.UpdateUser(user)
@@ -417,34 +426,19 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Save
-	err = db.SaveUser(user)
-	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
-		return
-	}
+	if existsLocal {
+		// Save
+		err = db.SaveUser(user)
+		if err != nil {
+			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-	// Update the user's spaces, ssh keys or stop spaces
-	go UpdateUserSpaces(user)
+		// Update the user's spaces, ssh keys or stop spaces
+		go api_utils.UpdateUserSpaces(user)
 
-	// If core server then notify all remote servers of the change
-	if viper.GetBool("server.is_core") {
-		go func() {
-			remoteServers, err := database.GetCacheInstance().GetRemoteServers()
-			if err != nil {
-				log.Error().Msgf("Failed to get remote servers: %s", err)
-			} else {
-				for _, remoteServer := range remoteServers {
-					log.Debug().Msgf("Notifying remote server %s of update of user %s", remoteServer.Url, user.Username)
-
-					client := apiclient.NewRemoteServerClient(remoteServer.Url)
-					err := client.NotifyRemoteUserUpdate(user.Id)
-					if err != nil {
-						log.Error().Msgf("Failed to notify remote server %s of update for user %s: %s", remoteServer.Url, user.Username, err)
-					}
-				}
-			}
-		}()
+		// notify all remote servers of the change
+		leaf.UpdateUser(user)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -480,202 +474,14 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if toDelete != nil {
-		if err := DeleteUser(db, toDelete); err != nil {
+		if err := api_utils.DeleteUser(db, toDelete); err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
 
 	// If core server then notify all remote servers of the change
-	if viper.GetBool("server.is_core") {
-		go func() {
-			remoteServers, err := database.GetCacheInstance().GetRemoteServers()
-			if err != nil {
-				log.Error().Msgf("Failed to get remote servers: %s", err)
-			} else {
-				for _, remoteServer := range remoteServers {
-					log.Debug().Msgf("Notifying remote server %s of delete of user %s", remoteServer.Url, toDelete.Username)
-
-					client := apiclient.NewRemoteServerClient(remoteServer.Url)
-					err := client.NotifyRemoteUserDelete(toDelete.Id)
-					if err != nil {
-						log.Error().Msgf("Failed to notify remote server %s of delete of user %s: %s", remoteServer.Url, toDelete.Username, err)
-					}
-				}
-			}
-		}()
-	}
+	leaf.DeleteUser(userId)
 
 	w.WriteHeader(http.StatusOK)
-}
-
-func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
-	var hasError = false
-
-	log.Debug().Msgf("delete user: Deleting user %s", toDelete.Id)
-
-	// Stop all spaces and delete all volumes
-	spaces, err := db.GetSpacesForUser(toDelete.Id)
-	if err != nil {
-		return err
-	}
-
-	// If this is a remote then tell the core server of the space update
-	var api *apiclient.ApiClient = nil
-	if viper.GetBool("server.is_remote") {
-		api = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
-	}
-
-	// Get the nomad client
-	nomadClient := nomad.NewClient()
-	for _, space := range spaces {
-		log.Debug().Msgf("delete user: Deleting space %s", space.Id)
-
-		if space.Location == viper.GetString("server.location") {
-			log.Debug().Msgf("delete user: Deleting space %s from nomad", space.Id)
-
-			// Stop the job
-			if space.IsDeployed {
-				err = nomadClient.DeleteSpaceJob(space)
-				if err != nil {
-					log.Debug().Msgf("delete user: Failed to delete space job %s: %s", space.Id, err)
-					hasError = true
-					break
-				}
-			}
-
-			// Delete the volumes
-			err = nomadClient.DeleteSpaceVolumes(space)
-			if err != nil {
-				log.Debug().Msgf("delete user: Failed to delete space volumes %s: %s", space.Id, err)
-				hasError = true
-				break
-			}
-
-			// Notify the core server
-			if api != nil {
-				_, err := api.RemoteDeleteSpace(space.Id)
-				if err != nil {
-					log.Error().Msgf("Failed to delete space %s on core server: %s", space.Id, err)
-				}
-			}
-		}
-
-		db.DeleteSpace(space)
-	}
-
-	// Delete the user
-	if !hasError {
-		err = db.DeleteUser(toDelete)
-		if err != nil {
-			return err
-		}
-
-		removeUsersSessions(toDelete)
-		removeUsersTokens(toDelete)
-	}
-
-	return nil
-}
-
-// Delete the sessions owned by a user
-func removeUsersSessions(user *model.User) {
-	cache := database.GetCacheInstance()
-
-	// Find sessions for the user and delete them
-	sessions, err := cache.GetSessionsForUser(user.Id)
-	if err == nil && sessions != nil {
-		for _, session := range sessions {
-			cache.DeleteSession(session)
-		}
-	}
-}
-
-// Delete the tokens owned by a user
-func removeUsersTokens(user *model.User) {
-	db := database.GetInstance()
-
-	// Find API tokens for the user and delete them
-	tokens, err := db.GetTokensForUser(user.Id)
-	if err == nil && tokens != nil {
-		for _, token := range tokens {
-			db.DeleteToken(token)
-		}
-	}
-}
-
-func updateSpacesSSHKey(user *model.User) {
-	db := database.GetInstance()
-
-	log.Debug().Msgf("Updating agent SSH key for user %s", user.Id)
-
-	// Load the list of spaces for the user
-	spaces, err := db.GetSpacesForUser(user.Id)
-	if err != nil {
-		log.Debug().Msgf("Failed to get spaces for user %s: %s", user.Id, err)
-		return
-	}
-
-	// Loop through all spaces updating the active ones
-	for _, space := range spaces {
-		if space.IsDeployed || space.TemplateId == model.MANUAL_TEMPLATE_ID {
-			// Get the agent state
-			agentState := agent_server.GetSession(space.Id)
-			if agentState == nil {
-				// Silently ignore if space is on a different server
-				if space.Location == "" || space.Location == viper.GetString("server.location") {
-					log.Debug().Msgf("Agent state not found for space %s", space.Id)
-				}
-				continue
-			}
-
-			// If agent accepting SSH keys then update
-			if agentState.SSHPort > 0 {
-				log.Debug().Msgf("Sending SSH public key to agent %s", space.Id)
-				if err := agentState.SendUpdateAuthorizedKeys(user.SSHPublicKey, user.GitHubUsername); err != nil {
-					log.Debug().Msgf("Failed to send SSH public key to agent: %s", err)
-				}
-			}
-		}
-	}
-
-	log.Debug().Msgf("Finished updating agent SSH key for user %s", user.Id)
-}
-
-// For disabled users ensure all spaces are stopped, for enabled users update the SSH key on the agents
-func UpdateUserSpaces(user *model.User) {
-	// If the user is disabled then stop all spaces
-	if !user.Active {
-		spaces, err := database.GetInstance().GetSpacesForUser(user.Id)
-		if err != nil {
-			return
-		}
-
-		// If this is a remote then tell the core server of the space update
-		var api *apiclient.ApiClient = nil
-		if viper.GetBool("server.is_remote") {
-			api = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
-		}
-
-		// Get the nomad client
-		nomadClient := nomad.NewClient()
-		for _, space := range spaces {
-			if space.IsDeployed && (space.Location == "" || space.Location == viper.GetString("server.location")) {
-				nomadClient.DeleteSpaceJob(space)
-
-				if api != nil {
-					_, err := api.RemoteUpdateSpace(space)
-					if err != nil {
-						log.Error().Msgf("Failed to update space %s: %s", space.Id, err)
-					}
-				}
-			}
-		}
-
-		// Kill the sessions to logout the user, but leave the tokens there until they expire
-		removeUsersSessions(user)
-	} else {
-		// Update the SSH key on the agents
-		updateSpacesSSHKey(user)
-	}
 }

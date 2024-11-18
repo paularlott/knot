@@ -1,13 +1,17 @@
 package proxy
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
+	"time"
+
+	"github.com/paularlott/knot/util"
 
 	"github.com/gorilla/websocket"
-	"github.com/paularlott/knot/util"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 func RunSSHForwarderViaProxy(proxyServerURL string, token string, service string, port int) {
@@ -30,7 +34,10 @@ func forwardSSH(dialURL string, token string) {
 	}
 
 	// Create websocket connection
-	wsConn, response, err := websocket.DefaultDialer.Dial(dialURL, header)
+	dialer := websocket.DefaultDialer
+	dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
+	dialer.HandshakeTimeout = 5 * time.Second
+	wsConn, response, err := dialer.Dial(dialURL, header)
 	if err != nil {
 
 		// If not autorized then tell user

@@ -19,20 +19,23 @@ func (db *MySQLDriver) SaveToken(token *model.Token) error {
 	// Calculate the expiration time as now + 1 week
 	token.ExpiresAfter = time.Now().UTC().Add(time.Hour * 168)
 
-	// Assume update
-	result, err := tx.Exec("UPDATE tokens SET expires_after=?, name=?, session_id=? WHERE token_id=?", token.ExpiresAfter.UTC(), token.Name, token.SessionId, token.Id)
+	// Test if the PK exists in the database
+	var doUpdate bool
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM tokens WHERE token_id=?)", token.Id).Scan(&doUpdate)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	// If no rows were updated then do an insert
-	if rows, _ := result.RowsAffected(); rows == 0 {
+	// Update
+	if doUpdate {
+		_, err = tx.Exec("UPDATE tokens SET expires_after=?, name=?, session_id=? WHERE token_id=?", token.ExpiresAfter.UTC(), token.Name, token.SessionId, token.Id)
+	} else {
 		_, err = tx.Exec("INSERT INTO tokens (token_id, name, expires_after, user_id, session_id) VALUES (?, ?, ?, ?, ?)", token.Id, token.Name, token.ExpiresAfter.UTC(), token.UserId, token.SessionId)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
+	}
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 
 	tx.Commit()

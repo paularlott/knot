@@ -93,24 +93,17 @@ func ConnectAndServe(server string, spaceId string) {
 		for {
 
 			// If the server address starts srv+ then resolve the SRV record
-			var serverAddr string = server
-			if serverAddr[:4] == "srv+" {
-				for i := 0; i < 10; i++ {
-					hostPort, err := util.LookupSRV(serverAddr[4:])
-					if err != nil {
-						if i == 9 {
-							log.Fatal().Err(err).Msg("agent: failed to lookup SRV record for server aborting after 10 attempts")
-						} else {
-							log.Error().Err(err).Msg("db: failed to lookup SRV record for server")
-						}
-						time.Sleep(3 * time.Second)
-						continue
-					}
-
-					serverAddr = (*hostPort)[0].Host + ":" + (*hostPort)[0].Port
+			serverAddr := server
+			if strings.HasPrefix(server, "srv+") {
+				hostIPs, err := util.LookupSRV(server)
+				if err != nil || len(*hostIPs) == 0 {
+					log.Error().Msgf("agent: resolving SRV record: %v", err)
+					time.Sleep(3 * time.Second)
+					continue
 				}
-			}
 
+				serverAddr = (*hostIPs)[0].Host + ":" + (*hostIPs)[0].Port
+			}
 			log.Info().Msgf("agent: connecting to server: %s", serverAddr)
 
 			var conn net.Conn

@@ -11,7 +11,7 @@ import (
 func init() {
 	spacesCmd.PersistentFlags().StringP("server", "s", "", "The address of the remote server to manage spaces on.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
 	spacesCmd.PersistentFlags().StringP("token", "t", "", "The token to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOKEN environment variable if set.")
-	spacesCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
+	spacesCmd.PersistentFlags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
 
 	command.RootCmd.AddCommand(spacesCmd)
 	spacesCmd.AddCommand(listCmd)

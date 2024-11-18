@@ -24,24 +24,27 @@ func (db *MySQLDriver) SaveUser(user *model.User) error {
 		return err
 	}
 
-	// Assume update
-	result, err := tx.Exec("UPDATE users SET email=?, password=?, active=?, updated_at=?, last_login_at=?, ssh_public_key=?, roles=?, groups=?, preferred_shell=?, timezone=?, max_spaces=?, max_disk_space=?, service_password=?, github_username=? WHERE user_id=?",
-		user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.SSHPublicKey, roles, user.Groups, user.PreferredShell, user.Timezone, user.MaxSpaces, user.MaxDiskSpace, user.ServicePassword, user.GitHubUsername, user.Id,
-	)
+	// Test if the PK exists in the database
+	var doUpdate bool
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id=?)", user.Id).Scan(&doUpdate)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	// If no rows were updated then do an insert
-	if rows, _ := result.RowsAffected(); rows == 0 {
+	// Update
+	if doUpdate {
+		_, err = tx.Exec("UPDATE users SET email=?, password=?, active=?, updated_at=?, last_login_at=?, ssh_public_key=?, roles=?, groups=?, preferred_shell=?, timezone=?, max_spaces=?, max_disk_space=?, service_password=?, github_username=? WHERE user_id=?",
+			user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.SSHPublicKey, roles, user.Groups, user.PreferredShell, user.Timezone, user.MaxSpaces, user.MaxDiskSpace, user.ServicePassword, user.GitHubUsername, user.Id,
+		)
+	} else {
 		_, err = tx.Exec("INSERT INTO users (user_id, username, email, password, active, updated_at, created_at, ssh_public_key, preferred_shell, roles, groups, timezone, max_spaces, max_disk_space, service_password, github_username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			user.Id, user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), time.Now().UTC(), user.SSHPublicKey, user.PreferredShell, roles, user.Groups, user.Timezone, user.MaxSpaces, user.MaxDiskSpace, user.ServicePassword, user.GitHubUsername,
 		)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
+	}
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 
 	tx.Commit()

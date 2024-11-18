@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -233,7 +234,6 @@ func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 
 func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 	var client *apiclient.ApiClient = nil
-	var clientRemote *apiclient.ApiClient = nil
 	var volume *model.Volume
 	var err error
 	var code int
@@ -272,25 +272,11 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var variables []*model.TemplateVar
-
-	if client != nil {
-		// Open new client with remote access
-		clientRemote = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
-
-		// Get the template variables
-		variables, code, err = clientRemote.GetTemplateVarValues()
-		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-	} else {
-		// Add the variables
-		variables, err = db.GetTemplateVars()
-		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-			return
-		}
+	// Add the variables
+	variables, err := db.GetTemplateVars()
+	if err != nil {
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	vars := make(map[string]interface{})
@@ -314,13 +300,9 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if clientRemote != nil {
+	if client != nil {
 		// Tell remote volume started
-		code, err = clientRemote.RemoteUpdateVolume(volume)
-		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
+		origin.UpdateVolume(volume)
 	} else {
 		db.SaveVolume(volume)
 	}
@@ -333,7 +315,6 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 
 func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 	var client *apiclient.ApiClient = nil
-	var clientRemote *apiclient.ApiClient = nil
 	var volume *model.Volume
 	var err error
 	var code int
@@ -366,25 +347,11 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var variables []*model.TemplateVar
-
-	if client != nil {
-		// Open new client with remote access
-		clientRemote = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
-
-		// Get the template variables
-		variables, code, err = clientRemote.GetTemplateVarValues()
-		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-	} else {
-		// Add the variables
-		variables, err = db.GetTemplateVars()
-		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-			return
-		}
+	// Add the variables
+	variables, err := db.GetTemplateVars()
+	if err != nil {
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	vars := make(map[string]interface{})
@@ -408,13 +375,9 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if clientRemote != nil {
-		// Tell remote volume started
-		code, err = clientRemote.RemoteUpdateVolume(volume)
-		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
+	if client != nil {
+		// Tell remote volume stopped
+		origin.UpdateVolume(volume)
 	} else {
 		db.SaveVolume(volume)
 	}

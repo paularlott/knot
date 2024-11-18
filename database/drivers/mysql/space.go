@@ -45,24 +45,27 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
 	volumeData, _ := json.Marshal(space.VolumeData)
 	volumeSizes, _ := json.Marshal(space.VolumeSizes)
 
-	// Assume update
-	result, err := tx.Exec("UPDATE spaces SET name=?, template_id=?, updated_at=?, shell=?, is_deployed=?, is_pending=?, is_deleting=?, volume_data=?, volume_sizes=?, nomad_namespace=?, nomad_job_id=?, template_hash=?, location=? WHERE space_id=?",
-		space.Name, space.TemplateId, time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, volumeSizes, space.NomadNamespace, space.NomadJobId, space.TemplateHash, space.Location, space.Id,
-	)
+	// Test if the PK exists in the database
+	var doUpdate bool
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM spaces WHERE space_id=?)", space.Id).Scan(&doUpdate)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	// If no rows were updated then do an insert
-	if rows, _ := result.RowsAffected(); rows == 0 {
+	// Update
+	if doUpdate {
+		_, err = tx.Exec("UPDATE spaces SET name=?, template_id=?, updated_at=?, shell=?, is_deployed=?, is_pending=?, is_deleting=?, volume_data=?, volume_sizes=?, nomad_namespace=?, nomad_job_id=?, template_hash=?, location=? WHERE space_id=?",
+			space.Name, space.TemplateId, time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, volumeSizes, space.NomadNamespace, space.NomadJobId, space.TemplateHash, space.Location, space.Id,
+		)
+	} else {
 		_, err = tx.Exec("INSERT INTO spaces (space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, volume_sizes, nomad_namespace, nomad_job_id, template_hash, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			space.Id, space.UserId, space.TemplateId, space.Name, time.Now().UTC(), time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, volumeSizes, space.NomadNamespace, space.NomadJobId, space.TemplateHash, space.Location,
 		)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
+	}
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 
 	// Get the current list of alt names

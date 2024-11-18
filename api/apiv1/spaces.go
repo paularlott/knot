@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -169,6 +171,8 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return
 		}
+
+		leaf.DeleteSpace(spaceId)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -231,6 +235,13 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 	space := model.NewSpace(request.Name, forUserId, request.TemplateId, request.Shell, &request.VolumeSizes, &request.AltNames)
 
+	// Lock the space to the location of the server creating it
+	if request.Location == "" {
+		space.Location = viper.GetString("server.location")
+	} else {
+		space.Location = request.Location
+	}
+
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
@@ -288,17 +299,14 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// If manual template then force location to be this server
-	if space.TemplateId == model.MANUAL_TEMPLATE_ID {
-		space.Location = viper.GetString("server.location")
-	}
-
 	// Save the space
 	err = database.GetInstance().SaveSpace(space)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	leaf.UpdateSpace(space)
 
 	// Return the Token ID
 	rest.SendJSON(http.StatusCreated, w, struct {
@@ -393,10 +401,8 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the template has been updated
-	templateHashMutex.RLock()
-	defer templateHashMutex.RUnlock()
-	hash, ok := templateHashes[space.TemplateId]
-	if space.TemplateId == model.MANUAL_TEMPLATE_ID || !ok {
+	hash := api_utils.GetTemplateHash(space.TemplateId)
+	if space.TemplateId == model.MANUAL_TEMPLATE_ID || hash == "" {
 		response.UpdateAvailable = false
 	} else {
 		response.UpdateAvailable = space.IsDeployed && space.TemplateHash != hash
@@ -470,44 +476,20 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var template *model.Template
-	var variables []*model.TemplateVar
+	// Get the template
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceStart: get template %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
+	}
 
-	if client != nil {
-		// Open new client with remote access
-		clientRemote := apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
-
-		// Get the template
-		template, code, err = clientRemote.GetTemplateObject(space.TemplateId)
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		// Get the template variables
-		variables, code, err = clientRemote.GetTemplateVarValues()
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-	} else {
-		// Get the template
-		template, err = db.GetTemplate(space.TemplateId)
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		// Get the variables
-		variables, err = db.GetTemplateVars()
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-			return
-		}
+	// Get the variables
+	variables, err := db.GetTemplateVars()
+	if err != nil {
+		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	space.Location = viper.GetString("server.location")
@@ -682,7 +664,6 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.TemplateId = request.TemplateId
 	space.Shell = request.Shell
 	space.AltNames = request.AltNames
-	space.Location = request.Location
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -715,6 +696,8 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	leaf.UpdateSpace(space)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -873,4 +856,6 @@ func RealDeleteSpace(space *model.Space) {
 
 		log.Info().Msgf("api: RealDeleteSpace: deleted %s", space.Id)
 	}()
+
+	leaf.DeleteSpace(space.Id)
 }

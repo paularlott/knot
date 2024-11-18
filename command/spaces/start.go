@@ -54,6 +54,6 @@ var startCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println("Space starting: ", args[0])
+		fmt.Println("Space started: ", args[0])
 	},
 }
