@@ -25,8 +25,8 @@ func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
 
 	// If this is a remote then tell the core server of the space update
 	var api *apiclient.ApiClient = nil
-	if viper.GetBool("server.is_remote") {
-		api = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
+	if viper.GetBool("server.is_leaf") {
+		api = apiclient.NewRemoteToken(viper.GetString("server.shared_token"))
 	}
 
 	// Get the nomad client
@@ -154,8 +154,8 @@ func UpdateUserSpaces(user *model.User) {
 
 		// If this is a remote then tell the core server of the space update
 		var api *apiclient.ApiClient = nil
-		if viper.GetBool("server.is_remote") {
-			api = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
+		if viper.GetBool("server.is_leaf") {
+			api = apiclient.NewRemoteToken(viper.GetString("server.shared_token"))
 		}
 
 		// Get the nomad client

@@ -56,7 +56,7 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if running on a leaf then notify the origin server
-	if viper.GetBool("server.is_remote") {
+	if viper.GetBool("server.is_leaf") {
 		origin.DeleteToken(token)
 	}
 
@@ -93,7 +93,7 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if running on a leaf then notify the origin server
-	if viper.GetBool("server.is_remote") {
+	if viper.GetBool("server.is_leaf") {
 		token.Name += " (" + viper.GetString("server.location") + ")"
 		origin.MirrorToken(token)
 	}

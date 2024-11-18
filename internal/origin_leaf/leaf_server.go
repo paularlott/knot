@@ -44,7 +44,7 @@ func LeafConnectAndServe(server string) {
 		for {
 
 			// Lookup the origin server address and make the endpoint URL
-			wsUrl := strings.TrimSuffix(util.ResolveSRVHttp(viper.GetString("server.core_server")), "/")
+			wsUrl := strings.TrimSuffix(util.ResolveSRVHttp(viper.GetString("server.origin_server")), "/")
 			if strings.HasPrefix(wsUrl, "http") {
 				wsUrl = "ws" + strings.TrimPrefix(wsUrl, "http")
 			} else {
@@ -55,7 +55,7 @@ func LeafConnectAndServe(server string) {
 			log.Debug().Msgf("leaf: connecting to %s", wsUrl)
 
 			// Open the websocket
-			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", viper.GetString("server.remote_token"))}}
+			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", viper.GetString("server.shared_token"))}}
 			dialer := websocket.DefaultDialer
 			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
 			dialer.HandshakeTimeout = 5 * time.Second

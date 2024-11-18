@@ -22,7 +22,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *ApiClient
 		httpClient: rest.NewClient(baseURL, token, insecureSkipVerify),
 	}
 
-	if viper.GetBool("server.is_remote") {
+	if viper.GetBool("server.is_leaf") {
 		c.httpClient.AppendUserAgent("Remote (" + viper.GetString("server.location") + ")")
 	}
 
@@ -30,7 +30,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *ApiClient
 }
 
 func NewRemoteToken(token string) *ApiClient {
-	c := NewClient(viper.GetString("server.core_server"), token, viper.GetBool("tls_skip_verify"))
+	c := NewClient(viper.GetString("server.origin_server"), token, viper.GetBool("tls_skip_verify"))
 	return c
 }
 

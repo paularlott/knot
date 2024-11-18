@@ -123,7 +123,7 @@ func ApiRoutes() chi.Router {
 	})
 
 	// Additional endpoints exposed by origin servers
-	if viper.GetBool("server.is_core") {
+	if viper.GetBool("server.is_origin") {
 		// Remote server authenticated routes
 		router.Route("/leaf-server", func(router chi.Router) {
 			router.Use(middleware.LeafServerAuth)

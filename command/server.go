@@ -47,8 +47,8 @@ func init() {
 	serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENCRYPT environment variable if set.")
 	serverCmd.Flags().StringP("agent-endpoint", "", "", "The address agents should use to talk to the server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT environment variable if set.")
 	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to NOMAD_DC or hostname).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
-	serverCmd.Flags().StringP("core-server", "", "", "The address of the core server this server is to become a remote of (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CORE_SERVER environment variable if set.")
-	serverCmd.Flags().StringP("remote-token", "", "", "The token to use for remote and core server communication (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REMOTE_TOKEN environment variable if set.")
+	serverCmd.Flags().StringP("origin-server", "", "", "The address of the origin server, when given this server becomes a leaf server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER environment variable if set.")
+	serverCmd.Flags().StringP("shared-token", "", "", "The shared token for lear to origin server communication (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SHARED_TOKEN environment variable if set.")
 	serverCmd.Flags().StringP("html-path", "", "", "The optional path to the html files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HTML_PATH environment variable if set.")
 	serverCmd.Flags().StringP("template-path", "", "", "The optional path to the template files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TEMPLATE_PATH environment variable if set.")
 	serverCmd.Flags().StringP("agent-path", "", "", "The optional path to the agent files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_PATH environment variable if set.")
@@ -163,13 +163,13 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.location", config.CONFIG_ENV_PREFIX+"_LOCATION")
 		viper.SetDefault("server.location", hostname)
 
-		viper.BindPFlag("server.core_server", cmd.Flags().Lookup("core-server"))
-		viper.BindEnv("server.core_server", config.CONFIG_ENV_PREFIX+"_CORE_SERVER")
-		viper.SetDefault("server.core_server", "")
+		viper.BindPFlag("server.origin_server", cmd.Flags().Lookup("origin-server"))
+		viper.BindEnv("server.origin_server", config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER")
+		viper.SetDefault("server.origin_server", "")
 
-		viper.BindPFlag("server.remote_token", cmd.Flags().Lookup("remote-token"))
-		viper.BindEnv("server.remote_token", config.CONFIG_ENV_PREFIX+"_REMOTE_TOKEN")
-		viper.SetDefault("server.remote_token", "")
+		viper.BindPFlag("server.shared_token", cmd.Flags().Lookup("shared-token"))
+		viper.BindEnv("server.shared_token", config.CONFIG_ENV_PREFIX+"_SHARED_TOKEN")
+		viper.SetDefault("server.shared_token", "")
 
 		// TLS
 		viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
@@ -259,8 +259,8 @@ var serverCmd = &cobra.Command{
 		viper.SetDefault("server.redis.key_prefix", "")
 
 		// Set if remote or core server
-		viper.Set("server.is_remote", viper.GetString("server.remote_token") != "" && viper.GetString("server.core_server") != "")
-		viper.Set("server.is_core", viper.GetString("server.remote_token") != "" && viper.GetString("server.core_server") == "")
+		viper.Set("server.is_leaf", viper.GetString("server.shared_token") != "" && viper.GetString("server.origin_server") != "")
+		viper.Set("server.is_origin", viper.GetString("server.shared_token") != "" && viper.GetString("server.origin_server") == "")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := util.FixListenAddress(viper.GetString("server.listen"))
@@ -280,7 +280,7 @@ var serverCmd = &cobra.Command{
 		api_utils.LoadTemplateHashes()
 
 		// Check manual template is present, create it if not
-		if !viper.GetBool("server.is_remote") {
+		if !viper.GetBool("server.is_leaf") {
 			db := database.GetInstance()
 			tpl, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
 			if err != nil || tpl == nil {
@@ -290,7 +290,7 @@ var serverCmd = &cobra.Command{
 			}
 		} else {
 			// this is a leaf node, connect to the origin server
-			origin_leaf.LeafConnectAndServe(viper.GetString("server.core_server"))
+			origin_leaf.LeafConnectAndServe(viper.GetString("server.origin_server"))
 
 			// start route to keep remote sessions alive
 			remoteSessionKeepAlive()

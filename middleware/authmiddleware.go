@@ -19,7 +19,7 @@ var (
 )
 
 func Initialize() {
-	if !viper.GetBool("server.is_remote") {
+	if !viper.GetBool("server.is_leaf") {
 		// Test if there's users present in the system
 		db := database.GetInstance()
 		hasUsers, err := db.HasUsers()
@@ -95,7 +95,7 @@ func ApiAuth(next http.Handler) http.Handler {
 				ctx = context.WithValue(r.Context(), "access_token", token)
 
 				// If remote then setup the client
-				if viper.GetBool("server.is_remote") {
+				if viper.GetBool("server.is_leaf") {
 					// Create a remote access client
 					client := apiclient.NewRemoteToken(token.Id)
 					client.AppendUserAgent("(token " + token.Id + ")")
@@ -119,7 +119,7 @@ func ApiAuth(next http.Handler) http.Handler {
 				ctx = context.WithValue(r.Context(), "session", session)
 
 				// If remote then setup the client
-				if viper.GetBool("server.is_remote") {
+				if viper.GetBool("server.is_leaf") {
 					client := apiclient.NewRemoteSession(session.RemoteSessionId)
 					ctx = context.WithValue(ctx, "remote_client", client)
 				}
@@ -233,7 +233,7 @@ func LeafServerAuth(next http.Handler) http.Handler {
 		// Get the auth token
 		var bearer string
 		fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &bearer)
-		if bearer != viper.GetString("server.remote_token") || viper.GetString("server.remote_token") == "" {
+		if bearer != viper.GetString("server.shared_token") || viper.GetString("server.shared_token") == "" {
 			returnUnauthorized(w)
 			return
 		}
