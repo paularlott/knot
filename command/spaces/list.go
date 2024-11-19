@@ -50,17 +50,19 @@ var listCmd = &cobra.Command{
 
 			if state != nil {
 				if state.IsRemote {
-					status = "Remote"
-				} else if state.IsDeployed {
+					status = "Remote "
+				}
+
+				if state.IsDeployed {
 					if state.IsPending {
-						status = "Stopping"
+						status = status + "Stopping"
 					} else {
-						status = "Running"
+						status = status + "Running"
 					}
 				} else if state.IsDeleting {
-					status = "Deleting"
+					status = status + "Deleting"
 				} else if state.IsPending {
-					status = "Starting"
+					status = status + "Starting"
 				}
 
 				// The list of HTTP ports
