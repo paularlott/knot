@@ -3,6 +3,7 @@ package origin
 import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -11,19 +12,23 @@ var (
 )
 
 func DeleteSpace(id string) {
-	message := &msg.ClientMessage{
-		Command: msg.MSG_DELETE_SPACE,
-		Payload: &id,
-	}
+	if viper.GetBool("server.is_leaf") {
+		message := &msg.ClientMessage{
+			Command: msg.MSG_DELETE_SPACE,
+			Payload: &id,
+		}
 
-	OriginChannel <- message
+		OriginChannel <- message
+	}
 }
 
 func UpdateSpace(space *model.Space) {
-	message := &msg.ClientMessage{
-		Command: msg.MSG_UPDATE_SPACE,
-		Payload: space,
-	}
+	if viper.GetBool("server.is_leaf") {
+		message := &msg.ClientMessage{
+			Command: msg.MSG_UPDATE_SPACE,
+			Payload: space,
+		}
 
-	OriginChannel <- message
+		OriginChannel <- message
+	}
 }

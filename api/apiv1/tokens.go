@@ -55,11 +55,8 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if running on a leaf then notify the origin server
-	if viper.GetBool("server.is_leaf") {
-		origin.DeleteToken(token)
-	}
-
+	// if running on a leaf then notify the origin server and origin notify the leaf servers
+	origin.DeleteToken(token)
 	leaf.DeleteToken(token.Id)
 
 	w.WriteHeader(http.StatusOK)

@@ -1,11 +1,9 @@
 package api_utils
 
 import (
-	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/util/nomad"
 
 	"github.com/rs/zerolog/log"
@@ -21,12 +19,6 @@ func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
 	spaces, err := db.GetSpacesForUser(toDelete.Id)
 	if err != nil {
 		return err
-	}
-
-	// If this is a remote then tell the core server of the space update
-	var api *apiclient.ApiClient = nil
-	if viper.GetBool("server.is_leaf") {
-		api = apiclient.NewRemoteToken(viper.GetString("server.shared_token"))
 	}
 
 	// Get the nomad client
@@ -53,11 +45,6 @@ func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
 				log.Debug().Msgf("delete user: Failed to delete space volumes %s: %s", space.Id, err)
 				hasError = true
 				break
-			}
-
-			// Notify the origin server
-			if api != nil {
-				origin.DeleteSpace(space.Id)
 			}
 		}
 
@@ -152,21 +139,11 @@ func UpdateUserSpaces(user *model.User) {
 			return
 		}
 
-		// If this is a remote then tell the core server of the space update
-		var api *apiclient.ApiClient = nil
-		if viper.GetBool("server.is_leaf") {
-			api = apiclient.NewRemoteToken(viper.GetString("server.shared_token"))
-		}
-
 		// Get the nomad client
 		nomadClient := nomad.NewClient()
 		for _, space := range spaces {
 			if space.IsDeployed && (space.Location == "" || space.Location == viper.GetString("server.location")) {
 				nomadClient.DeleteSpaceJob(space)
-
-				if api != nil {
-					origin.UpdateSpace(space)
-				}
 			}
 		}
 

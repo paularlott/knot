@@ -476,6 +476,42 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Mark the space as pending and save it
+	space.IsPending = true
+	if err = db.SaveSpace(space); err != nil {
+		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Update the origin server
+	if client != nil {
+		code, err = client.UpdateSpace(space)
+		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
+	// Revert the pending status if the deploy fails
+	var deployFailed = true
+	defer func() {
+		if deployFailed {
+			// If the deploy failed then revert the space to not pending
+			space.IsPending = false
+			db.SaveSpace(space)
+
+			// If remote then need to update the remote
+			if client != nil {
+				code, err = client.UpdateSpace(space)
+				if err != nil {
+					log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+				}
+			}
+		}
+	}()
+
 	// Get the template
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
@@ -491,8 +527,6 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 		return
 	}
-
-	space.Location = viper.GetString("server.location")
 
 	vars := make(map[string]interface{})
 	for _, variable := range variables {
@@ -520,17 +554,10 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update the remote
-	if client != nil {
-		code, err = client.UpdateSpace(space)
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-	}
-
 	w.WriteHeader(http.StatusOK)
+
+	// Don't revert the space on success
+	deployFailed = false
 }
 
 func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
@@ -582,28 +609,39 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		space.VolumeSizes = spaceRemote.VolumeSizes
 	}
 
+	// Mark the space as pending and save it
+	space.IsPending = true
+	if err = db.SaveSpace(space); err != nil {
+		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Update the origin server
+	if client != nil {
+		code, err = client.UpdateSpace(space)
+		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
 	// Get the nomad client
 	nomadClient := nomad.NewClient()
 
 	// Stop the job
 	err = nomadClient.DeleteSpaceJob(space)
 	if err != nil {
+		space.IsPending = false
+		db.SaveSpace(space)
+		if client != nil {
+			client.UpdateSpace(space)
+		}
+
 		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 		return
-	}
-
-	// Delete the agent state
-	agent_server.RemoveSession(space.Id)
-
-	// Update the remote
-	if client != nil {
-		code, err = client.UpdateSpace(space)
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStop: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -683,11 +721,6 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
 			return
 		}
-
-		// If manual template then force location to be this server
-		if request.TemplateId == model.MANUAL_TEMPLATE_ID {
-			space.Location = viper.GetString("server.location")
-		}
 	}
 
 	err = db.SaveSpace(space)
@@ -697,7 +730,10 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	leaf.UpdateSpace(space)
+	// If the space is in a pending state then don't notify the leaf servers as another update will be coming, avoids a race condition
+	if !space.IsPending {
+		leaf.UpdateSpace(space)
+	}
 
 	w.WriteHeader(http.StatusOK)
 }
