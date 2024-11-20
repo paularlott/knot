@@ -102,6 +102,11 @@ func LeafConnectAndServe(server string) {
 
 			log.Info().Msg("leaf: successfully registered with origin server")
 
+			if registerResponse.RestrictedNode {
+				origin.RestrictedLeaf = true
+				log.Info().Msg("leaf: registered as a restricted node")
+			}
+
 			// Request origin server to sync resources
 			requestTemplatesFromOrigin()
 			requestTemplateVarsFromOrigin()

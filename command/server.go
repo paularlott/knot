@@ -52,6 +52,7 @@ func init() {
 	serverCmd.Flags().StringP("html-path", "", "", "The optional path to the html files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HTML_PATH environment variable if set.")
 	serverCmd.Flags().StringP("template-path", "", "", "The optional path to the template files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TEMPLATE_PATH environment variable if set.")
 	serverCmd.Flags().StringP("agent-path", "", "", "The optional path to the agent files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_PATH environment variable if set.")
+	serverCmd.Flags().BoolP("enable-leaf-api-tokens", "", false, "Allow the leaf servers to use an API token for authentication with the origin server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_LEAF_API_TOKENS environment variable if set.")
 
 	// TLS
 	serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -146,6 +147,10 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.agent_endpoint", cmd.Flags().Lookup("agent-endpoint"))
 		viper.BindEnv("server.agent_endpoint", config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT")
 		viper.SetDefault("server.agent_endpoint", "")
+
+		viper.BindPFlag("server.enable_leaf_api_tokens", cmd.Flags().Lookup("enable-leaf-api-tokens"))
+		viper.BindEnv("server.enable_leaf_api_tokens", config.CONFIG_ENV_PREFIX+"_ENABLE_LEAF_API_TOKENS")
+		viper.SetDefault("server.enable_leaf_api_tokens", false)
 
 		// Get the hostname
 		hostname := os.Getenv("NOMAD_DC")

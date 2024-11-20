@@ -6,15 +6,21 @@ import (
 )
 
 // update the template var on a leaf node
-func (s *Session) UpdateTemplateVar(templateVar *model.TemplateVar) {
-	// Only send vars that match the location or are global
-	if templateVar.Location == "" || templateVar.Location == s.location {
-		message := &msg.ClientMessage{
-			Command: msg.MSG_UPDATE_TEMPLATEVAR,
-			Payload: templateVar,
+func (s *Session) UpdateTemplateVar(templateVar *model.TemplateVar) bool {
+	if s.token == nil || !templateVar.Protected {
+		// Only send vars that match the location or are global
+		if templateVar.Location == "" || templateVar.Location == s.location {
+			message := &msg.ClientMessage{
+				Command: msg.MSG_UPDATE_TEMPLATEVAR,
+				Payload: templateVar,
+			}
+
+			s.ch <- message
 		}
 
-		s.ch <- message
+		return true
+	} else {
+		return false
 	}
 }
 

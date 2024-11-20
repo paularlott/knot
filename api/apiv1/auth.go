@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -69,6 +70,29 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})
 			return
+		}
+
+		// if restricted node then check token is in the users list
+		if origin.RestrictedLeaf {
+			tokens, _, err := client.GetTokens()
+			if err != nil {
+				rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})
+				return
+			}
+
+			// check if one of the tokens matches server.shared_token
+			found := false
+			for _, token := range *tokens {
+				if token.Id == viper.GetString("server.shared_token") {
+					found = true
+					break
+				}
+			}
+
+			// if not found then return unauthorized
+			if !found {
+				rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: "user restricted by leaf token"})
+			}
 		}
 
 		// Store the user in the local database
@@ -143,9 +167,6 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		Status: true,
 		Token:  session.Id,
 	})
-}
-
-func HandleAuthIdUserToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleLogout(w http.ResponseWriter, r *http.Request) {

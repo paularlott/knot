@@ -3,6 +3,7 @@ package leaf
 import (
 	"sync"
 
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
 	"github.com/rs/zerolog/log"
 
@@ -13,6 +14,7 @@ type Session struct {
 	ws       *websocket.Conn
 	ch       chan *msg.ClientMessage
 	location string
+	token    *model.Token
 }
 
 var (
@@ -20,7 +22,7 @@ var (
 	session      map[string]*Session = make(map[string]*Session)
 )
 
-func Register(id string, ws *websocket.Conn, location string) *Session {
+func Register(id string, ws *websocket.Conn, location string, token *model.Token) *Session {
 	sessionMutex.Lock()
 	defer sessionMutex.Unlock()
 
@@ -28,6 +30,7 @@ func Register(id string, ws *websocket.Conn, location string) *Session {
 		ws:       ws,
 		ch:       make(chan *msg.ClientMessage, 100),
 		location: location,
+		token:    token,
 	}
 	session[id] = leaf
 

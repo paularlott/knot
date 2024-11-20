@@ -8,6 +8,7 @@ type Register struct {
 
 // message sent from the leader to the follower in response to a register message
 type RegisterResponse struct {
-	Success bool
-	Version string
+	Success        bool
+	RestrictedNode bool // flags the node is registered as a restricted node
+	Version        string
 }

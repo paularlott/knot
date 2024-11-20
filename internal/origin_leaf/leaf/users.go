@@ -7,14 +7,16 @@ import (
 
 // update the user on a leaf node
 func (s *Session) UpdateUser(user *model.User) {
-	user.Password = ""
+	if s.token == nil || s.token.UserId == user.Id {
+		user.Password = ""
 
-	message := &msg.ClientMessage{
-		Command: msg.MSG_UPDATE_USER,
-		Payload: user,
+		message := &msg.ClientMessage{
+			Command: msg.MSG_UPDATE_USER,
+			Payload: user,
+		}
+
+		s.ch <- message
 	}
-
-	s.ch <- message
 }
 
 // delete the user on a leaf node

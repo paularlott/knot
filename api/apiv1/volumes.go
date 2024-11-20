@@ -19,7 +19,7 @@ import (
 func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
+	if remoteClient != nil && !origin.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		volumes, code, err := client.GetVolumes()
@@ -78,7 +78,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
+	if remoteClient != nil && !origin.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		code, err := client.UpdateVolume(volemeId, request.Name, request.Definition)
@@ -129,7 +129,7 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
+	if remoteClient != nil && !origin.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		response, code, err := client.CreateVolume(request.Name, request.Definition)
@@ -164,7 +164,7 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
+	if remoteClient != nil && !origin.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		code, err := client.DeleteVolume(volumeId)
@@ -203,7 +203,7 @@ func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
+	if remoteClient != nil && !origin.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		volume, code, err := client.GetVolume(volumeId)
@@ -244,7 +244,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then fetch the volume information from the remote
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
+	if remoteClient != nil && !origin.RestrictedLeaf {
 		client = remoteClient.(*apiclient.ApiClient)
 
 		volume, code, err = client.GetVolumeObject(volumeId)
@@ -325,7 +325,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
+	if remoteClient != nil && !origin.RestrictedLeaf {
 		client = remoteClient.(*apiclient.ApiClient)
 
 		volume, code, err = client.GetVolumeObject(volumeId)

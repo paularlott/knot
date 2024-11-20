@@ -6,13 +6,19 @@ import (
 )
 
 // update the space on a leaf node
-func (s *Session) UpdateSpace(space *model.Space) {
-	message := &msg.ClientMessage{
-		Command: msg.MSG_UPDATE_SPACE,
-		Payload: space,
-	}
+func (s *Session) UpdateSpace(space *model.Space) bool {
+	if s.token == nil || space.UserId == s.token.UserId {
+		message := &msg.ClientMessage{
+			Command: msg.MSG_UPDATE_SPACE,
+			Payload: space,
+		}
 
-	s.ch <- message
+		s.ch <- message
+
+		return true
+	} else {
+		return false
+	}
 }
 
 // delete the space on a leaf node

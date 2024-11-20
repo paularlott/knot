@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -160,7 +161,7 @@ func ApiPermissionManageTemplates(next http.Handler) http.Handler {
 func ApiPermissionManageVolumes(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionManageVolumes) {
+		if !origin.RestrictedLeaf && !user.HasPermission(model.PermissionManageVolumes) {
 			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage volumes"})
 			return
 		}
@@ -231,9 +232,32 @@ func LeafServerAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// Get the auth token
-		var bearer string
-		fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &bearer)
+		bearer := GetBearerToken(w, r)
+		if bearer == "" {
+			returnUnauthorized(w)
+			return
+		}
 		if bearer != viper.GetString("server.shared_token") || viper.GetString("server.shared_token") == "" {
+
+			// If leaf nodes are allowed to use API tokens then check for that
+			if viper.GetBool("server.enable_leaf_api_tokens") {
+
+				db := database.GetInstance()
+				token, _ := db.GetToken(bearer)
+				if token == nil {
+					returnUnauthorized(w)
+					return
+				}
+
+				// Save the token to extend its life
+				db.SaveToken(token)
+
+				// Save the user and token to the context
+				ctx := context.WithValue(r.Context(), "access_token", token)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
 			returnUnauthorized(w)
 			return
 		}

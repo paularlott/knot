@@ -119,7 +119,6 @@ func ApiRoutes() chi.Router {
 	router.Route("/auth", func(router chi.Router) {
 		router.Post("/", HandleAuthorization)
 		router.Post("/web", HandleAuthorization)
-		router.Post("/token", HandleAuthIdUserToken)
 	})
 
 	// Additional endpoints exposed by origin servers

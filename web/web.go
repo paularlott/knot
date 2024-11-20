@@ -13,6 +13,7 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -339,10 +340,10 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"username":                  user.Username,
 		"user_id":                   user.Id,
 		"withDownloads":             withDownloads,
-		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers),
-		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
-		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces),
-		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes),
+		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers) && !origin.RestrictedLeaf,
+		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates) && !origin.RestrictedLeaf,
+		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces) && !origin.RestrictedLeaf,
+		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes) || origin.RestrictedLeaf,
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"hasRemoteToken":            viper.GetString("server.shared_token") != "",

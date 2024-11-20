@@ -7,7 +7,7 @@ import (
 )
 
 func UpdateVolume(volume *model.Volume) {
-	if viper.GetBool("server.is_leaf") {
+	if viper.GetBool("server.is_leaf") && !RestrictedLeaf {
 		message := &msg.ClientMessage{
 			Command: msg.MSG_UPDATE_VOLUME,
 			Payload: volume,

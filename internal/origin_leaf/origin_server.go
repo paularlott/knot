@@ -17,6 +17,9 @@ import (
 
 func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 
+	// If auth was done with an API token then get it as we use it to restrict what the user can do
+	token, _ := r.Context().Value("access_token").(*model.Token)
+
 	// Generate a UUID for the follower
 	id, err := uuid.NewV7()
 	if err != nil {
@@ -24,7 +27,11 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 	}
 	leafId := id.String()
 
-	log.Info().Msgf("origin: new leaf %s connecting", leafId)
+	if token != nil {
+		log.Info().Msgf("origin: new leaf %s connecting", leafId)
+	} else {
+		log.Info().Msgf("origin: new leaf %s connecting using API token for %s", leafId, token.UserId)
+	}
 
 	// Upgrade to a websocket
 	ws := util.UpgradeToWS(w, r)
@@ -43,8 +50,9 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	registerReply := msg.RegisterResponse{
-		Success: true,
-		Version: build.Version,
+		Success:        true,
+		RestrictedNode: token != nil,
+		Version:        build.Version,
 	}
 
 	// If versions mismatch then don't allow the registration
@@ -53,7 +61,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create a new follower server
-	leafSession := leaf.Register(leafId, ws, registerMsg.Location)
+	leafSession := leaf.Register(leafId, ws, registerMsg.Location, token)
 	defer leaf.Unregister(leafId)
 
 	// Write the response
@@ -93,8 +101,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 
 		case msg.MSG_SYNC_USER:
 			log.Debug().Msg("origin: sync user")
-
-			err := originHandleSyncUser(ws, leafSession)
+			err := originHandleSyncUser(ws, leafSession, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync user: %s", err)
 				return
@@ -102,7 +109,6 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 
 		case msg.MSG_SYNC_TEMPLATEVARS:
 			log.Debug().Msg("origin: sync template variables")
-
 			err := originHandleSyncTemplateVars(ws, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync template vars: %s", err)
@@ -111,8 +117,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 
 		case msg.MSG_UPDATE_SPACE:
 			log.Debug().Msg("origin: update space")
-
-			err := originHandleUpdateSpace(ws)
+			err := originHandleUpdateSpace(ws, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling update space: %s", err)
 				return
@@ -120,7 +125,6 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 
 		case msg.MSG_SYNC_SPACE:
 			log.Debug().Msg("origin: sync space")
-
 			err := originHandleSyncSpace(ws, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync space: %s", err)
@@ -129,8 +133,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 
 		case msg.MSG_DELETE_SPACE:
 			log.Debug().Msg("origin: delete space")
-
-			err := originHandleDeleteSpace(ws)
+			err := originHandleDeleteSpace(ws, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling delete space: %s", err)
 				return
@@ -138,8 +141,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 
 		case msg.MSG_UPDATE_VOLUME:
 			log.Debug().Msg("origin: update volume")
-
-			err := originHandleUpdateVolume(ws)
+			err := originHandleUpdateVolume(ws, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling update volume: %s", err)
 				return
@@ -147,8 +149,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 
 		case msg.MSG_MIRROR_TOKEN:
 			log.Debug().Msg("origin: mirror token")
-
-			err := originHandleMirrorToken(ws)
+			err := originHandleMirrorToken(ws, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling mirror token: %s", err)
 				return
@@ -156,8 +157,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 
 		case msg.MSG_DELETE_TOKEN:
 			log.Debug().Msg("origin: delete token")
-
-			err := originHandleDeleteToken(ws)
+			err := originHandleDeleteToken(ws, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling delete token: %s", err)
 				return
@@ -171,7 +171,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 }
 
 // origin server handler to process sync user messages
-func originHandleSyncUser(ws *websocket.Conn, session *leaf.Session) error {
+func originHandleSyncUser(ws *websocket.Conn, session *leaf.Session, token *model.Token) error {
 	// Read the message
 	var syncUserId string
 	err := msg.ReadMessage(ws, &syncUserId)
@@ -192,7 +192,13 @@ func originHandleSyncUser(ws *websocket.Conn, session *leaf.Session) error {
 			return err
 		}
 	} else {
-		session.UpdateUser(user)
+		// for token users only update matching tokens owner
+		if token == nil || syncUserId == token.UserId {
+			session.UpdateUser(user)
+		} else if token != nil {
+			log.Warn().Msgf("origin: user %s, not owned by token owner removing", syncUserId)
+			session.DeleteUser(syncUserId)
+		}
 	}
 
 	return nil
@@ -220,7 +226,10 @@ func originHandleSyncSpace(ws *websocket.Conn, session *leaf.Session) error {
 			return err
 		}
 	} else {
-		session.UpdateSpace(space)
+		if !session.UpdateSpace(space) {
+			log.Warn().Msgf("origin: space %s not permitted to sync by token", space.Id)
+			session.DeleteSpace(syncSpaceId)
+		}
 	}
 
 	return nil
@@ -245,13 +254,15 @@ func originHandleSyncTemplateVars(ws *websocket.Conn, session *leaf.Session) err
 
 	// Loop through the template vars and update the leaf, track those in data.Existing not in templateVars to delete
 	for _, templateVar := range templateVars {
-		session.UpdateTemplateVar(templateVar)
-
-		// Remove the template var from the data.Existing
-		for i, existing := range data.Existing {
-			if existing == templateVar.Id {
-				data.Existing = append(data.Existing[:i], data.Existing[i+1:]...)
-				break
+		if !session.UpdateTemplateVar(templateVar) {
+			log.Warn().Msgf("origin: template var %s not permitted to sync", templateVar.Id)
+		} else {
+			// Remove the template var from the data.Existing
+			for i, existing := range data.Existing {
+				if existing == templateVar.Id {
+					data.Existing = append(data.Existing[:i], data.Existing[i+1:]...)
+					break
+				}
 			}
 		}
 	}
@@ -303,7 +314,7 @@ func originHandleSyncTemplates(ws *websocket.Conn, session *leaf.Session) error 
 }
 
 // origin server handler to process delete space messages
-func originHandleDeleteSpace(ws *websocket.Conn) error {
+func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token) error {
 	// read the message
 	var spaceId string
 	err := msg.ReadMessage(ws, &spaceId)
@@ -315,7 +326,7 @@ func originHandleDeleteSpace(ws *websocket.Conn) error {
 
 	// Fetch the space from the database
 	space, err := db.GetSpace(spaceId)
-	if err == nil && space != nil {
+	if err == nil && space != nil && (token == nil || space.UserId == token.UserId) {
 
 		// notify all leaf servers to delete the space
 		leaf.DeleteSpace(spaceId)
@@ -328,7 +339,7 @@ func originHandleDeleteSpace(ws *websocket.Conn) error {
 	return nil
 }
 
-func originHandleUpdateSpace(ws *websocket.Conn) error {
+func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token) error {
 	// read the message
 	var space model.Space
 	err := msg.ReadMessage(ws, &space)
@@ -340,7 +351,7 @@ func originHandleUpdateSpace(ws *websocket.Conn) error {
 
 	// Attempt to load the space, only update existing spaces
 	existingSpace, err := db.GetSpace(space.Id)
-	if err == nil && existingSpace != nil {
+	if err == nil && existingSpace != nil && existingSpace.UserId == space.UserId && (token == nil || existingSpace.UserId == token.UserId) {
 		log.Debug().Msgf("origin: updating space %s", space.Id)
 
 		// notify all leaf servers to update the space
@@ -348,12 +359,15 @@ func originHandleUpdateSpace(ws *websocket.Conn) error {
 
 		// Update the space in the database
 		return db.SaveSpace(&space)
+	} else if token != nil && existingSpace != nil && existingSpace.UserId != token.UserId {
+		log.Warn().Msgf("origin: space %s not owned by token owner", space.Id)
+		leaf.DeleteSpace(space.Id)
 	}
 
 	return nil
 }
 
-func originHandleUpdateVolume(ws *websocket.Conn) error {
+func originHandleUpdateVolume(ws *websocket.Conn, token *model.Token) error {
 	// read the message
 	var volume model.Volume
 	err := msg.ReadMessage(ws, &volume)
@@ -361,21 +375,24 @@ func originHandleUpdateVolume(ws *websocket.Conn) error {
 		return err
 	}
 
-	db := database.GetInstance()
+	// if leaf is using an api token then ignore volume updates
+	if token == nil {
+		db := database.GetInstance()
 
-	// Attempt to load the volume, only update existing volumes
-	existingVolume, err := db.GetVolume(volume.Id)
-	if err == nil && existingVolume != nil {
-		log.Debug().Msgf("origin: updating volume %s", volume.Id)
+		// Attempt to load the volume, only update existing volumes
+		existingVolume, err := db.GetVolume(volume.Id)
+		if err == nil && existingVolume != nil {
+			log.Debug().Msgf("origin: updating volume %s", volume.Id)
 
-		// Update the volume in the database
-		return db.SaveVolume(&volume)
+			// Update the volume in the database
+			return db.SaveVolume(&volume)
+		}
 	}
 
 	return nil
 }
 
-func originHandleMirrorToken(ws *websocket.Conn) error {
+func originHandleMirrorToken(ws *websocket.Conn, accessToken *model.Token) error {
 	// read the message
 	var token model.Token
 	err := msg.ReadMessage(ws, &token)
@@ -390,7 +407,7 @@ func originHandleMirrorToken(ws *websocket.Conn) error {
 
 	// Check the user exists
 	user, err := db.GetUser(token.UserId)
-	if err == nil && user != nil {
+	if err == nil && user != nil && (accessToken == nil || user.Id == accessToken.UserId) {
 		// Save the token
 		return db.SaveToken(&token)
 	}
@@ -398,7 +415,7 @@ func originHandleMirrorToken(ws *websocket.Conn) error {
 	return nil
 }
 
-func originHandleDeleteToken(ws *websocket.Conn) error {
+func originHandleDeleteToken(ws *websocket.Conn, accessToken *model.Token) error {
 	// read the message
 	var data model.Token
 	err := msg.ReadMessage(ws, &data)
@@ -410,7 +427,7 @@ func originHandleDeleteToken(ws *websocket.Conn) error {
 
 	// Fetch the token from the database
 	token, err := db.GetToken(data.Id)
-	if err == nil && token != nil && token.UserId == data.UserId {
+	if err == nil && token != nil && token.UserId == data.UserId && (accessToken == nil || token.UserId == accessToken.UserId) {
 		log.Debug().Msgf("origin: deleting token %s", token.Id)
 		return db.DeleteToken(token)
 	}
