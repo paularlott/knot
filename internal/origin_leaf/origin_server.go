@@ -28,9 +28,9 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 	leafId := id.String()
 
 	if token != nil {
-		log.Info().Msgf("origin: new leaf %s connecting", leafId)
-	} else {
 		log.Info().Msgf("origin: new leaf %s connecting using API token for %s", leafId, token.UserId)
+	} else {
+		log.Info().Msgf("origin: new leaf %s connecting", leafId)
 	}
 
 	// Upgrade to a websocket
