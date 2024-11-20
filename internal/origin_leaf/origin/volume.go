@@ -3,6 +3,7 @@ package origin
 import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
+
 	"github.com/spf13/viper"
 )
 
