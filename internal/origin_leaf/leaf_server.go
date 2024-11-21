@@ -331,7 +331,9 @@ func requestTemplateVarsFromOrigin() {
 	}
 
 	for _, templateVar := range templateVars {
-		syncTemplateVars.Existing = append(syncTemplateVars.Existing, templateVar.Id)
+		if templateVar.Local {
+			syncTemplateVars.Existing = append(syncTemplateVars.Existing, templateVar.Id)
+		}
 	}
 
 	message := &msg.ClientMessage{

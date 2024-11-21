@@ -9,7 +9,7 @@ import (
 func (s *Session) UpdateTemplateVar(templateVar *model.TemplateVar) bool {
 	if s.token == nil || !templateVar.Protected {
 		// Only send vars that match the location or are global
-		if templateVar.Location == "" || templateVar.Location == s.location {
+		if !templateVar.Local && (templateVar.Location == "" || templateVar.Location == s.location) {
 			message := &msg.ClientMessage{
 				Command: msg.MSG_UPDATE_TEMPLATEVAR,
 				Payload: templateVar,

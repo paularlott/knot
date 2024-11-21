@@ -3,6 +3,7 @@ window.variableForm = function(isEdit, templateVarId) {
     formData: {
       name: "",
       location: "",
+      local: false,
       value: "",
       protected: false,
     },
@@ -31,6 +32,7 @@ window.variableForm = function(isEdit, templateVarId) {
 
           this.formData.name = v.name;
           this.formData.location = v.location;
+          this.formData.local = v.local;
           this.formData.value = v.value;
           this.formData.protected = v.protected;
         }
@@ -75,7 +77,7 @@ window.variableForm = function(isEdit, templateVarId) {
       return this.valueValid = validate.maxLength(this.formData.value, 10 * 1024 * 1024);
     },
     checkLocation() {
-      return this.locationValid = validate.maxLength(this.formData.location, 64);
+      return this.locationValid = this.formData.local || validate.maxLength(this.formData.location, 64);
     },
 
     async submitData() {

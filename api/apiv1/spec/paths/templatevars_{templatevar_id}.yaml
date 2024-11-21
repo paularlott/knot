@@ -29,6 +29,9 @@ put:
             protected:
               type: boolean
               description: Whether the template variable is protected with encryption.
+            local:
+              type: boolean
+              description: Whether the template variable is local to the server.
   responses:
     '200':
       description: Successful operation
@@ -92,6 +95,9 @@ get:
               protected:
                 type: boolean
                 description: Whether the template variable is protected with encryption.
+              local:
+                type: boolean
+                description: Whether the template variable is local to the server.
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':

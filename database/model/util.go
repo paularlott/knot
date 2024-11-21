@@ -89,3 +89,29 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 
 	return tmplBytes.String(), nil
 }
+
+func FilterVars(variables []*TemplateVar) map[string]interface{} {
+	// Filter the variables, local takes precedence, then variables with location matching the server, then global
+	filteredVars := make(map[string]*TemplateVar, len(variables))
+	for _, variable := range variables {
+		if variable.Location == "" || variable.Location == viper.GetString("server.location") {
+
+			// Test if variable already in the list
+			existing, ok := filteredVars[variable.Name]
+			if ok {
+				if existing.Local || (existing.Location != "" && !variable.Local) {
+					continue
+				}
+			}
+
+			filteredVars[variable.Name] = variable
+		}
+	}
+
+	vars := make(map[string]interface{}, len(filteredVars))
+	for _, variable := range filteredVars {
+		vars[variable.Name] = variable.Value
+	}
+
+	return vars
+}

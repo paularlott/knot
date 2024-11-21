@@ -29,6 +29,8 @@ get:
                       type: string
                     protected:
                       type: boolean
+                    local:
+                      type: boolean
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':
@@ -61,6 +63,9 @@ post:
             protected:
               type: boolean
               description: Whether the template variable is protected with encryption.
+            local:
+              type: boolean
+              description: Whether the template variable is local to the server.
   responses:
     '201':
       description: Template variable created successfully

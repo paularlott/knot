@@ -10,7 +10,7 @@ import (
 func checkPermissionManageTemplates(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if origin.RestrictedLeaf || !user.HasPermission(model.PermissionManageTemplates) {
+		if !origin.RestrictedLeaf && !user.HasPermission(model.PermissionManageTemplates) {
 			showPageForbidden(w, r)
 			return
 		}

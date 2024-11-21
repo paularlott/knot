@@ -16,13 +16,14 @@ type TemplateVar struct {
 	Location      string    `json:"location"`
 	Value         string    `json:"value"`
 	Protected     bool      `json:"protected"`
+	Local         bool      `json:"local"`
 	CreatedUserId string    `json:"created_user_id"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedUserId string    `json:"updated_user_id"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
-func NewTemplateVar(name string, location string, value string, protected bool, userId string) *TemplateVar {
+func NewTemplateVar(name string, location string, local bool, value string, protected bool, userId string) *TemplateVar {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -32,6 +33,7 @@ func NewTemplateVar(name string, location string, value string, protected bool, 
 		Id:            id.String(),
 		Name:          name,
 		Location:      location,
+		Local:         local,
 		Value:         value,
 		Protected:     protected,
 		CreatedUserId: userId,

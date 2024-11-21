@@ -528,12 +528,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vars := make(map[string]interface{})
-	for _, variable := range variables {
-		if variable.Location == "" || variable.Location == viper.GetString("server.location") {
-			vars[variable.Name] = variable.Value
-		}
-	}
+	vars := model.FilterVars(variables)
 
 	// Get the nomad client
 	nomadClient := nomad.NewClient()

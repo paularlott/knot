@@ -18,11 +18,13 @@ func HandleUpdateTemplateVar(ws *websocket.Conn) error {
 		return err
 	}
 
-	log.Debug().Msgf("leaf: updating template var %s - %s", data.Id, data.Name)
+	if !data.Local {
+		log.Debug().Msgf("leaf: updating template var %s - %s", data.Id, data.Name)
 
-	if err := db.SaveTemplateVar(&data); err != nil {
-		log.Error().Msgf("error saving template var: %s", err)
-		return err
+		if err := db.SaveTemplateVar(&data); err != nil {
+			log.Error().Msgf("error saving template var: %s", err)
+			return err
+		}
 	}
 
 	return nil
@@ -40,8 +42,10 @@ func HandleDeleteTemplateVar(ws *websocket.Conn) error {
 	// Load the var & delete it
 	templateVar, err := db.GetTemplateVar(id)
 	if err == nil && templateVar != nil {
-		log.Debug().Msgf("leaf: deleting template var %s - %s", templateVar.Id, templateVar.Name)
-		db.DeleteTemplateVar(templateVar)
+		if !templateVar.Local {
+			log.Debug().Msgf("leaf: deleting template var %s - %s", templateVar.Id, templateVar.Name)
+			db.DeleteTemplateVar(templateVar)
+		}
 	}
 
 	return nil
