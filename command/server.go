@@ -22,6 +22,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/origin_leaf"
+	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
@@ -263,9 +264,11 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.redis.key_prefix", config.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX")
 		viper.SetDefault("server.redis.key_prefix", "")
 
-		// Set if remote or core server
-		viper.Set("server.is_leaf", viper.GetString("server.shared_token") != "" && viper.GetString("server.origin_server") != "")
-		viper.Set("server.is_origin", viper.GetString("server.shared_token") != "" && viper.GetString("server.origin_server") == "")
+		// Set if leaf, origin or standalone server
+		if viper.GetString("server.shared_token") != "" {
+			origin.IsLeaf = viper.GetString("server.origin_server") != ""
+			origin.IsOrigin = viper.GetString("server.origin_server") == ""
+		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := util.FixListenAddress(viper.GetString("server.listen"))
@@ -285,7 +288,7 @@ var serverCmd = &cobra.Command{
 		api_utils.LoadTemplateHashes()
 
 		// Check manual template is present, create it if not
-		if !viper.GetBool("server.is_leaf") {
+		if !origin.IsLeaf {
 			db := database.GetInstance()
 			tpl, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
 			if err != nil || tpl == nil {

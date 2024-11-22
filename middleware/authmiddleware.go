@@ -20,7 +20,7 @@ var (
 )
 
 func Initialize() {
-	if !viper.GetBool("server.is_leaf") {
+	if !origin.IsLeaf {
 		// Test if there's users present in the system
 		db := database.GetInstance()
 		hasUsers, err := db.HasUsers()
@@ -96,7 +96,7 @@ func ApiAuth(next http.Handler) http.Handler {
 				ctx = context.WithValue(r.Context(), "access_token", token)
 
 				// If remote then setup the client
-				if viper.GetBool("server.is_leaf") {
+				if origin.IsLeaf {
 					// Create a remote access client
 					client := apiclient.NewRemoteToken(token.Id)
 					client.AppendUserAgent("(token " + token.Id + ")")
@@ -120,7 +120,7 @@ func ApiAuth(next http.Handler) http.Handler {
 				ctx = context.WithValue(r.Context(), "session", session)
 
 				// If remote then setup the client
-				if viper.GetBool("server.is_leaf") {
+				if origin.IsLeaf {
 					client := apiclient.NewRemoteSession(session.RemoteSessionId)
 					ctx = context.WithValue(ctx, "remote_client", client)
 				}

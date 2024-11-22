@@ -348,9 +348,9 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"buildDate":                 build.Date,
 		"hasRemoteToken":            viper.GetString("server.shared_token") != "",
 		"location":                  viper.GetString("server.location"),
-		"isOrigin":                  viper.GetBool("server.is_origin"),
-		"isLeaf":                    viper.GetBool("server.is_leaf"),
-		"isOriginOrLeaf":            viper.GetBool("server.is_origin") || viper.GetBool("server.is_leaf"),
+		"isOrigin":                  origin.IsOrigin,
+		"isLeaf":                    origin.IsLeaf,
+		"isOriginOrLeaf":            origin.IsOrigin || origin.IsLeaf,
 		"isRestrictedServer":        origin.RestrictedLeaf,
 	}
 }

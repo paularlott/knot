@@ -1,6 +1,7 @@
 package apiclient
 
 import (
+	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/util/rest"
 
 	"github.com/spf13/viper"
@@ -22,7 +23,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *ApiClient
 		httpClient: rest.NewClient(baseURL, token, insecureSkipVerify),
 	}
 
-	if viper.GetBool("server.is_leaf") {
+	if origin.IsLeaf {
 		c.httpClient.AppendUserAgent("Remote (" + viper.GetString("server.location") + ")")
 	}
 

@@ -38,7 +38,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If this is a remote then the request needs to be forwarded to the core server
-	if viper.GetBool("server.is_leaf") {
+	if origin.IsLeaf {
 		log.Debug().Msg("Forwarding auth request to origin server")
 
 		client := apiclient.NewRemoteToken(viper.GetString("server.shared_token"))
