@@ -351,6 +351,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"isOrigin":                  viper.GetBool("server.is_origin"),
 		"isLeaf":                    viper.GetBool("server.is_leaf"),
 		"isOriginOrLeaf":            viper.GetBool("server.is_origin") || viper.GetBool("server.is_leaf"),
-		"isRestricted":              origin.RestrictedLeaf,
+		"isRestrictedServer":        origin.RestrictedLeaf,
 	}
 }

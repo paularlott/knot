@@ -44,11 +44,12 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 			}
 
 			v := apiclient.TemplateVar{
-				Id:        variable.Id,
-				Name:      variable.Name,
-				Location:  variable.Location,
-				Local:     variable.Local,
-				Protected: variable.Protected,
+				Id:         variable.Id,
+				Name:       variable.Name,
+				Location:   variable.Location,
+				Local:      variable.Local,
+				Protected:  variable.Protected,
+				Restricted: variable.Restricted,
 			}
 			data.TemplateVar = append(data.TemplateVar, v)
 			data.Count++
@@ -81,10 +82,17 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Force variables to local for restricted leaf nodes
+	if origin.RestrictedLeaf {
+		request.Local = true
+		request.Restricted = false
+		request.Location = ""
+	}
+
 	remoteClient := r.Context().Value("remote_client")
 	if !origin.RestrictedLeaf && remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
-		code, err := client.UpdateTemplateVar(templateVarId, request.Name, request.Location, request.Local, request.Value, request.Protected)
+		code, err := client.UpdateTemplateVar(templateVarId, request.Name, request.Location, request.Local, request.Value, request.Protected, request.Restricted)
 		if err != nil {
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
@@ -104,11 +112,19 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// if changing to a restricted mode send delete to leaf nodes
+		var sendDelete = false
+
+		if (request.Local && !templateVar.Local) || (request.Restricted && !templateVar.Restricted) {
+			sendDelete = true
+		}
+
 		templateVar.Name = request.Name
 		templateVar.Location = request.Location
 		templateVar.Local = request.Local
 		templateVar.Value = request.Value
 		templateVar.Protected = request.Protected
+		templateVar.Restricted = request.Restricted
 		templateVar.UpdatedUserId = user.Id
 
 		err = db.SaveTemplateVar(templateVar)
@@ -117,7 +133,11 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		leaf.UpdateTemplateVar(templateVar)
+		if sendDelete {
+			leaf.DeleteTemplateVar(templateVarId)
+		} else {
+			leaf.UpdateTemplateVar(templateVar)
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -149,8 +169,11 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if origin.RestrictedLeaf && !request.Local {
+	// Force variables to local for restricted leaf nodes
+	if origin.RestrictedLeaf {
 		request.Local = true
+		request.Restricted = false
+		request.Location = ""
 	}
 
 	remoteClient := r.Context().Value("remote_client")
@@ -159,13 +182,13 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		var err error
 
 		client := remoteClient.(*apiclient.ApiClient)
-		id, code, err = client.CreateTemplateVar(request.Name, request.Location, request.Local, request.Value, request.Protected)
+		id, code, err = client.CreateTemplateVar(request.Name, request.Location, request.Local, request.Value, request.Protected, request.Restricted)
 		if err != nil {
 			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
-		templateVar := model.NewTemplateVar(request.Name, request.Location, request.Local, request.Value, request.Protected, user.Id)
+		templateVar := model.NewTemplateVar(request.Name, request.Location, request.Local, request.Value, request.Protected, request.Restricted, user.Id)
 
 		err = db.SaveTemplateVar(templateVar)
 		if err != nil {
@@ -256,11 +279,12 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := &apiclient.TemplateVarValue{
-			Name:      templateVar.Name,
-			Value:     val,
-			Location:  templateVar.Location,
-			Local:     templateVar.Local,
-			Protected: templateVar.Protected,
+			Name:       templateVar.Name,
+			Value:      val,
+			Location:   templateVar.Location,
+			Local:      templateVar.Local,
+			Protected:  templateVar.Protected,
+			Restricted: templateVar.Restricted,
 		}
 
 		rest.SendJSON(http.StatusOK, w, data)

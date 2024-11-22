@@ -7,8 +7,10 @@ import (
 
 // update the template var on a leaf node
 func (s *Session) UpdateTemplateVar(templateVar *model.TemplateVar) bool {
-	if s.token == nil || !templateVar.Protected {
-		// Only send vars that match the location or are global
+
+	// if token given then don't send protected or restricted vars
+	if s.token == nil || (!templateVar.Protected && !templateVar.Restricted) {
+		// Only send vars that match the location or are global, never local
 		if !templateVar.Local && (templateVar.Location == "" || templateVar.Location == s.location) {
 			message := &msg.ClientMessage{
 				Command: msg.MSG_UPDATE_TEMPLATEVAR,
@@ -16,6 +18,8 @@ func (s *Session) UpdateTemplateVar(templateVar *model.TemplateVar) bool {
 			}
 
 			s.ch <- message
+		} else {
+			return false
 		}
 
 		return true

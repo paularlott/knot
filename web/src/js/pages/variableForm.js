@@ -4,6 +4,7 @@ window.variableForm = function(isEdit, templateVarId) {
       name: "",
       location: "",
       local: false,
+      restricted: false,
       value: "",
       protected: false,
     },
@@ -33,6 +34,7 @@ window.variableForm = function(isEdit, templateVarId) {
           this.formData.name = v.name;
           this.formData.location = v.location;
           this.formData.local = v.local;
+          this.formData.restricted = v.restricted;
           this.formData.value = v.value;
           this.formData.protected = v.protected;
         }

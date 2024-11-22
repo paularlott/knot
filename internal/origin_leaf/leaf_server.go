@@ -331,7 +331,7 @@ func requestTemplateVarsFromOrigin() {
 	}
 
 	for _, templateVar := range templateVars {
-		if templateVar.Local {
+		if !templateVar.Local {
 			syncTemplateVars.Existing = append(syncTemplateVars.Existing, templateVar.Id)
 		}
 	}

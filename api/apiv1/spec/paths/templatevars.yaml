@@ -31,6 +31,8 @@ get:
                       type: boolean
                     local:
                       type: boolean
+                    restricted:
+                      type: boolean
     '500':
       $ref: '../responses/internal-server-error.yaml'
     '403':
@@ -66,6 +68,9 @@ post:
             local:
               type: boolean
               description: Whether the template variable is local to the server.
+            restricted:
+              type: boolean
+              description: Whether the template variable is restricted to trusted server.
   responses:
     '201':
       description: Template variable created successfully

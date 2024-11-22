@@ -36,6 +36,7 @@
             <tr>
               <th scope="col" class="px-6 py-3">Name</th>
               <th scope="col" class="px-6 py-3">Location</th>
+              <th scope="col" class="px-6 py-3">Restricted</th>
               <th scope="col" class="px-6 py-3">Protected</th>
               <th scope="col" class="px-6 py-3">&nbsp;</th>
             </tr>
@@ -48,7 +49,12 @@
                 <span x-show="!v.local && v.location.length" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300" x-text="v.location"></span>
                 <span x-show="v.local" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Local</span>
               </td>
-              <td x-text="v.protected ? 'Yes' : 'No'" class="px-6 py-4"></td>
+              <td class="px-6 py-4">
+                  <span x-show="v.restricted" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Restricted</span>
+              </td>
+              <td class="px-6 py-4">
+                <span x-show="v.protected" class="inline-block bg-red-100 text-red-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-red-400 border border-red-400">Protected</span>
+              </td>
               <td class="px-6 py-4">
                 <div class="flex items-center justify-end" x-data>
                   <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
