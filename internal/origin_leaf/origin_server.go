@@ -53,6 +53,18 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 		Success:        true,
 		RestrictedNode: token != nil,
 		Version:        build.Version,
+		Location:       registerMsg.Location,
+	}
+
+	// if using an API token then generate the location
+	if token != nil {
+		user, err := database.GetInstance().GetUser(token.UserId)
+		if err != nil {
+			log.Error().Msgf("origin: error while getting user: %s", err)
+			return
+		}
+
+		registerReply.Location = user.Username
 	}
 
 	// If versions mismatch then don't allow the registration
@@ -255,7 +267,7 @@ func originHandleSyncTemplateVars(ws *websocket.Conn, session *leaf.Session) err
 	// Loop through the template vars and update the leaf, track those in data.Existing not in templateVars to delete
 	for _, templateVar := range templateVars {
 		if !session.UpdateTemplateVar(templateVar) {
-			log.Warn().Msgf("origin: template var %s not permitted to sync", templateVar.Id)
+			log.Debug().Msgf("origin: template var %s not permitted to sync", templateVar.Id)
 		} else {
 			// Remove the template var from the data.Existing
 			for i, existing := range data.Existing {

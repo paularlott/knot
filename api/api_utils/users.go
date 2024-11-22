@@ -4,10 +4,10 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/nomad"
 
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
@@ -26,7 +26,7 @@ func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
 	for _, space := range spaces {
 		log.Debug().Msgf("delete user: Deleting space %s", space.Id)
 
-		if space.Location == viper.GetString("server.location") {
+		if space.Location == server_info.LeafLocation {
 			log.Debug().Msgf("delete user: Deleting space %s from nomad", space.Id)
 
 			// Stop the job
@@ -111,7 +111,7 @@ func updateSpacesSSHKey(user *model.User) {
 			agentState := agent_server.GetSession(space.Id)
 			if agentState == nil {
 				// Silently ignore if space is on a different server
-				if space.Location == "" || space.Location == viper.GetString("server.location") {
+				if space.Location == "" || space.Location == server_info.LeafLocation {
 					log.Debug().Msgf("Agent state not found for space %s", space.Id)
 				}
 				continue
@@ -142,7 +142,7 @@ func UpdateUserSpaces(user *model.User) {
 		// Get the nomad client
 		nomadClient := nomad.NewClient()
 		for _, space := range spaces {
-			if space.IsDeployed && (space.Location == "" || space.Location == viper.GetString("server.location")) {
+			if space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
 				nomadClient.DeleteSpaceJob(space)
 			}
 		}

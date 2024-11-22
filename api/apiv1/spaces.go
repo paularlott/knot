@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -156,7 +157,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If space is running on this server then delete it from nomad
-	if space.Location == viper.GetString("server.location") {
+	if space.Location == server_info.LeafLocation {
 		// Mark the space as deleting and delete it in the background
 		space.IsDeleting = true
 		db.SaveSpace(space)
@@ -237,7 +238,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
 	// Lock the space to the location of the server creating it
 	if request.Location == "" {
-		space.Location = viper.GetString("server.location")
+		space.Location = server_info.LeafLocation
 	} else {
 		space.Location = request.Location
 	}
@@ -393,7 +394,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	response.IsDeployed = space.IsDeployed
 	response.IsPending = space.IsPending
 	response.IsDeleting = space.IsDeleting
-	response.IsRemote = space.Location != "" && space.Location != viper.GetString("server.location")
+	response.IsRemote = space.Location != "" && space.Location != server_info.LeafLocation
 
 	// If template is manual then force IsDeployed to true
 	if space.TemplateId == model.MANUAL_TEMPLATE_ID {
@@ -471,7 +472,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Is the space has a location then it must match the server location
-	if space.Location != "" && space.Location != viper.GetString("server.location") {
+	if space.Location != "" && space.Location != server_info.LeafLocation {
 		rest.SendJSON(http.StatusNotAcceptable, w, ErrorResponse{Error: "space location does not match server location"})
 		return
 	}
@@ -747,7 +748,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, space := range spaces {
-		if space.IsDeployed && (space.Location == "" || space.Location == viper.GetString("server.location")) {
+		if space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
 			err = nomadClient.DeleteSpaceJob(space)
 			if err != nil {
 				log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())

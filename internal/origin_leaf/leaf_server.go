@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/origin_leaf/leaf_server"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
 	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util"
 
 	"github.com/gorilla/websocket"
@@ -75,7 +76,7 @@ func LeafConnectAndServe(server string) {
 			// Write a register message to the origin server
 			err = msg.WriteMessage(ws, &msg.Register{
 				Version:  build.Version,
-				Location: viper.GetString("server.location"),
+				Location: server_info.LeafLocation,
 			})
 			if err != nil {
 				log.Error().Msgf("leaf: error while writing register message: %s", err)
@@ -103,8 +104,11 @@ func LeafConnectAndServe(server string) {
 			log.Info().Msg("leaf: successfully registered with origin server")
 
 			if registerResponse.RestrictedNode {
-				origin.RestrictedLeaf = true
+				server_info.RestrictedLeaf = true
+				server_info.LeafLocation = registerResponse.Location
 				log.Info().Msg("leaf: registered as a restricted node")
+			} else {
+				server_info.LeafLocation = viper.GetString("server.location")
 			}
 
 			// Request origin server to sync resources

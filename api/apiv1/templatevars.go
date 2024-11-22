@@ -7,7 +7,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -16,7 +16,7 @@ import (
 
 func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 	remoteClient := r.Context().Value("remote_client")
-	if !origin.RestrictedLeaf && remoteClient != nil {
+	if !server_info.RestrictedLeaf && remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 		templateVars, code, err := client.GetTemplateVars()
 		if err != nil {
@@ -39,7 +39,7 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, variable := range templateVars {
-			if origin.RestrictedLeaf && !variable.Local {
+			if server_info.RestrictedLeaf && !variable.Local {
 				continue
 			}
 
@@ -83,14 +83,14 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Force variables to local for restricted leaf nodes
-	if origin.RestrictedLeaf {
+	if server_info.RestrictedLeaf {
 		request.Local = true
 		request.Restricted = false
 		request.Location = ""
 	}
 
 	remoteClient := r.Context().Value("remote_client")
-	if !origin.RestrictedLeaf && remoteClient != nil {
+	if !server_info.RestrictedLeaf && remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 		code, err := client.UpdateTemplateVar(templateVarId, request.Name, request.Location, request.Local, request.Value, request.Protected, request.Restricted)
 		if err != nil {
@@ -107,7 +107,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if origin.RestrictedLeaf && !templateVar.Local {
+		if server_info.RestrictedLeaf && !templateVar.Local {
 			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage template variables"})
 			return
 		}
@@ -170,14 +170,14 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Force variables to local for restricted leaf nodes
-	if origin.RestrictedLeaf {
+	if server_info.RestrictedLeaf {
 		request.Local = true
 		request.Restricted = false
 		request.Location = ""
 	}
 
 	remoteClient := r.Context().Value("remote_client")
-	if !origin.RestrictedLeaf && remoteClient != nil {
+	if !server_info.RestrictedLeaf && remoteClient != nil {
 		var code int
 		var err error
 
@@ -212,7 +212,7 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 	templateVarId := chi.URLParam(r, "templatevar_id")
 
 	remoteClient := r.Context().Value("remote_client")
-	if !origin.RestrictedLeaf && remoteClient != nil {
+	if !server_info.RestrictedLeaf && remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 		code, err := client.DeleteTemplateVar(templateVarId)
 		if err != nil {
@@ -227,7 +227,7 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if origin.RestrictedLeaf && !templateVar.Local {
+		if server_info.RestrictedLeaf && !templateVar.Local {
 			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage template variables"})
 			return
 		}
@@ -249,7 +249,7 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 	templateVarId := chi.URLParam(r, "templatevar_id")
 
 	remoteClient := r.Context().Value("remote_client")
-	if !origin.RestrictedLeaf && remoteClient != nil {
+	if !server_info.RestrictedLeaf && remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 		templateVar, code, err := client.GetTemplateVar(templateVarId)
 		if err != nil {
@@ -265,7 +265,7 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
 			return
 		}
-		if templateVar == nil || (origin.RestrictedLeaf && !templateVar.Local) {
+		if templateVar == nil || (server_info.RestrictedLeaf && !templateVar.Local) {
 			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "Template variable not found"})
 			return
 		}

@@ -9,13 +9,13 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/spf13/viper"
 )
 
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -219,7 +219,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
-		userData, err := client.GetUsers(requiredState, viper.GetString("server.location"))
+		userData, err := client.GetUsers(requiredState, server_info.LeafLocation)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
 			return

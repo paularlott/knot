@@ -8,7 +8,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -20,7 +20,7 @@ var (
 )
 
 func Initialize() {
-	if !origin.IsLeaf {
+	if !server_info.IsLeaf {
 		// Test if there's users present in the system
 		db := database.GetInstance()
 		hasUsers, err := db.HasUsers()
@@ -96,7 +96,7 @@ func ApiAuth(next http.Handler) http.Handler {
 				ctx = context.WithValue(r.Context(), "access_token", token)
 
 				// If remote then setup the client
-				if origin.IsLeaf {
+				if server_info.IsLeaf {
 					// Create a remote access client
 					client := apiclient.NewRemoteToken(token.Id)
 					client.AppendUserAgent("(token " + token.Id + ")")
@@ -120,7 +120,7 @@ func ApiAuth(next http.Handler) http.Handler {
 				ctx = context.WithValue(r.Context(), "session", session)
 
 				// If remote then setup the client
-				if origin.IsLeaf {
+				if server_info.IsLeaf {
 					client := apiclient.NewRemoteSession(session.RemoteSessionId)
 					ctx = context.WithValue(ctx, "remote_client", client)
 				}
@@ -161,7 +161,7 @@ func ApiPermissionManageTemplates(next http.Handler) http.Handler {
 func ApiPermissionManageVolumes(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if !origin.RestrictedLeaf && !user.HasPermission(model.PermissionManageVolumes) {
+		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageVolumes) {
 			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage volumes"})
 			return
 		}

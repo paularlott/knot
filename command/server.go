@@ -22,7 +22,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/origin_leaf"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
@@ -266,8 +266,8 @@ var serverCmd = &cobra.Command{
 
 		// Set if leaf, origin or standalone server
 		if viper.GetString("server.shared_token") != "" {
-			origin.IsLeaf = viper.GetString("server.origin_server") != ""
-			origin.IsOrigin = viper.GetString("server.origin_server") == ""
+			server_info.IsLeaf = viper.GetString("server.origin_server") != ""
+			server_info.IsOrigin = viper.GetString("server.origin_server") == ""
 		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -281,6 +281,9 @@ var serverCmd = &cobra.Command{
 		log.Info().Msgf("server: starting knot version: %s", build.Version)
 		log.Info().Msgf("server: starting on: %s", listen)
 
+		// set the server location
+		server_info.LeafLocation = viper.GetString("server.location")
+
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()
 
@@ -288,7 +291,7 @@ var serverCmd = &cobra.Command{
 		api_utils.LoadTemplateHashes()
 
 		// Check manual template is present, create it if not
-		if !origin.IsLeaf {
+		if !server_info.IsLeaf {
 			db := database.GetInstance()
 			tpl, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
 			if err != nil || tpl == nil {
@@ -494,13 +497,13 @@ func startupCheckPendingSpaces() {
 
 		for _, space := range spaces {
 			// If space on this server and pending then monitor it
-			if space.Location == viper.GetString("server.location") && space.IsPending {
+			if space.Location == server_info.LeafLocation && space.IsPending {
 				log.Info().Msgf("server: found pending space %s", space.Name)
 				nomadClient.MonitorJobState(space)
 			}
 
 			// If deleting then delete it
-			if space.IsDeleting && (space.Location == "" || space.Location == viper.GetString("server.location")) {
+			if space.IsDeleting && (space.Location == "" || space.Location == server_info.LeafLocation) {
 				log.Info().Msgf("server: found deleting space %s", space.Name)
 				apiv1.RealDeleteSpace(space)
 			}

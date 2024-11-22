@@ -8,18 +8,18 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/spf13/viper"
 )
 
 func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !origin.RestrictedLeaf {
+	if remoteClient != nil && !server_info.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		volumes, code, err := client.GetVolumes()
@@ -78,7 +78,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !origin.RestrictedLeaf {
+	if remoteClient != nil && !server_info.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		code, err := client.UpdateVolume(volemeId, request.Name, request.Definition)
@@ -129,7 +129,7 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !origin.RestrictedLeaf {
+	if remoteClient != nil && !server_info.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		response, code, err := client.CreateVolume(request.Name, request.Definition)
@@ -164,7 +164,7 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !origin.RestrictedLeaf {
+	if remoteClient != nil && !server_info.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		code, err := client.DeleteVolume(volumeId)
@@ -203,7 +203,7 @@ func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !origin.RestrictedLeaf {
+	if remoteClient != nil && !server_info.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		volume, code, err := client.GetVolume(volumeId)
@@ -244,7 +244,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then fetch the volume information from the remote
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !origin.RestrictedLeaf {
+	if remoteClient != nil && !server_info.RestrictedLeaf {
 		client = remoteClient.(*apiclient.ApiClient)
 
 		volume, code, err = client.GetVolumeObject(volumeId)
@@ -267,7 +267,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the volume has a location and it is not this server then fail
-	if volume.Location != "" && volume.Location != viper.GetString("server.location") {
+	if volume.Location != "" && volume.Location != server_info.LeafLocation {
 		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "volume is used by another server"})
 		return
 	}
@@ -282,7 +282,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 	vars := model.FilterVars(variables)
 
 	// Mark volume as started
-	volume.Location = viper.GetString("server.location")
+	volume.Location = server_info.LeafLocation
 	volume.Active = true
 
 	// Get the nomad client
@@ -320,7 +320,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !origin.RestrictedLeaf {
+	if remoteClient != nil && !server_info.RestrictedLeaf {
 		client = remoteClient.(*apiclient.ApiClient)
 
 		volume, code, err = client.GetVolumeObject(volumeId)
@@ -337,7 +337,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the volume is not running or not this server then fail
-	if !volume.Active || volume.Location != viper.GetString("server.location") {
+	if !volume.Active || volume.Location != server_info.LeafLocation {
 		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "volume not running"})
 		return
 	}

@@ -5,6 +5,8 @@ import (
 	"os"
 	"text/template"
 
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+
 	"github.com/spf13/viper"
 )
 
@@ -48,7 +50,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"url":             viper.GetString("server.url"),
 			"agent_endpoint":  viper.GetString("server.agent_endpoint"),
 			"wildcard_domain": wildcardDomain,
-			"location":        viper.GetString("server.location"),
+			"location":        server_info.LeafLocation,
 		},
 		"nomad": map[string]interface{}{
 			"dc":     os.Getenv("NOMAD_DC"),
@@ -94,7 +96,7 @@ func FilterVars(variables []*TemplateVar) map[string]interface{} {
 	// Filter the variables, local takes precedence, then variables with location matching the server, then global
 	filteredVars := make(map[string]*TemplateVar, len(variables))
 	for _, variable := range variables {
-		if variable.Location == "" || variable.Location == viper.GetString("server.location") {
+		if variable.Location == "" || variable.Location == server_info.LeafLocation {
 
 			// Test if variable already in the list
 			existing, ok := filteredVars[variable.Name]

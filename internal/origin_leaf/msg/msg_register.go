@@ -11,4 +11,5 @@ type RegisterResponse struct {
 	Success        bool
 	RestrictedNode bool // flags the node is registered as a restricted node
 	Version        string
+	Location       string
 }

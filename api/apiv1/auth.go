@@ -8,7 +8,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -38,7 +38,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If this is a remote then the request needs to be forwarded to the core server
-	if origin.IsLeaf {
+	if server_info.IsLeaf {
 		log.Debug().Msg("Forwarding auth request to origin server")
 
 		client := apiclient.NewRemoteToken(viper.GetString("server.shared_token"))
@@ -73,7 +73,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// if restricted node then check token is in the users list
-		if origin.RestrictedLeaf {
+		if server_info.RestrictedLeaf {
 			tokens, _, err := client.GetTokens()
 			if err != nil {
 				rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})

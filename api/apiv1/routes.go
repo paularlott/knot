@@ -2,7 +2,7 @@ package apiv1
 
 import (
 	"github.com/paularlott/knot/internal/origin_leaf"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -122,7 +122,7 @@ func ApiRoutes() chi.Router {
 	})
 
 	// Additional endpoints exposed by origin servers
-	if origin.IsOrigin {
+	if server_info.IsOrigin {
 		// Remote server authenticated routes
 		router.Route("/leaf-server", func(router chi.Router) {
 			router.Use(middleware.LeafServerAuth)

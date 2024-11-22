@@ -9,9 +9,9 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
-	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -90,8 +90,8 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if running on a leaf then notify the origin server
-	if origin.IsLeaf {
-		token.Name += " (" + viper.GetString("server.location") + ")"
+	if server_info.IsLeaf {
+		token.Name += " (" + server_info.LeafLocation + ")"
 		origin.MirrorToken(token)
 	}
 

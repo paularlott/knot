@@ -3,6 +3,7 @@ package origin
 import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 )
 
 var (
@@ -11,7 +12,7 @@ var (
 )
 
 func DeleteSpace(id string) {
-	if IsLeaf {
+	if server_info.IsLeaf {
 		message := &msg.ClientMessage{
 			Command: msg.MSG_DELETE_SPACE,
 			Payload: &id,
@@ -22,7 +23,7 @@ func DeleteSpace(id string) {
 }
 
 func UpdateSpace(space *model.Space) {
-	if IsLeaf {
+	if server_info.IsLeaf {
 		message := &msg.ClientMessage{
 			Command: msg.MSG_UPDATE_SPACE,
 			Payload: space,

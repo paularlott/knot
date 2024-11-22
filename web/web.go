@@ -13,7 +13,7 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -340,17 +340,16 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"username":                  user.Username,
 		"user_id":                   user.Id,
 		"withDownloads":             withDownloads,
-		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers) && !origin.RestrictedLeaf,
-		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates) && !origin.RestrictedLeaf,
-		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces) && !origin.RestrictedLeaf,
-		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes) || origin.RestrictedLeaf,
+		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers) && !server_info.RestrictedLeaf,
+		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates) && !server_info.RestrictedLeaf,
+		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces) && !server_info.RestrictedLeaf,
+		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes) || server_info.RestrictedLeaf,
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
-		"hasRemoteToken":            viper.GetString("server.shared_token") != "",
-		"location":                  viper.GetString("server.location"),
-		"isOrigin":                  origin.IsOrigin,
-		"isLeaf":                    origin.IsLeaf,
-		"isOriginOrLeaf":            origin.IsOrigin || origin.IsLeaf,
-		"isRestrictedServer":        origin.RestrictedLeaf,
+		"location":                  server_info.LeafLocation,
+		"isOrigin":                  server_info.IsOrigin,
+		"isLeaf":                    server_info.IsLeaf,
+		"isOriginOrLeaf":            server_info.IsOrigin || server_info.IsLeaf,
+		"isRestrictedServer":        server_info.RestrictedLeaf,
 	}
 }
