@@ -76,7 +76,7 @@ func LeafConnectAndServe(server string) {
 			// Write a register message to the origin server
 			err = msg.WriteMessage(ws, &msg.Register{
 				Version:  build.Version,
-				Location: server_info.LeafLocation,
+				Location: viper.GetString("server.location"),
 			})
 			if err != nil {
 				log.Error().Msgf("leaf: error while writing register message: %s", err)
@@ -107,8 +107,6 @@ func LeafConnectAndServe(server string) {
 				server_info.RestrictedLeaf = true
 				server_info.LeafLocation = registerResponse.Location
 				log.Info().Msg("leaf: registered as a restricted node")
-			} else {
-				server_info.LeafLocation = viper.GetString("server.location")
 			}
 
 			// Request origin server to sync resources
