@@ -89,6 +89,9 @@ func init() {
 	serverCmd.Flags().StringP("redis-master-name", "", "", "The name of the master to use for failover clients (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME environment variable if set.")
 	serverCmd.Flags().StringP("redis-key-prefix", "", "", "The prefix to use for all keys in the redis database (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX environment variable if set.")
 
+	// Memory
+	serverCmd.Flags().BoolP("memorydb-enabled", "", false, "Enable memory database backend for session storage.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MEMORYDB_ENABLED environment variable if set.")
+
 	RootCmd.AddCommand(serverCmd)
 }
 
@@ -263,6 +266,11 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.redis.key_prefix", cmd.Flags().Lookup("redis-key-prefix"))
 		viper.BindEnv("server.redis.key_prefix", config.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX")
 		viper.SetDefault("server.redis.key_prefix", "")
+
+		// Memory
+		viper.BindPFlag("server.memorydb.enabled", cmd.Flags().Lookup("memorydb-enabled"))
+		viper.BindEnv("server.memorydb.enabled", config.CONFIG_ENV_PREFIX+"_MEMORYDB_ENABLED")
+		viper.SetDefault("server.memorydb.enabled", false)
 
 		// Set if leaf, origin or standalone server
 		if viper.GetString("server.shared_token") != "" {

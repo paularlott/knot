@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	driver_badgerdb "github.com/paularlott/knot/database/drivers/badgerdb"
+	driver_memory "github.com/paularlott/knot/database/drivers/memory"
 	driver_mysql "github.com/paularlott/knot/database/drivers/mysql"
 	driver_redis "github.com/paularlott/knot/database/drivers/redis"
 	"github.com/paularlott/knot/database/model"
@@ -127,6 +128,16 @@ func initDrivers() {
 				err := dbCacheInstance.Connect()
 				if err != nil {
 					log.Debug().Msg("db: failed to connect to redis")
+					dbCacheInstance = dbInstance
+				}
+			} else if viper.GetBool("server.memorydb.enabled") {
+				// Connect to and use MemoryDB
+				log.Debug().Msg("db: MemoryDB enabled")
+
+				dbCacheInstance = &driver_memory.MemoryDbDriver{}
+				err := dbCacheInstance.Connect()
+				if err != nil {
+					log.Debug().Msg("db: failed to connect to memorydb")
 					dbCacheInstance = dbInstance
 				}
 			} else {
