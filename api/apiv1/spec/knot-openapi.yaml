@@ -720,6 +720,7 @@ paths:
                 name:
                   type: string
                   description: The name of the token.
+                  maxLength: 255
       responses:
         '201':
           description: Successful operation. Returns the created token ID.

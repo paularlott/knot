@@ -76,6 +76,10 @@ apidocs:
 	npx @redocly/cli build-docs --output ./web/public_html/api-docs/index.html --config ./redocly-config.yaml --disableGoogleFont
 	sed -i '' 's|<script src="https.*</script>||g' ./web/public_html/api-docs/index.html
 
+## Run a preview server for the API documentation
+apidocs-preview:
+	npx @redocly/cli preview-docs api/apiv1/spec/knot-openapi.yaml
+
 ## Compile LESS/CSS and JavaScript
 webassets:
 	npx vite build
