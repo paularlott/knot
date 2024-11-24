@@ -3,7 +3,7 @@ delete:
     - Users
   summary: Delete a Session
   description: Delete a specific session for the authenticated user.
-  operaionId: DeleteSession
+  operationId: DeleteSession
   parameters:
     - name: session_id
       in: path

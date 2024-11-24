@@ -3,7 +3,7 @@ get:
     - Roles
   summary: Get a List of Roles
   description: Get the list of roles defined within the system.
-  operaionId: listRoles
+  operationId: listRoles
   responses:
     '200':
       description: A list of roles

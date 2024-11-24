@@ -54,7 +54,7 @@ delete:
   description: Delete a specified template variable.
   tags:
     - TemplateVars
-  operaionId: deleteTemplateVar
+  operationId: deleteTemplateVar
   parameters:
     - in: path
       name: templatevar_id

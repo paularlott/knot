@@ -39,7 +39,7 @@ delete:
   description: Delete a specified group.
   tags:
     - Groups
-  operaionId: deleteGroup
+  operationId: deleteGroup
   parameters:
     - in: path
       name: group_id

@@ -3,7 +3,7 @@ post:
   description: Stop all the spaces belonging to a user.
   tags:
     - Spaces
-  operaionId: stopUsersSpaces
+  operationId: stopUsersSpaces
   parameters:
     - in: path
       name: user_id

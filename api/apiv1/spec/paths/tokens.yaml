@@ -3,7 +3,7 @@ get:
   description: Get all tokens for the authenticated user.
   tags:
     - API Tokens
-  operaionId: GetTokens
+  operationId: GetTokens
   responses:
     '200':
       description: Successful operation.
@@ -34,7 +34,7 @@ post:
   description: Create a new token for the authenticated user.
   tags:
     - API Tokens
-  operaionId: CreateToken
+  operationId: CreateToken
   requestBody:
     required: true
     content:

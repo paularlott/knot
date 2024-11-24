@@ -4,7 +4,7 @@ post:
   summary: Logout
   description: |
     Terminate the users current session.
-  operaionId: LogoutUser
+  operationId: LogoutUser
   responses:
     '200':
       description: User logged out successfully
@@ -20,6 +20,3 @@ post:
       $ref: "../responses/bad-request.yaml"
     '401':
       $ref: "../responses/unauthorized.yaml"
-
-  security:
-    - BearerAuth: []

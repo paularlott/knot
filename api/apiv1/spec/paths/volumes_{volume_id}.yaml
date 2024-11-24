@@ -42,7 +42,7 @@ delete:
   description: Delete a specified volume.
   tags:
     - Volumes
-  operaionId: deleteVolume
+  operationId: deleteVolume
   parameters:
     - in: path
       name: volume_id

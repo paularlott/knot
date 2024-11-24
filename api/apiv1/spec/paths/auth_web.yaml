@@ -6,7 +6,7 @@ post:
     Authenticate a user with the server and create a web access token.
 
     A session is also opened and session cookie set within the response.
-  operaionId: LoginUser
+  operationId: LoginUser
   requestBody:
     required: true
     content:
@@ -45,6 +45,3 @@ post:
       $ref: "../responses/bad-request.yaml"
     '401':
       $ref: "../responses/unauthorized.yaml"
-
-  security:
-    - BearerAuth: []

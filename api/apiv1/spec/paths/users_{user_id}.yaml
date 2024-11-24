@@ -2,7 +2,7 @@ get:
   tags:
     - Users
   summary: Get a User
-  operaionId: getUser
+  operationId: getUser
   parameters:
     - name: user_id
       in: path
@@ -28,7 +28,7 @@ put:
     - Users
   summary: Update User
   description: Update the user data.
-  operaionId: updateUser
+  operationId: updateUser
   parameters:
     - name: user_id
       in: path
@@ -115,7 +115,7 @@ delete:
   description: Delete a user, a user can't delete themselves.
   tags:
     - Users
-  operaionId: deleteUser
+  operationId: deleteUser
   parameters:
     - in: path
       name: user_id

@@ -2,7 +2,7 @@ get:
   tags:
     - Users
   summary: Get Logged In User
-  operaionId: getWhoAmI
+  operationId: getWhoAmI
   responses:
     '200':
       description: A user

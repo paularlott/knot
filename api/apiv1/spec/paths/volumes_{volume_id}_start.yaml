@@ -3,7 +3,7 @@ post:
   description: Start a specified volume.
   tags:
     - Volumes
-  operaionId: startVolume
+  operationId: startVolume
   parameters:
     - in: path
       name: volume_id

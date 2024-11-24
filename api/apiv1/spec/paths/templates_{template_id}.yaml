@@ -53,7 +53,7 @@ delete:
   description: Delete a specified template.
   tags:
     - Templates
-  operaionId: deleteTemplate
+  operationId: deleteTemplate
   parameters:
     - in: path
       name: template_id

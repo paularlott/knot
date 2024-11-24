@@ -6,7 +6,7 @@ post:
     Create a new user.
 
     Only admin users can create users.
-  operaionId: createUser
+  operationId: createUser
   requestBody:
     required: true
     content:
@@ -97,7 +97,7 @@ get:
     - Users
   summary: Get Users
   description: Get the list of users within the system.
-  operaionId: listUsers
+  operationId: listUsers
   parameters:
   - name: state
     in: query

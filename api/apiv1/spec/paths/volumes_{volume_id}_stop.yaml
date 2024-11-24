@@ -3,7 +3,7 @@ post:
   description: Stop a specified volume.
   tags:
     - Volumes
-  operaionId: stopVolume
+  operationId: stopVolume
   parameters:
     - in: path
       name: volume_id

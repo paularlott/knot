@@ -3,7 +3,7 @@ get:
     - Proxy
   summary: Proxy a Connection
   description: Proxy a connection to a service and optional port.
-  operaionId: PorxyPort
+  operationId: ProxyPort
   parameters:
     - name: host
       in: path

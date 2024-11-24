@@ -3,7 +3,7 @@ delete:
   description: Delete a specific token for the authenticated user.
   tags:
     - API Tokens
-  operaionId: DeleteToken
+  operationId: DeleteToken
   parameters:
     - in: path
       name: token_id
