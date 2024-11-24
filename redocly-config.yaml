@@ -1,6 +1,6 @@
 apis:
   knot@v1:
-    root: ./api/apiv1/spec/openapi.yaml
+    root: ./api/apiv1/spec/knot-openapi.yaml
     theme:
       openapi:
         hideLogo: true

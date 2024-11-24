@@ -1,0 +1,2060 @@
+openapi: 3.0.3
+info:
+  version: 1.0.0
+  title: Knot API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  x-logo:
+    url: ../images/logo-light.svg
+  description: |
+    # Introduction
+    The REST API is used for the CLI, Web interface and 3rd party integrations.
+tags:
+  - name: Authorization
+    description: |
+      This API is authenticated using a bearer token. The token is passed in the Authorization header as a Bearer token.
+
+      A token can be obtained by logging in with the login endpoint and providing a valid username and password, or by creating a token with the create token endpoint.
+  - name: API Tokens
+    description: |
+      Operations for working with API tokens.
+  - name: Core
+    description: |
+      Core API endpoints.
+  - name: Proxy
+    description: |
+      Endpoints for providing proxy services.
+  - name: Spaces
+    description: |
+      Endpoints for working with spaces.
+  - name: Users
+    description: |
+      These operations are for working with users.
+paths:
+  /api/v1/users:
+    post:
+      tags:
+        - Users
+      summary: Create User
+      description: |
+        Create a new user.
+
+        Only admin users can create users.
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: user1@example.com
+                  description: The email address of the user
+                username:
+                  type: string
+                  example: user1
+                  description: The username of the user
+                password:
+                  type: string
+                  example: password
+                  description: The password of the user
+                service_password:
+                  type: string
+                  example: password
+                  description: Option service password of the user, if empty a default one will be generated
+                active:
+                  type: boolean
+                  description: Whether the user is active
+                ssh_public_key:
+                  type: string
+                  description: The SSH key for the user
+                github_username:
+                  type: string
+                  description: The GitHub username of the user
+                preferred_shell:
+                  type: string
+                  description: The preferred shell of the user
+                timezone:
+                  type: string
+                  description: The timezone of the user
+                roles:
+                  type: array
+                  items:
+                    type: string
+                    example:
+                      - 00000000-0000-0000-0000-000000000000
+                  description: The IDs of the roles assigned to the user.
+                groups:
+                  type: array
+                  items:
+                    type: string
+                    example:
+                      - 00000000-0000-0000-0000-000000000000
+                  description: The IDs of the groups assigned to the user.
+                max_spaces:
+                  type: integer
+                  description: The maximum number of spaces the user can have, 0 for unlimited.
+                max_disk_space:
+                  type: integer
+                  description: The maximum disk space the user can have, 0 for unlimited.
+              required:
+                - username
+                - password
+                - email
+                - roles
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    description: True if the user was created
+                  user_id:
+                    type: string
+                    format: uuid
+                    description: The ID of the user
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+      security:
+        - BearerAuth: []
+    get:
+      tags:
+        - Users
+      summary: Get Users
+      description: Get the list of users within the system.
+      operationId: listUsers
+      parameters:
+        - name: state
+          in: query
+          description: The sate of users to return
+          required: false
+          schema:
+            type: string
+            enum:
+              - active
+              - inactive
+              - all
+            default: all
+      responses:
+        '200':
+          description: A list of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    description: The total number of users
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+      security:
+        - BearerAuth: []
+  /api/v1/users/{user_id}:
+    get:
+      tags:
+        - Users
+      summary: Get a User
+      operationId: getUser
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: A user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+    put:
+      tags:
+        - Users
+      summary: Update User
+      description: Update the user data.
+      operationId: updateUser
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: user1@example.com
+                  description: The email address of the user
+                username:
+                  type: string
+                  example: user1
+                  description: The username of the user
+                password:
+                  type: string
+                  example: password
+                  description: The password of the user
+                service_password:
+                  type: string
+                  example: password
+                  description: Option service password of the user, if empty a default one will be generated
+                active:
+                  type: boolean
+                  description: Whether the user is active
+                ssh_public_key:
+                  type: string
+                  description: The SSH key for the user
+                github_username:
+                  type: string
+                  description: The GitHub username of the user
+                preferred_shell:
+                  type: string
+                  description: The preferred shell of the user
+                timezone:
+                  type: string
+                  description: The timezone of the user
+                roles:
+                  type: array
+                  items:
+                    type: string
+                    example:
+                      - 00000000-0000-0000-0000-000000000000
+                  description: The IDs of the roles assigned to the user.
+                groups:
+                  type: array
+                  items:
+                    type: string
+                    example:
+                      - 00000000-0000-0000-0000-000000000000
+                  description: The IDs of the groups assigned to the user.
+                max_spaces:
+                  type: integer
+                  description: The maximum number of spaces the user can have, 0 for unlimited.
+                max_disk_space:
+                  type: integer
+                  description: The maximum disk space the user can have, 0 for unlimited.
+              required:
+                - username
+                - password
+                - email
+                - roles
+      responses:
+        '200':
+          description: User updated successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+      security:
+        - BearerAuth: []
+    delete:
+      summary: Delete User
+      description: Delete a user, a user can't delete themselves.
+      tags:
+        - Users
+      operationId: deleteUser
+      parameters:
+        - in: path
+          name: user_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the user to delete.
+      responses:
+        '200':
+          description: Successful operation.
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/users/whoami:
+    get:
+      tags:
+        - Users
+      summary: Get Logged In User
+      operationId: getWhoAmI
+      responses:
+        '200':
+          description: A user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/user'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+  /api/v1/groups:
+    get:
+      summary: Get Groups
+      description: Retrieve all groups.
+      operationId: getGroups
+      tags:
+        - Groups
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    description: The total number of groups
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        group_id:
+                          type: string
+                        name:
+                          type: string
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    post:
+      summary: Create a Group
+      description: Create a new group.
+      operationId: createGroup
+      tags:
+        - Groups
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+      responses:
+        '201':
+          description: Group created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  group_id:
+                    type: string
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+      security:
+        - BearerAuth: []
+  /api/v1/groups/{group_id}:
+    put:
+      summary: Update a Group
+      description: Update a group.
+      operationId: updateGroup
+      tags:
+        - Groups
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    delete:
+      summary: Delete Group
+      description: Delete a specified group.
+      tags:
+        - Groups
+      operationId: deleteGroup
+      parameters:
+        - in: path
+          name: group_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the group to delete.
+      responses:
+        '200':
+          description: Successful operation.
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    get:
+      summary: Get a Group
+      description: Get a group.
+      operationId: getGroup
+      tags:
+        - Groups
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/roles:
+    get:
+      tags:
+        - Roles
+      summary: Get a List of Roles
+      description: Get the list of roles defined within the system.
+      operationId: listRoles
+      responses:
+        '200':
+          description: A list of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id_role:
+                      type: string
+                    role_name:
+                      type: string
+        '403':
+          $ref: '#/components/responses/forbidden'
+      security:
+        - BearerAuth: []
+  /api/v1/sessions:
+    get:
+      tags:
+        - Users
+      summary: Get Sessions
+      description: Retrieve all sessions for the authenticated user.
+      operationId: GetSessions
+      responses:
+        '200':
+          description: A list of sessions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    session_id:
+                      type: string
+                      format: uuid
+                      description: The ID of the session.
+                    ip:
+                      type: string
+                      description: The IP address of the session.
+                    user_agent:
+                      type: string
+                      description: The user agent of the session.
+                    expires_at:
+                      type: string
+                      format: date-time
+                      description: The expiration time of the session.
+                    current:
+                      type: boolean
+                      description: Whether the session is the current session.
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/sessions/{session_id}:
+    delete:
+      tags:
+        - Users
+      summary: Delete a Session
+      description: Delete a specific session for the authenticated user.
+      operationId: DeleteSession
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          description: The ID of the session to delete.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session deleted successfully.
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/auth:
+    post:
+      tags:
+        - Authorization
+      summary: Login
+      description: |
+        Authenticate a user with the server and create a web access token.
+
+        A session is also opened but no session cookie is set within the response.
+      operationId: LoginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: user1@example.com
+                  description: The email address of the user
+                password:
+                  type: string
+                  example: password
+                  description: The password of the user
+              required:
+                - username
+                - password
+                - email
+      responses:
+        '200':
+          description: User authenticated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    description: True if the user was authenticated; else false
+                  token:
+                    type: string
+                    format: uuid
+                    description: The access token for the user session
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+  /api/v1/auth/web:
+    post:
+      tags:
+        - Authorization
+      summary: Login Web User
+      description: |
+        Authenticate a user with the server and create a web access token.
+
+        A session is also opened and session cookie set within the response.
+      operationId: WebLoginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  example: user1@example.com
+                  description: The email address of the user
+                password:
+                  type: string
+                  example: password
+                  description: The password of the user
+              required:
+                - username
+                - password
+                - email
+      responses:
+        '200':
+          description: User authenticated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    description: True if the user was authenticated; else false
+                  token:
+                    type: string
+                    format: uuid
+                    description: The access token for the user session
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - Authorization
+      summary: Logout
+      description: |
+        Terminate the users current session.
+      operationId: LogoutUser
+      responses:
+        '200':
+          description: User logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    description: True if the user was logged out; else false
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+  /api/v1/tokens:
+    get:
+      summary: Get Tokens
+      description: Get all tokens for the authenticated user.
+      tags:
+        - API Tokens
+      operationId: GetTokens
+      responses:
+        '200':
+          description: Successful operation.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    token_id:
+                      type: string
+                      description: The ID of the token.
+                    name:
+                      type: string
+                      description: The name of the token.
+                    expires_at:
+                      type: string
+                      format: date-time
+                      description: The expiration date of the token.
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    post:
+      summary: Create Token
+      description: Create a new token for the authenticated user.
+      tags:
+        - API Tokens
+      operationId: CreateToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: The name of the token.
+      responses:
+        '201':
+          description: Successful operation. Returns the created token ID.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    description: The status of the operation.
+                  token_id:
+                    type: string
+                    description: The ID of the created token.
+        '400':
+          $ref: '#/components/responses/bad-request'
+      security:
+        - BearerAuth: []
+  /api/v1/tokens/{token_id}:
+    delete:
+      summary: Delete Token
+      description: Delete a specific token for the authenticated user.
+      tags:
+        - API Tokens
+      operationId: DeleteToken
+      parameters:
+        - in: path
+          name: token_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the token to delete.
+      responses:
+        '200':
+          description: Successful operation.
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/spaces:
+    get:
+      summary: Get Spaces
+      description: Retrieve all spaces for the authenticated user.
+      operationId: getSpaces
+      tags:
+        - Spaces
+      parameters:
+        - name: user_id
+          in: query
+          description: User UUID to limit the space list to.
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    description: The total number of spaces
+                  spaces:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        space_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        template_name:
+                          type: string
+                        template_id:
+                          type: string
+                          format: uuid
+                        location:
+                          type: string
+                        username:
+                          type: string
+                        user_id:
+                          type: string
+                        volume_sizes:
+                          type: integer
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    post:
+      summary: Create a Space
+      description: Create a space for the authenticated user.
+      operationId: createSpace
+      tags:
+        - Spaces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                template_id:
+                  type: string
+                location:
+                  type: string
+                shell:
+                  type: string
+                user_id:
+                  type: string
+                  format: uuid
+                alt_names:
+                  type: array
+                  items:
+                    type: string
+                volume_sizes:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '201':
+          description: Space created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  space_id:
+                    type: string
+        '400':
+          $ref: '#/components/responses/bad-request'
+      security:
+        - BearerAuth: []
+  /api/v1/spaces/{space_id}:
+    delete:
+      summary: Delete a Space
+      description: Delete a space for the authenticated user.
+      operationId: deleteSpace
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    put:
+      summary: Update a Space
+      description: Update a space for the authenticated user.
+      operationId: updateSpace
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                template_id:
+                  type: string
+                shell:
+                  type: string
+                user_id:
+                  type: string
+                  format: uuid
+                alt_names:
+                  type: array
+                  items:
+                    type: string
+                volume_sizes:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '200':
+          description: Space update successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+      security:
+        - BearerAuth: []
+    get:
+      summary: Get Space
+      description: Retrieve a specific space.
+      operationId: getSpace
+      tags:
+        - Spaces
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    user_id:
+                      type: string
+                      format: uuid
+                    template_id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                    shell:
+                      type: string
+                    location:
+                      type: string
+                    volume_sizes:
+                      type: array
+                      items:
+                        type: integer
+                    is_deployed:
+                      type: boolean
+                    is_pending:
+                      type: boolean
+                      description: If the service is pending a state change.
+                    is_deleting:
+                      type: boolean
+                      description: If the service is being deleted.
+                    alt_names:
+                      type: array
+                      items:
+                        type: string
+                    update_available:
+                      type: boolean
+                    volume_data:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                            example: 123e4567-e89b-12d3-a456-426614174000
+                          Namespace:
+                            type: string
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/spaces/{space_id}/service-state:
+    get:
+      summary: Get Service State
+      description: Get the service states for a space.
+      operationId: getSpaceServiceState
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  location:
+                    type: string
+                  has_code_server:
+                    type: boolean
+                  has_ssh:
+                    type: boolean
+                  has_http_vnc:
+                    type: boolean
+                  has_terminal:
+                    type: boolean
+                  has_vscode_tunnel:
+                    type: boolean
+                  vscode_tunnel_name:
+                    type: string
+                  is_deployed:
+                    type: boolean
+                  is_pending:
+                    type: boolean
+                    description: If the service is pending a state change.
+                  is_deleting:
+                    type: boolean
+                    description: If the service is being deleted.
+                  tcp_ports:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  http_ports:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  update_available:
+                    type: boolean
+                  is_remote:
+                    type: boolean
+      security:
+        - BearerAuth: []
+  /api/v1/spaces/{space_id}/start:
+    post:
+      summary: Start a Space
+      description: Deploy a template to the Nomad cluster creating any required volumes.
+      operationId: startSpace
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/spaces/{space_id}/stop:
+    post:
+      summary: Stop a Space
+      description: Stop the space from running, volumes are left intact.
+      operationId: stopSpace
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/spaces/stop-for-user/{user_id}:
+    post:
+      summary: Stop Users Spaces
+      description: Stop all the spaces belonging to a user.
+      tags:
+        - Spaces
+      operationId: stopUsersSpaces
+      parameters:
+        - in: path
+          name: user_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the user to stop the spaces for.
+      responses:
+        '200':
+          description: Successful operation.
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/templates:
+    get:
+      summary: Get Templates
+      description: Retrieve all templates.
+      operationId: getTemplates
+      tags:
+        - Templates
+      parameters:
+        - name: user_id
+          in: query
+          description: If given, only templates available to that user will be returned.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    description: The total number of templates
+                  templates:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        template_id:
+                          type: string
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        usage:
+                          type: integer
+                        deployed:
+                          type: integer
+                        groups:
+                          type: array
+                          items:
+                            type: string
+                            example:
+                              - 00000000-0000-0000-0000-000000000000
+                          description: The IDs of the groups assigned to the template.
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    post:
+      summary: Create a Template
+      description: Create a new template.
+      operationId: createTemplate
+      tags:
+        - Templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+                description:
+                  type: string
+                job:
+                  type: string
+                  description: A HCL formatted job Nomad job specification
+                volumes:
+                  type: string
+                  description: A YAML formatted string describing the volumes to be created
+                groups:
+                  type: array
+                  items:
+                    type: string
+                    example:
+                      - 00000000-0000-0000-0000-000000000000
+                  description: The IDs of the groups to assign to the template.
+      responses:
+        '201':
+          description: Template created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  template_id:
+                    type: string
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+      security:
+        - BearerAuth: []
+  /api/v1/templates/{template_id}:
+    put:
+      summary: Update a Template
+      description: Update a template.
+      operationId: updateTemplate
+      tags:
+        - Templates
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+                description:
+                  type: string
+                job:
+                  type: string
+                  description: A HCL formatted job Nomad job specification
+                volumes:
+                  type: string
+                  description: A YAML formatted string describing the volumes to be created
+                groups:
+                  type: array
+                  items:
+                    type: string
+                    example:
+                      - 00000000-0000-0000-0000-000000000000
+                  description: The IDs of the groups to assign to the template.
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    delete:
+      summary: Delete Template
+      description: Delete a specified template.
+      tags:
+        - Templates
+      operationId: deleteTemplate
+      parameters:
+        - in: path
+          name: template_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the template to delete.
+      responses:
+        '200':
+          description: Successful operation.
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    get:
+      summary: Get Template
+      description: Get a Template.
+      operationId: getTemplate
+      tags:
+        - Templates
+      parameters:
+        - in: path
+          name: template_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the template to get.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  job:
+                    type: string
+                    description: A HCL formatted job Nomad job specification
+                  volumes:
+                    type: string
+                    description: A YAML formatted string describing the volumes to be created
+                  usage:
+                    type: integer
+                  deployed:
+                    type: integer
+                  hash:
+                    type: string
+                  groups:
+                    type: array
+                    items:
+                      type: string
+                      example:
+                        - 00000000-0000-0000-0000-000000000000
+                    description: The IDs of the groups assigned to the template.
+                  volume_sizes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        capacity_min:
+                          type: integer
+                          description: The minimum capacity of the volume in GB
+                        capacity_max:
+                          type: integer
+                          description: The maximum capacity of the volume in GB
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/templatevars:
+    get:
+      summary: Get Template Variables
+      description: Retrieve all template variables.
+      operationId: getTemplateVars
+      tags:
+        - TemplateVars
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    description: The total number of variables
+                  variables:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        templatevar_id:
+                          type: string
+                        name:
+                          type: string
+                        location:
+                          type: string
+                        protected:
+                          type: boolean
+                        local:
+                          type: boolean
+                        restricted:
+                          type: boolean
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    post:
+      summary: Create a Template Variable
+      description: Create a new template variable.
+      operationId: createTemplateVar
+      tags:
+        - TemplateVars
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+                location:
+                  type: string
+                  maxLength: 64
+                value:
+                  type: string
+                  description: The value of the template variable.
+                protected:
+                  type: boolean
+                  description: Whether the template variable is protected with encryption.
+                local:
+                  type: boolean
+                  description: Whether the template variable is local to the server.
+                restricted:
+                  type: boolean
+                  description: Whether the template variable is restricted to trusted server.
+      responses:
+        '201':
+          description: Template variable created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  templatevar_id:
+                    type: string
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+      security:
+        - BearerAuth: []
+  /api/v1/templatevars/{templatevar_id}:
+    put:
+      summary: Update a Template Variable
+      description: Update a template variable.
+      operationId: updateTemplateVar
+      tags:
+        - TemplateVars
+      parameters:
+        - name: templatevar_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+                value:
+                  type: string
+                  description: The value of the template variable.
+                location:
+                  type: string
+                  maxLength: 64
+                protected:
+                  type: boolean
+                  description: Whether the template variable is protected with encryption.
+                local:
+                  type: boolean
+                  description: Whether the template variable is local to the server.
+                restricted:
+                  type: boolean
+                  description: Whether the template variable is restricted to trusted server.
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    delete:
+      summary: Delete Template Variable
+      description: Delete a specified template variable.
+      tags:
+        - TemplateVars
+      operationId: deleteTemplateVar
+      parameters:
+        - in: path
+          name: templatevar_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the template variable to delete.
+      responses:
+        '200':
+          description: Successful operation.
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    get:
+      summary: Get Template Variable
+      description: Get a Template Variable.
+      operationId: getTemplateVar
+      tags:
+        - TemplateVars
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  value:
+                    type: string
+                    description: The value of the template variable.
+                  protected:
+                    type: boolean
+                    description: Whether the template variable is protected with encryption.
+                  local:
+                    type: boolean
+                    description: Whether the template variable is local to the server.
+                  restricted:
+                    type: boolean
+                    description: Whether the template variable is restricted to trusted server.
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/volumes:
+    get:
+      summary: Get Volumes
+      description: Retrieve all volumes.
+      operationId: getVolumes
+      tags:
+        - Volumes
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    description: The total number of volumes
+                  volumes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        volume_id:
+                          type: string
+                        name:
+                          type: string
+                        active:
+                          type: boolean
+                        location:
+                          type: string
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    post:
+      summary: Create a Volume
+      description: Create a new volume.
+      operationId: createVolume
+      tags:
+        - Volumes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+                definition:
+                  type: string
+                  description: A YAML formatted string describing the volume to be created
+      responses:
+        '201':
+          description: Volume created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  volume_id:
+                    type: string
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+      security:
+        - BearerAuth: []
+  /api/v1/volumes/{volume_id}:
+    put:
+      summary: Update a Volume
+      description: Update a volume.
+      operationId: updateVolume
+      tags:
+        - Volumes
+      parameters:
+        - name: volume_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+                definition:
+                  type: string
+                  description: A YAML formatted string describing the volume to be created
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    delete:
+      summary: Delete Volume
+      description: Delete a specified volume.
+      tags:
+        - Volumes
+      operationId: deleteVolume
+      parameters:
+        - in: path
+          name: volume_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the volume to delete.
+      responses:
+        '200':
+          description: Successful operation.
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+    get:
+      summary: Get Volume
+      description: Get a Volume.
+      operationId: getVolume
+      tags:
+        - Volumes
+      parameters:
+        - in: path
+          name: volume_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the volume to get.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  definition:
+                    type: string
+                    description: A YAML formatted string describing the volumes to be created
+                  location:
+                    type: string
+                  active:
+                    type: boolean
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/volumes/{volume_id}/start:
+    post:
+      summary: Start a Volume
+      description: Start a specified volume.
+      tags:
+        - Volumes
+      operationId: startVolume
+      parameters:
+        - in: path
+          name: volume_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the volume to start.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  location:
+                    type: string
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /api/v1/volumes/{volume_id}/stop:
+    post:
+      summary: Stop a Volume
+      description: Stop a specified volume.
+      tags:
+        - Volumes
+      operationId: stopVolume
+      parameters:
+        - in: path
+          name: volume_id
+          schema:
+            type: string
+          required: true
+          description: The ID of the volume to stop.
+      responses:
+        '200':
+          description: Successful operation.
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+  /proxy/port/{host}/{port}:
+    get:
+      tags:
+        - Proxy
+      summary: Proxy a Connection
+      description: Proxy a connection to a service and optional port.
+      operationId: ProxyPort
+      parameters:
+        - name: host
+          in: path
+          required: true
+          description: The host or service to connect to.
+          schema:
+            type: string
+        - name: port
+          in: path
+          required: true
+          description: The port to connect to or 0 to use a SRV record lookup against the host to find the port.
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Connected.
+        '401':
+          $ref: '#/components/responses/unauthorized'
+      security:
+        - BearerAuth: []
+  /api/v1/lookup/{service}:
+    get:
+      tags:
+        - Core
+      summary: Lookup
+      description: Lookup a service via DNS SRV or A record.
+      parameters:
+        - name: service
+          in: path
+          description: The name of the service to lookup
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service found successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    description: True if the service was found
+                  host:
+                    type: string
+                    example: host.service.consul
+                    description: The host of the service
+                  port:
+                    type: integer
+                    format: int32
+                    example: 8080
+                    description: The port of the service
+      security:
+        - BearerAuth: []
+  /api/v1/ping:
+    get:
+      tags:
+        - Core
+      summary: Ping
+      description: Ping the server and get a health response.
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                    description: True if the server is healthy
+                  version:
+                    type: string
+                    example: 1.0.0
+                    description: The version string
+      security:
+        - BearerAuth: []
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    User:
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: The ID of the user
+        username:
+          type: string
+          description: The username of the user
+        email:
+          type: string
+          description: The email of the user
+        roles:
+          type: array
+          items:
+            type: string
+          description: The roles of the user
+        groups:
+          type: array
+          items:
+            type: string
+          description: The groups of the user
+        active:
+          type: boolean
+          description: Whether the user is active
+        current:
+          type: boolean
+          description: Whether the user is the current user
+        last_login_at:
+          type: string
+          format: date-time
+          description: The last login date and time of the user (UTC)
+        max_spaces:
+          type: integer
+          description: The maximum number of spaces the user can have, 0 for unlimited.
+        max_disk_space:
+          type: integer
+          description: The maximum disk space the user can have, 0 for unlimited.
+        number_spaces:
+          type: integer
+          description: The number of spaces the user has
+        number_spaces_deployed:
+          type: integer
+          description: The number of spaces the user has deployed currently
+        number_spaces_deployed_in_location:
+          type: integer
+          description: The number of spaces the user has deployed currently within the location
+        used_disk_space:
+          type: integer
+          description: The disk space used by the user
+    error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: The error message
+    user:
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: The ID of the user
+        username:
+          type: string
+          description: The username of the user
+        email:
+          type: string
+          description: The email of the user
+        service_password:
+          type: string
+          example: password
+          description: Option service password of the user, if empty a default one will be generated
+        roles:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The roles of the user
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The groups of the user
+        active:
+          type: boolean
+          description: Whether the user is active
+        current:
+          type: boolean
+          description: Whether the user is the current user
+        last_login_at:
+          type: string
+          format: date-time
+          description: The last login time of the user
+        created_at:
+          type: string
+          format: date-time
+          description: The date and time the user was created
+        updated_at:
+          type: string
+          format: date-time
+          description: The date and time the user was last updated
+        github_username:
+          type: string
+          description: The GitHub username of the user
+        ssh_public_key:
+          type: string
+          description: The SSH key for the user
+        preferred_shell:
+          type: string
+          description: The preferred shell of the user
+        timezone:
+          type: string
+          description: The timezone of the user
+        max_spaces:
+          type: integer
+          description: The maximum number of spaces the user can have, 0 for unlimited
+        max_disk_space:
+          type: integer
+          description: The maximum disk space the user can have, 0 for unlimited.
+  responses:
+    bad-request:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+    forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+    not-found:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+    internal-server-error:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+    locked:
+      description: Locked
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+    unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
