@@ -134,10 +134,10 @@ create-release:
 run-server:
 	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --agent-path=./web/agents
 
-.PHONY: run-remote
-## Run a remote server for development
-run-remote:
-	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-moon.yml
+.PHONY: run-leaf
+## Run a leaf server for development
+run-leaf:
+	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf1.yml
 
 .PHONY: help
 ## This help screen
