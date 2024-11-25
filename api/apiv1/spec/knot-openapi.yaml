@@ -16,7 +16,7 @@ tags:
       This API is authenticated using a bearer token. The token is passed in the Authorization header as a Bearer token.
 
       A token can be obtained by logging in with the login endpoint and providing a valid username and password, or by creating a token with the create token endpoint.
-  - name: API Tokens
+  - name: Tokens
     description: |
       Operations for working with API tokens.
   - name: Core
@@ -327,22 +327,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  count:
-                    type: integer
-                    description: The total number of groups
-                  groups:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        group_id:
-                          type: string
-                        name:
-                          type: string
-        '403':
-          $ref: '#/components/responses/forbidden'
+                $ref: '#/components/schemas/GroupInfoList'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
@@ -358,29 +345,23 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  maxLength: 64
+              $ref: '#/components/schemas/UserGroupRequest'
       responses:
         '201':
-          description: Group created successfully
+          description: Group created successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: boolean
-                  group_id:
-                    type: string
+                $ref: '#/components/schemas/GroupResponse'
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
       security:
         - BearerAuth: []
+
   /api/v1/groups/{group_id}:
     put:
       summary: Update a Group
@@ -394,21 +375,21 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
+            description: The ID of the group to update.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  maxLength: 64
+              $ref: '#/components/schemas/UserGroupRequest'
       responses:
         '200':
           description: Successful operation
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
         '404':
@@ -417,6 +398,7 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     delete:
       summary: Delete Group
       description: Delete a specified group.
@@ -428,11 +410,14 @@ paths:
           name: group_id
           schema:
             type: string
+            format: uuid
           required: true
           description: The ID of the group to delete.
       responses:
         '200':
           description: Successful operation.
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
         '404':
@@ -443,31 +428,37 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     get:
       summary: Get a Group
       description: Get a group.
       operationId: getGroup
       tags:
         - Groups
+      parameters:
+        - in: path
+          name: group_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the group to get.
       responses:
         '200':
           description: Successful operation
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  name:
-                    type: string
+                $ref: '#/components/schemas/GroupInfo'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        '404':
+          $ref: '#/components/responses/not-found'
       security:
         - BearerAuth: []
+
   /api/v1/roles:
     get:
       tags:
@@ -569,39 +560,21 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                email:
-                  type: string
-                  example: user1@example.com
-                  description: The email address of the user
-                password:
-                  type: string
-                  example: password
-                  description: The password of the user
-              required:
-                - username
-                - password
-                - email
+              $ref: '#/components/schemas/AuthLoginRequest'
       responses:
         '200':
           description: User authenticated successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: boolean
-                    description: True if the user was authenticated; else false
-                  token:
-                    type: string
-                    format: uuid
-                    description: The access token for the user session
+                $ref: '#/components/schemas/AuthLoginResponse'
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
           $ref: '#/components/responses/unauthorized'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+
   /api/v1/auth/web:
     post:
       tags:
@@ -617,39 +590,21 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                email:
-                  type: string
-                  example: user1@example.com
-                  description: The email address of the user
-                password:
-                  type: string
-                  example: password
-                  description: The password of the user
-              required:
-                - username
-                - password
-                - email
+              $ref: '#/components/schemas/AuthLoginRequest'
       responses:
         '200':
           description: User authenticated successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: boolean
-                    description: True if the user was authenticated; else false
-                  token:
-                    type: string
-                    format: uuid
-                    description: The access token for the user session
+                $ref: '#/components/schemas/AuthLoginResponse'
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
           $ref: '#/components/responses/unauthorized'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+
   /api/v1/auth/logout:
     post:
       tags:
@@ -664,21 +619,16 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: boolean
-                    description: True if the user was logged out; else false
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
+                $ref: '#/components/schemas/AuthLogoutResponse'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+
   /api/v1/tokens:
     get:
       summary: Get Tokens
       description: Get all tokens for the authenticated user.
       tags:
-        - API Tokens
+        - Tokens
       operationId: GetTokens
       responses:
         '200':
@@ -708,7 +658,7 @@ paths:
       summary: Create Token
       description: Create a new token for the authenticated user.
       tags:
-        - API Tokens
+        - Tokens
       operationId: CreateToken
       requestBody:
         required: true
@@ -744,7 +694,7 @@ paths:
       summary: Delete Token
       description: Delete a specific token for the authenticated user.
       tags:
-        - API Tokens
+        - Tokens
       operationId: DeleteToken
       parameters:
         - in: path
@@ -1900,6 +1850,92 @@ components:
       type: http
       scheme: bearer
   schemas:
+    AuthLoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+          description: The email address of the user
+        password:
+          type: string
+          example: password
+          description: The password of the user
+      required:
+        - email
+        - password
+
+    AuthLoginResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+          description: The status of the operation, true if successful login.
+        token:
+          type: string
+          format: uuid
+          description: The token for the user session.
+
+    AuthLogoutResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+          description: The status of the operation, true if successful logout.
+
+    GroupInfo:
+      type: object
+      properties:
+        group_id:
+          type: string
+          format: uuid
+          description: The ID of the group.
+        name:
+          type: string
+          description: The name of the group.
+
+    GroupInfoList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 1
+          description: The total number of groups.
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupInfo'
+
+    UserGroupRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "my group"
+          maxLength: 64
+          description: The name of the group.
+
+    GroupResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+          description: The status of the operation, true if successful.
+        group_id:
+          type: string
+          format: uuid
+          description: The ID of the group.
+
+    error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: The error message.
+
     User:
       type: object
       properties:
@@ -1950,14 +1986,7 @@ components:
         used_disk_space:
           type: integer
           description: The disk space used by the user
-    error:
-      type: object
-      required:
-        - error
-      properties:
-        error:
-          type: string
-          description: The error message
+
     user:
       type: object
       properties:

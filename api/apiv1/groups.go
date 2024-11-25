@@ -80,7 +80,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 
 		group, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -157,7 +157,7 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 		db := database.GetInstance()
 		group, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
 			return
 		}
 
