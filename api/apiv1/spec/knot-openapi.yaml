@@ -478,12 +478,14 @@ paths:
                   properties:
                     id_role:
                       type: string
+                      format: uuid
                     role_name:
                       type: string
-        '403':
-          $ref: '#/components/responses/forbidden'
+        '401':
+          $ref: '#/components/responses/unauthorized'
       security:
         - BearerAuth: []
+
   /api/v1/sessions:
     get:
       tags:
@@ -499,29 +501,14 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    session_id:
-                      type: string
-                      format: uuid
-                      description: The ID of the session.
-                    ip:
-                      type: string
-                      description: The IP address of the session.
-                    user_agent:
-                      type: string
-                      description: The user agent of the session.
-                    expires_at:
-                      type: string
-                      format: date-time
-                      description: The expiration time of the session.
-                    current:
-                      type: boolean
-                      description: Whether the session is the current session.
+                  $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/sessions/{session_id}:
     delete:
       tags:
@@ -536,15 +523,19 @@ paths:
           description: The ID of the session to delete.
           schema:
             type: string
+            format: uuid
       responses:
         '200':
           description: Session deleted successfully.
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '404':
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/auth:
     post:
       tags:
@@ -620,6 +611,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthLogoutResponse'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
 
@@ -712,17 +705,18 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/spaces:
     get:
       summary: Get Spaces
-      description: Retrieve all spaces for the authenticated user.
+      description: Retrieve all spaces for a user.
       operationId: getSpaces
       tags:
         - Spaces
       parameters:
         - name: user_id
           in: query
-          description: User UUID to limit the space list to.
+          description: Optional user to limit the space list to, if not given then the current authenticated user will be used.
           required: false
           schema:
             type: string
@@ -733,38 +727,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  count:
-                    type: integer
-                    description: The total number of spaces
-                  spaces:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        space_id:
-                          type: string
-                          format: uuid
-                        name:
-                          type: string
-                        template_name:
-                          type: string
-                        template_id:
-                          type: string
-                          format: uuid
-                        location:
-                          type: string
-                        username:
-                          type: string
-                        user_id:
-                          type: string
-                        volume_sizes:
-                          type: integer
+                $ref: '#/components/schemas/SpaceInfoList'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     post:
       summary: Create a Space
       description: Create a space for the authenticated user.
@@ -776,27 +746,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                template_id:
-                  type: string
-                location:
-                  type: string
-                shell:
-                  type: string
-                user_id:
-                  type: string
-                  format: uuid
-                alt_names:
-                  type: array
-                  items:
-                    type: string
-                volume_sizes:
-                  type: array
-                  items:
-                    type: integer
+              $ref: '#/components/schemas/SpaceRequest'
       responses:
         '201':
           description: Space created successfully
@@ -807,12 +757,24 @@ paths:
                 properties:
                   status:
                     type: boolean
+                    description: True if the space was created.
                   space_id:
                     type: string
+                    format: uuid
+                    description: The ID of the created space.
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        '507':
+          $ref: '#/components/responses/insufficient-storage'
       security:
         - BearerAuth: []
+
   /api/v1/spaces/{space_id}:
     delete:
       summary: Delete a Space
@@ -826,9 +788,13 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
+            description: The ID of the space to delete.
       responses:
         '200':
           description: Successful operation
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '404':
           $ref: '#/components/responses/not-found'
         '423':
@@ -837,6 +803,7 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     put:
       summary: Update a Space
       description: Update a space for the authenticated user.
@@ -849,43 +816,42 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
+            description: The ID of the space to update.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                template_id:
-                  type: string
-                shell:
-                  type: string
-                user_id:
-                  type: string
-                  format: uuid
-                alt_names:
-                  type: array
-                  items:
-                    type: string
-                volume_sizes:
-                  type: array
-                  items:
-                    type: integer
+              $ref: '#/components/schemas/SpaceRequest'
       responses:
         '200':
           description: Space update successfully
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     get:
-      summary: Get Space
+      summary: Get a Space
       description: Retrieve a specific space.
       operationId: getSpace
       tags:
         - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space to get.
       responses:
         '200':
           description: Successful operation
@@ -894,58 +860,19 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    user_id:
-                      type: string
-                      format: uuid
-                    template_id:
-                      type: string
-                      format: uuid
-                    name:
-                      type: string
-                    shell:
-                      type: string
-                    location:
-                      type: string
-                    volume_sizes:
-                      type: array
-                      items:
-                        type: integer
-                    is_deployed:
-                      type: boolean
-                    is_pending:
-                      type: boolean
-                      description: If the service is pending a state change.
-                    is_deleting:
-                      type: boolean
-                      description: If the service is being deleted.
-                    alt_names:
-                      type: array
-                      items:
-                        type: string
-                    update_available:
-                      type: boolean
-                    volume_data:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                            format: uuid
-                            example: 123e4567-e89b-12d3-a456-426614174000
-                          Namespace:
-                            type: string
+                  $ref: '#/components/schemas/SpaceDefinition'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '404':
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/spaces/{space_id}/service-state:
     get:
-      summary: Get Service State
+      summary: Get Space State
       description: Get the service states for a space.
       operationId: getSpaceServiceState
       tags:
@@ -956,56 +883,28 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
+            description: The ID of the space to get the service state for.
       responses:
         '200':
           description: Successful operation
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  name:
-                    type: string
-                  location:
-                    type: string
-                  has_code_server:
-                    type: boolean
-                  has_ssh:
-                    type: boolean
-                  has_http_vnc:
-                    type: boolean
-                  has_terminal:
-                    type: boolean
-                  has_vscode_tunnel:
-                    type: boolean
-                  vscode_tunnel_name:
-                    type: string
-                  is_deployed:
-                    type: boolean
-                  is_pending:
-                    type: boolean
-                    description: If the service is pending a state change.
-                  is_deleting:
-                    type: boolean
-                    description: If the service is being deleted.
-                  tcp_ports:
-                    type: object
-                    additionalProperties:
-                      type: string
-                  http_ports:
-                    type: object
-                    additionalProperties:
-                      type: string
-                  update_available:
-                    type: boolean
-                  is_remote:
-                    type: boolean
+                $ref: '#/components/schemas/SpaceServiceState'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/spaces/{space_id}/start:
     post:
       summary: Start a Space
-      description: Deploy a template to the Nomad cluster creating any required volumes.
+      description: Deploy a space to the Nomad cluster creating any required volumes.
       operationId: startSpace
       tags:
         - Spaces
@@ -1015,17 +914,24 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
+            description: The ID of the space to start.
       responses:
         '200':
           description: Successful operation
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '404':
           $ref: '#/components/responses/not-found'
+        '406':
+          $ref: '#/components/responses/not-acceptable'
         '423':
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/spaces/{space_id}/stop:
     post:
       summary: Stop a Space
@@ -1039,9 +945,13 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
+            description: The ID of the space to stop.
       responses:
         '200':
           description: Successful operation
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '404':
           $ref: '#/components/responses/not-found'
         '423':
@@ -1050,6 +960,7 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/spaces/stop-for-user/{user_id}:
     post:
       summary: Stop Users Spaces
@@ -1067,16 +978,15 @@ paths:
       responses:
         '200':
           description: Successful operation.
-        '403':
-          $ref: '#/components/responses/forbidden'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '404':
           $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/templates:
     get:
       summary: Get Templates
@@ -1786,6 +1696,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
       security:
         - BearerAuth: []
+
   /api/v1/lookup/{service}:
     get:
       tags:
@@ -1805,22 +1716,12 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: boolean
-                    description: True if the service was found
-                  host:
-                    type: string
-                    example: host.service.consul
-                    description: The host of the service
-                  port:
-                    type: integer
-                    format: int32
-                    example: 8080
-                    description: The port of the service
+                $ref: '#/components/schemas/LookupResponse'
+        '401':
+          $ref: '#/components/responses/unauthorized'
       security:
         - BearerAuth: []
+
   /api/v1/ping:
     get:
       tags:
@@ -1833,17 +1734,12 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: boolean
-                    description: True if the server is healthy
-                  version:
-                    type: string
-                    example: 1.0.0
-                    description: The version string
+                $ref: '#/components/schemas/PingResponse'
+        '401':
+          $ref: '#/components/responses/unauthorized'
       security:
         - BearerAuth: []
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1926,6 +1822,244 @@ components:
           type: string
           format: uuid
           description: The ID of the group.
+
+    LookupResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+          description: True if the service was found.
+        host:
+          type: string
+          example: host.service.consul
+          description: The host of the service.
+        port:
+          type: integer
+          format: int32
+          example: 8080
+          description: The port of the service.
+
+    PingResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+          description: True if the server is healthy.
+        version:
+          type: string
+          example: 1.0.0
+          description: The server version string.
+
+    SessionResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          description: The ID of the session.
+        ip:
+          type: string
+          description: The IP address of the session.
+        user_agent:
+          type: string
+          description: The user agent of the session.
+        expires_at:
+          type: string
+          format: date-time
+          description: The expiration time of the session.
+        current:
+          type: boolean
+          description: True if the session is the current session.
+
+    SpaceInfo:
+      type: object
+      properties:
+        space_id:
+          type: string
+          format: uuid
+          description: The ID of the space.
+        name:
+          type: string
+          description: The name of the space.
+        template_name:
+          type: string
+          description: The name of the template the space was created from.
+        template_id:
+          type: string
+          format: uuid
+          description: The ID of the template the space was created from.
+        location:
+          type: string
+          description: The location of the space.
+        username:
+          type: string
+          description: The username of the user the space belongs to.
+        user_id:
+          type: string
+          format: uuid
+          description: The ID of the user the space belongs to.
+        volume_sizes:
+          type: integer
+          description: The volume size of the space.
+
+    SpaceInfoList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 1
+          description: The total number of spaces.
+        spaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpaceInfo'
+
+    SpaceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 64
+          example: "my space"
+          description: The name of the space.
+        template_id:
+          type: string
+          format: uuid
+          description: The ID of the template to create the space from.
+        location:
+          type: string
+          description: The location of the space.
+        shell:
+          type: string
+          enum: [bash, zsh, fish, sh]
+          description: The shell to use in the space.
+        user_id:
+          type: string
+          format: uuid
+          description: The ID of the user to create the space for.
+        alt_names:
+          type: array
+          items:
+            type: string
+          description: The alternative names for the space.
+        volume_sizes:
+          type: object
+          additionalProperties:
+            type: integer
+          description: The volume sizes for the space.
+
+    SpaceVolume:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+          description: The ID of the volume.
+        Namespace:
+          type: string
+          description: The namespace of the volume.
+
+    SpaceDefinition:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: The ID of the user the space belongs to.
+        template_id:
+          type: string
+          format: uuid
+          description: The ID of the template the space was created from.
+        name:
+          type: string
+          description: The name of the space.
+        shell:
+          type: string
+          enum: [bash, zsh, fish, sh]
+          description: The shell to use in the space.
+        location:
+          type: string
+          description: The location of the space.
+        volume_sizes:
+          type: array
+          items:
+            type: integer
+          description: The volume sizes for the space.
+        is_deployed:
+          type: boolean
+          description: Flags if the space is deployed.
+        is_pending:
+          type: boolean
+          description: If the space is pending a state change.
+        is_deleting:
+          type: boolean
+          description: If the space is being deleted.
+        alt_names:
+          type: array
+          items:
+            type: string
+          description: The alternative names for the space.
+        update_available:
+          type: boolean
+          description: If an update is available for the space.
+        volume_data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpaceVolume'
+
+    SpaceServiceState:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the space.
+        location:
+          type: string
+          description: The location of the space.
+        has_code_server:
+          type: boolean
+          description: If the space has a running code server.
+        has_ssh:
+          type: boolean
+          description: If the space has a running SSH server.
+        has_http_vnc:
+          type: boolean
+          description: If the space has a running HTTP VNC server.
+        has_terminal:
+          type: boolean
+          description: If the space can support a web terminal.
+        has_vscode_tunnel:
+          type: boolean
+          description: If the space has a running VSCode tunnel.
+        vscode_tunnel_name:
+          type: string
+          description: The name of the VSCode tunnel.
+        is_deployed:
+          type: boolean
+          description: If the space is deployed.
+        is_pending:
+          type: boolean
+          description: If the space is pending a state change.
+        is_deleting:
+          type: boolean
+          description: If the space is being deleted.
+        tcp_ports:
+          type: object
+          additionalProperties:
+            type: string
+          description: A list of the available TCP ports exposed by the space.
+        http_ports:
+          type: object
+          additionalProperties:
+            type: string
+          description: A list of the available HTTP ports exposed by the space.
+        update_available:
+          type: boolean
+          description: If an update is available for the space.
+        is_remote:
+          type: boolean
+          description: Flags if the space is on a server other than the current one.
 
     error:
       type: object
@@ -2084,6 +2218,18 @@ components:
             $ref: '#/components/schemas/error'
     unauthorized:
       description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+    insufficient-storage:
+      description: Insufficient Storage
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+    not-acceptable:
+      description: Not Acceptable
       content:
         application/json:
           schema:
