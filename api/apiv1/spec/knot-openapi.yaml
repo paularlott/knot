@@ -1000,45 +1000,25 @@ paths:
           description: If given, only templates available to that user will be returned.
           schema:
             type: string
+            format: uuid
       responses:
         '200':
           description: Successful operation
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  count:
-                    type: integer
-                    description: The total number of templates
-                  templates:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        template_id:
-                          type: string
-                        name:
-                          type: string
-                        description:
-                          type: string
-                        usage:
-                          type: integer
-                        deployed:
-                          type: integer
-                        groups:
-                          type: array
-                          items:
-                            type: string
-                            example:
-                              - 00000000-0000-0000-0000-000000000000
-                          description: The IDs of the groups assigned to the template.
+                $ref: '#/components/schemas/TemplateList'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     post:
       summary: Create a Template
       description: Create a new template.
@@ -1050,26 +1030,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  maxLength: 64
-                description:
-                  type: string
-                job:
-                  type: string
-                  description: A HCL formatted job Nomad job specification
-                volumes:
-                  type: string
-                  description: A YAML formatted string describing the volumes to be created
-                groups:
-                  type: array
-                  items:
-                    type: string
-                    example:
-                      - 00000000-0000-0000-0000-000000000000
-                  description: The IDs of the groups to assign to the template.
+              $ref: '#/components/schemas/TemplateRequest'
       responses:
         '201':
           description: Template created successfully
@@ -1080,14 +1041,22 @@ paths:
                 properties:
                   status:
                     type: boolean
+                    description: True if the template was created.
                   template_id:
                     type: string
+                    format: uuid
+                    description: The ID of the created template.
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/templates/{template_id}:
     put:
       summary: Update a Template
@@ -1101,36 +1070,21 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
+            description: The ID of the template to update.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  maxLength: 64
-                description:
-                  type: string
-                job:
-                  type: string
-                  description: A HCL formatted job Nomad job specification
-                volumes:
-                  type: string
-                  description: A YAML formatted string describing the volumes to be created
-                groups:
-                  type: array
-                  items:
-                    type: string
-                    example:
-                      - 00000000-0000-0000-0000-000000000000
-                  description: The IDs of the groups to assign to the template.
+              $ref: '#/components/schemas/TemplateRequest'
       responses:
         '200':
           description: Successful operation
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
         '404':
@@ -1139,6 +1093,7 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     delete:
       summary: Delete Template
       description: Delete a specified template.
@@ -1150,11 +1105,16 @@ paths:
           name: template_id
           schema:
             type: string
+            format: uuid
           required: true
           description: The ID of the template to delete.
       responses:
         '200':
           description: Successful operation.
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
         '404':
@@ -1165,6 +1125,7 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     get:
       summary: Get Template
       description: Get a Template.
@@ -1184,52 +1145,18 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  name:
-                    type: string
-                  description:
-                    type: string
-                  job:
-                    type: string
-                    description: A HCL formatted job Nomad job specification
-                  volumes:
-                    type: string
-                    description: A YAML formatted string describing the volumes to be created
-                  usage:
-                    type: integer
-                  deployed:
-                    type: integer
-                  hash:
-                    type: string
-                  groups:
-                    type: array
-                    items:
-                      type: string
-                      example:
-                        - 00000000-0000-0000-0000-000000000000
-                    description: The IDs of the groups assigned to the template.
-                  volume_sizes:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        name:
-                          type: string
-                        capacity_min:
-                          type: integer
-                          description: The minimum capacity of the volume in GB
-                        capacity_max:
-                          type: integer
-                          description: The maximum capacity of the volume in GB
+                $ref: '#/components/schemas/TemplateDetails'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/templatevars:
     get:
       summary: Get Template Variables
@@ -2060,6 +1987,120 @@ components:
         is_remote:
           type: boolean
           description: Flags if the space is on a server other than the current one.
+
+    TemplateInfo:
+      type: object
+      properties:
+        template_id:
+          type: string
+          format: uuid
+          description: The ID of the template.
+        name:
+          type: string
+          description: The name of the template.
+        description:
+          type: string
+          description: The description of the template.
+        usage:
+          type: integer
+          description: The number of spaces currently using the template.
+        deployed:
+          type: integer
+          description: The number of spaces currently deployed using the template.
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 00000000-0000-0000-0000-000000000000
+          description: The IDs of the groups assigned to the template.
+
+    TemplateList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 1
+          description: The total number of templates.
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateInfo'
+
+    TemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 64
+          example: "my template"
+          description: The name of the template.
+        description:
+          type: string
+          description: The description of the template.
+        job:
+          type: string
+          description: A HCL formatted job Nomad job specification
+        volumes:
+          type: string
+          description: A YAML formatted string describing the volumes to be created
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 00000000-0000-0000-0000-000000000000
+          description: The IDs of the groups to assign to the template.
+
+    TemplateDetails:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the template.
+        description:
+          type: string
+          description: The description of the template.
+        job:
+          type: string
+          description: The HCL formatted job Nomad job specification
+        volumes:
+          type: string
+          description: A YAML formatted string describing the volumes to be created
+        usage:
+          type: integer
+          description: The number of spaces currently using the template.
+        deployed:
+          type: integer
+          description: The number of spaces currently deployed using the template.
+        hash:
+          type: string
+          description: The hash of the template.
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 00000000-0000-0000-0000-000000000000
+          description: The IDs of the groups assigned to the template.
+        volume_sizes:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+                description: The ID of the volume.
+              name:
+                type: string
+                description: The name of the volume.
+              capacity_min:
+                type: integer
+                description: The minimum capacity of the volume in GB
+              capacity_max:
+                type: integer
+                description: The maximum capacity of the volume in GB
 
     error:
       type: object

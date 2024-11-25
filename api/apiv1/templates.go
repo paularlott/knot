@@ -261,7 +261,7 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	} else {
 		template, err := database.GetInstance().GetTemplate(templateId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
 			return
 		}
 
