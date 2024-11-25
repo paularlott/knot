@@ -57,6 +57,11 @@ $(addsuffix -agent,$(AGENT_PLATFORMS)):
 checksums:
 	shasum -a 256 $(OUTPUT_DIR)/*.zip
 
+.PHONY: homebrew-formula
+## Generate the Homebrew formula
+homebrew-formula:
+	go run ./scripts/homebrew-formula/ > ../homebrew-tap/Formula/knot.rb
+
 .PHONY: legal
 ## Collect the licence files from dependancies and copy them to the legal directory
 legal: legal/license.txt legal/notice.txt
@@ -111,7 +116,7 @@ container:
 
 .PHONY: release
 ## Tag, build, and create a GitHub release
-release: tag all container create-release checksums
+release: tag all container create-release checksums homebrew-formula
 
 .PHONY: tag
 ## Tag the current code
