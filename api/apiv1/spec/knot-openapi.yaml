@@ -32,6 +32,7 @@ tags:
     description: |
       These operations are for working with users.
 paths:
+
   /api/v1/users:
     post:
       tags:
@@ -48,63 +49,7 @@ paths:
           application/json:
             schema:
               type: object
-              properties:
-                email:
-                  type: string
-                  example: user1@example.com
-                  description: The email address of the user
-                username:
-                  type: string
-                  example: user1
-                  description: The username of the user
-                password:
-                  type: string
-                  example: password
-                  description: The password of the user
-                service_password:
-                  type: string
-                  example: password
-                  description: Option service password of the user, if empty a default one will be generated
-                active:
-                  type: boolean
-                  description: Whether the user is active
-                ssh_public_key:
-                  type: string
-                  description: The SSH key for the user
-                github_username:
-                  type: string
-                  description: The GitHub username of the user
-                preferred_shell:
-                  type: string
-                  description: The preferred shell of the user
-                timezone:
-                  type: string
-                  description: The timezone of the user
-                roles:
-                  type: array
-                  items:
-                    type: string
-                    example:
-                      - 00000000-0000-0000-0000-000000000000
-                  description: The IDs of the roles assigned to the user.
-                groups:
-                  type: array
-                  items:
-                    type: string
-                    example:
-                      - 00000000-0000-0000-0000-000000000000
-                  description: The IDs of the groups assigned to the user.
-                max_spaces:
-                  type: integer
-                  description: The maximum number of spaces the user can have, 0 for unlimited.
-                max_disk_space:
-                  type: integer
-                  description: The maximum disk space the user can have, 0 for unlimited.
-              required:
-                - username
-                - password
-                - email
-                - roles
+              $ref: '#/components/schemas/userRequest'
       responses:
         '201':
           description: User created successfully
@@ -115,17 +60,20 @@ paths:
                 properties:
                   status:
                     type: boolean
-                    description: True if the user was created
+                    description: True if the user was created.
                   user_id:
                     type: string
                     format: uuid
-                    description: The ID of the user
+                    description: The ID of the user.
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
       security:
         - BearerAuth: []
+
     get:
       tags:
         - Users
@@ -144,6 +92,12 @@ paths:
               - inactive
               - all
             default: all
+        - name: location
+          in: query
+          description: If given tracks the number of spaces the user has deployed in the given location.
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: A list of users
@@ -158,13 +112,18 @@ paths:
                   users:
                     type: array
                     items:
-                      $ref: '#/components/schemas/User'
+                      $ref: '#/components/schemas/UserInfo'
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/users/{user_id}:
     get:
       tags:
@@ -175,21 +134,28 @@ paths:
         - name: user_id
           in: path
           required: true
-          description: The ID of the user
+          description: The ID of the user to get.
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: A user
+          description: A user object
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/user'
+                $ref: '#/components/schemas/UserResponse'
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+      security:
+        - BearerAuth: []
+
     put:
       tags:
         - Users
@@ -203,78 +169,27 @@ paths:
           description: The ID of the user
           schema:
             type: string
+            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                email:
-                  type: string
-                  example: user1@example.com
-                  description: The email address of the user
-                username:
-                  type: string
-                  example: user1
-                  description: The username of the user
-                password:
-                  type: string
-                  example: password
-                  description: The password of the user
-                service_password:
-                  type: string
-                  example: password
-                  description: Option service password of the user, if empty a default one will be generated
-                active:
-                  type: boolean
-                  description: Whether the user is active
-                ssh_public_key:
-                  type: string
-                  description: The SSH key for the user
-                github_username:
-                  type: string
-                  description: The GitHub username of the user
-                preferred_shell:
-                  type: string
-                  description: The preferred shell of the user
-                timezone:
-                  type: string
-                  description: The timezone of the user
-                roles:
-                  type: array
-                  items:
-                    type: string
-                    example:
-                      - 00000000-0000-0000-0000-000000000000
-                  description: The IDs of the roles assigned to the user.
-                groups:
-                  type: array
-                  items:
-                    type: string
-                    example:
-                      - 00000000-0000-0000-0000-000000000000
-                  description: The IDs of the groups assigned to the user.
-                max_spaces:
-                  type: integer
-                  description: The maximum number of spaces the user can have, 0 for unlimited.
-                max_disk_space:
-                  type: integer
-                  description: The maximum disk space the user can have, 0 for unlimited.
-              required:
-                - username
-                - password
-                - email
-                - roles
+              $ref: '#/components/schemas/userRequest'
       responses:
         '200':
           description: User updated successfully
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
       security:
         - BearerAuth: []
+
     delete:
       summary: Delete User
       description: Delete a user, a user can't delete themselves.
@@ -286,17 +201,23 @@ paths:
           name: user_id
           schema:
             type: string
+            format: uuid
           required: true
           description: The ID of the user to delete.
       responses:
         '200':
           description: Successful operation.
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
         '404':
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/users/whoami:
     get:
       tags:
@@ -305,15 +226,18 @@ paths:
       operationId: getWhoAmI
       responses:
         '200':
-          description: A user
+          description: A user object for the currently authenticated user.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/user'
+                $ref: '#/components/schemas/UserResponse'
         '400':
           $ref: '#/components/responses/bad-request'
-        '403':
-          $ref: '#/components/responses/forbidden'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+      security:
+        - BearerAuth: []
+
   /api/v1/groups:
     get:
       summary: Get Groups
@@ -334,6 +258,7 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     post:
       summary: Create a Group
       description: Create a new group.
@@ -631,22 +556,12 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    token_id:
-                      type: string
-                      description: The ID of the token.
-                    name:
-                      type: string
-                      description: The name of the token.
-                    expires_at:
-                      type: string
-                      format: date-time
-                      description: The expiration date of the token.
+                  $ref: '#/components/schemas/TokenInfo'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     post:
       summary: Create Token
       description: Create a new token for the authenticated user.
@@ -658,30 +573,21 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  description: The name of the token.
-                  maxLength: 255
+              $ref: '#/components/schemas/CreateTokenRequest'
       responses:
         '201':
           description: Successful operation. Returns the created token ID.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: boolean
-                    description: The status of the operation.
-                  token_id:
-                    type: string
-                    description: The ID of the created token.
+                $ref: '#/components/schemas/CreateTokenResponse'
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
       security:
         - BearerAuth: []
+
   /api/v1/tokens/{token_id}:
     delete:
       summary: Delete Token
@@ -694,11 +600,14 @@ paths:
           name: token_id
           schema:
             type: string
+            format: uuid
           required: true
           description: The ID of the token to delete.
       responses:
         '200':
           description: Successful operation.
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '404':
           $ref: '#/components/responses/not-found'
         '500':
@@ -1170,34 +1079,16 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  count:
-                    type: integer
-                    description: The total number of variables
-                  variables:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        templatevar_id:
-                          type: string
-                        name:
-                          type: string
-                        location:
-                          type: string
-                        protected:
-                          type: boolean
-                        local:
-                          type: boolean
-                        restricted:
-                          type: boolean
+                $ref: '#/components/schemas/TemplateVarList'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     post:
       summary: Create a Template Variable
       description: Create a new template variable.
@@ -1209,26 +1100,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  maxLength: 64
-                location:
-                  type: string
-                  maxLength: 64
-                value:
-                  type: string
-                  description: The value of the template variable.
-                protected:
-                  type: boolean
-                  description: Whether the template variable is protected with encryption.
-                local:
-                  type: boolean
-                  description: Whether the template variable is local to the server.
-                restricted:
-                  type: boolean
-                  description: Whether the template variable is restricted to trusted server.
+              $ref: '#/components/schemas/TemplateVar'
       responses:
         '201':
           description: Template variable created successfully
@@ -1239,14 +1111,20 @@ paths:
                 properties:
                   status:
                     type: boolean
+                    description: True if the template variable was created.
                   templatevar_id:
                     type: string
+                    format: uuid
+                    description: The ID of the created template variable.
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
       security:
         - BearerAuth: []
+
   /api/v1/templatevars/{templatevar_id}:
     put:
       summary: Update a Template Variable
@@ -1260,36 +1138,21 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
+            description: The ID of the template variable to update.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  maxLength: 64
-                value:
-                  type: string
-                  description: The value of the template variable.
-                location:
-                  type: string
-                  maxLength: 64
-                protected:
-                  type: boolean
-                  description: Whether the template variable is protected with encryption.
-                local:
-                  type: boolean
-                  description: Whether the template variable is local to the server.
-                restricted:
-                  type: boolean
-                  description: Whether the template variable is restricted to trusted server.
+              $ref: '#/components/schemas/TemplateVarValue'
       responses:
         '200':
           description: Successful operation
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
         '404':
@@ -1298,6 +1161,7 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     delete:
       summary: Delete Template Variable
       description: Delete a specified template variable.
@@ -1309,17 +1173,16 @@ paths:
           name: templatevar_id
           schema:
             type: string
+            format: uuid
           required: true
           description: The ID of the template variable to delete.
       responses:
         '200':
           description: Successful operation.
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
@@ -1336,28 +1199,18 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  name:
-                    type: string
-                  value:
-                    type: string
-                    description: The value of the template variable.
-                  protected:
-                    type: boolean
-                    description: Whether the template variable is protected with encryption.
-                  local:
-                    type: boolean
-                    description: Whether the template variable is local to the server.
-                  restricted:
-                    type: boolean
-                    description: Whether the template variable is restricted to trusted server.
+                $ref: '#/components/schemas/TemplateVarValue'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/volumes:
     get:
       summary: Get Volumes
@@ -1379,22 +1232,16 @@ paths:
                   volumes:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        volume_id:
-                          type: string
-                        name:
-                          type: string
-                        active:
-                          type: boolean
-                        location:
-                          type: string
+                      $ref: '#/components/schemas/VolumeInfo'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     post:
       summary: Create a Volume
       description: Create a new volume.
@@ -1406,14 +1253,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  maxLength: 64
-                definition:
-                  type: string
-                  description: A YAML formatted string describing the volume to be created
+              $ref: '#/components/schemas/VolumeRequest'
       responses:
         '201':
           description: Volume created successfully
@@ -1424,14 +1264,22 @@ paths:
                 properties:
                   status:
                     type: boolean
+                    description: True if the volume was created.
                   volume_id:
                     type: string
+                    format: uuid
+                    description: The ID of the created volume.
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/volumes/{volume_id}:
     put:
       summary: Update a Volume
@@ -1450,27 +1298,21 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  maxLength: 64
-                definition:
-                  type: string
-                  description: A YAML formatted string describing the volume to be created
+              $ref: '#/components/schemas/VolumeRequest'
       responses:
         '200':
           description: Successful operation
         '400':
           $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     delete:
       summary: Delete Volume
       description: Delete a specified volume.
@@ -1482,21 +1324,23 @@ paths:
           name: volume_id
           schema:
             type: string
+            format: uuid
           required: true
           description: The ID of the volume to delete.
       responses:
         '200':
           description: Successful operation.
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
     get:
       summary: Get Volume
       description: Get a Volume.
@@ -1508,6 +1352,7 @@ paths:
           name: volume_id
           schema:
             type: string
+            format: uuid
           required: true
           description: The ID of the volume to get.
       responses:
@@ -1516,23 +1361,16 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  name:
-                    type: string
-                  definition:
-                    type: string
-                    description: A YAML formatted string describing the volumes to be created
-                  location:
-                    type: string
-                  active:
-                    type: boolean
+                $ref: '#/components/schemas/VolumeDefinition'
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/volumes/{volume_id}/start:
     post:
       summary: Start a Volume
@@ -1545,6 +1383,7 @@ paths:
           name: volume_id
           schema:
             type: string
+            format: uuid
           required: true
           description: The ID of the volume to start.
       responses:
@@ -1557,8 +1396,12 @@ paths:
                 properties:
                   status:
                     type: boolean
+                    description: True if the volume was started.
                   location:
                     type: string
+                    description: The location of the volume.
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
         '404':
@@ -1569,6 +1412,7 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /api/v1/volumes/{volume_id}/stop:
     post:
       summary: Stop a Volume
@@ -1581,11 +1425,14 @@ paths:
           name: volume_id
           schema:
             type: string
+            format: uuid
           required: true
           description: The ID of the volume to stop.
       responses:
         '200':
           description: Successful operation.
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
         '404':
@@ -1596,6 +1443,7 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
+
   /proxy/port/{host}/{port}:
     get:
       tags:
@@ -2102,6 +1950,171 @@ components:
                 type: integer
                 description: The maximum capacity of the volume in GB
 
+    TemplateVar:
+      type: object
+      properties:
+        templatevar_id:
+          type: string
+          format: uuid
+          description: The ID of the template variable.
+        name:
+          type: string
+          maxLength: 64
+          description: The name of the template variable.
+        location:
+          type: string
+          maxLength: 64
+          description: The location the template variable can be used in.
+        protected:
+          type: boolean
+          description: Whether the template variable is protected with encryption.
+        local:
+          type: boolean
+          description: Whether the template variable is local to the server it was created on.
+        restricted:
+          type: boolean
+          description: Whether the template variable is restricted to trusted servers only.
+
+    TemplateVarList:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: The total number of variables
+        variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateVar'
+
+    TemplateVarValue:
+      type: object
+      properties:
+        templatevar_id:
+          type: string
+          format: uuid
+          description: The ID of the template variable.
+        name:
+          type: string
+          maxLength: 64
+          description: The name of the template variable.
+        value:
+          type: string
+          description: The value of the template variable, for protected variables this is always returned as blank.
+        location:
+          type: string
+          maxLength: 64
+          description: The location the template variable can be used in.
+        protected:
+          type: boolean
+          description: Whether the template variable is protected with encryption.
+        local:
+          type: boolean
+          description: Whether the template variable is local to the server it was created on.
+        restricted:
+          type: boolean
+          description: Whether the template variable is restricted to trusted servers only.
+
+    TokenInfo:
+      type: object
+      properties:
+        token_id:
+          type: string
+          format: uuid
+          description: The ID of the token.
+        name:
+          type: string
+          maxLength: 255
+          description: The name of the token.
+        expires_at:
+          type: string
+          format: date-time
+          description: The expiration date of the token.
+
+    CreateTokenRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the token.
+          maxLength: 255
+
+    CreateTokenResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+          description: The status of the operation.
+        token_id:
+          type: string
+          format: uuid
+          description: The ID of the created token.
+
+    userRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          maxLength: 255
+          example: user1@example.com
+          description: The email address of the user
+        username:
+          type: string
+          maxLength: 64
+          example: user1
+          description: The username of the user
+        password:
+          type: string
+          maxLength: 255
+          example: password
+          description: The password of the user
+        service_password:
+          type: string
+          maxLength: 255
+          example: password
+          description: Option service password of the user, if empty a default one will be generated
+        preferred_shell:
+          type: string
+          enum: [bash, zsh, fish, sh]
+          description: The preferred shell of the user
+        timezone:
+          type: string
+          description: The timezone of the user
+        ssh_public_key:
+          type: string
+          description: The SSH key for the user
+        github_username:
+          type: string
+          maxLength: 255
+          description: The GitHub username of the user
+        active:
+          type: boolean
+          description: Whether the user is active
+        roles:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 00000000-0000-0000-0000-000000000000
+          description: The IDs of the roles assigned to the user.
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 00000000-0000-0000-0000-000000000000
+          description: The IDs of the groups assigned to the user.
+        max_spaces:
+          type: integer
+          description: The maximum number of spaces the user can have, 0 for unlimited.
+        max_disk_space:
+          type: integer
+          description: The maximum disk space the user can have, 0 for unlimited.
+      required:
+        - username
+        - password
+        - email
+        - roles
+
     error:
       type: object
       required:
@@ -2111,11 +2124,12 @@ components:
           type: string
           description: The error message.
 
-    User:
+    UserInfo:
       type: object
       properties:
         user_id:
           type: string
+          format: uuid
           description: The ID of the user
         username:
           type: string
@@ -2127,11 +2141,13 @@ components:
           type: array
           items:
             type: string
+            format: uuid
           description: The roles of the user
         groups:
           type: array
           items:
             type: string
+            format: uuid
           description: The groups of the user
         active:
           type: boolean
@@ -2162,11 +2178,12 @@ components:
           type: integer
           description: The disk space used by the user
 
-    user:
+    UserResponse:
       type: object
       properties:
         user_id:
           type: string
+          format: uuid
           description: The ID of the user
         username:
           type: string
@@ -2216,6 +2233,7 @@ components:
           description: The SSH key for the user
         preferred_shell:
           type: string
+          enum: [bash, zsh, fish, sh]
           description: The preferred shell of the user
         timezone:
           type: string
@@ -2226,6 +2244,54 @@ components:
         max_disk_space:
           type: integer
           description: The maximum disk space the user can have, 0 for unlimited.
+
+    VolumeInfo:
+      type: object
+      properties:
+        volume_id:
+          type: string
+          format: uuid
+          description: The ID of the volume.
+        name:
+          type: string
+          maxLength: 64
+          description: The name of the volume.
+        active:
+          type: boolean
+          description: Whether the volume is active.
+        location:
+          type: string
+          maxLength: 64
+          description: The location of the volume.
+
+    VolumeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        definition:
+          type: string
+          description: A YAML formatted string describing the volume to be created.
+
+    VolumeDefinition:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 64
+          description: The name of the volume.
+        definition:
+          type: string
+          description: A YAML formatted string describing the volumes to be created
+        location:
+          type: string
+          maxLength: 64
+          description: The location of the volume.
+        active:
+          type: boolean
+          description: Whether the volume is active.
+
   responses:
     bad-request:
       description: Bad Request
