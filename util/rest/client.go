@@ -12,7 +12,14 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database/model"
+
 	"github.com/rs/zerolog/log"
+	"github.com/vmihailenco/msgpack/v5"
+)
+
+const (
+	ContentTypeJSON    = "application/json"
+	ContentTypeMsgPack = "application/msgpack"
 )
 
 type RESTClient struct {
@@ -22,6 +29,7 @@ type RESTClient struct {
 	tokenValue       string
 	userAgent        string
 	useSessionCookie bool
+	contentType      string
 	HTTPClient       *http.Client
 }
 
@@ -33,6 +41,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *RESTClien
 		tokenValue:       "Bearer %s",
 		userAgent:        "knot v" + build.Version,
 		useSessionCookie: false,
+		contentType:      ContentTypeMsgPack,
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -48,6 +57,11 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *RESTClien
 	}
 
 	return restClient
+}
+
+func (c *RESTClient) SetContentType(contentType string) *RESTClient {
+	c.contentType = contentType
+	return c
 }
 
 func (c *RESTClient) SetUserAgent(userAgent string) *RESTClient {
@@ -86,8 +100,8 @@ func (c *RESTClient) SetTokenValue(value string) *RESTClient {
 }
 
 func (c *RESTClient) setHeaders(req *http.Request) {
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, application/msgpack")
+	req.Header.Set("Content-Type", c.contentType)
 	req.Header.Set("User-Agent", c.userAgent)
 	if c.token != "" {
 
@@ -127,17 +141,28 @@ func (c *RESTClient) Get(path string, response interface{}) (int, error) {
 
 	defer resp.Body.Close()
 
-	err = json.NewDecoder(resp.Body).Decode(response)
+	if resp.Header.Get("Content-Type") == ContentTypeMsgPack {
+		err = msgpack.NewDecoder(resp.Body).Decode(response)
+	} else {
+		err = json.NewDecoder(resp.Body).Decode(response)
+	}
 	return resp.StatusCode, err
 }
 
 func (c *RESTClient) SendData(method string, path string, request interface{}, response interface{}, successCode int) (int, error) {
-	jsonData, err := json.Marshal(request)
+	var data []byte
+	var err error
+
+	if c.contentType == ContentTypeMsgPack {
+		data, err = msgpack.Marshal(request)
+	} else {
+		data, err = json.Marshal(request)
+	}
 	if err != nil {
 		return 0, err
 	}
 
-	req, err := http.NewRequest(method, c.baseURL+path, bytes.NewReader(jsonData))
+	req, err := http.NewRequest(method, c.baseURL+path, bytes.NewReader(data))
 	if err != nil {
 		return 0, err
 	}
@@ -165,7 +190,11 @@ func (c *RESTClient) SendData(method string, path string, request interface{}, r
 	if response == nil {
 		return resp.StatusCode, nil
 	} else {
-		err = json.NewDecoder(resp.Body).Decode(response)
+		if resp.Header.Get("Content-Type") == ContentTypeMsgPack {
+			err = msgpack.NewDecoder(resp.Body).Decode(response)
+		} else {
+			err = json.NewDecoder(resp.Body).Decode(response)
+		}
 		return resp.StatusCode, err
 	}
 }

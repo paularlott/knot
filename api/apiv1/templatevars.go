@@ -20,15 +20,15 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		templateVars, code, err := client.GetTemplateVars()
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusOK, w, templateVars)
+		rest.SendJSON(http.StatusOK, w, r, templateVars)
 	} else {
 		templateVars, err := database.GetInstance().GetTemplateVars()
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -55,7 +55,7 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 			data.Count++
 		}
 
-		rest.SendJSON(http.StatusOK, w, data)
+		rest.SendJSON(http.StatusOK, w, r, data)
 	}
 }
 
@@ -65,20 +65,20 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.TemplateVarValue{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.VarName(request.Name) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template variable name given"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template variable name given"})
 		return
 	}
 	if !validate.MaxLength(request.Value, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Value must be less than 10MB"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Value must be less than 10MB"})
 		return
 	}
 	if !validate.MaxLength(request.Location, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Location must be less than 64 characters"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Location must be less than 64 characters"})
 		return
 	}
 
@@ -94,7 +94,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		code, err := client.UpdateTemplateVar(templateVarId, request.Name, request.Location, request.Local, request.Value, request.Protected, request.Restricted)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -103,12 +103,12 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 
 		templateVar, err := db.GetTemplateVar(templateVarId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		if server_info.RestrictedLeaf && !templateVar.Local {
-			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage template variables"})
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage template variables"})
 			return
 		}
 
@@ -129,7 +129,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 
 		err = db.SaveTemplateVar(templateVar)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -152,20 +152,20 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.TemplateVarValue{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.VarName(request.Name) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template variable name given"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template variable name given"})
 		return
 	}
 	if !validate.MaxLength(request.Value, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Value must be less than 10MB"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Value must be less than 10MB"})
 		return
 	}
 	if !validate.MaxLength(request.Location, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Location must be less than 64 characters"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Location must be less than 64 characters"})
 		return
 	}
 
@@ -184,7 +184,7 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		id, code, err = client.CreateTemplateVar(request.Name, request.Location, request.Local, request.Value, request.Protected, request.Restricted)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -192,7 +192,7 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 
 		err = db.SaveTemplateVar(templateVar)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -202,7 +202,7 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the ID
-	rest.SendJSON(http.StatusCreated, w, &apiclient.TemplateVarCreateResponse{
+	rest.SendJSON(http.StatusCreated, w, r, &apiclient.TemplateVarCreateResponse{
 		Status: true,
 		Id:     id,
 	})
@@ -216,26 +216,26 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		code, err := client.DeleteTemplateVar(templateVarId)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
 		db := database.GetInstance()
 		templateVar, err := db.GetTemplateVar(templateVarId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		if server_info.RestrictedLeaf && !templateVar.Local {
-			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage template variables"})
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage template variables"})
 			return
 		}
 
 		// Delete the template variable
 		err = db.DeleteTemplateVar(templateVar)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -253,20 +253,20 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		templateVar, code, err := client.GetTemplateVar(templateVarId)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusOK, w, templateVar)
+		rest.SendJSON(http.StatusOK, w, r, templateVar)
 	} else {
 		db := database.GetInstance()
 		templateVar, err := db.GetTemplateVar(templateVarId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 		if templateVar == nil || (server_info.RestrictedLeaf && !templateVar.Local) {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "Template variable not found"})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "Template variable not found"})
 			return
 		}
 
@@ -287,6 +287,6 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 			Restricted: templateVar.Restricted,
 		}
 
-		rest.SendJSON(http.StatusOK, w, data)
+		rest.SendJSON(http.StatusOK, w, r, data)
 	}
 }

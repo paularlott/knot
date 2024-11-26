@@ -26,11 +26,11 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 
 		templates, code, err := client.GetTemplates()
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusOK, w, templates)
+		rest.SendJSON(http.StatusOK, w, r, templates)
 	} else {
 		user := r.Context().Value("user").(*model.User)
 
@@ -38,25 +38,25 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		userId := r.URL.Query().Get("user_id")
 		if userId != "" {
 			if !user.HasPermission(model.PermissionManageSpaces) {
-				rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "Permission denied"})
+				rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Permission denied"})
 				return
 			}
 
 			var err error
 			user, err = database.GetInstance().GetUser(userId)
 			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 			if user == nil {
-				rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "User not found"})
+				rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "User not found"})
 				return
 			}
 		}
 
 		templates, err := database.GetInstance().GetTemplates()
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -80,7 +80,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			// Find the number of spaces using this template
 			spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
 			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 
@@ -98,7 +98,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			templateResponse.Count++
 		}
 
-		rest.SendJSON(http.StatusOK, w, templateResponse)
+		rest.SendJSON(http.StatusOK, w, r, templateResponse)
 	}
 }
 
@@ -108,20 +108,20 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.TemplateRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template name given"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
 		return
 	}
 	if !validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Job is required and must be less than 10MB"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
 		return
 	}
 	if !validate.MaxLength(request.Volumes, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volumes must be less than 10MB"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volumes must be less than 10MB"})
 		return
 	}
 
@@ -132,7 +132,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
 		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -141,7 +141,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
 		template, err := db.GetTemplate(templateId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -149,7 +149,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		for _, groupId := range request.Groups {
 			_, err := db.GetGroup(groupId)
 			if err != nil {
-				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
 				return
 			}
 		}
@@ -164,7 +164,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
 		err = db.SaveTemplate(template)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -181,20 +181,20 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.TemplateRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid template name given"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
 		return
 	}
 	if !validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Job is required and must be less than 10MB"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
 		return
 	}
 	if !validate.MaxLength(request.Volumes, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volumes must be less than 10MB"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volumes must be less than 10MB"})
 		return
 	}
 
@@ -208,7 +208,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -219,7 +219,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		for _, groupId := range request.Groups {
 			_, err := db.GetGroup(groupId)
 			if err != nil {
-				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
 				return
 			}
 		}
@@ -228,7 +228,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 		err = database.GetInstance().SaveTemplate(template)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -239,7 +239,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the ID
-	rest.SendJSON(http.StatusCreated, w, &apiclient.TemplateCreateResponse{
+	rest.SendJSON(http.StatusCreated, w, r, &apiclient.TemplateCreateResponse{
 		Status: true,
 		Id:     templateId,
 	})
@@ -255,31 +255,31 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 
 		code, err := client.DeleteTemplate(templateId)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
 		template, err := database.GetInstance().GetTemplate(templateId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		// Don't allow the manual template to be deleted
 		if template.Id == model.MANUAL_TEMPLATE_ID {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Manual template cannot be deleted"})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Manual template cannot be deleted"})
 			return
 		}
 
 		// Find if any spaces are using this template and deny deletion
 		spaces, err := database.GetInstance().GetSpacesByTemplateId(templateId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		if len(spaces) > 0 {
-			rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "Template is in use by spaces"})
+			rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "Template is in use by spaces"})
 			return
 		}
 
@@ -287,9 +287,9 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		err = database.GetInstance().DeleteTemplate(template)
 		if err != nil {
 			if errors.Is(err, database.ErrTemplateInUse) {
-				rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
 			} else {
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			}
 			return
 		}
@@ -311,23 +311,23 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 
 		template, code, err := client.GetTemplate(templateId)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusOK, w, template)
+		rest.SendJSON(http.StatusOK, w, r, template)
 	} else {
 		db := database.GetInstance()
 		template, err := db.GetTemplate(templateId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		// Find the number of spaces using this template
 		spaces, err := db.GetSpacesByTemplateId(templateId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -376,6 +376,6 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 			VolumeSizes: volumeList,
 		}
 
-		rest.SendJSON(http.StatusOK, w, &data)
+		rest.SendJSON(http.StatusOK, w, r, &data)
 	}
 }

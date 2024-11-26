@@ -19,16 +19,16 @@ func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		groups, code, err := client.GetGroups()
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusOK, w, groups)
+		rest.SendJSON(http.StatusOK, w, r, groups)
 
 	} else {
 		groups, err := database.GetInstance().GetGroups()
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -47,7 +47,7 @@ func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
 			data.Count++
 		}
 
-		rest.SendJSON(http.StatusOK, w, data)
+		rest.SendJSON(http.StatusOK, w, r, data)
 	}
 }
 
@@ -57,12 +57,12 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.UserGroupRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid user group name"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user group name"})
 		return
 	}
 
@@ -71,7 +71,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		code, err := client.UpdateGroup(groupId, request.Name)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -80,7 +80,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 
 		group, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -89,7 +89,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 
 		err = db.SaveGroup(group)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
@@ -103,12 +103,12 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.UserGroupRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid user group name"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user group name"})
 		return
 	}
 
@@ -117,11 +117,11 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		groupId, code, err := client.CreateGroup(request.Name)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusCreated, w, apiclient.GroupResponse{
+		rest.SendJSON(http.StatusCreated, w, r, apiclient.GroupResponse{
 			Status: true,
 			Id:     groupId,
 		})
@@ -130,12 +130,12 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 
 		err = database.GetInstance().SaveGroup(group)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		// Return the ID
-		rest.SendJSON(http.StatusCreated, w, apiclient.GroupResponse{
+		rest.SendJSON(http.StatusCreated, w, r, apiclient.GroupResponse{
 			Status: true,
 			Id:     group.Id,
 		})
@@ -150,14 +150,14 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		code, err := client.DeleteGroup(groupId)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
 		db := database.GetInstance()
 		group, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -165,9 +165,9 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 		err = db.DeleteGroup(group)
 		if err != nil {
 			if errors.Is(err, database.ErrTemplateInUse) {
-				rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
 			} else {
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			}
 			return
 		}
@@ -184,20 +184,20 @@ func HandleGetGroup(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		group, code, err := client.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusOK, w, group)
+		rest.SendJSON(http.StatusOK, w, r, group)
 	} else {
 		db := database.GetInstance()
 		group, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 		if group == nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "Group not found"})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "Group not found"})
 			return
 		}
 
@@ -206,6 +206,6 @@ func HandleGetGroup(w http.ResponseWriter, r *http.Request) {
 			Name: group.Name,
 		}
 
-		rest.SendJSON(http.StatusOK, w, data)
+		rest.SendJSON(http.StatusOK, w, r, data)
 	}
 }

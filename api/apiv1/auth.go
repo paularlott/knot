@@ -27,13 +27,13 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// Validate
 	if !validate.Email(request.Email) || !validate.Password(request.Password) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "invalid email or password"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid email or password"})
 		return
 	}
 
@@ -60,7 +60,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -68,7 +68,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		client.SetAuthToken(tokenId).UseSessionCookie(true)
 		user, err := client.WhoAmI()
 		if err != nil {
-			rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -76,7 +76,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		if server_info.RestrictedLeaf {
 			tokens, _, err := client.GetTokens()
 			if err != nil {
-				rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 
@@ -91,7 +91,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
 			// if not found then return unauthorized
 			if !found {
-				rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: "user restricted by leaf token"})
+				rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: "user restricted by leaf token"})
 			}
 		}
 
@@ -99,7 +99,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		db := database.GetInstance()
 		err = db.SaveUser(user)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -123,7 +123,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			rest.SendJSON(code, w, ErrorResponse{Error: "invalid email or password"})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: "invalid email or password"})
 
 			return
 		}
@@ -133,7 +133,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		user.LastLoginAt = &now
 		err = db.SaveUser(user)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -144,7 +144,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	var session *model.Session = model.NewSession(r, userId, tokenId)
 	err = database.GetCacheInstance().SaveSession(session)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -163,7 +163,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the authentication token
-	rest.SendJSON(http.StatusOK, w, apiclient.AuthLoginResponse{
+	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLoginResponse{
 		Status: true,
 		Token:  session.Id,
 	})
@@ -180,7 +180,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 		if session != nil {
 			err := database.GetCacheInstance().DeleteSession(session)
 			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 
@@ -189,7 +189,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the authentication token
-	rest.SendJSON(http.StatusOK, w, apiclient.AuthLogoutResponse{
+	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLogoutResponse{
 		Status: result,
 	})
 }

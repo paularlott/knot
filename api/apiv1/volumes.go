@@ -24,15 +24,15 @@ func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 
 		volumes, code, err := client.GetVolumes()
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusOK, w, volumes)
+		rest.SendJSON(http.StatusOK, w, r, volumes)
 	} else {
 		volumes, err := database.GetInstance().GetVolumes()
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -53,7 +53,7 @@ func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 			volumeData.Count++
 		}
 
-		rest.SendJSON(http.StatusOK, w, volumeData)
+		rest.SendJSON(http.StatusOK, w, r, volumeData)
 	}
 }
 
@@ -63,16 +63,16 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.UpdateVolumeRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid volume name given"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume name given"})
 		return
 	}
 	if !validate.MaxLength(request.Definition, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volume definition must be less than 10MB"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volume definition must be less than 10MB"})
 		return
 	}
 
@@ -83,7 +83,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 
 		code, err := client.UpdateVolume(volemeId, request.Name, request.Definition)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -92,7 +92,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 
 		volume, err := database.GetInstance().GetVolume(volemeId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -102,7 +102,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 
 		err = db.SaveVolume(volume)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
@@ -114,16 +114,16 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.CreateVolumeRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid volume name given"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume name given"})
 		return
 	}
 	if !validate.MaxLength(request.Definition, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Volume definition must be less than 10MB"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volume definition must be less than 10MB"})
 		return
 	}
 
@@ -134,11 +134,11 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 
 		response, code, err := client.CreateVolume(request.Name, request.Definition)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusCreated, w, response)
+		rest.SendJSON(http.StatusCreated, w, r, response)
 	} else {
 		db := database.GetInstance()
 		user := r.Context().Value("user").(*model.User)
@@ -147,12 +147,12 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 
 		err = db.SaveVolume(volume)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		// Return the ID
-		rest.SendJSON(http.StatusCreated, w, &apiclient.VolumeCreateResponse{
+		rest.SendJSON(http.StatusCreated, w, r, &apiclient.VolumeCreateResponse{
 			Status:   true,
 			VolumeId: volume.Id,
 		})
@@ -169,7 +169,7 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 
 		code, err := client.DeleteVolume(volumeId)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -177,20 +177,20 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 
 		volume, err := db.GetVolume(volumeId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		// If the volume is active then don't delete
 		if volume.Active {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Cannot delete an active volume"})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Cannot delete an active volume"})
 			return
 		}
 
 		// Delete the volume
 		err = database.GetInstance().DeleteVolume(volume)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
@@ -208,16 +208,16 @@ func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 
 		volume, code, err := client.GetVolume(volumeId)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusOK, w, volume)
+		rest.SendJSON(http.StatusOK, w, r, volume)
 	} else {
 		db := database.GetInstance()
 		volume, err := db.GetVolume(volumeId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -228,7 +228,7 @@ func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 			Location:   volume.Location,
 		}
 
-		rest.SendJSON(http.StatusOK, w, &data)
+		rest.SendJSON(http.StatusOK, w, r, &data)
 	}
 }
 
@@ -249,33 +249,33 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 
 		volume, code, err = client.GetVolumeObject(volumeId)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
 		volume, err = db.GetVolume(volumeId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
 
 	// If the volume is already running then fail
 	if volume.Active {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "volume is running"})
+		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "volume is running"})
 		return
 	}
 
 	// If the volume has a location and it is not this server then fail
 	if volume.Location != "" && volume.Location != server_info.LeafLocation {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "volume is used by another server"})
+		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "volume is used by another server"})
 		return
 	}
 
 	// Add the variables
 	variables, err := db.GetTemplateVars()
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -291,7 +291,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 	// Create volumes
 	err = nomadClient.CreateVolume(volume, &vars)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -302,7 +302,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 		db.SaveVolume(volume)
 	}
 
-	rest.SendJSON(http.StatusOK, w, &apiclient.StartVolumeResponse{
+	rest.SendJSON(http.StatusOK, w, r, &apiclient.StartVolumeResponse{
 		Status:   true,
 		Location: volume.Location,
 	})
@@ -325,27 +325,27 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 
 		volume, code, err = client.GetVolumeObject(volumeId)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
 		volume, err = db.GetVolume(volumeId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
 
 	// If the volume is not running or not this server then fail
 	if !volume.Active || volume.Location != server_info.LeafLocation {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "volume not running"})
+		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "volume not running"})
 		return
 	}
 
 	// Add the variables
 	variables, err := db.GetTemplateVars()
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -361,7 +361,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 	// Delete the volume
 	err = nomadClient.DeleteVolume(volume, &vars)
 	if err != nil && !strings.Contains(err.Error(), "volume not found") {
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 

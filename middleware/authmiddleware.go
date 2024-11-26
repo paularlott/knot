@@ -39,8 +39,8 @@ func Initialize() {
 	}
 }
 
-func returnUnauthorized(w http.ResponseWriter) {
-	rest.SendJSON(http.StatusUnauthorized, w, struct {
+func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
+	rest.SendJSON(http.StatusUnauthorized, w, r, struct {
 		Error string `json:"error"`
 	}{
 		Error: "Authentication token is not valid",
@@ -52,7 +52,7 @@ func GetBearerToken(w http.ResponseWriter, r *http.Request) string {
 	var bearer string
 	fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &bearer)
 	if len(bearer) < 1 {
-		returnUnauthorized(w)
+		returnUnauthorized(w, r)
 		return ""
 	}
 
@@ -77,13 +77,13 @@ func ApiAuth(next http.Handler) http.Handler {
 				// Get the auth token
 				bearer := GetBearerToken(w, r)
 				if bearer == "" {
-					returnUnauthorized(w)
+					returnUnauthorized(w, r)
 					return
 				}
 
 				token, _ := db.GetToken(bearer)
 				if token == nil {
-					returnUnauthorized(w)
+					returnUnauthorized(w, r)
 					return
 				}
 
@@ -107,7 +107,7 @@ func ApiAuth(next http.Handler) http.Handler {
 				// Get the session
 				session := GetSessionFromCookie(r)
 				if session == nil {
-					returnUnauthorized(w)
+					returnUnauthorized(w, r)
 					return
 				}
 
@@ -129,7 +129,7 @@ func ApiAuth(next http.Handler) http.Handler {
 			// Get the user
 			user, err := db.GetUser(userId)
 			if err != nil || !user.Active {
-				returnUnauthorized(w)
+				returnUnauthorized(w, r)
 				return
 			}
 
@@ -150,7 +150,7 @@ func ApiPermissionManageTemplates(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageTemplates) {
-			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage templates"})
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage templates"})
 			return
 		}
 
@@ -162,7 +162,7 @@ func ApiPermissionManageVolumes(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageVolumes) {
-			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage volumes"})
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage volumes"})
 			return
 		}
 
@@ -175,7 +175,7 @@ func ApiPermissionManageUsers(next http.Handler) http.Handler {
 		if HasUsers {
 			user := r.Context().Value("user").(*model.User)
 			if HasUsers && !user.HasPermission(model.PermissionManageUsers) {
-				rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage users"})
+				rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
 				return
 			}
 		}
@@ -189,7 +189,7 @@ func ApiPermissionManageUsersOrSelf(next http.Handler) http.Handler {
 		userId := chi.URLParam(r, "user_id")
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageUsers) && user.Id != userId {
-			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage users"})
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
 			return
 		}
 
@@ -234,7 +234,7 @@ func LeafServerAuth(next http.Handler) http.Handler {
 		// Get the auth token
 		bearer := GetBearerToken(w, r)
 		if bearer == "" {
-			returnUnauthorized(w)
+			returnUnauthorized(w, r)
 			return
 		}
 		if bearer != viper.GetString("server.shared_token") || viper.GetString("server.shared_token") == "" {
@@ -245,7 +245,7 @@ func LeafServerAuth(next http.Handler) http.Handler {
 				db := database.GetInstance()
 				token, _ := db.GetToken(bearer)
 				if token == nil {
-					returnUnauthorized(w)
+					returnUnauthorized(w, r)
 					return
 				}
 
@@ -258,7 +258,7 @@ func LeafServerAuth(next http.Handler) http.Handler {
 				return
 			}
 
-			returnUnauthorized(w)
+			returnUnauthorized(w, r)
 			return
 		}
 
