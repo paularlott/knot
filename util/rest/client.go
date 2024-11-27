@@ -41,7 +41,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *RESTClien
 		tokenValue:       "Bearer %s",
 		userAgent:        "knot v" + build.Version,
 		useSessionCookie: false,
-		contentType:      ContentTypeMsgPack,
+		contentType:      ContentTypeJSON,
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},

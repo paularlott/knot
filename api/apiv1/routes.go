@@ -19,7 +19,6 @@ func ApiRoutes() chi.Router {
 		router.Get("/lookup/{service}", HandleLookup)
 		router.Get("/ping", HandlePing)
 		router.Post("/auth/logout", HandleLogout)
-		router.Post("/benchmark", HandleBenchmark)
 
 		// Users
 		router.Route("/users", func(router chi.Router) {
