@@ -32,6 +32,11 @@ func InitConfig(root *cobra.Command) {
 	viper.BindPFlag("log.level", root.PersistentFlags().Lookup("log-level"))
 	viper.BindEnv("log.level", CONFIG_ENV_PREFIX+"_LOGLEVEL")
 
+	// TODO Remove this as it's just here as we move from JSON to msgpack
+	viper.BindPFlag("legacy", root.PersistentFlags().Lookup("legacy"))
+	viper.BindEnv("legacy", CONFIG_ENV_PREFIX+"_LEGACY")
+	viper.SetDefault("legacy", false)
+
 	// If config file given then use it
 	cfgFile := viper.GetString("config")
 	if cfgFile != "" {
