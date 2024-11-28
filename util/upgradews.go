@@ -14,26 +14,26 @@ var (
 
 // Upgrade the connection to a websocket connection
 func UpgradeToWS(w http.ResponseWriter, r *http.Request) *websocket.Conn {
-  // If upgrader not initialized then initialize it
-  if upgrader.CheckOrigin == nil {
-    upgrader = websocket.Upgrader{
-      ReadBufferSize:   1024,
-      WriteBufferSize:  1024,
-      HandshakeTimeout: 10 * time.Second,
-      EnableCompression: true,
-      CheckOrigin: func(r *http.Request) bool {
-        return true
-      },
-    }
-  }
+	// If upgrader not initialized then initialize it
+	if upgrader.CheckOrigin == nil {
+		upgrader = websocket.Upgrader{
+			ReadBufferSize:    4096,
+			WriteBufferSize:   4096,
+			HandshakeTimeout:  10 * time.Second,
+			EnableCompression: true,
+			CheckOrigin: func(r *http.Request) bool {
+				return true
+			},
+		}
+	}
 
-  // Upgrade the connection to a websocket
-  ws, err := upgrader.Upgrade(w, r, nil)
-  if err != nil {
-    w.WriteHeader(http.StatusInternalServerError)
-    log.Error().Msgf("ws: error while upgrading: %s", err)
-    return nil
-  }
+	// Upgrade the connection to a websocket
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Error().Msgf("ws: error while upgrading: %s", err)
+		return nil
+	}
 
-  return ws
+	return ws
 }

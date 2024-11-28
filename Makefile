@@ -47,7 +47,7 @@ agents: $(addsuffix -agent,$(AGENT_PLATFORMS))
 
 .PHONY: $(addsuffix -agent,$(AGENT_PLATFORMS))
 $(addsuffix -agent,$(AGENT_PLATFORMS)):
-	GOOS=$(word 1,$(subst /, ,$(subst -agent,,$@))) GOARCH=$(word 2,$(subst /, ,$(subst -agent,,$@))) go build $(BUILD_FLAGS) -o $(AGENT_OUTPUT_DIR)/$(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,) ./agentapp
+	GOOS=$(word 1,$(subst /, ,$(subst -agent,,$@))) GOARCH=$(word 2,$(subst /, ,$(subst -agent,,$@))) go build $(BUILD_FLAGS) -o $(AGENT_OUTPUT_DIR)/$(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,) ./agent
 	cd $(AGENT_OUTPUT_DIR); \
 	mv $(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$(subst -agent,,$@)))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$(subst -agent,,$@)))),.exe,) knot-agent$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,); \
 	zip $(PROJECT_NAME)_agent_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$(subst -agent,,$@)))$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,).zip knot-agent$(if $(filter windows,$(word 1,$(subst /, ,$@))),.exe,)
@@ -56,6 +56,11 @@ $(addsuffix -agent,$(AGENT_PLATFORMS)):
 ## Show the ZIP file checksums
 checksums:
 	shasum -a 256 $(OUTPUT_DIR)/*.zip
+
+.PHONY: homebrew-formula
+## Generate the Homebrew formula
+homebrew-formula:
+	go run ./scripts/homebrew-formula/ > ../homebrew-tap/Formula/knot.rb
 
 .PHONY: legal
 ## Collect the licence files from dependancies and copy them to the legal directory
@@ -75,8 +80,10 @@ legal/notice.txt: NOTICE.txt
 apidocs:
 	npx @redocly/cli build-docs --output ./web/public_html/api-docs/index.html --config ./redocly-config.yaml --disableGoogleFont
 	sed -i '' 's|<script src="https.*</script>||g' ./web/public_html/api-docs/index.html
-	npx @redocly/cli build-docs --output ./web/public_html/api-docs/agent/index.html --config ./redocly-config-agent.yaml --disableGoogleFont
-	sed -i '' 's|<script src="https.*</script>||g' ./web/public_html/api-docs/agent/index.html
+
+## Run a preview server for the API documentation
+apidocs-preview:
+	npx @redocly/cli preview-docs api/apiv1/spec/knot-openapi.yaml
 
 ## Compile LESS/CSS and JavaScript
 webassets:
@@ -109,7 +116,7 @@ container:
 
 .PHONY: release
 ## Tag, build, and create a GitHub release
-release: tag all container create-release checksums
+release: tag all container create-release checksums homebrew-formula
 
 .PHONY: tag
 ## Tag the current code
@@ -127,10 +134,10 @@ create-release:
 run-server:
 	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --agent-path=./web/agents
 
-.PHONY: run-remote
-## Run a remote server for development
-run-remote:
-	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-moon.yml
+.PHONY: run-leaf
+## Run a leaf server for development
+run-leaf:
+	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf1.yml
 
 .PHONY: help
 ## This help screen

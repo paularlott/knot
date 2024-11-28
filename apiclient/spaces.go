@@ -9,7 +9,6 @@ import (
 type SpaceRequest struct {
 	Name        string           `json:"name"`
 	TemplateId  string           `json:"template_id"`
-	AgentURL    string           `json:"agent_url"`
 	Shell       string           `json:"shell"`
 	UserId      string           `json:"user_id"`
 	VolumeSizes map[string]int64 `json:"volume_sizes"`
@@ -54,13 +53,14 @@ type SpaceServiceState struct {
 	HttpPorts       map[string]string `json:"http_ports"`
 	UpdateAvailable bool              `json:"update_available"`
 	IsRemote        bool              `json:"is_remote"`
+	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
+	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
 }
 
 type SpaceDefinition struct {
 	UserId      string                       `json:"user_id"`
 	TemplateId  string                       `json:"template_id"`
 	Name        string                       `json:"name"`
-	AgentURL    string                       `json:"agent_url"`
 	Shell       string                       `json:"shell"`
 	Location    string                       `json:"location"`
 	AltNames    []string                     `json:"alt_names"`
@@ -107,7 +107,6 @@ func (c *ApiClient) GetSpace(spaceId string) (*model.Space, int, error) {
 		TemplateId:   response.TemplateId,
 		Name:         response.Name,
 		AltNames:     response.AltNames,
-		AgentURL:     response.AgentURL,
 		Shell:        response.Shell,
 		TemplateHash: "",
 		IsDeployed:   response.IsDeployed,
@@ -129,7 +128,6 @@ func (c *ApiClient) UpdateSpace(space *model.Space) (int, error) {
 		TemplateId:  space.TemplateId,
 		Name:        space.Name,
 		AltNames:    space.AltNames,
-		AgentURL:    space.AgentURL,
 		Shell:       space.Shell,
 		VolumeSizes: space.VolumeSizes,
 		Location:    space.Location,
@@ -149,9 +147,9 @@ func (c *ApiClient) CreateSpace(space *model.Space) (int, error) {
 		TemplateId:  space.TemplateId,
 		Name:        space.Name,
 		AltNames:    space.AltNames,
-		AgentURL:    space.AgentURL,
 		Shell:       space.Shell,
 		VolumeSizes: space.VolumeSizes,
+		Location:    space.Location,
 	}
 
 	response := &CreateSpaceResponse{}

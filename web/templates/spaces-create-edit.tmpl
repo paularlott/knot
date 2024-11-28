@@ -51,11 +51,6 @@
             </template>
           </select>
         </div>
-        <div x-show="formData.template_id === '00000000-0000-0000-0000-000000000000'">
-          <label for="name" class="form-label">Agent URL</label>
-          <input type="url" class="form-field" name="address" x-on:keyup.debounce.500ms="checkAddress()" :class="{'form-field-error': !addressValid}" placeholder="URL of agent" x-model="formData.agent_url">
-          <div x-show="!addressValid" class="error-message" x-cloak>When template is Manual-Configuration this must be a valid URL.</div>
-        </div>
         <div>
           <label for="name" class="form-label">Terminal Shell</label>
           <select class="form-field" name="shell" x-model="formData.shell">

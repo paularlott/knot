@@ -5,7 +5,9 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 
 	"github.com/rs/zerolog/log"
 )
@@ -134,7 +136,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	space.IsPending = true
 	space.IsDeployed = false
 	space.TemplateHash = template.Hash
-	space.Location = viper.GetString("server.location")
+	space.Location = server_info.LeafLocation
 	err = db.SaveSpace(space)
 	if err != nil {
 		log.Error().Msgf("nomad: creating space job %s error %s", space.Id, err)
@@ -196,6 +198,8 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 						if err != nil {
 							log.Error().Msgf("nomad: updating space job %s error %s", space.NomadJobId, err)
 						}
+
+						origin.UpdateSpace(space)
 						break
 					}
 				} else if code == 404 || data["Status"] == "dead" {
@@ -207,6 +211,12 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 					if err != nil {
 						log.Error().Msgf("nomad: updating space job %s error %s", space.NomadJobId, err)
 					}
+
+					origin.UpdateSpace(space)
+
+					// Delete the agent state
+					agent_server.RemoveSession(space.Id)
+
 					break
 				}
 			}

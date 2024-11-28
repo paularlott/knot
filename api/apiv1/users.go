@@ -4,17 +4,16 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/paularlott/knot/api/agentv1"
+	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/leaf"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -27,7 +26,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -35,38 +34,38 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if !validate.Name(request.Username) ||
 		!validate.Password(request.Password) ||
 		!validate.Email(request.Email) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid username, password, or email given for new user"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid username, password, or email given for new user"})
 		return
 	}
 	if !validate.OneOf(request.PreferredShell, []string{"bash", "zsh", "fish", "sh"}) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid shell"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid shell"})
 		return
 	}
 	if !validate.MaxLength(request.SSHPublicKey, 16*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "SSH public key too long"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH public key too long"})
 		return
 	}
 	if !validate.OneOf(request.Timezone, util.Timezones) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid timezone"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid timezone"})
 		return
 	}
 	if !validate.IsNumber(int(request.MaxSpaces), 0, 1000) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid max spaces"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
 		return
 	}
 	if !validate.IsNumber(int(request.MaxDiskSpace), 0, 1000000) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid max disk space"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max disk space"})
 		return
 	}
 	if !validate.MaxLength(request.GitHubUsername, 255) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "GitHub username too long"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "GitHub username too long"})
 		return
 	}
 
 	// Check roles give are present in the system
 	for _, role := range request.Roles {
 		if !model.RoleExists(role) {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Role %s does not exist", role)})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Role %s does not exist", role)})
 			return
 		}
 	}
@@ -79,7 +78,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		code := 0
 		newUserId, code, err = client.CreateUser(&request)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -87,7 +86,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		for _, groupId := range request.Groups {
 			_, err := db.GetGroup(groupId)
 			if err != nil {
-				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
 				return
 			}
 		}
@@ -99,7 +98,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		}
 		err = db.SaveUser(userNew)
 		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -110,7 +109,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the user ID
-	rest.SendJSON(http.StatusCreated, w, &apiclient.CreateUserResponse{
+	rest.SendJSON(http.StatusCreated, w, r, &apiclient.CreateUserResponse{
 		Status: true,
 		UserId: newUserId,
 	})
@@ -136,20 +135,13 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 
 		user, err = client.GetUser(userId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		// Save the user local
-		err = db.SaveUser(user)
-		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
 		user, err = db.GetUser(userId)
 		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
@@ -180,7 +172,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		userData.LastLoginAt = &t
 	}
 
-	rest.SendJSON(http.StatusOK, w, &userData)
+	rest.SendJSON(http.StatusOK, w, r, &userData)
 }
 
 func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
@@ -212,7 +204,7 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		userData.LastLoginAt = &t
 	}
 
-	rest.SendJSON(http.StatusOK, w, &userData)
+	rest.SendJSON(http.StatusOK, w, r, &userData)
 }
 
 func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
@@ -227,13 +219,13 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
-		userData, err := client.GetUsers(requiredState, viper.GetString("server.location"))
+		userData, err := client.GetUsers(requiredState, server_info.LeafLocation)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		rest.SendJSON(http.StatusOK, w, userData)
+		rest.SendJSON(http.StatusOK, w, r, userData)
 	} else {
 		var userData = &apiclient.UserInfoList{
 			Count: 0,
@@ -243,7 +235,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 		db := database.GetInstance()
 		users, err := db.GetUsers()
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -271,7 +263,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 				// Find the number of spaces the user has
 				spaces, err := db.GetSpacesForUser(user.Id)
 				if err != nil {
-					rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 					return
 				}
 
@@ -289,7 +281,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 					sSize, err := calcSpaceDiskUsage(space)
 					if err != nil {
-						rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+						rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 						return
 					}
 
@@ -306,7 +298,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		rest.SendJSON(http.StatusOK, w, userData)
+		rest.SendJSON(http.StatusOK, w, r, userData)
 	}
 }
 
@@ -318,41 +310,61 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// Validate
 	if len(request.Password) > 0 && !validate.Password(request.Password) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid password given"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid password given"})
 		return
 	}
 	if !validate.Email(request.Email) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid email"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid email"})
 		return
 	}
 	if !validate.OneOf(request.PreferredShell, []string{"bash", "zsh", "fish", "sh"}) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid shell"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid shell"})
 		return
 	}
 	if !validate.MaxLength(request.SSHPublicKey, 16*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "SSH public key too long"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH public key too long"})
 		return
 	}
 	if !validate.OneOf(request.Timezone, util.Timezones) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid timezone"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid timezone"})
 		return
 	}
 	if !validate.MaxLength(request.GitHubUsername, 255) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "GitHub username too long"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "GitHub username too long"})
 		return
 	}
 
 	// Load the existing user
-	user, err := db.GetUser(userId)
-	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
-		return
+	var existsLocal bool = true
+	var user *model.User
+	var client *apiclient.ApiClient = nil
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client = remoteClient.(*apiclient.ApiClient)
+
+		user, err = client.GetUser(userId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		// Test if the user exists locally
+		_, err = db.GetUser(userId)
+		if err != nil {
+			existsLocal = false
+		}
+	} else {
+		user, err = db.GetUser(userId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
 	}
 
 	user.Email = request.Email
@@ -367,14 +379,14 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if activeUser.HasPermission(model.PermissionManageUsers) {
 		if !validate.IsNumber(int(request.MaxSpaces), 0, 1000) {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid max spaces"})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
 			return
 		}
 
 		// Check roles give are present in the system
 		for _, role := range request.Roles {
 			if !model.RoleExists(role) {
-				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Role %s does not exist", role)})
+				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Role %s does not exist", role)})
 				return
 			}
 		}
@@ -389,16 +401,13 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.MaxDiskSpace = request.MaxDiskSpace
 	}
 
-	// If remote client present then forward the request
-	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
-		client := remoteClient.(*apiclient.ApiClient)
-
+	// If on leaf
+	if client != nil {
 		user.Password = request.Password
 
 		err = client.UpdateUser(user)
 		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -411,40 +420,25 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		for _, groupId := range request.Groups {
 			_, err := db.GetGroup(groupId)
 			if err != nil {
-				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
 				return
 			}
 		}
 	}
 
-	// Save
-	err = db.SaveUser(user)
-	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
-		return
-	}
+	if existsLocal {
+		// Save
+		err = db.SaveUser(user)
+		if err != nil {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
 
-	// Update the user's spaces, ssh keys or stop spaces
-	go UpdateUserSpaces(user)
+		// Update the user's spaces, ssh keys or stop spaces
+		go api_utils.UpdateUserSpaces(user)
 
-	// If core server then notify all remote servers of the change
-	if viper.GetBool("server.is_core") {
-		go func() {
-			remoteServers, err := database.GetCacheInstance().GetRemoteServers()
-			if err != nil {
-				log.Error().Msgf("Failed to get remote servers: %s", err)
-			} else {
-				for _, remoteServer := range remoteServers {
-					log.Debug().Msgf("Notifying remote server %s of update of user %s", remoteServer.Url, user.Username)
-
-					client := apiclient.NewRemoteServerClient(remoteServer.Url)
-					err := client.NotifyRemoteUserUpdate(user.Id)
-					if err != nil {
-						log.Error().Msgf("Failed to notify remote server %s of update for user %s: %s", remoteServer.Url, user.Username, err)
-					}
-				}
-			}
-		}()
+		// notify all remote servers of the change
+		leaf.UpdateUser(user)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -457,7 +451,7 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	// If trying to delete self then fail
 	if user.Id == userId {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Cannot delete self"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Cannot delete self"})
 		return
 	}
 
@@ -467,7 +461,7 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		client := remoteClient.(*apiclient.ApiClient)
 		err := client.DeleteUser(userId)
 		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
@@ -475,209 +469,19 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	// Load the user to delete
 	toDelete, err := db.GetUser(userId)
 	if err != nil && remoteClient == nil {
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: fmt.Sprintf("user %s not found", userId)})
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user %s not found", userId)})
 		return
 	}
 
 	if toDelete != nil {
-		if err := DeleteUser(db, toDelete); err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		if err := api_utils.DeleteUser(db, toDelete); err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
 
 	// If core server then notify all remote servers of the change
-	if viper.GetBool("server.is_core") {
-		go func() {
-			remoteServers, err := database.GetCacheInstance().GetRemoteServers()
-			if err != nil {
-				log.Error().Msgf("Failed to get remote servers: %s", err)
-			} else {
-				for _, remoteServer := range remoteServers {
-					log.Debug().Msgf("Notifying remote server %s of delete of user %s", remoteServer.Url, toDelete.Username)
-
-					client := apiclient.NewRemoteServerClient(remoteServer.Url)
-					err := client.NotifyRemoteUserDelete(toDelete.Id)
-					if err != nil {
-						log.Error().Msgf("Failed to notify remote server %s of delete of user %s: %s", remoteServer.Url, toDelete.Username, err)
-					}
-				}
-			}
-		}()
-	}
+	leaf.DeleteUser(userId)
 
 	w.WriteHeader(http.StatusOK)
-}
-
-func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
-	var hasError = false
-
-	log.Debug().Msgf("delete user: Deleting user %s", toDelete.Id)
-
-	// Stop all spaces and delete all volumes
-	spaces, err := db.GetSpacesForUser(toDelete.Id)
-	if err != nil {
-		return err
-	}
-
-	// If this is a remote then tell the core server of the space update
-	var api *apiclient.ApiClient = nil
-	if viper.GetBool("server.is_remote") {
-		api = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
-	}
-
-	// Get the nomad client
-	nomadClient := nomad.NewClient()
-	for _, space := range spaces {
-		log.Debug().Msgf("delete user: Deleting space %s", space.Id)
-
-		if space.Location == viper.GetString("server.location") {
-			log.Debug().Msgf("delete user: Deleting space %s from nomad", space.Id)
-
-			// Stop the job
-			if space.IsDeployed {
-				err = nomadClient.DeleteSpaceJob(space)
-				if err != nil {
-					log.Debug().Msgf("delete user: Failed to delete space job %s: %s", space.Id, err)
-					hasError = true
-					break
-				}
-			}
-
-			// Delete the volumes
-			err = nomadClient.DeleteSpaceVolumes(space)
-			if err != nil {
-				log.Debug().Msgf("delete user: Failed to delete space volumes %s: %s", space.Id, err)
-				hasError = true
-				break
-			}
-
-			// Notify the core server
-			if api != nil {
-				_, err := api.RemoteDeleteSpace(space.Id)
-				if err != nil {
-					log.Error().Msgf("Failed to delete space %s on core server: %s", space.Id, err)
-				}
-			}
-		}
-
-		db.DeleteSpace(space)
-	}
-
-	// Delete the user
-	if !hasError {
-		err = db.DeleteUser(toDelete)
-		if err != nil {
-			return err
-		}
-
-		removeUsersSessions(toDelete)
-		removeUsersTokens(toDelete)
-	}
-
-	return nil
-}
-
-// Delete the sessions owned by a user
-func removeUsersSessions(user *model.User) {
-	cache := database.GetCacheInstance()
-
-	// Find sessions for the user and delete them
-	sessions, err := cache.GetSessionsForUser(user.Id)
-	if err == nil && sessions != nil {
-		for _, session := range sessions {
-			cache.DeleteSession(session)
-		}
-	}
-}
-
-// Delete the tokens owned by a user
-func removeUsersTokens(user *model.User) {
-	db := database.GetInstance()
-
-	// Find API tokens for the user and delete them
-	tokens, err := db.GetTokensForUser(user.Id)
-	if err == nil && tokens != nil {
-		for _, token := range tokens {
-			db.DeleteToken(token)
-		}
-	}
-}
-
-func updateSpacesSSHKey(user *model.User) {
-	db := database.GetInstance()
-	cache := database.GetCacheInstance()
-
-	log.Debug().Msgf("Updating agent SSH key for user %s", user.Id)
-
-	// Load the list of spaces for the user
-	spaces, err := db.GetSpacesForUser(user.Id)
-	if err != nil {
-		log.Debug().Msgf("Failed to get spaces for user %s: %s", user.Id, err)
-		return
-	}
-
-	// Loop through all spaces updating the active ones
-	for _, space := range spaces {
-		if space.IsDeployed {
-			// Get the agent state
-			agentState, err := cache.GetAgentState(space.Id)
-			if err != nil || agentState == nil {
-				// Silently ignore if space is on a different server
-				if space.Location == "" || space.Location == viper.GetString("server.location") {
-					log.Debug().Msgf("Agent state not found for space %s", space.Id)
-				}
-				continue
-			}
-
-			// If agent accepting SSH keys then update
-			if agentState.SSHPort > 0 {
-				log.Debug().Msgf("Sending SSH public key to agent %s", space.Id)
-				client := rest.NewClient(util.ResolveSRVHttp(space.GetAgentURL()), agentState.AccessToken, viper.GetBool("tls_skip_verify"))
-				if !agentv1.CallAgentUpdateAuthorizedKeys(client, user.SSHPublicKey, user.GitHubUsername) {
-					log.Debug().Msg("Failed to send SSH public key to agent")
-				}
-			}
-		}
-	}
-
-	log.Debug().Msgf("Finished updating agent SSH key for user %s", user.Id)
-}
-
-// For disabled users ensure all spaces are stopped, for enabled users update the SSH key on the agents
-func UpdateUserSpaces(user *model.User) {
-	// If the user is disabled then stop all spaces
-	if !user.Active {
-		spaces, err := database.GetInstance().GetSpacesForUser(user.Id)
-		if err != nil {
-			return
-		}
-
-		// If this is a remote then tell the core server of the space update
-		var api *apiclient.ApiClient = nil
-		if viper.GetBool("server.is_remote") {
-			api = apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
-		}
-
-		// Get the nomad client
-		nomadClient := nomad.NewClient()
-		for _, space := range spaces {
-			if space.IsDeployed && (space.Location == "" || space.Location == viper.GetString("server.location")) {
-				nomadClient.DeleteSpaceJob(space)
-
-				if api != nil {
-					_, err := api.RemoteUpdateSpace(space)
-					if err != nil {
-						log.Error().Msgf("Failed to update space %s: %s", space.Id, err)
-					}
-				}
-			}
-		}
-
-		// Kill the sessions to logout the user, but leave the tokens there until they expire
-		removeUsersSessions(user)
-	} else {
-		// Update the SSH key on the agents
-		updateSpacesSSHKey(user)
-	}
 }

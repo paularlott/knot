@@ -40,7 +40,14 @@ Alpine.plugin(focus);
 Alpine.start();
 
 window.openTerminal = function(spaceId) {
-  window.open('/terminal/' + spaceId, 'spaces_' + spaceId + '_terminal', 'width=800,height=500');
+  const timestamp = new Date().getTime();
+  window.open('/terminal/' + spaceId, 'spaces_' + spaceId + '_terminal_'+ timestamp, 'width=800,height=500');
+  return false;
+}
+
+window.openTerminalTunnel = function(spaceId) {
+  var width = Math.min(screen.width, 900);
+  window.open('/terminal/' + spaceId + '/vscode-tunnel', 'spaces_' + spaceId + '_tunnel', 'width=' + width + ',height=400');
   return false;
 }
 
@@ -48,6 +55,13 @@ window.openCodeServer = function(spaceId) {
   const maxWidth = Math.min(window.innerWidth, 1440);
   const maxHeight = window.innerHeight;
   window.open('/proxy/spaces/' + spaceId + '/code-server/', 'spaces_' + spaceId + '_code_server', 'width=' + maxWidth + ',height=' + maxHeight);
+  return false;
+}
+
+window.openVSCodeDev = function(tunnelName) {
+  const maxWidth = Math.min(window.innerWidth, 1440);
+  const maxHeight = window.innerHeight;
+  window.open('https://vscode.dev/tunnel/' + tunnelName, 'vscodedev', 'width=' + maxWidth + ',height=' + maxHeight);
   return false;
 }
 

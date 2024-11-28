@@ -37,7 +37,7 @@ func HandleLookup(w http.ResponseWriter, r *http.Request) {
 		response.Port = (*hostPort)[0].Port
 	}
 
-	rest.SendJSON(http.StatusOK, w, response)
+	rest.SendJSON(http.StatusOK, w, r, response)
 }
 
 func CallLookup(client *rest.RESTClient, service string) (*LookupResponse, int, error) {

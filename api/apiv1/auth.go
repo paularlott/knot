@@ -4,9 +4,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -25,28 +27,28 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// Validate
 	if !validate.Email(request.Email) || !validate.Password(request.Password) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "invalid email or password"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid email or password"})
 		return
 	}
 
 	// If this is a remote then the request needs to be forwarded to the core server
-	if viper.GetBool("server.is_remote") {
-		log.Debug().Msg("Forwarding auth request to core server")
+	if server_info.IsLeaf {
+		log.Debug().Msg("Forwarding auth request to origin server")
 
-		client := apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
+		client := apiclient.NewRemoteToken(viper.GetString("server.shared_token"))
 		tokenId, statusCode, err = client.Login(request.Email, request.Password)
 		if err != nil {
 			if statusCode == http.StatusNotFound {
 				// Look for the user by email and if found delete it
 				user, err := db.GetUserByEmail(request.Email)
 				if err == nil {
-					DeleteUser(db, user)
+					api_utils.DeleteUser(db, user)
 				}
 			} else if statusCode == http.StatusLocked {
 				// Look for the user by email and if found update it
@@ -54,11 +56,11 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 				if err == nil && user.Active {
 					user.Active = false
 					db.SaveUser(user)
-					UpdateUserSpaces(user)
+					api_utils.UpdateUserSpaces(user)
 				}
 			}
 
-			rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -66,19 +68,42 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		client.SetAuthToken(tokenId).UseSessionCookie(true)
 		user, err := client.WhoAmI()
 		if err != nil {
-			rest.SendJSON(http.StatusUnauthorized, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: err.Error()})
 			return
+		}
+
+		// if restricted node then check token is in the users list
+		if server_info.RestrictedLeaf {
+			tokens, _, err := client.GetTokens()
+			if err != nil {
+				rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+
+			// check if one of the tokens matches server.shared_token
+			found := false
+			for _, token := range *tokens {
+				if token.Id == viper.GetString("server.shared_token") {
+					found = true
+					break
+				}
+			}
+
+			// if not found then return unauthorized
+			if !found {
+				rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: "user restricted by leaf token"})
+			}
 		}
 
 		// Store the user in the local database
 		db := database.GetInstance()
 		err = db.SaveUser(user)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		go UpdateUserSpaces(user)
+		go api_utils.UpdateUserSpaces(user)
 
 		userId = user.Id
 
@@ -90,7 +115,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 			code := http.StatusUnauthorized
 
 			// If request came from remote server then given more information
-			if viper.GetString("server.remote_token") != "" && viper.GetString("server.remote_token") == middleware.GetBearerToken(w, r) {
+			if viper.GetString("server.shared_token") != "" && viper.GetString("server.shared_token") == middleware.GetBearerToken(w, r) {
 				if user == nil {
 					code = http.StatusNotFound
 				} else if !user.Active {
@@ -98,7 +123,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			rest.SendJSON(code, w, ErrorResponse{Error: "invalid email or password"})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: "invalid email or password"})
 
 			return
 		}
@@ -108,7 +133,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		user.LastLoginAt = &now
 		err = db.SaveUser(user)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -119,7 +144,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	var session *model.Session = model.NewSession(r, userId, tokenId)
 	err = database.GetCacheInstance().SaveSession(session)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -138,7 +163,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the authentication token
-	rest.SendJSON(http.StatusOK, w, apiclient.AuthLoginResponse{
+	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLoginResponse{
 		Status: true,
 		Token:  session.Id,
 	})
@@ -155,7 +180,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 		if session != nil {
 			err := database.GetCacheInstance().DeleteSession(session)
 			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 
@@ -164,7 +189,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the authentication token
-	rest.SendJSON(http.StatusOK, w, apiclient.AuthLogoutResponse{
+	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLogoutResponse{
 		Status: result,
 	})
 }

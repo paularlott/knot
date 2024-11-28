@@ -11,7 +11,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       }
     },
     showingSpecificUser: userId !== forUserId,
-    forUserId: userId ==  forUserId ? Alpine.$persist(forUserId).as('forUserId').using(sessionStorage) : forUserId,
+    forUserId: userId == forUserId && canManageSpaces ? Alpine.$persist(forUserId).as('forUserId').using(sessionStorage) : forUserId,
     canManageSpaces: canManageSpaces,
     users: [],
     searchTerm: Alpine.$persist('').as('spaces-search-term').using(sessionStorage),
@@ -28,7 +28,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         // Look through the users list and change the one that matches the userId to be Your spaces
         this.users.forEach(user => {
           if(user.user_id === userId) {
-            user.username = "Your Spaces";
+            user.username = "My Spaces";
           }
         });
       }
@@ -63,57 +63,61 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         this.loading = true;
       }
 
-      const response = await fetch('/api/v1/spaces?user_id=' + this.forUserId, {
+      await fetch('/api/v1/spaces?user_id=' + this.forUserId, {
         headers: {
           'Content-Type': 'application/json'
         }
-      });
+      }).then((response) => {
+        if(response.status === 200) {
+          var spacesAdded = false;
 
-      if(response.status === 401) {
-        window.location.href = '/login?redirect=' + window.location.pathname;
-        return;
-      } else if(response.status === 200) {
-        var spacesAdded = false;
+          response.json().then((spacesList) => {
+            spacesList.spaces.forEach(async space => {
+              // If this space isn't in this.spaces then add it
+              if(!this.spaces.find(s => s.space_id === space.space_id)) {
+                // Setup the available services
+                space.update_available = false;
+                space.is_deployed = false;
+                space.is_pending = false;
+                space.is_deleting = false;
+                space.has_code_server = false;
+                space.has_ssh = false;
+                space.has_terminal = false;
+                space.has_http_vnc = false;
+                space.tcp_ports = [];
+                space.http_ports = [];
+                space.is_local = space.location == '' || location == space.location;
+                space.has_vscode_tunnel = false;
+                space.vscode_tunnel_name = '';
 
-        spacesList = await response.json();
-        spacesList.spaces.forEach(async space => {
-          // If this space isn't in this.spaces then add it
-          if(!this.spaces.find(s => s.space_id === space.space_id)) {
-            // Setup the available services
-            space.update_available = false;
-            space.is_deployed = false;
-            space.is_pending = false;
-            space.is_deleting = false;
-            space.has_code_server = false;
-            space.has_ssh = false;
-            space.has_terminal = false;
-            space.has_http_vnc = false;
-            space.tcp_ports = [];
-            space.http_ports = [];
-            space.is_local = space.location == '' || location == space.location;
+                this.spaces.push(space);
+                spacesAdded = true;
 
-            this.spaces.push(space);
-            spacesAdded = true;
+                // Lookup the space and update it's state
+                const s2 = this.spaces.find(s2 => s2.space_id === space.space_id);
+                await this.fetchServiceState(s2);
+                this.timerIDs[s2.space_id] = setInterval(async () => {
+                  this.fetchServiceState(s2);
+                }, 5000);
+              }
+            });
+          });
 
-            // Lookup the space and update it's state
-            const s2 = this.spaces.find(s2 => s2.space_id === space.space_id);
-            await this.fetchServiceState(s2);
-            this.timerIDs[s2.space_id] = setInterval(async () => {
-              await this.fetchServiceState(s2);
-            }, 5000);
+          // If spaces added then sort them by name
+          if(spacesAdded) {
+            this.spaces.sort((a, b) => (a.name > b.name) ? 1 : -1);
           }
-        });
 
-        // If spaces added then sort them by name
-        if(spacesAdded) {
-          this.spaces.sort((a, b) => (a.name > b.name) ? 1 : -1);
+          // Apply search filter
+          this.searchChanged();
+
+          this.loading = false;
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         }
-
-        // Apply search filter
-        this.searchChanged();
-
-        this.loading = false;
-      }
+      }).catch((error) => {
+        window.location.href = '/logout';
+      });
     },
     async fetchServiceState(space) {
       await fetch(`/api/v1/spaces/${space.space_id}/service-state`, {
@@ -135,7 +139,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             space.tcp_ports = serviceState.tcp_ports;
             space.http_ports = serviceState.http_ports;
             space.has_http_vnc = serviceState.has_http_vnc;
-            space.sshCmd = "ssh -o ProxyCommand='knot forward ssh %h' -o StrictHostKeyChecking=no " + username + "@" + serviceState.name;
+            space.has_vscode_tunnel = serviceState.has_vscode_tunnel;
+            space.vscode_tunnel_name = serviceState.vscode_tunnel_name;
+            space.sshCmd = "ssh -o ProxyCommand='knot forward ssh " + serviceState.name + " -o StrictHostKeyChecking=no " + username + "@knot." + serviceState.name;
             space.is_local = space.location == '' || location == space.location;
           });
         } else if (response.status === 401) {

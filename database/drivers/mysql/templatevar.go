@@ -18,24 +18,27 @@ func (db *MySQLDriver) SaveTemplateVar(templateVar *model.TemplateVar) error {
 
 	val := templateVar.GetValueEncrypted()
 
-	// Assume update
-	result, err := tx.Exec("UPDATE templatevars SET name=?, location=?, value=?, protected=?, updated_user_id=?, updated_at=? WHERE templatevar_id=?",
-		templateVar.Name, templateVar.Location, val, templateVar.Protected, templateVar.UpdatedUserId, time.Now().UTC(), templateVar.Id,
-	)
+	// Test if the PK exists in the database
+	var doUpdate bool
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM templatevars WHERE templatevar_id=?)", templateVar.Id).Scan(&doUpdate)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	// If no rows were updated then do an insert
-	if rows, _ := result.RowsAffected(); rows == 0 {
-		_, err = tx.Exec("INSERT INTO templatevars (templatevar_id, name, location, value, protected, created_user_id, created_at, updated_user_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			templateVar.Id, templateVar.Name, templateVar.Location, val, templateVar.Protected, templateVar.CreatedUserId, time.Now().UTC(), templateVar.CreatedUserId, time.Now().UTC(),
+	// Update
+	if doUpdate {
+		_, err = tx.Exec("UPDATE templatevars SET name=?, location=?, local=?, value=?, protected=?, restricted=?, updated_user_id=?, updated_at=? WHERE templatevar_id=?",
+			templateVar.Name, templateVar.Location, templateVar.Local, val, templateVar.Protected, templateVar.Restricted, templateVar.UpdatedUserId, time.Now().UTC(), templateVar.Id,
 		)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
+	} else {
+		_, err = tx.Exec("INSERT INTO templatevars (templatevar_id, name, location, local, value, protected, restricted, created_user_id, created_at, updated_user_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			templateVar.Id, templateVar.Name, templateVar.Location, templateVar.Local, val, templateVar.Protected, templateVar.Restricted, templateVar.CreatedUserId, time.Now().UTC(), templateVar.CreatedUserId, time.Now().UTC(),
+		)
+	}
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 
 	tx.Commit()
@@ -62,7 +65,7 @@ func (db *MySQLDriver) getTemplateVars(query string, args ...interface{}) ([]*mo
 		var createdAt string
 		var updatedAt string
 
-		err := rows.Scan(&templateVar.Id, &templateVar.Name, &templateVar.Location, &templateVar.Value, &templateVar.Protected, &templateVar.CreatedUserId, &createdAt, &templateVar.UpdatedUserId, &updatedAt)
+		err := rows.Scan(&templateVar.Id, &templateVar.Name, &templateVar.Location, &templateVar.Local, &templateVar.Value, &templateVar.Protected, &templateVar.Restricted, &templateVar.CreatedUserId, &createdAt, &templateVar.UpdatedUserId, &updatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +88,7 @@ func (db *MySQLDriver) getTemplateVars(query string, args ...interface{}) ([]*mo
 }
 
 func (db *MySQLDriver) GetTemplateVar(id string) (*model.TemplateVar, error) {
-	templateVars, err := db.getTemplateVars("SELECT templatevar_id, name, location, value, protected, created_user_id, created_at, updated_user_id, updated_at FROM templatevars WHERE templatevar_id = ?", id)
+	templateVars, err := db.getTemplateVars("SELECT templatevar_id, name, location, local, value, protected, restricted, created_user_id, created_at, updated_user_id, updated_at FROM templatevars WHERE templatevar_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
@@ -97,5 +100,5 @@ func (db *MySQLDriver) GetTemplateVar(id string) (*model.TemplateVar, error) {
 }
 
 func (db *MySQLDriver) GetTemplateVars() ([]*model.TemplateVar, error) {
-	return db.getTemplateVars("SELECT templatevar_id, name, location, value, protected, created_user_id, created_at, updated_user_id, updated_at FROM templatevars ORDER BY name")
+	return db.getTemplateVars("SELECT templatevar_id, name, location, local, value, protected, restricted, created_user_id, created_at, updated_user_id, updated_at FROM templatevars ORDER BY name")
 }

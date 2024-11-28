@@ -63,7 +63,7 @@ func (db *RedisDbDriver) GetGroups() ([]*model.Group, error) {
 		return nil, err
 	}
 
-	// Sort the templates by name
+	// Sort the groups by name
 	sort.Slice(groups, func(i, j int) bool {
 		return groups[i].Name < groups[j].Name
 	})

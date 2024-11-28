@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -19,7 +20,7 @@ var (
 )
 
 func Initialize() {
-	if !viper.GetBool("server.is_remote") {
+	if !server_info.IsLeaf {
 		// Test if there's users present in the system
 		db := database.GetInstance()
 		hasUsers, err := db.HasUsers()
@@ -38,8 +39,8 @@ func Initialize() {
 	}
 }
 
-func returnUnauthorized(w http.ResponseWriter) {
-	rest.SendJSON(http.StatusUnauthorized, w, struct {
+func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
+	rest.SendJSON(http.StatusUnauthorized, w, r, struct {
 		Error string `json:"error"`
 	}{
 		Error: "Authentication token is not valid",
@@ -51,7 +52,7 @@ func GetBearerToken(w http.ResponseWriter, r *http.Request) string {
 	var bearer string
 	fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &bearer)
 	if len(bearer) < 1 {
-		returnUnauthorized(w)
+		returnUnauthorized(w, r)
 		return ""
 	}
 
@@ -76,13 +77,13 @@ func ApiAuth(next http.Handler) http.Handler {
 				// Get the auth token
 				bearer := GetBearerToken(w, r)
 				if bearer == "" {
-					returnUnauthorized(w)
+					returnUnauthorized(w, r)
 					return
 				}
 
 				token, _ := db.GetToken(bearer)
 				if token == nil {
-					returnUnauthorized(w)
+					returnUnauthorized(w, r)
 					return
 				}
 
@@ -95,35 +96,10 @@ func ApiAuth(next http.Handler) http.Handler {
 				ctx = context.WithValue(r.Context(), "access_token", token)
 
 				// If remote then setup the client
-				if viper.GetBool("server.is_remote") {
-					// Create the API client
-					client := apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
+				if server_info.IsLeaf {
+					// Create a remote access client
+					client := apiclient.NewRemoteToken(token.Id)
 					client.AppendUserAgent("(token " + token.Id + ")")
-
-					// If the token doesn't have a session or if the session can't be loaded create a new session
-					session, err := cache.GetSession(token.SessionId)
-					if err != nil || session == nil {
-
-						// Create a remote session for the user of the token
-						remoteSessionId, _, err := client.RemoteCreateUserSession(userId)
-						if err != nil {
-							log.Error().Msgf("failed to create remote session: %s", err.Error())
-							returnUnauthorized(w)
-							return
-						}
-
-						// Create a local session to tie the remote and local together
-						session = model.NewSession(r, userId, remoteSessionId)
-
-						token.SessionId = session.Id
-						db.SaveToken(token)
-					}
-
-					// Save the session to keep it alive
-					cache.SaveSession(session)
-
-					// Change the API client to use the session
-					client.UseSessionCookie(true).SetAuthToken(session.RemoteSessionId)
 					ctx = context.WithValue(ctx, "remote_client", client)
 				}
 			} else {
@@ -131,7 +107,7 @@ func ApiAuth(next http.Handler) http.Handler {
 				// Get the session
 				session := GetSessionFromCookie(r)
 				if session == nil {
-					returnUnauthorized(w)
+					returnUnauthorized(w, r)
 					return
 				}
 
@@ -144,7 +120,7 @@ func ApiAuth(next http.Handler) http.Handler {
 				ctx = context.WithValue(r.Context(), "session", session)
 
 				// If remote then setup the client
-				if viper.GetBool("server.is_remote") {
+				if server_info.IsLeaf {
 					client := apiclient.NewRemoteSession(session.RemoteSessionId)
 					ctx = context.WithValue(ctx, "remote_client", client)
 				}
@@ -153,7 +129,7 @@ func ApiAuth(next http.Handler) http.Handler {
 			// Get the user
 			user, err := db.GetUser(userId)
 			if err != nil || !user.Active {
-				returnUnauthorized(w)
+				returnUnauthorized(w, r)
 				return
 			}
 
@@ -174,7 +150,7 @@ func ApiPermissionManageTemplates(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageTemplates) {
-			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage templates"})
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage templates"})
 			return
 		}
 
@@ -185,8 +161,8 @@ func ApiPermissionManageTemplates(next http.Handler) http.Handler {
 func ApiPermissionManageVolumes(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionManageVolumes) {
-			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage volumes"})
+		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageVolumes) {
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage volumes"})
 			return
 		}
 
@@ -199,7 +175,7 @@ func ApiPermissionManageUsers(next http.Handler) http.Handler {
 		if HasUsers {
 			user := r.Context().Value("user").(*model.User)
 			if HasUsers && !user.HasPermission(model.PermissionManageUsers) {
-				rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage users"})
+				rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
 				return
 			}
 		}
@@ -213,7 +189,7 @@ func ApiPermissionManageUsersOrSelf(next http.Handler) http.Handler {
 		userId := chi.URLParam(r, "user_id")
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageUsers) && user.Id != userId {
-			rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "No permission to manage users"})
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
 			return
 		}
 
@@ -252,39 +228,37 @@ func WebAuth(next http.Handler) http.Handler {
 	})
 }
 
-func AgentAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		spaceId := chi.URLParam(r, "space_id")
-		authorization := r.Header.Get("Authorization")
-
-		// Fetch the registered space, if not found then fail
-		state, err := database.GetCacheInstance().GetAgentState(spaceId)
-		if err != nil || authorization == "" || state == nil {
-			returnUnauthorized(w)
-			return
-		}
-
-		// Get the auth token
-		var token string
-		fmt.Sscanf(authorization, "Bearer %s", &token)
-		if len(token) != 36 || token != state.AccessToken {
-			returnUnauthorized(w)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
-
-func RemoteServerAuth(next http.Handler) http.Handler {
+func LeafServerAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// Get the auth token
-		var bearer string
-		fmt.Sscanf(r.Header.Get("Authorization"), "Bearer %s", &bearer)
-		if bearer != viper.GetString("server.remote_token") || viper.GetString("server.remote_token") == "" {
-			returnUnauthorized(w)
+		bearer := GetBearerToken(w, r)
+		if bearer == "" {
+			returnUnauthorized(w, r)
+			return
+		}
+		if bearer != viper.GetString("server.shared_token") || viper.GetString("server.shared_token") == "" {
+
+			// If leaf nodes are allowed to use API tokens then check for that
+			if viper.GetBool("server.enable_leaf_api_tokens") {
+
+				db := database.GetInstance()
+				token, _ := db.GetToken(bearer)
+				if token == nil {
+					returnUnauthorized(w, r)
+					return
+				}
+
+				// Save the token to extend its life
+				db.SaveToken(token)
+
+				// Save the user and token to the context
+				ctx := context.WithValue(r.Context(), "access_token", token)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
+			returnUnauthorized(w, r)
 			return
 		}
 

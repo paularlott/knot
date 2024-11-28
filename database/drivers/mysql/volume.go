@@ -16,24 +16,27 @@ func (db *MySQLDriver) SaveVolume(volume *model.Volume) error {
 		return err
 	}
 
-	// Assume update
-	result, err := tx.Exec("UPDATE volumes SET name=?, definition=?, updated_user_id=?, updated_at=?, active=?, location=? WHERE volume_id=?",
-		volume.Name, volume.Definition, volume.UpdatedUserId, time.Now().UTC(), volume.Active, volume.Location, volume.Id,
-	)
+	// Test if the PK exists in the database
+	var doUpdate bool
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM volumes WHERE volume_id=?)", volume.Id).Scan(&doUpdate)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	// If no rows were updated then do an insert
-	if rows, _ := result.RowsAffected(); rows == 0 {
+	// Update
+	if doUpdate {
+		_, err = tx.Exec("UPDATE volumes SET name=?, definition=?, updated_user_id=?, updated_at=?, active=?, location=? WHERE volume_id=?",
+			volume.Name, volume.Definition, volume.UpdatedUserId, time.Now().UTC(), volume.Active, volume.Location, volume.Id,
+		)
+	} else {
 		_, err = tx.Exec("INSERT INTO volumes (volume_id, name, definition, created_user_id, created_at, updated_user_id, updated_at, active, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			volume.Id, volume.Name, volume.Definition, volume.CreatedUserId, time.Now().UTC(), volume.CreatedUserId, time.Now().UTC(), volume.Active, volume.Location,
 		)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
+	}
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 
 	tx.Commit()

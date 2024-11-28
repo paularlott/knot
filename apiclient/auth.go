@@ -39,3 +39,15 @@ func (c *ApiClient) Logout() error {
 
 	return nil
 }
+
+// Login to the server using a user ID and token
+func (c *ApiClient) LoginUserToken(userId string, token string) error {
+	response := AuthLoginResponse{}
+
+	_, err := c.httpClient.Post("/api/v1/auth/user", nil, &response, 200)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

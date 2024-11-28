@@ -6,7 +6,6 @@ import (
 
 	"github.com/paularlott/knot/command"
 	_ "github.com/paularlott/knot/command/admin"
-	_ "github.com/paularlott/knot/command/agent"
 	_ "github.com/paularlott/knot/command/direct"
 	_ "github.com/paularlott/knot/command/forward"
 	_ "github.com/paularlott/knot/command/proxy"

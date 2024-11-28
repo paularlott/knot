@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/origin_leaf/leaf"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -32,7 +36,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		spaceData, code, err = client.GetSpaces(userId)
 		if err != nil {
 			log.Error().Msgf("HandleGetSpaces: GetSpaces: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -47,24 +51,24 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		var spaces []*model.Space
 		var err error
 
+		// If user doesn't have permission to manage spaces and filter user ID doesn't match the user return an empty list
+		if !user.HasPermission(model.PermissionManageSpaces) && userId != user.Id {
+			rest.SendJSON(http.StatusOK, w, r, spaceData)
+			return
+		}
+
 		if userId == "" {
 			spaces, err = db.GetSpaces()
 			if err != nil {
 				log.Error().Msgf("HandleGetSpaces: GetSpaces: %s", err.Error())
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 		} else {
-			// If user doesn't have permission to manage spaces and filter user ID doesn't match the user return an empty list
-			if !user.HasPermission(model.PermissionManageSpaces) && userId != user.Id {
-				rest.SendJSON(http.StatusOK, w, spaceData)
-				return
-			}
-
 			spaces, err = db.GetSpacesForUser(userId)
 			if err != nil {
 				log.Error().Msgf("HandleGetSpaces: GetSpacesForUser: %s", err.Error())
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 		}
@@ -81,8 +85,6 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 				} else {
 					templateName = template.Name
 				}
-			} else {
-				templateName = "None (" + space.AgentURL + ")"
 			}
 
 			s := apiclient.SpaceInfo{}
@@ -97,7 +99,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			u, err := db.GetUser(space.UserId)
 			if err != nil {
 				log.Error().Msgf("HandleGetSpaces: GetUser: %s", err.Error())
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 			s.Username = u.Username
@@ -106,7 +108,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.VolumeSize, err = calcSpaceDiskUsage(space)
 			if err != nil {
 				log.Error().Msgf("HandleGetSpaces: calcSpaceDiskUsage: %s", err.Error())
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 
@@ -115,7 +117,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rest.SendJSON(http.StatusOK, w, spaceData)
+	rest.SendJSON(http.StatusOK, w, r, spaceData)
 }
 
 func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
@@ -131,13 +133,13 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	// Load the space if not found or doesn't belong to the user then treat both as not found
 	space, err := db.GetSpace(spaceId)
 	if err != nil || (user != nil && space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces)) {
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: fmt.Sprintf("space %s not found", spaceId)})
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("space %s not found", spaceId)})
 		return
 	}
 
 	// If the space is running or changing state then fail
 	if space.IsDeployed || space.IsPending || space.IsDeleting {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space cannot be deleted"})
+		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be deleted"})
 		return
 	}
 
@@ -149,13 +151,13 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		code, err := client.DeleteSpace(spaceId)
 		if err != nil {
 			log.Error().Msgf("HandleDeleteSpace: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
 
 	// If space is running on this server then delete it from nomad
-	if space.Location == viper.GetString("server.location") {
+	if space.Location == server_info.LeafLocation {
 		// Mark the space as deleting and delete it in the background
 		space.IsDeleting = true
 		db.SaveSpace(space)
@@ -167,9 +169,11 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		err = db.DeleteSpace(space)
 		if err != nil {
 			log.Error().Msgf("HandleDeleteSpace: %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
+
+		leaf.DeleteSpace(spaceId)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -195,7 +199,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
 		log.Error().Msgf("HandleCreateSpace: %s", err.Error())
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -204,29 +208,24 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
 	// If user give and not our ID and no permission to manage spaces then fail
 	if request.UserId != "" && request.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
-		rest.SendJSON(http.StatusForbidden, w, ErrorResponse{Error: "Cannot create space for another user"})
+		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot create space for another user"})
 		return
 	}
 
-	// If template given then ensure the address is removed
-	if request.TemplateId != model.MANUAL_TEMPLATE_ID {
-		request.AgentURL = ""
-	}
-
-	if !validate.Name(request.Name) || (request.TemplateId == model.MANUAL_TEMPLATE_ID && !validate.Uri(request.AgentURL)) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name, template, or address given for new space"})
+	if !validate.Name(request.Name) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid name or template given for new space"})
 		return
 	}
 
 	for _, altName := range request.AltNames {
 		if !validate.Name(altName) {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid alt name given for space"})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid alt name given for space"})
 			return
 		}
 	}
 
 	if !validate.OneOf(request.Shell, []string{"bash", "zsh", "fish", "sh"}) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid shell given for space"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid shell given for space"})
 		return
 	}
 
@@ -235,7 +234,14 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	if request.UserId != "" {
 		forUserId = request.UserId
 	}
-	space := model.NewSpace(request.Name, forUserId, request.AgentURL, request.TemplateId, request.Shell, &request.VolumeSizes, &request.AltNames)
+	space := model.NewSpace(request.Name, forUserId, request.TemplateId, request.Shell, &request.VolumeSizes, &request.AltNames)
+
+	// Lock the space to the location of the server creating it
+	if request.Location == "" {
+		space.Location = server_info.LeafLocation
+	} else {
+		space.Location = request.Location
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -244,7 +250,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
 		code, err := client.CreateSpace(space)
 		if err != nil {
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
@@ -254,41 +260,41 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 			// Lookup the template
 			template, err := db.GetTemplate(request.TemplateId)
 			if err != nil {
-				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
+				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Unknown template"})
 				return
 			}
 
 			// Check the user and template have overlapping groups
 			if len(template.Groups) > 0 && !user.HasAnyGroup(&template.Groups) {
-				rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
+				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Unknown template"})
 				return
 			}
 
 			// Get the size for this space
 			size, err := space.GetStorageSize(template)
 			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 
 			// Get the size of storage for all the users spaces
 			spaces, err := db.GetSpacesForUser(forUserId)
 			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 
 			for _, s := range spaces {
 				sSize, err := calcSpaceDiskUsage(s)
 				if err != nil {
-					rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 					return
 				}
 				size += sSize
 			}
 
 			if size > user.MaxDiskSpace {
-				rest.SendJSON(http.StatusInsufficientStorage, w, ErrorResponse{Error: "storage quota reached"})
+				rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage quota reached"})
 				return
 			}
 		}
@@ -297,12 +303,14 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	// Save the space
 	err = database.GetInstance().SaveSpace(space)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
+	leaf.UpdateSpace(space)
+
 	// Return the Token ID
-	rest.SendJSON(http.StatusCreated, w, struct {
+	rest.SendJSON(http.StatusCreated, w, r, struct {
 		Status  bool   `json:"status"`
 		SpaceID string `json:"space_id"`
 	}{
@@ -315,7 +323,6 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	spaceId := chi.URLParam(r, "space_id")
 
 	db := database.GetInstance()
-	cache := database.GetCacheInstance()
 
 	space, err := db.GetSpace(spaceId)
 	if err != nil || space == nil {
@@ -331,7 +338,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 				space, code, err = client.GetSpace(spaceId)
 				if err != nil || space == nil {
 					log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
-					rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+					rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 					return
 				}
 
@@ -339,22 +346,22 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 				err = db.SaveSpace(space)
 				if err != nil {
 					log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
-					rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 					return
 				}
 			} else {
-				rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 		} else {
 			log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
 
 	response := apiclient.SpaceServiceState{}
-	state, _ := cache.GetAgentState(spaceId)
+	state := agent_server.GetSession(spaceId)
 	if state == nil {
 		response.HasCodeServer = false
 		response.HasSSH = false
@@ -362,6 +369,8 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 		response.HasHttpVNC = false
 		response.TcpPorts = make(map[string]string)
 		response.HttpPorts = make(map[string]string)
+		response.HasVSCodeTunnel = false
+		response.VSCodeTunnel = ""
 	} else {
 		response.HasCodeServer = state.HasCodeServer
 		response.HasSSH = state.SSHPort > 0
@@ -375,6 +384,9 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 		} else {
 			response.HttpPorts = state.HttpPorts
 		}
+
+		response.HasVSCodeTunnel = state.HasVSCodeTunnel
+		response.VSCodeTunnel = state.VSCodeTunnelName
 	}
 
 	response.Name = space.Name
@@ -382,7 +394,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	response.IsDeployed = space.IsDeployed
 	response.IsPending = space.IsPending
 	response.IsDeleting = space.IsDeleting
-	response.IsRemote = space.Location != "" && space.Location != viper.GetString("server.location")
+	response.IsRemote = space.Location != "" && space.Location != server_info.LeafLocation
 
 	// If template is manual then force IsDeployed to true
 	if space.TemplateId == model.MANUAL_TEMPLATE_ID {
@@ -390,14 +402,14 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the template has been updated
-	hash, ok := templateHashes[space.TemplateId]
-	if space.TemplateId == model.MANUAL_TEMPLATE_ID || !ok {
+	hash := api_utils.GetTemplateHash(space.TemplateId)
+	if space.TemplateId == model.MANUAL_TEMPLATE_ID || hash == "" {
 		response.UpdateAvailable = false
 	} else {
 		response.UpdateAvailable = space.IsDeployed && space.TemplateHash != hash
 	}
 
-	rest.SendJSON(http.StatusOK, w, response)
+	rest.SendJSON(http.StatusOK, w, r, response)
 }
 
 func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
@@ -413,13 +425,13 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
 		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// If user doesn't have permission to manage spaces and not their space then fail
 	if user.Id != space.UserId && !user.HasPermission(model.PermissionManageSpaces) {
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
 
@@ -428,7 +440,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		user, err = db.GetUser(space.UserId)
 		if err != nil {
 			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
@@ -442,78 +454,82 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		spaceRemote, code, err = client.GetSpace(spaceId)
 		if err != nil || space == nil {
 			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		// Load the space from disk and merge the remote space into it
 		space.Name = spaceRemote.Name
 		space.AltNames = spaceRemote.AltNames
-		space.AgentURL = spaceRemote.AgentURL
 		space.Shell = spaceRemote.Shell
 		space.VolumeSizes = spaceRemote.VolumeSizes
 	}
 
 	// If the space is already running or changing state then fail
 	if space.IsDeployed || space.IsPending || space.IsDeleting {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space cannot be started"})
+		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be started"})
 		return
 	}
 
 	// Is the space has a location then it must match the server location
-	if space.Location != "" && space.Location != viper.GetString("server.location") {
-		rest.SendJSON(http.StatusNotAcceptable, w, ErrorResponse{Error: "space location does not match server location"})
+	if space.Location != "" && space.Location != server_info.LeafLocation {
+		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space location does not match server location"})
 		return
 	}
 
-	var template *model.Template
-	var variables []*model.TemplateVar
+	// Mark the space as pending and save it
+	space.IsPending = true
+	if err = db.SaveSpace(space); err != nil {
+		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
 
+	// Update the origin server
 	if client != nil {
-		// Open new client with remote access
-		clientRemote := apiclient.NewRemoteToken(viper.GetString("server.remote_token"))
-
-		// Get the template
-		template, code, err = clientRemote.GetTemplateObject(space.TemplateId)
+		code, err = client.UpdateSpace(space)
 		if err != nil {
 			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		// Get the template variables
-		variables, code, err = clientRemote.GetTemplateVarValues()
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-	} else {
-		// Get the template
-		template, err = db.GetTemplate(space.TemplateId)
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		// Get the variables
-		variables, err = db.GetTemplateVars()
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
 
-	space.Location = viper.GetString("server.location")
+	// Revert the pending status if the deploy fails
+	var deployFailed = true
+	defer func() {
+		if deployFailed {
+			// If the deploy failed then revert the space to not pending
+			space.IsPending = false
+			db.SaveSpace(space)
 
-	vars := make(map[string]interface{})
-	for _, variable := range variables {
-		if variable.Location == "" || variable.Location == viper.GetString("server.location") {
-			vars[variable.Name] = variable.Value
+			// If remote then need to update the remote
+			if client != nil {
+				code, err = client.UpdateSpace(space)
+				if err != nil {
+					log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+				}
+			}
 		}
+	}()
+
+	// Get the template
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceStart: get template %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
 	}
+
+	// Get the variables
+	variables, err := db.GetTemplateVars()
+	if err != nil {
+		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	vars := model.FilterVars(variables)
 
 	// Get the nomad client
 	nomadClient := nomad.NewClient()
@@ -522,7 +538,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	err = nomadClient.CreateSpaceVolumes(user, template, space, &vars)
 	if err != nil {
 		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -530,21 +546,14 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	err = nomadClient.CreateSpaceJob(user, template, space, &vars)
 	if err != nil {
 		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	// Update the remote
-	if client != nil {
-		code, err = client.UpdateSpace(space)
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
-		}
-	}
-
 	w.WriteHeader(http.StatusOK)
+
+	// Don't revert the space on success
+	deployFailed = false
 }
 
 func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
@@ -556,24 +565,23 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	spaceId := chi.URLParam(r, "space_id")
 	db := database.GetInstance()
-	cache := database.GetCacheInstance()
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
 		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// If user doesn't have permission to manage spaces and not their space then fail
 	if user.Id != space.UserId && !user.HasPermission(model.PermissionManageSpaces) {
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
 
 	// If the space is not running or changing state then fail
 	if (!space.IsDeployed && !space.IsPending) || space.IsDeleting {
-		rest.SendJSON(http.StatusLocked, w, ErrorResponse{Error: "space cannot be stopped"})
+		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be stopped"})
 		return
 	}
 
@@ -586,16 +594,33 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		spaceRemote, code, err = client.GetSpace(spaceId)
 		if err != nil || space == nil {
 			log.Error().Msgf("HandleSpaceStop: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		// Load the space from disk and merge the remote space into it
 		space.Name = spaceRemote.Name
 		space.AltNames = spaceRemote.AltNames
-		space.AgentURL = spaceRemote.AgentURL
 		space.Shell = spaceRemote.Shell
 		space.VolumeSizes = spaceRemote.VolumeSizes
+	}
+
+	// Mark the space as pending and save it
+	space.IsPending = true
+	if err = db.SaveSpace(space); err != nil {
+		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Update the origin server
+	if client != nil {
+		code, err = client.UpdateSpace(space)
+		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
 	}
 
 	// Get the nomad client
@@ -604,25 +629,15 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	// Stop the job
 	err = nomadClient.DeleteSpaceJob(space)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	// Delete the agent state
-	state, _ := cache.GetAgentState(space.Id)
-	if state != nil {
-		cache.DeleteAgentState(state)
-	}
-
-	// Update the remote
-	if client != nil {
-		code, err = client.UpdateSpace(space)
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStop: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
-			return
+		space.IsPending = false
+		db.SaveSpace(space)
+		if client != nil {
+			client.UpdateSpace(space)
 		}
+
+		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -641,12 +656,12 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space, err := db.GetSpace(spaceId)
 	if err != nil {
 		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if user != nil && space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
 
@@ -654,42 +669,35 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	err = rest.BindJSON(w, r, &request)
 	if err != nil {
 		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
-	}
-
-	// If template given then ensure the address is removed
-	if request.TemplateId != model.MANUAL_TEMPLATE_ID {
-		request.AgentURL = ""
 	}
 
 	// Remove any blank alt names, any that match the primary name, and any duplicates
 	request.AltNames = removeBlankAndDuplicates(request.AltNames, request.Name)
 
-	if !validate.Name(request.Name) || (request.TemplateId == model.MANUAL_TEMPLATE_ID && !validate.Uri(request.AgentURL)) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid name, template, or address given for new space"})
+	if !validate.Name(request.Name) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid name or template given for new space"})
 		return
 	}
 
 	for _, altName := range request.AltNames {
 		if !validate.Name(altName) {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid alt name given for space"})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid alt name given for space"})
 			return
 		}
 	}
 
 	if !validate.OneOf(request.Shell, []string{"bash", "zsh", "fish", "sh"}) {
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Invalid shell given for space"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid shell given for space"})
 		return
 	}
 
 	// Update the space
 	space.Name = request.Name
 	space.TemplateId = request.TemplateId
-	space.AgentURL = request.AgentURL
 	space.Shell = request.Shell
 	space.AltNames = request.AltNames
-	space.Location = request.Location
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -699,14 +707,14 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		code, err := client.UpdateSpace(space)
 		if err != nil {
 			log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
 		// Lookup the template
 		_, err = db.GetTemplate(request.TemplateId)
 		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: "Unknown template"})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Unknown template"})
 			return
 		}
 	}
@@ -714,8 +722,13 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	err = db.SaveSpace(space)
 	if err != nil {
 		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
-		rest.SendJSON(http.StatusBadRequest, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
+	}
+
+	// If the space is in a pending state then don't notify the leaf servers as another update will be coming, avoids a race condition
+	if !space.IsPending {
+		leaf.UpdateSpace(space)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -730,16 +743,16 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	// Stop all spaces
 	spaces, err := db.GetSpacesForUser(chi.URLParam(r, "user_id"))
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	for _, space := range spaces {
-		if space.IsDeployed && (space.Location == "" || space.Location == viper.GetString("server.location")) {
+		if space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
 			err = nomadClient.DeleteSpaceJob(space)
 			if err != nil {
 				log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
-				rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			} else {
 				// If remote then need to update status on remote
@@ -749,7 +762,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 					code, err := client.UpdateSpace(space)
 					if err != nil {
 						log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
-						rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+						rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 						return
 					}
 				}
@@ -770,7 +783,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil || space == nil {
-		rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: err.Error()})
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -783,14 +796,13 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		spaceRemote, code, err = client.GetSpace(spaceId)
 		if err != nil || space == nil {
 			log.Error().Msgf("HandleGetSpace: %s", err.Error())
-			rest.SendJSON(code, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		// Merge the remote space into it
 		space.Name = spaceRemote.Name
 		space.AltNames = spaceRemote.AltNames
-		space.AgentURL = spaceRemote.AgentURL
 		space.Shell = spaceRemote.Shell
 		space.VolumeSizes = spaceRemote.VolumeSizes
 
@@ -798,14 +810,14 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		err = database.GetInstance().SaveSpace(space)
 		if err != nil {
 			log.Error().Msgf("HandleGetSpace: %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	} else {
 		if r.Context().Value("user") != nil {
 			user := r.Context().Value("user").(*model.User)
 			if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
-				rest.SendJSON(http.StatusNotFound, w, ErrorResponse{Error: "space not found"})
+				rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 				return
 			}
 		}
@@ -815,7 +827,6 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		UserId:      space.UserId,
 		TemplateId:  space.TemplateId,
 		Name:        space.Name,
-		AgentURL:    space.AgentURL,
 		Shell:       space.Shell,
 		Location:    space.Location,
 		AltNames:    space.AltNames,
@@ -826,7 +837,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		VolumeData:  space.VolumeData,
 	}
 
-	rest.SendJSON(http.StatusOK, w, &response)
+	rest.SendJSON(http.StatusOK, w, r, &response)
 }
 
 func calcSpaceDiskUsage(space *model.Space) (int, error) {
@@ -848,7 +859,6 @@ func RealDeleteSpace(space *model.Space) {
 		log.Info().Msgf("api: RealDeleteSpace: deleting %s", space.Id)
 
 		db := database.GetInstance()
-		cache := database.GetCacheInstance()
 
 		// Get the nomad client
 		nomadClient := nomad.NewClient()
@@ -864,10 +874,7 @@ func RealDeleteSpace(space *model.Space) {
 		}
 
 		// Delete the agent state if present
-		state, _ := cache.GetAgentState(space.Id)
-		if state != nil {
-			cache.DeleteAgentState(state)
-		}
+		agent_server.RemoveSession(space.Id)
 
 		// Delete the space
 		err = db.DeleteSpace(space)
@@ -881,4 +888,6 @@ func RealDeleteSpace(space *model.Space) {
 
 		log.Info().Msgf("api: RealDeleteSpace: deleted %s", space.Id)
 	}()
+
+	leaf.DeleteSpace(space.Id)
 }

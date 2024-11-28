@@ -9,9 +9,9 @@ indent_size = 2
 indent_style = tab
 indent_size = 4
 
-[golang]
+[*.go]
 end_of_line = lf
 insert_final_newline = false
 charset = utf-8
-indent_style = space
+indent_style = tab
 indent_size = 2

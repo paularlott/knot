@@ -20,25 +20,51 @@
           <div x-show="!nameValid" class="error-message" x-cloak>Variable name can only contain the letters a - Z, 0 - 9 and _, max 64 characters.</div>
         </div>
         <div>
-          <label for="location" class="form-label">Location</label>
-          <input type="text" class="form-field" name="location" x-on:keyup.debounce.500ms="checkLocation()" :class="{'form-field-error': !locationValid}" placeholder="Optional Location Restriction" x-model="formData.location">
-          <div x-show="!locationValid" class="error-message">Location is limited to 64 characters.</div>
-          <div class="description">Location is an optional field that can be used to restrict the use of this variable to a specific location. If set, the variable will only be available in the specified location.</div>
-        </div>
-        <div>
-          <label class="inline-flex items-center mb-5 cursor-pointer">
-            <input type="checkbox" name="protected" x-model="formData.protected" class="sr-only peer">
-            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Protected</span>
-          </label>
-          <div class="description">Protected variables are encrypted and cannot be viewed once saved.</div>
-        </div>
-        <div>
           <label for="job" class="form-label">Value</label></dt>
           <div :class="{'form-field-error': !valueValid, 'editor-wrap': true}">
             <textarea name="value" id="value"></textarea>
           </div>
           <div x-show="!valueValid" class="error-message" x-cloak>Value must be less than 10MB.</div>
+        </div>
+        {{ if not .isRestrictedServer}}
+        <div>
+          <label for="location" class="form-label">Location</label>
+          <input type="text" class="form-field disabled:opacity-40" name="location" x-on:keyup.debounce.500ms="checkLocation()" :class="{'form-field-error': !locationValid}" placeholder="Optional Location Restriction" x-model="formData.location" :disabled="formData.local">
+          <div x-show="!locationValid" class="error-message">Location is limited to 64 characters.</div>
+          <div class="description">Location is an optional field that can be used to restrict the use of this variable to a specific location. If set, the variable will only be available in the specified location.</div>
+        </div>
+        {{ end }}
+        <div class="grid grid-cols-1 md:grid-cols-3 md:gap-4">
+          <div class="col-span-1">
+            <div class="col-span-1 mb-4 md:mb-0">
+              <label class="inline-flex items-center mb-5 cursor-pointer">
+                <input type="checkbox" name="protected" x-model="formData.protected" class="sr-only peer">
+                <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Protected</span>
+              </label>
+              <div class="description">Protected variables are encrypted and cannot be viewed once saved.</div>
+            </div>
+          </div>
+          {{ if not .isRestrictedServer}}
+          <div class="col-span-1">
+            <div class="col-span-1 mb-4 md:mb-0">
+              <label class="inline-flex items-center mb-5 cursor-pointer">
+                <input type="checkbox" name="protected" x-model="formData.restricted" class="sr-only peer" :disabled="formData.local" @change="if (formData.restricted) formData.local = false">
+                <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-disabled:opacity-400"></div>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300 peer-disabled:text-gray-400 peer-disabled:dark:text-gray-600">Restricted</span>
+              </label>
+              <div class="description">Restricted variables are only shared with trusted server.</div>
+            </div>
+          </div>
+          <div class="col-span-1">
+            <label class="inline-flex items-center mb-5 cursor-pointer">
+              <input type="checkbox" name="protected" x-model="formData.local" class="sr-only peer" :disabled="formData.restricted" @change="if (formData.local) formData.restricted = false">
+              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-disabled:opacity-40"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300 peer-disabled:text-gray-400 peer-disabled:dark:text-gray-600">Local Variable</span>
+            </label>
+            <div class="description">A local variables will only be available on the server it was created on.</div>
+          </div>
+          {{ end }}
         </div>
 
         <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>

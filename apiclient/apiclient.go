@@ -1,6 +1,7 @@
 package apiclient
 
 import (
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/rest"
 
 	"github.com/spf13/viper"
@@ -22,15 +23,20 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *ApiClient
 		httpClient: rest.NewClient(baseURL, token, insecureSkipVerify),
 	}
 
-	if viper.GetBool("server.is_remote") {
-		c.httpClient.AppendUserAgent("Remote (" + viper.GetString("server.location") + ")")
+	// TODO Remove this as it's just here as we move from JSON to msgpack
+	if !viper.GetBool("legacy") {
+		c.httpClient.SetContentType(rest.ContentTypeMsgPack)
+	}
+
+	if server_info.IsLeaf {
+		c.httpClient.AppendUserAgent("Remote (" + server_info.LeafLocation + ")")
 	}
 
 	return c
 }
 
 func NewRemoteToken(token string) *ApiClient {
-	c := NewClient(viper.GetString("server.core_server"), token, viper.GetBool("tls_skip_verify"))
+	c := NewClient(viper.GetString("server.origin_server"), token, viper.GetBool("tls_skip_verify"))
 	return c
 }
 
@@ -38,10 +44,6 @@ func NewRemoteSession(token string) *ApiClient {
 	c := NewRemoteToken(token)
 	c.httpClient.UseSessionCookie(true)
 	return c
-}
-
-func NewRemoteServerClient(baseURL string) *ApiClient {
-	return NewClient(baseURL, viper.GetString("server.remote_token"), viper.GetBool("tls_skip_verify"))
 }
 
 func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {

@@ -8,5 +8,5 @@ import (
 )
 
 func HandleGetRoles(w http.ResponseWriter, r *http.Request) {
-  rest.SendJSON(http.StatusOK, w, model.RoleNames)
+	rest.SendJSON(http.StatusOK, w, r, model.RoleNames)
 }

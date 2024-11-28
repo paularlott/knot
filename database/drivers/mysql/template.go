@@ -11,99 +11,102 @@ import (
 
 func (db *MySQLDriver) SaveTemplate(template *model.Template) error {
 
-  tx, err := db.connection.Begin()
-  if err != nil {
-    return err
-  }
+	tx, err := db.connection.Begin()
+	if err != nil {
+		return err
+	}
 
-  // Assume update
-  result, err := tx.Exec("UPDATE templates SET name=?, description=?, job=?, volumes=?, hash=?, updated_user_id=?, updated_at=?, groups=? WHERE template_id=?",
-    template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.UpdatedUserId, time.Now().UTC(), template.Groups, template.Id,
-  )
-  if err != nil {
-    tx.Rollback()
-    return err
-  }
+	// Test if the PK exists in the database
+	var doUpdate bool
+	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM templates WHERE template_id=?)", template.Id).Scan(&doUpdate)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-  // If no rows were updated then do an insert
-  if rows, _ := result.RowsAffected(); rows == 0 {
-    _, err = tx.Exec("INSERT INTO templates (template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      template.Id, template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.CreatedUserId, time.Now().UTC(), template.CreatedUserId, time.Now().UTC(), template.Groups,
-    )
-    if err != nil {
-      tx.Rollback()
-      return err
-    }
-  }
+	// Update
+	if doUpdate {
+		_, err = tx.Exec("UPDATE templates SET name=?, description=?, job=?, volumes=?, hash=?, updated_user_id=?, updated_at=?, groups=? WHERE template_id=?",
+			template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.UpdatedUserId, time.Now().UTC(), template.Groups, template.Id,
+		)
+	} else {
+		_, err = tx.Exec("INSERT INTO templates (template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			template.Id, template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.CreatedUserId, time.Now().UTC(), template.CreatedUserId, time.Now().UTC(), template.Groups,
+		)
+	}
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
 
-  tx.Commit()
+	tx.Commit()
 
-  return nil
+	return nil
 }
 
 func (db *MySQLDriver) DeleteTemplate(template *model.Template) error {
 
-  // Test if the space in in use
-  spaces, err := db.GetSpacesByTemplateId(template.Id)
-  if err != nil {
-    return err
-  }
+	// Test if the space in in use
+	spaces, err := db.GetSpacesByTemplateId(template.Id)
+	if err != nil {
+		return err
+	}
 
-  if len(spaces) > 0 {
-    return fmt.Errorf("template in use")
-  }
+	if len(spaces) > 0 {
+		return fmt.Errorf("template in use")
+	}
 
-  _, err = db.connection.Exec("DELETE FROM templates WHERE template_id = ?", template.Id)
-  return err
+	_, err = db.connection.Exec("DELETE FROM templates WHERE template_id = ?", template.Id)
+	return err
 }
 
 func (db *MySQLDriver) getTemplates(query string, args ...interface{}) ([]*model.Template, error) {
-  var templates []*model.Template
+	var templates []*model.Template
 
-  rows, err := db.connection.Query(query, args ...)
-  if err != nil {
-    return nil, err
-  }
-  defer rows.Close()
+	rows, err := db.connection.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-  for rows.Next() {
-    var template = &model.Template{}
-    var createdAt string
-    var updatedAt string
+	for rows.Next() {
+		var template = &model.Template{}
+		var createdAt string
+		var updatedAt string
 
-    err := rows.Scan(&template.Id, &template.Name, &template.Description, &template.Job, &template.Volumes, &template.Hash, &template.CreatedUserId, &createdAt, &template.UpdatedUserId, &updatedAt, &template.Groups)
-    if err != nil {
-      return nil, err
-    }
+		err := rows.Scan(&template.Id, &template.Name, &template.Description, &template.Job, &template.Volumes, &template.Hash, &template.CreatedUserId, &createdAt, &template.UpdatedUserId, &updatedAt, &template.Groups)
+		if err != nil {
+			return nil, err
+		}
 
-    // Parse the dates
-    template.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
-    if err != nil {
-      return nil, err
-    }
-    template.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", updatedAt)
-    if err != nil {
-      return nil, err
-    }
+		// Parse the dates
+		template.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
+		if err != nil {
+			return nil, err
+		}
+		template.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", updatedAt)
+		if err != nil {
+			return nil, err
+		}
 
-    templates = append(templates, template)
-  }
+		templates = append(templates, template)
+	}
 
-  return templates, nil
+	return templates, nil
 }
 
 func (db *MySQLDriver) GetTemplate(id string) (*model.Template, error) {
-  templates, err := db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups FROM templates WHERE template_id = ?", id)
-  if err != nil {
-    return nil, err
-  }
-  if len(templates) == 0 {
-    return nil, fmt.Errorf("template not found")
-  }
+	templates, err := db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups FROM templates WHERE template_id = ?", id)
+	if err != nil {
+		return nil, err
+	}
+	if len(templates) == 0 {
+		return nil, fmt.Errorf("template not found")
+	}
 
-  return templates[0], nil
+	return templates[0], nil
 }
 
 func (db *MySQLDriver) GetTemplates() ([]*model.Template, error) {
-  return db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups FROM templates ORDER BY name")
+	return db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups FROM templates ORDER BY name")
 }
