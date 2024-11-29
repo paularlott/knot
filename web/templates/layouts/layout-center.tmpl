@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html x-data="{ darkMode: $persist(true) }" :class="{ 'dark': darkMode }">
   <head>
     {{ template "head-meta" . }}
   </head>
-  <body class="bg-gray-50 dark:bg-gray-900 font-nunito" x-data="{ darkMode: $persist(true) }" :class="{ 'dark': darkMode }">
+  <body class="bg-gray-50 dark:bg-gray-900 font-nunito">
 
   <main>
     <div class="flex flex-col items-center justify-center px-6 pt-8 mx-auto h-screen pt:mt-0 dark:bg-gray-900">
