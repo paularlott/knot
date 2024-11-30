@@ -41,7 +41,7 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	portInt, err := strconv.Atoi(port)
+	portInt, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -122,7 +122,7 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		port, err := strconv.Atoi(domainParts[2])
+		port, err := strconv.ParseUint(domainParts[2], 10, 16)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
