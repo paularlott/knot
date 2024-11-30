@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html x-data="{ darkMode: $persist(true) }" :class="{ 'dark': darkMode }">
   <head>
     {{ template "head-meta" . }}
   </head>
-  <body class="bg-gray-50 dark:bg-gray-900 font-nunito" x-data="{ sidebarOpen: false, darkMode: $persist(true) }" :class="{ 'dark': darkMode }">
+  <body class="bg-gray-50 dark:bg-gray-900 font-nunito" x-data="{ sidebarOpen: false }">
     <div class="dark:bg-gray-900 h-screen">
 
       <!-- Top Nav -->
