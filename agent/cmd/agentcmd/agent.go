@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/paularlott/knot/dnsproxy"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/dnsproxy"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
