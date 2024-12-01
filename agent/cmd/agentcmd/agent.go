@@ -30,6 +30,7 @@ func init() {
 	AgentCmd.Flags().StringP("service-password", "", "", "The password to use for the agent.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SERVICE_PASSWORD environment variable if set.")
 	AgentCmd.Flags().StringP("vscode-tunnel", "", "", "The name of the screen running the Visual Studio Code tunnel.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_VSCODE_TUNNEL environment variable if set.")
 	AgentCmd.Flags().StringP("vscode-binary", "", "~/.local/bin/code", "The path to the code binary to use for the agent (defaults \"~/.local/bin/code\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_VSCODE_BINARY environment variable if set.")
+	AgentCmd.Flags().StringP("advertise-addr", "", "", "The address to advertise to the server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ADVERTISE_ADDR environment variable if set.")
 
 	// TLS
 	AgentCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the agent.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -96,6 +97,10 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		viper.BindPFlag("agent.vscode_binary", cmd.Flags().Lookup("vscode-binary"))
 		viper.BindEnv("agent.vscode_binary", config.CONFIG_ENV_PREFIX+"_VSCODE_BINARY")
 		viper.SetDefault("agent.vscode_binary", "~/.local/bin/code")
+
+		viper.BindPFlag("agent.advertise_addr", cmd.Flags().Lookup("advertise-addr"))
+		viper.BindEnv("agent.advertise_addr", config.CONFIG_ENV_PREFIX+"_ADVERTISE_ADDR")
+		viper.SetDefault("agent.advertise_addr", "")
 
 		// TLS
 		viper.BindPFlag("agent.tls.cert_file", cmd.Flags().Lookup("cert-file"))
