@@ -21,6 +21,7 @@ type Session struct {
 	HttpPorts        map[string]string `msgpack:"http_ports"`
 	HasVSCodeTunnel  bool              `msgpack:"has_vscode_tunnel"`
 	VSCodeTunnelName string            `msgpack:"vscode_tunnel_name"`
+	AgentIp          string            `msgpack:"agent_ip"`
 	ExpiresAfter     time.Time         `msgpack:"-"`
 	MuxSession       *yamux.Session    `msgpack:"-"`
 }
@@ -37,6 +38,7 @@ func NewSession(spaceId string, version string) *Session {
 		TcpPorts:      make(map[string]string, 0),
 		HttpPorts:     make(map[string]string, 0),
 		ExpiresAfter:  time.Now().UTC().Add(AGENT_SESSION_TIMEOUT),
+		AgentIp:       "",
 		MuxSession:    nil,
 	}
 }

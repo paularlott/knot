@@ -76,6 +76,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			templateData.Name = template.Name
 			templateData.Description = template.Description
 			templateData.Groups = template.Groups
+			templateData.LocalContainer = template.LocalContainer
 
 			// Find the number of spaces using this template
 			spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
@@ -105,7 +106,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	templateId := chi.URLParam(r, "template_id")
 
-	request := apiclient.TemplateRequest{}
+	request := apiclient.TemplateUpdateRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -178,7 +179,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	var templateId string
 
-	request := apiclient.TemplateRequest{}
+	request := apiclient.TemplateCreateRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -206,7 +207,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		var code int
 		var err error
 
-		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups)
+		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -224,7 +225,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups)
+		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer)
 
 		err = database.GetInstance().SaveTemplate(template)
 		if err != nil {
@@ -365,15 +366,16 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := apiclient.TemplateDetails{
-			Name:        template.Name,
-			Description: template.Description,
-			Job:         template.Job,
-			Volumes:     template.Volumes,
-			Usage:       len(spaces),
-			Hash:        template.Hash,
-			Deployed:    deployed,
-			Groups:      template.Groups,
-			VolumeSizes: volumeList,
+			Name:           template.Name,
+			Description:    template.Description,
+			Job:            template.Job,
+			Volumes:        template.Volumes,
+			Usage:          len(spaces),
+			Hash:           template.Hash,
+			Deployed:       deployed,
+			Groups:         template.Groups,
+			VolumeSizes:    volumeList,
+			LocalContainer: template.LocalContainer,
 		}
 
 		rest.SendJSON(http.StatusOK, w, r, &data)

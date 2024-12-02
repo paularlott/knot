@@ -16,36 +16,38 @@ const (
 
 // Template object
 type Template struct {
-	Id            string      `json:"template_id"`
-	Name          string      `json:"name"`
-	Description   string      `json:"description"`
-	Hash          string      `json:"hash"`
-	Job           string      `json:"job"`
-	Volumes       string      `json:"volumes"`
-	Groups        JSONDbArray `json:"groups"`
-	CreatedUserId string      `json:"created_user_id"`
-	CreatedAt     time.Time   `json:"created_at"`
-	UpdatedUserId string      `json:"updated_user_id"`
-	UpdatedAt     time.Time   `json:"updated_at"`
+	Id             string      `json:"template_id"`
+	Name           string      `json:"name"`
+	Description    string      `json:"description"`
+	Hash           string      `json:"hash"`
+	Job            string      `json:"job"`
+	Volumes        string      `json:"volumes"`
+	Groups         JSONDbArray `json:"groups"`
+	LocalContainer bool        `json:"local_container"`
+	CreatedUserId  string      `json:"created_user_id"`
+	CreatedAt      time.Time   `json:"created_at"`
+	UpdatedUserId  string      `json:"updated_user_id"`
+	UpdatedAt      time.Time   `json:"updated_at"`
 }
 
-func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string) *Template {
+func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool) *Template {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 	}
 
 	template := &Template{
-		Id:            id.String(),
-		Name:          name,
-		Description:   description,
-		Job:           job,
-		Volumes:       volumes,
-		Groups:        groups,
-		CreatedUserId: userId,
-		CreatedAt:     time.Now().UTC(),
-		UpdatedUserId: userId,
-		UpdatedAt:     time.Now().UTC(),
+		Id:             id.String(),
+		Name:           name,
+		Description:    description,
+		Job:            job,
+		Volumes:        volumes,
+		Groups:         groups,
+		CreatedUserId:  userId,
+		LocalContainer: localContainer,
+		CreatedAt:      time.Now().UTC(),
+		UpdatedUserId:  userId,
+		UpdatedAt:      time.Now().UTC(),
 	}
 	template.UpdateHash()
 

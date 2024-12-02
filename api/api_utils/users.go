@@ -4,8 +4,9 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/container/docker"
+	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
-	"github.com/paularlott/knot/util/nomad"
 
 	"github.com/rs/zerolog/log"
 )
@@ -23,28 +24,57 @@ func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
 
 	// Get the nomad client
 	nomadClient := nomad.NewClient()
+	containerClient := docker.NewClient()
 	for _, space := range spaces {
 		log.Debug().Msgf("delete user: Deleting space %s", space.Id)
 
 		if space.Location == server_info.LeafLocation {
 			log.Debug().Msgf("delete user: Deleting space %s from nomad", space.Id)
 
-			// Stop the job
-			if space.IsDeployed {
-				err = nomadClient.DeleteSpaceJob(space)
+			// Load the space template
+			template, err := db.GetTemplate(space.TemplateId)
+			if err != nil {
+				log.Debug().Msgf("delete user: Failed to get template for space %s: %s", space.Id, err)
+				hasError = true
+				break
+			}
+
+			if template.LocalContainer {
+				// Stop the job
+				if space.IsDeployed {
+					err = containerClient.DeleteSpaceJob(space)
+					if err != nil {
+						log.Debug().Msgf("delete user: Failed to delete space job %s: %s", space.Id, err)
+						hasError = true
+						break
+					}
+				}
+
+				// Delete the volumes
+				err = containerClient.DeleteSpaceVolumes(space)
 				if err != nil {
-					log.Debug().Msgf("delete user: Failed to delete space job %s: %s", space.Id, err)
+					log.Debug().Msgf("delete user: Failed to delete space volumes %s: %s", space.Id, err)
 					hasError = true
 					break
 				}
-			}
+			} else {
+				// Stop the job
+				if space.IsDeployed {
+					err = nomadClient.DeleteSpaceJob(space)
+					if err != nil {
+						log.Debug().Msgf("delete user: Failed to delete space job %s: %s", space.Id, err)
+						hasError = true
+						break
+					}
+				}
 
-			// Delete the volumes
-			err = nomadClient.DeleteSpaceVolumes(space)
-			if err != nil {
-				log.Debug().Msgf("delete user: Failed to delete space volumes %s: %s", space.Id, err)
-				hasError = true
-				break
+				// Delete the volumes
+				err = nomadClient.DeleteSpaceVolumes(space)
+				if err != nil {
+					log.Debug().Msgf("delete user: Failed to delete space volumes %s: %s", space.Id, err)
+					hasError = true
+					break
+				}
 			}
 		}
 
@@ -140,10 +170,24 @@ func UpdateUserSpaces(user *model.User) {
 		}
 
 		// Get the nomad client
+		db := database.GetInstance()
 		nomadClient := nomad.NewClient()
+		containerClient := docker.NewClient()
 		for _, space := range spaces {
 			if space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
-				nomadClient.DeleteSpaceJob(space)
+
+				// Load the space template
+				template, err := db.GetTemplate(space.TemplateId)
+				if err != nil {
+					log.Debug().Msgf("Failed to get template for space %s: %s", space.Id, err)
+					continue
+				}
+
+				if template.LocalContainer {
+					containerClient.DeleteSpaceJob(space)
+				} else {
+					nomadClient.DeleteSpaceJob(space)
+				}
 			}
 		}
 

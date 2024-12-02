@@ -1,6 +1,15 @@
 package apiclient
 
-type TemplateRequest struct {
+type TemplateCreateRequest struct {
+	Name           string   `json:"name"`
+	Job            string   `json:"job"`
+	Description    string   `json:"description"`
+	Volumes        string   `json:"volumes"`
+	Groups         []string `json:"groups"`
+	LocalContainer bool     `json:"local_container"`
+}
+
+type TemplateUpdateRequest struct {
 	Name        string   `json:"name"`
 	Job         string   `json:"job"`
 	Description string   `json:"description"`
@@ -14,12 +23,13 @@ type TemplateCreateResponse struct {
 }
 
 type TemplateInfo struct {
-	Id          string   `json:"template_id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Usage       int      `json:"usage"`
-	Deployed    int      `json:"deployed"`
-	Groups      []string `json:"groups"`
+	Id             string   `json:"template_id"`
+	Name           string   `json:"name"`
+	Description    string   `json:"description"`
+	Usage          int      `json:"usage"`
+	Deployed       int      `json:"deployed"`
+	Groups         []string `json:"groups"`
+	LocalContainer bool     `json:"local_container"`
 }
 
 type TemplateList struct {
@@ -28,15 +38,16 @@ type TemplateList struct {
 }
 
 type TemplateDetails struct {
-	Name        string                   `json:"name"`
-	Job         string                   `json:"job"`
-	Description string                   `json:"description"`
-	Volumes     string                   `json:"volumes"`
-	Usage       int                      `json:"usage"`
-	Hash        string                   `json:"hash"`
-	Deployed    int                      `json:"deployed"`
-	Groups      []string                 `json:"groups"`
-	VolumeSizes []map[string]interface{} `json:"volume_sizes"`
+	Name           string                   `json:"name"`
+	Job            string                   `json:"job"`
+	Description    string                   `json:"description"`
+	Volumes        string                   `json:"volumes"`
+	Usage          int                      `json:"usage"`
+	Hash           string                   `json:"hash"`
+	Deployed       int                      `json:"deployed"`
+	Groups         []string                 `json:"groups"`
+	VolumeSizes    []map[string]interface{} `json:"volume_sizes"`
+	LocalContainer bool                     `json:"local_container"`
 }
 
 func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
@@ -51,7 +62,7 @@ func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
 }
 
 func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string) (int, error) {
-	request := TemplateRequest{
+	request := TemplateUpdateRequest{
 		Name:        name,
 		Job:         job,
 		Description: description,
@@ -62,13 +73,14 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 	return c.httpClient.Put("/api/v1/templates/"+templateId, &request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string) (string, int, error) {
-	request := TemplateRequest{
-		Name:        name,
-		Job:         job,
-		Description: description,
-		Volumes:     volumes,
-		Groups:      groups,
+func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool) (string, int, error) {
+	request := TemplateCreateRequest{
+		Name:           name,
+		Job:            job,
+		Description:    description,
+		Volumes:        volumes,
+		Groups:         groups,
+		LocalContainer: localContainer,
 	}
 
 	response := &TemplateCreateResponse{}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/rest"
 
 	"github.com/rs/zerolog/log"
@@ -32,6 +33,19 @@ func ReportState(spaceId string) {
 			codeBin = strings.Replace(codeBin, "~", homeDir, 1)
 		}
 	}
+
+	// Find our IP address
+	agentIp := viper.GetString("agent.advertise_addr")
+	if agentIp == "" {
+		var err error
+		agentIp, err = util.GetLocalIP()
+		if err != nil {
+			log.Fatal().Err(err).Msg("agent: failed to get local IP address")
+			return
+		}
+	}
+
+	log.Info().Msgf("agent: advertising IP address %s", agentIp)
 
 	for {
 		var sshAlivePort = 0
@@ -115,7 +129,15 @@ func ReportState(spaceId string) {
 			}
 		}
 
-		log.Debug().Msgf("agent: state to server: SSH %d, Code Server %d, VNC Http %d, Code Server Alive %t", sshAlivePort, codeServerPort, vncAliveHttpPort, codeServerAlive)
+		log.Debug().
+			Int("SSH Port", sshAlivePort).
+			Bool("Code Server Port", codeServerAlive).
+			Int("VNC Http Port", vncAliveHttpPort).
+			Bool("Has Terminal", hasTerminal).
+			Bool("Has VSCode Tunnel", hasVSCodeTunnel).
+			Str("VSCode Tunnel Name", vscodeTunnelName).
+			Str("Agent IP", agentIp).
+			Msg("agent: state to server")
 
 		if muxSession != nil {
 			// Open a connections over the mux session and write command
@@ -126,7 +148,7 @@ func ReportState(spaceId string) {
 				continue
 			}
 
-			err = msg.SendState(conn, spaceId, codeServerAlive, sshAlivePort, vncAliveHttpPort, hasTerminal, &tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName)
+			err = msg.SendState(conn, spaceId, codeServerAlive, sshAlivePort, vncAliveHttpPort, hasTerminal, &tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, agentIp)
 			if err != nil {
 				log.Error().Err(err).Msg("agent: failed to send state to server")
 			}

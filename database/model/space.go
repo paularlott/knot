@@ -23,7 +23,7 @@ type Space struct {
 	Location       string                 `json:"location"`
 	TemplateHash   string                 `json:"template_hash"`
 	NomadNamespace string                 `json:"nomad_namespace"`
-	NomadJobId     string                 `json:"nomad_job_id"`
+	ContainerId    string                 `json:"container_id"`
 	VolumeData     map[string]SpaceVolume `json:"volume_data"`
 	VolumeSizes    map[string]int64       `json:"volume_sizes"`
 	IsDeployed     bool                   `json:"is_deployed"`
@@ -63,18 +63,21 @@ func NewSpace(name string, userId string, templateId string, shell string, volSi
 
 // Get the storage size for the space in GB
 func (space *Space) GetStorageSize(template *Template) (int, error) {
-
-	// Get the volumes with sizes applied
-	volumes, err := template.GetVolumes(space, nil, nil, true)
-	if err != nil {
-		return 0, err
-	}
-
-	// Calculate the volume sizes
 	var sizeGB int = 0
-	for _, volume := range volumes.Volumes {
-		if volume.CapacityMin != nil {
-			sizeGB += int(math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))))
+
+	if !template.LocalContainer {
+
+		// Get the volumes with sizes applied
+		volumes, err := template.GetVolumes(space, nil, nil, true)
+		if err != nil {
+			return 0, err
+		}
+
+		// Calculate the volume sizes
+		for _, volume := range volumes.Volumes {
+			if volume.CapacityMin != nil {
+				sizeGB += int(math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))))
+			}
 		}
 	}
 

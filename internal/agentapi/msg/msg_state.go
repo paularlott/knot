@@ -16,9 +16,10 @@ type AgentState struct {
 	HttpPorts        map[string]string
 	HasVSCodeTunnel  bool
 	VSCodeTunnelName string
+	AgentIp          string
 }
 
-func SendState(conn net.Conn, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string, hasVSCodeTunnel bool, vscodeTunnelName string) error {
+func SendState(conn net.Conn, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string, hasVSCodeTunnel bool, vscodeTunnelName string, ip string) error {
 	// Write the state command
 	err := WriteCommand(conn, MSG_UPDATE_STATE)
 	if err != nil {
@@ -37,6 +38,7 @@ func SendState(conn net.Conn, spaceId string, hasCodeServer bool, sshPort int, v
 		HttpPorts:        *httpPorts,
 		HasVSCodeTunnel:  hasVSCodeTunnel,
 		VSCodeTunnelName: vscodeTunnelName,
+		AgentIp:          ip,
 	})
 	if err != nil {
 		log.Error().Msgf("agent: writing state message: %v", err)

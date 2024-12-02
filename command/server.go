@@ -21,12 +21,13 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/container/nomad"
+	"github.com/paularlott/knot/internal/dnsserver"
 	"github.com/paularlott/knot/internal/origin_leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/web"
 
 	"github.com/go-chi/chi/v5"
@@ -54,6 +55,12 @@ func init() {
 	serverCmd.Flags().StringP("template-path", "", "", "The optional path to the template files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TEMPLATE_PATH environment variable if set.")
 	serverCmd.Flags().StringP("agent-path", "", "", "The optional path to the agent files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_PATH environment variable if set.")
 	serverCmd.Flags().BoolP("enable-leaf-api-tokens", "", false, "Allow the leaf servers to use an API token for authentication with the origin server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_LEAF_API_TOKENS environment variable if set.")
+
+	// DNS Server
+	serverCmd.Flags().BoolP("enable-dns", "", false, "Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
+	serverCmd.Flags().StringP("dns-listen", "", ":8600", "The address to listen on for DNS requests (default \":8600\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_LISTEN environment variable if set.")
+	serverCmd.Flags().StringP("dns-domain", "", "knot.internal", "The domain to listen for DNS requests on (default \"knot.internal\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_DOMAIN environment variable if set.")
+	serverCmd.Flags().Int("dns-ttl", 10, "The TTL in seconds to use for DNS responses (default \"10\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_TTL environment variable if set.")
 
 	// TLS
 	serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -201,6 +208,23 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("tls_skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
 		viper.SetDefault("tls_skip_verify", true)
 
+		// DNS
+		viper.BindPFlag("server.dns.enabled", cmd.Flags().Lookup("enable-dns"))
+		viper.BindEnv("server.dns.enabled", config.CONFIG_ENV_PREFIX+"_ENABLE_DNS")
+		viper.SetDefault("server.dns.enabled", false)
+
+		viper.BindPFlag("server.dns.listen", cmd.Flags().Lookup("dns-listen"))
+		viper.BindEnv("server.dns.listen", config.CONFIG_ENV_PREFIX+"_DNS_LISTEN")
+		viper.SetDefault("server.dns.listen", ":8600")
+
+		viper.BindPFlag("server.dns.domain", cmd.Flags().Lookup("dns-domain"))
+		viper.BindEnv("server.dns.domain", config.CONFIG_ENV_PREFIX+"_DNS_DOMAIN")
+		viper.SetDefault("server.dns.domain", "knot.internal")
+
+		viper.BindPFlag("server.dns.ttl", cmd.Flags().Lookup("dns-ttl"))
+		viper.BindEnv("server.dns.ttl", config.CONFIG_ENV_PREFIX+"_DNS_TTL")
+		viper.SetDefault("server.dns.ttl", 10)
+
 		// Nomad
 		viper.BindPFlag("server.nomad.addr", cmd.Flags().Lookup("nomad-addr"))
 		viper.BindEnv("server.nomad.addr", config.CONFIG_ENV_PREFIX+"_NOMAD_ADDR")
@@ -303,7 +327,7 @@ var serverCmd = &cobra.Command{
 			db := database.GetInstance()
 			tpl, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
 			if err != nil || tpl == nil {
-				template := model.NewTemplate("Manual-Configuration", "Access a manually installed agent.", "manual", "", "", []string{})
+				template := model.NewTemplate("Manual-Configuration", "Access a manually installed agent.", "manual", "", "", []string{}, false)
 				template.Id = model.MANUAL_TEMPLATE_ID
 				db.SaveTemplate(template)
 			}
@@ -316,7 +340,13 @@ var serverCmd = &cobra.Command{
 		}
 
 		// Check for local spaces that are pending state changes and setup watches
+		// FIXME this should not run if there's no nomad server defined!
 		startupCheckPendingSpaces()
+
+		// Start the DNS server
+		if viper.GetBool("server.dns.enabled") {
+			dnsserver.ListenAndServe()
+		}
 
 		router := chi.NewRouter()
 

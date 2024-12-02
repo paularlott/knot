@@ -939,7 +939,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TemplateRequest'
+              $ref: '#/components/schemas/TemplateCreateRequest'
       responses:
         '201':
           description: Template created successfully
@@ -986,7 +986,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TemplateRequest'
+              $ref: '#/components/schemas/TemplateUpdateRequest'
       responses:
         '200':
           description: Successful operation
@@ -1253,7 +1253,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VolumeRequest'
+              $ref: '#/components/schemas/VolumeCreateRequest'
       responses:
         '201':
           description: Volume created successfully
@@ -1298,7 +1298,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VolumeRequest'
+              $ref: '#/components/schemas/VolumeUpdateRequest'
       responses:
         '200':
           description: Successful operation
@@ -1676,6 +1676,9 @@ components:
         volume_sizes:
           type: integer
           description: The volume size of the space.
+        local_container:
+          type: boolean
+          description: If the space is of a local container, docker or podman.
 
     SpaceInfoList:
       type: object
@@ -1862,6 +1865,9 @@ components:
             format: uuid
             example: 00000000-0000-0000-0000-000000000000
           description: The IDs of the groups assigned to the template.
+        local_container:
+          type: boolean
+          description: If the template is a local container template, docker or podman.
 
     TemplateList:
       type: object
@@ -1875,7 +1881,7 @@ components:
           items:
             $ref: '#/components/schemas/TemplateInfo'
 
-    TemplateRequest:
+    TemplateCreateRequest:
       type: object
       properties:
         name:
@@ -1899,6 +1905,34 @@ components:
             format: uuid
             example: 00000000-0000-0000-0000-000000000000
           description: The IDs of the groups to assign to the template.
+        local_container:
+          type: boolean
+          description: If the template is a local container template, docker or podman.
+
+    TemplateUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 64
+          example: "my template"
+          description: The name of the template.
+        description:
+          type: string
+          description: The description of the template.
+        job:
+          type: string
+          description: A HCL formatted job Nomad job specification
+        volumes:
+          type: string
+          description: A YAML formatted string describing the volumes to be created
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 00000000-0000-0000-0000-000000000000
+          description: The IDs of the groups to assign to the template.=
 
     TemplateDetails:
       type: object
@@ -1949,6 +1983,9 @@ components:
               capacity_max:
                 type: integer
                 description: The maximum capacity of the volume in GB
+        local_container:
+          type: boolean
+          description: If the template is a local container template, docker or podman.
 
     TemplateVar:
       type: object
@@ -2263,8 +2300,24 @@ components:
           type: string
           maxLength: 64
           description: The location of the volume.
+        local_container:
+          type: boolean
+          description: If the volume is a local container volume, docker or podman.
 
-    VolumeRequest:
+    VolumeCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        definition:
+          type: string
+          description: A YAML formatted string describing the volume to be created.
+        local_container:
+          type: boolean
+          description: If the volume is a local container volume, docker or podman.
+
+    VolumeUpdateRequest:
       type: object
       properties:
         name:
@@ -2291,6 +2344,9 @@ components:
         active:
           type: boolean
           description: Whether the volume is active.
+        local_container:
+          type: boolean
+          description: If the volume is a local container volume, docker or podman.
 
   responses:
     bad-request:

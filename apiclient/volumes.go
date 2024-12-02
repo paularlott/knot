@@ -3,10 +3,11 @@ package apiclient
 import "github.com/paularlott/knot/database/model"
 
 type VolumeInfo struct {
-	Id       string `json:"volume_id"`
-	Name     string `json:"name"`
-	Active   bool   `json:"active"`
-	Location string `json:"location"`
+	Id             string `json:"volume_id"`
+	Name           string `json:"name"`
+	Active         bool   `json:"active"`
+	Location       string `json:"location"`
+	LocalContainer bool   `json:"local_container"`
 }
 
 type VolumeInfoList struct {
@@ -15,18 +16,23 @@ type VolumeInfoList struct {
 }
 
 type VolumeDefinition struct {
-	Name       string `json:"name"`
-	Definition string `json:"definition"`
-	Location   string `json:"location"`
-	Active     bool   `json:"active"`
+	Name           string `json:"name"`
+	Definition     string `json:"definition"`
+	Location       string `json:"location"`
+	Active         bool   `json:"active"`
+	LocalContainer bool   `json:"local_container"`
 }
 
-type VolumeRequest struct {
+type VolumeUpdateRequest struct {
 	Name       string `json:"name"`
 	Definition string `json:"definition"`
 }
-type CreateVolumeRequest = VolumeRequest
-type UpdateVolumeRequest = VolumeRequest
+
+type VolumeCreateRequest struct {
+	Name           string `json:"name"`
+	Definition     string `json:"definition"`
+	LocalContainer bool   `json:"local_container"`
+}
 
 type VolumeCreateResponse struct {
 	Status   bool   `json:"status"`
@@ -64,10 +70,11 @@ func (c *ApiClient) GetVolumes() (*VolumeInfoList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) CreateVolume(name string, definition string) (*VolumeCreateResponse, int, error) {
-	request := VolumeRequest{
-		Name:       name,
-		Definition: definition,
+func (c *ApiClient) CreateVolume(name string, definition string, localContainer bool) (*VolumeCreateResponse, int, error) {
+	request := VolumeCreateRequest{
+		Name:           name,
+		Definition:     definition,
+		LocalContainer: localContainer,
 	}
 
 	response := &VolumeCreateResponse{}
@@ -81,7 +88,7 @@ func (c *ApiClient) CreateVolume(name string, definition string) (*VolumeCreateR
 }
 
 func (c *ApiClient) UpdateVolume(volumeId string, name string, definition string) (int, error) {
-	request := VolumeRequest{
+	request := VolumeUpdateRequest{
 		Name:       name,
 		Definition: definition,
 	}

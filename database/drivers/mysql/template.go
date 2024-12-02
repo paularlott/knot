@@ -26,12 +26,12 @@ func (db *MySQLDriver) SaveTemplate(template *model.Template) error {
 
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE templates SET name=?, description=?, job=?, volumes=?, hash=?, updated_user_id=?, updated_at=?, groups=? WHERE template_id=?",
-			template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.UpdatedUserId, time.Now().UTC(), template.Groups, template.Id,
+		_, err = tx.Exec("UPDATE templates SET name=?, description=?, job=?, volumes=?, hash=?, updated_user_id=?, updated_at=?, groups=?, local_container=? WHERE template_id=?",
+			template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.UpdatedUserId, time.Now().UTC(), template.Groups, template.LocalContainer, template.Id,
 		)
 	} else {
-		_, err = tx.Exec("INSERT INTO templates (template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			template.Id, template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.CreatedUserId, time.Now().UTC(), template.CreatedUserId, time.Now().UTC(), template.Groups,
+		_, err = tx.Exec("INSERT INTO templates (template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups, local_container) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			template.Id, template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.CreatedUserId, time.Now().UTC(), template.CreatedUserId, time.Now().UTC(), template.Groups, template.LocalContainer,
 		)
 	}
 	if err != nil {
@@ -74,7 +74,7 @@ func (db *MySQLDriver) getTemplates(query string, args ...interface{}) ([]*model
 		var createdAt string
 		var updatedAt string
 
-		err := rows.Scan(&template.Id, &template.Name, &template.Description, &template.Job, &template.Volumes, &template.Hash, &template.CreatedUserId, &createdAt, &template.UpdatedUserId, &updatedAt, &template.Groups)
+		err := rows.Scan(&template.Id, &template.Name, &template.Description, &template.Job, &template.Volumes, &template.Hash, &template.CreatedUserId, &createdAt, &template.UpdatedUserId, &updatedAt, &template.Groups, &template.LocalContainer)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +96,7 @@ func (db *MySQLDriver) getTemplates(query string, args ...interface{}) ([]*model
 }
 
 func (db *MySQLDriver) GetTemplate(id string) (*model.Template, error) {
-	templates, err := db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups FROM templates WHERE template_id = ?", id)
+	templates, err := db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups, local_container FROM templates WHERE template_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
@@ -108,5 +108,5 @@ func (db *MySQLDriver) GetTemplate(id string) (*model.Template, error) {
 }
 
 func (db *MySQLDriver) GetTemplates() ([]*model.Template, error) {
-	return db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups FROM templates ORDER BY name")
+	return db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups, local_container FROM templates ORDER BY name")
 }

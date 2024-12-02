@@ -87,6 +87,7 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 	for _, volume := range space.VolumeData {
 		err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
 		if err != nil {
+			db.SaveSpace(space) // Save the space to capture the volumes
 			return err
 		}
 
@@ -123,7 +124,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 		namespace = "default"
 	}
 	space.NomadNamespace = namespace
-	space.NomadJobId = jobJSON["ID"].(string)
+	space.ContainerId = jobJSON["ID"].(string)
 
 	// Launch the job
 	_, err = client.CreateJob(&jobJSON)
@@ -149,9 +150,9 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 }
 
 func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
-	log.Debug().Msgf("nomad: deleting space job %s, %s", space.Id, space.NomadJobId)
+	log.Debug().Msgf("nomad: deleting space job %s, %s", space.Id, space.ContainerId)
 
-	_, err := client.DeleteJob(space.NomadJobId, space.NomadNamespace)
+	_, err := client.DeleteJob(space.ContainerId, space.NomadNamespace)
 	if err != nil {
 		log.Debug().Msgf("nomad: deleting space job %s, error: %s", space.Id, err)
 		return err
@@ -174,42 +175,42 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
 
 func (client *NomadClient) MonitorJobState(space *model.Space) {
 	go func() {
-		log.Info().Msgf("nomad: watching job %s status for change", space.NomadJobId)
+		log.Info().Msgf("nomad: watching job %s status for change", space.ContainerId)
 
 		for {
-			code, data, err := client.ReadJob(space.NomadJobId, space.NomadNamespace)
+			code, data, err := client.ReadJob(space.ContainerId, space.NomadNamespace)
 			if err != nil && code != 404 {
-				log.Error().Msgf("nomad: reading space job %s, error: %s", space.NomadJobId, err)
+				log.Error().Msgf("nomad: reading space job %s, error: %s", space.ContainerId, err)
 			} else {
 				if code == 404 {
-					log.Debug().Msgf("nomad: reading space job %s, status: %s", space.NomadJobId, "404")
+					log.Debug().Msgf("nomad: reading space job %s, status: %s", space.ContainerId, "404")
 				} else {
-					log.Debug().Msgf("nomad: reading space job %s, status: %s", space.NomadJobId, data["Status"])
+					log.Debug().Msgf("nomad: reading space job %s, status: %s", space.ContainerId, data["Status"])
 				}
 
 				if code == 200 && data["Status"] == "running" {
 					// If waiting for job to start then done
 					if space.IsPending && !space.IsDeployed {
-						log.Info().Msgf("nomad: space job %s is running", space.NomadJobId)
+						log.Info().Msgf("nomad: space job %s is running", space.ContainerId)
 
 						space.IsPending = false
 						space.IsDeployed = true
 						err = database.GetInstance().SaveSpace(space)
 						if err != nil {
-							log.Error().Msgf("nomad: updating space job %s error %s", space.NomadJobId, err)
+							log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
 						}
 
 						origin.UpdateSpace(space)
 						break
 					}
 				} else if code == 404 || data["Status"] == "dead" {
-					log.Info().Msgf("nomad: space job %s is dead", space.NomadJobId)
+					log.Info().Msgf("nomad: space job %s is dead", space.ContainerId)
 
 					space.IsPending = false
 					space.IsDeployed = false
 					err = database.GetInstance().SaveSpace(space)
 					if err != nil {
-						log.Error().Msgf("nomad: updating space job %s error %s", space.NomadJobId, err)
+						log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
 					}
 
 					origin.UpdateSpace(space)
