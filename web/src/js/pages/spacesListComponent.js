@@ -101,17 +101,18 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 }, 5000);
               }
             });
+
+             // If spaces added then sort them by name
+            if(spacesAdded) {
+              this.spaces.sort((a, b) => (a.name > b.name) ? 1 : -1);
+            }
+
+            // Apply search filter
+            this.searchChanged();
+
+            this.loading = false;
           });
 
-          // If spaces added then sort them by name
-          if(spacesAdded) {
-            this.spaces.sort((a, b) => (a.name > b.name) ? 1 : -1);
-          }
-
-          // Apply search filter
-          this.searchChanged();
-
-          this.loading = false;
         } else if (response.status === 401) {
           window.location.href = '/logout';
         }

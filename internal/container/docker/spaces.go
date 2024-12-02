@@ -40,10 +40,20 @@ type jobSpec struct {
 	Privileged    bool        `yaml:"privileged,omitempty"`
 	Network       string      `yaml:"network,omitempty"`
 	Environment   []string    `yaml:"environment,omitempty"`
+	CapAdd        []string    `yaml:"cap_add,omitempty"`
 }
 
 type volInfo struct {
 	Volumes map[string]interface{} `yaml:"volumes"`
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables *map[string]interface{}) error {
@@ -76,6 +86,11 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	// If container name not set then use the space name prefixed with the user name
 	if spec.ContainerName == "" {
 		spec.ContainerName = fmt.Sprintf("%s-%s", user.Username, space.Name)
+	}
+
+	// Ensure CAP_AUDIT_WRITE is in the cap_add list
+	if !contains(spec.CapAdd, "CAP_AUDIT_WRITE") {
+		spec.CapAdd = append(spec.CapAdd, "CAP_AUDIT_WRITE")
 	}
 
 	// Create a Docker client
@@ -131,6 +146,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		},
 		Binds:        spec.Volumes,
 		PortBindings: nat.PortMap{},
+		CapAdd:       spec.CapAdd,
 	}
 
 	// Run list of ports and add to config ExposedPorts and host config PortBindings
