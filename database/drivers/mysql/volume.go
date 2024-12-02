@@ -26,12 +26,12 @@ func (db *MySQLDriver) SaveVolume(volume *model.Volume) error {
 
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE volumes SET name=?, definition=?, updated_user_id=?, updated_at=?, active=?, location=? WHERE volume_id=?",
-			volume.Name, volume.Definition, volume.UpdatedUserId, time.Now().UTC(), volume.Active, volume.Location, volume.Id,
+		_, err = tx.Exec("UPDATE volumes SET name=?, definition=?, updated_user_id=?, updated_at=?, active=?, location=?, local_container=? WHERE volume_id=?",
+			volume.Name, volume.Definition, volume.UpdatedUserId, time.Now().UTC(), volume.Active, volume.Location, volume.LocalContainer, volume.Id,
 		)
 	} else {
-		_, err = tx.Exec("INSERT INTO volumes (volume_id, name, definition, created_user_id, created_at, updated_user_id, updated_at, active, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			volume.Id, volume.Name, volume.Definition, volume.CreatedUserId, time.Now().UTC(), volume.CreatedUserId, time.Now().UTC(), volume.Active, volume.Location,
+		_, err = tx.Exec("INSERT INTO volumes (volume_id, name, definition, created_user_id, created_at, updated_user_id, updated_at, active, location, local_container) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			volume.Id, volume.Name, volume.Definition, volume.CreatedUserId, time.Now().UTC(), volume.CreatedUserId, time.Now().UTC(), volume.Active, volume.Location, volume.LocalContainer,
 		)
 	}
 	if err != nil {
@@ -63,7 +63,7 @@ func (db *MySQLDriver) getVolumes(query string, args ...interface{}) ([]*model.V
 		var createdAt string
 		var updatedAt string
 
-		err := rows.Scan(&volume.Id, &volume.Name, &volume.Definition, &volume.Active, &volume.CreatedUserId, &createdAt, &volume.UpdatedUserId, &updatedAt, &volume.Location)
+		err := rows.Scan(&volume.Id, &volume.Name, &volume.Definition, &volume.Active, &volume.CreatedUserId, &createdAt, &volume.UpdatedUserId, &updatedAt, &volume.Location, &volume.LocalContainer)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +85,7 @@ func (db *MySQLDriver) getVolumes(query string, args ...interface{}) ([]*model.V
 }
 
 func (db *MySQLDriver) GetVolume(id string) (*model.Volume, error) {
-	templates, err := db.getVolumes("SELECT volume_id, name, definition, active, created_user_id, created_at, updated_user_id, updated_at, location FROM volumes WHERE volume_id = ?", id)
+	templates, err := db.getVolumes("SELECT volume_id, name, definition, active, created_user_id, created_at, updated_user_id, updated_at, location, local_container FROM volumes WHERE volume_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
@@ -97,5 +97,5 @@ func (db *MySQLDriver) GetVolume(id string) (*model.Volume, error) {
 }
 
 func (db *MySQLDriver) GetVolumes() ([]*model.Volume, error) {
-	return db.getVolumes("SELECT volume_id, name, definition, active, created_user_id, created_at, updated_user_id, updated_at, location FROM volumes ORDER BY name")
+	return db.getVolumes("SELECT volume_id, name, definition, active, created_user_id, created_at, updated_user_id, updated_at, location, local_container FROM volumes ORDER BY name")
 }

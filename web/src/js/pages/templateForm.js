@@ -8,6 +8,7 @@ window.templateForm = function(isEdit, templateId) {
       job: "",
       volumes: "",
       groups: [],
+      local_container: false,
     },
     loading: true,
     isEdit: isEdit,
@@ -44,6 +45,7 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.job = template.job;
           this.formData.volumes = template.volumes;
           this.formData.groups = template.groups;
+          this.formData.local_container = template.local_container;
         }
       }
 
@@ -127,6 +129,9 @@ window.templateForm = function(isEdit, templateId) {
         this.formData.groups.push(groupId);
       }
     },
+    toggleLocalContainer() {
+      this.formData.local_container = !this.formData.local_container;
+    },
     checkName() {
       return this.nameValid = validate.name(this.formData.name);
     },
@@ -148,12 +153,24 @@ window.templateForm = function(isEdit, templateId) {
       }
       this.loading = true;
 
+      var data = {
+        name: this.formData.name,
+        description: this.formData.description,
+        job: this.formData.job,
+        volumes: this.formData.volumes,
+        groups: this.formData.groups,
+      };
+
+      if(!isEdit) {
+        data.local_container = this.formData.local_container;
+      }
+
       fetch(isEdit ? '/api/v1/templates/' + templateId : '/api/v1/templates', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(this.formData)
+          body: JSON.stringify(data)
         })
         .then((response) => {
           if (response.status === 200) {

@@ -24,14 +24,15 @@ type CreateSpaceResponse struct {
 }
 
 type SpaceInfo struct {
-	Id           string `json:"space_id"`
-	Name         string `json:"name"`
-	TemplateName string `json:"template_name"`
-	TemplateId   string `json:"template_id"`
-	Location     string `json:"location"`
-	Username     string `json:"username"`
-	UserId       string `json:"user_id"`
-	VolumeSize   int    `json:"volume_size"`
+	Id             string `json:"space_id"`
+	Name           string `json:"name"`
+	TemplateName   string `json:"template_name"`
+	TemplateId     string `json:"template_id"`
+	Location       string `json:"location"`
+	Username       string `json:"username"`
+	UserId         string `json:"user_id"`
+	VolumeSize     int    `json:"volume_size"`
+	LocalContainer bool   `json:"local_container"`
 }
 
 type SpaceInfoList struct {

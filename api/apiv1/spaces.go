@@ -9,9 +9,11 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/container"
+	"github.com/paularlott/knot/internal/container/docker"
+	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
-	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -76,7 +78,9 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		// Build a json array of space data to return to the client
 		for _, space := range spaces {
 			var templateName string
+			var localContainer bool
 
+			localContainer = false
 			if space.TemplateId != model.MANUAL_TEMPLATE_ID {
 				// Lookup the template
 				template, err := db.GetTemplate(space.TemplateId)
@@ -84,6 +88,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 					templateName = "Unknown"
 				} else {
 					templateName = template.Name
+					localContainer = template.LocalContainer
 				}
 			}
 
@@ -94,6 +99,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.TemplateName = templateName
 			s.TemplateId = space.TemplateId
 			s.Location = space.Location
+			s.LocalContainer = localContainer
 
 			// Get the user
 			u, err := db.GetUser(space.UserId)
@@ -531,11 +537,15 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 	vars := model.FilterVars(variables)
 
-	// Get the nomad client
-	nomadClient := nomad.NewClient()
+	var containerClient container.ContainerManager
+	if template.LocalContainer {
+		containerClient = docker.NewClient()
+	} else {
+		containerClient = nomad.NewClient()
+	}
 
 	// Create volumes
-	err = nomadClient.CreateSpaceVolumes(user, template, space, &vars)
+	err = containerClient.CreateSpaceVolumes(user, template, space, &vars)
 	if err != nil {
 		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -543,7 +553,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start the job
-	err = nomadClient.CreateSpaceJob(user, template, space, &vars)
+	err = containerClient.CreateSpaceJob(user, template, space, &vars)
 	if err != nil {
 		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -585,6 +595,14 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the template
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceStop: get template %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
 	// If remote then need to pull the space from the remote
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
@@ -623,11 +641,15 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get the nomad client
-	nomadClient := nomad.NewClient()
+	var containerClient container.ContainerManager
+	if template.LocalContainer {
+		containerClient = docker.NewClient()
+	} else {
+		containerClient = nomad.NewClient()
+	}
 
 	// Stop the job
-	err = nomadClient.DeleteSpaceJob(space)
+	err = containerClient.DeleteSpaceJob(space)
 	if err != nil {
 		space.IsPending = false
 		db.SaveSpace(space)
@@ -737,8 +759,9 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 
-	// Get the nomad client
+	// Get the nomad & container clients
 	nomadClient := nomad.NewClient()
+	containerClient := docker.NewClient()
 
 	// Stop all spaces
 	spaces, err := db.GetSpacesForUser(chi.URLParam(r, "user_id"))
@@ -749,7 +772,20 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 
 	for _, space := range spaces {
 		if space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
-			err = nomadClient.DeleteSpaceJob(space)
+
+			// Load the template for the space
+			template, err := db.GetTemplate(space.TemplateId)
+			if err != nil {
+				log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+
+			if template.LocalContainer {
+				err = containerClient.DeleteSpaceJob(space)
+			} else {
+				err = nomadClient.DeleteSpaceJob(space)
+			}
 			if err != nil {
 				log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -860,11 +896,24 @@ func RealDeleteSpace(space *model.Space) {
 
 		db := database.GetInstance()
 
-		// Get the nomad client
-		nomadClient := nomad.NewClient()
+		template, err := db.GetTemplate(space.TemplateId)
+		if err != nil {
+			log.Error().Msgf("api: RealDeleteSpace load template %s", err.Error())
+
+			space.IsDeleting = false
+			db.SaveSpace(space)
+			return
+		}
+
+		var containerClient container.ContainerManager
+		if template.LocalContainer {
+			containerClient = docker.NewClient()
+		} else {
+			containerClient = nomad.NewClient()
+		}
 
 		// Delete volumes on failure we log the error and revert the space to not deleting
-		err := nomadClient.DeleteSpaceVolumes(space)
+		err = containerClient.DeleteSpaceVolumes(space)
 		if err != nil {
 			log.Error().Msgf("api: RealDeleteSpace %s", err.Error())
 
@@ -872,9 +921,6 @@ func RealDeleteSpace(space *model.Space) {
 			db.SaveSpace(space)
 			return
 		}
-
-		// Delete the agent state if present
-		agent_server.RemoveSession(space.Id)
 
 		// Delete the space
 		err = db.DeleteSpace(space)
@@ -885,6 +931,9 @@ func RealDeleteSpace(space *model.Space) {
 			db.SaveSpace(space)
 			return
 		}
+
+		// Delete the agent state if present
+		agent_server.RemoveSession(space.Id)
 
 		log.Info().Msgf("api: RealDeleteSpace: deleted %s", space.Id)
 	}()

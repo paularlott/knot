@@ -7,9 +7,11 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/container"
+	"github.com/paularlott/knot/internal/container/docker"
+	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
-	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -44,10 +46,11 @@ func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 
 		for _, volume := range volumes {
 			v := apiclient.VolumeInfo{
-				Id:       volume.Id,
-				Name:     volume.Name,
-				Active:   volume.Active,
-				Location: volume.Location,
+				Id:             volume.Id,
+				Name:           volume.Name,
+				Active:         volume.Active,
+				Location:       volume.Location,
+				LocalContainer: volume.LocalContainer,
 			}
 			volumeData.Volumes = append(volumeData.Volumes, v)
 			volumeData.Count++
@@ -60,7 +63,7 @@ func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 	volemeId := chi.URLParam(r, "volume_id")
 
-	request := apiclient.UpdateVolumeRequest{}
+	request := apiclient.VolumeUpdateRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -111,7 +114,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
-	request := apiclient.CreateVolumeRequest{}
+	request := apiclient.VolumeCreateRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -132,7 +135,7 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 	if remoteClient != nil && !server_info.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
-		response, code, err := client.CreateVolume(request.Name, request.Definition)
+		response, code, err := client.CreateVolume(request.Name, request.Definition, request.LocalContainer)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -143,7 +146,7 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 		db := database.GetInstance()
 		user := r.Context().Value("user").(*model.User)
 
-		volume := model.NewVolume(request.Name, request.Definition, user.Id)
+		volume := model.NewVolume(request.Name, request.Definition, user.Id, request.LocalContainer)
 
 		err = db.SaveVolume(volume)
 		if err != nil {
@@ -222,10 +225,11 @@ func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := apiclient.VolumeDefinition{
-			Name:       volume.Name,
-			Definition: volume.Definition,
-			Active:     volume.Active,
-			Location:   volume.Location,
+			Name:           volume.Name,
+			Definition:     volume.Definition,
+			Active:         volume.Active,
+			Location:       volume.Location,
+			LocalContainer: volume.LocalContainer,
 		}
 
 		rest.SendJSON(http.StatusOK, w, r, &data)
@@ -285,11 +289,15 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 	volume.Location = server_info.LeafLocation
 	volume.Active = true
 
-	// Get the nomad client
-	nomadClient := nomad.NewClient()
+	var containerClient container.ContainerManager
+	if volume.LocalContainer {
+		containerClient = docker.NewClient()
+	} else {
+		containerClient = nomad.NewClient()
+	}
 
 	// Create volumes
-	err = nomadClient.CreateVolume(volume, &vars)
+	err = containerClient.CreateVolume(volume, &vars)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -355,11 +363,15 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 	volume.Location = ""
 	volume.Active = false
 
-	// Get the nomad client
-	nomadClient := nomad.NewClient()
+	var containerClient container.ContainerManager
+	if volume.LocalContainer {
+		containerClient = docker.NewClient()
+	} else {
+		containerClient = nomad.NewClient()
+	}
 
 	// Delete the volume
-	err = nomadClient.DeleteVolume(volume, &vars)
+	err = containerClient.DeleteVolume(volume, &vars)
 	if err != nil && !strings.Contains(err.Error(), "volume not found") {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return

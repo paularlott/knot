@@ -15,6 +15,7 @@ func init() {
 	createCmd.Flags().StringP("job", "j", "", "The file to load for the nomad job description.")
 	createCmd.Flags().StringP("volume", "v", "", "The YAML file to load for the volume description.")
 	createCmd.Flags().StringSliceP("group", "g", []string{}, "Define a group to limit the template visibility to, can be given multiple times.")
+	createCmd.Flags().Bool("local-container", false, "Create a local container template.")
 }
 
 var createCmd = &cobra.Command{
@@ -34,6 +35,9 @@ var createCmd = &cobra.Command{
 
 		viper.BindPFlag("group", cmd.Flags().Lookup("group"))
 		viper.SetDefault("group", []string{})
+
+		viper.BindPFlag("local-container", cmd.Flags().Lookup("local-container"))
+		viper.SetDefault("local-container", false)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -81,7 +85,7 @@ var createCmd = &cobra.Command{
 		}
 
 		// Create the template
-		_, _, err = client.CreateTemplate(args[0], job, viper.GetString("description"), volume, groupIds)
+		_, _, err = client.CreateTemplate(args[0], job, viper.GetString("description"), volume, groupIds, viper.GetBool("local-container"))
 		if err != nil {
 			fmt.Println("Error creating template: ", err)
 			return

@@ -21,13 +21,13 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/dnsserver"
 	"github.com/paularlott/knot/internal/origin_leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/nomad"
 	"github.com/paularlott/knot/web"
 
 	"github.com/go-chi/chi/v5"
@@ -327,7 +327,7 @@ var serverCmd = &cobra.Command{
 			db := database.GetInstance()
 			tpl, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
 			if err != nil || tpl == nil {
-				template := model.NewTemplate("Manual-Configuration", "Access a manually installed agent.", "manual", "", "", []string{})
+				template := model.NewTemplate("Manual-Configuration", "Access a manually installed agent.", "manual", "", "", []string{}, false)
 				template.Id = model.MANUAL_TEMPLATE_ID
 				db.SaveTemplate(template)
 			}
@@ -340,6 +340,7 @@ var serverCmd = &cobra.Command{
 		}
 
 		// Check for local spaces that are pending state changes and setup watches
+		// FIXME this should not run if there's no nomad server defined!
 		startupCheckPendingSpaces()
 
 		// Start the DNS server

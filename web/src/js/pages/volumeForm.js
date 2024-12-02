@@ -3,6 +3,7 @@ window.volumeForm = function(isEdit, volumeId) {
     formData: {
       name: "",
       definition: "",
+      local_container: false,
     },
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create Volume',
@@ -28,6 +29,7 @@ window.volumeForm = function(isEdit, volumeId) {
 
           this.formData.name = volume.name;
           this.formData.definition = volume.definition;
+          this.formData.local_container = volume.local_container;
         }
       }
 
@@ -70,6 +72,9 @@ window.volumeForm = function(isEdit, volumeId) {
     checkVol() {
       return this.volValid = validate.required(this.formData.definition);
     },
+    toggleLocalContainer() {
+      this.formData.local_container = !this.formData.local_container;
+    },
 
     async submitData() {
       var err = false,
@@ -85,12 +90,21 @@ window.volumeForm = function(isEdit, volumeId) {
       }
       this.loading = true;
 
+      var data = {
+        name: this.formData.name,
+        definition: this.formData.definition,
+      }
+
+      if(!isEdit) {
+        data.local_container = this.formData.local_container;
+      }
+
       fetch(isEdit ? '/api/v1/volumes/' + volumeId : '/api/v1/volumes', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(this.formData)
+          body: JSON.stringify(data)
         })
         .then((response) => {
           if (response.status === 200) {
