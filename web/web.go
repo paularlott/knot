@@ -231,6 +231,12 @@ func Routes() chi.Router {
 
 		router.Get("/download/*", func(w http.ResponseWriter, r *http.Request) {
 			filePath := r.URL.Path[len("/download/"):]
+
+			if strings.Contains(filePath, "..") {
+				http.Error(w, "Invalid file name", http.StatusBadRequest)
+				return
+			}
+
 			http.ServeFile(w, r, filepath.Join(downloadPath, filePath))
 		})
 	}
@@ -274,6 +280,10 @@ func showPageForbidden(w http.ResponseWriter, r *http.Request) {
 
 // Initialize a new template
 func newTemplate(name string) (*template.Template, error) {
+
+	if strings.Contains(name, "..") {
+		return nil, errors.New("invalid template name")
+	}
 
 	// Add a function to allow passing of KV pairs to templates
 	funcs := map[string]any{
