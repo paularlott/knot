@@ -51,6 +51,11 @@ func Routes() chi.Router {
 			fileName = fileName + "index.html"
 		}
 
+		if strings.Contains(fileName, "..") {
+			http.Error(w, "Invalid file name", http.StatusBadRequest)
+			return
+		}
+
 		// Add headers to allow caching for 4 hours
 		w.Header().Set("Cache-Control", "public, max-age=14400")
 
@@ -107,6 +112,11 @@ func Routes() chi.Router {
 		rctx := chi.RouteContext(r.Context())
 		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
 		fileName := strings.TrimPrefix(r.URL.Path, "/")
+
+		if strings.Contains(fileName, "..") {
+			http.Error(w, "Invalid file name", http.StatusBadRequest)
+			return
+		}
 
 		agentPath := viper.GetString("server.agent_path")
 		if agentPath != "" {
