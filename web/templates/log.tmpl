@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Log</title>
+	<link rel="stylesheet" href="/assets/css/terminal.css" />
+</head>
+<body>
+	<div id="terminal"></div>
+	<script src="/assets/js/terminal.js" ></script>
+  <script>
+    initializeTerminal({
+      shell: "{{ .shell }}",
+      renderer: "{{ .renderer }}",
+      spaceId: "{{ .spaceId }}",
+      logView: true,
+    });
+  </script>
+</body>
+</html>
