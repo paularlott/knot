@@ -340,7 +340,6 @@ var serverCmd = &cobra.Command{
 		}
 
 		// Check for local spaces that are pending state changes and setup watches
-		// FIXME this should not run if there's no nomad server defined!
 		startupCheckPendingSpaces()
 
 		// Start the DNS server

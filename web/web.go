@@ -215,6 +215,9 @@ func Routes() chi.Router {
 			router.Get("/create", HandleVolumeCreate)
 			router.Get("/edit/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleVolumeEdit)
 		})
+
+		router.Get("/logs/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleLogsPage)
+		router.Get("/logs/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/stream", HandleLogsStream)
 	})
 
 	// Routes without authentication
@@ -364,6 +367,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates) && !server_info.RestrictedLeaf,
 		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces) && !server_info.RestrictedLeaf,
 		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes) || server_info.RestrictedLeaf,
+		"permissionViewLogs":        user.HasPermission(model.PermissionViewLogs) || server_info.RestrictedLeaf,
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"location":                  server_info.LeafLocation,

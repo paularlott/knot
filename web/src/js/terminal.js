@@ -19,8 +19,9 @@ window.initializeTerminal = function(options) {
     maximizeWin: true,
     screenReaderMode: true,
     cols: 128,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'JetBrains Mono, courier-new, courier, monospace',
+    disableStdin: options.logView
   });
 
   if (options.renderer == "webgl") {
@@ -30,7 +31,7 @@ window.initializeTerminal = function(options) {
   }
 
   var protocol = (location.protocol === "https:") ? "wss://" : "ws://";
-  var url = protocol + location.host + "/proxy/spaces/" + options.spaceId + "/terminal/" + options.shell;
+  var url = protocol + location.host + (options.logView ? "/logs/" + options.spaceId + "/stream" : "/proxy/spaces/" + options.spaceId + "/terminal/" + options.shell);
   var ws = new WebSocket(url);
 
   var attachAddon = new AttachAddon(ws);

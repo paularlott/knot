@@ -13,6 +13,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	AGENT_SESSION_LOG_HISTORY = 200
+)
+
 func handleAgentConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -122,11 +126,11 @@ func handleAgentConnection(conn net.Conn) {
 		}
 
 		// Handle the connection
-		go handleAgentSession(stream)
+		go handleAgentSession(stream, session)
 	}
 }
 
-func handleAgentSession(stream net.Conn) {
+func handleAgentSession(stream net.Conn, session *Session) {
 	defer stream.Close()
 
 	// Read the command
@@ -147,7 +151,6 @@ func handleAgentSession(stream net.Conn) {
 		}
 
 		// Get the session and update the state
-		session := GetSession(state.SpaceId)
 		if session != nil {
 			session.HasCodeServer = state.HasCodeServer
 			session.SSHPort = state.SSHPort
@@ -160,6 +163,30 @@ func handleAgentSession(stream net.Conn) {
 			session.AgentIp = state.AgentIp
 			session.ExpiresAfter = time.Now().UTC().Add(AGENT_SESSION_TIMEOUT)
 		}
+
+	case msg.MSG_LOG_MSG:
+		var logMsg msg.LogMessage
+		if err := msg.ReadMessage(stream, &logMsg); err != nil {
+			log.Error().Msgf("agent: reading log message: %v", err)
+			return
+		}
+
+		session.LogHistoryMutex.Lock()
+		session.LogHistory = append(session.LogHistory, &logMsg)
+
+		if len(session.LogHistory) > AGENT_SESSION_LOG_HISTORY {
+			session.LogHistory = session.LogHistory[1:]
+		}
+		session.LogHistoryMutex.Unlock()
+
+		// Notify all log sinks
+		go func() {
+			session.LogNotifyMutex.RLock()
+			defer session.LogNotifyMutex.RUnlock()
+			for _, c := range session.LogNotify {
+				c <- &logMsg
+			}
+		}()
 
 	default:
 		log.Error().Msgf("agent: unknown command from agent: %d", cmd)
