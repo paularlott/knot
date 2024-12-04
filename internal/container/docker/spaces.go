@@ -105,7 +105,6 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		authConfig := registry.AuthConfig{
 			Username: spec.Auth.Username,
 			Password: spec.Auth.Password,
-			//ServerAddress: "hub.anaconda.ovh",
 		}
 		encodedJSON, err := json.Marshal(authConfig)
 		if err != nil {
