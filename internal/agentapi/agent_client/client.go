@@ -89,6 +89,9 @@ func ConnectAndServe(server string, spaceId string) {
 		tcpPortMap[fmt.Sprintf("%d", sshPort)] = "SSH"
 	}
 
+	// Init log message transport
+	initLogMessages()
+
 	go func() {
 		for {
 
@@ -180,8 +183,6 @@ func ConnectAndServe(server string, spaceId string) {
 				time.Sleep(3 * time.Second)
 				continue
 			}
-
-			initLogMessages()
 
 			// Loop forever waiting for connections on the mux session
 			for {

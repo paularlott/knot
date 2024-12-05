@@ -13,12 +13,6 @@ import (
 var logChannel chan *msg.LogMessage
 
 func initLogMessages() {
-
-	// If logChannel is already initialized, return
-	if logChannel != nil {
-		return
-	}
-
 	log.Debug().Msg("agent: initializing log message transport")
 
 	logChannel = make(chan *msg.LogMessage, 100)
@@ -29,6 +23,10 @@ func initLogMessages() {
 		var tempBuffer []*msg.LogMessage
 
 		for {
+			if muxSession == nil {
+				continue
+			}
+
 			// connect
 			conn, err = muxSession.Open()
 			if err != nil {
