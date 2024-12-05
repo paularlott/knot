@@ -149,7 +149,7 @@ func writeLogMessage(ws *websocket.Conn, logMessage *msg.LogMessage, location *t
 	// Add the date and time in the users timezone
 	prefix := "\033[90m" + logMessage.Date.In(location).Format("02 Jan 06 15:04:05 MST") + "\033[0m "
 
-	switch logMessage.Source {
+	switch logMessage.MsgType {
 	case msg.MSG_LOG_SYSLOG:
 		prefix = prefix + "\033[93mSYSLOG\033[0m "
 	case msg.MSG_LOG_DBG:

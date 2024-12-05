@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	AGENT_STATE_PING_INTERVAL = 4 * time.Second
+	AGENT_STATE_PING_INTERVAL = 2 * time.Second
 )
 
 var (
@@ -180,6 +180,8 @@ func ConnectAndServe(server string, spaceId string) {
 				time.Sleep(3 * time.Second)
 				continue
 			}
+
+			initLogMessages()
 
 			// Loop forever waiting for connections on the mux session
 			for {

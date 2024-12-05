@@ -92,9 +92,9 @@
                         <button @click="openCodeServer(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
-                          </svg><span class="sr-only">Code</span>
+                          </svg><span class="sr-only">Code Server</span>
                         </button>
-                        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-4 py-1 block whitespace-nowrap text-sm text-white bg-gray-400 dark:bg-gray-900 rounded-lg shadow-sm" role="tooltip" x-cloak>Code</div>
+                        <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-4 py-1 block whitespace-nowrap text-sm text-white bg-gray-400 dark:bg-gray-900 rounded-lg shadow-sm" role="tooltip" x-cloak>Code Server</div>
                       </div>
 
                       <div x-data x-show="s.has_vscode_tunnel && !s.vscode_tunnel_name.length" x-cloak class="mr-2">

@@ -29,10 +29,6 @@ func WriteCommand(conn net.Conn, cmdType byte) error {
 }
 
 func ReadCommand(conn net.Conn) (byte, error) {
-	// Set a read deadline
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-	defer conn.SetReadDeadline(time.Time{})
-
 	cmdTypeBuf := make([]byte, 1)
 	_, err := conn.Read(cmdTypeBuf)
 	return cmdTypeBuf[0], err
