@@ -19,7 +19,7 @@ window.initializeTerminal = function(options) {
     maximizeWin: true,
     screenReaderMode: true,
     cols: 128,
-    fontSize: 15,
+    fontSize: options.logView ? 13 : 15,
     fontFamily: 'JetBrains Mono, courier-new, courier, monospace',
     disableStdin: options.logView
   });
