@@ -143,7 +143,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 		}
 
 		switch cmd {
-		case msg.MSG_UPDATE_STATE:
+		case byte(msg.CmdUpdateState):
 
 			// Read the state message
 			var state msg.AgentState
@@ -166,7 +166,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.ExpiresAfter = time.Now().UTC().Add(AGENT_SESSION_TIMEOUT)
 			}
 
-		case msg.MSG_LOG_MSG:
+		case byte(msg.CmdLogMessage):
 			var logMsg msg.LogMessage
 			if err := msg.ReadMessage(stream, &logMsg); err != nil {
 				log.Error().Msgf("agent: reading log message: %v", err)

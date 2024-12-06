@@ -66,7 +66,7 @@ func initLogMessages() {
 	}()
 }
 
-func SendLogMessage(msgType byte, message string) error {
+func SendLogMessage(service msg.LogService, level msg.LogLevel, message string) error {
 	// replace all \n without a \r with \r\n
 	message = strings.ReplaceAll(message, "\n", "\r\n")
 
@@ -74,7 +74,8 @@ func SendLogMessage(msgType byte, message string) error {
 	message = strings.TrimRight(message, "\r\n")
 
 	logChannel <- &msg.LogMessage{
-		MsgType: msgType,
+		Service: service,
+		Level:   level,
 		Message: message,
 		Date:    time.Now().UTC(),
 	}

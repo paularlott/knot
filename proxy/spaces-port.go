@@ -109,7 +109,7 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 
 	// Write the command
 	if domainParts[2] == "vnc" {
-		if err := msg.WriteCommand(stream, msg.MSG_PROXY_VNC); err != nil {
+		if err := msg.WriteCommand(stream, msg.CmdProxyVNC); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -117,7 +117,7 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 		tokenStr := "Basic " + base64.StdEncoding.EncodeToString([]byte("knot:"+user.ServicePassword))
 		token = &tokenStr
 	} else {
-		if err := msg.WriteCommand(stream, msg.MSG_PROXY_HTTP); err != nil {
+		if err := msg.WriteCommand(stream, msg.CmdProxyHTTP); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

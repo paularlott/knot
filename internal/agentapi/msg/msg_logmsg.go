@@ -7,22 +7,30 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type LogService byte
+type LogLevel byte
+
 const (
-	MSG_LOG_SYSLOG = iota
-	MSG_LOG_DBG
-	MSG_LOG_INF
-	MSG_LOG_ERR
+	ServiceSyslog LogService = iota
+	ServiceAgent
+)
+
+const (
+	LogLevelDebug LogLevel = iota
+	LogLevelInfo
+	LogLevelError
 )
 
 type LogMessage struct {
-	MsgType byte
+	Service LogService
+	Level   LogLevel
 	Message string
 	Date    time.Time
 }
 
 func SendLogMessage(conn net.Conn, message *LogMessage) error {
 	// Write the command
-	err := WriteCommand(conn, MSG_LOG_MSG)
+	err := WriteCommand(conn, CmdLogMessage)
 	if err != nil {
 		log.Error().Msgf("agent: writing state command: %v", err)
 		return err

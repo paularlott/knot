@@ -48,7 +48,7 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
 	defer stream.Close()
 
 	// Write the terminal command
-	err = msg.WriteCommand(stream, msg.MSG_CODE_SERVER)
+	err = msg.WriteCommand(stream, msg.CmdCodeServer)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

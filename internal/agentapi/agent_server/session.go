@@ -87,7 +87,7 @@ func (s *Session) Ping() bool {
 	defer conn.Close()
 
 	// Write the ping command
-	err = msg.WriteCommand(conn, msg.MSG_PING)
+	err = msg.WriteCommand(conn, msg.CmdPing)
 	if err != nil {
 		return false
 	}
@@ -110,7 +110,7 @@ func (s *Session) SendUpdateAuthorizedKeys(sshKey string, githubUsername string)
 	defer conn.Close()
 
 	// Write the update authorized keys command
-	err = msg.WriteCommand(conn, msg.MSG_UPDATE_AUTHORIZED_KEYS)
+	err = msg.WriteCommand(conn, msg.CmdUpdateAuthorizedKeys)
 	if err != nil {
 		log.Error().Msgf("agent: writing update authorized keys command: %v", err)
 		return err

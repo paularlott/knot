@@ -3,6 +3,7 @@ package model
 import (
 	"bytes"
 	"os"
+	"strings"
 	"text/template"
 
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
@@ -47,7 +48,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"service_password": "",
 		},
 		"server": map[string]interface{}{
-			"url":             viper.GetString("server.url"),
+			"url":             strings.TrimSuffix(viper.GetString("server.url"), "/"),
 			"agent_endpoint":  viper.GetString("server.agent_endpoint"),
 			"wildcard_domain": wildcardDomain,
 			"location":        server_info.LeafLocation,

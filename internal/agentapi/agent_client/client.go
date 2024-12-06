@@ -223,7 +223,7 @@ func handleAgentClientStream(stream net.Conn) {
 	}
 
 	switch cmd {
-	case msg.MSG_PING:
+	case byte(msg.CmdPing):
 		err := msg.WriteMessage(stream, &msg.Pong{
 			Payload: "pong",
 		})
@@ -231,7 +231,7 @@ func handleAgentClientStream(stream net.Conn) {
 			log.Error().Msgf("agent: sending pong: %v", err)
 		}
 
-	case msg.MSG_UPDATE_AUTHORIZED_KEYS:
+	case byte(msg.CmdUpdateAuthorizedKeys):
 		var updateAuthorizedKeys msg.UpdateAuthorizedKeys
 		if err := msg.ReadMessage(stream, &updateAuthorizedKeys); err != nil {
 			log.Error().Msgf("agent: reading update authorized keys message: %v", err)
@@ -249,7 +249,7 @@ func handleAgentClientStream(stream net.Conn) {
 			}
 		}
 
-	case msg.MSG_TERMINAL:
+	case byte(msg.CmdTerminal):
 		var terminal msg.Terminal
 		if err := msg.ReadMessage(stream, &terminal); err != nil {
 			log.Error().Msgf("agent: reading terminal message: %v", err)
@@ -260,17 +260,17 @@ func handleAgentClientStream(stream net.Conn) {
 			startTerminal(stream, terminal.Shell)
 		}
 
-	case msg.MSG_VSCODE_TUNNEL_TERMINAL:
+	case byte(msg.CmdVSCodeTunnelTerminal):
 		if viper.GetString("agent.vscode_tunnel") != "" {
 			startVSCodeTunnelTerminal(stream)
 		}
 
-	case msg.MSG_CODE_SERVER:
+	case byte(msg.CmdCodeServer):
 		if viper.GetInt("agent.port.code_server") > 0 {
 			proxyTcp(stream, fmt.Sprintf("%d", viper.GetInt("agent.port.code_server")))
 		}
 
-	case msg.MSG_PROXY_TCP_PORT:
+	case byte(msg.CmdProxyTCPPort):
 		var tcpPort msg.TcpPort
 		if err := msg.ReadMessage(stream, &tcpPort); err != nil {
 			log.Error().Msgf("agent: reading tcp port message: %v", err)
@@ -285,12 +285,12 @@ func handleAgentClientStream(stream net.Conn) {
 
 		proxyTcp(stream, fmt.Sprintf("%d", tcpPort.Port))
 
-	case msg.MSG_PROXY_VNC:
+	case byte(msg.CmdProxyVNC):
 		if viper.GetUint16("agent.port.vnc_http") > 0 {
 			proxyTcpTls(stream, viper.GetString("agent.port.vnc_http"), "127.0.0.1")
 		}
 
-	case msg.MSG_PROXY_HTTP:
+	case byte(msg.CmdProxyHTTP):
 		var httpPort msg.HttpPort
 		if err := msg.ReadMessage(stream, &httpPort); err != nil {
 			log.Error().Msgf("agent: reading tcp port message: %v", err)
