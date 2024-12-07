@@ -6,7 +6,6 @@ const (
 	PermissionManageTemplates        // Can Manage Templates
 	PermissionManageSpaces           // Can Manage Spaces
 	PermissionManageVolumes          // Can Manage Volumes
-	PermissionViewLogs               // Can View Logs
 )
 
 // Roles
@@ -16,7 +15,6 @@ const (
 	RoleTemplateManager = "00000000-0000-0000-0000-000000000002"
 	RoleSpaceManager    = "00000000-0000-0000-0000-000000000003"
 	RoleVolumeManager   = "00000000-0000-0000-0000-000000000004"
-	RoleDeveloper       = "00000000-0000-0000-0000-000000000005"
 )
 
 // Mapping of role IDs to names
@@ -31,17 +29,15 @@ var RoleNames = []RoleName{
 	{RoleTemplateManager, "Template Manager"},
 	{RoleSpaceManager, "Space Manager"},
 	{RoleVolumeManager, "Volume Manager"},
-	{RoleDeveloper, "Developer"},
 }
 
 // Mapping of permissions to roles
 var rolePermissions = map[string][]int{
-	RoleAdmin:           {PermissionManageUsers, PermissionManageTemplates, PermissionManageSpaces, PermissionManageVolumes, PermissionViewLogs},
+	RoleAdmin:           {PermissionManageUsers, PermissionManageTemplates, PermissionManageSpaces, PermissionManageVolumes},
 	RoleUserManager:     {PermissionManageUsers},
 	RoleTemplateManager: {PermissionManageTemplates},
 	RoleSpaceManager:    {PermissionManageSpaces},
 	RoleVolumeManager:   {PermissionManageVolumes},
-	RoleDeveloper:       {PermissionViewLogs},
 }
 
 func RoleExists(roleId string) bool {

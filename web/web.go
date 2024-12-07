@@ -367,7 +367,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates) && !server_info.RestrictedLeaf,
 		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces) && !server_info.RestrictedLeaf,
 		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes) || server_info.RestrictedLeaf,
-		"permissionViewLogs":        user.HasPermission(model.PermissionViewLogs) || server_info.RestrictedLeaf,
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"location":                  server_info.LeafLocation,

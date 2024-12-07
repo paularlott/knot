@@ -64,12 +64,6 @@ func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 	spaceId := chi.URLParam(r, "space_id")
 	user := r.Context().Value("user").(*model.User)
 
-	// Check user has permission to view logs
-	if !user.HasPermission(model.PermissionViewLogs) {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-
 	// Load the space
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceId)
