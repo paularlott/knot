@@ -24,7 +24,7 @@ func StartSyslogd() {
 	defer conn.Close()
 
 	log.Info().Msgf("syslogd: server listening on port 514")
-	buffer := make([]byte, 16384)
+	buffer := make([]byte, 8192)
 	for {
 		n, _, err := conn.ReadFromUDP(buffer)
 		if err != nil {
@@ -64,6 +64,6 @@ func StartSyslogd() {
 		}
 
 		// Forward the message to the server
-		agent_client.SendLogMessage(msg.ServiceSyslog, logLevel, message)
+		agent_client.SendLogMessage("syslog", logLevel, message)
 	}
 }

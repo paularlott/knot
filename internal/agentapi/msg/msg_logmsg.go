@@ -7,13 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type LogService byte
 type LogLevel byte
-
-const (
-	ServiceSyslog LogService = iota
-	ServiceAgent
-)
 
 const (
 	LogLevelDebug LogLevel = iota
@@ -22,8 +16,8 @@ const (
 )
 
 type LogMessage struct {
-	Service LogService
 	Level   LogLevel
+	Service string
 	Message string
 	Date    time.Time
 }

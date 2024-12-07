@@ -66,7 +66,13 @@ func initLogMessages() {
 	}()
 }
 
-func SendLogMessage(service msg.LogService, level msg.LogLevel, message string) error {
+func SendLogMessage(service string, level msg.LogLevel, message string) error {
+
+	// If there are 100 messages in the channel, discard the oldest one
+	if len(logChannel) >= 100 {
+		<-logChannel
+	}
+
 	// replace all \n without a \r with \r\n
 	message = strings.ReplaceAll(message, "\n", "\r\n")
 

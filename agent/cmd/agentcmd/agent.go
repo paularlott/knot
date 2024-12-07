@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/dnsproxy"
+	"github.com/paularlott/knot/internal/logsink"
 	"github.com/paularlott/knot/internal/syslogd"
 
 	"github.com/rs/zerolog/log"
@@ -33,6 +34,7 @@ func init() {
 	AgentCmd.Flags().StringP("vscode-binary", "", "~/.local/bin/code", "The path to the code binary to use for the agent (defaults \"~/.local/bin/code\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_VSCODE_BINARY environment variable if set.")
 	AgentCmd.Flags().StringP("advertise-addr", "", "", "The address to advertise to the server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ADVERTISE_ADDR environment variable if set.")
 	AgentCmd.Flags().IntP("syslog-port", "", 514, "The port to listen on for syslog messages, syslog is disabled if set to 0.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SYSLOG_PORT environment variable if set.")
+	AgentCmd.Flags().IntP("logs-port", "", 12201, "The port to listen on for log messages, logs are disabled if set to 0.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOGS_PORT environment variable if set.")
 
 	// TLS
 	AgentCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the agent.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -108,6 +110,10 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		viper.BindEnv("agent.syslog_port", config.CONFIG_ENV_PREFIX+"_SYSLOG_PORT")
 		viper.SetDefault("agent.syslog_port", 514)
 
+		viper.BindPFlag("agent.logs_port", cmd.Flags().Lookup("logs-port"))
+		viper.BindEnv("agent.logs_port", config.CONFIG_ENV_PREFIX+"_LOGS_PORT")
+		viper.SetDefault("agent.logs_port", 12201)
+
 		// TLS
 		viper.BindPFlag("agent.tls.cert_file", cmd.Flags().Lookup("cert-file"))
 		viper.BindEnv("agent.tls.cert_file", config.CONFIG_ENV_PREFIX+"_CERT_FILE")
@@ -163,6 +169,11 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		// Start the syslog server if enabled
 		if viper.GetInt("agent.syslog_port") > 0 {
 			go syslogd.StartSyslogd()
+		}
+
+		// Start the http log sink if enabled
+		if viper.GetInt("agent.logs_port") > 0 {
+			go logsink.ListenAndServe()
 		}
 
 		c := make(chan os.Signal, 1)

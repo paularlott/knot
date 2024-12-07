@@ -15,7 +15,7 @@ func BindJSON(w http.ResponseWriter, r *http.Request, v interface{}) error {
 
 	if contentType == "application/json" {
 		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
+		// decoder.DisallowUnknownFields()
 
 		err := decoder.Decode(v)
 		if err != nil {
@@ -24,7 +24,7 @@ func BindJSON(w http.ResponseWriter, r *http.Request, v interface{}) error {
 		}
 	} else if contentType == "application/msgpack" {
 		decoder := msgpack.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields(true)
+		// decoder.DisallowUnknownFields(true)
 
 		err := decoder.Decode(v)
 		if err != nil {
