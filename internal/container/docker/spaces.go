@@ -93,41 +93,6 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		spec.CapAdd = append(spec.CapAdd, "CAP_AUDIT_WRITE")
 	}
 
-	// Create a Docker client
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return err
-	}
-
-	// Create the registry auth if needed
-	var authStr string = ""
-	if spec.Auth != nil {
-		authConfig := registry.AuthConfig{
-			Username: spec.Auth.Username,
-			Password: spec.Auth.Password,
-		}
-		encodedJSON, err := json.Marshal(authConfig)
-		if err != nil {
-			panic(err)
-		}
-		authStr = base64.URLEncoding.EncodeToString(encodedJSON)
-	}
-
-	// Pull the container
-	log.Debug().Msgf("docker: pulling image %s", spec.Image)
-	reader, err := cli.ImagePull(context.Background(), spec.Image, image.PullOptions{
-		RegistryAuth: authStr,
-	})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := reader.Close(); err != nil {
-			log.Error().Msgf("docker: pulling image %s, error: %s", spec.Image, err)
-		}
-	}()
-	io.Copy(os.Stdout, reader)
-
 	// Create the container config
 	config := &container.Config{
 		Image:        spec.Image,
@@ -168,37 +133,11 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		}
 	}
 
-	// Create the container
-	log.Debug().Msgf("docker: creating container %s", spec.ContainerName)
-	resp, err := cli.ContainerCreate(
-		context.Background(),
-		config,
-		hostConfig,
-		nil,
-		nil,
-		spec.ContainerName,
-	)
-	if err != nil {
-		return err
-	}
-
-	// Start the container
-	log.Debug().Msgf("docker: starting container %s, %s", spec.ContainerName, resp.ID)
-	err = cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{})
-	if err != nil {
-		// Failed to start the container so remove it
-		cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{})
-
-		return err
-	}
-
-	log.Debug().Msgf("docker: container running %s, %s", spec.ContainerName, resp.ID)
-
-	// Record the container ID and that the space is running
+	// Record deploying
 	db := database.GetInstance()
-	space.ContainerId = resp.ID
-	space.IsPending = false
-	space.IsDeployed = true
+	space.IsPending = true
+	space.IsDeployed = false
+	space.IsDeleting = false
 	space.TemplateHash = template.Hash
 	space.Location = server_info.LeafLocation
 	err = db.SaveSpace(space)
@@ -207,7 +146,96 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		return err
 	}
 
-	origin.UpdateSpace(space)
+	// launch the container in a go routing to avoid blocking
+	go func() {
+
+		// Clean up on exit
+		defer func() {
+			space.IsPending = false
+			if err := db.SaveSpace(space); err != nil {
+				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+			}
+		}()
+
+		// Create a Docker client
+		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		if err != nil {
+			log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+			return
+		}
+
+		// Create the registry auth if needed
+		var authStr string = ""
+		if spec.Auth != nil {
+			authConfig := registry.AuthConfig{
+				Username: spec.Auth.Username,
+				Password: spec.Auth.Password,
+			}
+			encodedJSON, err := json.Marshal(authConfig)
+			if err != nil {
+				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+				return
+			}
+			authStr = base64.URLEncoding.EncodeToString(encodedJSON)
+		}
+
+		// Pull the container
+		log.Debug().Msgf("docker: pulling image %s", spec.Image)
+		reader, err := cli.ImagePull(context.Background(), spec.Image, image.PullOptions{
+			RegistryAuth: authStr,
+		})
+		if err != nil {
+			log.Error().Msgf("docker: pulling image %s, error: %s", spec.Image, err)
+			return
+		}
+		defer func() {
+			if err := reader.Close(); err != nil {
+				log.Error().Msgf("docker: pulling image %s, error: %s", spec.Image, err)
+			}
+		}()
+		io.Copy(os.Stdout, reader)
+
+		// Create the container
+		log.Debug().Msgf("docker: creating container %s", spec.ContainerName)
+		resp, err := cli.ContainerCreate(
+			context.Background(),
+			config,
+			hostConfig,
+			nil,
+			nil,
+			spec.ContainerName,
+		)
+		if err != nil {
+			log.Error().Msgf("docker: creating container %s, error: %s", spec.ContainerName, err)
+			return
+		}
+
+		// Start the container
+		log.Debug().Msgf("docker: starting container %s, %s", spec.ContainerName, resp.ID)
+		err = cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{})
+		if err != nil {
+			// Failed to start the container so remove it
+			cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{})
+
+			log.Error().Msgf("docker: starting container %s, %s, error: %s", spec.ContainerName, resp.ID, err)
+			return
+		}
+
+		log.Debug().Msgf("docker: container running %s, %s", spec.ContainerName, resp.ID)
+
+		// Record the container ID and that the space is running
+		db := database.GetInstance()
+		space.ContainerId = resp.ID
+		space.IsPending = false
+		space.IsDeployed = true
+		err = db.SaveSpace(space)
+		if err != nil {
+			log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+			return
+		}
+
+		origin.UpdateSpace(space)
+	}()
 
 	return nil
 }
@@ -215,37 +243,56 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 	log.Debug().Msgf("docker: deleting space job %s, %s", space.Id, space.ContainerId)
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return err
-	}
-
-	// Stop the container
-	log.Debug().Msgf("docker: stopping container %s", space.ContainerId)
-	err = cli.ContainerStop(context.Background(), space.ContainerId, container.StopOptions{})
-	if err != nil {
-		return err
-	}
-
-	// Remove the container
-	log.Debug().Msgf("docker: removing container %s", space.ContainerId)
-	err = cli.ContainerRemove(context.Background(), space.ContainerId, container.RemoveOptions{})
-	if err != nil {
-		return err
-	}
-
-	// Record new state
 	db := database.GetInstance()
 
-	space.IsPending = false
-	space.IsDeployed = false
-	space.IsDeleting = false
-	err = db.SaveSpace(space)
+	space.IsPending = true
+	err := db.SaveSpace(space)
 	if err != nil {
 		return err
 	}
 
-	origin.UpdateSpace(space)
+	// Run the delete in a go routine to avoid blocking
+	go func() {
+		// Clean up on exit
+		defer func() {
+			space.IsPending = false
+			if err := db.SaveSpace(space); err != nil {
+				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+			}
+		}()
+
+		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		if err != nil {
+			log.Error().Msgf("docker: deleting space job %s error %s", space.Id, err)
+			return
+		}
+
+		// Stop the container
+		log.Debug().Msgf("docker: stopping container %s", space.ContainerId)
+		err = cli.ContainerStop(context.Background(), space.ContainerId, container.StopOptions{})
+		if err != nil {
+			log.Error().Msgf("docker: stopping container %s error %s", space.ContainerId, err)
+			return
+		}
+
+		// Remove the container
+		log.Debug().Msgf("docker: removing container %s", space.ContainerId)
+		err = cli.ContainerRemove(context.Background(), space.ContainerId, container.RemoveOptions{})
+		if err != nil {
+			log.Error().Msgf("docker: removing container %s error %s", space.ContainerId, err)
+			return
+		}
+
+		space.IsPending = false
+		space.IsDeployed = false
+		err = db.SaveSpace(space)
+		if err != nil {
+			log.Error().Msgf("docker: deleting space job %s error %s", space.Id, err)
+			return
+		}
+
+		origin.UpdateSpace(space)
+	}()
 
 	return nil
 }

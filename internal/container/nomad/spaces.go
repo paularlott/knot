@@ -136,6 +136,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	// Record deploying
 	space.IsPending = true
 	space.IsDeployed = false
+	space.IsDeleting = false
 	space.TemplateHash = template.Hash
 	space.Location = server_info.LeafLocation
 	err = db.SaveSpace(space)
@@ -223,7 +224,7 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 			}
 
 			// Sleep for a bit
-			time.Sleep(3 * time.Second)
+			time.Sleep(2 * time.Second)
 		}
 	}()
 }
