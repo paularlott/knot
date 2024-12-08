@@ -183,9 +183,9 @@ func handleAgentSession(stream net.Conn, session *Session) {
 
 			// Notify all log sinks
 			go func() {
-				session.LogNotifyMutex.RLock()
-				defer session.LogNotifyMutex.RUnlock()
-				for _, c := range session.LogNotify {
+				session.LogListenersMutex.RLock()
+				defer session.LogListenersMutex.RUnlock()
+				for _, c := range session.LogListeners {
 					c <- &logMsg
 				}
 			}()

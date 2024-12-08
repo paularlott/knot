@@ -91,13 +91,15 @@ func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 	agentSession := agent_server.GetSession(spaceId)
 	if agentSession == nil {
 		w.WriteHeader(http.StatusNotFound)
+		ws.Close()
 		return
 	}
 
 	// Register a notification channel with the session
-	messages := agentSession.RegisterLogSink(spaceId)
-	if messages == nil {
-		w.WriteHeader(http.StatusConflict)
+	listenerId, channel := agentSession.RegisterLogListener()
+	if channel == nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		ws.Close()
 		return
 	}
 
@@ -107,7 +109,7 @@ func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 			_, _, err := ws.ReadMessage()
 			if err != nil {
 				log.Debug().Msgf("websocket closed: %s", err)
-				agentSession.UnregisterLogSink(spaceId)
+				agentSession.UnregisterLogListener(listenerId)
 				return
 			}
 		}
@@ -118,15 +120,19 @@ func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 	for _, logMessage := range agentSession.LogHistory {
 		if err := writeLogMessage(ws, logMessage, location); err != nil {
 			log.Error().Msgf("agent: error writing message: %s", err)
+			agentSession.LogHistoryMutex.RUnlock()
 			return
 		}
 	}
 	agentSession.LogHistoryMutex.RUnlock()
 
+	// Send a marker to indicate the end of the history
+	ws.WriteMessage(websocket.TextMessage, []byte{0})
+
 	// Simulate streaming logs
 	for {
 		// Wait for a log message
-		logMessage, ok := <-messages
+		logMessage, ok := <-channel
 		if !ok {
 			return
 		}

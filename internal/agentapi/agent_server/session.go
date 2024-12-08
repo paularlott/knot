@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 
 	"github.com/hashicorp/yamux"
@@ -12,70 +13,74 @@ import (
 
 // Struct holding the state / registration information of an agent
 type Session struct {
-	Id               string                          `msgpack:"space_id"`
-	Version          string                          `msgpack:"version"`
-	HasCodeServer    bool                            `msgpack:"has_code_server"`
-	SSHPort          int                             `msgpack:"ssh_port"`
-	VNCHttpPort      int                             `msgpack:"vnc_http_port"`
-	HasTerminal      bool                            `msgpack:"has_terminal"`
-	TcpPorts         map[string]string               `msgpack:"tcp_ports"`
-	HttpPorts        map[string]string               `msgpack:"http_ports"`
-	HasVSCodeTunnel  bool                            `msgpack:"has_vscode_tunnel"`
-	VSCodeTunnelName string                          `msgpack:"vscode_tunnel_name"`
-	AgentIp          string                          `msgpack:"agent_ip"`
-	ExpiresAfter     time.Time                       `msgpack:"-"`
-	MuxSession       *yamux.Session                  `msgpack:"-"`
-	LogHistoryMutex  *sync.RWMutex                   `msgpack:"-"`
-	LogHistory       []*msg.LogMessage               `msgpack:"-"`
-	LogNotifyMutex   *sync.RWMutex                   `msgpack:"-"`
-	LogNotify        map[string]chan *msg.LogMessage `msgpack:"-"`
+	Id               string
+	Version          string
+	HasCodeServer    bool
+	SSHPort          int
+	VNCHttpPort      int
+	HasTerminal      bool
+	TcpPorts         map[string]string
+	HttpPorts        map[string]string
+	HasVSCodeTunnel  bool
+	VSCodeTunnelName string
+	AgentIp          string
+	ExpiresAfter     time.Time
+	MuxSession       *yamux.Session
+
+	// The log history
+	LogHistoryMutex *sync.RWMutex
+	LogHistory      []*msg.LogMessage
+
+	// The list of listeners for log messages
+	LogListenersMutex *sync.RWMutex
+	LogListeners      map[string]chan *msg.LogMessage
 }
 
 // creates a new agent session
 func NewSession(spaceId string, version string) *Session {
 	return &Session{
-		Id:              spaceId,
-		Version:         version,
-		HasCodeServer:   false,
-		SSHPort:         0,
-		VNCHttpPort:     0,
-		HasTerminal:     false,
-		TcpPorts:        make(map[string]string, 0),
-		HttpPorts:       make(map[string]string, 0),
-		ExpiresAfter:    time.Now().UTC().Add(AGENT_SESSION_TIMEOUT),
-		AgentIp:         "",
-		MuxSession:      nil,
-		LogHistoryMutex: &sync.RWMutex{},
-		LogHistory:      make([]*msg.LogMessage, 0),
-		LogNotifyMutex:  &sync.RWMutex{},
-		LogNotify:       make(map[string]chan *msg.LogMessage, 0),
+		Id:                spaceId,
+		Version:           version,
+		HasCodeServer:     false,
+		SSHPort:           0,
+		VNCHttpPort:       0,
+		HasTerminal:       false,
+		TcpPorts:          make(map[string]string, 0),
+		HttpPorts:         make(map[string]string, 0),
+		ExpiresAfter:      time.Now().UTC().Add(AGENT_SESSION_TIMEOUT),
+		AgentIp:           "",
+		MuxSession:        nil,
+		LogHistoryMutex:   &sync.RWMutex{},
+		LogHistory:        make([]*msg.LogMessage, 0),
+		LogListenersMutex: &sync.RWMutex{},
+		LogListeners:      make(map[string]chan *msg.LogMessage),
 	}
 }
 
-func (s *Session) RegisterLogSink(spaceId string) chan *msg.LogMessage {
-	s.LogNotifyMutex.Lock()
-	defer s.LogNotifyMutex.Unlock()
-
-	// Check if the log sink is already registered
-	if _, ok := s.LogNotify[spaceId]; ok {
-		return nil
+func (s *Session) RegisterLogListener() (string, chan *msg.LogMessage) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return "", nil
 	}
 
-	c := make(chan *msg.LogMessage, 100)
-	s.LogNotify[spaceId] = c
+	s.LogListenersMutex.Lock()
+	defer s.LogListenersMutex.Unlock()
 
-	return c
+	s.LogListeners[id.String()] = make(chan *msg.LogMessage, 100)
+
+	return id.String(), s.LogListeners[id.String()]
 }
 
-func (s *Session) UnregisterLogSink(spaceId string) {
-	s.LogNotifyMutex.Lock()
-	defer s.LogNotifyMutex.Unlock()
+func (s *Session) UnregisterLogListener(listenerId string) {
+	s.LogListenersMutex.Lock()
+	defer s.LogListenersMutex.Unlock()
 
-	if c, ok := s.LogNotify[spaceId]; ok {
+	if c, ok := s.LogListeners[listenerId]; ok {
 		close(c)
 	}
 
-	delete(s.LogNotify, spaceId)
+	delete(s.LogListeners, listenerId)
 }
 
 func (s *Session) Ping() bool {
