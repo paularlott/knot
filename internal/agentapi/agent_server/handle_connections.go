@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	AGENT_SESSION_LOG_HISTORY = 200
+	AGENT_SESSION_LOG_HISTORY = 500 // Number of lines of log history to keep
 )
 
 func handleAgentConnection(conn net.Conn) {
