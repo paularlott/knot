@@ -57,7 +57,7 @@ func init() {
 	serverCmd.Flags().BoolP("enable-leaf-api-tokens", "", false, "Allow the leaf servers to use an API token for authentication with the origin server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_LEAF_API_TOKENS environment variable if set.")
 
 	// DNS Server
-	serverCmd.Flags().BoolP("enable-dns", "", false, "Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
+	serverCmd.Flags().BoolP("enable-dns", "", false, "Experimental. Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
 	serverCmd.Flags().StringP("dns-listen", "", ":8600", "The address to listen on for DNS requests (default \":8600\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_LISTEN environment variable if set.")
 	serverCmd.Flags().StringP("dns-domain", "", "knot.internal", "The domain to listen for DNS requests on (default \"knot.internal\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_DOMAIN environment variable if set.")
 	serverCmd.Flags().Int("dns-ttl", 10, "The TTL in seconds to use for DNS responses (default \"10\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_TTL environment variable if set.")
