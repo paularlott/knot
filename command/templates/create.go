@@ -85,7 +85,7 @@ var createCmd = &cobra.Command{
 		}
 
 		// Create the template
-		_, _, err = client.CreateTemplate(args[0], job, viper.GetString("description"), volume, groupIds, viper.GetBool("local-container"))
+		_, _, err = client.CreateTemplate(args[0], job, viper.GetString("description"), volume, groupIds, viper.GetBool("local-container"), false)
 		if err != nil {
 			fmt.Println("Error creating template: ", err)
 			return

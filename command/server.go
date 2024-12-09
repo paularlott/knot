@@ -18,7 +18,6 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/nomad"
@@ -322,20 +321,11 @@ var serverCmd = &cobra.Command{
 		// Load template hashes
 		api_utils.LoadTemplateHashes()
 
-		// Check manual template is present, create it if not
-		if !server_info.IsLeaf {
-			db := database.GetInstance()
-			tpl, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
-			if err != nil || tpl == nil {
-				template := model.NewTemplate("Manual-Configuration", "Access a manually installed agent.", "manual", "", "", []string{}, false)
-				template.Id = model.MANUAL_TEMPLATE_ID
-				db.SaveTemplate(template)
-			}
-		} else {
-			// this is a leaf node, connect to the origin server
+		// this is a leaf node, connect to the origin server
+		if server_info.IsLeaf {
 			origin_leaf.LeafConnectAndServe(viper.GetString("server.origin_server"))
 
-			// start route to keep remote sessions alive
+			// start keep alive for remote sessions
 			remoteSessionKeepAlive()
 		}
 

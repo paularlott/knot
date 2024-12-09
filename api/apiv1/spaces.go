@@ -79,17 +79,18 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		for _, space := range spaces {
 			var templateName string
 			var localContainer bool
+			var isManual bool
 
-			localContainer = false
-			if space.TemplateId != model.MANUAL_TEMPLATE_ID {
-				// Lookup the template
-				template, err := db.GetTemplate(space.TemplateId)
-				if err != nil {
-					templateName = "Unknown"
-				} else {
-					templateName = template.Name
-					localContainer = template.LocalContainer
-				}
+			// Lookup the template
+			template, err := db.GetTemplate(space.TemplateId)
+			if err != nil {
+				templateName = "Unknown"
+				localContainer = false
+				isManual = false
+			} else {
+				templateName = template.Name
+				localContainer = template.LocalContainer
+				isManual = template.IsManual
 			}
 
 			s := apiclient.SpaceInfo{}
@@ -100,6 +101,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.TemplateId = space.TemplateId
 			s.Location = space.Location
 			s.LocalContainer = localContainer
+			s.IsManual = isManual
 
 			// Get the user
 			u, err := db.GetUser(space.UserId)
@@ -403,13 +405,20 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 	response.IsRemote = space.Location != "" && space.Location != server_info.LeafLocation
 
 	// If template is manual then force IsDeployed to true
-	if space.TemplateId == model.MANUAL_TEMPLATE_ID {
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if template.IsManual {
 		response.IsDeployed = true
 	}
 
 	// Check if the template has been updated
 	hash := api_utils.GetTemplateHash(space.TemplateId)
-	if space.TemplateId == model.MANUAL_TEMPLATE_ID || hash == "" {
+	if template.IsManual || hash == "" {
 		response.UpdateAvailable = false
 	} else {
 		response.UpdateAvailable = space.IsDeployed && space.TemplateHash != hash

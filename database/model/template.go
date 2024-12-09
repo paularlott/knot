@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	MANUAL_TEMPLATE_ID                         = "00000000-0000-0000-0000-000000000000"
 	REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL = 30 * time.Second
 )
 
@@ -24,13 +23,14 @@ type Template struct {
 	Volumes        string      `json:"volumes"`
 	Groups         JSONDbArray `json:"groups"`
 	LocalContainer bool        `json:"local_container"`
+	IsManual       bool        `json:"is_manual"`
 	CreatedUserId  string      `json:"created_user_id"`
 	CreatedAt      time.Time   `json:"created_at"`
 	UpdatedUserId  string      `json:"updated_user_id"`
 	UpdatedAt      time.Time   `json:"updated_at"`
 }
 
-func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool) *Template {
+func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool, isManual bool) *Template {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -45,6 +45,7 @@ func NewTemplate(name string, description string, job string, volumes string, us
 		Groups:         groups,
 		CreatedUserId:  userId,
 		LocalContainer: localContainer,
+		IsManual:       isManual,
 		CreatedAt:      time.Now().UTC(),
 		UpdatedUserId:  userId,
 		UpdatedAt:      time.Now().UTC(),

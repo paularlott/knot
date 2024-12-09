@@ -1679,6 +1679,9 @@ components:
         local_container:
           type: boolean
           description: If the space is of a local container, docker or podman.
+        is_manual:
+          type: boolean
+          description: If the space is manually created.
 
     SpaceInfoList:
       type: object
@@ -1868,6 +1871,9 @@ components:
         local_container:
           type: boolean
           description: If the template is a local container template, docker or podman.
+        is_manual:
+          type: boolean
+          description: If the template is a manual template.
 
     TemplateList:
       type: object
@@ -1908,6 +1914,9 @@ components:
         local_container:
           type: boolean
           description: If the template is a local container template, docker or podman.
+        is_manual:
+          type: boolean
+          description: If the template is a manual template.
 
     TemplateUpdateRequest:
       type: object
@@ -1986,6 +1995,9 @@ components:
         local_container:
           type: boolean
           description: If the template is a local container template, docker or podman.
+        is_manual:
+          type: boolean
+          description: If the template is a manual template.
 
     TemplateVar:
       type: object

@@ -7,6 +7,7 @@ type TemplateCreateRequest struct {
 	Volumes        string   `json:"volumes"`
 	Groups         []string `json:"groups"`
 	LocalContainer bool     `json:"local_container"`
+	IsManual       bool     `json:"is_manual"`
 }
 
 type TemplateUpdateRequest struct {
@@ -30,6 +31,7 @@ type TemplateInfo struct {
 	Deployed       int      `json:"deployed"`
 	Groups         []string `json:"groups"`
 	LocalContainer bool     `json:"local_container"`
+	IsManual       bool     `json:"is_manual"`
 }
 
 type TemplateList struct {
@@ -48,6 +50,7 @@ type TemplateDetails struct {
 	Groups         []string                 `json:"groups"`
 	VolumeSizes    []map[string]interface{} `json:"volume_sizes"`
 	LocalContainer bool                     `json:"local_container"`
+	IsManual       bool                     `json:"is_manual"`
 }
 
 func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
@@ -73,7 +76,7 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 	return c.httpClient.Put("/api/v1/templates/"+templateId, &request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool) (string, int, error) {
+func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool) (string, int, error) {
 	request := TemplateCreateRequest{
 		Name:           name,
 		Job:            job,
@@ -81,6 +84,7 @@ func (c *ApiClient) CreateTemplate(name string, job string, description string, 
 		Volumes:        volumes,
 		Groups:         groups,
 		LocalContainer: localContainer,
+		IsManual:       IsManual,
 	}
 
 	response := &TemplateCreateResponse{}
