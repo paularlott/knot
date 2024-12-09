@@ -3,7 +3,6 @@ package agentcmd
 import (
 	"encoding/json"
 	"fmt"
-	"log/syslog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -114,13 +113,7 @@ func startCodeServer(port int) {
 		cmd := exec.Command(filepath.Join(os.Getenv("HOME"), ".local", "bin", "code-server"), "--disable-telemetry", "--auth", "none", "--bind-addr", fmt.Sprintf("127.0.0.1:%d", port))
 
 		// Redirect output to syslog
-		sysLogger, err := syslog.New(syslog.LOG_INFO|syslog.LOG_USER, "code-server")
-		if err != nil {
-			log.Error().Msgf("code-server: error creating syslog writer: %v", err)
-			return
-		}
-		cmd.Stdout = sysLogger
-		cmd.Stderr = sysLogger
+		redirectToSyslog(cmd)
 
 		if err := cmd.Start(); err != nil {
 			log.Error().Msgf("code-server: error starting: %v", err)

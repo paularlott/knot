@@ -2,7 +2,6 @@ package agentcmd
 
 import (
 	"fmt"
-	"log/syslog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -73,13 +72,7 @@ func startVSCodeTunnel(name string) {
 	)
 
 	// Redirect output to syslog
-	sysLogger, err := syslog.New(syslog.LOG_INFO|syslog.LOG_USER, "code-server")
-	if err != nil {
-		log.Error().Msgf("vscode: error creating syslog writer: %v", err)
-		return
-	}
-	cmd.Stdout = sysLogger
-	cmd.Stderr = sysLogger
+	redirectToSyslog(cmd)
 
 	if err := cmd.Start(); err != nil {
 		log.Error().Msgf("vscode: error starting: %v", err)
