@@ -93,6 +93,46 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		spec.CapAdd = append(spec.CapAdd, "CAP_AUDIT_WRITE")
 	}
 
+	// Check the Env for KNOT_ENABLE_TERMINAL= and if not found add it
+	found := false
+	for _, env := range spec.Environment {
+		if strings.HasPrefix(env, "KNOT_ENABLE_TERMINAL=") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		spec.Environment = append(spec.Environment, fmt.Sprintf("KNOT_ENABLE_TERMINAL=%t", template.WithTerminal))
+	}
+
+	// Check the Env for KNOT_CODE_SERVER_PORT= and if not found add it
+	if template.WithCodeServer {
+		found = false
+		for _, env := range spec.Environment {
+			if strings.HasPrefix(env, "KNOT_CODE_SERVER_PORT=") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			spec.Environment = append(spec.Environment, "KNOT_CODE_SERVER_PORT=49374")
+		}
+	}
+
+	// Check the Env for KNOT_VSCODE_TUNNEL= and if not found add it
+	if template.WithVSCodeTunnel {
+		found = false
+		for _, env := range spec.Environment {
+			if strings.HasPrefix(env, "KNOT_VSCODE_TUNNEL=") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			spec.Environment = append(spec.Environment, "KNOT_VSCODE_TUNNEL=vscodetunnel")
+		}
+	}
+
 	// Create the container config
 	config := &container.Config{
 		Image:        spec.Image,

@@ -176,6 +176,12 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 			go logsink.ListenAndServe()
 		}
 
+		// Fetch and start code server
+		startCodeServer(viper.GetInt("agent.port.code_server"))
+
+		// Fetch and start vscode tunnel
+		startVSCodeTunnel(viper.GetString("agent.vscode_tunnel"))
+
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 

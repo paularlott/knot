@@ -1,21 +1,27 @@
 package apiclient
 
 type TemplateCreateRequest struct {
-	Name           string   `json:"name"`
-	Job            string   `json:"job"`
-	Description    string   `json:"description"`
-	Volumes        string   `json:"volumes"`
-	Groups         []string `json:"groups"`
-	LocalContainer bool     `json:"local_container"`
-	IsManual       bool     `json:"is_manual"`
+	Name             string   `json:"name"`
+	Job              string   `json:"job"`
+	Description      string   `json:"description"`
+	Volumes          string   `json:"volumes"`
+	Groups           []string `json:"groups"`
+	LocalContainer   bool     `json:"local_container"`
+	IsManual         bool     `json:"is_manual"`
+	WithTerminal     bool     `json:"with_terminal"`
+	WithVSCodeTunnel bool     `json:"with_vscode_tunnel"`
+	WithCodeServer   bool     `json:"with_code_server"`
 }
 
 type TemplateUpdateRequest struct {
-	Name        string   `json:"name"`
-	Job         string   `json:"job"`
-	Description string   `json:"description"`
-	Volumes     string   `json:"volumes"`
-	Groups      []string `json:"groups"`
+	Name             string   `json:"name"`
+	Job              string   `json:"job"`
+	Description      string   `json:"description"`
+	Volumes          string   `json:"volumes"`
+	Groups           []string `json:"groups"`
+	WithTerminal     bool     `json:"with_terminal"`
+	WithVSCodeTunnel bool     `json:"with_vscode_tunnel"`
+	WithCodeServer   bool     `json:"with_code_server"`
 }
 
 type TemplateCreateResponse struct {
@@ -40,17 +46,20 @@ type TemplateList struct {
 }
 
 type TemplateDetails struct {
-	Name           string                   `json:"name"`
-	Job            string                   `json:"job"`
-	Description    string                   `json:"description"`
-	Volumes        string                   `json:"volumes"`
-	Usage          int                      `json:"usage"`
-	Hash           string                   `json:"hash"`
-	Deployed       int                      `json:"deployed"`
-	Groups         []string                 `json:"groups"`
-	VolumeSizes    []map[string]interface{} `json:"volume_sizes"`
-	LocalContainer bool                     `json:"local_container"`
-	IsManual       bool                     `json:"is_manual"`
+	Name             string                   `json:"name"`
+	Job              string                   `json:"job"`
+	Description      string                   `json:"description"`
+	Volumes          string                   `json:"volumes"`
+	Usage            int                      `json:"usage"`
+	Hash             string                   `json:"hash"`
+	Deployed         int                      `json:"deployed"`
+	Groups           []string                 `json:"groups"`
+	VolumeSizes      []map[string]interface{} `json:"volume_sizes"`
+	LocalContainer   bool                     `json:"local_container"`
+	IsManual         bool                     `json:"is_manual"`
+	WithTerminal     bool                     `json:"with_terminal"`
+	WithVSCodeTunnel bool                     `json:"with_vscode_tunnel"`
+	WithCodeServer   bool                     `json:"with_code_server"`
 }
 
 func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
@@ -64,27 +73,33 @@ func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string) (int, error) {
+func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool) (int, error) {
 	request := TemplateUpdateRequest{
-		Name:        name,
-		Job:         job,
-		Description: description,
-		Volumes:     volumes,
-		Groups:      groups,
+		Name:             name,
+		Job:              job,
+		Description:      description,
+		Volumes:          volumes,
+		Groups:           groups,
+		WithTerminal:     withTerminal,
+		WithVSCodeTunnel: withVSCodeTunnel,
+		WithCodeServer:   withCodeServer,
 	}
 
 	return c.httpClient.Put("/api/v1/templates/"+templateId, &request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool) (string, int, error) {
+func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool) (string, int, error) {
 	request := TemplateCreateRequest{
-		Name:           name,
-		Job:            job,
-		Description:    description,
-		Volumes:        volumes,
-		Groups:         groups,
-		LocalContainer: localContainer,
-		IsManual:       IsManual,
+		Name:             name,
+		Job:              job,
+		Description:      description,
+		Volumes:          volumes,
+		Groups:           groups,
+		LocalContainer:   localContainer,
+		IsManual:         IsManual,
+		WithTerminal:     withTerminal,
+		WithVSCodeTunnel: withVSCodeTunnel,
+		WithCodeServer:   withCodeServer,
 	}
 
 	response := &TemplateCreateResponse{}

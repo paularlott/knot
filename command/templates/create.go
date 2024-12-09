@@ -16,6 +16,9 @@ func init() {
 	createCmd.Flags().StringP("volume", "v", "", "The YAML file to load for the volume description.")
 	createCmd.Flags().StringSliceP("group", "g", []string{}, "Define a group to limit the template visibility to, can be given multiple times.")
 	createCmd.Flags().Bool("local-container", false, "Create a local container template.")
+	createCmd.Flags().Bool("with-terminal", false, "Enable terminal for the template.")
+	createCmd.Flags().Bool("with-vscode-tunnel", false, "Enable VSCode tunnel for the template.")
+	createCmd.Flags().Bool("with-code-server", false, "Enable Code Server for the template.")
 }
 
 var createCmd = &cobra.Command{
@@ -38,6 +41,15 @@ var createCmd = &cobra.Command{
 
 		viper.BindPFlag("local-container", cmd.Flags().Lookup("local-container"))
 		viper.SetDefault("local-container", false)
+
+		viper.BindPFlag("with-terminal", cmd.Flags().Lookup("with-terminal"))
+		viper.SetDefault("with-terminal", false)
+
+		viper.BindPFlag("with-vscode-tunnel", cmd.Flags().Lookup("with-vscode-tunnel"))
+		viper.SetDefault("with-vscode-tunnel", false)
+
+		viper.BindPFlag("with-code-server", cmd.Flags().Lookup("with-code-server"))
+		viper.SetDefault("with-code-server", false)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -85,7 +97,18 @@ var createCmd = &cobra.Command{
 		}
 
 		// Create the template
-		_, _, err = client.CreateTemplate(args[0], job, viper.GetString("description"), volume, groupIds, viper.GetBool("local-container"), false)
+		_, _, err = client.CreateTemplate(
+			args[0],
+			job,
+			viper.GetString("description"),
+			volume,
+			groupIds,
+			viper.GetBool("local-container"),
+			false,
+			viper.GetBool("with-terminal"),
+			viper.GetBool("with-vscode-tunnel"),
+			viper.GetBool("with-code-server"),
+		)
 		if err != nil {
 			fmt.Println("Error creating template: ", err)
 			return

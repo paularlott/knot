@@ -12,6 +12,9 @@ import (
 func init() {
 	updateCmd.Flags().StringP("job", "j", "", "The file to load for the nomad job description.")
 	updateCmd.Flags().StringP("volume", "v", "", "The YAML file to load for the volume description.")
+	updateCmd.Flags().Bool("with-terminal", false, "Enable terminal for the template.")
+	updateCmd.Flags().Bool("with-vscode-tunnel", false, "Enable VSCode tunnel for the template.")
+	updateCmd.Flags().Bool("with-code-server", false, "Enable Code Server for the template.")
 }
 
 var updateCmd = &cobra.Command{
@@ -74,7 +77,17 @@ var updateCmd = &cobra.Command{
 		}
 
 		if jobFile != "" || volumeFile != "" {
-			_, err = client.UpdateTemplate(templateId, template.Name, template.Job, template.Description, template.Volumes, template.Groups)
+			_, err = client.UpdateTemplate(
+				templateId,
+				template.Name,
+				template.Job,
+				template.Description,
+				template.Volumes,
+				template.Groups,
+				viper.GetBool("with-terminal"),
+				viper.GetBool("with-vscode-tunnel"),
+				viper.GetBool("with-code-server"),
+			)
 			if err != nil {
 				fmt.Println("Error updating template: ", err)
 				return

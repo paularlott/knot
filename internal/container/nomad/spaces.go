@@ -112,7 +112,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	}
 
 	// Convert job to JSON
-	jobJSON, err := client.ParseJobHCL(jobHCL)
+	jobJSON, err := client.ParseJobHCL(jobHCL, template)
 	if err != nil {
 		log.Error().Msgf("nomad: creating space job %s, parse error: %s", space.Id, err)
 		return err

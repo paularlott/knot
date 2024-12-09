@@ -10,6 +10,9 @@ window.templateForm = function(isEdit, templateId) {
       groups: [],
       local_container: false,
       is_manual: false,
+      with_terminal: false,
+      with_vscode_tunnel: false,
+      with_code_server: false,
     },
     loading: true,
     isEdit: isEdit,
@@ -48,6 +51,9 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.groups = template.groups;
           this.formData.local_container = template.local_container;
           this.formData.is_manual = template.is_manual;
+          this.formData.with_terminal = template.with_terminal;
+          this.formData.with_vscode_tunnel = template.with_vscode_tunnel;
+          this.formData.with_code_server = template.with_code_server;
         }
       }
 
@@ -143,6 +149,15 @@ window.templateForm = function(isEdit, templateId) {
         this.formData.local_container = false;
       }
     },
+    toggleWithTerminal() {
+      this.formData.with_terminal = !this.formData.with_terminal;
+    },
+    toggleWithVSCodeTunnel() {
+      this.formData.with_vscode_tunnel = !this.formData.with_vscode_tunnel;
+    },
+    toggleWithCodeServer() {
+      this.formData.with_code_server = !this.formData.with_code_server;
+    },
     checkName() {
       return this.nameValid = validate.name(this.formData.name);
     },
@@ -170,6 +185,9 @@ window.templateForm = function(isEdit, templateId) {
         job: this.formData.is_manual ? "" : this.formData.job,
         volumes: this.formData.is_manual ? "" : this.formData.volumes,
         groups: this.formData.groups,
+        with_terminal: this.formData.with_terminal,
+        with_vscode_tunnel: this.formData.with_vscode_tunnel,
+        with_code_server: this.formData.with_code_server,
       };
 
       if(!isEdit) {

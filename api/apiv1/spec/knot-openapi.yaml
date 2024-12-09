@@ -1917,6 +1917,15 @@ components:
         is_manual:
           type: boolean
           description: If the template is a manual template.
+        with_terminal:
+          type: boolean
+          description: If the space should support a web terminal.
+        with_vscode_tunnel:
+          type: boolean
+          description: If the space should support a VSCode tunnel.
+        with_code_server:
+          type: boolean
+          description: If the space should support a code server.
 
     TemplateUpdateRequest:
       type: object
@@ -1942,6 +1951,15 @@ components:
             format: uuid
             example: 00000000-0000-0000-0000-000000000000
           description: The IDs of the groups to assign to the template.=
+        with_terminal:
+          type: boolean
+          description: If the space should support a web terminal.
+        with_vscode_tunnel:
+          type: boolean
+          description: If the space should support a VSCode tunnel.
+        with_code_server:
+          type: boolean
+          description: If the space should support a code server.
 
     TemplateDetails:
       type: object
@@ -1998,6 +2016,15 @@ components:
         is_manual:
           type: boolean
           description: If the template is a manual template.
+        with_terminal:
+          type: boolean
+          description: If the space should support a web terminal.
+        with_vscode_tunnel:
+          type: boolean
+          description: If the space should support a VSCode tunnel.
+        with_code_server:
+          type: boolean
+          description: If the space should support a code server.
 
     TemplateVar:
       type: object
