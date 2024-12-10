@@ -142,7 +142,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             space.has_http_vnc = serviceState.has_http_vnc;
             space.has_vscode_tunnel = serviceState.has_vscode_tunnel;
             space.vscode_tunnel_name = serviceState.vscode_tunnel_name;
-            space.sshCmd = "ssh -o ProxyCommand='knot forward ssh " + serviceState.name + " -o StrictHostKeyChecking=no " + username + "@knot." + serviceState.name;
+            space.sshCmd = "ssh -o ProxyCommand='knot forward ssh " + serviceState.name + "' -o StrictHostKeyChecking=no " + username + "@knot." + serviceState.name;
             space.is_local = space.location == '' || location == space.location;
           });
         } else if (response.status === 401) {

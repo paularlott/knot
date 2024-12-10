@@ -133,3 +133,29 @@ func (s *Session) SendUpdateAuthorizedKeys(sshKey string, githubUsername string)
 
 	return nil
 }
+
+func (s *Session) SendUpdateShell(shell string) error {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	// Write the update shell command
+	err = msg.WriteCommand(conn, msg.CmdUpdateShell)
+	if err != nil {
+		log.Error().Msgf("agent: writing update shell command: %v", err)
+		return err
+	}
+
+	// Write the update shell message
+	err = msg.WriteMessage(conn, &msg.UpdateShell{
+		Shell: shell,
+	})
+	if err != nil {
+		log.Error().Msgf("agent: writing update shell message: %v", err)
+		return err
+	}
+
+	return nil
+}

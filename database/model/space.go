@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/paularlott/knot/internal/sshd"
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,6 +31,7 @@ type Space struct {
 	IsPending      bool                   `json:"is_pending"` // Flags if the space is pending a state change, starting or stopping
 	IsDeleting     bool                   `json:"is_deleting"`
 	AltNames       []string               `json:"alt_names"`
+	SSHHostSigner  string                 `json:"ssh_host_signer"`
 	CreatedAt      time.Time              `json:"created_at"`
 	UpdatedAt      time.Time              `json:"updated_at"`
 }
@@ -40,22 +42,29 @@ func NewSpace(name string, userId string, templateId string, shell string, volSi
 		log.Fatal().Msg(err.Error())
 	}
 
+	// Create a host key for the space
+	ed25519, err := sshd.GenerateEd25519PrivateKey()
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+	}
+
 	space := &Space{
-		Id:           id.String(),
-		UserId:       userId,
-		TemplateId:   templateId,
-		Name:         name,
-		AltNames:     *altNames,
-		Shell:        shell,
-		TemplateHash: "",
-		IsDeployed:   false,
-		IsPending:    false,
-		IsDeleting:   false,
-		VolumeData:   make(map[string]SpaceVolume),
-		VolumeSizes:  *volSizes,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-		Location:     "",
+		Id:            id.String(),
+		UserId:        userId,
+		TemplateId:    templateId,
+		Name:          name,
+		AltNames:      *altNames,
+		Shell:         shell,
+		TemplateHash:  "",
+		IsDeployed:    false,
+		IsPending:     false,
+		IsDeleting:    false,
+		VolumeData:    make(map[string]SpaceVolume),
+		VolumeSizes:   *volSizes,
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+		Location:      "",
+		SSHHostSigner: ed25519,
 	}
 
 	return space

@@ -33,6 +33,8 @@ func handleAgentConnection(conn net.Conn) {
 		Success:        false,
 		SSHKey:         "",
 		GitHubUsername: "",
+		Shell:          "",
+		SSHHostSigner:  "",
 	}
 
 	// Check if the agent is already registered
@@ -78,6 +80,8 @@ func handleAgentConnection(conn net.Conn) {
 	response.Success = true
 	response.SSHKey = user.SSHPublicKey
 	response.GitHubUsername = user.GitHubUsername
+	response.Shell = space.Shell
+	response.SSHHostSigner = space.SSHHostSigner
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {

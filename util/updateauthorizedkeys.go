@@ -2,7 +2,7 @@ package util
 
 import (
 	"bufio"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -102,10 +102,30 @@ func GetGitHubKeys(username string) (string, error) {
 	}
 
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
 
 	return string(body), nil
+}
+
+func GetGitHubKeysArray(username string) ([]string, error) {
+	keys := []string{}
+
+	ghKeys, err := GetGitHubKeys(username)
+	if err != nil {
+		return keys, err
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(ghKeys))
+	for scanner.Scan() {
+		keys = append(keys, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		return keys, err
+	}
+
+	return keys, nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/sshd"
 	"github.com/paularlott/knot/util"
 
 	"github.com/hashicorp/yamux"
@@ -26,13 +27,15 @@ var (
 	lastPublicSSHKey   string         = ""
 	lastGitHubUsername string         = ""
 
-	sshPort      int
-	httpPortMap  map[string]string
-	httpsPortMap map[string]string
-	tcpPortMap   map[string]string
+	sshPort         int
+	usingInteralSSH bool = false
+	httpPortMap     map[string]string
+	httpsPortMap    map[string]string
+	tcpPortMap      map[string]string
 )
 
 func ConnectAndServe(server string, spaceId string) {
+	var firstRegistration = true
 
 	sshPort = viper.GetInt("agent.port.ssh")
 
@@ -158,8 +161,31 @@ func ConnectAndServe(server string, spaceId string) {
 
 			log.Info().Msgf("agent: registered with server: %s (%s)", serverAddr, response.Version)
 
-			// Update the authorized keys file
-			if viper.GetBool("agent.update_authorized_keys") && viper.GetInt("agent.port.ssh") > 0 {
+			// If 1st registration then start the ssh server if required
+			if firstRegistration {
+				firstRegistration = false
+
+				// If ssh port given then test if to start the ssh server
+				if sshPort > 0 {
+					// Test if the ssh port is open
+					conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", sshPort))
+					if err != nil {
+						sshd.ListenAndServe(sshPort, response.SSHHostSigner)
+						usingInteralSSH = true
+					} else {
+						log.Info().Msgf("agent: using external ssh server on port %d", sshPort)
+						conn.Close()
+					}
+				}
+			}
+
+			// Update the authorized keys file & shell
+			if usingInteralSSH {
+				if err := sshd.UpdateAuthorizedKeys(response.SSHKey, response.GitHubUsername); err != nil {
+					log.Error().Msgf("agent: updating internal SSH server keys: %v", err)
+				}
+				sshd.SetShell(response.Shell)
+			} else if viper.GetBool("agent.update_authorized_keys") && viper.GetInt("agent.port.ssh") > 0 {
 				if err := util.UpdateAuthorizedKeys(response.SSHKey, response.GitHubUsername); err != nil {
 					log.Error().Msgf("agent: updating authorized keys: %v", err)
 				}
@@ -238,7 +264,16 @@ func handleAgentClientStream(stream net.Conn) {
 			return
 		}
 
-		if viper.GetBool("agent.update_authorized_keys") && viper.GetInt("agent.port.ssh") > 0 {
+		if usingInteralSSH {
+			if updateAuthorizedKeys.SSHKey != lastPublicSSHKey || updateAuthorizedKeys.GitHubUsername != lastGitHubUsername {
+				lastPublicSSHKey = updateAuthorizedKeys.SSHKey
+				lastGitHubUsername = updateAuthorizedKeys.GitHubUsername
+
+				if err := sshd.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKey, updateAuthorizedKeys.GitHubUsername); err != nil {
+					log.Error().Msgf("agent: updating internal SSH server keys: %v", err)
+				}
+			}
+		} else if viper.GetBool("agent.update_authorized_keys") && viper.GetInt("agent.port.ssh") > 0 {
 			if updateAuthorizedKeys.SSHKey != lastPublicSSHKey || updateAuthorizedKeys.GitHubUsername != lastGitHubUsername {
 				lastPublicSSHKey = updateAuthorizedKeys.SSHKey
 				lastGitHubUsername = updateAuthorizedKeys.GitHubUsername
@@ -247,6 +282,17 @@ func handleAgentClientStream(stream net.Conn) {
 					log.Error().Msgf("agent: updating authorized keys: %v", err)
 				}
 			}
+		}
+
+	case byte(msg.CmdUpdateShell):
+		var updateShell msg.UpdateShell
+		if err := msg.ReadMessage(stream, &updateShell); err != nil {
+			log.Error().Msgf("agent: reading update shell message: %v", err)
+			return
+		}
+
+		if usingInteralSSH {
+			sshd.SetShell(updateShell.Shell)
 		}
 
 	case byte(msg.CmdTerminal):

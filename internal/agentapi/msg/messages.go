@@ -22,6 +22,7 @@ const (
 	CmdProxyHTTP
 	CmdVSCodeTunnelTerminal
 	CmdLogMessage
+	CmdUpdateShell
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {
