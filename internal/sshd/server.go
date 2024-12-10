@@ -5,8 +5,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"syscall"
-	"unsafe"
 
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
@@ -89,8 +87,7 @@ func defaultHandler(s ssh.Session) {
 
 		go func() {
 			for win := range winCh {
-				syscall.Syscall(syscall.SYS_IOCTL, tty.Fd(), uintptr(syscall.TIOCSWINSZ),
-					uintptr(unsafe.Pointer(&struct{ h, w, x, y uint16 }{uint16(win.Height), uint16(win.Width), 0, 0})))
+				setWinsize(tty, win.Width, win.Height)
 			}
 		}()
 		go func() {
