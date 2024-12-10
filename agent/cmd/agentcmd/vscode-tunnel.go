@@ -11,16 +11,20 @@ import (
 )
 
 func fetchVSCode() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %v", err)
+	}
 
 	// Test if code is already installed
-	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), ".local", "bin", "code")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(home, ".local", "bin", "code")); !os.IsNotExist(err) {
 		log.Info().Msg("vscode: Visual Studio Code is already installed")
 		return nil
 	}
 
 	// Create ~/.local/bin if missing
-	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), ".local", "bin")); os.IsNotExist(err) {
-		if err := os.MkdirAll(filepath.Join(os.Getenv("HOME"), ".local", "bin"), 0755); err != nil {
+	if _, err := os.Stat(filepath.Join(home, ".local", "bin")); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Join(home, ".local", "bin"), 0755); err != nil {
 			return fmt.Errorf("failed to create directory: %v", err)
 		}
 	}
@@ -37,9 +41,9 @@ func fetchVSCode() error {
 	}
 
 	log.Info().Msg("vscode: downloading Visual Studio Code..")
-	err := downloadUnpackTgz(
+	err = downloadUnpackTgz(
 		"https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-"+arch,
-		filepath.Join(os.Getenv("HOME"), ".local", "bin"),
+		filepath.Join(home, ".local", "bin"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to download vscode: %v", err)
@@ -60,6 +64,14 @@ func startVSCodeTunnel(name string) {
 		return
 	}
 
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Error().Msgf("vscode: failed to get user home directory %v", err)
+		return
+	}
+
+	codeBin := filepath.Join(home, ".local", "bin", "code")
+
 	// Start code-server
 	log.Info().Msg("vscode: starting...")
 	cmd := exec.Command(
@@ -68,7 +80,7 @@ func startVSCodeTunnel(name string) {
 		name,
 		"bash",
 		"-c",
-		"while true; do ~/.local/bin/code tunnel --accept-server-license-terms; sleep 1; done",
+		"while true; do "+codeBin+" tunnel --accept-server-license-terms; sleep 1; done",
 	)
 
 	// Redirect output to syslog

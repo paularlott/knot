@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -24,15 +25,16 @@ func ReportState(spaceId string) {
 	var vncHttpPort int = viper.GetInt("agent.port.vnc_http")
 	var hasTerminal bool = viper.GetBool("agent.enable_terminal")
 	var vscodeTunnelScreen string = viper.GetString("agent.vscode_tunnel")
-	var codeBin = viper.GetString("agent.vscode_binary")
+	var conn net.Conn
+	var err error
 
-	// If codeBin start with ~ then replace with the home directory
-	if codeBin != "" && strings.HasPrefix(codeBin, "~") {
-		homeDir, err := os.UserHomeDir()
-		if err == nil {
-			codeBin = strings.Replace(codeBin, "~", homeDir, 1)
-		}
+	// Path to vscode binary
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatal().Err(err).Msg("agent: failed to get user home directory")
 	}
+
+	codeBin := filepath.Join(homeDir, ".local", "bin", "code")
 
 	// Find our IP address
 	agentIp := viper.GetString("agent.advertise_addr")
@@ -46,9 +48,6 @@ func ReportState(spaceId string) {
 	}
 
 	log.Info().Msgf("agent: advertising IP address %s", agentIp)
-
-	var conn net.Conn
-	var err error
 
 	for {
 		if muxSession == nil {

@@ -25,14 +25,19 @@ func fetchCodeServer() error {
 		return fmt.Errorf("unsupported architecture: '%s'", runtime.GOARCH)
 	}
 
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %v", err)
+	}
+
 	// Create ~/.local/bin and ~/.local/lib directories if they don't exist
-	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), ".local", "bin")); os.IsNotExist(err) {
-		if err := os.MkdirAll(filepath.Join(os.Getenv("HOME"), ".local", "bin"), 0755); err != nil {
+	if _, err := os.Stat(filepath.Join(home, ".local", "bin")); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Join(home, ".local", "bin"), 0755); err != nil {
 			return fmt.Errorf("failed to create directory: %v", err)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(os.Getenv("HOME"), ".local", "lib")); os.IsNotExist(err) {
-		if err := os.MkdirAll(filepath.Join(os.Getenv("HOME"), ".local", "lib"), 0755); err != nil {
+	if _, err := os.Stat(filepath.Join(home, ".local", "lib")); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Join(home, ".local", "lib"), 0755); err != nil {
 			return fmt.Errorf("failed to create directory: %v", err)
 		}
 	}
@@ -59,7 +64,7 @@ func fetchCodeServer() error {
 	log.Info().Msgf("code-server: latest version of code-server is %s", latestVersion)
 
 	// Check if the latest version is already installed
-	codeServerPath := filepath.Join(os.Getenv("HOME"), ".local", "lib", "code-server-"+latestVersion)
+	codeServerPath := filepath.Join(home, ".local", "lib", "code-server-"+latestVersion)
 	if _, err := os.Stat(codeServerPath); !os.IsNotExist(err) {
 		log.Error().Msgf("code-server %s is already installed", latestVersion)
 		return nil
@@ -68,29 +73,29 @@ func fetchCodeServer() error {
 	// Download the latest version of code-server
 	log.Info().Msg("code-server: downloading code-server..")
 	downloadURL := fmt.Sprintf("https://github.com/coder/code-server/releases/download/v%s/code-server-%s-linux-%s.tar.gz", latestVersion, latestVersion, arch)
-	err = downloadUnpackTgz(downloadURL, filepath.Join(os.Getenv("HOME"), ".local", "lib"))
+	err = downloadUnpackTgz(downloadURL, filepath.Join(home, ".local", "lib"))
 	if err != nil {
 		return fmt.Errorf("failed to download code-server: %v", err)
 	}
 
 	// Move the code-server to the correct directory
 	log.Info().Msg("code-server: installing code-server..")
-	if err := os.Rename(filepath.Join(os.Getenv("HOME"), ".local", "lib", "code-server-"+latestVersion+"-linux-"+arch), codeServerPath); err != nil {
+	if err := os.Rename(filepath.Join(home, ".local", "lib", "code-server-"+latestVersion+"-linux-"+arch), codeServerPath); err != nil {
 		return fmt.Errorf("failed to move code-server: %v", err)
 	}
-	if err := os.Symlink(filepath.Join(codeServerPath, "bin", "code-server"), filepath.Join(os.Getenv("HOME"), ".local", "bin", "code-server")); err != nil {
+	if err := os.Symlink(filepath.Join(codeServerPath, "bin", "code-server"), filepath.Join(home, ".local", "bin", "code-server")); err != nil {
 		return fmt.Errorf("failed to create symlink: %v", err)
 	}
 
 	// Remove old versions of code-server
-	files, err := os.ReadDir(filepath.Join(os.Getenv("HOME"), ".local", "lib"))
+	files, err := os.ReadDir(filepath.Join(home, ".local", "lib"))
 	if err != nil {
 		return fmt.Errorf("failed to read directory: %v", err)
 	}
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(), "code-server-") && file.Name() != "code-server-"+latestVersion {
 			log.Printf("Removing old version: %s\n", file.Name())
-			if err := os.RemoveAll(filepath.Join(os.Getenv("HOME"), ".local", "lib", file.Name())); err != nil {
+			if err := os.RemoveAll(filepath.Join(home, ".local", "lib", file.Name())); err != nil {
 				return fmt.Errorf("failed to remove old version: %v", err)
 			}
 		}
@@ -108,9 +113,15 @@ func startCodeServer(port int) {
 			return
 		}
 
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Error().Msgf("code-server: failed to get user home directory %v", err)
+			return
+		}
+
 		// Start code-server
 		log.Info().Msg("code-server: starting...")
-		cmd := exec.Command(filepath.Join(os.Getenv("HOME"), ".local", "bin", "code-server"), "--disable-telemetry", "--auth", "none", "--bind-addr", fmt.Sprintf("127.0.0.1:%d", port))
+		cmd := exec.Command(filepath.Join(home, ".local", "bin", "code-server"), "--disable-telemetry", "--auth", "none", "--bind-addr", fmt.Sprintf("127.0.0.1:%d", port))
 
 		// Redirect output to syslog
 		redirectToSyslog(cmd)

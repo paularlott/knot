@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -28,15 +29,20 @@ func UpdateAuthorizedKeys(key string, githubUsername string) error {
 		}
 	}
 
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
 	// If the file doesn't exist, create it
-	if _, err := os.Stat(os.Getenv("HOME") + "/.ssh/authorized_keys"); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(home, ".ssh", "authorized_keys")); os.IsNotExist(err) {
 		// Create the .ssh folder if it doesn't exist and make it private
-		err := os.MkdirAll(os.Getenv("HOME")+"/.ssh", 0700)
+		err := os.MkdirAll(filepath.Join(home, ".ssh"), 0700)
 		if err != nil {
 			return err
 		}
 	} else {
-		file, err := os.Open(os.Getenv("HOME") + "/.ssh/authorized_keys")
+		file, err := os.Open(filepath.Join(home, ".ssh", "authorized_keys"))
 		if err != nil {
 			return err
 		}
@@ -70,7 +76,7 @@ func UpdateAuthorizedKeys(key string, githubUsername string) error {
 	}
 
 	// Write lines to authorized_keys file
-	file, err := os.OpenFile(os.Getenv("HOME")+"/.ssh/authorized_keys", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0700)
+	file, err := os.OpenFile(filepath.Join(home, ".ssh", "authorized_keys"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0700)
 	if err != nil {
 		return err
 	}
