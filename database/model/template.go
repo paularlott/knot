@@ -28,13 +28,14 @@ type Template struct {
 	WithTerminal     bool        `json:"with_terminal"`
 	WithVSCodeTunnel bool        `json:"with_vscode_tunnel"`
 	WithCodeServer   bool        `json:"with_code_server"`
+	WithSSH          bool        `json:"with_ssh"`
 	CreatedUserId    string      `json:"created_user_id"`
 	CreatedAt        time.Time   `json:"created_at"`
 	UpdatedUserId    string      `json:"updated_user_id"`
 	UpdatedAt        time.Time   `json:"updated_at"`
 }
 
-func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool, isManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool) *Template {
+func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool, isManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool) *Template {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -53,6 +54,7 @@ func NewTemplate(name string, description string, job string, volumes string, us
 		WithTerminal:     withTerminal,
 		WithVSCodeTunnel: withVSCodeTunnel,
 		WithCodeServer:   withCodeServer,
+		WithSSH:          withSSH,
 		CreatedAt:        time.Now().UTC(),
 		UpdatedUserId:    userId,
 		UpdatedAt:        time.Now().UTC(),
@@ -67,6 +69,6 @@ func (template *Template) GetVolumes(space *Space, user *User, variables *map[st
 }
 
 func (template *Template) UpdateHash() {
-	hash := md5.Sum([]byte(template.Job + template.Volumes + fmt.Sprintf("%t%t%t", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer)))
+	hash := md5.Sum([]byte(template.Job + template.Volumes + fmt.Sprintf("%t%t%t%t", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH)))
 	template.Hash = hex.EncodeToString(hash[:])
 }

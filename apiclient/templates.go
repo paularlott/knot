@@ -11,6 +11,7 @@ type TemplateCreateRequest struct {
 	WithTerminal     bool     `json:"with_terminal"`
 	WithVSCodeTunnel bool     `json:"with_vscode_tunnel"`
 	WithCodeServer   bool     `json:"with_code_server"`
+	WithSSH          bool     `json:"with_ssh"`
 }
 
 type TemplateUpdateRequest struct {
@@ -22,6 +23,7 @@ type TemplateUpdateRequest struct {
 	WithTerminal     bool     `json:"with_terminal"`
 	WithVSCodeTunnel bool     `json:"with_vscode_tunnel"`
 	WithCodeServer   bool     `json:"with_code_server"`
+	WithSSH          bool     `json:"with_ssh"`
 }
 
 type TemplateCreateResponse struct {
@@ -60,6 +62,7 @@ type TemplateDetails struct {
 	WithTerminal     bool                     `json:"with_terminal"`
 	WithVSCodeTunnel bool                     `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                     `json:"with_code_server"`
+	WithSSH          bool                     `json:"with_ssh"`
 }
 
 func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
@@ -73,7 +76,7 @@ func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool) (int, error) {
+func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool) (int, error) {
 	request := TemplateUpdateRequest{
 		Name:             name,
 		Job:              job,
@@ -83,12 +86,13 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 		WithTerminal:     withTerminal,
 		WithVSCodeTunnel: withVSCodeTunnel,
 		WithCodeServer:   withCodeServer,
+		WithSSH:          withSSH,
 	}
 
 	return c.httpClient.Put("/api/v1/templates/"+templateId, &request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool) (string, int, error) {
+func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool) (string, int, error) {
 	request := TemplateCreateRequest{
 		Name:             name,
 		Job:              job,
@@ -100,6 +104,7 @@ func (c *ApiClient) CreateTemplate(name string, job string, description string, 
 		WithTerminal:     withTerminal,
 		WithVSCodeTunnel: withVSCodeTunnel,
 		WithCodeServer:   withCodeServer,
+		WithSSH:          withSSH,
 	}
 
 	response := &TemplateCreateResponse{}

@@ -15,6 +15,7 @@ func init() {
 	updateCmd.Flags().Bool("with-terminal", false, "Enable terminal for the template.")
 	updateCmd.Flags().Bool("with-vscode-tunnel", false, "Enable VSCode tunnel for the template.")
 	updateCmd.Flags().Bool("with-code-server", false, "Enable Code Server for the template.")
+	updateCmd.Flags().Bool("with-ssh", false, "Enable SSH for the template.")
 }
 
 var updateCmd = &cobra.Command{
@@ -87,6 +88,7 @@ var updateCmd = &cobra.Command{
 				viper.GetBool("with-terminal"),
 				viper.GetBool("with-vscode-tunnel"),
 				viper.GetBool("with-code-server"),
+				viper.GetBool("with-ssh"),
 			)
 			if err != nil {
 				fmt.Println("Error updating template: ", err)

@@ -13,6 +13,7 @@ window.templateForm = function(isEdit, templateId) {
       with_terminal: false,
       with_vscode_tunnel: false,
       with_code_server: false,
+      with_ssh: false,
     },
     loading: true,
     isEdit: isEdit,
@@ -54,6 +55,7 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.with_terminal = template.with_terminal;
           this.formData.with_vscode_tunnel = template.with_vscode_tunnel;
           this.formData.with_code_server = template.with_code_server;
+          this.formData.with_ssh = template.with_ssh;
         }
       }
 
@@ -158,6 +160,9 @@ window.templateForm = function(isEdit, templateId) {
     toggleWithCodeServer() {
       this.formData.with_code_server = !this.formData.with_code_server;
     },
+    toggleWithSSH() {
+      this.formData.with_ssh = !this.formData.with_ssh;
+    },
     checkName() {
       return this.nameValid = validate.name(this.formData.name);
     },
@@ -188,6 +193,7 @@ window.templateForm = function(isEdit, templateId) {
         with_terminal: this.formData.with_terminal,
         with_vscode_tunnel: this.formData.with_vscode_tunnel,
         with_code_server: this.formData.with_code_server,
+        with_ssh: this.formData.with_ssh,
       };
 
       if(!isEdit) {

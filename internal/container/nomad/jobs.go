@@ -63,6 +63,13 @@ func (client *NomadClient) ParseJobHCL(hcl string, template *model.Template) (ma
 					envMap["KNOT_VSCODE_TUNNEL"] = "vscodetunnel"
 				}
 			}
+
+			// If KNOT_SSH_PORT is not set, then set it
+			if template.WithSSH {
+				if _, ok := envMap["KNOT_SSH_PORT"]; !ok {
+					envMap["KNOT_SSH_PORT"] = "22"
+				}
+			}
 		}
 	}
 

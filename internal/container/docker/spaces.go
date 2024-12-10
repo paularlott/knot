@@ -133,6 +133,20 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		}
 	}
 
+	// Check the Env for KNOT_SSH_PORT= and if not found add it
+	if template.WithSSH {
+		found = false
+		for _, env := range spec.Environment {
+			if strings.HasPrefix(env, "KNOT_SSH_PORT=") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			spec.Environment = append(spec.Environment, "KNOT_SSH_PORT=22")
+		}
+	}
+
 	// Create the container config
 	config := &container.Config{
 		Image:        spec.Image,

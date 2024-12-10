@@ -132,7 +132,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
-		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer)
+		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -175,6 +175,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.WithTerminal = request.WithTerminal
 		template.WithVSCodeTunnel = request.WithVSCodeTunnel
 		template.WithCodeServer = request.WithCodeServer
+		template.WithSSH = request.WithSSH
 		template.UpdateHash()
 
 		err = db.SaveTemplate(template)
@@ -226,7 +227,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		var code int
 		var err error
 
-		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer)
+		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -244,7 +245,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer)
+		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
 
 		err = database.GetInstance().SaveTemplate(template)
 		if err != nil {
@@ -393,6 +394,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 			WithTerminal:     template.WithTerminal,
 			WithVSCodeTunnel: template.WithVSCodeTunnel,
 			WithCodeServer:   template.WithCodeServer,
+			WithSSH:          template.WithSSH,
 		}
 
 		rest.SendJSON(http.StatusOK, w, r, &data)

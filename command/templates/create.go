@@ -19,6 +19,7 @@ func init() {
 	createCmd.Flags().Bool("with-terminal", false, "Enable terminal for the template.")
 	createCmd.Flags().Bool("with-vscode-tunnel", false, "Enable VSCode tunnel for the template.")
 	createCmd.Flags().Bool("with-code-server", false, "Enable Code Server for the template.")
+	createCmd.Flags().Bool("with-ssh", false, "Enable SSH for the template.")
 }
 
 var createCmd = &cobra.Command{
@@ -50,6 +51,9 @@ var createCmd = &cobra.Command{
 
 		viper.BindPFlag("with-code-server", cmd.Flags().Lookup("with-code-server"))
 		viper.SetDefault("with-code-server", false)
+
+		viper.BindPFlag("with-ssh", cmd.Flags().Lookup("with-ssh"))
+		viper.SetDefault("with-ssh", false)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -108,6 +112,7 @@ var createCmd = &cobra.Command{
 			viper.GetBool("with-terminal"),
 			viper.GetBool("with-vscode-tunnel"),
 			viper.GetBool("with-code-server"),
+			viper.GetBool("with-ssh"),
 		)
 		if err != nil {
 			fmt.Println("Error creating template: ", err)

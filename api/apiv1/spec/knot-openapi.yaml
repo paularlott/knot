@@ -1926,6 +1926,9 @@ components:
         with_code_server:
           type: boolean
           description: If the space should support a code server.
+        with_ssh:
+          type: boolean
+          description: If the space should support an SSH server.
 
     TemplateUpdateRequest:
       type: object
@@ -1960,6 +1963,9 @@ components:
         with_code_server:
           type: boolean
           description: If the space should support a code server.
+        with_ssh:
+          type: boolean
+          description: If the space should support an SSH server.
 
     TemplateDetails:
       type: object
@@ -2025,6 +2031,9 @@ components:
         with_code_server:
           type: boolean
           description: If the space should support a code server.
+        with_ssh:
+          type: boolean
+          description: If the space should support an SSH server.
 
     TemplateVar:
       type: object
