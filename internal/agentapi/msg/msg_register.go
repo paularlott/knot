@@ -8,10 +8,14 @@ type Register struct {
 
 // message sent from the server to the agent in response to a register message
 type RegisterResponse struct {
-	Version        string
-	Success        bool
-	SSHKey         string
-	GitHubUsername string
-	Shell          string
-	SSHHostSigner  string
+	Version          string
+	Success          bool
+	SSHKey           string
+	GitHubUsername   string
+	Shell            string
+	SSHHostSigner    string
+	WithTerminal     bool
+	WithVSCodeTunnel bool
+	WithCodeServer   bool
+	WithSSH          bool
 }

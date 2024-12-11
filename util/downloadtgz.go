@@ -1,4 +1,4 @@
-package agentcmd
+package util
 
 import (
 	"archive/tar"
@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 )
 
-func downloadUnpackTgz(downloadURL string, destDir string) error {
+func DownloadUnpackTgz(downloadURL string, destDir string) error {
 
 	resp, err := http.Get(downloadURL)
 	if err != nil {

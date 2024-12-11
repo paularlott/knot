@@ -21,16 +21,15 @@ func init() {
 	AgentCmd.Flags().StringP("endpoint", "", "", "The address of the server to connect to.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT environment variable if set.")
 	AgentCmd.Flags().StringP("space-id", "", "", "The ID of the space the agent is providing.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SPACEID environment variable if set.")
 	AgentCmd.Flags().StringSliceP("nameservers", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
-	AgentCmd.Flags().IntP("code-server-port", "", 0, "The port code-server is running on.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT environment variable if set.")
-	AgentCmd.Flags().IntP("ssh-port", "", 0, "The port sshd is running on.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SSH_PORT environment variable if set.")
+	AgentCmd.Flags().IntP("code-server-port", "", 0xc0de, "The port to run code-server on, set to 0 to disable.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT environment variable if set.")
+	AgentCmd.Flags().IntP("ssh-port", "", 22, "The port sshd is running on, set to 0 to disable ssh access.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SSH_PORT environment variable if set.")
 	AgentCmd.Flags().StringSliceP("tcp-port", "", []string{}, "Can be specified multiple times to give the list of TCP ports to be exposed to the client.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TCP_PORT environment variable if set.")
 	AgentCmd.Flags().StringSliceP("http-port", "", []string{}, "Can be specified multiple times to give the list of http ports to be exposed via the web interface.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HTTP_PORT environment variable if set.")
 	AgentCmd.Flags().StringSliceP("https-port", "", []string{}, "Can be specified multiple times to give the list of https ports to be exposed via the web interface.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HTTPS_PORT environment variable if set.")
 	AgentCmd.Flags().BoolP("update-authorized-keys", "", true, "If given then the agent will update the authorized_keys file with the SSH public key of the user.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_UPDATE_AUTHORIZED_KEYS environment variable if set.")
-	AgentCmd.Flags().BoolP("enable-terminal", "", true, "If given then the agent will enable the web terminal.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_TERMINAL environment variable if set.")
 	AgentCmd.Flags().IntP("vnc-http-port", "", 0, "The port to use for VNC over HTTP.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_VNC_HTTP_PORT environment variable if set.")
 	AgentCmd.Flags().StringP("service-password", "", "", "The password to use for the agent.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SERVICE_PASSWORD environment variable if set.")
-	AgentCmd.Flags().StringP("vscode-tunnel", "", "", "The name of the screen running the Visual Studio Code tunnel.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_VSCODE_TUNNEL environment variable if set.")
+	AgentCmd.Flags().StringP("vscode-tunnel", "", "vscodetunnel", "The name of the screen running the Visual Studio Code tunnel, blank to disable.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_VSCODE_TUNNEL environment variable if set.")
 	AgentCmd.Flags().StringP("advertise-addr", "", "", "The address to advertise to the server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ADVERTISE_ADDR environment variable if set.")
 	AgentCmd.Flags().IntP("syslog-port", "", 514, "The port to listen on for syslog messages, syslog is disabled if set to 0.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SYSLOG_PORT environment variable if set.")
 	AgentCmd.Flags().IntP("logs-port", "", 12201, "The port to listen on for log messages, logs are disabled if set to 0.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOGS_PORT environment variable if set.")
@@ -62,7 +61,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
 		viper.BindPFlag("agent.port.code_server", cmd.Flags().Lookup("code-server-port"))
 		viper.BindEnv("agent.port.code_server", config.CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT")
-		viper.SetDefault("agent.port.code_server", "0")
+		viper.SetDefault("agent.port.code_server", 0xc0de)
 
 		viper.BindPFlag("agent.port.vnc_http", cmd.Flags().Lookup("vnc-http-port"))
 		viper.BindEnv("agent.port.vnc_http", config.CONFIG_ENV_PREFIX+"_VNC_HTTP_PORT")
@@ -70,7 +69,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
 		viper.BindPFlag("agent.port.ssh", cmd.Flags().Lookup("ssh-port"))
 		viper.BindEnv("agent.port.ssh", config.CONFIG_ENV_PREFIX+"_SSH_PORT")
-		viper.SetDefault("agent.port.ssh", "0")
+		viper.SetDefault("agent.port.ssh", "22")
 
 		viper.BindPFlag("agent.port.tcp_port", cmd.Flags().Lookup("tcp-port"))
 		viper.BindEnv("agent.port.tcp_port", config.CONFIG_ENV_PREFIX+"_TCP_PORT")
@@ -85,17 +84,13 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		viper.BindEnv("agent.update_authorized_keys", config.CONFIG_ENV_PREFIX+"_UPDATE_AUTHORIZED_KEYS")
 		viper.SetDefault("agent.update_authorized_keys", true)
 
-		viper.BindPFlag("agent.enable_terminal", cmd.Flags().Lookup("enable-terminal"))
-		viper.BindEnv("agent.enable_terminal", config.CONFIG_ENV_PREFIX+"_ENABLE_TERMINAL")
-		viper.SetDefault("agent.enable_terminal", true)
-
 		viper.BindPFlag("agent.service_password", cmd.Flags().Lookup("service-password"))
 		viper.BindEnv("agent.service_password", config.CONFIG_ENV_PREFIX+"_SERVICE_PASSWORD")
 		viper.SetDefault("agent.service_password", "")
 
 		viper.BindPFlag("agent.vscode_tunnel", cmd.Flags().Lookup("vscode-tunnel"))
 		viper.BindEnv("agent.vscode_tunnel", config.CONFIG_ENV_PREFIX+"_VSCODE_TUNNEL")
-		viper.SetDefault("agent.vscode_tunnel", "")
+		viper.SetDefault("agent.vscode_tunnel", "vscodetunnel")
 
 		viper.BindPFlag("agent.advertise_addr", cmd.Flags().Lookup("advertise-addr"))
 		viper.BindEnv("agent.advertise_addr", config.CONFIG_ENV_PREFIX+"_ADVERTISE_ADDR")
@@ -170,12 +165,6 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		if viper.GetInt("agent.logs_port") > 0 {
 			go logsink.ListenAndServe()
 		}
-
-		// Fetch and start code server
-		startCodeServer(viper.GetInt("agent.port.code_server"))
-
-		// Fetch and start vscode tunnel
-		startVSCodeTunnel(viper.GetString("agent.vscode_tunnel"))
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)

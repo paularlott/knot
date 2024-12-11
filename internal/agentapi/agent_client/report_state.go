@@ -21,9 +21,7 @@ import (
 
 func ReportState(spaceId string) {
 	var codeServerPort int = viper.GetInt("agent.port.code_server")
-	var sshPort int = viper.GetInt("agent.port.ssh")
 	var vncHttpPort int = viper.GetInt("agent.port.vnc_http")
-	var hasTerminal bool = viper.GetBool("agent.enable_terminal")
 	var vscodeTunnelScreen string = viper.GetString("agent.vscode_tunnel")
 	var conn net.Conn
 	var err error
@@ -72,7 +70,7 @@ func ReportState(spaceId string) {
 			var vscodeTunnelName string = ""
 
 			// If sshPort > 0 then check the health of sshd, waits for SSHD to be up
-			if sshPort > 0 && sshAlivePort == 0 {
+			if withSSH && sshPort > 0 && sshAlivePort == 0 {
 				// Check health of sshd
 				address := fmt.Sprintf("127.0.0.1:%d", sshPort)
 				conn, err := net.DialTimeout("tcp", address, time.Second)
@@ -83,7 +81,7 @@ func ReportState(spaceId string) {
 			}
 
 			// If codeServerPort > 0 then check the health of code-server, http://127.0.0.1/healthz
-			if codeServerPort > 0 {
+			if withCodeServer && codeServerPort > 0 {
 				// Check health of code-server
 				address := fmt.Sprintf("http://127.0.0.1:%d", codeServerPort)
 				client := rest.NewClient(address, "", viper.GetBool("tls_skip_verify"))
@@ -114,7 +112,7 @@ func ReportState(spaceId string) {
 			}
 
 			// If using vscode tunnels
-			if vscodeTunnelScreen != "" {
+			if withVSCodeTunnel && vscodeTunnelScreen != "" {
 				// Check if there's a screen running with the name vscodeTunnel
 				screenCmd := exec.Command("screen", "-ls")
 				output, err := screenCmd.Output()
@@ -150,13 +148,13 @@ func ReportState(spaceId string) {
 				Int("SSH Port", sshAlivePort).
 				Bool("Code Server Port", codeServerAlive).
 				Int("VNC Http Port", vncAliveHttpPort).
-				Bool("Has Terminal", hasTerminal).
+				Bool("Has Terminal", withTerminal).
 				Bool("Has VSCode Tunnel", hasVSCodeTunnel).
 				Str("VSCode Tunnel Name", vscodeTunnelName).
 				Str("Agent IP", agentIp).
 				Msg("agent: state to server")
 
-			err = msg.SendState(conn, spaceId, codeServerAlive, sshAlivePort, vncAliveHttpPort, hasTerminal, &tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, agentIp)
+			err = msg.SendState(conn, spaceId, codeServerAlive, sshAlivePort, vncAliveHttpPort, withTerminal, &tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, agentIp)
 			if err != nil {
 				log.Error().Err(err).Msg("agent: failed to send state to server")
 				conn.Close()

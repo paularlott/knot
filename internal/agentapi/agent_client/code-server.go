@@ -1,4 +1,4 @@
-package agentcmd
+package agent_client
 
 import (
 	"encoding/json"
@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/paularlott/knot/util"
 
 	"github.com/rs/zerolog/log"
 )
@@ -73,7 +75,7 @@ func fetchCodeServer() error {
 	// Download the latest version of code-server
 	log.Info().Msg("code-server: downloading code-server..")
 	downloadURL := fmt.Sprintf("https://github.com/coder/code-server/releases/download/v%s/code-server-%s-linux-%s.tar.gz", latestVersion, latestVersion, arch)
-	err = downloadUnpackTgz(downloadURL, filepath.Join(home, ".local", "lib"))
+	err = util.DownloadUnpackTgz(downloadURL, filepath.Join(home, ".local", "lib"))
 	if err != nil {
 		return fmt.Errorf("failed to download code-server: %v", err)
 	}
@@ -124,7 +126,7 @@ func startCodeServer(port int) {
 		cmd := exec.Command(filepath.Join(home, ".local", "bin", "code-server"), "--disable-telemetry", "--auth", "none", "--bind-addr", fmt.Sprintf("127.0.0.1:%d", port))
 
 		// Redirect output to syslog
-		redirectToSyslog(cmd)
+		util.RedirectToSyslog(cmd)
 
 		if err := cmd.Start(); err != nil {
 			log.Error().Msgf("code-server: error starting: %v", err)

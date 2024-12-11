@@ -1,6 +1,6 @@
 //go:build !windows
 
-package agentcmd
+package util
 
 import (
 	"log/syslog"
@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func redirectToSyslog(cmd *exec.Cmd) {
+func RedirectToSyslog(cmd *exec.Cmd) {
 	// Redirect output to syslog
 	sysLogger, err := syslog.New(syslog.LOG_INFO|syslog.LOG_USER, "code-server")
 	if err != nil {

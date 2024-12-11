@@ -1,4 +1,4 @@
-package agentcmd
+package agent_client
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+
+	"github.com/paularlott/knot/util"
 
 	"github.com/rs/zerolog/log"
 )
@@ -41,7 +43,7 @@ func fetchVSCode() error {
 	}
 
 	log.Info().Msg("vscode: downloading Visual Studio Code..")
-	err = downloadUnpackTgz(
+	err = util.DownloadUnpackTgz(
 		"https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-"+arch,
 		filepath.Join(home, ".local", "bin"),
 	)
@@ -84,7 +86,7 @@ func startVSCodeTunnel(name string) {
 	)
 
 	// Redirect output to syslog
-	redirectToSyslog(cmd)
+	util.RedirectToSyslog(cmd)
 
 	if err := cmd.Start(); err != nil {
 		log.Error().Msgf("vscode: error starting: %v", err)

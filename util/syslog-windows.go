@@ -1,13 +1,13 @@
 //go:build windows
 
-package agentcmd
+package util
 
 import (
 	"os"
 	"os/exec"
 )
 
-func redirectToSyslog(cmd *exec.Cmd) {
+func RedirectToSyslog(cmd *exec.Cmd) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 }

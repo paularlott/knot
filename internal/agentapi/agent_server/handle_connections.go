@@ -29,12 +29,16 @@ func handleAgentConnection(conn net.Conn) {
 
 	// Create response message
 	response := msg.RegisterResponse{
-		Version:        build.Version,
-		Success:        false,
-		SSHKey:         "",
-		GitHubUsername: "",
-		Shell:          "",
-		SSHHostSigner:  "",
+		Version:          build.Version,
+		Success:          false,
+		SSHKey:           "",
+		GitHubUsername:   "",
+		Shell:            "",
+		SSHHostSigner:    "",
+		WithTerminal:     false,
+		WithVSCodeTunnel: false,
+		WithCodeServer:   false,
+		WithSSH:          false,
 	}
 
 	// Check if the agent is already registered
@@ -62,6 +66,14 @@ func handleAgentConnection(conn net.Conn) {
 		return
 	}
 
+	// Load the template from the database
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		log.Error().Msgf("agent: unknown template: %s", space.TemplateId)
+		msg.WriteMessage(conn, &response)
+		return
+	}
+
 	// Load the user that owns the space
 	user, err := db.GetUser(space.UserId)
 	if err != nil {
@@ -82,6 +94,10 @@ func handleAgentConnection(conn net.Conn) {
 	response.GitHubUsername = user.GitHubUsername
 	response.Shell = space.Shell
 	response.SSHHostSigner = space.SSHHostSigner
+	response.WithTerminal = template.WithTerminal
+	response.WithVSCodeTunnel = template.WithVSCodeTunnel
+	response.WithCodeServer = template.WithCodeServer
+	response.WithSSH = template.WithSSH
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
