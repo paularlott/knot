@@ -477,7 +477,7 @@ var serverCmd = &cobra.Command{
 	},
 }
 
-// periodically ping the origin server to keep remote sessions allive
+// periodically ping the origin server to keep remote sessions alive
 func remoteSessionKeepAlive() {
 	log.Info().Msg("server: starting remote server session refresh services")
 
