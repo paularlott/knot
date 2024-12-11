@@ -62,6 +62,6 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proxy := createAgentReverseProxy(targetURL, stream, nil)
+	proxy := createAgentReverseProxy(targetURL, stream, nil, "")
 	proxy.ServeHTTP(w, r)
 }

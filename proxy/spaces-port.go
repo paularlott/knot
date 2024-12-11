@@ -143,6 +143,6 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proxy := createAgentReverseProxy(targetURL, stream, token)
+	proxy := createAgentReverseProxy(targetURL, stream, token, r.Host)
 	proxy.ServeHTTP(w, r)
 }

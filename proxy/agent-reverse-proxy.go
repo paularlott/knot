@@ -14,15 +14,21 @@ import (
 	"github.com/spf13/viper"
 )
 
-func createAgentReverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string) *httputil.ReverseProxy {
+func createAgentReverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string, host string) *httputil.ReverseProxy {
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)
 		req.Header.Set("X-Proxy", "knot "+build.Version)
-		req.URL.Scheme = "http"   // Force http as the agent will upgrade the connection to https
-		req.Host = targetURL.Host // Set the Host header
+		req.URL.Scheme = "http" // Force http as the agent will upgrade the connection to https
+
+		// Set the host header
+		if host != "" {
+			req.Host = host
+		} else {
+			req.Host = targetURL.Host // Set the Host header
+		}
 
 		if accessToken != nil {
 			req.Header.Set("Authorization", *accessToken)

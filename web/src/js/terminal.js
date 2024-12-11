@@ -56,7 +56,13 @@ window.initializeTerminal = function(options) {
     terminal._initialized = true;
     terminal.focus();
 
-    setTimeout(function() {fitAddon.fit();});
+    // Do an initial resize or the terminal won't wrap correctly
+    setTimeout(function() {
+      fitAddon.fit();
+
+      send = new TextEncoder().encode("\x01" + JSON.stringify({cols: terminal.cols, rows: terminal.rows + 1}));
+      ws.send(send);
+    }, 1);
 
     terminal.onResize((event) => {
       var rows = event.rows;
