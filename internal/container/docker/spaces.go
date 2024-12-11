@@ -42,6 +42,7 @@ type jobSpec struct {
 	Environment   []string    `yaml:"environment,omitempty"`
 	CapAdd        []string    `yaml:"cap_add,omitempty"`
 	CapDrop       []string    `yaml:"cap_drop,omitempty"`
+	Devices       []string    `yaml:"devices,omitempty"`
 }
 
 type volInfo struct {
@@ -103,6 +104,23 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		Cmd:          spec.Command,
 	}
 
+	resourcesConfig := container.Resources{
+		Devices: []container.DeviceMapping{},
+	}
+
+	for _, device := range spec.Devices {
+		parts := strings.Split(device, ":")
+		if len(parts) != 2 {
+			return fmt.Errorf("device must be in the format hostPath:containerPath, got %s", device)
+		}
+
+		resourcesConfig.Devices = append(resourcesConfig.Devices, container.DeviceMapping{
+			PathOnHost:        parts[0],
+			PathInContainer:   parts[1],
+			CgroupPermissions: "rwm",
+		})
+	}
+
 	hostConfig := &container.HostConfig{
 		Privileged:  spec.Privileged,
 		NetworkMode: container.NetworkMode(spec.Network),
@@ -113,6 +131,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		PortBindings: nat.PortMap{},
 		CapAdd:       spec.CapAdd,
 		CapDrop:      spec.CapDrop,
+		Resources:    resourcesConfig,
 	}
 
 	// Run list of ports and add to config ExposedPorts and host config PortBindings
