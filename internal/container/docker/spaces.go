@@ -41,6 +41,7 @@ type jobSpec struct {
 	Network       string      `yaml:"network,omitempty"`
 	Environment   []string    `yaml:"environment,omitempty"`
 	CapAdd        []string    `yaml:"cap_add,omitempty"`
+	CapDrop       []string    `yaml:"cap_drop,omitempty"`
 }
 
 type volInfo struct {
@@ -111,6 +112,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		Binds:        spec.Volumes,
 		PortBindings: nat.PortMap{},
 		CapAdd:       spec.CapAdd,
+		CapDrop:      spec.CapDrop,
 	}
 
 	// Run list of ports and add to config ExposedPorts and host config PortBindings
