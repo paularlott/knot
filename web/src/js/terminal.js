@@ -7,10 +7,9 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { CanvasAddon } from '@xterm/addon-canvas';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { AttachAddon } from '@xterm/addon-attach';
-import { SerializeAddon } from '@xterm/addon-serialize';
 
 window.initializeTerminal = function(options) {
-  var terminal = new Terminal({
+  let terminal = new Terminal({
     allowProposedApi: true,
     screenKeys: true,
     useStyle: true,
@@ -30,16 +29,15 @@ window.initializeTerminal = function(options) {
     terminal.loadAddon(new CanvasAddon());
   }
 
-  var protocol = (location.protocol === "https:") ? "wss://" : "ws://";
-  var url = protocol + location.host + (options.logView ? "/logs/" + options.spaceId + "/stream" : "/proxy/spaces/" + options.spaceId + "/terminal/" + options.shell);
-  var ws = new WebSocket(url);
+  let protocol = (location.protocol === "https:") ? "wss://" : "ws://";
+  let url = protocol + location.host + (options.logView ? "/logs/" + options.spaceId + "/stream" : "/proxy/spaces/" + options.spaceId + "/terminal/" + options.shell);
+  let ws = new WebSocket(url);
 
-  var attachAddon = new AttachAddon(ws);
-  var fitAddon = new FitAddon();
+  let attachAddon = new AttachAddon(ws);
+  let fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(new WebLinksAddon());
   terminal.loadAddon(new Unicode11Addon());
-  terminal.loadAddon(new SerializeAddon());
 
   terminal.unicode.activeVersion = "11";
 
@@ -60,15 +58,13 @@ window.initializeTerminal = function(options) {
     setTimeout(function() {
       fitAddon.fit();
 
-      send = new TextEncoder().encode("\x01" + JSON.stringify({cols: terminal.cols, rows: terminal.rows + 1}));
+      send = new TextEncoder().encode("\x01" + JSON.stringify({cols: terminal.cols, rows: terminal.rows}));
       ws.send(send);
     }, 1);
 
     terminal.onResize((event) => {
-      var rows = event.rows;
-      var cols = event.cols;
-      var size = JSON.stringify({cols: cols, rows: rows + 1});
-      var send = new TextEncoder().encode("\x01" + size);
+      let size = JSON.stringify({cols: event.cols, rows: event.rows});
+      let send = new TextEncoder().encode("\x01" + size);
 
       ws.send(send);
     });
