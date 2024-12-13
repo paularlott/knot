@@ -61,7 +61,10 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Build a json array of data to return to the client
-		templateResponse := apiclient.TemplateList{}
+		templateResponse := apiclient.TemplateList{
+			Count:     0,
+			Templates: []apiclient.TemplateInfo{},
+		}
 
 		for _, template := range templates {
 
@@ -77,6 +80,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			templateData.Description = template.Description
 			templateData.Groups = template.Groups
 			templateData.LocalContainer = template.LocalContainer
+			templateData.IsManual = template.IsManual
 
 			// Find the number of spaces using this template
 			spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
@@ -117,8 +121,8 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
 		return
 	}
-	if !validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
+	if !validate.MaxLength(request.Job, 10*1024*1024) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job must be less than 10MB"})
 		return
 	}
 	if !validate.MaxLength(request.Volumes, 10*1024*1024) {
@@ -131,7 +135,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
-		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups)
+		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -144,6 +148,16 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
+		}
+
+		if !template.IsManual && !validate.Required(request.Job) {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
+			return
+		}
+
+		if template.IsManual {
+			request.Job = ""
+			request.Volumes = ""
 		}
 
 		// Check the groups are present in the system
@@ -161,6 +175,10 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.Volumes = request.Volumes
 		template.UpdatedUserId = user.Id
 		template.Groups = request.Groups
+		template.WithTerminal = request.WithTerminal
+		template.WithVSCodeTunnel = request.WithVSCodeTunnel
+		template.WithCodeServer = request.WithCodeServer
+		template.WithSSH = request.WithSSH
 		template.UpdateHash()
 
 		err = db.SaveTemplate(template)
@@ -186,11 +204,16 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if request.IsManual {
+		request.Job = ""
+		request.Volumes = ""
+	}
+
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
 		return
 	}
-	if !validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024) {
+	if (!request.IsManual && !validate.Required(request.Job)) || !validate.MaxLength(request.Job, 10*1024*1024) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
 		return
 	}
@@ -207,7 +230,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		var code int
 		var err error
 
-		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer)
+		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -225,7 +248,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer)
+		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
 
 		err = database.GetInstance().SaveTemplate(template)
 		if err != nil {
@@ -263,12 +286,6 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		template, err := database.GetInstance().GetTemplate(templateId)
 		if err != nil {
 			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		// Don't allow the manual template to be deleted
-		if template.Id == model.MANUAL_TEMPLATE_ID {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Manual template cannot be deleted"})
 			return
 		}
 
@@ -366,16 +383,21 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := apiclient.TemplateDetails{
-			Name:           template.Name,
-			Description:    template.Description,
-			Job:            template.Job,
-			Volumes:        template.Volumes,
-			Usage:          len(spaces),
-			Hash:           template.Hash,
-			Deployed:       deployed,
-			Groups:         template.Groups,
-			VolumeSizes:    volumeList,
-			LocalContainer: template.LocalContainer,
+			Name:             template.Name,
+			Description:      template.Description,
+			Job:              template.Job,
+			Volumes:          template.Volumes,
+			Usage:            len(spaces),
+			Hash:             template.Hash,
+			Deployed:         deployed,
+			Groups:           template.Groups,
+			VolumeSizes:      volumeList,
+			LocalContainer:   template.LocalContainer,
+			IsManual:         template.IsManual,
+			WithTerminal:     template.WithTerminal,
+			WithVSCodeTunnel: template.WithVSCodeTunnel,
+			WithCodeServer:   template.WithCodeServer,
+			WithSSH:          template.WithSSH,
 		}
 
 		rest.SendJSON(http.StatusOK, w, r, &data)

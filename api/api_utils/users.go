@@ -136,13 +136,19 @@ func updateSpacesSSHKey(user *model.User) {
 
 	// Loop through all spaces updating the active ones
 	for _, space := range spaces {
-		if space.IsDeployed || space.TemplateId == model.MANUAL_TEMPLATE_ID {
+		template, err := db.GetTemplate(space.TemplateId)
+		if err != nil || template == nil {
+			log.Debug().Msgf("Update SSH Keys: Failed to get template for space %s: %s", space.Id, err)
+			continue
+		}
+
+		if space.IsDeployed || template.IsManual {
 			// Get the agent state
 			agentState := agent_server.GetSession(space.Id)
 			if agentState == nil {
 				// Silently ignore if space is on a different server
 				if space.Location == "" || space.Location == server_info.LeafLocation {
-					log.Debug().Msgf("Agent state not found for space %s", space.Id)
+					log.Debug().Msgf("Update SSH Keys: Agent state not found for space %s", space.Id)
 				}
 				continue
 			}

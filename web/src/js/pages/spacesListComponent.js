@@ -35,10 +35,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
       this.getSpaces(true);
 
-      // Start a timer to look for new spaces every 15 seconds
+      // Start a timer to look for new spaces periodically
       setInterval(async () => {
         this.getSpaces(false);
-      }, 15000);
+      }, 10000);
     },
     async userChanged() {
       this.loading = true;
@@ -98,7 +98,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 await this.fetchServiceState(s2);
                 this.timerIDs[s2.space_id] = setInterval(async () => {
                   this.fetchServiceState(s2);
-                }, 5000);
+                }, 3000);
               }
             });
 
@@ -142,7 +142,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             space.has_http_vnc = serviceState.has_http_vnc;
             space.has_vscode_tunnel = serviceState.has_vscode_tunnel;
             space.vscode_tunnel_name = serviceState.vscode_tunnel_name;
-            space.sshCmd = "ssh -o ProxyCommand='knot forward ssh " + serviceState.name + " -o StrictHostKeyChecking=no " + username + "@knot." + serviceState.name;
+            space.sshCmd = "ssh -o ProxyCommand='knot forward ssh " + serviceState.name + "' -o StrictHostKeyChecking=no " + username + "@knot." + serviceState.name;
             space.is_local = space.location == '' || location == space.location;
           });
         } else if (response.status === 401) {

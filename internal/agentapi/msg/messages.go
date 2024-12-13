@@ -8,30 +8,29 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// enum of message types
+type CmdType byte
+
 const (
-	MSG_NONE = iota
-	MSG_PING
-	MSG_UPDATE_STATE
-	MSG_UPDATE_AUTHORIZED_KEYS
-	MSG_TERMINAL
-	MSG_CODE_SERVER
-	MSG_PROXY_TCP_PORT
-	MSG_PROXY_VNC
-	MSG_PROXY_HTTP
-	MSG_VSCODE_TUNNEL_TERMINAL
+	CmdNone CmdType = iota
+	CmdPing
+	CmdUpdateState
+	CmdUpdateAuthorizedKeys
+	CmdTerminal
+	CmdCodeServer
+	CmdProxyTCPPort
+	CmdProxyVNC
+	CmdProxyHTTP
+	CmdVSCodeTunnelTerminal
+	CmdLogMessage
+	CmdUpdateShell
 )
 
-func WriteCommand(conn net.Conn, cmdType byte) error {
-	_, err := conn.Write([]byte{cmdType})
+func WriteCommand(conn net.Conn, cmdType CmdType) error {
+	_, err := conn.Write([]byte{byte(cmdType)})
 	return err
 }
 
 func ReadCommand(conn net.Conn) (byte, error) {
-	// Set a read deadline
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-	defer conn.SetReadDeadline(time.Time{})
-
 	cmdTypeBuf := make([]byte, 1)
 	_, err := conn.Read(cmdTypeBuf)
 	return cmdTypeBuf[0], err

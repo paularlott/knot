@@ -19,7 +19,7 @@ func proxyAgentPort(w http.ResponseWriter, r *http.Request, agentSession *agent_
 	defer stream.Close()
 
 	// Write the command
-	if err := msg.WriteCommand(stream, msg.MSG_PROXY_TCP_PORT); err != nil {
+	if err := msg.WriteCommand(stream, msg.CmdProxyTCPPort); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

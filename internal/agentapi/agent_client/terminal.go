@@ -14,6 +14,12 @@ import (
 )
 
 func startTerminal(conn net.Conn, shell string) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Error().Msgf("failed to get home directory: %v", err)
+		conn.Write([]byte("Failed to get home directory"))
+		return
+	}
 
 	// Check requested shell exists, if not find one
 	shellPaths := []string{shell, "zsh", "bash", "sh"}
@@ -23,7 +29,8 @@ func startTerminal(conn net.Conn, shell string) {
 	for _, shellPath := range shellPaths {
 		var err error
 
-		cmd = exec.Command(shellPath)
+		cmd = exec.Command(shellPath, "-l")
+		cmd.Dir = home
 		cmd.Env = os.Environ()
 
 		if tty, err = pty.Start(cmd); err == nil {

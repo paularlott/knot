@@ -33,6 +33,7 @@ type SpaceInfo struct {
 	UserId         string `json:"user_id"`
 	VolumeSize     int    `json:"volume_size"`
 	LocalContainer bool   `json:"local_container"`
+	IsManual       bool   `json:"is_manual"`
 }
 
 type SpaceInfoList struct {

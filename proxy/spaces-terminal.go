@@ -55,14 +55,14 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 
 	if shell == "vscode-tunnel" {
 		// Write the terminal command
-		err = msg.WriteCommand(stream, msg.MSG_VSCODE_TUNNEL_TERMINAL)
+		err = msg.WriteCommand(stream, msg.CmdVSCodeTunnelTerminal)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	} else {
 		// Write the terminal command
-		err = msg.WriteCommand(stream, msg.MSG_TERMINAL)
+		err = msg.WriteCommand(stream, msg.CmdTerminal)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return

@@ -9,6 +9,11 @@ window.templateForm = function(isEdit, templateId) {
       volumes: "",
       groups: [],
       local_container: false,
+      is_manual: false,
+      with_terminal: false,
+      with_vscode_tunnel: false,
+      with_code_server: false,
+      with_ssh: false,
     },
     loading: true,
     isEdit: isEdit,
@@ -46,6 +51,11 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.volumes = template.volumes;
           this.formData.groups = template.groups;
           this.formData.local_container = template.local_container;
+          this.formData.is_manual = template.is_manual;
+          this.formData.with_terminal = template.with_terminal;
+          this.formData.with_vscode_tunnel = template.with_vscode_tunnel;
+          this.formData.with_code_server = template.with_code_server;
+          this.formData.with_ssh = template.with_ssh;
         }
       }
 
@@ -131,12 +141,33 @@ window.templateForm = function(isEdit, templateId) {
     },
     toggleLocalContainer() {
       this.formData.local_container = !this.formData.local_container;
+      if(this.formData.local_container) {
+        this.formData.is_manual = false;
+      }
+    },
+    toggleIsManual() {
+      this.formData.is_manual = !this.formData.is_manual;
+      if(this.formData.is_manual) {
+        this.formData.local_container = false;
+      }
+    },
+    toggleWithTerminal() {
+      this.formData.with_terminal = !this.formData.with_terminal;
+    },
+    toggleWithVSCodeTunnel() {
+      this.formData.with_vscode_tunnel = !this.formData.with_vscode_tunnel;
+    },
+    toggleWithCodeServer() {
+      this.formData.with_code_server = !this.formData.with_code_server;
+    },
+    toggleWithSSH() {
+      this.formData.with_ssh = !this.formData.with_ssh;
     },
     checkName() {
       return this.nameValid = validate.name(this.formData.name);
     },
     checkJob() {
-      return this.jobValid = validate.required(this.formData.job);
+      return this.jobValid = this.formData.is_manual || validate.required(this.formData.job);
     },
 
     async submitData() {
@@ -156,13 +187,18 @@ window.templateForm = function(isEdit, templateId) {
       var data = {
         name: this.formData.name,
         description: this.formData.description,
-        job: this.formData.job,
-        volumes: this.formData.volumes,
+        job: this.formData.is_manual ? "" : this.formData.job,
+        volumes: this.formData.is_manual ? "" : this.formData.volumes,
         groups: this.formData.groups,
+        with_terminal: this.formData.with_terminal,
+        with_vscode_tunnel: this.formData.with_vscode_tunnel,
+        with_code_server: this.formData.with_code_server,
+        with_ssh: this.formData.with_ssh,
       };
 
       if(!isEdit) {
         data.local_container = this.formData.local_container;
+        data.is_manual = this.formData.is_manual;
       }
 
       fetch(isEdit ? '/api/v1/templates/' + templateId : '/api/v1/templates', {

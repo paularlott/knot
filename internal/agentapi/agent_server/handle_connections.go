@@ -13,6 +13,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	AGENT_SESSION_LOG_HISTORY = 500 // Number of lines of log history to keep
+)
+
 func handleAgentConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -25,10 +29,16 @@ func handleAgentConnection(conn net.Conn) {
 
 	// Create response message
 	response := msg.RegisterResponse{
-		Version:        build.Version,
-		Success:        false,
-		SSHKey:         "",
-		GitHubUsername: "",
+		Version:          build.Version,
+		Success:          false,
+		SSHKey:           "",
+		GitHubUsername:   "",
+		Shell:            "",
+		SSHHostSigner:    "",
+		WithTerminal:     false,
+		WithVSCodeTunnel: false,
+		WithCodeServer:   false,
+		WithSSH:          false,
 	}
 
 	// Check if the agent is already registered
@@ -56,6 +66,14 @@ func handleAgentConnection(conn net.Conn) {
 		return
 	}
 
+	// Load the template from the database
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		log.Error().Msgf("agent: unknown template: %s", space.TemplateId)
+		msg.WriteMessage(conn, &response)
+		return
+	}
+
 	// Load the user that owns the space
 	user, err := db.GetUser(space.UserId)
 	if err != nil {
@@ -74,6 +92,12 @@ func handleAgentConnection(conn net.Conn) {
 	response.Success = true
 	response.SSHKey = user.SSHPublicKey
 	response.GitHubUsername = user.GitHubUsername
+	response.Shell = space.Shell
+	response.SSHHostSigner = space.SSHHostSigner
+	response.WithTerminal = template.WithTerminal
+	response.WithVSCodeTunnel = template.WithVSCodeTunnel
+	response.WithCodeServer = template.WithCodeServer
+	response.WithSSH = template.WithSSH
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
@@ -122,46 +146,73 @@ func handleAgentConnection(conn net.Conn) {
 		}
 
 		// Handle the connection
-		go handleAgentSession(stream)
+		go handleAgentSession(stream, session)
 	}
 }
 
-func handleAgentSession(stream net.Conn) {
+func handleAgentSession(stream net.Conn, session *Session) {
 	defer stream.Close()
 
-	// Read the command
-	cmd, err := msg.ReadCommand(stream)
-	if err != nil {
-		log.Error().Msgf("agent: reading command: %v", err)
-		return
-	}
+	for {
 
-	switch cmd {
-	case msg.MSG_UPDATE_STATE:
-
-		// Read the state message
-		var state msg.AgentState
-		if err := msg.ReadMessage(stream, &state); err != nil {
-			log.Error().Msgf("agent: reading state message: %v", err)
+		// Read the command
+		cmd, err := msg.ReadCommand(stream)
+		if err != nil {
+			log.Error().Msgf("agent: reading command: %v", err)
 			return
 		}
 
-		// Get the session and update the state
-		session := GetSession(state.SpaceId)
-		if session != nil {
-			session.HasCodeServer = state.HasCodeServer
-			session.SSHPort = state.SSHPort
-			session.VNCHttpPort = state.VNCHttpPort
-			session.HasTerminal = state.HasTerminal
-			session.TcpPorts = state.TcpPorts
-			session.HttpPorts = state.HttpPorts
-			session.HasVSCodeTunnel = state.HasVSCodeTunnel
-			session.VSCodeTunnelName = state.VSCodeTunnelName
-			session.AgentIp = state.AgentIp
-			session.ExpiresAfter = time.Now().UTC().Add(AGENT_SESSION_TIMEOUT)
-		}
+		switch cmd {
+		case byte(msg.CmdUpdateState):
 
-	default:
-		log.Error().Msgf("agent: unknown command from agent: %d", cmd)
+			// Read the state message
+			var state msg.AgentState
+			if err := msg.ReadMessage(stream, &state); err != nil {
+				log.Error().Msgf("agent: reading state message: %v", err)
+				return
+			}
+
+			// Get the session and update the state
+			if session != nil {
+				session.HasCodeServer = state.HasCodeServer
+				session.SSHPort = state.SSHPort
+				session.VNCHttpPort = state.VNCHttpPort
+				session.HasTerminal = state.HasTerminal
+				session.TcpPorts = state.TcpPorts
+				session.HttpPorts = state.HttpPorts
+				session.HasVSCodeTunnel = state.HasVSCodeTunnel
+				session.VSCodeTunnelName = state.VSCodeTunnelName
+				session.AgentIp = state.AgentIp
+				session.ExpiresAfter = time.Now().UTC().Add(AGENT_SESSION_TIMEOUT)
+			}
+
+		case byte(msg.CmdLogMessage):
+			var logMsg msg.LogMessage
+			if err := msg.ReadMessage(stream, &logMsg); err != nil {
+				log.Error().Msgf("agent: reading log message: %v", err)
+				return
+			}
+
+			session.LogHistoryMutex.Lock()
+			session.LogHistory = append(session.LogHistory, &logMsg)
+
+			if len(session.LogHistory) > AGENT_SESSION_LOG_HISTORY {
+				session.LogHistory = session.LogHistory[1:]
+			}
+			session.LogHistoryMutex.Unlock()
+
+			// Notify all log sinks
+			go func() {
+				session.LogListenersMutex.RLock()
+				defer session.LogListenersMutex.RUnlock()
+				for _, c := range session.LogListeners {
+					c <- &logMsg
+				}
+			}()
+
+		default:
+			log.Error().Msgf("agent: unknown command from agent: %d", cmd)
+			return
+		}
 	}
 }

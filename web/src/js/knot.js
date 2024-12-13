@@ -80,6 +80,11 @@ window.openPortWindow = function(spaceId, domain, username, spaceName, port) {
   return false;
 }
 
+window.openLogWindow = function(spaceId) {
+  window.open('/logs/' + spaceId, 'spaces_' + spaceId + '_log', 'width=800,height=500');
+  return false;
+}
+
 /// wysiwyg editor
 import 'ace-builds/src-noconflict/ace';
 import 'ace-builds/src-noconflict/mode-terraform';

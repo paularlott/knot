@@ -215,6 +215,14 @@ func Routes() chi.Router {
 			router.Get("/create", HandleVolumeCreate)
 			router.Get("/edit/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleVolumeEdit)
 		})
+
+		router.Get("/logs/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleLogsPage)
+	})
+
+	// Group routes that require authentication
+	router.Group(func(router chi.Router) {
+		router.Use(middleware.ApiAuth)
+		router.Get("/logs/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/stream", HandleLogsStream)
 	})
 
 	// Routes without authentication

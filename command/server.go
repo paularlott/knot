@@ -18,7 +18,6 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/nomad"
@@ -57,7 +56,7 @@ func init() {
 	serverCmd.Flags().BoolP("enable-leaf-api-tokens", "", false, "Allow the leaf servers to use an API token for authentication with the origin server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_LEAF_API_TOKENS environment variable if set.")
 
 	// DNS Server
-	serverCmd.Flags().BoolP("enable-dns", "", false, "Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
+	serverCmd.Flags().BoolP("enable-dns", "", false, "Experimental. Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
 	serverCmd.Flags().StringP("dns-listen", "", ":8600", "The address to listen on for DNS requests (default \":8600\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_LISTEN environment variable if set.")
 	serverCmd.Flags().StringP("dns-domain", "", "knot.internal", "The domain to listen for DNS requests on (default \"knot.internal\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_DOMAIN environment variable if set.")
 	serverCmd.Flags().Int("dns-ttl", 10, "The TTL in seconds to use for DNS responses (default \"10\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_TTL environment variable if set.")
@@ -322,25 +321,15 @@ var serverCmd = &cobra.Command{
 		// Load template hashes
 		api_utils.LoadTemplateHashes()
 
-		// Check manual template is present, create it if not
-		if !server_info.IsLeaf {
-			db := database.GetInstance()
-			tpl, err := db.GetTemplate(model.MANUAL_TEMPLATE_ID)
-			if err != nil || tpl == nil {
-				template := model.NewTemplate("Manual-Configuration", "Access a manually installed agent.", "manual", "", "", []string{}, false)
-				template.Id = model.MANUAL_TEMPLATE_ID
-				db.SaveTemplate(template)
-			}
-		} else {
-			// this is a leaf node, connect to the origin server
+		// this is a leaf node, connect to the origin server
+		if server_info.IsLeaf {
 			origin_leaf.LeafConnectAndServe(viper.GetString("server.origin_server"))
 
-			// start route to keep remote sessions alive
+			// start keep alive for remote sessions
 			remoteSessionKeepAlive()
 		}
 
 		// Check for local spaces that are pending state changes and setup watches
-		// FIXME this should not run if there's no nomad server defined!
 		startupCheckPendingSpaces()
 
 		// Start the DNS server
@@ -488,7 +477,7 @@ var serverCmd = &cobra.Command{
 	},
 }
 
-// periodically ping the origin server to keep remote sessions allive
+// periodically ping the origin server to keep remote sessions alive
 func remoteSessionKeepAlive() {
 	log.Info().Msg("server: starting remote server session refresh services")
 
