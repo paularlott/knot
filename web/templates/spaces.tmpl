@@ -75,7 +75,7 @@
                   <span x-show="s.is_local && s.is_deployed && s.is_manual" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Listening</span>
 
                   <div x-show="s.is_local && s.is_manual">
-                    <div class="inline-block text-xs mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg" x-text="s.space_id"></div>
+                    <div class="inline-block text-xs mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer" x-text="s.space_id" @click.debounce.750="copyToClipboard(s.space_id)"></div>
                   </div>
                 </td>
                 <td class="px-6 py-4">
