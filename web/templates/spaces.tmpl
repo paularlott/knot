@@ -55,7 +55,6 @@
                 <td class="px-6 py-4">
                   <div x-text="s.name"></div>
                   <div class="text-xs inline-block" x-text="s.template_name"></div>
-                  <div x-show="s.is_local && s.is_manual" class="inline-block text-xs mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg" x-text="s.space_id"></div>
                 </td>
                 <td class="px-6 py-4" x-text="s.username" x-show="forUserId == ''"></td>
                 <td class="px-6 py-4">
@@ -74,6 +73,10 @@
                   </div>
 
                   <span x-show="s.is_local && s.is_deployed && s.is_manual" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Listening</span>
+
+                  <div x-show="s.is_local && s.is_manual">
+                    <div class="inline-block text-xs mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer" x-text="s.space_id" @click.debounce.750="copyToClipboard(s.space_id)"></div>
+                  </div>
                 </td>
                 <td class="px-6 py-4">
                   <div class="flex items-center justify-end">
@@ -210,7 +213,7 @@
                           </svg>
                           <div class="ml-2"><strong>Location:</strong> <span x-text="s.location"></span></div>
                         </div>
-                        <div class="flex items-center my-1">
+                        <div class="flex items-center my-1" x-cloak x-show="s.volume_size > 0">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
                           </svg>

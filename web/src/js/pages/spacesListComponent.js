@@ -245,5 +245,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         }
       });
     },
+    async copyToClipboard(text) {
+      await navigator.clipboard.writeText(text);
+      this.$dispatch('show-alert', { msg: "Copied to clipboard", type: 'success' });
+    },
   };
 }
