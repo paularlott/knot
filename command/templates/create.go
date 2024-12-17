@@ -20,6 +20,8 @@ func init() {
 	createCmd.Flags().Bool("with-vscode-tunnel", false, "Enable VSCode tunnel for the template.")
 	createCmd.Flags().Bool("with-code-server", false, "Enable Code Server for the template.")
 	createCmd.Flags().Bool("with-ssh", false, "Enable SSH for the template.")
+	createCmd.Flags().Uint32("compute-units", 0, "The number of compute units used by a space created from this template.")
+	createCmd.Flags().Uint32("storage-units", 0, "The number of storage units used by a space created from this template.")
 }
 
 var createCmd = &cobra.Command{
@@ -54,6 +56,12 @@ var createCmd = &cobra.Command{
 
 		viper.BindPFlag("with-ssh", cmd.Flags().Lookup("with-ssh"))
 		viper.SetDefault("with-ssh", false)
+
+		viper.BindPFlag("compute-units", cmd.Flags().Lookup("compute-units"))
+		viper.SetDefault("compute-units", 0)
+
+		viper.BindPFlag("storage-units", cmd.Flags().Lookup("storage-units"))
+		viper.SetDefault("storage-units", 0)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -113,8 +121,8 @@ var createCmd = &cobra.Command{
 			viper.GetBool("with-vscode-tunnel"),
 			viper.GetBool("with-code-server"),
 			viper.GetBool("with-ssh"),
-			0,
-			0,
+			viper.GetUint32("compute-units"),
+			viper.GetUint32("storage-units"),
 		)
 		if err != nil {
 			fmt.Println("Error creating template: ", err)
