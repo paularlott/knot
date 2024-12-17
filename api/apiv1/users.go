@@ -518,7 +518,6 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
-	user := r.Context().Value("user").(*model.User)
 	userId := chi.URLParam(r, "user_id")
 
 	// If remote client present then forward the request
