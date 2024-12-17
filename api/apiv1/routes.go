@@ -34,6 +34,7 @@ func ApiRoutes() chi.Router {
 			router.Get("/", HandleGetUser)
 			router.Put("/", HandleUpdateUser)
 			router.Delete("/", HandleDeleteUser)
+			router.Get("/quota", HandleGetUserQuota)
 		})
 
 		// Groups

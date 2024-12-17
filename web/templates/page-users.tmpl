@@ -39,8 +39,9 @@
               <th scope="col" class="px-6 py-3">Roles</th>
               <th scope="col" class="px-6 py-3">Groups</th>
               <th scope="col" class="px-6 py-3">Spaces</th>
+              <th scope="col" class="px-6 py-3">Compute Units</th>
+              <th scope="col" class="px-6 py-3">Storage Units</th>
               <th scope="col" class="px-6 py-3">Deployed</th>
-              <th scope="col" class="px-6 py-3">Disk Space</th>
               <th scope="col" class="px-6 py-3">Active</th>
               <th scope="col" class="px-6 py-3">Last Login</th>
               <th scope="col" class="px-6 py-3">&nbsp;</th>
@@ -62,15 +63,15 @@
                 </template>
               </td>
               <td class="px-6 py-4">
-                <span x-text="u.number_spaces"></span> <span x-show="u.max_spaces > 0">/ <span x-text="u.max_spaces"></span></span>
+                <span x-text="u.number_spaces"></span> <span x-show="u.max_spaces > 0" x-cloak="">/ <span x-text="u.max_spaces"></span></span>
               </td>
               <td class="px-6 py-4">
-                Total: <span x-text="u.number_spaces_deployed"></span>
-                <span x-show="u.number_spaces_deployed"><br />Local: <span x-text="u.number_spaces_deployed_in_location"></span></span>
+                <span x-text="u.used_compute_units"></span> <span x-show="u.compute_units > 0" x-cloak="">/ <span x-text="u.compute_units"></span></span>
               </td>
               <td class="px-6 py-4">
-                <span x-text="u.used_disk_space + 'GB'"></span> <span x-show="u.max_disk_space">/ <span x-text="u.max_disk_space + 'GB'"></span></span>
+                <span x-text="u.used_storage_units"></span> <span x-show="u.storage_units > 0" x-cloak="">/ <span x-text="u.storage_units"></span></span>
               </td>
+              <td class="px-6 py-4" x-text="u.number_spaces_deployed"></td>
               <td x-text="u.active ? 'Yes' : 'No'" class="px-6 py-4"></td>
               <td x-text="u.last_login_at" class="px-6 py-4"></td>
               <td class="px-6 py-4">

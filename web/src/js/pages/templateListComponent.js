@@ -30,7 +30,7 @@ window.templateListComponent = function(canManageSpaces) {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getTemplates();
-      }, 15000);
+      }, 5000);
     },
 
     async getTemplates() {

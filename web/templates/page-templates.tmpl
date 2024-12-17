@@ -42,7 +42,9 @@
               <th scope="col" class="px-6 py-3">Groups</th>
               <th scope="col" class="px-6 py-3">Usage</th>
               <th scope="col" class="px-6 py-3">Deployed</th>
-              {{ end}}
+              {{ end }}
+              <th scope="col" class="px-6 py-3">Compute Units</th>
+              <th scope="col" class="px-6 py-3">Storage Units</th>
               <th scope="col" class="px-6 py-3">&nbsp;</th>
             </tr>
           </thead>
@@ -67,6 +69,8 @@
               <td class="px-6 py-4" x-text="t.usage"></td>
               <td class="px-6 py-4" x-text="t.deployed"></td>
               {{ end }}
+              <td class="px-6 py-4" x-text="t.compute_units"></td>
+              <td class="px-6 py-4" x-text="t.storage_units"></td>
               <td class="px-6 py-4">
                 <div class="flex items-center justify-end">
                   {{ if not .permissionManageTemplates }}

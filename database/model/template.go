@@ -10,10 +10,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	REMOTE_SERVER_TEMPLATE_FETCH_HASH_INTERVAL = 30 * time.Second
-)
-
 // Template object
 type Template struct {
 	Id               string      `json:"template_id"`
@@ -29,13 +25,15 @@ type Template struct {
 	WithVSCodeTunnel bool        `json:"with_vscode_tunnel"`
 	WithCodeServer   bool        `json:"with_code_server"`
 	WithSSH          bool        `json:"with_ssh"`
+	ComputeUnits     uint32      `json:"compute_units"`
+	StorageUnits     uint32      `json:"storage_units"`
 	CreatedUserId    string      `json:"created_user_id"`
 	CreatedAt        time.Time   `json:"created_at"`
 	UpdatedUserId    string      `json:"updated_user_id"`
 	UpdatedAt        time.Time   `json:"updated_at"`
 }
 
-func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool, isManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool) *Template {
+func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool, isManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32) *Template {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -55,6 +53,8 @@ func NewTemplate(name string, description string, job string, volumes string, us
 		WithVSCodeTunnel: withVSCodeTunnel,
 		WithCodeServer:   withCodeServer,
 		WithSSH:          withSSH,
+		ComputeUnits:     computeUnits,
+		StorageUnits:     storageUnits,
 		CreatedAt:        time.Now().UTC(),
 		UpdatedUserId:    userId,
 		UpdatedAt:        time.Now().UTC(),
@@ -64,8 +64,8 @@ func NewTemplate(name string, description string, job string, volumes string, us
 	return template
 }
 
-func (template *Template) GetVolumes(space *Space, user *User, variables *map[string]interface{}, applySpaceSizes bool) (*CSIVolumes, error) {
-	return LoadVolumesFromYaml(template.Volumes, template, space, user, variables, applySpaceSizes)
+func (template *Template) GetVolumes(space *Space, user *User, variables *map[string]interface{}) (*CSIVolumes, error) {
+	return LoadVolumesFromYaml(template.Volumes, template, space, user, variables)
 }
 
 func (template *Template) UpdateHash() {

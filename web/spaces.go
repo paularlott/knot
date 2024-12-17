@@ -72,7 +72,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var maxSpaces int
+	var maxSpaces uint32
 	var usingUserId string
 	var forUser *model.User
 
@@ -104,7 +104,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 
-		if len(spaces) >= maxSpaces {
+		if uint32(len(spaces)) >= maxSpaces {
 			http.Redirect(w, r, "/space-quota-reached", http.StatusSeeOther)
 		}
 	}

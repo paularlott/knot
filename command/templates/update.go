@@ -89,6 +89,8 @@ var updateCmd = &cobra.Command{
 				viper.GetBool("with-vscode-tunnel"),
 				viper.GetBool("with-code-server"),
 				viper.GetBool("with-ssh"),
+				0,
+				0,
 			)
 			if err != nil {
 				fmt.Println("Error updating template: ", err)

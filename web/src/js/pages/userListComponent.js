@@ -26,7 +26,7 @@ window.userListComponent = function() {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getUsers();
-      }, 15000);
+      }, 5000);
     },
 
     async getUsers() {

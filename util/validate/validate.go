@@ -53,3 +53,7 @@ func MaxLength(text string, length int) bool {
 func IsNumber(value int, min int, max int) bool {
 	return value >= min && value <= max
 }
+
+func IsPositiveNumber(value int) bool {
+	return value >= 0
+}

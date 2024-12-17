@@ -16,7 +16,8 @@ window.userForm = function(isEdit, userId, isProfile) {
       timezone: "",
       active: true,
       max_spaces: 0,
-      max_disk_space: 0,
+      compute_units: 0,
+      storage_units: 0,
       roles: [],
       groups: [],
     },
@@ -32,8 +33,9 @@ window.userForm = function(isEdit, userId, isProfile) {
     shellValid: true,
     tzValid: true,
     maxSpacesValid: true,
-    maxDiskSpaceValid: true,
     githubUsernameValid: true,
+    computeUnitsValid: true,
+    storageUnitsValid: true,
     async initUsers() {
       focusElement('input[name="username"]');
 
@@ -70,7 +72,8 @@ window.userForm = function(isEdit, userId, isProfile) {
           this.formData.github_username = user.github_username;
           this.formData.active = user.active;
           this.formData.max_spaces = user.max_spaces;
-          this.formData.max_disk_space = user.max_disk_space;
+          this.formData.compute_units = user.compute_units;
+          this.formData.storage_units = user.storage_units;
           this.formData.roles = user.roles;
           this.formData.groups = user.groups;
           this.formData.timezone = user.timezone;
@@ -122,8 +125,11 @@ window.userForm = function(isEdit, userId, isProfile) {
     checkMaxSpaces() {
       return this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 1000);
     },
-    checkMaxDiskSpace() {
-      return this.maxDiskSpaceValid = validate.isNumber(this.formData.max_disk_space, 0, 1000000);
+    checkComputeUnits() {
+      return this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);
+    },
+    checkStorageUnits() {
+      return this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
     },
     checkServicePassword() {
       return this.servicePasswordValid = this.formData.service_password.length <= 255;
@@ -141,7 +147,8 @@ window.userForm = function(isEdit, userId, isProfile) {
         err = !this.checkConfirmPassword() || err;
       }
       err = !this.checkMaxSpaces() || err;
-      err = !this.checkMaxDiskSpace() || err;
+      err = !this.checkComputeUnits() || err;
+      err = !this.checkStorageUnits() || err;
       err = !this.checkServicePassword() || err;
       err = !this.checkShell() || err;
       err = !this.checkTz() || err;
@@ -164,7 +171,8 @@ window.userForm = function(isEdit, userId, isProfile) {
         github_username: this.formData.github_username,
         active: this.formData.active,
         max_spaces: parseInt(this.formData.max_spaces),
-        max_disk_space: parseInt(this.formData.max_disk_space),
+        storage_units: parseInt(this.formData.storage_units),
+        compute_units: parseInt(this.formData.compute_units),
         roles: this.formData.roles,
         groups: this.formData.groups,
         timezone: this.formData.timezone,

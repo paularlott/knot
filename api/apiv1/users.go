@@ -53,8 +53,12 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
 		return
 	}
-	if !validate.IsNumber(int(request.MaxDiskSpace), 0, 1000000) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max disk space"})
+	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
+		return
+	}
+	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
 		return
 	}
 	if !validate.MaxLength(request.GitHubUsername, 255) {
@@ -92,7 +96,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Create the user
-		userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.MaxDiskSpace, request.GitHubUsername)
+		userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.GitHubUsername, request.ComputeUnits, request.StorageUnits)
 		if request.ServicePassword != "" {
 			userNew.ServicePassword = request.ServicePassword
 		}
@@ -156,7 +160,8 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		Groups:          user.Groups,
 		Active:          user.Active,
 		MaxSpaces:       user.MaxSpaces,
-		MaxDiskSpace:    user.MaxDiskSpace,
+		ComputeUnits:    user.ComputeUnits,
+		StorageUnits:    user.StorageUnits,
 		SSHPublicKey:    user.SSHPublicKey,
 		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
@@ -188,7 +193,8 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		Groups:          user.Groups,
 		Active:          user.Active,
 		MaxSpaces:       user.MaxSpaces,
-		MaxDiskSpace:    user.MaxDiskSpace,
+		ComputeUnits:    user.ComputeUnits,
+		StorageUnits:    user.StorageUnits,
 		SSHPublicKey:    user.SSHPublicKey,
 		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
@@ -213,6 +219,11 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	inLocation := r.URL.Query().Get("location")
 	if requiredState == "" {
 		requiredState = "all"
+	}
+
+	// If no location given then use the servers
+	if inLocation == "" {
+		inLocation = server_info.LeafLocation
 	}
 
 	// If remote client present then forward the request
@@ -250,7 +261,8 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 				data.Groups = user.Groups
 				data.Active = user.Active
 				data.MaxSpaces = user.MaxSpaces
-				data.MaxDiskSpace = user.MaxDiskSpace
+				data.ComputeUnits = user.ComputeUnits
+				data.StorageUnits = user.StorageUnits
 				data.Current = user.Id == activeUser.Id
 
 				if user.LastLoginAt != nil {
@@ -269,7 +281,8 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 				var deployed int = 0
 				var deployedInLocation int = 0
-				var diskSpace int = 0
+				var computeUnits uint32 = 0
+				var storageUnits uint32 = 0
 				for _, space := range spaces {
 					if space.IsDeployed || space.IsPending {
 						deployed++
@@ -279,19 +292,25 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 
-					sSize, err := calcSpaceDiskUsage(space)
-					if err != nil {
-						rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-						return
-					}
+					// Get the template
+					template, err := db.GetTemplate(space.TemplateId)
+					if err == nil {
+						if space.IsDeployed {
+							computeUnits += template.ComputeUnits
+						}
 
-					diskSpace += sSize
+						// If there's volumes then the space has been deployed and has storage
+						if len(space.VolumeData) > 0 {
+							storageUnits += template.StorageUnits
+						}
+					}
 				}
 
 				data.NumberSpaces = len(spaces)
 				data.NumberSpacesDeployed = deployed
 				data.NumberSpacesDeployedInLocation = deployedInLocation
-				data.UsedDiskSpace = diskSpace
+				data.UsedComputeUnits = computeUnits
+				data.UsedStorageUnits = storageUnits
 
 				userData.Users = append(userData.Users, data)
 				userData.Count++
@@ -383,6 +402,16 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
+			return
+		}
+
+		if !validate.IsPositiveNumber(int(request.StorageUnits)) {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
+			return
+		}
+
 		// Check roles give are present in the system
 		for _, role := range request.Roles {
 			if !model.RoleExists(role) {
@@ -398,7 +427,8 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.Roles = request.Roles
 		user.Groups = request.Groups
 		user.MaxSpaces = request.MaxSpaces
-		user.MaxDiskSpace = request.MaxDiskSpace
+		user.ComputeUnits = request.ComputeUnits
+		user.StorageUnits = request.StorageUnits
 	}
 
 	// If on leaf
@@ -484,4 +514,50 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	leaf.DeleteUser(userId)
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
+	db := database.GetInstance()
+	user := r.Context().Value("user").(*model.User)
+	userId := chi.URLParam(r, "user_id")
+
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		userQuota, err := client.GetUserQuota(userId)
+		if err != nil {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		rest.SendJSON(http.StatusOK, w, r, userQuota)
+		return
+	}
+
+	// Load the user, if not found return 404
+	user, err := db.GetUser(userId)
+	if err != nil || user == nil {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		return
+	}
+
+	usage, err := database.GetUserUsage(userId)
+	if err != nil {
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	quota := apiclient.UserQuota{
+		MaxSpaces:    user.MaxSpaces,
+		ComputeUnits: user.ComputeUnits,
+		StorageUnits: user.StorageUnits,
+
+		NumberSpaces:         usage.NumberSpaces,
+		NumberSpacesDeployed: usage.NumberSpacesDeployed,
+		UsedComputeUnits:     usage.ComputeUnits,
+		UsedStorageUnits:     usage.StorageUnits,
+	}
+
+	rest.SendJSON(http.StatusOK, w, r, quota)
 }

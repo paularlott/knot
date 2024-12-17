@@ -24,7 +24,7 @@ window.volumeListComponent = function() {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getVolumes();
-      }, 15000);
+      }, 5000);
     },
 
     async getVolumes() {

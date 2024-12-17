@@ -15,6 +15,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     canManageSpaces: canManageSpaces,
     users: [],
     searchTerm: Alpine.$persist('').as('spaces-search-term').using(sessionStorage),
+    quotaComputeLimitShow: false,
+    quotaStorageLimitShow: false,
+
     async init() {
       if(this.canManageSpaces) {
         const usersResponse = await fetch('/api/v1/users?state=active', {
@@ -38,7 +41,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       // Start a timer to look for new spaces periodically
       setInterval(async () => {
         this.getSpaces(false);
-      }, 10000);
+      }, 5000);
     },
     async userChanged() {
       this.loading = true;
@@ -169,6 +172,17 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       }).then((response) => {
         if (response.status === 200) {
           self.$dispatch('show-alert', { msg: "Space starting", type: 'success' });
+        } else if(response.status === 507) {
+          response.json().then((data) => {
+            // If compute units exceeded then show the dialog
+            if(data.error == 'compute unit quota exceeded') {
+              self.quotaComputeLimitShow = true;
+            } else if(data.error == 'storage unit quota exceeded') {
+              self.quotaStorageLimitShow = true;
+            } else {
+              self.$dispatch('show-alert', { msg: "Space could not be as it has exceeded quota limits.", type: 'error' });
+            }
+          });
         } else {
           response.json().then((data) => {
             self.$dispatch('show-alert', { msg: "Space could not be started: " + data.error, type: 'error' });

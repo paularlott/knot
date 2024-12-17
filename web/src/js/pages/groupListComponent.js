@@ -17,7 +17,7 @@ window.groupListComponent = function() {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getGroups();
-      }, 15000);
+      }, 5000);
     },
 
     async getGroups() {

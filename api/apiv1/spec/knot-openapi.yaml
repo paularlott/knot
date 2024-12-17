@@ -218,6 +218,38 @@ paths:
       security:
         - BearerAuth: []
 
+  /api/v1/users/{user_id}/quota:
+    get:
+      tags:
+        - Users
+      summary: Get User Quota
+      operationId: getUserQuota
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user to get the quota for.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: A user object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserQuota'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+      security:
+        - BearerAuth: []
+
   /api/v1/users/whoami:
     get:
       tags:
@@ -838,6 +870,8 @@ paths:
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
+        '507':
+          $ref: '#/components/responses/insufficient-storage'
       security:
         - BearerAuth: []
 
@@ -1673,9 +1707,6 @@ components:
           type: string
           format: uuid
           description: The ID of the user the space belongs to.
-        volume_sizes:
-          type: integer
-          description: The volume size of the space.
         local_container:
           type: boolean
           description: If the space is of a local container, docker or podman.
@@ -1723,11 +1754,6 @@ components:
           items:
             type: string
           description: The alternative names for the space.
-        volume_sizes:
-          type: object
-          additionalProperties:
-            type: integer
-          description: The volume sizes for the space.
 
     SpaceVolume:
       type: object
@@ -1762,11 +1788,6 @@ components:
         location:
           type: string
           description: The location of the space.
-        volume_sizes:
-          type: array
-          items:
-            type: integer
-          description: The volume sizes for the space.
         is_deployed:
           type: boolean
           description: Flags if the space is deployed.
@@ -1874,6 +1895,14 @@ components:
         is_manual:
           type: boolean
           description: If the template is a manual template.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units used by spaces created from the template.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units used by spaces created from the template.
 
     TemplateList:
       type: object
@@ -1929,6 +1958,14 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units used by spaces created from the template.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units used by spaces created from the template.
 
     TemplateUpdateRequest:
       type: object
@@ -1966,6 +2003,14 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units used by spaces created from the template.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units used by spaces created from the template.
 
     TemplateDetails:
       type: object
@@ -2034,6 +2079,14 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units used by spaces created from the template.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units used by spaces created from the template.
 
     TemplateVar:
       type: object
@@ -2190,10 +2243,16 @@ components:
           description: The IDs of the groups assigned to the user.
         max_spaces:
           type: integer
+          format: uint32
           description: The maximum number of spaces the user can have, 0 for unlimited.
-        max_disk_space:
+        compute_units:
           type: integer
-          description: The maximum disk space the user can have, 0 for unlimited.
+          format: uint32
+          description: The number of compute units the user has.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has.
       required:
         - username
         - password
@@ -2247,9 +2306,15 @@ components:
         max_spaces:
           type: integer
           description: The maximum number of spaces the user can have, 0 for unlimited.
-        max_disk_space:
+        compute_units:
           type: integer
-          description: The maximum disk space the user can have, 0 for unlimited.
+          format: uint32
+          description: The number of compute units the user has.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has.
+
         number_spaces:
           type: integer
           description: The number of spaces the user has
@@ -2258,10 +2323,45 @@ components:
           description: The number of spaces the user has deployed currently
         number_spaces_deployed_in_location:
           type: integer
-          description: The number of spaces the user has deployed currently within the location
-        used_disk_space:
+          description: The number of spaces the user has deployed currently within the location.
+        used_compute_units:
           type: integer
-          description: The disk space used by the user
+          format: uint32
+          description: The number of compute units the user has used.
+        used_storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has used.
+
+    UserQuota:
+      type: object
+      properties:
+        max_spaces:
+          type: integer
+          description: The maximum number of spaces the user can have, 0 for unlimited.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the user has.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has.
+
+        number_spaces:
+          type: integer
+          description: The number of spaces the user has.
+        number_spaces_deployed:
+          type: integer
+          description: The number of spaces the user has deployed currently.
+        used_compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the user has used.
+        used_storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has used.
 
     UserResponse:
       type: object
@@ -2326,9 +2426,14 @@ components:
         max_spaces:
           type: integer
           description: The maximum number of spaces the user can have, 0 for unlimited
-        max_disk_space:
+        compute_units:
           type: integer
-          description: The maximum disk space the user can have, 0 for unlimited.
+          format: uint32
+          description: The number of compute units the user has.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has.
 
     VolumeInfo:
       type: object

@@ -113,13 +113,6 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.Username = u.Username
 			s.UserId = u.Id
 
-			s.VolumeSize, err = calcSpaceDiskUsage(space)
-			if err != nil {
-				log.Error().Msgf("HandleGetSpaces: calcSpaceDiskUsage: %s", err.Error())
-				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-				return
-			}
-
 			spaceData.Spaces = append(spaceData.Spaces, s)
 			spaceData.Count++
 		}
@@ -200,7 +193,6 @@ func removeBlankAndDuplicates(names []string, primary string) []string {
 }
 
 func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
-	db := database.GetInstance()
 	request := apiclient.CreateSpaceRequest{}
 	user := r.Context().Value("user").(*model.User)
 
@@ -242,7 +234,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	if request.UserId != "" {
 		forUserId = request.UserId
 	}
-	space := model.NewSpace(request.Name, forUserId, request.TemplateId, request.Shell, &request.VolumeSizes, &request.AltNames)
+	space := model.NewSpace(request.Name, forUserId, request.TemplateId, request.Shell, &request.AltNames)
 
 	// Lock the space to the location of the server creating it
 	if request.Location == "" {
@@ -260,51 +252,6 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
-		}
-	} else {
-
-		// Test if over quota
-		if user.MaxDiskSpace > 0 {
-			// Lookup the template
-			template, err := db.GetTemplate(request.TemplateId)
-			if err != nil {
-				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Unknown template"})
-				return
-			}
-
-			// Check the user and template have overlapping groups
-			if len(template.Groups) > 0 && !user.HasAnyGroup(&template.Groups) {
-				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Unknown template"})
-				return
-			}
-
-			// Get the size for this space
-			size, err := space.GetStorageSize(template)
-			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-				return
-			}
-
-			// Get the size of storage for all the users spaces
-			spaces, err := db.GetSpacesForUser(forUserId)
-			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-				return
-			}
-
-			for _, s := range spaces {
-				sSize, err := calcSpaceDiskUsage(s)
-				if err != nil {
-					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-					return
-				}
-				size += sSize
-			}
-
-			if size > user.MaxDiskSpace {
-				rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage quota reached"})
-				return
-			}
 		}
 	}
 
@@ -460,10 +407,19 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var quota *apiclient.UserQuota
+
 	// If remote then need to pull the space from the remote
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client = remoteClient.(*apiclient.ApiClient)
+
+		quota, err = client.GetUserQuota(user.Id)
+		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
 
 		var spaceRemote *model.Space
 		spaceRemote, code, err = client.GetSpace(spaceId)
@@ -477,7 +433,23 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		space.Name = spaceRemote.Name
 		space.AltNames = spaceRemote.AltNames
 		space.Shell = spaceRemote.Shell
-		space.VolumeSizes = spaceRemote.VolumeSizes
+	} else {
+		usage, err := database.GetUserUsage(user.Id)
+		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		quota = &apiclient.UserQuota{
+			MaxSpaces:            user.MaxSpaces,
+			ComputeUnits:         user.ComputeUnits,
+			StorageUnits:         user.StorageUnits,
+			NumberSpaces:         usage.NumberSpaces,
+			NumberSpacesDeployed: usage.NumberSpacesDeployed,
+			UsedComputeUnits:     usage.ComputeUnits,
+			UsedStorageUnits:     usage.StorageUnits,
+		}
 	}
 
 	// If the space is already running or changing state then fail
@@ -489,6 +461,26 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	// Is the space has a location then it must match the server location
 	if space.Location != "" && space.Location != server_info.LeafLocation {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space location does not match server location"})
+		return
+	}
+
+	// Check the quota if this space is started
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceStart: get template %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If the user has a compute limit then check it
+	if quota.ComputeUnits > 0 && quota.UsedComputeUnits+template.ComputeUnits > quota.ComputeUnits {
+		rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "compute unit quota exceeded"})
+		return
+	}
+
+	// If the user has a storage limit then check it
+	if quota.StorageUnits > 0 && quota.UsedStorageUnits+template.StorageUnits > quota.StorageUnits {
+		rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage unit quota exceeded"})
 		return
 	}
 
@@ -527,14 +519,6 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-
-	// Get the template
-	template, err := db.GetTemplate(space.TemplateId)
-	if err != nil {
-		log.Error().Msgf("HandleSpaceStart: get template %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
 
 	// Get the variables
 	variables, err := db.GetTemplateVars()
@@ -629,7 +613,6 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		space.Name = spaceRemote.Name
 		space.AltNames = spaceRemote.AltNames
 		space.Shell = spaceRemote.Shell
-		space.VolumeSizes = spaceRemote.VolumeSizes
 	}
 
 	// Mark the space as pending and save it
@@ -858,7 +841,6 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		space.Name = spaceRemote.Name
 		space.AltNames = spaceRemote.AltNames
 		space.Shell = spaceRemote.Shell
-		space.VolumeSizes = spaceRemote.VolumeSizes
 
 		// Save the space
 		err = database.GetInstance().SaveSpace(space)
@@ -878,34 +860,19 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := apiclient.SpaceDefinition{
-		UserId:      space.UserId,
-		TemplateId:  space.TemplateId,
-		Name:        space.Name,
-		Shell:       space.Shell,
-		Location:    space.Location,
-		AltNames:    space.AltNames,
-		IsDeployed:  space.IsDeployed,
-		IsPending:   space.IsPending,
-		IsDeleting:  space.IsDeleting,
-		VolumeSizes: space.VolumeSizes,
-		VolumeData:  space.VolumeData,
+		UserId:     space.UserId,
+		TemplateId: space.TemplateId,
+		Name:       space.Name,
+		Shell:      space.Shell,
+		Location:   space.Location,
+		AltNames:   space.AltNames,
+		IsDeployed: space.IsDeployed,
+		IsPending:  space.IsPending,
+		IsDeleting: space.IsDeleting,
+		VolumeData: space.VolumeData,
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, &response)
-}
-
-func calcSpaceDiskUsage(space *model.Space) (int, error) {
-	tmpl, err := database.GetInstance().GetTemplate(space.TemplateId)
-	if err != nil {
-		return 0, err
-	}
-
-	size, err := space.GetStorageSize(tmpl)
-	if err != nil {
-		return 0, err
-	}
-
-	return size, nil
 }
 
 func RealDeleteSpace(space *model.Space) {

@@ -14,6 +14,8 @@ window.templateForm = function(isEdit, templateId) {
       with_vscode_tunnel: false,
       with_code_server: false,
       with_ssh: false,
+      compute_units: 0,
+      storage_units: 0,
     },
     loading: true,
     isEdit: isEdit,
@@ -22,6 +24,8 @@ window.templateForm = function(isEdit, templateId) {
     nameValid: true,
     jobValid: true,
     volValid: true,
+    computeUnitsValid: true,
+    storageUnitsValid: true,
     groups: [],
 
     async initData() {
@@ -56,6 +60,8 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.with_vscode_tunnel = template.with_vscode_tunnel;
           this.formData.with_code_server = template.with_code_server;
           this.formData.with_ssh = template.with_ssh;
+          this.formData.compute_units = template.compute_units;
+          this.formData.storage_units = template.storage_units
         }
       }
 
@@ -169,6 +175,12 @@ window.templateForm = function(isEdit, templateId) {
     checkJob() {
       return this.jobValid = this.formData.is_manual || validate.required(this.formData.job);
     },
+    checkComputeUnits() {
+      return this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);
+    },
+    checkStorageUnits() {
+      return this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
+    },
 
     async submitData() {
       var err = false,
@@ -194,6 +206,8 @@ window.templateForm = function(isEdit, templateId) {
         with_vscode_tunnel: this.formData.with_vscode_tunnel,
         with_code_server: this.formData.with_code_server,
         with_ssh: this.formData.with_ssh,
+        compute_units: parseInt(this.formData.compute_units),
+        storage_units: parseInt(this.formData.storage_units),
       };
 
       if(!isEdit) {

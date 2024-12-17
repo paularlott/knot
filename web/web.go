@@ -158,6 +158,7 @@ func Routes() chi.Router {
 		router.Get("/space-quota-reached", HandleSimplePage)
 		router.Get("/profile", HandleUserProfilePage)
 		router.Get("/logout", HandleLogoutPage)
+		router.Get("/usage", HandleSimplePage)
 
 		router.Get("/terminal/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTerminalPage)
 		router.Get("/terminal/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/{vsc:vscode-tunnel}", HandleTerminalPage)

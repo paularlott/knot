@@ -106,10 +106,16 @@
           <div x-show="!maxSpacesValid" class="error-message" x-cloak>Enter a valid number between 0 and 1000.</div>
         </div>
         <div>
-          <label class="form-label">Maximum Disk Space</label>
-          <input type="number" class="form-field" name="max_disk_space" x-model="formData.max_disk_space" min="0" max="1000000" x-on:keyup.debounce.500ms="checkMaxDiskSpace()" :class="{'form-field-error': !maxDiskSpaceValid}" >
-          <p class="description">The maximum number amount of disk space available to the user in GB, 0 for unlimited.</p>
-          <div x-show="!maxDiskSpaceValid" class="error-message" x-cloak>Enter a valid number between 0 and 1000000.</div>
+          <label class="form-label">Compute Units Limit</label>
+          <input type="number" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
+          <p class="description">The maximum number of compute units (CPU, GPU, RAM, etc.) this user can use, 0 for unlimited.</p>
+          <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+        </div>
+        <div>
+          <label class="form-label">Storage Units Limit</label>
+          <input type="number" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
+          <p class="description">The maximum number of storage units this user can use, 0 for unlimited.</p>
+          <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">

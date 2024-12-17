@@ -3,7 +3,6 @@ package apiv1
 import (
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 
 	"github.com/paularlott/knot/api/api_utils"
@@ -81,6 +80,8 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			templateData.Groups = template.Groups
 			templateData.LocalContainer = template.LocalContainer
 			templateData.IsManual = template.IsManual
+			templateData.ComputeUnits = template.ComputeUnits
+			templateData.StorageUnits = template.StorageUnits
 
 			// Find the number of spaces using this template
 			spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
@@ -129,13 +130,21 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volumes must be less than 10MB"})
 		return
 	}
+	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Compute units must be a positive number"})
+		return
+	}
+	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Storage units must be a positive number"})
+		return
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
-		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
+		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -179,6 +188,8 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.WithVSCodeTunnel = request.WithVSCodeTunnel
 		template.WithCodeServer = request.WithCodeServer
 		template.WithSSH = request.WithSSH
+		template.ComputeUnits = request.ComputeUnits
+		template.StorageUnits = request.StorageUnits
 		template.UpdateHash()
 
 		err = db.SaveTemplate(template)
@@ -221,6 +232,14 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volumes must be less than 10MB"})
 		return
 	}
+	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Compute units must be a positive number"})
+		return
+	}
+	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Storage units must be a positive number"})
+		return
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -230,7 +249,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		var code int
 		var err error
 
-		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
+		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -248,7 +267,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
+		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits)
 
 		err = database.GetInstance().SaveTemplate(template)
 		if err != nil {
@@ -356,32 +375,6 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		volumes, _ := template.GetVolumes(nil, nil, nil, false)
-
-		var volumeList []map[string]interface{}
-
-		if volumes != nil {
-			for _, volume := range volumes.Volumes {
-				var capacityMin int64 = 0
-				var capacityMax int64 = 0
-
-				if volume.CapacityMin != nil {
-					capacityMin = int64(math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))))
-				}
-
-				if volume.CapacityMax != nil {
-					capacityMax = int64(math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64))/(1024*1024*1024))))
-				}
-
-				volumeList = append(volumeList, map[string]interface{}{
-					"id":           volume.Id,
-					"name":         volume.Name,
-					"capacity_min": capacityMin,
-					"capacity_max": capacityMax,
-				})
-			}
-		}
-
 		data := apiclient.TemplateDetails{
 			Name:             template.Name,
 			Description:      template.Description,
@@ -391,13 +384,14 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 			Hash:             template.Hash,
 			Deployed:         deployed,
 			Groups:           template.Groups,
-			VolumeSizes:      volumeList,
 			LocalContainer:   template.LocalContainer,
 			IsManual:         template.IsManual,
 			WithTerminal:     template.WithTerminal,
 			WithVSCodeTunnel: template.WithVSCodeTunnel,
 			WithCodeServer:   template.WithCodeServer,
 			WithSSH:          template.WithSSH,
+			ComputeUnits:     template.ComputeUnits,
+			StorageUnits:     template.StorageUnits,
 		}
 
 		rest.SendJSON(http.StatusOK, w, r, &data)

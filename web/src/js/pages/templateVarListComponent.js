@@ -17,7 +17,7 @@ window.templateVarListComponent = function() {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getTemplateVars();
-      }, 15000);
+      }, 5000);
     },
 
     async getTemplateVars() {

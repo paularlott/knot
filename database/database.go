@@ -161,3 +161,43 @@ func GetCacheInstance() IDbDriver {
 	initDrivers()
 	return dbCacheInstance
 }
+
+func GetUserUsage(userId string) (*model.Usage, error) {
+	db := GetInstance()
+
+	// Load the spaces for the user and calculate the quota
+	spaces, err := db.GetSpacesForUser(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	usage := &model.Usage{
+		ComputeUnits:         0,
+		StorageUnits:         0,
+		NumberSpaces:         0,
+		NumberSpacesDeployed: 0,
+	}
+
+	for _, space := range spaces {
+		usage.NumberSpaces++
+
+		if space.IsDeployed {
+			usage.NumberSpacesDeployed++
+		}
+
+		// Get the template
+		template, err := db.GetTemplate(space.TemplateId)
+		if err == nil {
+			if space.IsDeployed {
+				usage.ComputeUnits += template.ComputeUnits
+			}
+
+			// If there's volumes then the space has been deployed and has storage
+			if len(space.VolumeData) > 0 {
+				usage.StorageUnits += template.StorageUnits
+			}
+		}
+	}
+
+	return usage, nil
+}

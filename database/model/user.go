@@ -21,8 +21,9 @@ type User struct {
 	Roles           JSONDbArray `json:"roles"`
 	Groups          JSONDbArray `json:"groups"`
 	Active          bool        `json:"active"`
-	MaxSpaces       int         `json:"max_spaces"`
-	MaxDiskSpace    int         `json:"max_disk_space"`
+	MaxSpaces       uint32      `json:"max_spaces"`
+	ComputeUnits    uint32      `json:"compute_units"`
+	StorageUnits    uint32      `json:"storage_units"`
 	PreferredShell  string      `json:"preferred_shell"`
 	Timezone        string      `json:"timezone"`
 	LastLoginAt     *time.Time  `json:"last_login_at"`
@@ -30,7 +31,14 @@ type User struct {
 	CreatedAt       time.Time   `json:"created_at"`
 }
 
-func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string, timezone string, maxSpaces int, maxDiskSpace int, githubUsername string) *User {
+type Usage struct {
+	ComputeUnits         uint32
+	StorageUnits         uint32
+	NumberSpaces         int
+	NumberSpacesDeployed int
+}
+
+func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string, timezone string, maxSpaces uint32, githubUsername string, computeUnits uint32, storageUnits uint32) *User {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -48,7 +56,8 @@ func NewUser(username string, email string, password string, roles []string, gro
 		Groups:          groups,
 		Timezone:        timezone,
 		MaxSpaces:       maxSpaces,
-		MaxDiskSpace:    maxDiskSpace,
+		ComputeUnits:    computeUnits,
+		StorageUnits:    storageUnits,
 		ServicePassword: generateRandomString(16),
 	}
 

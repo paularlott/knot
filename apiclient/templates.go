@@ -12,6 +12,8 @@ type TemplateCreateRequest struct {
 	WithVSCodeTunnel bool     `json:"with_vscode_tunnel"`
 	WithCodeServer   bool     `json:"with_code_server"`
 	WithSSH          bool     `json:"with_ssh"`
+	ComputeUnits     uint32   `json:"compute_units"`
+	StorageUnits     uint32   `json:"storage_units"`
 }
 
 type TemplateUpdateRequest struct {
@@ -24,6 +26,8 @@ type TemplateUpdateRequest struct {
 	WithVSCodeTunnel bool     `json:"with_vscode_tunnel"`
 	WithCodeServer   bool     `json:"with_code_server"`
 	WithSSH          bool     `json:"with_ssh"`
+	ComputeUnits     uint32   `json:"compute_units"`
+	StorageUnits     uint32   `json:"storage_units"`
 }
 
 type TemplateCreateResponse struct {
@@ -40,6 +44,8 @@ type TemplateInfo struct {
 	Groups         []string `json:"groups"`
 	LocalContainer bool     `json:"local_container"`
 	IsManual       bool     `json:"is_manual"`
+	ComputeUnits   uint32   `json:"compute_units"`
+	StorageUnits   uint32   `json:"storage_units"`
 }
 
 type TemplateList struct {
@@ -63,6 +69,8 @@ type TemplateDetails struct {
 	WithVSCodeTunnel bool                     `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                     `json:"with_code_server"`
 	WithSSH          bool                     `json:"with_ssh"`
+	ComputeUnits     uint32                   `json:"compute_units"`
+	StorageUnits     uint32                   `json:"storage_units"`
 }
 
 func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
@@ -76,7 +84,7 @@ func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool) (int, error) {
+func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32) (int, error) {
 	request := TemplateUpdateRequest{
 		Name:             name,
 		Job:              job,
@@ -87,12 +95,14 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 		WithVSCodeTunnel: withVSCodeTunnel,
 		WithCodeServer:   withCodeServer,
 		WithSSH:          withSSH,
+		ComputeUnits:     computeUnits,
+		StorageUnits:     storageUnits,
 	}
 
 	return c.httpClient.Put("/api/v1/templates/"+templateId, &request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool) (string, int, error) {
+func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32) (string, int, error) {
 	request := TemplateCreateRequest{
 		Name:             name,
 		Job:              job,
@@ -105,6 +115,8 @@ func (c *ApiClient) CreateTemplate(name string, job string, description string, 
 		WithVSCodeTunnel: withVSCodeTunnel,
 		WithCodeServer:   withCodeServer,
 		WithSSH:          withSSH,
+		ComputeUnits:     computeUnits,
+		StorageUnits:     storageUnits,
 	}
 
 	response := &TemplateCreateResponse{}
