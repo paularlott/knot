@@ -5,4 +5,5 @@ var (
 	IsLeaf         bool   = false
 	IsOrigin       bool   = false
 	LeafLocation   string = ""
+	Timezone       string = ""
 )

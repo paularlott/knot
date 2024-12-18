@@ -57,3 +57,8 @@ func IsNumber(value int, min int, max int) bool {
 func IsPositiveNumber(value int) bool {
 	return value >= 0
 }
+
+func IsTime(time string) bool {
+	re := regexp.MustCompile(`^\d{1,2}:\d{2}[ap]m$`)
+	return re.MatchString(time)
+}

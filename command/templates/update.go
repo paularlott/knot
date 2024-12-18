@@ -79,6 +79,15 @@ var updateCmd = &cobra.Command{
 			template.Volumes = volume
 		}
 
+		schedule := []apiclient.TemplateDetailsDay{}
+		for i := 0; i < 7; i++ {
+			schedule = append(schedule, apiclient.TemplateDetailsDay{
+				Enabled: false,
+				From:    "12:00am",
+				To:      "11:59pm",
+			})
+		}
+
 		if jobFile != "" || volumeFile != "" {
 			_, err = client.UpdateTemplate(
 				templateId,
@@ -93,6 +102,8 @@ var updateCmd = &cobra.Command{
 				viper.GetBool("with-ssh"),
 				viper.GetUint32("compute-units"),
 				viper.GetUint32("storage-units"),
+				false,
+				&schedule,
 			)
 			if err != nil {
 				fmt.Println("Error updating template: ", err)

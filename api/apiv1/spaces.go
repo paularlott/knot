@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
+	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -484,6 +485,12 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Test if the schedule allows the space to be started
+	if !template.AllowedBySchedule() {
+		rest.SendJSON(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "outside of schedule"})
+		return
+	}
+
 	// Mark the space as pending and save it
 	space.IsPending = true
 	if err = db.SaveSpace(space); err != nil {
@@ -492,15 +499,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update the origin server
-	if client != nil {
-		code, err = client.UpdateSpace(space)
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-	}
+	origin.UpdateSpace(space)
 
 	// Revert the pending status if the deploy fails
 	var deployFailed = true
@@ -511,12 +510,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 			db.SaveSpace(space)
 
 			// If remote then need to update the remote
-			if client != nil {
-				code, err = client.UpdateSpace(space)
-				if err != nil {
-					log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-				}
-			}
+			origin.UpdateSpace(space)
 		}
 	}()
 
@@ -561,9 +555,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	var err error
-	var code int
 	var space *model.Space
-	var client *apiclient.ApiClient = nil
 
 	user := r.Context().Value("user").(*model.User)
 	spaceId := chi.URLParam(r, "space_id")
@@ -588,50 +580,34 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the template
-	template, err := db.GetTemplate(space.TemplateId)
+	err = deleteSpaceJob(space)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceStop: get template %s", err.Error())
+		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	// If remote then need to pull the space from the remote
-	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
-		client = remoteClient.(*apiclient.ApiClient)
+	w.WriteHeader(http.StatusOK)
+}
 
-		var spaceRemote *model.Space
-		spaceRemote, code, err = client.GetSpace(spaceId)
-		if err != nil || space == nil {
-			log.Error().Msgf("HandleSpaceStop: %s", err.Error())
-			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
+func deleteSpaceJob(space *model.Space) error {
+	db := database.GetInstance()
 
-		// Load the space from disk and merge the remote space into it
-		space.Name = spaceRemote.Name
-		space.AltNames = spaceRemote.AltNames
-		space.Shell = spaceRemote.Shell
+	// Get the template
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		log.Error().Msgf("DeleteSpaceJob: failed to get template %s", err.Error())
+		return err
 	}
 
 	// Mark the space as pending and save it
 	space.IsPending = true
 	if err = db.SaveSpace(space); err != nil {
-		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
+		log.Error().Msgf("DeleteSpaceJob: failed to save space %s", err.Error())
+		return err
 	}
 
-	// Update the origin server
-	if client != nil {
-		code, err = client.UpdateSpace(space)
-		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-	}
+	origin.UpdateSpace(space)
 
 	var containerClient container.ContainerManager
 	if template.LocalContainer {
@@ -645,16 +621,13 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		space.IsPending = false
 		db.SaveSpace(space)
-		if client != nil {
-			client.UpdateSpace(space)
-		}
+		origin.UpdateSpace(space)
 
-		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
+		log.Error().Msgf("DeleteSpaceJob: failed to delete space %s", err.Error())
+		return err
 	}
 
-	w.WriteHeader(http.StatusOK)
+	return nil
 }
 
 func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
@@ -782,27 +755,29 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// Mark the space as pending and save it
+			space.IsPending = true
+			if err = db.SaveSpace(space); err != nil {
+				log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+
+			origin.UpdateSpace(space)
+
 			if template.LocalContainer {
 				err = containerClient.DeleteSpaceJob(space)
 			} else {
 				err = nomadClient.DeleteSpaceJob(space)
 			}
 			if err != nil {
+				space.IsPending = false
+				db.SaveSpace(space)
+				origin.UpdateSpace(space)
+
 				log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
-			} else {
-				// If remote then need to update status on remote
-				remoteClient := r.Context().Value("remote_client")
-				if remoteClient != nil {
-					client := remoteClient.(*apiclient.ApiClient)
-					code, err := client.UpdateSpace(space)
-					if err != nil {
-						log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
-						rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
-						return
-					}
-				}
 			}
 		}
 	}

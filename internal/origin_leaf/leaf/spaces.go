@@ -36,7 +36,7 @@ func UpdateSpace(space *model.Space) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
-	// Send the user to all followers
+	// Send the space to all followers
 	for _, session := range session {
 		session.UpdateSpace(space)
 	}

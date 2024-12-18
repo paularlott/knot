@@ -108,6 +108,15 @@ var createCmd = &cobra.Command{
 			}
 		}
 
+		schedule := []apiclient.TemplateDetailsDay{}
+		for i := 0; i < 7; i++ {
+			schedule = append(schedule, apiclient.TemplateDetailsDay{
+				Enabled: false,
+				From:    "12:00am",
+				To:      "11:59pm",
+			})
+		}
+
 		// Create the template
 		_, _, err = client.CreateTemplate(
 			args[0],
@@ -123,6 +132,8 @@ var createCmd = &cobra.Command{
 			viper.GetBool("with-ssh"),
 			viper.GetUint32("compute-units"),
 			viper.GetUint32("storage-units"),
+			false,
+			&schedule,
 		)
 		if err != nil {
 			fmt.Println("Error creating template: ", err)

@@ -61,19 +61,6 @@
           </select>
           <div class="description">The shell that will be used when you open a web terminal in this space.</div>
         </div>
-        <div x-show="!isEdit && hasEditableVolumeSizes">
-          <label for="name" class="form-label">Volume Size(s)</label>
-          <ul class="list-none">
-            <template x-for="(vs, idx) in volume_sizes" :key="idx">
-              <li x-show="vs.capacity_min != vs.capacity_max">
-                <label x-text="volume_size_label[vs.id].label" class="form-label"></label>
-                <input type="number" class="form-field" :class="{'form-field-error': !volume_size_valid[vs.id]}" :min="vs.capacity_min" :max="vs.capacity_max" :disabled="isEdit || vs.capacity_min == vs.capacity_max" :readonly="isEdit || vs.capacity_min == vs.capacity_max"  placeholder="Volume Size in GB" x-model="formData.volume_sizes[vs.id]" @blur.debounce.500ms="checkVolumeSize(vs.id)" />
-                <div x-show="!volume_size_valid[vs.id]" class="error-message" x-cloak>Please enter a valid volume size in GB.</div>
-                <div class="description" x-show="vs.capacity_min != vs.capacity_max">Between <span x-text="vs.capacity_min"></span>GB and <span x-text="vs.capacity_max"></span>GB</div>
-              </li>
-            </template>
-          </ul>
-        </div>
 
         <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
         <button type="submit" class="btn-primary" x-show="isEdit" x-on:click="stayOnPage=false">Save</button>

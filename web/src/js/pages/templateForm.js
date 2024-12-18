@@ -16,6 +16,44 @@ window.templateForm = function(isEdit, templateId) {
       with_ssh: false,
       compute_units: 0,
       storage_units: 0,
+      schedule_enabled: false,
+      schedule: [
+        {
+          enabled: false,
+          from: "12:00am",
+          to: "11:59pm",
+        },
+        {
+          enabled: false,
+          from: "12:00am",
+          to: "11:59pm",
+        },
+        {
+          enabled: false,
+          from: "12:00am",
+          to: "11:59pm",
+        },
+        {
+          enabled: false,
+          from: "12:00am",
+          to: "11:59pm",
+        },
+        {
+          enabled: false,
+          from: "12:00am",
+          to: "11:59pm",
+        },
+        {
+          enabled: false,
+          from: "12:00am",
+          to: "11:59pm",
+        },
+        {
+          enabled: false,
+          from: "12:00am",
+          to: "11:59pm",
+        },
+      ],
     },
     loading: true,
     isEdit: isEdit,
@@ -27,8 +65,22 @@ window.templateForm = function(isEdit, templateId) {
     computeUnitsValid: true,
     storageUnitsValid: true,
     groups: [],
+    fromHours: [],
+    toHours: [],
 
     async initData() {
+
+      for (let hour = 0; hour < 24; hour++) {
+        for (let minute = 0; minute < 60; minute += 15) {
+          let period = hour < 12 || hour === 24 ? 'am' : 'pm';
+          let displayHour = hour % 12 === 0 ? 12 : hour % 12;
+          let displayMinute = minute === 0 ? '00' : minute;
+          this.fromHours.push(`${displayHour}:${displayMinute}${period}`);
+          this.toHours.push(`${displayHour}:${displayMinute}${period}`);
+        }
+      }
+      this.toHours.push('11:59pm');
+
       const groupsResponse = await fetch('/api/v1/groups', {
         headers: {
           'Content-Type': 'application/json'
@@ -61,7 +113,9 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.with_code_server = template.with_code_server;
           this.formData.with_ssh = template.with_ssh;
           this.formData.compute_units = template.compute_units;
-          this.formData.storage_units = template.storage_units
+          this.formData.storage_units = template.storage_units;
+          this.formData.schedule_enabled = template.schedule_enabled;
+          this.formData.schedule = template.schedule;
         }
       }
 
@@ -169,6 +223,12 @@ window.templateForm = function(isEdit, templateId) {
     toggleWithSSH() {
       this.formData.with_ssh = !this.formData.with_ssh;
     },
+    toggleSchduleEnabled() {
+      this.formData.schedule_enabled = !this.formData.schedule_enabled;
+    },
+    toggleDaySchedule(day) {
+      this.formData.schedule[day].enabled = !this.formData.schedule[day].enabled;
+    },
     checkName() {
       return this.nameValid = validate.name(this.formData.name);
     },
@@ -208,6 +268,8 @@ window.templateForm = function(isEdit, templateId) {
         with_ssh: this.formData.with_ssh,
         compute_units: parseInt(this.formData.compute_units),
         storage_units: parseInt(this.formData.storage_units),
+        schedule_enabled: this.formData.schedule_enabled,
+        schedule: this.formData.schedule,
       };
 
       if(!isEdit) {
@@ -248,5 +310,8 @@ window.templateForm = function(isEdit, templateId) {
           this.loading = false;
         })
     },
+    getDayOfWeek(day) {
+      return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day];
+    }
   }
 }

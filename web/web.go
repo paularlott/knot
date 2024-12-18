@@ -380,5 +380,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"isLeaf":                    server_info.IsLeaf,
 		"isOriginOrLeaf":            server_info.IsOrigin || server_info.IsLeaf,
 		"isRestrictedServer":        server_info.RestrictedLeaf,
+		"timezone":                  server_info.Timezone,
 	}
 }

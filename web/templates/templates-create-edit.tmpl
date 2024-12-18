@@ -71,6 +71,42 @@
           <p class="description">The number of storage units this template uses.<br />Once a space is created and started the storage units are counted against the user.</p>
           <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
         </div>
+
+        <div>
+          <label class="flex items-center cursor-pointer mb-2">
+            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.schedule_enabled" @change="toggleSchduleEnabled()">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Schedule</span>
+          </label>
+        </div>
+        <div x-show="formData.schedule_enabled" x-clock>
+          <template x-for="index in 7" :key="index">
+            <div class="grid grid-cols-3 gap-4 w-full max-w-xl">
+              <div class="col-span-1">
+                <label class="flex items-center cursor-pointer mb-2 py-2.5">
+                  <input type="checkbox" class="sr-only peer" value="1" :checked="formData.schedule[index % 7].enabled" @change="toggleDaySchedule(index % 7)">
+                  <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                  <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="getDayOfWeek(index % 7)"></span>
+                </label>
+              </div>
+              <div class="col-span-1">
+                <select class="form-field bg-white" :class="{'opacity-40': !formData.schedule[index % 7].enabled}" name="user" x-model="formData.schedule[index % 7].from">
+                  <template x-for="hour in fromHours" :key="hour">
+                    <option x-text="hour" :value="hour" x-bind:selected="hour == formData.schedule[index % 7].from"></option>
+                  </template>
+                </select>
+              </div>
+              <div class="col-span-1">
+                <select class="form-field bg-white" :class="{'opacity-40': !formData.schedule[index % 7].enabled}" name="user" x-model="formData.schedule[index % 7].to">
+                  <template x-for="hour in toHours" :key="hour">
+                    <option x-text="hour" :value="hour" x-bind:selected="hour == formData.schedule[index % 7].to"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
+          </template>
+          <div class="description text-right max-w-xl">All times are in {{ .timezone }}.</div>
+        </div>
         <div>
           <label class="form-label">Features</label>
           <label class="flex items-center cursor-pointer mb-2">

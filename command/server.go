@@ -54,6 +54,7 @@ func init() {
 	serverCmd.Flags().StringP("template-path", "", "", "The optional path to the template files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TEMPLATE_PATH environment variable if set.")
 	serverCmd.Flags().StringP("agent-path", "", "", "The optional path to the agent files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_PATH environment variable if set.")
 	serverCmd.Flags().BoolP("enable-leaf-api-tokens", "", false, "Allow the leaf servers to use an API token for authentication with the origin server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_LEAF_API_TOKENS environment variable if set.")
+	serverCmd.Flags().StringP("timezone", "", "", "The timezone to use for the server (default is system timezone).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TIMEZONE environment variable if set.")
 
 	// DNS Server
 	serverCmd.Flags().BoolP("enable-dns", "", false, "Experimental. Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
@@ -207,6 +208,10 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("tls_skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
 		viper.SetDefault("tls_skip_verify", true)
 
+		viper.BindPFlag("server.timezone", cmd.Flags().Lookup("timezone"))
+		viper.BindEnv("server.timezone", config.CONFIG_ENV_PREFIX+"_TIMEZONE")
+		viper.SetDefault("server.timezone", "")
+
 		// DNS
 		viper.BindPFlag("server.dns.enabled", cmd.Flags().Lookup("enable-dns"))
 		viper.BindEnv("server.dns.enabled", config.CONFIG_ENV_PREFIX+"_ENABLE_DNS")
@@ -312,8 +317,14 @@ var serverCmd = &cobra.Command{
 		log.Info().Msgf("server: starting knot version: %s", build.Version)
 		log.Info().Msgf("server: starting on: %s", listen)
 
-		// set the server location
+		// set the server location and timezone
 		server_info.LeafLocation = viper.GetString("server.location")
+		server_info.Timezone = viper.GetString("server.timezone")
+
+		if server_info.Timezone == "" {
+			server_info.Timezone, _ = time.Now().Zone()
+		}
+		log.Info().Msgf("server: timezone: %s", server_info.Timezone)
 
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()

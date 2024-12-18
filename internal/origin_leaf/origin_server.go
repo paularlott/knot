@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util"
 
 	"github.com/google/uuid"
@@ -54,6 +55,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 		RestrictedNode: token != nil,
 		Version:        build.Version,
 		Location:       registerMsg.Location,
+		Timezone:       server_info.Timezone,
 	}
 
 	// if using an API token then generate the location

@@ -12,4 +12,5 @@ type RegisterResponse struct {
 	RestrictedNode bool // flags the node is registered as a restricted node
 	Version        string
 	Location       string
+	Timezone       string
 }

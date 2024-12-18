@@ -109,6 +109,9 @@ func LeafConnectAndServe(server string) {
 				log.Info().Msg("leaf: registered as a restricted node")
 			}
 
+			server_info.Timezone = registerResponse.Timezone
+			log.Info().Msgf("leaf: origin server timezone: %s", server_info.Timezone)
+
 			// Request origin server to sync resources
 			requestTemplatesFromOrigin()
 			requestTemplateVarsFromOrigin()

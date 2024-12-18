@@ -870,6 +870,8 @@ paths:
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
+        '503':
+          $ref: '#/components/responses/service-unavailable'
         '507':
           $ref: '#/components/responses/insufficient-storage'
       security:
@@ -1903,6 +1905,9 @@ components:
           type: integer
           format: uint32
           description: The number of storage units used by spaces created from the template.
+        schedule_enabled:
+          type: boolean
+          description: If the template has a schedule enabled.
 
     TemplateList:
       type: object
@@ -1966,6 +1971,16 @@ components:
           type: integer
           format: uint32
           description: The number of storage units used by spaces created from the template.
+        schedule_enabled:
+          type: boolean
+          description: If the template has a schedule enabled.
+        schedule:
+          type: array
+          description: The schedule for the template.
+          minItems: 7
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TemplateDetailsDay'
 
     TemplateUpdateRequest:
       type: object
@@ -2011,6 +2026,16 @@ components:
           type: integer
           format: uint32
           description: The number of storage units used by spaces created from the template.
+        schedule_enabled:
+          type: boolean
+          description: If the template has a schedule enabled.
+        schedule:
+          type: array
+          description: The schedule for the template.
+          minItems: 7
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TemplateDetailsDay'
 
     TemplateDetails:
       type: object
@@ -2043,24 +2068,6 @@ components:
             format: uuid
             example: 00000000-0000-0000-0000-000000000000
           description: The IDs of the groups assigned to the template.
-        volume_sizes:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-                format: uuid
-                description: The ID of the volume.
-              name:
-                type: string
-                description: The name of the volume.
-              capacity_min:
-                type: integer
-                description: The minimum capacity of the volume in GB
-              capacity_max:
-                type: integer
-                description: The maximum capacity of the volume in GB
         local_container:
           type: boolean
           description: If the template is a local container template, docker or podman.
@@ -2087,6 +2094,31 @@ components:
           type: integer
           format: uint32
           description: The number of storage units used by spaces created from the template.
+        schedule_enabled:
+          type: boolean
+          description: If the template has a schedule enabled.
+        schedule:
+          type: array
+          description: The schedule for the template.
+          minItems: 7
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TemplateDetailsDay'
+
+    TemplateDetailsDay:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: If the schedule is enabed for the day.
+        from:
+          type: string
+          description: The start time of the schedule.
+          example: "8:00am"
+        to:
+          type: string
+          description: The end time of the schedule.
+          example: "5:00pm"
 
     TemplateVar:
       type: object
@@ -2546,6 +2578,12 @@ components:
             $ref: '#/components/schemas/error'
     not-acceptable:
       description: Not Acceptable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+    service-unavailable:
+      description: Service Unavailable
       content:
         application/json:
           schema:

@@ -5,7 +5,6 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 
@@ -215,9 +214,6 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 					}
 
 					origin.UpdateSpace(space)
-
-					// Delete the agent state
-					agent_server.RemoveSession(space.Id)
 
 					break
 				}

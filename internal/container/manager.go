@@ -1,6 +1,8 @@
 package container
 
-import "github.com/paularlott/knot/database/model"
+import (
+	"github.com/paularlott/knot/database/model"
+)
 
 type ContainerManager interface {
 	// space management
