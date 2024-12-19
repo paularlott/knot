@@ -27,10 +27,10 @@ import (
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/util/hostrouter"
 	"github.com/paularlott/knot/web"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/hostrouter"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

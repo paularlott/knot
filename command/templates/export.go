@@ -1,6 +1,7 @@
 package command_templates
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -10,9 +11,13 @@ import (
 	"github.com/spf13/viper"
 )
 
+type TemplateExport struct {
+	TemplateId string                     `json:"template_id"`
+	Template   *apiclient.TemplateDetails `json:"template"`
+}
+
 func init() {
-	exportCmd.Flags().StringP("job", "j", "", "The file to save the nomad job description in.")
-	exportCmd.Flags().StringP("volume", "v", "", "The YAML file to save the volume description in.")
+	exportCmd.Flags().StringP("output", "o", "", "The file to save the template in.")
 }
 
 var exportCmd = &cobra.Command{
@@ -21,9 +26,6 @@ var exportCmd = &cobra.Command{
 	Long:  `Export the template job and storage definition to files.`,
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		jobFile := cmd.Flags().Lookup("job").Value.String()
-		volumeFile := cmd.Flags().Lookup("volume").Value.String()
-
 		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
 
 		// Get a list of available templates
@@ -54,25 +56,28 @@ var exportCmd = &cobra.Command{
 			return
 		}
 
-		// If job file given, write to file
-		if jobFile != "" {
-			err = saveFile(jobFile, template.Job)
+		tpl := TemplateExport{
+			TemplateId: templateId,
+			Template:   template,
+		}
+
+		// JSON Encode the template data
+		templateData, err := json.MarshalIndent(tpl, "", "  ")
+		if err != nil {
+			fmt.Println("Error encoding template: ", err)
+			return
+		}
+
+		outputFile := cmd.Flags().Lookup("output").Value.String()
+		if outputFile == "" {
+			fmt.Println(string(templateData))
+		} else {
+			err = saveFile(outputFile, string(templateData))
 			if err != nil {
-				fmt.Println("Error saving job file: ", err)
+				fmt.Println("Error saving template file: ", err)
 				return
 			}
 		}
-
-		// If volume file given, write to file
-		if volumeFile != "" {
-			err = saveFile(volumeFile, template.Volumes)
-			if err != nil {
-				fmt.Println("Error saving volume file: ", err)
-				return
-			}
-		}
-
-		fmt.Println("Template exported: ", args[0])
 	},
 }
 
