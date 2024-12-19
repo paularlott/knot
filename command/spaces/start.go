@@ -48,9 +48,16 @@ var startCmd = &cobra.Command{
 		}
 
 		// Start the space
-		_, err = client.StartSpace(spaceId)
+		code, err := client.StartSpace(spaceId)
 		if err != nil {
-			fmt.Println("Error starting space: ", err)
+			if code == 503 {
+				fmt.Println("Cannot start space as outside of schedule")
+			} else if code == 507 {
+				fmt.Println("Cannot start space as resource quota exceeded")
+			} else {
+				fmt.Println("Error starting space: ", err)
+			}
+
 			return
 		}
 

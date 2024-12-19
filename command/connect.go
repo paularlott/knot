@@ -87,10 +87,10 @@ var connectCmd = &cobra.Command{
 			if username == "" {
 
 				// Prompt the user to enter their username
-				fmt.Print("Enter username: ")
+				fmt.Print("Enter email: ")
 				_, err = fmt.Scanln(&username)
 				if err != nil {
-					fmt.Println("Failed to read username")
+					fmt.Println("Failed to read email address")
 					os.Exit(1)
 				}
 			}

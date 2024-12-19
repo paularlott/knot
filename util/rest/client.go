@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database/model"
 
-	"github.com/rs/zerolog/log"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -183,8 +183,7 @@ func (c *RESTClient) SendData(method string, path string, request interface{}, r
 		}
 		bodyString := string(bodyBytes)
 
-		log.Debug().Msgf("rest: %s, status: %d, error: %s", path, resp.StatusCode, bodyString)
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d, %w", resp.StatusCode, fmt.Errorf(bodyString))
+		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %w", resp.StatusCode, errors.New(bodyString))
 	}
 
 	if response == nil {
