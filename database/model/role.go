@@ -69,6 +69,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionManageVolumes,
 			PermissionManageGroups,
 			PermissionManageRoles,
+			PermissionManageVariables,
 		},
 	}
 
