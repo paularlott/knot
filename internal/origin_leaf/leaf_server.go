@@ -115,6 +115,7 @@ func LeafConnectAndServe(server string) {
 			// Request origin server to sync resources
 			requestTemplatesFromOrigin()
 			requestTemplateVarsFromOrigin()
+			requestRolesFromOrigin()
 
 			// Request sync from the origin server
 			db := database.GetInstance()
@@ -280,6 +281,24 @@ func LeafConnectAndServe(server string) {
 						break
 					}
 
+				case msg.MSG_UPDATE_ROLE:
+					err := leaf_server.HandleUpdateRole(ws)
+					if err != nil {
+						log.Error().Msgf("leaf: error updating role: %s", err)
+						ws.Close()
+						time.Sleep(3 * time.Second)
+						break
+					}
+
+				case msg.MSG_DELETE_ROLE:
+					err := leaf_server.HandleDeleteRole(ws)
+					if err != nil {
+						log.Error().Msgf("leaf: error deleting role: %s", err)
+						ws.Close()
+						time.Sleep(3 * time.Second)
+						break
+					}
+
 				default:
 					log.Error().Msgf("leaf: unknown command: %d", cmd)
 					ws.Close()
@@ -297,6 +316,8 @@ func LeafConnectAndServe(server string) {
 
 // request the origin server to send all template hashes
 func requestTemplatesFromOrigin() {
+	log.Info().Msg("leaf: requesting sync of templates from origin server")
+
 	syncTemplates := &msg.SyncTemplates{
 		Existing: []string{},
 	}
@@ -323,6 +344,8 @@ func requestTemplatesFromOrigin() {
 
 // request template vars from the origin server
 func requestTemplateVarsFromOrigin() {
+	log.Info().Msg("leaf: requesting sync of variables from origin server")
+
 	syncTemplateVars := &msg.SyncTemplateVars{
 		Existing: []string{},
 	}
@@ -380,6 +403,17 @@ func pingOrigin() {
 func bootstrapMarker() {
 	message := &msg.ClientMessage{
 		Command: msg.MSG_BOOTSTRAP,
+		Payload: nil,
+	}
+
+	origin.OriginChannel <- message
+}
+
+func requestRolesFromOrigin() {
+	log.Info().Msg("leaf: requesting sync of roles from origin server")
+
+	message := &msg.ClientMessage{
+		Command: msg.MSG_SYNC_ROLES,
 		Payload: nil,
 	}
 

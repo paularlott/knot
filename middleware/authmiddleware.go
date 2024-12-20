@@ -170,11 +170,37 @@ func ApiPermissionManageVolumes(next http.Handler) http.Handler {
 	})
 }
 
+func ApiPermissionManageVariables(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionManageVariables) {
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage variables"})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func ApiPermissionManageUsers(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if HasUsers {
 			user := r.Context().Value("user").(*model.User)
 			if HasUsers && !user.HasPermission(model.PermissionManageUsers) {
+				rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func ApiPermissionManageUsersOrSpaces(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if HasUsers {
+			user := r.Context().Value("user").(*model.User)
+			if HasUsers && !user.HasPermission(model.PermissionManageUsers) && !user.HasPermission(model.PermissionManageSpaces) {
 				rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
 				return
 			}
@@ -190,6 +216,30 @@ func ApiPermissionManageUsersOrSelf(next http.Handler) http.Handler {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageUsers) && user.Id != userId {
 			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func ApiPermissionManageGroups(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionManageGroups) {
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage groups"})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func ApiPermissionManageRoles(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionManageRoles) {
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage roles"})
 			return
 		}
 

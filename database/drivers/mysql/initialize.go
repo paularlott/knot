@@ -169,6 +169,20 @@ INDEX location (location)
 		return err
 	}
 
+	log.Debug().Msg("db: creating roles table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS roles (
+role_id CHAR(36) PRIMARY KEY,
+name VARCHAR(64),
+permissions JSON DEFAULT NULL,
+created_user_id CHAR(36),
+created_at TIMESTAMP,
+updated_user_id CHAR(36),
+updated_at TIMESTAMP
+)`)
+	if err != nil {
+		return err
+	}
+
 	log.Debug().Msg("db: MySQL is initialized")
 
 	// Add a task to clean up expired sessions

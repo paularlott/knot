@@ -9,14 +9,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func HandleGroupCreate(w http.ResponseWriter, r *http.Request) {
+func HandleRoleCreate(w http.ResponseWriter, r *http.Request) {
 	user, data := getCommonTemplateData(r)
-	if !user.HasPermission(model.PermissionManageGroups) {
+	if !user.HasPermission(model.PermissionManageRoles) {
 		showPageForbidden(w, r)
 		return
 	}
 
-	tmpl, err := newTemplate("group-create-edit.tmpl")
+	tmpl, err := newTemplate("role-create-edit.tmpl")
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -31,14 +31,14 @@ func HandleGroupCreate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HandleGroupEdit(w http.ResponseWriter, r *http.Request) {
+func HandleRoleEdit(w http.ResponseWriter, r *http.Request) {
 	user, data := getCommonTemplateData(r)
-	if !user.HasPermission(model.PermissionManageGroups) {
+	if !user.HasPermission(model.PermissionManageRoles) {
 		showPageForbidden(w, r)
 		return
 	}
 
-	tmpl, err := newTemplate("group-create-edit.tmpl")
+	tmpl, err := newTemplate("role-create-edit.tmpl")
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -46,7 +46,7 @@ func HandleGroupEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data["isEdit"] = true
-	data["groupId"] = chi.URLParam(r, "group_id")
+	data["roleId"] = chi.URLParam(r, "role_id")
 
 	err = tmpl.Execute(w, data)
 	if err != nil {

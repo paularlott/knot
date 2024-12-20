@@ -79,6 +79,12 @@ type IDbDriver interface {
 	DeleteVolume(volume *model.Volume) error
 	GetVolume(id string) (*model.Volume, error)
 	GetVolumes() ([]*model.Volume, error)
+
+	// Roles
+	SaveRole(role *model.Role) error
+	DeleteRole(role *model.Role) error
+	GetRole(id string) (*model.Role, error)
+	GetRoles() ([]*model.Role, error)
 }
 
 // Initialize the database drivers

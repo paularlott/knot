@@ -44,7 +44,8 @@ window.userForm = function(isEdit, userId, isProfile) {
           'Content-Type': 'application/json'
         }
       });
-      this.roles = await rolesResponse.json();
+      let roleList = await rolesResponse.json();
+      this.roles = roleList.roles;
 
       const groupsResponse = await fetch('/api/v1/groups', {
         headers: {

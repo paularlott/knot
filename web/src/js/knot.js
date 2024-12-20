@@ -14,6 +14,8 @@ import './pages/userGroupForm.js';
 import './pages/createTokenForm.js';
 import './pages/apiTokensComponent.js';
 import './pages/groupListComponent.js';
+import './pages/rolesListComponent.js';
+import './pages/userRolesForm.js';
 import './pages/sessionsListComponent.js';
 import './pages/templateListComponent.js';
 import './pages/templateForm.js';

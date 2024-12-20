@@ -66,11 +66,11 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check roles give are present in the system
+	// Check roles give are present in the system, if not drop them
+	userRoles := []string{}
 	for _, role := range request.Roles {
-		if !model.RoleExists(role) {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Role %s does not exist", role)})
-			return
+		if model.RoleExists(role) {
+			userRoles = append(userRoles, role)
 		}
 	}
 
@@ -96,7 +96,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Create the user
-		userNew := model.NewUser(request.Username, request.Email, request.Password, request.Roles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.GitHubUsername, request.ComputeUnits, request.StorageUnits)
+		userNew := model.NewUser(request.Username, request.Email, request.Password, userRoles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.GitHubUsername, request.ComputeUnits, request.StorageUnits)
 		if request.ServicePassword != "" {
 			userNew.ServicePassword = request.ServicePassword
 		}
@@ -412,11 +412,11 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Check roles give are present in the system
+		// Check roles give are present in the system, if not drop them
+		userRoles := []string{}
 		for _, role := range request.Roles {
-			if !model.RoleExists(role) {
-				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Role %s does not exist", role)})
-				return
+			if model.RoleExists(role) {
+				userRoles = append(userRoles, role)
 			}
 		}
 
@@ -424,7 +424,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			user.Active = request.Active
 		}
 
-		user.Roles = request.Roles
+		user.Roles = userRoles
 		user.Groups = request.Groups
 		user.MaxSpaces = request.MaxSpaces
 		user.ComputeUnits = request.ComputeUnits

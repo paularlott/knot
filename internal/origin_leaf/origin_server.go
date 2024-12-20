@@ -177,6 +177,14 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+		case msg.MSG_SYNC_ROLES:
+			log.Debug().Msg("origin: sync roles")
+			err := originHandleSyncRoles(ws, leafSession)
+			if err != nil {
+				log.Error().Msgf("origin: error while handling sync roles: %s", err)
+				return
+			}
+
 		default:
 			log.Error().Msgf("origin: unknown command: %d", cmd)
 			return
@@ -444,6 +452,16 @@ func originHandleDeleteToken(ws *websocket.Conn, accessToken *model.Token) error
 	if err == nil && token != nil && token.UserId == data.UserId && (accessToken == nil || token.UserId == accessToken.UserId) {
 		log.Debug().Msgf("origin: deleting token %s", token.Id)
 		return db.DeleteToken(token)
+	}
+
+	return nil
+}
+
+// origin server handler to process sync roles messages
+func originHandleSyncRoles(ws *websocket.Conn, session *leaf.Session) error {
+	roles := model.GetRolesFromCache()
+	for _, role := range roles {
+		session.UpdateRole(role)
 	}
 
 	return nil

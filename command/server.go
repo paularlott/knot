@@ -18,6 +18,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/nomad"
@@ -338,6 +339,13 @@ var serverCmd = &cobra.Command{
 
 			// start keep alive for remote sessions
 			remoteSessionKeepAlive()
+		} else {
+			// Load roles into memory cache
+			roles, err := database.GetInstance().GetRoles()
+			if err != nil {
+				log.Fatal().Msgf("server: failed to get roles: %s", err.Error())
+			}
+			model.SetRoleCache(roles)
 		}
 
 		// Check for local spaces that are pending state changes and setup watches

@@ -40,7 +40,7 @@ window.templateListComponent = function(canManageSpaces) {
             'Content-Type': 'application/json'
           }
         });
-        usersList = await usersResponse.json();
+        let usersList = await usersResponse.json();
         this.users = usersList.users;
       }
 

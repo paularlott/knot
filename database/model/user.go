@@ -82,12 +82,12 @@ func (u *User) CheckPassword(password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)) == nil
 }
 
-func (u *User) HasPermission(permission int) bool {
+func (u *User) HasPermission(permission uint16) bool {
 	for _, role := range u.Roles {
 
 		// If role exists in rolePermissions map then check if the permission belongs to the role
-		if permissions, ok := rolePermissions[role]; ok {
-			for _, p := range permissions {
+		if r, ok := roleCache[role]; ok {
+			for _, p := range r.Permissions {
 				if p == permission {
 					return true
 				}

@@ -270,6 +270,27 @@ paths:
       security:
         - BearerAuth: []
 
+  /api/v1/permissions:
+    get:
+      summary: Get Permissions
+      description: Retrieve all permissions.
+      operationId: getPermissions
+      tags:
+        - Permissions
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionInfoList'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+
   /api/v1/groups:
     get:
       summary: Get Groups
@@ -440,6 +461,132 @@ paths:
                       type: string
         '401':
           $ref: '#/components/responses/unauthorized'
+      security:
+        - BearerAuth: []
+
+
+    post:
+      summary: Create a Group
+      description: Create a new group.
+      operationId: createGroup
+      tags:
+        - Groups
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRoleRequest'
+      responses:
+        '201':
+          description: Group created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+      security:
+        - BearerAuth: []
+
+  /api/v1/roles/{role_id}:
+    put:
+      summary: Update a Role
+      description: Update a role.
+      operationId: updateRole
+      tags:
+        - Roles
+      parameters:
+        - name: role_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the role to update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRoleRequest'
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+
+    delete:
+      summary: Delete Role
+      description: Delete a specified role.
+      tags:
+        - Roles
+      operationId: deleteRole
+      parameters:
+        - in: path
+          name: role_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the role to delete.
+      responses:
+        '200':
+          description: Successful operation.
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+
+    get:
+      summary: Get a Role
+      description: Get a role.
+      operationId: getRole
+      tags:
+        - Roles
+      parameters:
+        - in: path
+          name: grole_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the role to get.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDetails'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
       security:
         - BearerAuth: []
 
@@ -1591,6 +1738,28 @@ components:
           type: boolean
           description: The status of the operation, true if successful logout.
 
+    PermissionInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The ID of the permission.
+        name:
+          type: string
+          description: The name of the permission.
+
+    PermissionInfoList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 1
+          description: The total number of permissions.
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionInfo'
+
     GroupInfo:
       type: object
       properties:
@@ -1633,6 +1802,58 @@ components:
           type: string
           format: uuid
           description: The ID of the group.
+
+    RoleDetails:
+      type: object
+      properties:
+        role_id:
+          type: string
+          format: uuid
+          description: The ID of the role.
+        name:
+          type: string
+          description: The name of the role.
+        permissions:
+          type: array
+          items:
+            type: integer
+          description: The permissions of the role.
+
+    RoleInfo:
+      type: object
+      properties:
+        role_id:
+          type: string
+          format: uuid
+          description: The ID of the role.
+        name:
+          type: string
+          description: The name of the role.
+
+    UserRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "my role"
+          maxLength: 64
+          description: The name of the role.
+        permissions:
+          type: array
+          items:
+            type: integer
+          description: The permissions of the role.
+
+    RoleResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+          description: The status of the operation, true if successful.
+        role_id:
+          type: string
+          format: uuid
+          description: The ID of the role.
 
     LookupResponse:
       type: object

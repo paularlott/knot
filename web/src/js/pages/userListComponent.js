@@ -35,7 +35,8 @@ window.userListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      this.roles = await rolesResponse.json();
+      let roleList = await rolesResponse.json();
+      this.roles = roleList.roles;
 
       const groupsResponse = await fetch('/api/v1/groups', {
         headers: {
@@ -68,8 +69,8 @@ window.userListComponent = function() {
         user.role_names = [];
         user.roles.forEach(roleId => {
           this.roles.forEach(role => {
-            if (role.id_role === roleId) {
-              user.role_names.push(role.role_name);
+            if (role.role_id === roleId) {
+              user.role_names.push(role.name);
             }
           });
         });

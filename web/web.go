@@ -186,7 +186,7 @@ func Routes() chi.Router {
 		router.Get("/templates", HandleSimplePage)
 
 		router.Route("/variables", func(router chi.Router) {
-			router.Use(checkPermissionManageTemplates)
+			router.Use(checkPermissionManageVariables)
 
 			router.Get("/", HandleSimplePage)
 			router.Get("/create", HandleTemplateVarCreate)
@@ -202,11 +202,19 @@ func Routes() chi.Router {
 		})
 
 		router.Route("/groups", func(router chi.Router) {
-			router.Use(checkPermissionManageUsers)
+			router.Use(checkPermissionManageGroups)
 
 			router.Get("/", HandleSimplePage)
 			router.Get("/create", HandleGroupCreate)
 			router.Get("/edit/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGroupEdit)
+		})
+
+		router.Route("/roles", func(router chi.Router) {
+			router.Use(checkPermissionManageRoles)
+
+			router.Get("/", HandleSimplePage)
+			router.Get("/create", HandleRoleCreate)
+			router.Get("/edit/{role_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleRoleEdit)
 		})
 
 		router.Route("/volumes", func(router chi.Router) {
@@ -370,7 +378,10 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"user_id":                   user.Id,
 		"withDownloads":             withDownloads,
 		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers) && !server_info.RestrictedLeaf,
+		"permissionManageGroups":    user.HasPermission(model.PermissionManageGroups) && !server_info.RestrictedLeaf,
+		"permissionManageRoles":     user.HasPermission(model.PermissionManageRoles) && !server_info.RestrictedLeaf,
 		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates) && !server_info.RestrictedLeaf,
+		"permissionManageVariables": user.HasPermission(model.PermissionManageVariables) && !server_info.RestrictedLeaf,
 		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces) && !server_info.RestrictedLeaf,
 		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes) || server_info.RestrictedLeaf,
 		"version":                   build.Version,

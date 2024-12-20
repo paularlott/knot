@@ -22,10 +22,8 @@ func ApiRoutes() chi.Router {
 
 		// Users
 		router.Route("/users", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionManageUsers)
-
-			router.Post("/", HandleCreateUser)
-			router.Get("/", HandleGetUsers)
+			router.With(middleware.ApiPermissionManageUsers).Post("/", HandleCreateUser)
+			router.With(middleware.ApiPermissionManageUsersOrSpaces).Get("/", HandleGetUsers)
 		})
 		router.Get("/users/whoami", HandleWhoAmI)
 		router.Route("/users/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
@@ -39,7 +37,7 @@ func ApiRoutes() chi.Router {
 
 		// Groups
 		router.Route("/groups", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionManageUsers)
+			router.Use(middleware.ApiPermissionManageGroups)
 
 			router.Post("/", HandleCreateGroup)
 			router.Put("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateGroup)
@@ -48,7 +46,18 @@ func ApiRoutes() chi.Router {
 		})
 		router.Get("/groups", HandleGetGroups)
 
+		// Permissions
+		router.Get("/permissions", HandleGetPermissions)
+
 		// Roles
+		router.Route("/roles", func(router chi.Router) {
+			router.Use(middleware.ApiPermissionManageRoles)
+
+			router.Post("/", HandleCreateRole)
+			router.Put("/{role_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateRole)
+			router.Delete("/{role_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteRole)
+			router.Get("/{role_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetRole)
+		})
 		router.Get("/roles", HandleGetRoles)
 
 		// Sessions
@@ -106,7 +115,7 @@ func ApiRoutes() chi.Router {
 
 		// Template Variables
 		router.Route("/templatevars", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionManageTemplates)
+			router.Use(middleware.ApiPermissionManageVariables)
 
 			router.Get("/", HandleGetTemplateVars)
 			router.Post("/", HandleCreateTemplateVar)
