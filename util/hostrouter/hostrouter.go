@@ -1,5 +1,10 @@
 package hostrouter
 
+/**
+ * Originally from https://github.com/go-chi/hostrouter
+ * Fix to work with the latest version of Chi
+ */
+
 import (
 	"net/http"
 	"strings"
