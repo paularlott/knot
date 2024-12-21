@@ -3,10 +3,16 @@ window.userGroupForm = function(isEdit, groupId) {
   return {
     formData: {
       name: "",
+      max_spaces: 0,
+      compute_units: 0,
+      storage_units: 0,
     },
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create Group',
     nameValid: true,
+    maxSpacesValid: true,
+    computeUnitsValid: true,
+    storageUnitsValid: true,
     isEdit: isEdit,
     stayOnPage: true,
 
@@ -26,6 +32,9 @@ window.userGroupForm = function(isEdit, groupId) {
           const group = await groupResponse.json();
 
           this.formData.name = group.name;
+          this.formData.max_spaces = group.max_spaces;
+          this.formData.compute_units = group.compute_units;
+          this.formData.storage_units = group.storage_units;
         }
       }
 
@@ -34,11 +43,23 @@ window.userGroupForm = function(isEdit, groupId) {
     checkName() {
       return this.nameValid = validate.maxLength(this.formData.name, 64) && validate.required(this.formData.name);
     },
+    checkMaxSpaces() {
+      return this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 10000);
+    },
+    checkComputeUnits() {
+      return this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);
+    },
+    checkStorageUnits() {
+      return this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
+    },
 
     async submitData() {
       var err = false,
           self = this;
       err = !this.checkName() || err;
+      err = !this.checkMaxSpaces() || err;
+      err = !this.checkComputeUnits() || err;
+      err = !this.checkStorageUnits() || err;
       if(err) {
         return;
       }
@@ -48,12 +69,19 @@ window.userGroupForm = function(isEdit, groupId) {
       }
       this.loading = true;
 
+      data = {
+        name: this.formData.name,
+        max_spaces: parseInt(this.formData.max_spaces),
+        compute_units: parseInt(this.formData.compute_units),
+        storage_units: parseInt(this.formData.storage_units),
+      }
+
       fetch(isEdit ? '/api/v1/groups/' + groupId : '/api/v1/groups', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(this.formData)
+          body: JSON.stringify(data)
         })
         .then((response) => {
           if (response.status === 200) {

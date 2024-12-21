@@ -230,12 +230,17 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db := database.GetInstance()
+
 	// Create the space
-	forUserId := user.Id
 	if request.UserId != "" {
-		forUserId = request.UserId
+		user, err = db.GetUser(request.UserId)
+		if err != nil {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
 	}
-	space := model.NewSpace(request.Name, forUserId, request.TemplateId, request.Shell, &request.AltNames)
+	space := model.NewSpace(request.Name, user.Id, request.TemplateId, request.Shell, &request.AltNames)
 
 	// Lock the space to the location of the server creating it
 	if request.Location == "" {
@@ -254,10 +259,44 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
+	} else {
+
+		// Get the groups and build a map
+		groups, err := db.GetGroups()
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+		groupMap := make(map[string]*model.Group)
+		for _, group := range groups {
+			groupMap[group.Id] = group
+		}
+
+		maxSpaces := user.MaxSpaces
+		for _, groupId := range user.Groups {
+			group, ok := groupMap[groupId]
+			if ok {
+				maxSpaces += group.MaxSpaces
+			}
+		}
+
+		// Get the number of spaces for the user
+		if maxSpaces > 0 {
+			spaces, err := db.GetSpacesForUser(user.Id)
+			if err != nil {
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+
+			if uint32(len(spaces)) >= maxSpaces {
+				rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "space quota exceeded"})
+				return
+			}
+		}
 	}
 
 	// Save the space
-	err = database.GetInstance().SaveSpace(space)
+	err = db.SaveSpace(space)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -450,6 +489,27 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 			NumberSpacesDeployed: usage.NumberSpacesDeployed,
 			UsedComputeUnits:     usage.ComputeUnits,
 			UsedStorageUnits:     usage.StorageUnits,
+		}
+
+		// Get the groups and build a map
+		groups, err := db.GetGroups()
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+		groupMap := make(map[string]*model.Group)
+		for _, group := range groups {
+			groupMap[group.Id] = group
+		}
+
+		// Sum the compute and storage units from groups
+		for _, groupId := range user.Groups {
+			group, ok := groupMap[groupId]
+			if ok {
+				quota.MaxSpaces += group.MaxSpaces
+				quota.ComputeUnits += group.ComputeUnits
+				quota.StorageUnits += group.StorageUnits
+			}
 		}
 	}
 

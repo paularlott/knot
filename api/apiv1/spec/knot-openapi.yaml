@@ -1770,6 +1770,18 @@ components:
         name:
           type: string
           description: The name of the group.
+        max_spaces:
+          type: integer
+          format: uint32
+          description: The maximum number of spaces the group members can have.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the group members get.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the group members get.
 
     GroupInfoList:
       type: object
@@ -1791,6 +1803,18 @@ components:
           example: "my group"
           maxLength: 64
           description: The name of the group.
+        max_spaces:
+          type: integer
+          format: uint32
+          description: The maximum number of spaces the group members can have.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the group members get.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the group members get.
 
     GroupResponse:
       type: object

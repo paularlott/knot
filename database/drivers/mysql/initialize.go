@@ -124,6 +124,9 @@ updated_at TIMESTAMP
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS groups (
 group_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
+max_spaces INT UNSIGNED NOT NULL DEFAULT 0,
+compute_units INT UNSIGNED NOT NULL DEFAULT 0,
+storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP,
 updated_user_id CHAR(36),

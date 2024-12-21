@@ -21,8 +21,6 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     altNameValid: [],
 
     async initData() {
-      var self = this;
-
       focusElement('input[name="name"]');
 
       // Fetch the available templates
@@ -31,7 +29,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           'Content-Type': 'application/json'
         }
       });
-      templateList = await templatesResponse.json();
+      let templateList = await templatesResponse.json();
       this.templates = templateList.templates;
 
       if(isEdit) {
@@ -156,7 +154,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           } else if (response.status === 201) {
             window.location.href = '/spaces';
           } else if (response.status === 507) {
-            self.$dispatch('show-alert', { msg: "Failed to create space, storage limit reached", type: 'error' });
+            self.$dispatch('show-alert', { msg: "Failed to create space, limit reached", type: 'error' });
           } else {
             response.json().then((data) => {
               self.$dispatch('show-alert', { msg: (isEdit ? "Failed to update space, " : "Failed to create space, ") + data.error, type: 'error' });

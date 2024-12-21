@@ -124,7 +124,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       return this.tzValid = validate.isOneOf(this.formData.timezone, window.Timezones);
     },
     checkMaxSpaces() {
-      return this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 1000);
+      return this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 10000);
     },
     checkComputeUnits() {
       return this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);

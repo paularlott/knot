@@ -40,8 +40,11 @@ func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
 
 		for _, group := range groups {
 			g := apiclient.GroupInfo{
-				Id:   group.Id,
-				Name: group.Name,
+				Id:           group.Id,
+				Name:         group.Name,
+				MaxSpaces:    group.MaxSpaces,
+				ComputeUnits: group.ComputeUnits,
+				StorageUnits: group.StorageUnits,
 			}
 			data.Groups = append(data.Groups, g)
 			data.Count++
@@ -65,11 +68,23 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user group name"})
 		return
 	}
+	if !validate.IsNumber(int(request.MaxSpaces), 0, 10000) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
+		return
+	}
+	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
+		return
+	}
+	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
-		code, err := client.UpdateGroup(groupId, request.Name)
+		code, err := client.UpdateGroup(groupId, request.Name, request.MaxSpaces, request.ComputeUnits, request.StorageUnits)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -86,6 +101,9 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 
 		group.Name = request.Name
 		group.UpdatedUserId = user.Id
+		group.MaxSpaces = request.MaxSpaces
+		group.ComputeUnits = request.ComputeUnits
+		group.StorageUnits = request.StorageUnits
 
 		err = db.SaveGroup(group)
 		if err != nil {
@@ -111,11 +129,23 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user group name"})
 		return
 	}
+	if !validate.IsNumber(int(request.MaxSpaces), 0, 10000) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
+		return
+	}
+	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
+		return
+	}
+	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
-		groupId, code, err := client.CreateGroup(request.Name)
+		groupId, code, err := client.CreateGroup(request.Name, request.MaxSpaces, request.ComputeUnits, request.StorageUnits)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -126,7 +156,7 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 			Id:     groupId,
 		})
 	} else {
-		group := model.NewGroup(request.Name, user.Id)
+		group := model.NewGroup(request.Name, user.Id, request.MaxSpaces, request.ComputeUnits, request.StorageUnits)
 
 		err = database.GetInstance().SaveGroup(group)
 		if err != nil {
@@ -202,8 +232,11 @@ func HandleGetGroup(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := apiclient.GroupInfo{
-			Id:   group.Id,
-			Name: group.Name,
+			Id:           group.Id,
+			Name:         group.Name,
+			MaxSpaces:    group.MaxSpaces,
+			ComputeUnits: group.ComputeUnits,
+			StorageUnits: group.StorageUnits,
 		}
 
 		rest.SendJSON(http.StatusOK, w, r, data)
