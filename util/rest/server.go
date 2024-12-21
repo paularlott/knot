@@ -42,10 +42,18 @@ func BindJSON(w http.ResponseWriter, r *http.Request, v interface{}) error {
 func SendJSON(status int, w http.ResponseWriter, r *http.Request, v interface{}) error {
 	if strings.Contains(r.Header.Get("Accept"), "application/msgpack") {
 		w.Header().Set("Content-Type", "application/msgpack")
+		if status == 0 {
+			http.Error(w, "Invalid status code", http.StatusInternalServerError)
+			return errors.New("invalid status code")
+		}
 		w.WriteHeader(status)
 		return msgpack.NewEncoder(w).Encode(v)
 	} else {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		if status == 0 {
+			http.Error(w, "Invalid status code", http.StatusInternalServerError)
+			return errors.New("invalid status code")
+		}
 		w.WriteHeader(status)
 		return json.NewEncoder(w).Encode(v)
 	}
