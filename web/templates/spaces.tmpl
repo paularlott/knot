@@ -44,6 +44,17 @@
           <div x-data x-show="!s.searchHide" class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 flex flex-col justify-between">
             <div>
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="s.name"></h2>
+              <div>
+                <template x-if="!s.is_local">
+                  <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Remote: <span x-text="s.location"></span></span>
+                </template>
+                <template x-if="s.is_local && s.is_manual">
+                  <span class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Manual</span>
+                </template>
+                <template x-if="s.is_local && s.local_container">
+                  <span class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Local Container</span>
+                </template>
+              </div>
               <table>
                 <tr>
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Template:</td>
@@ -66,20 +77,12 @@
                 <tr>
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Status:</td>
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
-                    <div x-show="!s.is_local" class="inline-block">
-                      <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Remote: <span x-text="s.location"></span></span>
-                    </div>
-
-                    <div x-show="!s.is_manual" class="inline-block">
-                      <span x-show="s.is_deployed && s.local_container" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Local Container</span>
-                      <span x-show="s.is_deployed && !s.is_pending" class="inline-block bg-green-100 text-green-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-green-400 border border-green-400">Running</span>
-                      <span x-show="!s.is_deployed && s.is_pending" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Starting</span>
-                      <span x-show="s.is_deployed && s.is_pending" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Stopping</span>
-                      <span x-show="s.is_deleting" class="inline-block bg-red-100 text-red-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-red-400 border border-red-400">Deleting</span>
-                      <span x-show="s.is_local && s.update_available && !s.is_pending" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Update Available</span>
-                    </div>
-
-                    <span x-show="s.is_local && s.is_deployed && s.is_manual" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Listening</span>
+                    <span x-show="!s.is_deployed && !s.is_pending && !s.is_deleting">-</span>
+                    <span x-show="s.is_deployed && !s.is_pending" class="inline-block bg-green-100 text-green-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-green-400 border border-green-400">Running</span>
+                    <span x-show="!s.is_deployed && s.is_pending" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Starting</span>
+                    <span x-show="s.is_deployed && s.is_pending" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Stopping</span>
+                    <span x-show="s.is_deleting" class="inline-block bg-red-100 text-red-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-red-400 border border-red-400">Deleting</span>
+                    <span x-show="s.is_local && s.update_available && !s.is_pending" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Update Available</span>
                   </td>
               </table>
             </div>

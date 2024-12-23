@@ -355,7 +355,21 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
 	response := apiclient.SpaceServiceState{}
+	response.Name = space.Name
+	response.Location = space.Location
+	response.IsDeployed = space.IsDeployed
+	response.IsPending = space.IsPending
+	response.IsDeleting = space.IsDeleting
+	response.IsRemote = space.Location != "" && space.Location != server_info.LeafLocation
+
 	state := agent_server.GetSession(spaceId)
 	if state == nil {
 		response.HasCodeServer = false
@@ -382,25 +396,11 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 
 		response.HasVSCodeTunnel = state.HasVSCodeTunnel
 		response.VSCodeTunnel = state.VSCodeTunnelName
-	}
 
-	response.Name = space.Name
-	response.Location = space.Location
-	response.IsDeployed = space.IsDeployed
-	response.IsPending = space.IsPending
-	response.IsDeleting = space.IsDeleting
-	response.IsRemote = space.Location != "" && space.Location != server_info.LeafLocation
-
-	// If template is manual then force IsDeployed to true
-	template, err := db.GetTemplate(space.TemplateId)
-	if err != nil {
-		log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	if template.IsManual {
-		response.IsDeployed = true
+		// If template is manual then force IsDeployed to true as agent is live
+		if template.IsManual {
+			response.IsDeployed = true
+		}
 	}
 
 	// Check if the template has been updated
