@@ -58,9 +58,18 @@
               {{ end }}
               <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-text="'Compute Units: ' + t.compute_units"></p>
               <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-text="'Storage Units: ' + t.storage_units"></p>
-              <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-text="'Schedule: ' + (t.schedule_enabled ? 'Yes' : 'No')"></p>
+              <template x-if="t.schedule_enabled">
+                <div>
+                  <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Schedule:</p>
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    <template x-for="index in 7" :key="index">
+                      <span x-show="t.schedule[index % 7].enabled" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1.5 py-0.5 rounded dark:bg-gray-700 dark:text-blue-400 border border-blue-400" x-text="getDayOfWeek(index % 7) + ': ' + t.schedule[index % 7].from + ' / ' + t.schedule[index % 7].to"></span>
+                    </template>
+                  </div>
+                </div>
+              </template>
 
-              <div class="mt-4 flex items-center justify-end relative">
+              <div class="mt-2 flex items-center justify-end relative">
                 {{ if and (not .permissionManageTemplates) (not .permissionManageSpaces) }}
                   <button @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center text-xs">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">

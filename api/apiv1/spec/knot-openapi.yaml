@@ -2153,6 +2153,16 @@ components:
         schedule_enabled:
           type: boolean
           description: If the template has a schedule enabled.
+        schedule:
+          type: array
+          description: The schedule for the template.
+          minItems: 7
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TemplateDetailsDay'
+          x-condition:
+            property: schedule_enabled
+            value: true
 
     TemplateList:
       type: object

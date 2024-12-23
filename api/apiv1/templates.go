@@ -84,6 +84,18 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			templateData.StorageUnits = template.StorageUnits
 			templateData.ScheduleEnabled = template.ScheduleEnabled
 
+			// If schedule is enabled then return the schedule
+			if template.ScheduleEnabled {
+				templateData.Schedule = make([]apiclient.TemplateDetailsDay, 7)
+				for i, day := range template.Schedule {
+					templateData.Schedule[i] = apiclient.TemplateDetailsDay{
+						Enabled: day.Enabled,
+						From:    day.From,
+						To:      day.To,
+					}
+				}
+			}
+
 			// Find the number of spaces using this template
 			spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
 			if err != nil {

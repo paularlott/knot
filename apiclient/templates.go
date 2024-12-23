@@ -40,17 +40,18 @@ type TemplateCreateResponse struct {
 }
 
 type TemplateInfo struct {
-	Id              string   `json:"template_id"`
-	Name            string   `json:"name"`
-	Description     string   `json:"description"`
-	Usage           int      `json:"usage"`
-	Deployed        int      `json:"deployed"`
-	Groups          []string `json:"groups"`
-	LocalContainer  bool     `json:"local_container"`
-	IsManual        bool     `json:"is_manual"`
-	ScheduleEnabled bool     `json:"schedule_enabled"`
-	ComputeUnits    uint32   `json:"compute_units"`
-	StorageUnits    uint32   `json:"storage_units"`
+	Id              string               `json:"template_id"`
+	Name            string               `json:"name"`
+	Description     string               `json:"description"`
+	Usage           int                  `json:"usage"`
+	Deployed        int                  `json:"deployed"`
+	Groups          []string             `json:"groups"`
+	LocalContainer  bool                 `json:"local_container"`
+	IsManual        bool                 `json:"is_manual"`
+	ScheduleEnabled bool                 `json:"schedule_enabled"`
+	ComputeUnits    uint32               `json:"compute_units"`
+	StorageUnits    uint32               `json:"storage_units"`
+	Schedule        []TemplateDetailsDay `json:"schedule"`
 }
 
 type TemplateList struct {

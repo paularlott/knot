@@ -146,5 +146,8 @@ window.templateListComponent = function(canManageSpaces) {
         }
       });
     },
+    getDayOfWeek(day) {
+      return ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][day];
+    }
   };
 }
