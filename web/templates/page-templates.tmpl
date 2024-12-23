@@ -13,8 +13,9 @@
     <form class="col-span-full sm:flex justify-between">
       <div>
         <label for="search" class="sr-only">Search</label>
-        <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96">
-          <input type="search" name="search" class="form-field bg-white" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+        <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
+          <input type="search" name="search" id="search" class="form-field bg-white flex-grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+          <div class="absolute right-2 top-50 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
         </div>
       </div>
       {{ if .permissionManageTemplates }}
@@ -43,7 +44,7 @@
                 <span x-show="t.is_manual" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
               </div>
               <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-text="t.description"></p>
-              <table class="mt-2">
+              <table>
                 {{ if .permissionManageTemplates }}
                 <tr>
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Usage:</td>

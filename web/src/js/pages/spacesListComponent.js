@@ -1,4 +1,13 @@
 window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, location) {
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('search').focus();
+      }
+    }
+  );
+
   return {
     loading: true,
     spaces: [],

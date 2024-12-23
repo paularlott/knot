@@ -1,4 +1,12 @@
 window.rolesListComponent = function() {
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('search').focus();
+      }
+    }
+  );
+
   return {
     loading: true,
     deleteConfirm: {
@@ -65,7 +73,7 @@ window.rolesListComponent = function() {
         if(term.length == 0) {
           r.searchHide = false;
         } else {
-          r.searchHide = !r.role_name.toLowerCase().includes(term);
+          r.searchHide = !r.name.toLowerCase().includes(term);
         }
       });
     },

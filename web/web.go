@@ -23,6 +23,7 @@ import (
 
 var (
 	//go:embed public_html/api-docs public_html/assets public_html/images public_html/index.html
+	//go:embed public_html/site.webmanifest public_html/favicon.ico public_html/*.png
 	publicHTML embed.FS
 
 	//go:embed templates/*.tmpl templates/partials/*.tmpl templates/layouts/*.tmpl
