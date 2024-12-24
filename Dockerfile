@@ -1,29 +1,53 @@
-FROM ${DOCKER_HUB}library/alpine:3.20.0
+ARG DOCKER_HUB
+
+FROM ${DOCKER_HUB}library/golang:1.23.4-alpine AS builder
+
+RUN apk update \
+  && apk add bash unzip zip make nodejs npm
+
+WORKDIR /app
+
+COPY . ./
+
+# Install npm dependencies
+RUN npm install
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+	\
+	# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+	go mod download
+
+# Build the clients
+RUN make all
+
+# Build the application for the current architecture
+RUN make build
+
+FROM ${DOCKER_HUB}library/alpine:3.21
 
 # Upgrade to the latest versions
 RUN apk update \
   && apk upgrade \
   && apk add bash unzip
 
-# Copy files in
-COPY bin/*.zip /srv/
+# Copy client files in
+COPY --from=builder /app/bin/*.zip /srv/
 
-# Unpack appropriate zip file to /usr/local/bin
-RUN ARCH=$(uname -m); \
-  case "$ARCH" in \
-		'x86_64') f="knot_linux_amd64";; \
-		'aarch64') f="knot_linux_arm64";; \
-		*) echo >&2 "error: unsupported architecture: '$ARCH'"; exit 1 ;; \
-	esac \
-  && unzip /srv/$f.zip -d /usr/local/bin \
-  \
-  # Add a user, knot, to run the process
-  && addgroup -S knot \
-  && adduser -S knot -G knot
+# Copy the main executable
+COPY --from=builder /app/bin/knot /usr/local/bin/knot
+
+# Add a user to run the process
+RUN addgroup -S knot \
+  && adduser -S knot -G knot \
+  && mkdir -p /data \
+  && chown -R knot:knot /data
 
 # Set user and working directory
 USER knot
-WORKDIR /home/knot
+WORKDIR /data
+
+VOLUME [ "/data" ]
 
 # Set the entrypoint
 CMD ["/usr/local/bin/knot", "server"]
