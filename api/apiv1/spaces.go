@@ -332,7 +332,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 
 				space, code, err = client.GetSpace(spaceId)
 				if err != nil || space == nil {
-					log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
+					log.Error().Msgf("HandleGetSpaceServiceState: GetSpace from origin %s", err.Error())
 					rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 					return
 				}
@@ -340,7 +340,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 				// Save the space
 				err = db.SaveSpace(space)
 				if err != nil {
-					log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
+					log.Error().Msgf("HandleGetSpaceServiceState: SaveSpace %s", err.Error())
 					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 					return
 				}
@@ -349,7 +349,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
+			log.Error().Msgf("HandleGetSpaceServiceState: GetSpace %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -357,7 +357,7 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
-		log.Error().Msgf("HandleGetSpaceServiceState: %s", err.Error())
+		log.Error().Msgf("HandleGetSpaceServiceState: GetTemplate %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
