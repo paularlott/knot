@@ -38,7 +38,6 @@ log:
 server:
   listen: 0.0.0.0:3000
   listen-agent: 0.0.0.0:3010
-  download_path: /srv
   url: "https://knot.example.com"
   wildcard_domain: "*.knot.example.com"
   agent_endpoint: "srv+knot-server-agent.service.consul"
