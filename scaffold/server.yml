@@ -52,7 +52,8 @@ server:
   redis:
     enabled: false
     # Redis host if prefixed with srv+ then SRV+ lookup will be performed
-    host: localhost:6379
+    hosts:
+      - localhost:6379
     password: ""
     db: 0
 
