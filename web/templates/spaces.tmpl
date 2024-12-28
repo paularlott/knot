@@ -68,7 +68,7 @@
                 </template>
                 <template x-if="s.is_local && s.is_manual">
                   <tr>
-                    <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 align-top">Space Id:</td>
+                    <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Space Id:</td>
                     <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
                       <div class="inline-block text-xs p-2 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer" x-text="s.space_id" @click.debounce.750="copyToClipboard(s.space_id)"></div>
                     </td>
