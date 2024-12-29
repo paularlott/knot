@@ -22,6 +22,9 @@ AGENT_OUTPUT_DIR := web/agents
 # Get the VERSION from go run ./scripts/getversion
 VERSION := $(shell go run ./scripts/getversion)
 
+# Set the target registry for the container
+REGISTRY ?= paularlott
+
 default: all
 
 .PHONY: agents build
@@ -79,7 +82,7 @@ legal/notice.txt: NOTICE.txt
 ## Generate the API documentation
 apidocs:
 	npx @redocly/cli build-docs --output ./web/public_html/api-docs/index.html --config ./redocly-config.yaml --disableGoogleFont
-	sed -i '' 's|<script src="https.*</script>||g' ./web/public_html/api-docs/index.html
+	sed -i.bak 's|<script src="https.*</script>||g' ./web/public_html/api-docs/index.html && rm ./web/public_html/api-docs/index.html.bak
 
 ## Run a preview server for the API documentation
 apidocs-preview:
@@ -105,12 +108,12 @@ clean:
 	rm -rf web/public_html/js/*
 
 .PHONEY: container
-## Build the docker image and push to GitHub
+## Build the docker image and push to Docker Hub
 container:
 	docker buildx build \
 		--platform linux/amd64,linux/arm64 \
-		--tag paularlott/knot:$(VERSION) \
-		--tag paularlott/knot:latest \
+		--tag $(REGISTRY)/knot:$(VERSION) \
+		--tag $(REGISTRY)/knot:latest \
 		--push \
 		.
 

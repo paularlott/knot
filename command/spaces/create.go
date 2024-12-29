@@ -61,12 +61,11 @@ var createCmd = &cobra.Command{
 
 		// Create the template
 		space := &model.Space{
-			UserId:      "",
-			TemplateId:  templateId,
-			Name:        args[0],
-			AltNames:    []string{},
-			Shell:       shell,
-			VolumeSizes: make(map[string]int64),
+			UserId:     "",
+			TemplateId: templateId,
+			Name:       args[0],
+			AltNames:   []string{},
+			Shell:      shell,
 		}
 
 		_, err = client.CreateSpace(space)

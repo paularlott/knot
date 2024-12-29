@@ -6,12 +6,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/internal/container"
+	"github.com/paularlott/knot/internal/container/docker"
+	"github.com/paularlott/knot/internal/container/nomad"
+	"github.com/paularlott/knot/internal/origin_leaf/origin"
+
 	"github.com/rs/zerolog/log"
 )
 
 const (
 	AGENT_SESSION_GC_INTERVAL = 5 * time.Second
-	AGENT_SESSION_TIMEOUT     = 15 * time.Second
+	AGENT_SESSION_TIMEOUT     = 5 * time.Second
+	AGENT_SCHEDULE_INTERVAL   = 1 * time.Minute
 )
 
 var (
@@ -45,10 +52,76 @@ func agentSessionGC() {
 	}()
 }
 
+// Periodically check to see if the space has a schedule which requires it be stopped
+func checkSchedules() {
+	log.Info().Msg("agent: starting schedule checker")
+
+	go func() {
+		ticker := time.NewTicker(AGENT_SCHEDULE_INTERVAL)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				log.Debug().Msg("agent: checking schedules")
+
+				sessionMutex.RLock()
+				for _, session := range sessions {
+					db := database.GetInstance()
+
+					space, err := db.GetSpace(session.Id)
+					if err != nil {
+						continue
+					}
+
+					template, err := db.GetTemplate(space.TemplateId)
+					if err != nil {
+						continue
+					}
+
+					if !template.AllowedBySchedule() {
+						log.Info().Msgf("agent: stopping space %s due to schedule", space.Id)
+
+						// Mark the space as pending and save it
+						space.IsPending = true
+						if err = db.SaveSpace(space); err != nil {
+							log.Error().Msgf("DeleteSpaceJob: failed to save space %s", err.Error())
+							continue
+						}
+
+						origin.UpdateSpace(space)
+
+						var containerClient container.ContainerManager
+						if template.LocalContainer {
+							containerClient = docker.NewClient()
+						} else {
+							containerClient = nomad.NewClient()
+						}
+
+						// Stop the job
+						err = containerClient.DeleteSpaceJob(space)
+						if err != nil {
+							space.IsPending = false
+							db.SaveSpace(space)
+							origin.UpdateSpace(space)
+
+							log.Error().Msgf("DeleteSpaceJob: failed to delete space %s", err.Error())
+							continue
+						}
+
+					}
+				}
+				sessionMutex.RUnlock()
+			}
+		}
+	}()
+}
+
 func ListenAndServe(listen string, tlsConfig *tls.Config) {
 
-	// Start the session garbage collector
+	// Start the session garbage collector & schedule checker
 	agentSessionGC()
+	checkSchedules()
 
 	log.Info().Msgf("server: listening for agents on: %s", listen)
 

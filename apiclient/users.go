@@ -16,8 +16,9 @@ type UserResponse struct {
 	Roles           []string   `json:"roles"`
 	Groups          []string   `json:"groups"`
 	Active          bool       `json:"active"`
-	MaxSpaces       int        `json:"max_spaces"`
-	MaxDiskSpace    int        `json:"max_disk_space"`
+	MaxSpaces       uint32     `json:"max_spaces"`
+	ComputeUnits    uint32     `json:"compute_units"`
+	StorageUnits    uint32     `json:"storage_units"`
 	SSHPublicKey    string     `json:"ssh_public_key"`
 	GitHubUsername  string     `json:"github_username"`
 	PreferredShell  string     `json:"preferred_shell"`
@@ -36,8 +37,9 @@ type userRequest struct {
 	Roles           []string `json:"roles"`
 	Groups          []string `json:"groups"`
 	Active          bool     `json:"active"`
-	MaxSpaces       int      `json:"max_spaces"`
-	MaxDiskSpace    int      `json:"max_disk_space"`
+	MaxSpaces       uint32   `json:"max_spaces"`
+	ComputeUnits    uint32   `json:"compute_units"`
+	StorageUnits    uint32   `json:"storage_units"`
 	SSHPublicKey    string   `json:"ssh_public_key"`
 	GitHubUsername  string   `json:"github_username"`
 	PreferredShell  string   `json:"preferred_shell"`
@@ -58,18 +60,30 @@ type UserInfo struct {
 	Roles                          []string   `json:"roles"`
 	Groups                         []string   `json:"groups"`
 	Active                         bool       `json:"active"`
-	MaxSpaces                      int        `json:"max_spaces"`
-	MaxDiskSpace                   int        `json:"max_disk_space"`
+	MaxSpaces                      uint32     `json:"max_spaces"`
+	ComputeUnits                   uint32     `json:"compute_units"`
+	StorageUnits                   uint32     `json:"storage_units"`
 	Current                        bool       `json:"current"`
 	LastLoginAt                    *time.Time `json:"last_login_at"`
 	NumberSpaces                   int        `json:"number_spaces"`
 	NumberSpacesDeployed           int        `json:"number_spaces_deployed"`
 	NumberSpacesDeployedInLocation int        `json:"number_spaces_deployed_in_location"`
-	UsedDiskSpace                  int        `json:"used_disk_space"`
+	UsedComputeUnits               uint32     `json:"used_compute_units"`
+	UsedStorageUnits               uint32     `json:"used_storage_units"`
 }
 type UserInfoList struct {
 	Count int        `json:"count"`
 	Users []UserInfo `json:"users"`
+}
+
+type UserQuota struct {
+	MaxSpaces            uint32 `json:"max_spaces"`
+	ComputeUnits         uint32 `json:"compute_units"`
+	StorageUnits         uint32 `json:"storage_units"`
+	NumberSpaces         int    `json:"number_spaces"`
+	NumberSpacesDeployed int    `json:"number_spaces_deployed"`
+	UsedComputeUnits     uint32 `json:"used_compute_units"`
+	UsedStorageUnits     uint32 `json:"used_storage_units"`
 }
 
 func (c *ApiClient) CreateUser(request *CreateUserRequest) (string, int, error) {
@@ -106,7 +120,8 @@ func (c *ApiClient) GetUser(userId string) (*model.User, error) {
 		Groups:          response.Groups,
 		Active:          response.Active,
 		MaxSpaces:       response.MaxSpaces,
-		MaxDiskSpace:    response.MaxDiskSpace,
+		ComputeUnits:    response.ComputeUnits,
+		StorageUnits:    response.StorageUnits,
 		PreferredShell:  response.PreferredShell,
 		Timezone:        response.Timezone,
 		LastLoginAt:     response.LastLoginAt,
@@ -136,7 +151,8 @@ func (c *ApiClient) WhoAmI() (*model.User, error) {
 		Groups:          response.Groups,
 		Active:          response.Active,
 		MaxSpaces:       response.MaxSpaces,
-		MaxDiskSpace:    response.MaxDiskSpace,
+		ComputeUnits:    response.ComputeUnits,
+		StorageUnits:    response.StorageUnits,
 		PreferredShell:  response.PreferredShell,
 		Timezone:        response.Timezone,
 		LastLoginAt:     response.LastLoginAt,
@@ -171,7 +187,8 @@ func (c *ApiClient) UpdateUser(user *model.User) error {
 		Groups:          user.Groups,
 		Active:          user.Active,
 		MaxSpaces:       user.MaxSpaces,
-		MaxDiskSpace:    user.MaxDiskSpace,
+		ComputeUnits:    user.ComputeUnits,
+		StorageUnits:    user.StorageUnits,
 		SSHPublicKey:    user.SSHPublicKey,
 		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
@@ -189,4 +206,19 @@ func (c *ApiClient) UpdateUser(user *model.User) error {
 func (c *ApiClient) DeleteUser(userId string) error {
 	_, err := c.httpClient.Delete("/api/v1/users/"+userId, nil, nil, 200)
 	return err
+}
+
+func (c *ApiClient) GetUserQuota(userId string) (*UserQuota, error) {
+	response := UserQuota{}
+
+	code, err := c.httpClient.Get("/api/v1/users/"+userId+"/quota", &response)
+	if err != nil {
+		if code == 404 {
+			return nil, errors.New("user not found")
+		} else {
+			return nil, err
+		}
+	}
+
+	return &response, nil
 }

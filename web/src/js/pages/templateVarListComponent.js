@@ -1,4 +1,12 @@
 window.templateVarListComponent = function() {
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('search').focus();
+      }
+    }
+  );
+
   return {
     loading: true,
     deleteConfirm: {
@@ -17,7 +25,7 @@ window.templateVarListComponent = function() {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getTemplateVars();
-      }, 15000);
+      }, 5000);
     },
 
     async getTemplateVars() {

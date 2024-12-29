@@ -13,8 +13,9 @@
     <form class="col-span-full sm:flex justify-between">
       <div>
         <label for="search" class="sr-only">Search</label>
-        <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96">
-          <input type="search" name="search" class="form-field bg-white" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+        <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
+          <input type="search" name="search" id="search" class="form-field bg-white flex-grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+          <div class="absolute right-2 top-50 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
         </div>
       </div>
       <div>
@@ -22,7 +23,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
-          Create Volume
+          New Volume
         </a>
       </div>
     </form>

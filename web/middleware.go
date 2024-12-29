@@ -19,6 +19,18 @@ func checkPermissionManageTemplates(next http.Handler) http.Handler {
 	})
 }
 
+func checkPermissionManageVariables(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageVariables) {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func checkPermissionManageVolumes(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
@@ -35,6 +47,30 @@ func checkPermissionManageUsers(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if server_info.RestrictedLeaf || !user.HasPermission(model.PermissionManageUsers) {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func checkPermissionManageGroups(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageGroups) {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func checkPermissionManageRoles(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageRoles) {
 			showPageForbidden(w, r)
 			return
 		}

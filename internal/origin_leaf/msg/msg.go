@@ -33,6 +33,10 @@ const (
 
 	MSG_MIRROR_TOKEN // Sent to origin to create a token as a mirror to a leaf token
 	MSG_DELETE_TOKEN
+
+	MSG_SYNC_ROLES // Sent to origin server to request all roles
+	MSG_UPDATE_ROLE
+	MSG_DELETE_ROLE
 )
 
 // message used internally over the leader / follower channels

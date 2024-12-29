@@ -1,12 +1,242 @@
 package apiv1
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/util/validate"
+
+	"github.com/go-chi/chi/v5"
 )
 
 func HandleGetRoles(w http.ResponseWriter, r *http.Request) {
-	rest.SendJSON(http.StatusOK, w, r, model.RoleNames)
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		roleInfoList, code, err := client.GetRoles()
+		if err != nil {
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		rest.SendJSON(http.StatusOK, w, r, roleInfoList)
+	} else {
+		roles := model.GetRolesFromCache()
+
+		// Build the response
+		roleInfoList := apiclient.RoleInfoList{
+			Count: len(roles),
+			Roles: make([]apiclient.RoleInfo, len(roles)),
+		}
+
+		for i, role := range roles {
+			roleInfoList.Roles[i] = apiclient.RoleInfo{
+				Id:   role.Id,
+				Name: role.Name,
+			}
+		}
+
+		rest.SendJSON(http.StatusOK, w, r, roleInfoList)
+	}
+}
+
+func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	roleId := chi.URLParam(r, "role_id")
+
+	var role *model.Role
+
+	request := apiclient.UserRoleRequest{}
+	err := rest.BindJSON(w, r, &request)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user role name"})
+		return
+	}
+
+	if roleId == model.RoleAdminUUID {
+		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot update the admin role"})
+		return
+	}
+
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		code, err := client.UpdateRole(roleId, request.Name, request.Permissions)
+		if err != nil {
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		role = &model.Role{
+			Id:          roleId,
+			Name:        request.Name,
+			Permissions: request.Permissions,
+		}
+	} else {
+		db := database.GetInstance()
+
+		role, err = db.GetRole(roleId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		role.Name = request.Name
+		role.Permissions = request.Permissions
+		role.UpdatedUserId = user.Id
+
+		err = db.SaveRole(role)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+	}
+
+	model.SaveRoleToCache(role)
+	leaf.UpdateRole(role)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+
+	request := apiclient.UserRoleRequest{}
+	err := rest.BindJSON(w, r, &request)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user role name"})
+		return
+	}
+
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		roleId, code, err := client.CreateRole(request.Name, request.Permissions)
+		if err != nil {
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		role := &model.Role{
+			Id:          roleId,
+			Name:        request.Name,
+			Permissions: request.Permissions,
+		}
+		model.SaveRoleToCache(role)
+		leaf.UpdateRole(role)
+
+		rest.SendJSON(http.StatusCreated, w, r, apiclient.RoleResponse{
+			Status: true,
+			Id:     roleId,
+		})
+	} else {
+		role := model.NewRole(request.Name, request.Permissions, user.Id)
+
+		err = database.GetInstance().SaveRole(role)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		model.SaveRoleToCache(role)
+		leaf.UpdateRole(role)
+
+		// Return the ID
+		rest.SendJSON(http.StatusCreated, w, r, apiclient.RoleResponse{
+			Status: true,
+			Id:     role.Id,
+		})
+	}
+}
+
+func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
+	roleId := chi.URLParam(r, "role_id")
+
+	if roleId == model.RoleAdminUUID {
+		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot delete the admin role"})
+		return
+	}
+
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		code, err := client.DeleteRole(roleId)
+		if err != nil {
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+		db := database.GetInstance()
+		role, err := db.GetRole(roleId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		// Delete the role
+		err = db.DeleteRole(role)
+		if err != nil {
+			if errors.Is(err, database.ErrTemplateInUse) {
+				rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
+			} else {
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			}
+			return
+		}
+	}
+
+	model.DeleteRoleFromCache(roleId)
+	leaf.DeleteRole(roleId)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleGetRole(w http.ResponseWriter, r *http.Request) {
+	roleId := chi.URLParam(r, "role_id")
+
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+		role, code, err := client.GetRole(roleId)
+		if err != nil {
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		rest.SendJSON(http.StatusOK, w, r, role)
+	} else {
+		db := database.GetInstance()
+		role, err := db.GetRole(roleId)
+		if err != nil {
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+		if role == nil {
+			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "Role not found"})
+			return
+		}
+
+		data := apiclient.RoleDetails{
+			Id:          role.Id,
+			Name:        role.Name,
+			Permissions: role.Permissions,
+		}
+
+		rest.SendJSON(http.StatusOK, w, r, data)
+	}
 }

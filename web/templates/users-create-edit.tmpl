@@ -101,15 +101,21 @@
         {{ if and (not .isProfile) .permissionManageUsers }}
         <div>
           <label class="form-label">Maximum Spaces</label>
-          <input type="number" class="form-field" name="max_spaces" x-model="formData.max_spaces" min="0" max="1000" x-on:keyup.debounce.500ms="checkMaxSpaces()" :class="{'form-field-error': !maxSpacesValid}" >
+          <input type="number" class="form-field" name="max_spaces" x-model="formData.max_spaces" min="0" max="10000" x-on:keyup.debounce.500ms="checkMaxSpaces()" :class="{'form-field-error': !maxSpacesValid}" >
           <p class="description">The maximum number of spaces this user can create, 0 for unlimited.</p>
-          <div x-show="!maxSpacesValid" class="error-message" x-cloak>Enter a valid number between 0 and 1000.</div>
+          <div x-show="!maxSpacesValid" class="error-message" x-cloak>Enter a valid number between 0 and 10,000.</div>
         </div>
         <div>
-          <label class="form-label">Maximum Disk Space</label>
-          <input type="number" class="form-field" name="max_disk_space" x-model="formData.max_disk_space" min="0" max="1000000" x-on:keyup.debounce.500ms="checkMaxDiskSpace()" :class="{'form-field-error': !maxDiskSpaceValid}" >
-          <p class="description">The maximum number amount of disk space available to the user in GB, 0 for unlimited.</p>
-          <div x-show="!maxDiskSpaceValid" class="error-message" x-cloak>Enter a valid number between 0 and 1000000.</div>
+          <label class="form-label">Compute Units Limit</label>
+          <input type="number" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
+          <p class="description">The maximum number of compute units (CPU, GPU, RAM, etc.) this user can use, 0 for unlimited.</p>
+          <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+        </div>
+        <div>
+          <label class="form-label">Storage Units Limit</label>
+          <input type="number" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
+          <p class="description">The maximum number of storage units this user can use, 0 for unlimited.</p>
+          <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">
@@ -117,9 +123,9 @@
             <label class="form-label">Roles</label>
             <template x-for="(role, index) in roles" :key="index">
               <label class="flex items-center cursor-pointer mb-2">
-                <input type="checkbox" class="sr-only peer" :id="'role-' + index" name="roles[]" :value="role.id_role" :checked="formData.roles.includes(role.id_role)" @change="toggleRole(role.id_role)">
+                <input type="checkbox" class="sr-only peer" :id="'role-' + index" name="roles[]" :value="role.role_id" :checked="formData.roles.includes(role.role_id)" @change="toggleRole(role.role_id)">
                 <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="role.role_name"></span>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="role.name"></span>
               </label>
             </template>
           </div>

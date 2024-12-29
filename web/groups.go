@@ -10,46 +10,46 @@ import (
 )
 
 func HandleGroupCreate(w http.ResponseWriter, r *http.Request) {
-  user, data := getCommonTemplateData(r)
-  if !user.HasPermission(model.PermissionManageTemplates) {
-    showPageForbidden(w, r)
-    return
-  }
+	user, data := getCommonTemplateData(r)
+	if !user.HasPermission(model.PermissionManageGroups) {
+		showPageForbidden(w, r)
+		return
+	}
 
-  tmpl, err := newTemplate("group-create-edit.tmpl")
-  if err != nil {
-    log.Fatal().Msg(err.Error())
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
+	tmpl, err := newTemplate("group-create-edit.tmpl")
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-  data["isEdit"] = false
+	data["isEdit"] = false
 
-  err = tmpl.Execute(w, data)
-  if err != nil {
-    log.Fatal().Msg(err.Error())
-  }
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+	}
 }
 
 func HandleGroupEdit(w http.ResponseWriter, r *http.Request) {
-  user, data := getCommonTemplateData(r)
-  if !user.HasPermission(model.PermissionManageTemplates) {
-    showPageForbidden(w, r)
-    return
-  }
+	user, data := getCommonTemplateData(r)
+	if !user.HasPermission(model.PermissionManageGroups) {
+		showPageForbidden(w, r)
+		return
+	}
 
-  tmpl, err := newTemplate("group-create-edit.tmpl")
-  if err != nil {
-    log.Fatal().Msg(err.Error())
-    w.WriteHeader(http.StatusInternalServerError)
-    return
-  }
+	tmpl, err := newTemplate("group-create-edit.tmpl")
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-  data["isEdit"] = true
-  data["groupId"] = chi.URLParam(r, "group_id")
+	data["isEdit"] = true
+	data["groupId"] = chi.URLParam(r, "group_id")
 
-  err = tmpl.Execute(w, data)
-  if err != nil {
-    log.Fatal().Msg(err.Error())
-  }
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+	}
 }

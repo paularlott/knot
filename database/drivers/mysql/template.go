@@ -24,14 +24,18 @@ func (db *MySQLDriver) SaveTemplate(template *model.Template) error {
 		return err
 	}
 
+	if !template.ScheduleEnabled {
+		template.Schedule = nil
+	}
+
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE templates SET name=?, description=?, job=?, volumes=?, hash=?, updated_user_id=?, updated_at=?, groups=?, local_container=?, is_manual=?, with_terminal=?, with_vscode_tunnel=?, with_code_server=?, with_ssh=? WHERE template_id=?",
-			template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.UpdatedUserId, time.Now().UTC(), template.Groups, template.LocalContainer, template.IsManual, template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.Id,
+		_, err = tx.Exec("UPDATE templates SET name=?, description=?, job=?, volumes=?, hash=?, updated_user_id=?, updated_at=?, groups=?, local_container=?, is_manual=?, with_terminal=?, with_vscode_tunnel=?, with_code_server=?, with_ssh=?, compute_units=?, storage_units=?, schedule_enabled=?, schedule=? WHERE template_id=?",
+			template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.UpdatedUserId, time.Now().UTC(), template.Groups, template.LocalContainer, template.IsManual, template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.ComputeUnits, template.StorageUnits, template.ScheduleEnabled, template.Schedule, template.Id,
 		)
 	} else {
-		_, err = tx.Exec("INSERT INTO templates (template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups, local_container, is_manual, with_terminal, with_vscode_tunnel, with_code_server, with_ssh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			template.Id, template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.CreatedUserId, time.Now().UTC(), template.CreatedUserId, time.Now().UTC(), template.Groups, template.LocalContainer, template.IsManual, template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH,
+		_, err = tx.Exec("INSERT INTO templates (template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups, local_container, is_manual, with_terminal, with_vscode_tunnel, with_code_server, with_ssh, compute_units, storage_units, schedule_enabled, schedule) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			template.Id, template.Name, template.Description, template.Job, template.Volumes, template.Hash, template.CreatedUserId, time.Now().UTC(), template.CreatedUserId, time.Now().UTC(), template.Groups, template.LocalContainer, template.IsManual, template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.ComputeUnits, template.StorageUnits, template.ScheduleEnabled, template.Schedule,
 		)
 	}
 	if err != nil {
@@ -74,7 +78,7 @@ func (db *MySQLDriver) getTemplates(query string, args ...interface{}) ([]*model
 		var createdAt string
 		var updatedAt string
 
-		err := rows.Scan(&template.Id, &template.Name, &template.Description, &template.Job, &template.Volumes, &template.Hash, &template.CreatedUserId, &createdAt, &template.UpdatedUserId, &updatedAt, &template.Groups, &template.LocalContainer, &template.IsManual, &template.WithTerminal, &template.WithVSCodeTunnel, &template.WithCodeServer, &template.WithSSH)
+		err := rows.Scan(&template.Id, &template.Name, &template.Description, &template.Job, &template.Volumes, &template.Hash, &template.CreatedUserId, &createdAt, &template.UpdatedUserId, &updatedAt, &template.Groups, &template.LocalContainer, &template.IsManual, &template.WithTerminal, &template.WithVSCodeTunnel, &template.WithCodeServer, &template.WithSSH, &template.ComputeUnits, &template.StorageUnits, &template.ScheduleEnabled, &template.Schedule)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +100,7 @@ func (db *MySQLDriver) getTemplates(query string, args ...interface{}) ([]*model
 }
 
 func (db *MySQLDriver) GetTemplate(id string) (*model.Template, error) {
-	templates, err := db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups, local_container, is_manual, with_terminal, with_vscode_tunnel, with_code_server, with_ssh FROM templates WHERE template_id = ?", id)
+	templates, err := db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups, local_container, is_manual, with_terminal, with_vscode_tunnel, with_code_server, with_ssh, compute_units, storage_units, schedule_enabled, schedule FROM templates WHERE template_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
@@ -108,5 +112,5 @@ func (db *MySQLDriver) GetTemplate(id string) (*model.Template, error) {
 }
 
 func (db *MySQLDriver) GetTemplates() ([]*model.Template, error) {
-	return db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups, local_container, is_manual, with_terminal, with_vscode_tunnel, with_code_server, with_ssh FROM templates ORDER BY name")
+	return db.getTemplates("SELECT template_id, name, description, job, volumes, hash, created_user_id, created_at, updated_user_id, updated_at, groups, local_container, is_manual, with_terminal, with_vscode_tunnel, with_code_server, with_ssh, compute_units, storage_units, schedule_enabled, schedule FROM templates ORDER BY name")
 }

@@ -3,8 +3,10 @@ package web
 import (
 	"net/http"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/spf13/viper"
 
 	"github.com/go-chi/chi/v5"
@@ -72,7 +74,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var maxSpaces int
+	var maxSpaces uint32
 	var usingUserId string
 	var forUser *model.User
 
@@ -93,6 +95,42 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 		forUser = user
 	}
 
+	// If leaf node then get the groups from the origin
+	if server_info.IsLeaf {
+		session := r.Context().Value("session").(*model.Session)
+		client := apiclient.NewRemoteSession(session.RemoteSessionId)
+
+		groups, _, err := client.GetGroups()
+		if err != nil {
+			log.Error().Msg(err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		for _, group := range groups.Groups {
+			maxSpaces += group.MaxSpaces
+		}
+	} else {
+		// Get the groups and build a map
+		groups, err := db.GetGroups()
+		if err != nil {
+			log.Error().Msg(err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		groupMap := make(map[string]*model.Group)
+		for _, group := range groups {
+			groupMap[group.Id] = group
+		}
+
+		for _, groupId := range forUser.Groups {
+			group, ok := groupMap[groupId]
+			if ok {
+				maxSpaces += group.MaxSpaces
+			}
+		}
+	}
+
 	data["forUserId"] = userId
 	data["templateId"] = templateId
 
@@ -104,7 +142,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 
-		if len(spaces) >= maxSpaces {
+		if uint32(len(spaces)) >= maxSpaces {
 			http.Redirect(w, r, "/space-quota-reached", http.StatusSeeOther)
 		}
 	}

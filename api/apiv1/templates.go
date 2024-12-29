@@ -3,7 +3,6 @@ package apiv1
 import (
 	"errors"
 	"fmt"
-	"math"
 	"net/http"
 
 	"github.com/paularlott/knot/api/api_utils"
@@ -81,6 +80,21 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			templateData.Groups = template.Groups
 			templateData.LocalContainer = template.LocalContainer
 			templateData.IsManual = template.IsManual
+			templateData.ComputeUnits = template.ComputeUnits
+			templateData.StorageUnits = template.StorageUnits
+			templateData.ScheduleEnabled = template.ScheduleEnabled
+
+			// If schedule is enabled then return the schedule
+			if template.ScheduleEnabled {
+				templateData.Schedule = make([]apiclient.TemplateDetailsDay, 7)
+				for i, day := range template.Schedule {
+					templateData.Schedule[i] = apiclient.TemplateDetailsDay{
+						Enabled: day.Enabled,
+						From:    day.From,
+						To:      day.To,
+					}
+				}
+			}
 
 			// Find the number of spaces using this template
 			spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
@@ -129,13 +143,33 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volumes must be less than 10MB"})
 		return
 	}
+	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Compute units must be a positive number"})
+		return
+	}
+	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Storage units must be a positive number"})
+		return
+	}
+	if request.ScheduleEnabled {
+		if len(request.Schedule) != 7 {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Schedule must have 7 days"})
+			return
+		}
+		for _, day := range request.Schedule {
+			if !validate.IsTime(day.From) || !validate.IsTime(day.To) {
+				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid time format"})
+				return
+			}
+		}
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
-		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
+		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &request.Schedule)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -179,6 +213,19 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.WithVSCodeTunnel = request.WithVSCodeTunnel
 		template.WithCodeServer = request.WithCodeServer
 		template.WithSSH = request.WithSSH
+		template.ComputeUnits = request.ComputeUnits
+		template.StorageUnits = request.StorageUnits
+		template.ScheduleEnabled = request.ScheduleEnabled
+		template.Schedule = make(model.JSONDbScheduleDays, 7)
+
+		for i, day := range request.Schedule {
+			template.Schedule[i] = model.TemplateScheduleDays{
+				Enabled: day.Enabled,
+				From:    day.From,
+				To:      day.To,
+			}
+		}
+
 		template.UpdateHash()
 
 		err = db.SaveTemplate(template)
@@ -221,6 +268,27 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volumes must be less than 10MB"})
 		return
 	}
+	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Compute units must be a positive number"})
+		return
+	}
+	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Storage units must be a positive number"})
+		return
+	}
+
+	if request.ScheduleEnabled {
+		if len(request.Schedule) != 7 {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Schedule must have 7 days"})
+			return
+		}
+		for _, day := range request.Schedule {
+			if !validate.IsTime(day.From) || !validate.IsTime(day.To) {
+				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid time format"})
+				return
+			}
+		}
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -230,7 +298,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		var code int
 		var err error
 
-		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
+		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &request.Schedule)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -248,7 +316,16 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH)
+		var scheduleDays = []model.TemplateScheduleDays{}
+		for _, day := range request.Schedule {
+			scheduleDays = append(scheduleDays, model.TemplateScheduleDays{
+				Enabled: day.Enabled,
+				From:    day.From,
+				To:      day.To,
+			})
+		}
+
+		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &scheduleDays)
 
 		err = database.GetInstance().SaveTemplate(template)
 		if err != nil {
@@ -356,32 +433,6 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		volumes, _ := template.GetVolumes(nil, nil, nil, false)
-
-		var volumeList []map[string]interface{}
-
-		if volumes != nil {
-			for _, volume := range volumes.Volumes {
-				var capacityMin int64 = 0
-				var capacityMax int64 = 0
-
-				if volume.CapacityMin != nil {
-					capacityMin = int64(math.Max(1, math.Ceil(float64(volume.CapacityMin.(int64))/(1024*1024*1024))))
-				}
-
-				if volume.CapacityMax != nil {
-					capacityMax = int64(math.Max(1, math.Ceil(float64(volume.CapacityMax.(int64))/(1024*1024*1024))))
-				}
-
-				volumeList = append(volumeList, map[string]interface{}{
-					"id":           volume.Id,
-					"name":         volume.Name,
-					"capacity_min": capacityMin,
-					"capacity_max": capacityMax,
-				})
-			}
-		}
-
 		data := apiclient.TemplateDetails{
 			Name:             template.Name,
 			Description:      template.Description,
@@ -391,13 +442,34 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 			Hash:             template.Hash,
 			Deployed:         deployed,
 			Groups:           template.Groups,
-			VolumeSizes:      volumeList,
 			LocalContainer:   template.LocalContainer,
 			IsManual:         template.IsManual,
 			WithTerminal:     template.WithTerminal,
 			WithVSCodeTunnel: template.WithVSCodeTunnel,
 			WithCodeServer:   template.WithCodeServer,
 			WithSSH:          template.WithSSH,
+			ScheduleEnabled:  template.ScheduleEnabled,
+			Schedule:         make([]apiclient.TemplateDetailsDay, 7),
+			ComputeUnits:     template.ComputeUnits,
+			StorageUnits:     template.StorageUnits,
+		}
+
+		if len(template.Schedule) != 7 {
+			for i := 0; i < 7; i++ {
+				data.Schedule[i] = apiclient.TemplateDetailsDay{
+					Enabled: false,
+					From:    "12:00am",
+					To:      "11:59pm",
+				}
+			}
+		} else {
+			for i, day := range template.Schedule {
+				data.Schedule[i] = apiclient.TemplateDetailsDay{
+					Enabled: day.Enabled,
+					From:    day.From,
+					To:      day.To,
+				}
+			}
 		}
 
 		rest.SendJSON(http.StatusOK, w, r, &data)

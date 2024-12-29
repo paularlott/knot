@@ -52,6 +52,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"agent_endpoint":  viper.GetString("server.agent_endpoint"),
 			"wildcard_domain": wildcardDomain,
 			"location":        server_info.LeafLocation,
+			"timezone":        server_info.Timezone,
 		},
 		"nomad": map[string]interface{}{
 			"dc":     os.Getenv("NOMAD_DC"),

@@ -12,7 +12,7 @@ import (
 
 func HandleTemplateVarCreate(w http.ResponseWriter, r *http.Request) {
 	user, data := getCommonTemplateData(r)
-	if !user.HasPermission(model.PermissionManageTemplates) && !server_info.RestrictedLeaf {
+	if !user.HasPermission(model.PermissionManageVariables) && !server_info.RestrictedLeaf {
 		showPageForbidden(w, r)
 		return
 	}
@@ -34,7 +34,7 @@ func HandleTemplateVarCreate(w http.ResponseWriter, r *http.Request) {
 
 func HandleTemplateVarEdit(w http.ResponseWriter, r *http.Request) {
 	user, data := getCommonTemplateData(r)
-	if !user.HasPermission(model.PermissionManageTemplates) {
+	if !user.HasPermission(model.PermissionManageVariables) {
 		showPageForbidden(w, r)
 		return
 	}

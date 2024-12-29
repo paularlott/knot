@@ -1,4 +1,13 @@
 window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, location) {
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('search').focus();
+      }
+    }
+  );
+
   return {
     loading: true,
     spaces: [],
@@ -15,6 +24,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     canManageSpaces: canManageSpaces,
     users: [],
     searchTerm: Alpine.$persist('').as('spaces-search-term').using(sessionStorage),
+    quotaComputeLimitShow: false,
+    quotaStorageLimitShow: false,
+    badScheduleShow: false,
+
     async init() {
       if(this.canManageSpaces) {
         const usersResponse = await fetch('/api/v1/users?state=active', {
@@ -22,7 +35,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             'Content-Type': 'application/json'
           }
         });
-        usersList = await usersResponse.json();
+        let usersList = await usersResponse.json();
         this.users = usersList.users;
 
         // Look through the users list and change the one that matches the userId to be Your spaces
@@ -38,7 +51,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       // Start a timer to look for new spaces periodically
       setInterval(async () => {
         this.getSpaces(false);
-      }, 10000);
+      }, 5000);
     },
     async userChanged() {
       this.loading = true;
@@ -147,7 +160,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           });
         } else if (response.status === 401) {
           window.location.href = '/login?redirect=' + window.location.pathname;
-        } else {
+        } else if (response.status === 404) {
           // Remove the space from the array
           this.spaces = this.spaces.filter(s => s.space_id !== space.space_id);
 
@@ -169,6 +182,25 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       }).then((response) => {
         if (response.status === 200) {
           self.$dispatch('show-alert', { msg: "Space starting", type: 'success' });
+        } else if(response.status === 503) {
+          response.json().then((data) => {
+            if(data.error == 'outside of schedule') {
+              self.badScheduleShow = true;
+            } else {
+              self.$dispatch('show-alert', { msg: "Space could not be started: " + data.error, type: 'error' });
+            }
+          });
+        } else if(response.status === 507) {
+          response.json().then((data) => {
+            // If compute units exceeded then show the dialog
+            if(data.error == 'compute unit quota exceeded') {
+              self.quotaComputeLimitShow = true;
+            } else if(data.error == 'storage unit quota exceeded') {
+              self.quotaStorageLimitShow = true;
+            } else {
+              self.$dispatch('show-alert', { msg: "Space could not be as it has exceeded quota limits.", type: 'error' });
+            }
+          });
         } else {
           response.json().then((data) => {
             self.$dispatch('show-alert', { msg: "Space could not be started: " + data.error, type: 'error' });

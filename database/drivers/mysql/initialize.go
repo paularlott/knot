@@ -24,7 +24,8 @@ roles JSON DEFAULT NULL,
 groups JSON DEFAULT NULL,
 active TINYINT NOT NULL DEFAULT 1,
 max_spaces INT UNSIGNED NOT NULL DEFAULT 0,
-max_disk_space INT UNSIGNED NOT NULL DEFAULT 0,
+compute_units INT UNSIGNED NOT NULL DEFAULT 0,
+storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 last_login_at TIMESTAMP DEFAULT NULL,
 updated_at TIMESTAMP,
 created_at TIMESTAMP,
@@ -76,7 +77,6 @@ template_hash VARCHAR(32) DEFAUlT '',
 nomad_namespace VARCHAR(255) DEFAULT '',
 container_id VARCHAR(255) DEFAULT '',
 volume_data TEXT DEFAULT '{}',
-volume_sizes TEXT DEFAULT '{}',
 ssh_host_signer TEXT DEFAULT '',
 is_deployed TINYINT NOT NULL DEFAULT 0,
 is_pending TINYINT NOT NULL DEFAULT 0,
@@ -101,12 +101,16 @@ description TEXT DEFAULT '',
 job MEDIUMTEXT,
 volumes MEDIUMTEXT,
 groups JSON DEFAULT NULL,
+schedule JSON DEFAULT NULL,
 local_container TINYINT NOT NULL DEFAULT 0,
 is_manual TINYINT NOT NULL DEFAULT 0,
 with_terminal TINYINT NOT NULL DEFAULT 1,
 with_vscode_tunnel TINYINT NOT NULL DEFAULT 0,
 with_code_server TINYINT NOT NULL DEFAULT 0,
 with_ssh TINYINT NOT NULL DEFAULT 0,
+schedule_enabled TINYINT NOT NULL DEFAULT 0,
+compute_units INT UNSIGNED NOT NULL DEFAULT 0,
+storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP,
 updated_user_id CHAR(36),
@@ -120,6 +124,9 @@ updated_at TIMESTAMP
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS groups (
 group_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
+max_spaces INT UNSIGNED NOT NULL DEFAULT 0,
+compute_units INT UNSIGNED NOT NULL DEFAULT 0,
+storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP,
 updated_user_id CHAR(36),
@@ -160,6 +167,20 @@ created_at TIMESTAMP,
 updated_user_id CHAR(36),
 updated_at TIMESTAMP,
 INDEX location (location)
+)`)
+	if err != nil {
+		return err
+	}
+
+	log.Debug().Msg("db: creating roles table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS roles (
+role_id CHAR(36) PRIMARY KEY,
+name VARCHAR(64),
+permissions JSON DEFAULT NULL,
+created_user_id CHAR(36),
+created_at TIMESTAMP,
+updated_user_id CHAR(36),
+updated_at TIMESTAMP
 )`)
 	if err != nil {
 		return err

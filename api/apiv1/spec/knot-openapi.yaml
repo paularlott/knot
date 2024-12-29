@@ -218,6 +218,38 @@ paths:
       security:
         - BearerAuth: []
 
+  /api/v1/users/{user_id}/quota:
+    get:
+      tags:
+        - Users
+      summary: Get User Quota
+      operationId: getUserQuota
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID of the user to get the quota for.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: A user object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserQuota'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+      security:
+        - BearerAuth: []
+
   /api/v1/users/whoami:
     get:
       tags:
@@ -235,6 +267,27 @@ paths:
           $ref: '#/components/responses/bad-request'
         '401':
           $ref: '#/components/responses/unauthorized'
+      security:
+        - BearerAuth: []
+
+  /api/v1/permissions:
+    get:
+      summary: Get Permissions
+      description: Retrieve all permissions.
+      operationId: getPermissions
+      tags:
+        - Permissions
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionInfoList'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
       security:
         - BearerAuth: []
 
@@ -408,6 +461,132 @@ paths:
                       type: string
         '401':
           $ref: '#/components/responses/unauthorized'
+      security:
+        - BearerAuth: []
+
+
+    post:
+      summary: Create a Group
+      description: Create a new group.
+      operationId: createGroup
+      tags:
+        - Groups
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRoleRequest'
+      responses:
+        '201':
+          description: Group created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+      security:
+        - BearerAuth: []
+
+  /api/v1/roles/{role_id}:
+    put:
+      summary: Update a Role
+      description: Update a role.
+      operationId: updateRole
+      tags:
+        - Roles
+      parameters:
+        - name: role_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the role to update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRoleRequest'
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+
+    delete:
+      summary: Delete Role
+      description: Delete a specified role.
+      tags:
+        - Roles
+      operationId: deleteRole
+      parameters:
+        - in: path
+          name: role_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the role to delete.
+      responses:
+        '200':
+          description: Successful operation.
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+
+    get:
+      summary: Get a Role
+      description: Get a role.
+      operationId: getRole
+      tags:
+        - Roles
+      parameters:
+        - in: path
+          name: grole_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the role to get.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDetails'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
       security:
         - BearerAuth: []
 
@@ -838,6 +1017,10 @@ paths:
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
+        '503':
+          $ref: '#/components/responses/service-unavailable'
+        '507':
+          $ref: '#/components/responses/insufficient-storage'
       security:
         - BearerAuth: []
 
@@ -1555,6 +1738,28 @@ components:
           type: boolean
           description: The status of the operation, true if successful logout.
 
+    PermissionInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The ID of the permission.
+        name:
+          type: string
+          description: The name of the permission.
+
+    PermissionInfoList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 1
+          description: The total number of permissions.
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionInfo'
+
     GroupInfo:
       type: object
       properties:
@@ -1565,6 +1770,18 @@ components:
         name:
           type: string
           description: The name of the group.
+        max_spaces:
+          type: integer
+          format: uint32
+          description: The maximum number of spaces the group members can have.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the group members get.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the group members get.
 
     GroupInfoList:
       type: object
@@ -1586,6 +1803,18 @@ components:
           example: "my group"
           maxLength: 64
           description: The name of the group.
+        max_spaces:
+          type: integer
+          format: uint32
+          description: The maximum number of spaces the group members can have.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the group members get.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the group members get.
 
     GroupResponse:
       type: object
@@ -1597,6 +1826,58 @@ components:
           type: string
           format: uuid
           description: The ID of the group.
+
+    RoleDetails:
+      type: object
+      properties:
+        role_id:
+          type: string
+          format: uuid
+          description: The ID of the role.
+        name:
+          type: string
+          description: The name of the role.
+        permissions:
+          type: array
+          items:
+            type: integer
+          description: The permissions of the role.
+
+    RoleInfo:
+      type: object
+      properties:
+        role_id:
+          type: string
+          format: uuid
+          description: The ID of the role.
+        name:
+          type: string
+          description: The name of the role.
+
+    UserRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "my role"
+          maxLength: 64
+          description: The name of the role.
+        permissions:
+          type: array
+          items:
+            type: integer
+          description: The permissions of the role.
+
+    RoleResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+          description: The status of the operation, true if successful.
+        role_id:
+          type: string
+          format: uuid
+          description: The ID of the role.
 
     LookupResponse:
       type: object
@@ -1673,9 +1954,6 @@ components:
           type: string
           format: uuid
           description: The ID of the user the space belongs to.
-        volume_sizes:
-          type: integer
-          description: The volume size of the space.
         local_container:
           type: boolean
           description: If the space is of a local container, docker or podman.
@@ -1723,11 +2001,6 @@ components:
           items:
             type: string
           description: The alternative names for the space.
-        volume_sizes:
-          type: object
-          additionalProperties:
-            type: integer
-          description: The volume sizes for the space.
 
     SpaceVolume:
       type: object
@@ -1762,11 +2035,6 @@ components:
         location:
           type: string
           description: The location of the space.
-        volume_sizes:
-          type: array
-          items:
-            type: integer
-          description: The volume sizes for the space.
         is_deployed:
           type: boolean
           description: Flags if the space is deployed.
@@ -1874,6 +2142,27 @@ components:
         is_manual:
           type: boolean
           description: If the template is a manual template.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units used by spaces created from the template.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units used by spaces created from the template.
+        schedule_enabled:
+          type: boolean
+          description: If the template has a schedule enabled.
+        schedule:
+          type: array
+          description: The schedule for the template.
+          minItems: 7
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TemplateDetailsDay'
+          x-condition:
+            property: schedule_enabled
+            value: true
 
     TemplateList:
       type: object
@@ -1929,6 +2218,24 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units used by spaces created from the template.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units used by spaces created from the template.
+        schedule_enabled:
+          type: boolean
+          description: If the template has a schedule enabled.
+        schedule:
+          type: array
+          description: The schedule for the template.
+          minItems: 7
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TemplateDetailsDay'
 
     TemplateUpdateRequest:
       type: object
@@ -1966,6 +2273,24 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units used by spaces created from the template.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units used by spaces created from the template.
+        schedule_enabled:
+          type: boolean
+          description: If the template has a schedule enabled.
+        schedule:
+          type: array
+          description: The schedule for the template.
+          minItems: 7
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TemplateDetailsDay'
 
     TemplateDetails:
       type: object
@@ -1998,24 +2323,6 @@ components:
             format: uuid
             example: 00000000-0000-0000-0000-000000000000
           description: The IDs of the groups assigned to the template.
-        volume_sizes:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-                format: uuid
-                description: The ID of the volume.
-              name:
-                type: string
-                description: The name of the volume.
-              capacity_min:
-                type: integer
-                description: The minimum capacity of the volume in GB
-              capacity_max:
-                type: integer
-                description: The maximum capacity of the volume in GB
         local_container:
           type: boolean
           description: If the template is a local container template, docker or podman.
@@ -2034,6 +2341,39 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units used by spaces created from the template.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units used by spaces created from the template.
+        schedule_enabled:
+          type: boolean
+          description: If the template has a schedule enabled.
+        schedule:
+          type: array
+          description: The schedule for the template.
+          minItems: 7
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/TemplateDetailsDay'
+
+    TemplateDetailsDay:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: If the schedule is enabed for the day.
+        from:
+          type: string
+          description: The start time of the schedule.
+          example: "8:00am"
+        to:
+          type: string
+          description: The end time of the schedule.
+          example: "5:00pm"
 
     TemplateVar:
       type: object
@@ -2190,10 +2530,16 @@ components:
           description: The IDs of the groups assigned to the user.
         max_spaces:
           type: integer
+          format: uint32
           description: The maximum number of spaces the user can have, 0 for unlimited.
-        max_disk_space:
+        compute_units:
           type: integer
-          description: The maximum disk space the user can have, 0 for unlimited.
+          format: uint32
+          description: The number of compute units the user has.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has.
       required:
         - username
         - password
@@ -2247,9 +2593,15 @@ components:
         max_spaces:
           type: integer
           description: The maximum number of spaces the user can have, 0 for unlimited.
-        max_disk_space:
+        compute_units:
           type: integer
-          description: The maximum disk space the user can have, 0 for unlimited.
+          format: uint32
+          description: The number of compute units the user has.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has.
+
         number_spaces:
           type: integer
           description: The number of spaces the user has
@@ -2258,10 +2610,45 @@ components:
           description: The number of spaces the user has deployed currently
         number_spaces_deployed_in_location:
           type: integer
-          description: The number of spaces the user has deployed currently within the location
-        used_disk_space:
+          description: The number of spaces the user has deployed currently within the location.
+        used_compute_units:
           type: integer
-          description: The disk space used by the user
+          format: uint32
+          description: The number of compute units the user has used.
+        used_storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has used.
+
+    UserQuota:
+      type: object
+      properties:
+        max_spaces:
+          type: integer
+          description: The maximum number of spaces the user can have, 0 for unlimited.
+        compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the user has.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has.
+
+        number_spaces:
+          type: integer
+          description: The number of spaces the user has.
+        number_spaces_deployed:
+          type: integer
+          description: The number of spaces the user has deployed currently.
+        used_compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the user has used.
+        used_storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has used.
 
     UserResponse:
       type: object
@@ -2326,9 +2713,14 @@ components:
         max_spaces:
           type: integer
           description: The maximum number of spaces the user can have, 0 for unlimited
-        max_disk_space:
+        compute_units:
           type: integer
-          description: The maximum disk space the user can have, 0 for unlimited.
+          format: uint32
+          description: The number of compute units the user has.
+        storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has.
 
     VolumeInfo:
       type: object
@@ -2441,6 +2833,12 @@ components:
             $ref: '#/components/schemas/error'
     not-acceptable:
       description: Not Acceptable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/error'
+    service-unavailable:
+      description: Service Unavailable
       content:
         application/json:
           schema:

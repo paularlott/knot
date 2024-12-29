@@ -1,4 +1,12 @@
 window.userListComponent = function() {
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('search').focus();
+      }
+    }
+  );
+
   return {
     loading: true,
     deleteConfirm: {
@@ -26,7 +34,7 @@ window.userListComponent = function() {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getUsers();
-      }, 15000);
+      }, 5000);
     },
 
     async getUsers() {
@@ -35,7 +43,8 @@ window.userListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      this.roles = await rolesResponse.json();
+      let roleList = await rolesResponse.json();
+      this.roles = roleList.roles;
 
       const groupsResponse = await fetch('/api/v1/groups', {
         headers: {
@@ -68,8 +77,8 @@ window.userListComponent = function() {
         user.role_names = [];
         user.roles.forEach(roleId => {
           this.roles.forEach(role => {
-            if (role.id_role === roleId) {
-              user.role_names.push(role.role_name);
+            if (role.role_id === roleId) {
+              user.role_names.push(role.name);
             }
           });
         });

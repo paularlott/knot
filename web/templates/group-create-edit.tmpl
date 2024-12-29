@@ -19,6 +19,25 @@
           <input type="text" name="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Group name" x-model="formData.name">
           <div x-show="!nameValid" class="error-message" x-cloak="">Group name can be a max 64 characters.</div>
         </div>
+        <div>
+          <label class="form-label">Maximum Spaces</label>
+          <input type="number" class="form-field" name="max_spaces" x-model="formData.max_spaces" min="0" max="10000" x-on:keyup.debounce.500ms="checkMaxSpaces()" :class="{'form-field-error': !maxSpacesValid}" >
+          <p class="description">The maximum number of spaces users of this group can create, 0 for unlimited.</p>
+          <div x-show="!maxSpacesValid" class="error-message" x-cloak>Enter a valid number between 0 and 10,000.</div>
+        </div>
+        <div>
+          <label class="form-label">Compute Units Limit</label>
+          <input type="number" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
+          <p class="description">The maximum number of compute units (CPU, GPU, RAM, etc.) users of this group can use, 0 for unlimited.</p>
+          <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+        </div>
+        <div>
+          <label class="form-label">Storage Units Limit</label>
+          <input type="number" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
+          <p class="description">The maximum number of storage units users of this group can use, 0 for unlimited.</p>
+          <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
+        </div>
+
         <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
         <button type="submit" class="btn-primary" x-show="isEdit" x-on:click="stayOnPage=false">Save</button>
       </form>

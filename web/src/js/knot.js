@@ -14,6 +14,8 @@ import './pages/userGroupForm.js';
 import './pages/createTokenForm.js';
 import './pages/apiTokensComponent.js';
 import './pages/groupListComponent.js';
+import './pages/rolesListComponent.js';
+import './pages/userRolesForm.js';
 import './pages/sessionsListComponent.js';
 import './pages/templateListComponent.js';
 import './pages/templateForm.js';
@@ -25,6 +27,7 @@ import './pages/volumeListComponent.js';
 import './pages/volumeForm.js';
 import './pages/spaceForm.js';
 import './pages/spacesListComponent.js';
+import './pages/usageComponent.js';
 
 window.validate = validate;
 window.focusElement = function(selector) {

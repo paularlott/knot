@@ -7,13 +7,12 @@ import (
 )
 
 type SpaceRequest struct {
-	Name        string           `json:"name"`
-	TemplateId  string           `json:"template_id"`
-	Shell       string           `json:"shell"`
-	UserId      string           `json:"user_id"`
-	VolumeSizes map[string]int64 `json:"volume_sizes"`
-	AltNames    []string         `json:"alt_names"`
-	Location    string           `json:"location"`
+	Name       string   `json:"name"`
+	TemplateId string   `json:"template_id"`
+	Shell      string   `json:"shell"`
+	UserId     string   `json:"user_id"`
+	AltNames   []string `json:"alt_names"`
+	Location   string   `json:"location"`
 }
 type CreateSpaceRequest = SpaceRequest
 type UpdateSpaceRequest = SpaceRequest
@@ -31,7 +30,6 @@ type SpaceInfo struct {
 	Location       string `json:"location"`
 	Username       string `json:"username"`
 	UserId         string `json:"user_id"`
-	VolumeSize     int    `json:"volume_size"`
 	LocalContainer bool   `json:"local_container"`
 	IsManual       bool   `json:"is_manual"`
 }
@@ -60,17 +58,16 @@ type SpaceServiceState struct {
 }
 
 type SpaceDefinition struct {
-	UserId      string                       `json:"user_id"`
-	TemplateId  string                       `json:"template_id"`
-	Name        string                       `json:"name"`
-	Shell       string                       `json:"shell"`
-	Location    string                       `json:"location"`
-	AltNames    []string                     `json:"alt_names"`
-	IsDeployed  bool                         `json:"is_deployed"`
-	IsPending   bool                         `json:"is_pending"`
-	IsDeleting  bool                         `json:"is_deleting"`
-	VolumeSizes map[string]int64             `json:"volume_sizes"`
-	VolumeData  map[string]model.SpaceVolume `json:"volume_data"`
+	UserId     string                       `json:"user_id"`
+	TemplateId string                       `json:"template_id"`
+	Name       string                       `json:"name"`
+	Shell      string                       `json:"shell"`
+	Location   string                       `json:"location"`
+	AltNames   []string                     `json:"alt_names"`
+	IsDeployed bool                         `json:"is_deployed"`
+	IsPending  bool                         `json:"is_pending"`
+	IsDeleting bool                         `json:"is_deleting"`
+	VolumeData map[string]model.SpaceVolume `json:"volume_data"`
 }
 
 func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
@@ -115,7 +112,6 @@ func (c *ApiClient) GetSpace(spaceId string) (*model.Space, int, error) {
 		IsPending:    response.IsPending,
 		IsDeleting:   response.IsDeleting,
 		VolumeData:   response.VolumeData,
-		VolumeSizes:  response.VolumeSizes,
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 		Location:     response.Location,
@@ -126,13 +122,12 @@ func (c *ApiClient) GetSpace(spaceId string) (*model.Space, int, error) {
 
 func (c *ApiClient) UpdateSpace(space *model.Space) (int, error) {
 	request := &UpdateSpaceRequest{
-		UserId:      space.UserId,
-		TemplateId:  space.TemplateId,
-		Name:        space.Name,
-		AltNames:    space.AltNames,
-		Shell:       space.Shell,
-		VolumeSizes: space.VolumeSizes,
-		Location:    space.Location,
+		UserId:     space.UserId,
+		TemplateId: space.TemplateId,
+		Name:       space.Name,
+		AltNames:   space.AltNames,
+		Shell:      space.Shell,
+		Location:   space.Location,
 	}
 
 	code, err := c.httpClient.Put("/api/v1/spaces/"+space.Id, request, nil, 200)
@@ -145,13 +140,12 @@ func (c *ApiClient) UpdateSpace(space *model.Space) (int, error) {
 
 func (c *ApiClient) CreateSpace(space *model.Space) (int, error) {
 	request := &CreateSpaceRequest{
-		UserId:      space.UserId,
-		TemplateId:  space.TemplateId,
-		Name:        space.Name,
-		AltNames:    space.AltNames,
-		Shell:       space.Shell,
-		VolumeSizes: space.VolumeSizes,
-		Location:    space.Location,
+		UserId:     space.UserId,
+		TemplateId: space.TemplateId,
+		Name:       space.Name,
+		AltNames:   space.AltNames,
+		Shell:      space.Shell,
+		Location:   space.Location,
 	}
 
 	response := &CreateSpaceResponse{}

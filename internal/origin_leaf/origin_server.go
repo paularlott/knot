@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
+	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util"
 
 	"github.com/google/uuid"
@@ -54,6 +55,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 		RestrictedNode: token != nil,
 		Version:        build.Version,
 		Location:       registerMsg.Location,
+		Timezone:       server_info.Timezone,
 	}
 
 	// if using an API token then generate the location
@@ -172,6 +174,14 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 			err := originHandleDeleteToken(ws, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling delete token: %s", err)
+				return
+			}
+
+		case msg.MSG_SYNC_ROLES:
+			log.Debug().Msg("origin: sync roles")
+			err := originHandleSyncRoles(ws, leafSession)
+			if err != nil {
+				log.Error().Msgf("origin: error while handling sync roles: %s", err)
 				return
 			}
 
@@ -442,6 +452,16 @@ func originHandleDeleteToken(ws *websocket.Conn, accessToken *model.Token) error
 	if err == nil && token != nil && token.UserId == data.UserId && (accessToken == nil || token.UserId == accessToken.UserId) {
 		log.Debug().Msgf("origin: deleting token %s", token.Id)
 		return db.DeleteToken(token)
+	}
+
+	return nil
+}
+
+// origin server handler to process sync roles messages
+func originHandleSyncRoles(ws *websocket.Conn, session *leaf.Session) error {
+	roles := model.GetRolesFromCache()
+	for _, role := range roles {
+		session.UpdateRole(role)
 	}
 
 	return nil

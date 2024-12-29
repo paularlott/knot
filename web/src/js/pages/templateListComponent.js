@@ -1,4 +1,12 @@
 window.templateListComponent = function(canManageSpaces) {
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('search').focus();
+      }
+    }
+  );
+
   return {
     loading: true,
     deleteConfirm: {
@@ -30,7 +38,7 @@ window.templateListComponent = function(canManageSpaces) {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getTemplates();
-      }, 15000);
+      }, 5000);
     },
 
     async getTemplates() {
@@ -40,7 +48,7 @@ window.templateListComponent = function(canManageSpaces) {
             'Content-Type': 'application/json'
           }
         });
-        usersList = await usersResponse.json();
+        let usersList = await usersResponse.json();
         this.users = usersList.users;
       }
 
@@ -146,5 +154,8 @@ window.templateListComponent = function(canManageSpaces) {
         }
       });
     },
+    getDayOfWeek(day) {
+      return ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][day];
+    }
   };
 }
