@@ -36,4 +36,4 @@ For complex deployments over many different locations a mesh network may be more
 
 ## Documentation
 
-Documentation and [Getting Started](https://getknot.dev/docs/install/)
+Documentation and [Getting Started](https://getknot.dev/docs/getting-started/)
