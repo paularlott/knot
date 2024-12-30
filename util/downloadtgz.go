@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func DownloadUnpackTgz(downloadURL string, destDir string) error {
@@ -39,7 +40,10 @@ func DownloadUnpackTgz(downloadURL string, destDir string) error {
 			return fmt.Errorf("failed to read tar file: %v", err)
 		}
 
-		target := filepath.Join(destDir, header.Name)
+		target, err := sanitizeExtractPath(header.Name, destDir)
+		if err != nil {
+			return fmt.Errorf("invalid file path: %v", err)
+		}
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
@@ -56,8 +60,10 @@ func DownloadUnpackTgz(downloadURL string, destDir string) error {
 			}
 			file.Close()
 		case tar.TypeSymlink:
-			if err := os.Symlink(header.Linkname, target); err != nil {
-				return fmt.Errorf("failed to create symlink: %v", err)
+			if isRel(header.Linkname, destDir) {
+				if err := os.Symlink(header.Linkname, target); err != nil {
+					return fmt.Errorf("failed to create symlink: %v", err)
+				}
 			}
 		case tar.TypeLink:
 			linkTarget := filepath.Join(destDir, header.Linkname)
@@ -70,4 +76,60 @@ func DownloadUnpackTgz(downloadURL string, destDir string) error {
 	}
 
 	return nil
+}
+
+// isRel checks if the candidate path is a relative path within the target directory.
+// It returns true if the candidate path is relative and resides within the target directory,
+// otherwise it returns false.
+//
+// Parameters:
+//   - candidate: The path to be checked.
+//   - target: The base directory against which the candidate path is evaluated.
+//
+// The function first checks if the candidate path is absolute. If it is, the function returns false.
+// If the candidate path is relative, the function resolves any symbolic links in the combined path
+// of target and candidate. It then calculates the relative path from the target to the resolved path
+// and checks if this relative path does not start with "..", indicating that the candidate path is
+// within the target directory.
+func isRel(candidate, target string) bool {
+	if filepath.IsAbs(candidate) {
+		return false
+	}
+	realpath, err := filepath.EvalSymlinks(filepath.Join(target, candidate))
+	if err != nil {
+		return false
+	}
+	relpath, err := filepath.Rel(target, realpath)
+	return err == nil && !strings.HasPrefix(filepath.Clean(relpath), "..")
+}
+
+// sanitizeExtractPath ensures that the provided file path is clean, does not contain
+// any directory traversal sequences, and is within the specified destination directory.
+//
+// Parameters:
+// - filePath: The file path to sanitize.
+// - destDir: The destination directory where the file should be extracted.
+//
+// Returns:
+// - A sanitized absolute file path if the input path is valid and within the destination directory.
+// - An error if the file path is invalid, contains directory traversal sequences, or is outside the destination directory.
+func sanitizeExtractPath(filePath string, destDir string) (string, error) {
+	// Ensure the file path is clean and does not contain any directory traversal sequences
+	cleanPath := filepath.Clean(filePath)
+	if strings.Contains(cleanPath, "..") {
+		return "", fmt.Errorf("invalid file path: %s", filePath)
+	}
+	// Ensure the file path is within the destination directory
+	absDestDir, err := filepath.Abs(destDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path of destination directory: %v", err)
+	}
+	absFilePath, err := filepath.Abs(filepath.Join(destDir, cleanPath))
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path of file: %v", err)
+	}
+	if !strings.HasPrefix(absFilePath, absDestDir) {
+		return "", fmt.Errorf("file path is outside the destination directory: %s", filePath)
+	}
+	return absFilePath, nil
 }
