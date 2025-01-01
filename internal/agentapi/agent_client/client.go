@@ -188,12 +188,12 @@ func ConnectAndServe(server string, spaceId string) {
 
 				// Fetch and start code server
 				if withCodeServer {
-					startCodeServer(viper.GetInt("agent.port.code_server"))
+					go startCodeServer(viper.GetInt("agent.port.code_server"))
 				}
 
 				// Fetch and start vscode tunnel
 				if withVSCodeTunnel {
-					startVSCodeTunnel(viper.GetString("agent.vscode_tunnel"))
+					go startVSCodeTunnel(viper.GetString("agent.vscode_tunnel"))
 				}
 			}
 

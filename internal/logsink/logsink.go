@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
@@ -15,11 +14,10 @@ func ListenAndServe() {
 
 	go func() {
 
-		router := chi.NewRouter()
-
-		router.Post("/logs", handleLogMessage)
-		router.Post("/gelf", handleGelf)
-		router.Post("/loki/api/v1/push", handleLoki)
+		router := http.NewServeMux()
+		router.HandleFunc("POST /logs", handleLogMessage)
+		router.HandleFunc("POST /gelf", handleGelf)
+		router.HandleFunc("POST /loki/api/v1/push", handleLoki)
 
 		// Run the http server
 		server := &http.Server{
