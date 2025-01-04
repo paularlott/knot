@@ -6,6 +6,7 @@ window.userGroupForm = function(isEdit, groupId) {
       max_spaces: 0,
       compute_units: 0,
       storage_units: 0,
+      max_tunnels: 0,
     },
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create Group',
@@ -13,6 +14,7 @@ window.userGroupForm = function(isEdit, groupId) {
     maxSpacesValid: true,
     computeUnitsValid: true,
     storageUnitsValid: true,
+    maxTunnelsValid: true,
     isEdit: isEdit,
     stayOnPage: true,
 
@@ -35,6 +37,7 @@ window.userGroupForm = function(isEdit, groupId) {
           this.formData.max_spaces = group.max_spaces;
           this.formData.compute_units = group.compute_units;
           this.formData.storage_units = group.storage_units;
+          this.formData.max_tunnels = group.max_tunnels;
         }
       }
 
@@ -52,6 +55,9 @@ window.userGroupForm = function(isEdit, groupId) {
     checkStorageUnits() {
       return this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
     },
+    checkMaxTunnels() {
+      return this.maxTunnelsValid = validate.isNumber(this.formData.max_tunnels, 0, 100);
+    },
 
     async submitData() {
       var err = false,
@@ -60,6 +66,7 @@ window.userGroupForm = function(isEdit, groupId) {
       err = !this.checkMaxSpaces() || err;
       err = !this.checkComputeUnits() || err;
       err = !this.checkStorageUnits() || err;
+      err = !this.checkMaxTunnels() || err;
       if(err) {
         return;
       }
@@ -74,6 +81,7 @@ window.userGroupForm = function(isEdit, groupId) {
         max_spaces: parseInt(this.formData.max_spaces),
         compute_units: parseInt(this.formData.compute_units),
         storage_units: parseInt(this.formData.storage_units),
+        max_tunnels: parseInt(this.formData.max_tunnels),
       }
 
       fetch(isEdit ? '/api/v1/groups/' + groupId : '/api/v1/groups', {

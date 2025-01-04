@@ -50,6 +50,8 @@ func ConnectAndForward(wsUrl string, protocol string, port uint16, tunnelName st
 					log.Fatal().Msg("Server does not support tunnels")
 				} else if response.StatusCode == http.StatusForbidden {
 					log.Fatal().Msg("Tunnels are not available on your account")
+				} else if response.StatusCode == http.StatusServiceUnavailable {
+					log.Fatal().Msg("Tunnel limit reached")
 				}
 
 				log.Error().Msgf("tunnel: error while opening websocket: %s", err)

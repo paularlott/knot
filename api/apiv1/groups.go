@@ -45,6 +45,7 @@ func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
 				MaxSpaces:    group.MaxSpaces,
 				ComputeUnits: group.ComputeUnits,
 				StorageUnits: group.StorageUnits,
+				MaxTunnels:   group.MaxTunnels,
 			}
 			data.Groups = append(data.Groups, g)
 			data.Count++
@@ -80,11 +81,15 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
 		return
 	}
+	if !validate.IsPositiveNumber(int(request.MaxTunnels)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
-		code, err := client.UpdateGroup(groupId, request.Name, request.MaxSpaces, request.ComputeUnits, request.StorageUnits)
+		code, err := client.UpdateGroup(groupId, request.Name, request.MaxSpaces, request.ComputeUnits, request.StorageUnits, request.MaxTunnels)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -104,6 +109,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		group.MaxSpaces = request.MaxSpaces
 		group.ComputeUnits = request.ComputeUnits
 		group.StorageUnits = request.StorageUnits
+		group.MaxTunnels = request.MaxTunnels
 
 		err = db.SaveGroup(group)
 		if err != nil {
@@ -141,11 +147,15 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
 		return
 	}
+	if !validate.IsPositiveNumber(int(request.MaxTunnels)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
-		groupId, code, err := client.CreateGroup(request.Name, request.MaxSpaces, request.ComputeUnits, request.StorageUnits)
+		groupId, code, err := client.CreateGroup(request.Name, request.MaxSpaces, request.ComputeUnits, request.StorageUnits, request.MaxTunnels)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -156,7 +166,7 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 			Id:     groupId,
 		})
 	} else {
-		group := model.NewGroup(request.Name, user.Id, request.MaxSpaces, request.ComputeUnits, request.StorageUnits)
+		group := model.NewGroup(request.Name, user.Id, request.MaxSpaces, request.ComputeUnits, request.StorageUnits, request.MaxTunnels)
 
 		err = database.GetInstance().SaveGroup(group)
 		if err != nil {
@@ -237,6 +247,7 @@ func HandleGetGroup(w http.ResponseWriter, r *http.Request) {
 			MaxSpaces:    group.MaxSpaces,
 			ComputeUnits: group.ComputeUnits,
 			StorageUnits: group.StorageUnits,
+			MaxTunnels:   group.MaxTunnels,
 		}
 
 		rest.SendJSON(http.StatusOK, w, r, data)

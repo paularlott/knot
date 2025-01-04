@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/rest"
@@ -61,6 +62,10 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
 		return
 	}
+	if !validate.IsPositiveNumber(int(request.MaxTunnels)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
+		return
+	}
 	if !validate.MaxLength(request.GitHubUsername, 255) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "GitHub username too long"})
 		return
@@ -96,7 +101,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Create the user
-		userNew := model.NewUser(request.Username, request.Email, request.Password, userRoles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.GitHubUsername, request.ComputeUnits, request.StorageUnits)
+		userNew := model.NewUser(request.Username, request.Email, request.Password, userRoles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.GitHubUsername, request.ComputeUnits, request.StorageUnits, request.MaxTunnels)
 		if request.ServicePassword != "" {
 			userNew.ServicePassword = request.ServicePassword
 		}
@@ -162,6 +167,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		MaxSpaces:       user.MaxSpaces,
 		ComputeUnits:    user.ComputeUnits,
 		StorageUnits:    user.StorageUnits,
+		MaxTunnels:      user.MaxTunnels,
 		SSHPublicKey:    user.SSHPublicKey,
 		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
@@ -195,6 +201,7 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		MaxSpaces:       user.MaxSpaces,
 		ComputeUnits:    user.ComputeUnits,
 		StorageUnits:    user.StorageUnits,
+		MaxTunnels:      user.MaxTunnels,
 		SSHPublicKey:    user.SSHPublicKey,
 		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
@@ -274,6 +281,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 				data.MaxSpaces = user.MaxSpaces
 				data.ComputeUnits = user.ComputeUnits
 				data.StorageUnits = user.StorageUnits
+				data.MaxTunnels = user.MaxTunnels
 				data.Current = user.Id == activeUser.Id
 
 				// Sum the compute and storage units from groups
@@ -283,6 +291,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 						data.MaxSpaces += group.MaxSpaces
 						data.ComputeUnits += group.ComputeUnits
 						data.StorageUnits += group.StorageUnits
+						data.MaxTunnels += group.MaxTunnels
 					}
 				}
 
@@ -432,6 +441,10 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
 			return
 		}
+		if !validate.IsPositiveNumber(int(request.MaxTunnels)) {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
+			return
+		}
 
 		// Check roles give are present in the system, if not drop them
 		userRoles := []string{}
@@ -450,6 +463,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.MaxSpaces = request.MaxSpaces
 		user.ComputeUnits = request.ComputeUnits
 		user.StorageUnits = request.StorageUnits
+		user.MaxTunnels = request.MaxTunnels
 	}
 
 	// If on leaf
@@ -572,11 +586,13 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 		MaxSpaces:    user.MaxSpaces,
 		ComputeUnits: user.ComputeUnits,
 		StorageUnits: user.StorageUnits,
+		MaxTunnels:   user.MaxTunnels,
 
 		NumberSpaces:         usage.NumberSpaces,
 		NumberSpacesDeployed: usage.NumberSpacesDeployed,
 		UsedComputeUnits:     usage.ComputeUnits,
 		UsedStorageUnits:     usage.StorageUnits,
+		UsedTunnels:          tunnel_server.CountUserTunnels(userId),
 	}
 
 	// Get the groups and build a map
@@ -597,6 +613,7 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 			quota.MaxSpaces += group.MaxSpaces
 			quota.ComputeUnits += group.ComputeUnits
 			quota.StorageUnits += group.StorageUnits
+			quota.MaxTunnels += group.MaxTunnels
 		}
 	}
 

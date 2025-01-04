@@ -34,12 +34,12 @@ func (db *MySQLDriver) SaveUser(user *model.User) error {
 
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE users SET email=?, password=?, active=?, updated_at=?, last_login_at=?, ssh_public_key=?, roles=?, groups=?, preferred_shell=?, timezone=?, max_spaces=?, compute_units=?, storage_units=?, service_password=?, github_username=? WHERE user_id=?",
-			user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.SSHPublicKey, roles, user.Groups, user.PreferredShell, user.Timezone, user.MaxSpaces, user.ComputeUnits, user.StorageUnits, user.ServicePassword, user.GitHubUsername, user.Id,
+		_, err = tx.Exec("UPDATE users SET email=?, password=?, active=?, updated_at=?, last_login_at=?, ssh_public_key=?, roles=?, groups=?, preferred_shell=?, timezone=?, max_spaces=?, compute_units=?, storage_units=?, max_tunnels=?, service_password=?, github_username=? WHERE user_id=?",
+			user.Email, user.Password, user.Active, time.Now().UTC(), user.LastLoginAt, user.SSHPublicKey, roles, user.Groups, user.PreferredShell, user.Timezone, user.MaxSpaces, user.ComputeUnits, user.StorageUnits, user.MaxTunnels, user.ServicePassword, user.GitHubUsername, user.Id,
 		)
 	} else {
-		_, err = tx.Exec("INSERT INTO users (user_id, username, email, password, active, updated_at, created_at, ssh_public_key, preferred_shell, roles, groups, timezone, max_spaces, compute_units, storage_units, service_password, github_username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			user.Id, user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), time.Now().UTC(), user.SSHPublicKey, user.PreferredShell, roles, user.Groups, user.Timezone, user.MaxSpaces, user.ComputeUnits, user.StorageUnits, user.ServicePassword, user.GitHubUsername,
+		_, err = tx.Exec("INSERT INTO users (user_id, username, email, password, active, updated_at, created_at, ssh_public_key, preferred_shell, roles, groups, timezone, max_spaces, compute_units, storage_units, max_tunnels, service_password, github_username) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			user.Id, user.Username, user.Email, user.Password, user.Active, time.Now().UTC(), time.Now().UTC(), user.SSHPublicKey, user.PreferredShell, roles, user.Groups, user.Timezone, user.MaxSpaces, user.ComputeUnits, user.StorageUnits, user.MaxTunnels, user.ServicePassword, user.GitHubUsername,
 		)
 	}
 	if err != nil {
@@ -68,7 +68,7 @@ func (db *MySQLDriver) getUsers(where string, args ...interface{}) ([]*model.Use
 		where = "WHERE " + where
 	}
 
-	rows, err := db.connection.Query(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, ssh_public_key, preferred_shell, roles, groups, timezone, max_spaces, compute_units, storage_units, service_password, github_username FROM users %s ORDER BY username ASC", where), args...)
+	rows, err := db.connection.Query(fmt.Sprintf("SELECT user_id, username, email, password, active, updated_at, created_at, last_login_at, ssh_public_key, preferred_shell, roles, groups, timezone, max_spaces, compute_units, storage_units, max_tunnels, service_password, github_username FROM users %s ORDER BY username ASC", where), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (db *MySQLDriver) getUsers(where string, args ...interface{}) ([]*model.Use
 	for rows.Next() {
 		var user = &model.User{}
 
-		err := rows.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.SSHPublicKey, &user.PreferredShell, &roles, &user.Groups, &user.Timezone, &user.MaxSpaces, &user.ComputeUnits, &user.StorageUnits, &user.ServicePassword, &user.GitHubUsername)
+		err := rows.Scan(&user.Id, &user.Username, &user.Email, &user.Password, &user.Active, &updatedAt, &createdAt, &lastLoginAt, &user.SSHPublicKey, &user.PreferredShell, &roles, &user.Groups, &user.Timezone, &user.MaxSpaces, &user.ComputeUnits, &user.StorageUnits, &user.MaxTunnels, &user.ServicePassword, &user.GitHubUsername)
 		if err != nil {
 			return nil, err
 		}

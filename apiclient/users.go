@@ -19,6 +19,7 @@ type UserResponse struct {
 	MaxSpaces       uint32     `json:"max_spaces"`
 	ComputeUnits    uint32     `json:"compute_units"`
 	StorageUnits    uint32     `json:"storage_units"`
+	MaxTunnels      uint32     `json:"max_tunnels"`
 	SSHPublicKey    string     `json:"ssh_public_key"`
 	GitHubUsername  string     `json:"github_username"`
 	PreferredShell  string     `json:"preferred_shell"`
@@ -40,6 +41,7 @@ type userRequest struct {
 	MaxSpaces       uint32   `json:"max_spaces"`
 	ComputeUnits    uint32   `json:"compute_units"`
 	StorageUnits    uint32   `json:"storage_units"`
+	MaxTunnels      uint32   `json:"max_tunnels"`
 	SSHPublicKey    string   `json:"ssh_public_key"`
 	GitHubUsername  string   `json:"github_username"`
 	PreferredShell  string   `json:"preferred_shell"`
@@ -63,6 +65,7 @@ type UserInfo struct {
 	MaxSpaces                      uint32     `json:"max_spaces"`
 	ComputeUnits                   uint32     `json:"compute_units"`
 	StorageUnits                   uint32     `json:"storage_units"`
+	MaxTunnels                     uint32     `json:"max_tunnels"`
 	Current                        bool       `json:"current"`
 	LastLoginAt                    *time.Time `json:"last_login_at"`
 	NumberSpaces                   int        `json:"number_spaces"`
@@ -80,10 +83,12 @@ type UserQuota struct {
 	MaxSpaces            uint32 `json:"max_spaces"`
 	ComputeUnits         uint32 `json:"compute_units"`
 	StorageUnits         uint32 `json:"storage_units"`
+	MaxTunnels           uint32 `json:"max_tunnels"`
 	NumberSpaces         int    `json:"number_spaces"`
 	NumberSpacesDeployed int    `json:"number_spaces_deployed"`
 	UsedComputeUnits     uint32 `json:"used_compute_units"`
 	UsedStorageUnits     uint32 `json:"used_storage_units"`
+	UsedTunnels          uint32 `json:"used_tunnels"`
 }
 
 func (c *ApiClient) CreateUser(request *CreateUserRequest) (string, int, error) {
@@ -122,6 +127,7 @@ func (c *ApiClient) GetUser(userId string) (*model.User, error) {
 		MaxSpaces:       response.MaxSpaces,
 		ComputeUnits:    response.ComputeUnits,
 		StorageUnits:    response.StorageUnits,
+		MaxTunnels:      response.MaxTunnels,
 		PreferredShell:  response.PreferredShell,
 		Timezone:        response.Timezone,
 		LastLoginAt:     response.LastLoginAt,
@@ -153,6 +159,7 @@ func (c *ApiClient) WhoAmI() (*model.User, error) {
 		MaxSpaces:       response.MaxSpaces,
 		ComputeUnits:    response.ComputeUnits,
 		StorageUnits:    response.StorageUnits,
+		MaxTunnels:      response.MaxTunnels,
 		PreferredShell:  response.PreferredShell,
 		Timezone:        response.Timezone,
 		LastLoginAt:     response.LastLoginAt,
@@ -189,6 +196,7 @@ func (c *ApiClient) UpdateUser(user *model.User) error {
 		MaxSpaces:       user.MaxSpaces,
 		ComputeUnits:    user.ComputeUnits,
 		StorageUnits:    user.StorageUnits,
+		MaxTunnels:      user.MaxTunnels,
 		SSHPublicKey:    user.SSHPublicKey,
 		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,

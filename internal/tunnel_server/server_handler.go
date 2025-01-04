@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/wsconn"
@@ -30,12 +31,42 @@ var (
 )
 
 func HandleTunnel(w http.ResponseWriter, r *http.Request) {
+	var err error
+
 	user := r.Context().Value("user").(*model.User)
 
 	// Check the user has permission to create a tunnel
 	if !user.HasPermission(model.PermissionUseTunnels) {
 		log.Error().Msgf("tunnel: user %s does not have permission to create tunnels", user.Username)
 		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	// Calculate the number of tunnels allowed
+	db := database.GetInstance()
+
+	// Get the groups and build a map
+	groups, err := db.GetGroups()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	groupMap := make(map[string]*model.Group)
+	for _, group := range groups {
+		groupMap[group.Id] = group
+	}
+
+	maxTunnels := user.MaxTunnels
+	for _, group := range user.Groups {
+		if g, ok := groupMap[group]; ok {
+			maxTunnels += g.MaxTunnels
+		}
+	}
+
+	// It a tunnel limit is set then check user has not exceeded it
+	if maxTunnels > 0 && CountUserTunnels(user.Id) >= maxTunnels {
+		log.Error().Msgf("tunnel: user %s has exceeded the maximum number of tunnels", user.Username)
+		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 
@@ -59,7 +90,6 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	localConn := wsconn.New(ws)
-	var err error
 
 	session.muxSession, err = yamux.Server(localConn, &yamux.Config{
 		AcceptBacklog:          256,
@@ -98,4 +128,19 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 	tunnelMutex.Lock()
 	tunnels[webName] = session
 	tunnelMutex.Unlock()
+}
+
+func CountUserTunnels(userId string) uint32 {
+	var count uint32
+
+	tunnelMutex.RLock()
+	defer tunnelMutex.RUnlock()
+
+	for _, t := range tunnels {
+		if t.user.Id == userId {
+			count++
+		}
+	}
+
+	return count
 }

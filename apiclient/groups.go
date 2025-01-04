@@ -6,6 +6,7 @@ type GroupInfo struct {
 	MaxSpaces    uint32 `json:"max_spaces"`
 	ComputeUnits uint32 `json:"compute_units"`
 	StorageUnits uint32 `json:"storage_units"`
+	MaxTunnels   uint32 `json:"max_tunnels"`
 }
 
 type GroupInfoList struct {
@@ -18,6 +19,7 @@ type UserGroupRequest struct {
 	MaxSpaces    uint32 `json:"max_spaces"`
 	ComputeUnits uint32 `json:"compute_units"`
 	StorageUnits uint32 `json:"storage_units"`
+	MaxTunnels   uint32 `json:"max_tunnels"`
 }
 
 type GroupResponse struct {
@@ -36,12 +38,13 @@ func (c *ApiClient) GetGroups() (*GroupInfoList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateGroup(groupId string, groupName string, maxSpaces uint32, computeUnits uint32, storageUnits uint32) (int, error) {
+func (c *ApiClient) UpdateGroup(groupId string, groupName string, maxSpaces uint32, computeUnits uint32, storageUnits uint32, maxTunnels uint32) (int, error) {
 	request := UserGroupRequest{
 		Name:         groupName,
 		MaxSpaces:    maxSpaces,
 		ComputeUnits: computeUnits,
 		StorageUnits: storageUnits,
+		MaxTunnels:   maxTunnels,
 	}
 
 	code, err := c.httpClient.Put("/api/v1/groups/"+groupId, request, nil, 200)
@@ -52,12 +55,13 @@ func (c *ApiClient) UpdateGroup(groupId string, groupName string, maxSpaces uint
 	return code, nil
 }
 
-func (c *ApiClient) CreateGroup(groupName string, maxSpaces uint32, computeUnits uint32, storageUnits uint32) (string, int, error) {
+func (c *ApiClient) CreateGroup(groupName string, maxSpaces uint32, computeUnits uint32, storageUnits uint32, maxTunnels uint32) (string, int, error) {
 	request := UserGroupRequest{
 		Name:         groupName,
 		MaxSpaces:    maxSpaces,
 		ComputeUnits: computeUnits,
 		StorageUnits: storageUnits,
+		MaxTunnels:   maxTunnels,
 	}
 
 	response := &GroupResponse{}

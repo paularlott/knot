@@ -53,6 +53,10 @@
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="u.used_storage_units + (u.storage_units ? ' / ' + u.storage_units : '')"></td>
                 </tr>
                 <tr>
+                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Max Tunnels:</td>
+                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="u.max_tunnels ? u.max_tunnels : '-'"></td>
+                </tr>
+                <tr>
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Deployed:</td>
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="u.number_spaces_deployed"></td>
                 </tr>

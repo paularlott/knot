@@ -36,9 +36,10 @@
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
             <tr>
               <th scope="col" class="px-6 py-3">Name</th>
-              <th scope="col" class="px-6 py-3">Max Spaces  </th>
+              <th scope="col" class="px-6 py-3">Max Spaces</th>
               <th scope="col" class="px-6 py-3">Compute Units</th>
               <th scope="col" class="px-6 py-3">Storage Units</th>
+              <th scope="col" class="px-6 py-3">Max Tunnels</th>
               <th scope="col" class="px-6 py-3">&nbsp;</th>
             </tr>
             </thead>
@@ -49,6 +50,7 @@
                 <td class="px-6 py-4" x-text="g.max_spaces"></td>
                 <td class="px-6 py-4" x-text="g.compute_units"></td>
                 <td class="px-6 py-4" x-text="g.storage_units"></td>
+                <td class="px-6 py-4" x-text="g.max_tunnels"></td>
                 <td class="px-6 py-4">
                   <div class="flex items-center justify-end" x-data>
                     <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">

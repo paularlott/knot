@@ -18,6 +18,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       max_spaces: 0,
       compute_units: 0,
       storage_units: 0,
+      max_tunnels: 0,
       roles: [],
       groups: [],
     },
@@ -36,6 +37,7 @@ window.userForm = function(isEdit, userId, isProfile) {
     githubUsernameValid: true,
     computeUnitsValid: true,
     storageUnitsValid: true,
+    maxTunnelsValid: true,
     async initUsers() {
       focusElement('input[name="username"]');
 
@@ -75,6 +77,7 @@ window.userForm = function(isEdit, userId, isProfile) {
           this.formData.max_spaces = user.max_spaces;
           this.formData.compute_units = user.compute_units;
           this.formData.storage_units = user.storage_units;
+          this.formData.max_tunnels = user.max_tunnels;
           this.formData.roles = user.roles;
           this.formData.groups = user.groups;
           this.formData.timezone = user.timezone;
@@ -132,6 +135,9 @@ window.userForm = function(isEdit, userId, isProfile) {
     checkStorageUnits() {
       return this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
     },
+    checkMaxTunnels() {
+      return this.maxTunnelsValid = validate.isNumber(this.formData.max_tunnels, 0, 100);
+    },
     checkServicePassword() {
       return this.servicePasswordValid = this.formData.service_password.length <= 255;
     },
@@ -150,6 +156,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       err = !this.checkMaxSpaces() || err;
       err = !this.checkComputeUnits() || err;
       err = !this.checkStorageUnits() || err;
+      err = !this.checkMaxTunnels() || err;
       err = !this.checkServicePassword() || err;
       err = !this.checkShell() || err;
       err = !this.checkTz() || err;
@@ -174,6 +181,7 @@ window.userForm = function(isEdit, userId, isProfile) {
         max_spaces: parseInt(this.formData.max_spaces),
         storage_units: parseInt(this.formData.storage_units),
         compute_units: parseInt(this.formData.compute_units),
+        max_tunnels: parseInt(this.formData.max_tunnels),
         roles: this.formData.roles,
         groups: this.formData.groups,
         timezone: this.formData.timezone,

@@ -6,9 +6,11 @@ window.usageComponent = function(userId) {
       compute_units: 0,
       storage_units: 0,
       number_spaces: 0,
+      max_tunnels: 0,
       number_spaces_deployed: 0,
       used_compute_units: 0,
       used_storage_units: 0,
+      used_tunnels: 0,
     },
 
     async init() {

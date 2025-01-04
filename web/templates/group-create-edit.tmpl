@@ -37,6 +37,12 @@
           <p class="description">The maximum number of storage units users of this group can use, 0 for unlimited.</p>
           <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0.</div>
         </div>
+        <div>
+          <label class="form-label">Maximum Tunnels</label>
+          <input type="number" class="form-field" name="max_tunnels" x-model="formData.max_tunnels" min="0" x-on:keyup.debounce.500ms="checkMaxTunnels()" :class="{'form-field-error': !maxTunnelsValid}" >
+          <p class="description">The maximum number of tunnels users of this group can use, 0 for unlimited.</p>
+          <div x-show="!maxTunnelsValid" class="error-message" x-cloak>Enter a valid number between 0 and 100.</div>
+        </div>
 
         <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
         <button type="submit" class="btn-primary" x-show="isEdit" x-on:click="stayOnPage=false">Save</button>

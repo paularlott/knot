@@ -26,12 +26,12 @@ func (db *MySQLDriver) SaveGroup(group *model.Group) error {
 
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE groups SET name=?, max_spaces=?, compute_units=?, storage_units=?, updated_user_id=?, updated_at=? WHERE group_id=?",
-			group.Name, group.MaxSpaces, group.ComputeUnits, group.StorageUnits, group.UpdatedUserId, time.Now().UTC(), group.Id,
+		_, err = tx.Exec("UPDATE groups SET name=?, max_spaces=?, compute_units=?, storage_units=?, max_tunnels=?, updated_user_id=?, updated_at=? WHERE group_id=?",
+			group.Name, group.MaxSpaces, group.ComputeUnits, group.StorageUnits, group.MaxTunnels, group.UpdatedUserId, time.Now().UTC(), group.Id,
 		)
 	} else {
-		_, err = tx.Exec("INSERT INTO groups (group_id, name, max_spaces, compute_units, storage_units, created_user_id, created_at, updated_user_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			group.Id, group.Name, group.MaxSpaces, group.ComputeUnits, group.StorageUnits, group.CreatedUserId, time.Now().UTC(), group.CreatedUserId, time.Now().UTC(),
+		_, err = tx.Exec("INSERT INTO groups (group_id, name, max_spaces, compute_units, storage_units, max_tunnels, created_user_id, created_at, updated_user_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			group.Id, group.Name, group.MaxSpaces, group.ComputeUnits, group.StorageUnits, group.MaxTunnels, group.CreatedUserId, time.Now().UTC(), group.CreatedUserId, time.Now().UTC(),
 		)
 	}
 	if err != nil {
@@ -63,7 +63,7 @@ func (db *MySQLDriver) getGroups(query string, args ...interface{}) ([]*model.Gr
 		var createdAt string
 		var updatedAt string
 
-		err := rows.Scan(&group.Id, &group.Name, &group.MaxSpaces, &group.ComputeUnits, &group.StorageUnits, &group.CreatedUserId, &createdAt, &group.UpdatedUserId, &updatedAt)
+		err := rows.Scan(&group.Id, &group.Name, &group.MaxSpaces, &group.ComputeUnits, &group.StorageUnits, &group.MaxTunnels, &group.CreatedUserId, &createdAt, &group.UpdatedUserId, &updatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +85,7 @@ func (db *MySQLDriver) getGroups(query string, args ...interface{}) ([]*model.Gr
 }
 
 func (db *MySQLDriver) GetGroup(id string) (*model.Group, error) {
-	groups, err := db.getGroups("SELECT group_id, name, max_spaces, compute_units, storage_units, created_user_id, created_at, updated_user_id, updated_at FROM groups WHERE group_id = ?", id)
+	groups, err := db.getGroups("SELECT group_id, name, max_spaces, compute_units, storage_units, max_tunnels, created_user_id, created_at, updated_user_id, updated_at FROM groups WHERE group_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
@@ -97,5 +97,5 @@ func (db *MySQLDriver) GetGroup(id string) (*model.Group, error) {
 }
 
 func (db *MySQLDriver) GetGroups() ([]*model.Group, error) {
-	return db.getGroups("SELECT group_id, name, max_spaces, compute_units, storage_units, created_user_id, created_at, updated_user_id, updated_at FROM groups ORDER BY name")
+	return db.getGroups("SELECT group_id, name, max_spaces, compute_units, storage_units, max_tunnels, created_user_id, created_at, updated_user_id, updated_at FROM groups ORDER BY name")
 }
