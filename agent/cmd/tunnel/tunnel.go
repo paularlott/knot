@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/tunnel_server"
@@ -19,16 +18,14 @@ import (
 )
 
 func init() {
-	tunnelCmd.PersistentFlags().StringP("server", "s", "", "The address of the remote server to create the tunnel on.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
-	tunnelCmd.PersistentFlags().StringP("token", "t", "", "The token to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOKEN environment variable if set.")
-	tunnelCmd.PersistentFlags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
+	TunnelCmd.PersistentFlags().StringP("server", "s", "", "The address of the remote server to create the tunnel on.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
+	TunnelCmd.PersistentFlags().StringP("token", "t", "", "The token to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOKEN environment variable if set.")
+	TunnelCmd.PersistentFlags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
 
-	tunnelCmd.Flags().StringP("hostname", "n", "", "The hostname to present when using https protocol.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HOSTNAME environment variable if set.")
-
-	command.RootCmd.AddCommand(tunnelCmd)
+	TunnelCmd.Flags().StringP("hostname", "n", "", "The hostname to present when using https protocol.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HOSTNAME environment variable if set.")
 }
 
-var tunnelCmd = &cobra.Command{
+var TunnelCmd = &cobra.Command{
 	Use: `tunnel <protocol> <port> <name>
 
   protocol      The type of endpoint, either http or https.
@@ -69,7 +66,7 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 			cobra.CheckErr("Invalid name, must be all lowercase and only contain letters, numbers and dashes")
 		}
 
-		cfg := command.GetServerAddr()
+		cfg := config.GetServerAddr()
 		tunnel_server.ConnectAndForward(cfg.WsServer, args[0], uint16(port), args[2], cmd.Flag("hostname").Value.String())
 
 		// Wait for ctrl-c

@@ -27,7 +27,7 @@ var pingCmd = &cobra.Command{
 		viper.BindEnv("client.server", config.CONFIG_ENV_PREFIX+"_SERVER")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg := GetServerAddr()
+		cfg := config.GetServerAddr()
 		fmt.Println("Pinging server: ", cfg.HttpServer)
 
 		client := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))

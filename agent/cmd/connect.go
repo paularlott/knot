@@ -1,4 +1,4 @@
-package command
+package agentcmd
 
 import (
 	"fmt"
@@ -19,14 +19,14 @@ import (
 
 func init() {
 
-	connectCmd.Flags().BoolP("use-web-auth", "", false, "If given then authorization will be done via the web interface.")
-	connectCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
-	connectCmd.Flags().StringP("username", "u", "", "Username to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_USERNAME environment variable if set.")
+	ConnectCmd.Flags().BoolP("use-web-auth", "", false, "If given then authorization will be done via the web interface.")
+	ConnectCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
+	ConnectCmd.Flags().StringP("username", "u", "", "Username to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_USERNAME environment variable if set.")
 
-	RootCmd.AddCommand(connectCmd)
+	RootCmd.AddCommand(ConnectCmd)
 }
 
-var connectCmd = &cobra.Command{
+var ConnectCmd = &cobra.Command{
 	Use:   "connect <server>",
 	Short: "Connect to a server",
 	Long:  `Authenticate the client with a remote server and save the server address and access key.`,

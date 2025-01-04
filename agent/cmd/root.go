@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
+	tunnelcmd "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 
@@ -31,6 +32,7 @@ func init() {
 	RootCmd.PersistentFlags().StringP("log-level", "", "info", "Log level (debug, info, warn, error, fatal, panic).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOGLEVEL environment variable if set.")
 
 	RootCmd.AddCommand(agentcmd.AgentCmd)
+	RootCmd.AddCommand(tunnelcmd.TunnelCmd)
 }
 
 func initConfig() {
