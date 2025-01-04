@@ -12,6 +12,7 @@ import (
 	_ "github.com/paularlott/knot/command/spaces"
 	_ "github.com/paularlott/knot/command/ssh-config"
 	_ "github.com/paularlott/knot/command/templates"
+	_ "github.com/paularlott/knot/command/tunnel"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

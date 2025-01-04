@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func createAgentReverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string, host string) *httputil.ReverseProxy {
+func CreateAgentReverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string, host string) *httputil.ReverseProxy {
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
 	originalDirector := proxy.Director
