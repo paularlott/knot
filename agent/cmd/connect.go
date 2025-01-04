@@ -129,23 +129,33 @@ var ConnectCmd = &cobra.Command{
 			}
 		}
 
-		// Update the client config with the server information
-		viper.Set("client.server", server)
-		viper.Set("client.token", token)
-
 		if viper.ConfigFileUsed() == "" {
 			// No config file so save this to the home folder
 			home, err := os.UserHomeDir()
 			cobra.CheckErr(err)
 
-			err = viper.WriteConfigAs(home + "/" + config.CONFIG_FILE_NAME + "." + config.CONFIG_FILE_TYPE)
+			partial := viper.New()
+			partial.Set("client.server", server)
+			partial.Set("client.token", token)
+
+			err = partial.WriteConfigAs(home + "/" + config.CONFIG_FILE_NAME + "." + config.CONFIG_FILE_TYPE)
 			if err != nil {
 				fmt.Println("Failed to create config file")
 				os.Exit(1)
 			}
 		} else {
-			// Using a config file so update
-			err = viper.WriteConfig()
+			partial := viper.New()
+			partial.SetConfigFile(viper.ConfigFileUsed())
+			err = partial.ReadInConfig()
+			if err != nil {
+				fmt.Println("Failed to read config file")
+				os.Exit(1)
+			}
+
+			partial.Set("client.server", server)
+			partial.Set("client.token", token)
+
+			err = partial.WriteConfig()
 			if err != nil {
 				fmt.Println("Failed to save config file")
 				os.Exit(1)
