@@ -19,49 +19,54 @@
     <div class="col-span-2 p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 sm:p-6 dark:bg-gray-800">
       <h2 class="mb-4 text-xl font-semibold dark:text-white">All Platforms</h2>
 
-      <div class="relative overflow-x-auto sm:rounded-lg">
-        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
-            <tr>
-              <th scope="col" class="px-6 py-3">Platform</th>
-              <th scope="col" class="px-6 py-3">Architecture</th>
-              <th scope="col" class="px-6 py-3">&nbsp;</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-              <td class="px-6 py-4">Linux</td>
-              <td class="px-6 py-4">amd64</td>
-              <td class="px-6 py-4"><a href="/download/knot_linux_amd64.zip" class="btn-primary">Download</a></td>
-            </tr>
-            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-              <td class="px-6 py-4">Linux</td>
-              <td class="px-6 py-4">arm64</td>
-              <td class="px-6 py-4"><a href="/download/knot_linux_arm64.zip" class="btn-primary">Download</a></td>
-            </tr>
-            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-              <td class="px-6 py-4">macOS</td>
-              <td class="px-6 py-4">amd64</td>
-              <td class="px-6 py-4"><a href="/download/knot_darwin_amd64.zip" class="btn-primary">Download</a></td>
-            </tr>
-            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-              <td class="px-6 py-4">macOS</td>
-              <td class="px-6 py-4">arm64</td>
-              <td class="px-6 py-4"><a href="/download/knot_darwin_arm64.zip" class="btn-primary">Download</a></td>
-            </tr>
-            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-              <td class="px-6 py-4">Windows</td>
-              <td class="px-6 py-4">amd64</td>
-              <td class="px-6 py-4"><a href="/download/knot_windows_amd64.exe.zip" class="btn-primary">Download</a></td>
-            </tr>
-            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-              <td class="px-6 py-4">Windows</td>
-              <td class="px-6 py-4">arm64</td>
-              <td class="px-6 py-4"><a href="/download/knot_windows_arm64.exe.zip" class="btn-primary">Download</a></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      {{ if .withDownloads }}
+        <div class="relative overflow-x-auto sm:rounded-lg">
+          <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+              <tr>
+                <th scope="col" class="px-6 py-3">Platform</th>
+                <th scope="col" class="px-6 py-3">Architecture</th>
+                <th scope="col" class="px-6 py-3">&nbsp;</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                <td class="px-6 py-4">Linux</td>
+                <td class="px-6 py-4">amd64</td>
+                <td class="px-6 py-4"><a href="/download/knot_linux_amd64.zip" class="btn-primary">Download</a></td>
+              </tr>
+              <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                <td class="px-6 py-4">Linux</td>
+                <td class="px-6 py-4">arm64</td>
+                <td class="px-6 py-4"><a href="/download/knot_linux_arm64.zip" class="btn-primary">Download</a></td>
+              </tr>
+              <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                <td class="px-6 py-4">macOS</td>
+                <td class="px-6 py-4">amd64</td>
+                <td class="px-6 py-4"><a href="/download/knot_darwin_amd64.zip" class="btn-primary">Download</a></td>
+              </tr>
+              <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                <td class="px-6 py-4">macOS</td>
+                <td class="px-6 py-4">arm64</td>
+                <td class="px-6 py-4"><a href="/download/knot_darwin_arm64.zip" class="btn-primary">Download</a></td>
+              </tr>
+              <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                <td class="px-6 py-4">Windows</td>
+                <td class="px-6 py-4">amd64</td>
+                <td class="px-6 py-4"><a href="/download/knot_windows_amd64.exe.zip" class="btn-primary">Download</a></td>
+              </tr>
+              <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                <td class="px-6 py-4">Windows</td>
+                <td class="px-6 py-4">arm64</td>
+                <td class="px-6 py-4"><a href="/download/knot_windows_arm64.exe.zip" class="btn-primary">Download</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      {{ else }}
+        <p class="text-gray-800 dark:text-gray-50">Download the latest version of Knot for your platform from GitHub.</p>
+        <div class="text-center pt-8"><a href="https://github.com/paularlott/knot/releases/latest" class="btn-primary">Download Knot</a></div>
+      {{ end }}
 
     </div>
 

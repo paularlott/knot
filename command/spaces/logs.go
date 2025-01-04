@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/command"
+	"github.com/paularlott/knot/internal/config"
 
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
@@ -59,7 +59,7 @@ var logsCmd = &cobra.Command{
 		}
 
 		// Connect to the websocket at /logs/<spaceId>/stream and print the logs
-		cfg := command.GetServerAddr()
+		cfg := config.GetServerAddr()
 		wsUrl := fmt.Sprintf("%s/logs/%s/stream", cfg.WsServer, spaceId)
 
 		header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", viper.GetString("client.token"))}}

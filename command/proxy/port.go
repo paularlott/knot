@@ -3,7 +3,7 @@ package command_proxy
 import (
 	"strconv"
 
-	"github.com/paularlott/knot/command"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
 
@@ -25,7 +25,7 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
 		var port int
 		var err error
 
-		cfg := command.GetServerAddr()
+		cfg := config.GetServerAddr()
 
 		if len(args) == 3 {
 			port, err = strconv.Atoi(args[2])

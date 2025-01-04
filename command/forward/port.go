@@ -3,7 +3,7 @@ package commands_forward
 import (
 	"strconv"
 
-	"github.com/paularlott/knot/command"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
 	"github.com/spf13/cobra"
@@ -19,7 +19,7 @@ var portCmd = &cobra.Command{
   port      The remote port to connect to e.g. 80`,
 	Args: cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg := command.GetServerAddr()
+		cfg := config.GetServerAddr()
 
 		port, err := strconv.Atoi(args[2])
 		if err != nil || port < 1 || port > 65535 {

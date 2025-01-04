@@ -30,6 +30,12 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// User doesn't have permission to manage or use spaces so send them to the clients page
+	if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
+		http.Redirect(w, r, "/clients", http.StatusSeeOther)
+		return
+	}
+
 	if userId != "" {
 		forUser, err := db.GetUser(userId)
 		if err != nil {

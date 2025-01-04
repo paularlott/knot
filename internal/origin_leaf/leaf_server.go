@@ -151,7 +151,7 @@ func LeafConnectAndServe(server string) {
 			// Mark the end of the bootstrap process
 			bootstrapMarker()
 
-			// Go routing to process messages from the channel
+			// Process messages from the channel
 			go func() {
 				for {
 					message := <-origin.OriginChannel

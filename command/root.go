@@ -2,14 +2,14 @@ package command
 
 import (
 	"os"
-	"strings"
 
+	agentCommands "github.com/paularlott/knot/agent/cmd"
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
+	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -36,6 +36,8 @@ func init() {
 	RootCmd.PersistentFlags().BoolP("legacy", "", false, "Use legacy mode, json rather than msgpack for encoding/decoding.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LEGACY environment variable if set.")
 
 	RootCmd.AddCommand(agentcmd.AgentCmd)
+	RootCmd.AddCommand(agentCommands.ConnectCmd)
+	RootCmd.AddCommand(command_tunnel.TunnelCmd)
 }
 
 func initConfig() {
@@ -46,37 +48,4 @@ func Execute() {
 	if err := RootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
-}
-
-type ServerAddr struct {
-	HttpServer string
-	WsServer   string
-	ApiToken   string
-}
-
-// Read the server configuration information and generate the websocket address
-func GetServerAddr() ServerAddr {
-	flags := ServerAddr{}
-
-	flags.HttpServer = viper.GetString("client.server")
-	flags.ApiToken = viper.GetString("client.token")
-
-	// If flags.server empty then throw and error
-	if flags.HttpServer == "" {
-		cobra.CheckErr("Missing proxy server address")
-	}
-
-	if flags.ApiToken == "" {
-		cobra.CheckErr("Missing API token")
-	}
-
-	if !strings.HasPrefix(flags.HttpServer, "http://") && !strings.HasPrefix(flags.HttpServer, "https://") {
-		flags.HttpServer = "https://" + flags.HttpServer
-	}
-
-	// Fix up the address to a websocket address
-	flags.HttpServer = strings.TrimSuffix(flags.HttpServer, "/")
-	flags.WsServer = "ws" + flags.HttpServer[4:]
-
-	return flags
 }

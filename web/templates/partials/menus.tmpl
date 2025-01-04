@@ -1,6 +1,7 @@
 {{ define "main-menu" }}
 <nav>
   <ul class="pb-2 space-y-2">
+    {{ if .permissionUseSpaces }}
     <li>
       <a href="/spaces" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -9,6 +10,8 @@
         <span class="ml-3">Spaces</span>
       </a>
     </li>
+    {{ end }}
+    {{ if or .permissionUseSpaces .permissionManageTemplates }}
     <li>
       <a href="/templates" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -17,6 +20,7 @@
         <span class="ml-3">Templates</span>
       </a>
     </li>
+    {{ end }}
     {{ if or .permissionManageVariables .isRestrictedServer }}
     <li>
       <a href="/variables" class="nav-item">

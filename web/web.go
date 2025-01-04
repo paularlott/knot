@@ -171,11 +171,17 @@ func Routes() chi.Router {
 		})
 
 		router.Route("/spaces", func(router chi.Router) {
+
 			router.Get("/", HandleListSpaces)
-			router.Get("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleListSpaces)
-			router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
-			router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
-			router.Get("/edit/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesEdit)
+
+			router.Group(func(router chi.Router) {
+				router.Use(checkPermissionUseManageSpaces)
+
+				router.Get("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleListSpaces)
+				router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
+				router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
+				router.Get("/edit/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesEdit)
+			})
 		})
 
 		router.Route("/templates", func(router chi.Router) {
@@ -385,6 +391,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionManageVariables": user.HasPermission(model.PermissionManageVariables) && !server_info.RestrictedLeaf,
 		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces) && !server_info.RestrictedLeaf,
 		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes) || server_info.RestrictedLeaf,
+		"permissionUseSpaces":       user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces) || server_info.RestrictedLeaf,
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"location":                  server_info.LeafLocation,

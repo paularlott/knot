@@ -25,6 +25,7 @@ import (
 	"github.com/paularlott/knot/internal/dnsserver"
 	"github.com/paularlott/knot/internal/origin_leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
@@ -40,6 +41,7 @@ import (
 func init() {
 	serverCmd.Flags().StringP("listen", "l", "", "The address to listen on (default \"127.0.0.1:3000\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LISTEN environment variable if set.")
 	serverCmd.Flags().StringP("listen-agent", "", "", "The address to listen on for agent connections (default \":3010\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LISTEN_AGENT environment variable if set.")
+	serverCmd.Flags().StringP("listen-tunnel", "", "", "The address to listen on for tunnel connections (default \"\" disabled).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LISTEN_TUNNEL environment variable if set.")
 	serverCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	serverCmd.Flags().StringP("url", "u", "", "The URL to use for the server (default \"http://127.0.0.1:3000\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_URL environment variable if set.")
 	serverCmd.Flags().BoolP("enable-proxy", "", false, "Enable the proxy server functionality.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_PROXY environment variable if set.")
@@ -120,6 +122,10 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.listen_agent", cmd.Flags().Lookup("listen-agent"))
 		viper.BindEnv("server.listen_agent", config.CONFIG_ENV_PREFIX+"_LISTEN_AGENT")
 		viper.SetDefault("server.listen_agent", "127.0.0.1:3010")
+
+		viper.BindPFlag("server.listen_tunnel", cmd.Flags().Lookup("listen-tunnels"))
+		viper.BindEnv("server.listen_tunnel", config.CONFIG_ENV_PREFIX+"_LISTEN_TUNNEL")
+		viper.SetDefault("server.listen_tunnel", "")
 
 		viper.BindPFlag("server.wildcard_domain", cmd.Flags().Lookup("wildcard-domain"))
 		viper.BindEnv("server.wildcard_domain", config.CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN")
@@ -365,6 +371,10 @@ var serverCmd = &cobra.Command{
 			router.Mount("/proxy", proxy.Routes())
 			router.Mount("/", web.Routes())
 			router.Get("/health", web.HandleHealthPage)
+
+			if viper.GetString("server.listen_tunnel") != "" {
+				router.Mount("/tunnel", tunnel_server.Routes())
+			}
 		} else {
 			// Get the main host domain
 			serverURL := viper.GetString("server.url")
@@ -390,6 +400,11 @@ var serverCmd = &cobra.Command{
 				router.Mount("/proxy", proxy.Routes())
 				router.Mount("/", web.Routes())
 				router.Get("/health", web.HandleHealthPage)
+
+				if viper.GetString("server.listen_tunnel") != "" {
+					router.Mount("/tunnel", tunnel_server.Routes())
+				}
+
 				return router
 			}())
 
@@ -457,6 +472,11 @@ var serverCmd = &cobra.Command{
 
 		// Start the agent server
 		agent_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
+
+		// Start a tunnel server
+		if viper.GetString("server.listen_tunnel") != "" {
+			tunnel_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_tunnel")), tlsConfig)
+		}
 
 		// Run the http server
 		server := &http.Server{

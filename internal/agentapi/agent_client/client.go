@@ -331,7 +331,7 @@ func handleAgentClientStream(stream net.Conn) {
 
 	case byte(msg.CmdCodeServer):
 		if withCodeServer {
-			proxyTcp(stream, fmt.Sprintf("%d", viper.GetInt("agent.port.code_server")))
+			ProxyTcp(stream, fmt.Sprintf("%d", viper.GetInt("agent.port.code_server")))
 		}
 
 	case byte(msg.CmdProxyTCPPort):
@@ -347,11 +347,11 @@ func handleAgentClientStream(stream net.Conn) {
 			return
 		}
 
-		proxyTcp(stream, fmt.Sprintf("%d", tcpPort.Port))
+		ProxyTcp(stream, fmt.Sprintf("%d", tcpPort.Port))
 
 	case byte(msg.CmdProxyVNC):
 		if viper.GetUint16("agent.port.vnc_http") > 0 {
-			proxyTcpTls(stream, viper.GetString("agent.port.vnc_http"), "127.0.0.1")
+			ProxyTcpTls(stream, viper.GetString("agent.port.vnc_http"), "127.0.0.1")
 		}
 
 	case byte(msg.CmdProxyHTTP):
@@ -363,9 +363,9 @@ func handleAgentClientStream(stream net.Conn) {
 
 		// Check if the port is allowed in the http map
 		if _, ok := httpPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
-			proxyTcp(stream, fmt.Sprintf("%d", httpPort.Port))
+			ProxyTcp(stream, fmt.Sprintf("%d", httpPort.Port))
 		} else if _, ok := httpsPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
-			proxyTcpTls(stream, fmt.Sprintf("%d", httpPort.Port), httpPort.ServerName)
+			ProxyTcpTls(stream, fmt.Sprintf("%d", httpPort.Port), httpPort.ServerName)
 		} else {
 			log.Error().Msgf("agent: http port %d is not allowed", httpPort.Port)
 		}
