@@ -17,6 +17,8 @@ const (
 	PermissionManageGroups           // Can Manage Groups
 	PermissionManageRoles            // Can Manage Roles
 	PermissionManageVariables        // Can Manage Variables
+	PermissionUseSpaces              // Can Use Spaces
+	PermissionUseTunnels             // Can Use Tunnels
 )
 
 type PermissionName struct {
@@ -32,6 +34,8 @@ var PermissionNames = []PermissionName{
 	{PermissionManageUsers, "Manage Users"},
 	{PermissionManageVariables, "Manage Variables"},
 	{PermissionManageVolumes, "Manage Volumes"},
+	{PermissionUseSpaces, "Can Use Spaces"},
+	{PermissionUseTunnels, "Can Use Tunnels"},
 }
 
 // Role
@@ -70,6 +74,8 @@ func SetRoleCache(roles []*Role) {
 			PermissionManageGroups,
 			PermissionManageRoles,
 			PermissionManageVariables,
+			PermissionUseSpaces,
+			PermissionUseTunnels,
 		},
 	}
 

@@ -75,6 +75,8 @@ func ApiRoutes() chi.Router {
 
 		// Spaces
 		router.Route("/spaces", func(router chi.Router) {
+			router.Use(middleware.ApiPermissionUseSpaces)
+
 			router.Get("/", HandleGetSpaces)
 			router.Post("/", HandleCreateSpace)
 			router.Put("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateSpace)

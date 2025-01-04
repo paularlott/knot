@@ -30,10 +30,14 @@ var (
 )
 
 func HandleTunnel(w http.ResponseWriter, r *http.Request) {
-
-	//w.WriteHeader(http.StatusNotImplemented)
-
 	user := r.Context().Value("user").(*model.User)
+
+	// Check the user has permission to create a tunnel
+	if !user.HasPermission(model.PermissionUseTunnels) {
+		log.Error().Msgf("tunnel: user %s does not have permission to create tunnels", user.Username)
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 
 	webName := fmt.Sprintf("%s--%s", user.Username, chi.URLParam(r, "tunnel_name"))
 

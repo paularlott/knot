@@ -223,6 +223,18 @@ func ApiPermissionManageUsersOrSelf(next http.Handler) http.Handler {
 	})
 }
 
+func ApiPermissionUseSpaces(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage or use spaces"})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func ApiPermissionManageGroups(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)

@@ -7,6 +7,18 @@ import (
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 )
 
+func checkPermissionUseManageSpaces(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func checkPermissionManageTemplates(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)

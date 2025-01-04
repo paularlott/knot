@@ -791,6 +791,14 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+
+	// If the user isn't self then check permissions
+	if user.Id != chi.URLParam(r, "user_id") && !user.HasPermission(model.PermissionManageUsers) {
+		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot stop spaces for another user"})
+		return
+	}
+
 	db := database.GetInstance()
 
 	// Get the nomad & container clients

@@ -45,11 +45,11 @@ func ConnectAndForward(wsUrl string, protocol string, port uint16, tunnelName st
 				if response != nil {
 				}
 				if response.StatusCode == http.StatusUnauthorized {
-					log.Fatal().Msg("tunnel: failed to authenticate with server, check permissions")
+					log.Fatal().Msg("Failed to authenticate with server, check permissions")
 				} else if response.StatusCode == http.StatusNotFound {
-					log.Fatal().Msg("tunnel: server does not support tunnels")
-				} else if response.StatusCode == http.StatusServiceUnavailable {
-					log.Fatal().Msg("tunnel: tunnels are not available to your account")
+					log.Fatal().Msg("Server does not support tunnels")
+				} else if response.StatusCode == http.StatusForbidden {
+					log.Fatal().Msg("Tunnels are not available on your account")
 				}
 
 				log.Error().Msgf("tunnel: error while opening websocket: %s", err)
