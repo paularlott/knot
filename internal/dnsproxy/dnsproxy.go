@@ -53,7 +53,7 @@ func NewDNSProxy() *DNSProxy {
 		}
 	}
 
-	log.Debug().Msgf("dns: default servers: %+v", dnsProxy.defaultServers)
+	log.Debug().Msgf("dnsproxy: default servers: %+v", dnsProxy.defaultServers)
 
 	// Load the domain specific nameservers
 	domains := viper.GetStringMap("resolver.domains")
@@ -63,7 +63,7 @@ func NewDNSProxy() *DNSProxy {
 			domain = domain + "."
 		}
 
-		log.Debug().Msgf("dns: domain: %s, servers: %+v", domain, servers)
+		log.Debug().Msgf("dnsproxy:  domain: %s, servers: %+v", domain, servers)
 
 		dnsProxy.domains[domain] = make([]string, len(servers.([]interface{})))
 		for _, s := range servers.([]interface{}) {
@@ -83,7 +83,7 @@ func NewDNSProxy() *DNSProxy {
 func (d *DNSProxy) queryAndCache(r *dns.Msg, dnsCacheItem *dnsCacheEntry) (*dns.Msg, error) {
 	in, err := d.parallelExchange(r)
 	if err != nil {
-		log.Error().Msgf("Failed to query %s IN %s: %s", r.Question[0].Name, dns.TypeToString[r.Question[0].Qtype], err.Error())
+		log.Error().Msgf("dnsproxy: failed to query %s IN %s: %s", r.Question[0].Name, dns.TypeToString[r.Question[0].Qtype], err.Error())
 
 		// Create a NXDOMAIN response
 		in = new(dns.Msg)
@@ -116,6 +116,9 @@ func (d *DNSProxy) queryAndCache(r *dns.Msg, dnsCacheItem *dnsCacheEntry) (*dns.
 			}
 			d.cache[cacheKey] = dnsCacheItem
 		}
+	} else if dnsCacheItem != nil {
+		// If failed to get a response then allow it to expire
+		dnsCacheItem.refreshing = false
 	}
 
 	return in, nil
@@ -128,7 +131,7 @@ func (d *DNSProxy) parallelExchange(r *dns.Msg) (*dns.Msg, error) {
 	// Look through the domains map to see if we have a specific servers for this domain
 	for domain, ns := range d.domains {
 		if strings.HasSuffix(r.Question[0].Name, domain) {
-			log.Debug().Msgf("Using Servers for %s: %+v", domain, ns)
+			log.Debug().Msgf("dnsproxy: using Servers for %s: %+v", domain, ns)
 			servers = &ns
 			break
 		}
@@ -136,13 +139,13 @@ func (d *DNSProxy) parallelExchange(r *dns.Msg) (*dns.Msg, error) {
 
 	// If no specific servers are found, use the default servers
 	if servers == nil {
-		log.Debug().Msgf("Using Default Servers: %+v", d.defaultServers)
+		log.Debug().Msgf("dnsproxy: using Default Servers: %+v", d.defaultServers)
 		servers = &d.defaultServers
 	}
 
 	// If no servers are given then return an error
 	if len(*servers) == 0 {
-		return nil, fmt.Errorf("no dns servers given")
+		return nil, fmt.Errorf("dnsproxy: no dns servers given")
 	}
 
 	responseChan := make(chan *dns.Msg, 1)
@@ -152,7 +155,7 @@ func (d *DNSProxy) parallelExchange(r *dns.Msg) (*dns.Msg, error) {
 
 	var wg sync.WaitGroup
 
-	log.Debug().Msgf("dns: using Servers: %+v", servers)
+	log.Debug().Msgf("dnsproxy: using Servers: %+v", servers)
 
 	for _, server := range *servers {
 		wg.Add(1)
@@ -168,7 +171,7 @@ func (d *DNSProxy) parallelExchange(r *dns.Msg) (*dns.Msg, error) {
 				select {
 				case responseChan <- in:
 					cancel()
-					log.Debug().Msgf("dns: response from: %s", server)
+					log.Debug().Msgf("dnsproxy: response from: %s", server)
 				default:
 				}
 			}
@@ -196,6 +199,6 @@ func (d *DNSProxy) parallelExchange(r *dns.Msg) (*dns.Msg, error) {
 		if err := <-errorChan; err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("no response from any server")
+		return nil, fmt.Errorf("dnsproxy: no response from any server")
 	}
 }

@@ -14,7 +14,7 @@ func (d *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	var err error
 	var recordType = dns.TypeToString[r.Question[0].Qtype]
 
-	log.Debug().Msgf("Received request for %s IN %s", r.Question[0].Name, recordType)
+	log.Debug().Msgf("dnsproxy: received request for %s IN %s", r.Question[0].Name, recordType)
 
 	// Check the cache for the name + type
 	var cacheKey = r.Question[0].Name + ":" + recordType
@@ -23,7 +23,7 @@ func (d *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	d.cacheMutex.RLock()
 	if cacheItem, ok = d.cache[cacheKey]; ok {
-		log.Debug().Msgf("Cache Hit for %s IN %s", r.Question[0].Name, recordType)
+		log.Debug().Msgf("dnsproxy: cache Hit for %s IN %s", r.Question[0].Name, recordType)
 
 		// Look through the list of Answers and find the first A record, then move it to the end of the list
 		if len(cacheItem.reply.Answer) > 1 {
@@ -47,7 +47,7 @@ func (d *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	if in == nil {
 		in, err = d.queryAndCache(r, nil)
 		if err != nil {
-			log.Warn().Msgf("Failed to forward request: %s\n", err.Error())
+			log.Warn().Msgf("dnsproxy: failed to forward request: %s\n", err.Error())
 		}
 	}
 
@@ -59,7 +59,7 @@ func (d *DNSProxy) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func (d *DNSProxy) RunServer() {
-	log.Info().Msgf("DNS proxy listening on %s", viper.GetString("dns.listen"))
+	log.Info().Msgf("dnsproxy: listening on %s", viper.GetString("dns.listen"))
 
 	// Start the background task to maintain the cache
 	d.maintainCache()
@@ -71,6 +71,6 @@ func (d *DNSProxy) RunServer() {
 	defer server.Shutdown()
 
 	if err != nil {
-		log.Fatal().Msgf("Failed to start DNS server: %s\n ", err.Error())
+		log.Fatal().Msgf("dnsproxy: failed to start DNS server: %s\n ", err.Error())
 	}
 }
