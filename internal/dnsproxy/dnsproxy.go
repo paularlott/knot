@@ -187,10 +187,14 @@ func (d *DNSProxy) parallelExchange(r *dns.Msg) (*dns.Msg, error) {
 	case res := <-responseChan:
 
 		// Unify the TTL of all answers to match the 1st
-		if len(res.Answer) > 1 {
-			ttl := res.Answer[0].Header().Ttl
-			for i := 1; i < len(res.Answer); i++ {
-				res.Answer[i].Header().Ttl = max(ttl, MIN_TTL)
+		if len(res.Answer) >= 1 {
+			ttl := max(res.Answer[0].Header().Ttl, MIN_TTL)
+			for i := 0; i < len(res.Answer); i++ {
+				res.Answer[i].Header().Ttl = ttl
+			}
+
+			for _, a := range res.Extra {
+				a.Header().Ttl = ttl
 			}
 		}
 

@@ -62,6 +62,11 @@ func (d *DNSProxy) maintainCache() {
 					for _, a := range v.reply.Answer {
 						a.Header().Ttl--
 					}
+
+					// Reduce the TTL of any records in the Additional section by 1 second
+					for _, a := range v.reply.Extra {
+						a.Header().Ttl--
+					}
 				}
 			}
 			d.cacheMutex.Unlock()
