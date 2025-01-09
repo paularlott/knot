@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"

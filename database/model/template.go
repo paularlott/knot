@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
