@@ -9,7 +9,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-const CONFIG_FILE_NAME = ".knot"
+const CONFIG_FILE_NAME = "knot"
+const CONFIG_DOT_FILE_NAME = ".knot"
 const CONFIG_FILE_TYPE = "yaml"
 const CONFIG_ENV_PREFIX = "KNOT"
 
@@ -21,8 +22,9 @@ func InitConfig(root *cobra.Command) {
 	// Search config in home directory with name ".knot" (without extension).
 	viper.AddConfigPath(".")
 	viper.AddConfigPath(home)
-	viper.SetConfigName(CONFIG_FILE_NAME) // Name of config file without extension
-	viper.SetConfigType(CONFIG_FILE_TYPE) // Type of config file
+	viper.AddConfigPath(home + "/.config/" + CONFIG_FILE_NAME)
+	viper.SetConfigName(CONFIG_DOT_FILE_NAME) // Name of config file without extension
+	viper.SetConfigType(CONFIG_FILE_TYPE)     // Type of config file
 	viper.SetEnvPrefix(CONFIG_ENV_PREFIX)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	//viper.AutomaticEnv() // Read in environment variables that match
@@ -41,9 +43,13 @@ func InitConfig(root *cobra.Command) {
 	cfgFile := viper.GetString("config")
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
+		viper.ReadInConfig()
+	} else {
+		if err := viper.ReadInConfig(); err != nil {
+			viper.SetConfigName(CONFIG_FILE_NAME)
+			viper.ReadInConfig()
+		}
 	}
-
-	viper.ReadInConfig()
 
 	switch viper.GetString("log.level") {
 	case "debug":
