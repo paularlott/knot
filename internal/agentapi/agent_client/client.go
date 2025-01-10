@@ -3,12 +3,12 @@ package agent_client
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/sshd"
 	"github.com/paularlott/knot/util"
@@ -100,7 +100,7 @@ func ConnectAndServe(server string, spaceId string) {
 			// If the server address starts srv+ then resolve the SRV record
 			serverAddr := server
 			if strings.HasPrefix(server, "srv+") {
-				hostIPs, err := util.LookupSRV(server)
+				hostIPs, err := util.LookupSRV(server[4:])
 				if err != nil || len(*hostIPs) == 0 {
 					log.Error().Msgf("agent: resolving SRV record: %v", err)
 					time.Sleep(3 * time.Second)
@@ -218,8 +218,8 @@ func ConnectAndServe(server string, spaceId string) {
 				MaxStreamWindowSize:    256 * 1024,
 				StreamCloseTimeout:     5 * time.Minute,
 				StreamOpenTimeout:      75 * time.Second,
-				LogOutput:              nil,
-				Logger:                 logger.NewMuxLogger(),
+				LogOutput:              io.Discard,
+				//Logger:                 logger.NewMuxLogger(),
 			})
 			if err != nil {
 				log.Error().Msgf("agent: creating mux session: %v", err)

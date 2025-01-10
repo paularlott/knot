@@ -48,6 +48,6 @@ func handleLoki(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Write 202 Accepted response
-	w.WriteHeader(http.StatusAccepted)
+	// Write 204 Accepted response
+	w.WriteHeader(http.StatusNoContent)
 }
