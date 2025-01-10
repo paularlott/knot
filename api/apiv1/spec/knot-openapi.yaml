@@ -2117,6 +2117,9 @@ components:
         is_remote:
           type: boolean
           description: Flags if the space is on a server other than the current one.
+        has_state:
+          type: boolean
+          description: If the space has an agent state.
 
     TemplateInfo:
       type: object

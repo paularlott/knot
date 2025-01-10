@@ -380,12 +380,14 @@ func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
 		response.HttpPorts = make(map[string]string)
 		response.HasVSCodeTunnel = false
 		response.VSCodeTunnel = ""
+		response.HasState = false
 	} else {
 		response.HasCodeServer = state.HasCodeServer
 		response.HasSSH = state.SSHPort > 0
 		response.HasTerminal = state.HasTerminal
 		response.HasHttpVNC = state.VNCHttpPort > 0
 		response.TcpPorts = state.TcpPorts
+		response.HasState = true
 
 		// If wildcard domain is set then offer the http ports
 		if viper.GetString("server.wildcard_domain") == "" {

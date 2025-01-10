@@ -102,6 +102,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 space.is_local = space.location == '' || location == space.location;
                 space.has_vscode_tunnel = false;
                 space.vscode_tunnel_name = '';
+                space.has_state = false;
 
                 this.spaces.push(space);
                 spacesAdded = true;
@@ -157,6 +158,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             space.vscode_tunnel_name = serviceState.vscode_tunnel_name;
             space.sshCmd = "ssh -o ProxyCommand='knot forward ssh " + serviceState.name + "' -o StrictHostKeyChecking=no " + username + "@knot." + serviceState.name;
             space.is_local = space.location == '' || location == space.location;
+            space.has_state = serviceState.has_state;
           });
         } else if (response.status === 401) {
           window.location.href = '/login?redirect=' + window.location.pathname;

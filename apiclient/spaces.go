@@ -46,6 +46,7 @@ type SpaceServiceState struct {
 	HasSSH          bool              `json:"has_ssh"`
 	HasHttpVNC      bool              `json:"has_http_vnc"`
 	HasTerminal     bool              `json:"has_terminal"`
+	HasState        bool              `json:"has_state"`
 	IsDeployed      bool              `json:"is_deployed"`
 	IsPending       bool              `json:"is_pending"`
 	IsDeleting      bool              `json:"is_deleting"`
