@@ -57,7 +57,7 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 
 		// Validate that the port is a number
 		port, err := strconv.Atoi(args[1])
-		if err != nil {
+		if err != nil || port < 1 || port > 65535 {
 			cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")
 		}
 
