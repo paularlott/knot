@@ -33,6 +33,46 @@ tags:
       These operations are for working with users.
 paths:
 
+  /api/v1/tunnels:
+    get:
+      tags:
+        - Tunnels
+      summary: Get Tunnels
+      description: Retrieve all tunnels for the authenticated user.
+      operationId: getTunnels
+      responses:
+        '200':
+          description: A list of tunnels.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TunnelInfo'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+
+  /api/v1/tunnels/domain:
+    get:
+      tags:
+        - Tunnels
+      summary: Get Tunnel Domain
+      description: Retrieve the domain name used for tunnels.
+      operationId: getTunnelDomain
+      responses:
+        '200':
+          description: The domain name used for tunnels.
+          content:
+            application/json:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+
   /api/v1/users:
     post:
       tags:
@@ -1913,6 +1953,16 @@ components:
           type: string
           example: 1.0.0
           description: The server version string.
+
+    TunnelInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the tunnel.
+        address:
+          type: string
+          description: The address of the tunnel.
 
     SessionResponse:
       type: object

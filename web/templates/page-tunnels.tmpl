@@ -1,0 +1,43 @@
+{{ template "layout-base.tmpl" . }}
+
+{{ define "pageTitle" }}Tunnels{{ end }}
+
+{{ define "mainContent" }}
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="tunnelsListComponent()">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
+
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Tunnels</h1>
+    </div>
+
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
+      {{ template "loading" . }}
+      <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
+            <tr>
+              <th scope="col" class="px-6 py-3">Tunnel</th>
+            </tr>
+          </thead>
+          <tbody>
+          <template x-for="tunnel in tunnels" :key="tunnel.name">
+            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+              <td class="px-6 py-4 text-nowrap">
+                <a :href="tunnel.address" :target="'tunnel--' + tunnel.name">
+                  <span x-text="tunnel.address"></span>
+                  <svg class="inline-block size-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8.25V18a2.25 2.25 0 0 0 2.25 2.25h13.5A2.25 2.25 0 0 0 21 18V8.25m-18 0V6a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 6v2.25m-18 0h18M5.25 6h.008v.008H5.25V6ZM7.5 6h.008v.008H7.5V6Zm2.25 0h.008v.008H9.75V6Z" />
+                  </svg><span class="sr-only">Open in New Window</span>
+                </a>
+              </td>
+            </tr>
+          </template>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+{{ end }}

@@ -58,6 +58,7 @@ func init() {
 	serverCmd.Flags().StringP("agent-path", "", "", "The optional path to the agent files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_PATH environment variable if set.")
 	serverCmd.Flags().BoolP("enable-leaf-api-tokens", "", false, "Allow the leaf servers to use an API token for authentication with the origin server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_LEAF_API_TOKENS environment variable if set.")
 	serverCmd.Flags().StringP("timezone", "", "", "The timezone to use for the server (default is system timezone).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TIMEZONE environment variable if set.")
+	serverCmd.Flags().StringP("tunnel-domain", "", "", "The domain to use for tunnel connections.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN environment variable if set.")
 
 	// DNS Server
 	serverCmd.Flags().BoolP("enable-dns", "", false, "Experimental. Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
@@ -194,6 +195,10 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.shared_token", config.CONFIG_ENV_PREFIX+"_SHARED_TOKEN")
 		viper.SetDefault("server.shared_token", "")
 
+		viper.BindPFlag("server.tunnel_domain", cmd.Flags().Lookup("tunnel-domain"))
+		viper.BindEnv("server.tunnel_domain", config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN")
+		viper.SetDefault("server.tunnel_domain", "")
+
 		// TLS
 		viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
 		viper.BindEnv("server.tls.cert_file", config.CONFIG_ENV_PREFIX+"_CERT_FILE")
@@ -323,6 +328,18 @@ var serverCmd = &cobra.Command{
 
 		log.Info().Msgf("server: starting knot version: %s", build.Version)
 		log.Info().Msgf("server: starting on: %s", listen)
+
+		// If server.tunnel-domain doesn't start with a . then prefix it, strip leading * if present
+		tunnelDomain := viper.GetString("server.tunnel_domain")
+		if tunnelDomain != "" {
+			tunnelDomain = strings.TrimPrefix(tunnelDomain, "*")
+
+			if !strings.HasPrefix(tunnelDomain, ".") {
+				tunnelDomain = "." + tunnelDomain
+			}
+
+			viper.Set("server.tunnel_domain", tunnelDomain)
+		}
 
 		// set the server location and timezone
 		server_info.LeafLocation = viper.GetString("server.location")

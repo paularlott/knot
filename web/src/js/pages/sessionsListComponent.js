@@ -15,7 +15,7 @@ window.sessionsListComponent = function() {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getSessions();
-      }, 5000);
+      }, 3000);
     },
 
     async getSessions() {

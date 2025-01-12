@@ -25,7 +25,7 @@ window.rolesListComponent = function() {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getRoles();
-      }, 5000);
+      }, 3000);
     },
 
     async getRoles() {

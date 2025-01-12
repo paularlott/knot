@@ -25,7 +25,7 @@ window.apiTokensComponent = function() {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getTokens();
-      }, 5000);
+      }, 3000);
     },
 
     async getTokens() {

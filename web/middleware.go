@@ -55,6 +55,18 @@ func checkPermissionManageVolumes(next http.Handler) http.Handler {
 	})
 }
 
+func checkPermissionUseTunnels(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionUseTunnels) {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func checkPermissionManageUsers(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)

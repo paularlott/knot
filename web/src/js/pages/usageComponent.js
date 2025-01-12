@@ -19,7 +19,7 @@ window.usageComponent = function(userId) {
       // Start a timer to look for updates
       setInterval(async () => {
         this.getUsage();
-      }, 5000);
+      }, 3000);
     },
 
     async getUsage() {

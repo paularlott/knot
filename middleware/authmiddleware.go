@@ -182,6 +182,18 @@ func ApiPermissionManageVariables(next http.Handler) http.Handler {
 	})
 }
 
+func ApiPermissionUseTunnels(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionUseTunnels) {
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to use tunnels"})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func ApiPermissionManageUsers(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if HasUsers {

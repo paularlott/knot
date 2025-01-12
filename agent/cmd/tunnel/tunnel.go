@@ -78,7 +78,7 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 
 		agent_client.Shutdown()
 		fmt.Println("\r")
-		log.Info().Msg("tunnel: shutdown")
+		log.Info().Msg("Tunnel shutdown")
 		os.Exit(0)
 	},
 }

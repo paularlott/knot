@@ -30,7 +30,14 @@ func ConnectAndForward(wsUrl string, protocol string, port uint16, tunnelName st
 		os.Exit(1)
 	}
 
-	log.Info().Msgf("Starting tunnel: %s--%s to port %d", user.Username, tunnelName, port)
+	// Get the tunnel domain
+	tunnelDomain, _, err := client.GetTunnelDomain()
+	if err != nil {
+		fmt.Println("Error getting tunnel domain: ", err)
+		os.Exit(1)
+	}
+
+	log.Info().Msgf("https://%s--%s%s -> %s://localhost:%d", user.Username, tunnelName, tunnelDomain, protocol, port)
 
 	go func() {
 		for {
@@ -54,7 +61,7 @@ func ConnectAndForward(wsUrl string, protocol string, port uint16, tunnelName st
 					log.Fatal().Msg("Tunnel limit reached")
 				}
 
-				log.Error().Msgf("tunnel: error while opening websocket: %s", err)
+				log.Error().Msgf("Error while opening websocket: %s", err)
 				time.Sleep(3 * time.Second)
 				continue
 			}
@@ -73,7 +80,7 @@ func ConnectAndForward(wsUrl string, protocol string, port uint16, tunnelName st
 				//Logger:                 logger.NewMuxLogger(),
 			})
 			if err != nil {
-				log.Error().Msgf("tunnel: creating mux session: %v", err)
+				log.Error().Msgf("Creating mux session: %v", err)
 				ws.Close()
 				time.Sleep(3 * time.Second)
 				continue
@@ -84,7 +91,7 @@ func ConnectAndForward(wsUrl string, protocol string, port uint16, tunnelName st
 				// Accept a new connection
 				stream, err := muxSession.Accept()
 				if err != nil {
-					log.Error().Msgf("tunnel: accepting connection: %v", err)
+					log.Error().Msgf("Accepting connection: %v", err)
 
 					// In the case of errors, destroy the session and start over
 					muxSession.Close()

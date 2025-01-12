@@ -51,7 +51,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       // Start a timer to look for new spaces periodically
       setInterval(async () => {
         this.getSpaces(false);
-      }, 5000);
+      }, 3000);
     },
     async userChanged() {
       this.loading = true;
@@ -112,7 +112,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 await this.fetchServiceState(s2);
                 this.timerIDs[s2.space_id] = setInterval(async () => {
                   this.fetchServiceState(s2);
-                }, 3000);
+                }, 2000);
               }
             });
 

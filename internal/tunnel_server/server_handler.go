@@ -144,3 +144,18 @@ func CountUserTunnels(userId string) uint32 {
 
 	return count
 }
+
+func GetTunnelsForUser(userId string) []string {
+	var userTunnels []string
+
+	tunnelMutex.RLock()
+	defer tunnelMutex.RUnlock()
+
+	for _, t := range tunnels {
+		if t.user.Id == userId {
+			userTunnels = append(userTunnels, t.tunnelName)
+		}
+	}
+
+	return userTunnels
+}

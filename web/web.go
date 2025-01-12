@@ -233,6 +233,14 @@ func Routes() chi.Router {
 		})
 
 		router.Get("/logs/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleLogsPage)
+
+		if viper.GetString("server.listen_tunnel") != "" {
+			router.Route("/tunnels", func(router chi.Router) {
+				router.Use(checkPermissionUseTunnels)
+
+				router.Get("/", HandleSimplePage)
+			})
+		}
 	})
 
 	// Group routes that require authentication
@@ -392,6 +400,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces) && !server_info.RestrictedLeaf,
 		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes) || server_info.RestrictedLeaf,
 		"permissionUseSpaces":       user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces) || server_info.RestrictedLeaf,
+		"permissionUseTunnels":      user.HasPermission(model.PermissionUseTunnels) && viper.GetString("server.listen_tunnel") != "",
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"location":                  server_info.LeafLocation,

@@ -28,6 +28,7 @@ import './pages/volumeForm.js';
 import './pages/spaceForm.js';
 import './pages/spacesListComponent.js';
 import './pages/usageComponent.js';
+import './pages/tunnelsListComponent.js';
 
 window.validate = validate;
 window.focusElement = function(selector) {

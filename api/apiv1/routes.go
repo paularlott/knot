@@ -125,6 +125,14 @@ func ApiRoutes() chi.Router {
 			router.Delete("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteTemplateVar)
 			router.Get("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplateVar)
 		})
+
+		// Tunnels
+		router.Route("/tunnels", func(router chi.Router) {
+			router.Use(middleware.ApiPermissionUseTunnels)
+
+			router.Get("/", HandleGetTunnels)
+			router.Get("/domain", HandleGetTunnelDomain)
+		})
 	})
 
 	// Unauthenticated routes
