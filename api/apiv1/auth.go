@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
+	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -123,6 +124,18 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
+			audit.Log(
+				request.Email,
+				model.AuditActorTypeUser,
+				model.AuditEventAuthFailed,
+				"",
+				&map[string]interface{}{
+					"agent":           r.UserAgent(),
+					"IP":              r.RemoteAddr,
+					"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				},
+			)
+
 			rest.SendJSON(code, w, r, ErrorResponse{Error: "invalid email or password"})
 
 			return
@@ -161,6 +174,18 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
 		http.SetCookie(w, cookie)
 	}
+
+	audit.Log(
+		request.Email,
+		model.AuditActorTypeUser,
+		model.AuditEventAuthOk,
+		"",
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+		},
+	)
 
 	// Return the authentication token
 	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLoginResponse{

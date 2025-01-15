@@ -47,7 +47,7 @@ func (client *NomadClient) DeleteJob(jobId string, namespace string) (map[string
 	var response = make(map[string]interface{})
 
 	_, err := client.httpClient.Delete(
-		fmt.Sprintf("/v1/job/%s?purge=true&namespace=%s", jobId, namespace),
+		fmt.Sprintf("/v1/job/%s?purge=false&namespace=%s", jobId, namespace),
 		nil,
 		&response,
 		http.StatusOK,

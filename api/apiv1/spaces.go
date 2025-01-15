@@ -15,6 +15,7 @@ import (
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -156,6 +157,20 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
+	} else {
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventSpaceDelete,
+			fmt.Sprintf("Deleted space %s", space.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"space_id":        space.Id,
+				"space_name":      space.Name,
+			},
+		)
 	}
 
 	// If space is running on this server then delete it from nomad
@@ -293,6 +308,20 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventSpaceCreate,
+			fmt.Sprintf("Created space %s", space.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"space_id":        space.Id,
+				"space_name":      space.Name,
+			},
+		)
 	}
 
 	// Save the space
@@ -767,6 +796,20 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Unknown template"})
 			return
 		}
+
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventSpaceUpdate,
+			fmt.Sprintf("Updated space %s", space.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"space_id":        space.Id,
+				"space_name":      space.Name,
+			},
+		)
 	}
 
 	err = db.SaveSpace(space)

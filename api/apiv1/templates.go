@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
+	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -236,6 +237,20 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
 		api_utils.UpdateTemplateHash(template.Id, template.Hash)
 		leaf.UpdateTemplate(template)
+
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventTemplateUpdate,
+			fmt.Sprintf("Updated template %s", template.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"template_id":     template.Id,
+				"template_name":   template.Name,
+			},
+		)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -337,6 +352,20 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 		api_utils.UpdateTemplateHash(template.Id, template.Hash)
 		leaf.UpdateTemplate(template)
+
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventTemplateCreate,
+			fmt.Sprintf("Created template %s", template.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"template_id":     template.Id,
+				"template_name":   template.Name,
+			},
+		)
 	}
 
 	// Return the ID
@@ -391,6 +420,21 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 
 		api_utils.DeleteTemplateHash(template.Id)
 		leaf.DeleteTemplate(template.Id)
+
+		user := r.Context().Value("user").(*model.User)
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventTemplateDelete,
+			fmt.Sprintf("Deleted template %s", template.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"template_id":     template.Id,
+				"template_name":   template.Name,
+			},
+		)
 	}
 
 	w.WriteHeader(http.StatusOK)

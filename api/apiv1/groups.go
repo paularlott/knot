@@ -2,11 +2,13 @@ package apiv1
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -116,6 +118,20 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
+
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventGroupUpdate,
+			fmt.Sprintf("Updated group %s", group.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"group_id":        group.Id,
+				"group_name":      group.Name,
+			},
+		)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -174,6 +190,20 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventGroupCreate,
+			fmt.Sprintf("Created group %s", group.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"group_id":        group.Id,
+				"group_name":      group.Name,
+			},
+		)
+
 		// Return the ID
 		rest.SendJSON(http.StatusCreated, w, r, apiclient.GroupResponse{
 			Status: true,
@@ -211,6 +241,21 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+
+		user := r.Context().Value("user").(*model.User)
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventGroupDelete,
+			fmt.Sprintf("Deleted group %s", group.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"group_id":        group.Id,
+				"group_name":      group.Name,
+			},
+		)
 	}
 
 	w.WriteHeader(http.StatusOK)

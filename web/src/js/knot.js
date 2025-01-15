@@ -29,6 +29,7 @@ import './pages/spaceForm.js';
 import './pages/spacesListComponent.js';
 import './pages/usageComponent.js';
 import './pages/tunnelsListComponent.js';
+import './pages/auditLogComponent.js';
 
 window.validate = validate;
 window.focusElement = function(selector) {

@@ -19,6 +19,7 @@ const (
 	PermissionManageVariables        // Can Manage Variables
 	PermissionUseSpaces              // Can Use Spaces
 	PermissionUseTunnels             // Can Use Tunnels
+	PermissionViewAuditLogs          // Can View Audit Logs
 )
 
 type PermissionName struct {
@@ -36,6 +37,7 @@ var PermissionNames = []PermissionName{
 	{PermissionManageVolumes, "Manage Volumes"},
 	{PermissionUseSpaces, "Can Use Spaces"},
 	{PermissionUseTunnels, "Can Use Tunnels"},
+	{PermissionViewAuditLogs, "View Audit Logs"},
 }
 
 // Role
@@ -76,6 +78,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionManageVariables,
 			PermissionUseSpaces,
 			PermissionUseTunnels,
+			PermissionViewAuditLogs,
 		},
 	}
 

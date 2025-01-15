@@ -5,6 +5,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 func (db *MySQLDriver) initialize() error {
@@ -188,6 +189,23 @@ updated_at TIMESTAMP
 		return err
 	}
 
+	log.Debug().Msg("db: creating audit_log table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
+audit_log_id bigint(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+actor VARCHAR(255),
+actor_type VARCHAR(255),
+event VARCHAR(255),
+details MEDIUMTEXT,
+properties JSON DEFAULT NULL,
+INDEX actor (actor, actor_type),
+INDEX action (action),
+INDEX created_at (created_at)
+)`)
+	if err != nil {
+		return err
+	}
+
 	log.Debug().Msg("db: MySQL is initialized")
 
 	// Add a task to clean up expired sessions
@@ -207,6 +225,14 @@ updated_at TIMESTAMP
 			_, err = db.connection.Exec("DELETE FROM tokens WHERE expires_after < ?", now)
 			if err != nil {
 				goto again
+			}
+
+			// Remove old audit logs
+			if viper.GetInt("server.audit_retention") > 0 {
+				_, err = db.connection.Exec("DELETE FROM audit_logs WHERE created_at < ?", now.Add(-time.Duration(24*viper.GetInt("server.audit_retention"))*time.Hour).UTC())
+				if err != nil {
+					goto again
+				}
 			}
 		}
 	}()
