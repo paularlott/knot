@@ -199,7 +199,7 @@ event VARCHAR(255),
 details MEDIUMTEXT,
 properties JSON DEFAULT NULL,
 INDEX actor (actor, actor_type),
-INDEX action (action),
+INDEX event (event),
 INDEX created_at (created_at)
 )`)
 	if err != nil {
