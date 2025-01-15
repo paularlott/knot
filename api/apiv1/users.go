@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -112,6 +113,25 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		newUserId = userNew.Id
+
+		// Don't log the initial setup
+		if middleware.HasUsers {
+			user := r.Context().Value("user").(*model.User)
+			audit.Log(
+				user.Username,
+				model.AuditActorTypeUser,
+				model.AuditEventUserCreate,
+				fmt.Sprintf("Created user %s (%s)", userNew.Username, userNew.Email),
+				&map[string]interface{}{
+					"agent":           r.UserAgent(),
+					"IP":              r.RemoteAddr,
+					"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+					"user_id":         userNew.Id,
+					"user_name":       userNew.Username,
+					"user_email":      userNew.Email,
+				},
+			)
+		}
 
 		// Tell the middleware that users are present
 		middleware.HasUsers = true
@@ -489,6 +509,21 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+
+		audit.Log(
+			activeUser.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventUserUpdate,
+			fmt.Sprintf("Updated user %s (%s)", user.Username, user.Email),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"user_id":         user.Id,
+				"user_name":       user.Username,
+				"user_email":      user.Email,
+			},
+		)
 	}
 
 	if existsLocal {
@@ -543,6 +578,23 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
+	}
+
+	if remoteClient == nil && toDelete != nil {
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventUserDelete,
+			fmt.Sprintf("Deleted user %s (%s)", toDelete.Username, toDelete.Email),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"user_id":         toDelete.Id,
+				"user_name":       toDelete.Username,
+				"user_email":      toDelete.Email,
+			},
+		)
 	}
 
 	// If core server then notify all remote servers of the change

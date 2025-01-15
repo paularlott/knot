@@ -85,6 +85,12 @@ type IDbDriver interface {
 	DeleteRole(role *model.Role) error
 	GetRole(id string) (*model.Role, error)
 	GetRoles() ([]*model.Role, error)
+
+	// Audit Logs
+	HasAuditLog() bool
+	SaveAuditLog(auditLog *model.AuditLogEntry) error
+	GetNumberOfAuditLogs() (int, error)
+	GetAuditLogs(offset int, limit int) ([]*model.AuditLogEntry, error)
 }
 
 // Initialize the database drivers

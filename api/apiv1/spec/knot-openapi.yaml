@@ -33,6 +33,43 @@ tags:
       These operations are for working with users.
 paths:
 
+  /api/v1/audit-logs:
+    get:
+      tags:
+      - Audit Logs
+      summary: Get Audit Logs
+      description: Retrieve the audit logs.
+      operationId: getAuditLogs
+      parameters:
+      - name: start
+        in: query
+        description: The item to start at.
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: max-items
+        in: query
+        description: The maximum number of items to return.
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 10
+      responses:
+        '200':
+          description: A list of audited operations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLogs'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+
   /api/v1/tunnels:
     get:
       tags:
@@ -1953,6 +1990,45 @@ components:
           type: string
           example: 1.0.0
           description: The server version string.
+
+    AuditLogsEntry:
+      type: object
+      properties:
+        Id:
+          type: integer
+          format: int64
+          description: The ID of the audit log entry.
+        Actor:
+          type: string
+          description: The actor who performed the action.
+        ActorType:
+          type: string
+          description: The type of the actor.
+        Event:
+          type: string
+          description: The event that occurred.
+        When:
+          type: string
+          format: date-time
+          description: The time when the event occurred.
+        Details:
+          type: string
+          description: Additional details about the event.
+        Properties:
+          type: object
+          additionalProperties: true
+          description: Additional properties related to the event.
+
+    AuditLogs:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: The total number of audit logs.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogsEntry'
 
     TunnelInfo:
       type: object

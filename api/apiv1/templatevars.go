@@ -1,6 +1,7 @@
 package apiv1
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/paularlott/knot/apiclient"
@@ -8,6 +9,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -138,6 +140,20 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		} else {
 			leaf.UpdateTemplateVar(templateVar)
 		}
+
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventVarUpdate,
+			fmt.Sprintf("Updated variable %s", templateVar.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"var_id":          templateVar.Id,
+				"var_name":        templateVar.Name,
+			},
+		)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -199,6 +215,20 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		leaf.UpdateTemplateVar(templateVar)
 
 		id = templateVar.Id
+
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventVarCreate,
+			fmt.Sprintf("Created variable %s", templateVar.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"var_id":          templateVar.Id,
+				"var_name":        templateVar.Name,
+			},
+		)
 	}
 
 	// Return the ID
@@ -240,6 +270,21 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 		}
 
 		leaf.DeleteTemplateVar(templateVarId)
+
+		user := r.Context().Value("user").(*model.User)
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventVarDelete,
+			fmt.Sprintf("Deleted variable %s", templateVar.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"var_id":          templateVar.Id,
+				"var_name":        templateVar.Name,
+			},
+		)
 	}
 
 	w.WriteHeader(http.StatusOK)

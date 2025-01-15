@@ -2,12 +2,14 @@ package apiv1
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/leaf"
+	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -100,6 +102,20 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
+
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventRoleUpdate,
+			fmt.Sprintf("Updated role %s", role.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"role_id":         role.Id,
+				"role_name":       role.Name,
+			},
+		)
 	}
 
 	model.SaveRoleToCache(role)
@@ -156,6 +172,20 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 		model.SaveRoleToCache(role)
 		leaf.UpdateRole(role)
 
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventRoleCreate,
+			fmt.Sprintf("Created role %s", role.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"role_id":         role.Id,
+				"role_name":       role.Name,
+			},
+		)
+
 		// Return the ID
 		rest.SendJSON(http.StatusCreated, w, r, apiclient.RoleResponse{
 			Status: true,
@@ -198,6 +228,21 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
+
+		user := r.Context().Value("user").(*model.User)
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventRoleDelete,
+			fmt.Sprintf("Deleted role %s", role.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"role_id":         role.Id,
+				"role_name":       role.Name,
+			},
+		)
 	}
 
 	model.DeleteRoleFromCache(roleId)

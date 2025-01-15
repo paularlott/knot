@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
@@ -241,6 +242,14 @@ func Routes() chi.Router {
 				router.Get("/", HandleSimplePage)
 			})
 		}
+
+		if database.GetInstance().HasAuditLog() {
+			router.Route("/audit-logs", func(router chi.Router) {
+				router.Use(checkPermissionViewAuditLogs)
+
+				router.Get("/", HandleSimplePage)
+			})
+		}
 	})
 
 	// Group routes that require authentication
@@ -401,6 +410,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes) || server_info.RestrictedLeaf,
 		"permissionUseSpaces":       user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces) || server_info.RestrictedLeaf,
 		"permissionUseTunnels":      user.HasPermission(model.PermissionUseTunnels) && viper.GetString("server.listen_tunnel") != "",
+		"permissionViewAuditLogs":   user.HasPermission(model.PermissionViewAuditLogs) && !server_info.RestrictedLeaf && database.GetInstance().HasAuditLog(),
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"location":                  server_info.LeafLocation,

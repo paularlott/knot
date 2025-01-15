@@ -1,6 +1,7 @@
 package apiv1
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
@@ -108,6 +110,20 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
+
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventVolumeUpdate,
+			fmt.Sprintf("Updated volume %s", volume.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"volume_id":       volume.Id,
+				"volume_name":     volume.Name,
+			},
+		)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -154,6 +170,20 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventVolumeCreate,
+			fmt.Sprintf("Created volume %s", volume.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"volume_id":       volume.Id,
+				"volume_name":     volume.Name,
+			},
+		)
+
 		// Return the ID
 		rest.SendJSON(http.StatusCreated, w, r, &apiclient.VolumeCreateResponse{
 			Status:   true,
@@ -196,6 +226,21 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
+
+		user := r.Context().Value("user").(*model.User)
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventVolumeDelete,
+			fmt.Sprintf("Deleted volume %s", volume.Name),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"volume_id":       volume.Id,
+				"volume_name":     volume.Name,
+			},
+		)
 	}
 
 	w.WriteHeader(http.StatusOK)

@@ -133,6 +133,13 @@ func ApiRoutes() chi.Router {
 			router.Get("/", HandleGetTunnels)
 			router.Get("/domain", HandleGetTunnelDomain)
 		})
+
+		// Audit Logs
+		router.Route("/audit-logs", func(router chi.Router) {
+			router.Use(middleware.ApiPermissionViewAuditLogs)
+
+			router.Get("/", HandleGetAuditLogs)
+		})
 	})
 
 	// Unauthenticated routes

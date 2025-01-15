@@ -29,6 +29,7 @@ import (
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/hostrouter"
 	"github.com/paularlott/knot/web"
 
@@ -59,6 +60,7 @@ func init() {
 	serverCmd.Flags().BoolP("enable-leaf-api-tokens", "", false, "Allow the leaf servers to use an API token for authentication with the origin server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_LEAF_API_TOKENS environment variable if set.")
 	serverCmd.Flags().StringP("timezone", "", "", "The timezone to use for the server (default is system timezone).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TIMEZONE environment variable if set.")
 	serverCmd.Flags().StringP("tunnel-domain", "", "", "The domain to use for tunnel connections.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN environment variable if set.")
+	serverCmd.Flags().Int("audit-retention", 90, "The number of days to keep audit logs (default \"90\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION environment variable if set.")
 
 	// DNS Server
 	serverCmd.Flags().BoolP("enable-dns", "", false, "Experimental. Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
@@ -199,6 +201,10 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.tunnel_domain", config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN")
 		viper.SetDefault("server.tunnel_domain", "")
 
+		viper.BindPFlag("server.audit_retention", cmd.Flags().Lookup("audit-retention"))
+		viper.BindEnv("server.audit_retention", config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION")
+		viper.SetDefault("server.audit_retention", 90)
+
 		// TLS
 		viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
 		viper.BindEnv("server.tls.cert_file", config.CONFIG_ENV_PREFIX+"_CERT_FILE")
@@ -328,6 +334,16 @@ var serverCmd = &cobra.Command{
 
 		log.Info().Msgf("server: starting knot version: %s", build.Version)
 		log.Info().Msgf("server: starting on: %s", listen)
+
+		audit.Log(
+			model.AuditActorSystem,
+			model.AuditActorTypeSystem,
+			model.AuditEventSystemStart,
+			"",
+			&map[string]interface{}{
+				"build": build.Version,
+			},
+		)
 
 		// If server.tunnel-domain doesn't start with a . then prefix it, strip leading * if present
 		tunnelDomain := viper.GetString("server.tunnel_domain")
