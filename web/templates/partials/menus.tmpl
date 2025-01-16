@@ -11,16 +11,6 @@
       </a>
     </li>
     {{ end }}
-    {{ if .permissionUseTunnels }}
-    <li>
-      <a href="/tunnels" class="nav-item">
-        <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
-        </svg>
-        <span class="ml-3">Tunnels</span>
-      </a>
-    </li>
-    {{ end }}
     {{ if or .permissionUseSpaces .permissionManageTemplates }}
     <li>
       <a href="/templates" class="nav-item">
@@ -28,6 +18,16 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75 16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z" />
         </svg>
         <span class="ml-3">Templates</span>
+      </a>
+    </li>
+    {{ end }}
+    {{ if .permissionUseTunnels }}
+    <li>
+      <a href="/tunnels" class="nav-item">
+        <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+        </svg>
+        <span class="ml-3">Tunnels</span>
       </a>
     </li>
     {{ end }}

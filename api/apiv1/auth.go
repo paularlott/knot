@@ -175,17 +175,19 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, cookie)
 	}
 
-	audit.Log(
-		request.Email,
-		model.AuditActorTypeUser,
-		model.AuditEventAuthOk,
-		"",
-		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-		},
-	)
+	if !server_info.IsLeaf {
+		audit.Log(
+			request.Email,
+			model.AuditActorTypeUser,
+			model.AuditEventAuthOk,
+			"",
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			},
+		)
+	}
 
 	// Return the authentication token
 	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLoginResponse{

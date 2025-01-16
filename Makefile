@@ -11,7 +11,7 @@ AGENT_PLATFORMS := linux/amd64 linux/arm64
 BUILT_AT := $(shell date +%Y%m%d.%H%M%S%z)
 
 # Set the flags to use for building
-BUILD_FLAGS := -ldflags="-s -w -X github.com/paularlott/knot/build.Date=$(BUILT_AT)" -tags=netgo -installsuffix netgo -trimpath
+BUILD_FLAGS := -ldflags="-s -w -X github.com/paularlott/knot/build.Date=$(BUILT_AT)" -trimpath
 
 # Set the output directory
 OUTPUT_DIR := bin

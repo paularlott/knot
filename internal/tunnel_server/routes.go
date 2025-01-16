@@ -12,7 +12,6 @@ func Routes() chi.Router {
 	router.Use(middleware.ApiAuth)
 
 	// Tunnel server
-	// TODO Only enable this if config is set
 	router.Get("/server/{tunnel_name:^[a-zA-Z][a-zA-Z0-9-]{1,63}$}", HandleTunnel)
 
 	return router
