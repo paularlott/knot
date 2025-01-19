@@ -19,40 +19,28 @@ func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
-func checkPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
+func checkPermission(next http.HandlerFunc, permission uint16) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageTemplates) {
+		if !server_info.RestrictedLeaf && !user.HasPermission(permission) {
 			showPageForbidden(w, r)
 			return
 		}
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func checkPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionManageTemplates)
 }
 
 func checkPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageVariables) {
-			showPageForbidden(w, r)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPermission(next, model.PermissionManageVariables)
 }
 
 func checkPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageVolumes) {
-			showPageForbidden(w, r)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPermission(next, model.PermissionManageVolumes)
 }
 
 func checkPermissionUseTunnels(next http.HandlerFunc) http.HandlerFunc {
@@ -91,25 +79,9 @@ func checkPermissionManageUsers(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func checkPermissionManageGroups(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageGroups) {
-			showPageForbidden(w, r)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPermission(next, model.PermissionManageGroups)
 }
 
 func checkPermissionManageRoles(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageRoles) {
-			showPageForbidden(w, r)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPermission(next, model.PermissionManageRoles)
 }
