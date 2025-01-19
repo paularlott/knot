@@ -30,9 +30,12 @@ func NewSession(r *http.Request, userId string, remoteSessionId string) *Session
 	}
 
 	// Strip off the port (ipv4 or ipv6)
-	ip, _, err := net.SplitHostPort(ip)
+	ipOnly, _, err := net.SplitHostPort(ip)
 	if err != nil && err.(*net.AddrError).Err != "missing port in address" {
 		log.Fatal().Msgf("error parsing ip: %s", err)
+	}
+	if ipOnly != "" {
+		ip = ipOnly
 	}
 
 	id, err := uuid.NewV7()
