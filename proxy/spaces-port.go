@@ -24,8 +24,8 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	port := r.PathValue("port")
-	portInt, err := strconv.Atoi(port)
-	if err != nil || !validate.IsNumber(portInt, 0, 65535) {
+	portUInt, err := strconv.ParseUint(port, 10, 16)
+	if err != nil || !validate.IsNumber(int(portUInt), 0, 65535) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -51,7 +51,7 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proxyAgentPort(w, r, agentSession, uint16(portInt))
+	proxyAgentPort(w, r, agentSession, uint16(portUInt))
 }
 
 // Proxy a web port for a space or VNC, the transport is http and the agent works out the http / https connection
