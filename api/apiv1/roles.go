@@ -12,8 +12,6 @@ import (
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func HandleGetRoles(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +47,12 @@ func HandleGetRoles(w http.ResponseWriter, r *http.Request) {
 
 func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
-	roleId := chi.URLParam(r, "role_id")
+	roleId := r.PathValue("role_id")
+
+	if !validate.UUID(roleId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid role ID"})
+		return
+	}
 
 	var role *model.Role
 
@@ -195,7 +198,12 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
-	roleId := chi.URLParam(r, "role_id")
+	roleId := r.PathValue("role_id")
+
+	if !validate.UUID(roleId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid role ID"})
+		return
+	}
 
 	if roleId == model.RoleAdminUUID {
 		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot delete the admin role"})
@@ -252,7 +260,12 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetRole(w http.ResponseWriter, r *http.Request) {
-	roleId := chi.URLParam(r, "role_id")
+	roleId := r.PathValue("role_id")
+
+	if !validate.UUID(roleId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid role ID"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {

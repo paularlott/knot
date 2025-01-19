@@ -19,7 +19,6 @@ import (
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
@@ -125,8 +124,13 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 
 func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	var user *model.User = nil
+	spaceId := r.PathValue("space_id")
 
-	spaceId := chi.URLParam(r, "space_id")
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
 	db := database.GetInstance()
 
 	if r.Context().Value("user") != nil {
@@ -344,7 +348,12 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
-	spaceId := chi.URLParam(r, "space_id")
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
 
 	db := database.GetInstance()
 
@@ -451,7 +460,13 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	var space *model.Space
 	var client *apiclient.ApiClient = nil
 
-	spaceId := chi.URLParam(r, "space_id")
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
 	user := r.Context().Value("user").(*model.User)
 	db := database.GetInstance()
 
@@ -649,7 +664,13 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	var space *model.Space
 
 	user := r.Context().Value("user").(*model.User)
-	spaceId := chi.URLParam(r, "space_id")
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
 	db := database.GetInstance()
 
 	space, err = db.GetSpace(spaceId)
@@ -723,7 +744,12 @@ func deleteSpaceJob(space *model.Space) error {
 
 func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	var user *model.User = nil
-	spaceId := chi.URLParam(r, "space_id")
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
 
 	db := database.GetInstance()
 
@@ -837,9 +863,15 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 
 func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
+	userId := r.PathValue("user_id")
+
+	if !validate.UUID(userId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		return
+	}
 
 	// If the user isn't self then check permissions
-	if user.Id != chi.URLParam(r, "user_id") && !user.HasPermission(model.PermissionManageUsers) {
+	if user.Id != userId && !user.HasPermission(model.PermissionManageUsers) {
 		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot stop spaces for another user"})
 		return
 	}
@@ -851,7 +883,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	containerClient := docker.NewClient()
 
 	// Stop all spaces
-	spaces, err := db.GetSpacesForUser(chi.URLParam(r, "user_id"))
+	spaces, err := db.GetSpacesForUser(userId)
 	if err != nil {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -903,7 +935,13 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var code int
 
-	spaceId := chi.URLParam(r, "space_id")
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
 	db := database.GetInstance()
 
 	space, err = db.GetSpace(spaceId)

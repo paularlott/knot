@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -30,10 +31,8 @@ import (
 	"github.com/paularlott/knot/proxy"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/audit"
-	"github.com/paularlott/knot/util/hostrouter"
 	"github.com/paularlott/knot/web"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -395,53 +394,57 @@ var serverCmd = &cobra.Command{
 			dnsserver.ListenAndServe()
 		}
 
-		router := chi.NewRouter()
+		var router http.Handler
 
-		// Get the wildcard domain, if blank just start up the server to respond on any domain
+		// Get the main host domain & wildcard domain
 		wildcardDomain := viper.GetString("server.wildcard_domain")
-		if wildcardDomain == "" {
-			router.Mount("/api/v1", apiv1.ApiRoutes())
-			router.Mount("/proxy", proxy.Routes())
-			router.Mount("/", web.Routes())
-			router.Get("/health", web.HandleHealthPage)
+		serverURL := viper.GetString("server.url")
+		u, err := url.Parse(serverURL)
+		if err != nil {
+			log.Fatal().Msg(err.Error())
+		}
 
-			if viper.GetString("server.listen_tunnel") != "" {
-				router.Mount("/tunnel", tunnel_server.Routes())
-			}
-		} else {
-			// Get the main host domain
-			serverURL := viper.GetString("server.url")
-			u, err := url.Parse(serverURL)
-			if err != nil {
-				log.Fatal().Msg(err.Error())
-			}
+		log.Debug().Msgf("Host: %s", u.Host)
 
-			log.Debug().Msgf("Host: %s", u.Host)
+		// Create the application routes
+		routes := http.NewServeMux()
+
+		apiv1.ApiRoutes(routes)
+		proxy.Routes(routes)
+		web.Routes(routes)
+
+		// Add support for page not found
+		appRoutes := web.HandlePageNotFound(routes)
+
+		if viper.GetString("server.listen_tunnel") != "" {
+			tunnel_server.Routes(routes)
+		}
+
+		// If have a wildcard domain, build it's routes
+		if wildcardDomain != "" {
 			log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
 
-			hr := hostrouter.New()
-			hr.Map(wildcardDomain, func() chi.Router {
-				router := chi.NewRouter()
-				router.Mount("/", proxy.PortRoutes())
-				return router
-			}())
+			// Create a regex to match the wildcard domain
+			match := regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
 
-			// Expose the health endpoint
-			hr.Map("*", func() chi.Router {
-				router := chi.NewRouter()
-				router.Mount("/api/v1", apiv1.ApiRoutes())
-				router.Mount("/proxy", proxy.Routes())
-				router.Mount("/", web.Routes())
-				router.Get("/health", web.HandleHealthPage)
+			// Get the routes for the wildcard domain
+			wildcardRoutes := proxy.PortRoutes()
 
-				if viper.GetString("server.listen_tunnel") != "" {
-					router.Mount("/tunnel", tunnel_server.Routes())
+			domainMux := http.NewServeMux()
+			domainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				if r.Host == u.Host {
+					appRoutes.ServeHTTP(w, r)
+				} else if match.MatchString(r.Host) {
+					wildcardRoutes.ServeHTTP(w, r)
+				} else {
+					http.NotFound(w, r)
 				}
+			})
 
-				return router
-			}())
-
-			router.Mount("/", hr)
+			router = domainMux
+		} else {
+			// No wildcard domain, just use the app routes
+			router = appRoutes
 		}
 
 		var tlsConfig *tls.Config = nil

@@ -12,8 +12,6 @@ import (
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +60,12 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
-	templateVarId := chi.URLParam(r, "templatevar_id")
+	templateVarId := r.PathValue("templatevar_id")
+
+	if !validate.UUID(templateVarId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid variable ID"})
+		return
+	}
 
 	request := apiclient.TemplateVarValue{}
 	err := rest.BindJSON(w, r, &request)
@@ -239,7 +242,12 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
-	templateVarId := chi.URLParam(r, "templatevar_id")
+	templateVarId := r.PathValue("templatevar_id")
+
+	if !validate.UUID(templateVarId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid variable ID"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if !server_info.RestrictedLeaf && remoteClient != nil {
@@ -291,7 +299,12 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
-	templateVarId := chi.URLParam(r, "templatevar_id")
+	templateVarId := r.PathValue("templatevar_id")
+
+	if !validate.UUID(templateVarId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid variable ID"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if !server_info.RestrictedLeaf && remoteClient != nil {

@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util/validate"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
@@ -45,8 +45,14 @@ func HandleGroupEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	groupId := r.PathValue("group_id")
+	if !validate.UUID(groupId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	data["isEdit"] = true
-	data["groupId"] = chi.URLParam(r, "group_id")
+	data["groupId"] = groupId
 
 	err = tmpl.Execute(w, data)
 	if err != nil {

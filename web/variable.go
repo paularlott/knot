@@ -5,8 +5,8 @@ import (
 
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/util/validate"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
@@ -46,8 +46,14 @@ func HandleTemplateVarEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	templateVarId := r.PathValue("templatevar_id")
+	if !validate.UUID(templateVarId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	data["isEdit"] = true
-	data["templateVarId"] = chi.URLParam(r, "templatevar_id")
+	data["templateVarId"] = templateVarId
 
 	err = tmpl.Execute(w, data)
 	if err != nil {

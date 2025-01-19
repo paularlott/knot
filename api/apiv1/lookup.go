@@ -6,9 +6,8 @@ import (
 
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/util/validate"
 	"github.com/rs/zerolog/log"
-
-	"github.com/go-chi/chi/v5"
 )
 
 type LookupResponse struct {
@@ -18,7 +17,12 @@ type LookupResponse struct {
 }
 
 func HandleLookup(w http.ResponseWriter, r *http.Request) {
-	service := chi.URLParam(r, "service")
+	service := r.PathValue("service")
+
+	if !validate.Subdomain(service) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid service name"})
+		return
+	}
 
 	log.Debug().Msgf("lookup: looking up %s", service)
 

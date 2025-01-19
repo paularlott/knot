@@ -11,8 +11,8 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/wsconn"
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/util/validate"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
@@ -70,7 +70,14 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	webName := fmt.Sprintf("%s--%s", user.Username, chi.URLParam(r, "tunnel_name"))
+	tunnelName := r.PathValue("tunnel_name")
+	if !validate.Subdomain(tunnelName) {
+		log.Error().Msgf("tunnel: invalid tunnel name %s", tunnelName)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	webName := fmt.Sprintf("%s--%s", user.Username, tunnelName)
 
 	log.Info().Msgf("tunnel: new tunnel %s", webName)
 
@@ -85,7 +92,7 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 	// Create a new tunnel session
 	session := &tunnelSession{
 		user:       user,
-		tunnelName: chi.URLParam(r, "tunnel_name"),
+		tunnelName: tunnelName,
 		ws:         ws,
 	}
 

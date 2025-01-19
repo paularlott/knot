@@ -1130,7 +1130,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces/stop-for-user/{user_id}:
+  /api/v1/spaces/{user_id}stop-for-user:
     post:
       summary: Stop Users Spaces
       description: Stop all the spaces belonging to a user.

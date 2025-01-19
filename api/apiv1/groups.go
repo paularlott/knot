@@ -11,8 +11,6 @@ import (
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +56,12 @@ func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
-	groupId := chi.URLParam(r, "group_id")
+	groupId := r.PathValue("group_id")
+
+	if !validate.UUID(groupId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid group ID"})
+		return
+	}
 
 	request := apiclient.UserGroupRequest{}
 	err := rest.BindJSON(w, r, &request)
@@ -213,7 +216,12 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
-	groupId := chi.URLParam(r, "group_id")
+	groupId := r.PathValue("group_id")
+
+	if !validate.UUID(groupId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid group ID"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {
@@ -262,7 +270,12 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetGroup(w http.ResponseWriter, r *http.Request) {
-	groupId := chi.URLParam(r, "group_id")
+	groupId := r.PathValue("group_id")
+
+	if !validate.UUID(groupId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid group ID"})
+		return
+	}
 
 	remoteClient := r.Context().Value("remote_client")
 	if remoteClient != nil {

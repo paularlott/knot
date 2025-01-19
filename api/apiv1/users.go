@@ -16,8 +16,6 @@ import (
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +153,12 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		activeUser = r.Context().Value("user").(*model.User)
 	}
 
-	userId := chi.URLParam(r, "user_id")
+	userId := r.PathValue("user_id")
+
+	if !validate.UUID(userId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		return
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -373,7 +376,13 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
-	userId := chi.URLParam(r, "user_id")
+	userId := r.PathValue("user_id")
+
+	if !validate.UUID(userId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		return
+	}
+
 	request := apiclient.UpdateUserRequest{}
 	db := database.GetInstance()
 
@@ -547,7 +556,12 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	user := r.Context().Value("user").(*model.User)
-	userId := chi.URLParam(r, "user_id")
+	userId := r.PathValue("user_id")
+
+	if !validate.UUID(userId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		return
+	}
 
 	// If trying to delete self then fail
 	if user.Id == userId {
@@ -605,7 +619,12 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
-	userId := chi.URLParam(r, "user_id")
+	userId := r.PathValue("user_id")
+
+	if !validate.UUID(userId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		return
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")

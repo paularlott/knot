@@ -1,163 +1,103 @@
 package apiv1
 
 import (
+	"net/http"
+
 	"github.com/paularlott/knot/internal/origin_leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
-
-	"github.com/go-chi/chi/v5"
 )
 
-func ApiRoutes() chi.Router {
-	router := chi.NewRouter()
+func ApiRoutes(router *http.ServeMux) {
 
-	// Group routes that require authentication
-	router.Group(func(router chi.Router) {
-		router.Use(middleware.ApiAuth)
+	// Core
+	router.HandleFunc("GET /api/v1/lookup/{service}", middleware.ApiAuth(HandleLookup))
+	router.HandleFunc("GET /api/v1/ping", middleware.ApiAuth(HandlePing))
+	router.HandleFunc("POST /api/v1/auth/logout", middleware.ApiAuth(HandleLogout))
 
-		// Core
-		router.Get("/lookup/{service}", HandleLookup)
-		router.Get("/ping", HandlePing)
-		router.Post("/auth/logout", HandleLogout)
+	// Users
+	router.HandleFunc("GET /api/v1/users", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSpaces(HandleGetUsers)))
+	router.HandleFunc("POST /api/v1/users", middleware.ApiAuth(middleware.ApiPermissionManageUsers(HandleCreateUser)))
+	router.HandleFunc("GET /api/v1/users/whoami", middleware.ApiAuth(HandleWhoAmI))
+	router.HandleFunc("GET /api/v1/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUser)))
+	router.HandleFunc("PUT /api/v1/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleUpdateUser)))
+	router.HandleFunc("DELETE /api/v1/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleDeleteUser)))
+	router.HandleFunc("GET /api/v1/users/{user_id}/quota", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserQuota)))
 
-		// Users
-		router.Route("/users", func(router chi.Router) {
-			router.With(middleware.ApiPermissionManageUsers).Post("/", HandleCreateUser)
-			router.With(middleware.ApiPermissionManageUsersOrSpaces).Get("/", HandleGetUsers)
-		})
-		router.Get("/users/whoami", HandleWhoAmI)
-		router.Route("/users/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionManageUsersOrSelf)
+	// Groups
+	router.HandleFunc("GET /api/v1/groups", middleware.ApiAuth(HandleGetGroups))
+	router.HandleFunc("POST /api/v1/groups", middleware.ApiAuth(middleware.ApiPermissionManageGroups(HandleCreateGroup)))
+	router.HandleFunc("PUT /api/v1/groups/{group_id}", middleware.ApiAuth(middleware.ApiPermissionManageGroups(HandleUpdateGroup)))
+	router.HandleFunc("DELETE /api/v1/groups/{group_id}", middleware.ApiAuth(middleware.ApiPermissionManageGroups(HandleDeleteGroup)))
+	router.HandleFunc("GET /api/v1/groups/{group_id}", middleware.ApiAuth(middleware.ApiPermissionManageGroups(HandleGetGroup)))
 
-			router.Get("/", HandleGetUser)
-			router.Put("/", HandleUpdateUser)
-			router.Delete("/", HandleDeleteUser)
-			router.Get("/quota", HandleGetUserQuota)
-		})
+	// Permissions
+	router.HandleFunc("GET /api/v1/permissions", middleware.ApiAuth(HandleGetPermissions))
 
-		// Groups
-		router.Route("/groups", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionManageGroups)
+	// Roles
+	router.HandleFunc("GET /api/v1/roles", middleware.ApiAuth(HandleGetRoles))
+	router.HandleFunc("POST /api/v1/roles", middleware.ApiAuth(middleware.ApiPermissionManageRoles(HandleCreateRole)))
+	router.HandleFunc("PUT /api/v1/roles/{role_id}", middleware.ApiAuth(middleware.ApiPermissionManageRoles(HandleUpdateRole)))
+	router.HandleFunc("DELETE /api/v1/roles/{role_id}", middleware.ApiAuth(middleware.ApiPermissionManageRoles(HandleDeleteRole)))
+	router.HandleFunc("GET /api/v1/roles/{role_id}", middleware.ApiAuth(middleware.ApiPermissionManageRoles(HandleGetRole)))
 
-			router.Post("/", HandleCreateGroup)
-			router.Put("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateGroup)
-			router.Delete("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteGroup)
-			router.Get("/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetGroup)
-		})
-		router.Get("/groups", HandleGetGroups)
+	// Sessions
+	router.HandleFunc("GET /api/v1/sessions", middleware.ApiAuth(HandleGetSessions))
+	router.HandleFunc("DELETE /api/v1/sessions/{session_id}", middleware.ApiAuth(HandleDeleteSessions))
 
-		// Permissions
-		router.Get("/permissions", HandleGetPermissions)
+	// Tokens
+	router.HandleFunc("GET /api/v1/tokens", middleware.ApiAuth(HandleGetTokens))
+	router.HandleFunc("POST /api/v1/tokens", middleware.ApiAuth(HandleCreateToken))
+	router.HandleFunc("DELETE /api/v1/tokens/{token_id}", middleware.ApiAuth(HandleDeleteToken))
 
-		// Roles
-		router.Route("/roles", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionManageRoles)
+	// Spaces
+	router.HandleFunc("GET /api/v1/spaces", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaces)))
+	router.HandleFunc("POST /api/v1/spaces", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleCreateSpace)))
+	router.HandleFunc("PUT /api/v1/spaces/{space_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleUpdateSpace)))
+	router.HandleFunc("DELETE /api/v1/spaces/{space_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleDeleteSpace)))
+	router.HandleFunc("GET /api/v1/spaces/{space_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpace)))
+	router.HandleFunc("GET /api/v1/spaces/{space_id}/service-state", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpaceServiceState)))
+	router.HandleFunc("POST /api/v1/spaces/{space_id}/start", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStart)))
+	router.HandleFunc("POST /api/v1/spaces/{space_id}/stop", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStop)))
+	router.HandleFunc("POST /api/v1/spaces/{user_id}/stop-for-user", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStopUsersSpaces)))
 
-			router.Post("/", HandleCreateRole)
-			router.Put("/{role_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateRole)
-			router.Delete("/{role_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteRole)
-			router.Get("/{role_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetRole)
-		})
-		router.Get("/roles", HandleGetRoles)
+	// Templates
+	router.HandleFunc("GET /api/v1/templates", middleware.ApiAuth(HandleGetTemplates))
+	router.HandleFunc("GET /api/v1/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleGetTemplate)))
+	router.HandleFunc("POST /api/v1/templates", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleCreateTemplate)))
+	router.HandleFunc("PUT /api/v1/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleUpdateTemplate)))
+	router.HandleFunc("DELETE /api/v1/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleDeleteTemplate)))
 
-		// Sessions
-		router.Route("/sessions", func(router chi.Router) {
-			router.Get("/", HandleGetSessions)
-			router.Delete("/{session_id}", HandleDeleteSessions)
-		})
+	// Volumes
+	router.HandleFunc("GET /api/v1/volumes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolumes)))
+	router.HandleFunc("POST /api/v1/volumes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleCreateVolume)))
+	router.HandleFunc("PUT /api/v1/volumes/{volume_id}", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleUpdateVolume)))
+	router.HandleFunc("DELETE /api/v1/volumes/{volume_id}", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleDeleteVolume)))
+	router.HandleFunc("GET /api/v1/volumes/{volume_id}", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolume)))
+	router.HandleFunc("POST /api/v1/volumes/{volume_id}/start", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleVolumeStart)))
+	router.HandleFunc("POST /api/v1/volumes/{volume_id}/stop", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleVolumeStop)))
 
-		// Tokens
-		router.Route("/tokens", func(router chi.Router) {
-			router.Get("/", HandleGetTokens)
-			router.Post("/", HandleCreateToken)
-			router.Delete("/{token_id}", HandleDeleteToken)
-		})
+	// Template Variables
+	router.HandleFunc("GET /api/v1/templatevars", middleware.ApiAuth(middleware.ApiPermissionManageVariables(HandleGetTemplateVars)))
+	router.HandleFunc("POST /api/v1/templatevars", middleware.ApiAuth(middleware.ApiPermissionManageVariables(HandleCreateTemplateVar)))
+	router.HandleFunc("PUT /api/v1/templatevars/{templatevar_id}", middleware.ApiAuth(middleware.ApiPermissionManageVariables(HandleUpdateTemplateVar)))
+	router.HandleFunc("DELETE /api/v1/templatevars/{templatevar_id}", middleware.ApiAuth(middleware.ApiPermissionManageVariables(HandleDeleteTemplateVar)))
+	router.HandleFunc("GET /api/v1/templatevars/{templatevar_id}", middleware.ApiAuth(middleware.ApiPermissionManageVariables(HandleGetTemplateVar)))
 
-		// Spaces
-		router.Route("/spaces", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionUseSpaces)
+	// Tunnels
+	router.HandleFunc("GET /api/v1/tunnels", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnels)))
+	router.HandleFunc("GET /api/v1/tunnels/domain", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnelDomain)))
 
-			router.Get("/", HandleGetSpaces)
-			router.Post("/", HandleCreateSpace)
-			router.Put("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateSpace)
-			router.Delete("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteSpace)
-			router.Get("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetSpace)
-			router.Get("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/service-state", HandleGetSpaceServiceState)
-			router.Post("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/start", HandleSpaceStart)
-			router.Post("/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/stop", HandleSpaceStop)
-			router.Post("/stop-for-user/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpaceStopUsersSpaces)
-		})
-
-		// Templates
-		router.Route("/templates", func(router chi.Router) {
-			router.Group(func(router chi.Router) {
-				router.Use(middleware.ApiPermissionManageTemplates)
-
-				router.Get("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplate)
-				router.Post("/", HandleCreateTemplate)
-				router.Put("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateTemplate)
-				router.Delete("/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteTemplate)
-			})
-
-			router.Get("/", HandleGetTemplates)
-		})
-
-		// Volumes
-		router.Route("/volumes", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionManageVolumes)
-
-			router.Get("/", HandleGetVolumes)
-			router.Post("/", HandleCreateVolume)
-			router.Put("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateVolume)
-			router.Delete("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteVolume)
-			router.Get("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetVolume)
-			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/start", HandleVolumeStart)
-			router.Post("/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/stop", HandleVolumeStop)
-		})
-
-		// Template Variables
-		router.Route("/templatevars", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionManageVariables)
-
-			router.Get("/", HandleGetTemplateVars)
-			router.Post("/", HandleCreateTemplateVar)
-			router.Put("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUpdateTemplateVar)
-			router.Delete("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleDeleteTemplateVar)
-			router.Get("/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGetTemplateVar)
-		})
-
-		// Tunnels
-		router.Route("/tunnels", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionUseTunnels)
-
-			router.Get("/", HandleGetTunnels)
-			router.Get("/domain", HandleGetTunnelDomain)
-		})
-
-		// Audit Logs
-		router.Route("/audit-logs", func(router chi.Router) {
-			router.Use(middleware.ApiPermissionViewAuditLogs)
-
-			router.Get("/", HandleGetAuditLogs)
-		})
-	})
+	// Audit Logs
+	router.HandleFunc("GET /api/v1/audit-logs", middleware.ApiAuth(middleware.ApiPermissionViewAuditLogs(HandleGetAuditLogs)))
 
 	// Unauthenticated routes
-	router.Route("/auth", func(router chi.Router) {
-		router.Post("/", HandleAuthorization)
-		router.Post("/web", HandleAuthorization)
-	})
+	router.HandleFunc("POST /api/v1/auth", HandleAuthorization)
+	router.HandleFunc("POST /api/v1/auth/web", HandleAuthorization)
 
 	// Additional endpoints exposed by origin servers
 	if server_info.IsOrigin {
 		// Remote server authenticated routes
-		router.Route("/leaf-server", func(router chi.Router) {
-			router.Use(middleware.LeafServerAuth)
-
-			// Listen for leaf server connections
-			router.Get("/", origin_leaf.OriginListenAndServe)
-		})
+		router.HandleFunc("GET /api/v1/leaf-server", middleware.LeafServerAuth(origin_leaf.OriginListenAndServe))
 	}
-
-	return router
 }

@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/util/validate"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"golang.org/x/net/context"
@@ -59,7 +59,7 @@ func GetBearerToken(w http.ResponseWriter, r *http.Request) string {
 	return bearer
 }
 
-func ApiAuth(next http.Handler) http.Handler {
+func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -146,7 +146,7 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-func ApiPermissionManageTemplates(next http.Handler) http.Handler {
+func ApiPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageTemplates) {
@@ -158,7 +158,7 @@ func ApiPermissionManageTemplates(next http.Handler) http.Handler {
 	})
 }
 
-func ApiPermissionManageVolumes(next http.Handler) http.Handler {
+func ApiPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageVolumes) {
@@ -170,7 +170,7 @@ func ApiPermissionManageVolumes(next http.Handler) http.Handler {
 	})
 }
 
-func ApiPermissionManageVariables(next http.Handler) http.Handler {
+func ApiPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageVariables) {
@@ -182,7 +182,7 @@ func ApiPermissionManageVariables(next http.Handler) http.Handler {
 	})
 }
 
-func ApiPermissionUseTunnels(next http.Handler) http.Handler {
+func ApiPermissionUseTunnels(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionUseTunnels) {
@@ -194,7 +194,7 @@ func ApiPermissionUseTunnels(next http.Handler) http.Handler {
 	})
 }
 
-func ApiPermissionViewAuditLogs(next http.Handler) http.Handler {
+func ApiPermissionViewAuditLogs(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionViewAuditLogs) {
@@ -206,7 +206,7 @@ func ApiPermissionViewAuditLogs(next http.Handler) http.Handler {
 	})
 }
 
-func ApiPermissionManageUsers(next http.Handler) http.Handler {
+func ApiPermissionManageUsers(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if HasUsers {
 			user := r.Context().Value("user").(*model.User)
@@ -220,7 +220,7 @@ func ApiPermissionManageUsers(next http.Handler) http.Handler {
 	})
 }
 
-func ApiPermissionManageUsersOrSpaces(next http.Handler) http.Handler {
+func ApiPermissionManageUsersOrSpaces(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if HasUsers {
 			user := r.Context().Value("user").(*model.User)
@@ -234,9 +234,14 @@ func ApiPermissionManageUsersOrSpaces(next http.Handler) http.Handler {
 	})
 }
 
-func ApiPermissionManageUsersOrSelf(next http.Handler) http.Handler {
+func ApiPermissionManageUsersOrSelf(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userId := chi.URLParam(r, "user_id")
+		userId := r.PathValue("user_id")
+		if !validate.UUID(userId) {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+			return
+		}
+
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageUsers) && user.Id != userId {
 			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
@@ -247,7 +252,7 @@ func ApiPermissionManageUsersOrSelf(next http.Handler) http.Handler {
 	})
 }
 
-func ApiPermissionUseSpaces(next http.Handler) http.Handler {
+func ApiPermissionUseSpaces(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
@@ -259,7 +264,7 @@ func ApiPermissionUseSpaces(next http.Handler) http.Handler {
 	})
 }
 
-func ApiPermissionManageGroups(next http.Handler) http.Handler {
+func ApiPermissionManageGroups(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageGroups) {
@@ -271,7 +276,7 @@ func ApiPermissionManageGroups(next http.Handler) http.Handler {
 	})
 }
 
-func ApiPermissionManageRoles(next http.Handler) http.Handler {
+func ApiPermissionManageRoles(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageRoles) {
@@ -283,7 +288,7 @@ func ApiPermissionManageRoles(next http.Handler) http.Handler {
 	})
 }
 
-func WebAuth(next http.Handler) http.Handler {
+func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// If no session then redirect to login
@@ -314,7 +319,7 @@ func WebAuth(next http.Handler) http.Handler {
 	})
 }
 
-func LeafServerAuth(next http.Handler) http.Handler {
+func LeafServerAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// Get the auth token

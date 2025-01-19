@@ -11,14 +11,24 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-
-	"github.com/go-chi/chi/v5"
+	"github.com/paularlott/knot/util/validate"
 )
 
 func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
-	spaceName := chi.URLParam(r, "space_name")
-	port := chi.URLParam(r, "port")
+
+	spaceName := r.PathValue("space_name")
+	if !validate.Name(spaceName) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	port := r.PathValue("port")
+	portInt, err := strconv.Atoi(port)
+	if err != nil || !validate.IsNumber(portInt, 0, 65535) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	// Load the space
 	db := database.GetInstance()
@@ -38,12 +48,6 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 	// Check the port is allowed
 	if _, ok := agentSession.TcpPorts[port]; !ok {
 		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	portInt, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 

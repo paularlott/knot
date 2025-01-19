@@ -13,16 +13,26 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/util/validate"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
 
 func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
-	spaceId := chi.URLParam(r, "space_id")
-	shell := chi.URLParam(r, "shell")
 	user := r.Context().Value("user").(*model.User)
+
+	spaceId := r.PathValue("space_id")
+	if !validate.UUID(spaceId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	shell := r.PathValue("shell")
+	if !validate.Subdomain(shell) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	// Load the space
 	db := database.GetInstance()

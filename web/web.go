@@ -17,7 +17,6 @@ import (
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
@@ -34,19 +33,24 @@ var (
 	agentFiles embed.FS
 )
 
-func Routes() chi.Router {
+func HandlePageNotFound(next *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, pattern := next.Handler(r)
+		if pattern == "" {
+			showPageNotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func Routes(router *http.ServeMux) {
 	log.Info().Msg("server: adding routes")
 
-	router := chi.NewRouter()
-
-	// Page not found
-	router.NotFound(showPageNotFound)
+	router.HandleFunc("GET /health", HandleHealthPage)
 
 	// Serve static content
-	router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		rctx := chi.RouteContext(r.Context())
-		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
-
+	router.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		// Serve index.html if path is empty
 		fileName := strings.TrimPrefix(r.URL.Path, "/")
 		if strings.HasSuffix(fileName, "/") || fileName == "" {
@@ -82,7 +86,7 @@ func Routes() chi.Router {
 			}
 
 			// Serve the file
-			fs := http.StripPrefix(pathPrefix, http.FileServer(http.Dir(htmlPath)))
+			fs := http.FileServer(http.Dir(htmlPath))
 			fs.ServeHTTP(w, r)
 		} else {
 			fsys := fs.FS(publicHTML)
@@ -104,16 +108,14 @@ func Routes() chi.Router {
 				return
 			}
 
-			fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
+			fs := http.FileServer(http.FS(contentStatic))
 			fs.ServeHTTP(w, r)
 		}
 	})
 
 	// Serve agent files
-	router.Get("/agents/*", func(w http.ResponseWriter, r *http.Request) {
-		rctx := chi.RouteContext(r.Context())
-		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
-		fileName := strings.TrimPrefix(r.URL.Path, "/")
+	router.HandleFunc("GET /agents/{agent_file}", func(w http.ResponseWriter, r *http.Request) {
+		fileName := r.PathValue("agent_file")
 
 		if strings.Contains(fileName, "..") {
 			http.Error(w, "Invalid file name", http.StatusBadRequest)
@@ -121,10 +123,8 @@ func Routes() chi.Router {
 		}
 
 		agentPath := viper.GetString("server.agent_path")
+		agentPath = ""
 		if agentPath != "" {
-			// Strip agents/ from the path
-			fileName = strings.TrimPrefix(fileName, "agents/")
-
 			// If the file does exist then return a 404
 			info, err := os.Stat(filepath.Join(agentPath, fileName))
 			if os.IsNotExist(err) || info.IsDir() {
@@ -133,144 +133,93 @@ func Routes() chi.Router {
 			}
 
 			// Serve the file
-			fs := http.StripPrefix(pathPrefix, http.FileServer(http.Dir(agentPath)))
+			fs := http.StripPrefix("/agents", http.FileServer(http.Dir(agentPath)))
 			fs.ServeHTTP(w, r)
 		} else {
 			// Check if the file exists in the embedded files
 			fsys := fs.FS(agentFiles)
 			contentStatic, _ := fs.Sub(fsys, "agents")
-			_, err := fs.Stat(agentFiles, fileName)
+			_, err := fs.Stat(agentFiles, "agents/"+fileName)
 			if err != nil {
 				showPageNotFound(w, r)
 				return
 			}
 
 			// Serve the file
-			fs := http.StripPrefix(pathPrefix, http.FileServer(http.FS(contentStatic)))
+			fs := http.StripPrefix("/agents", http.FileServer(http.FS(contentStatic)))
 			fs.ServeHTTP(w, r)
 		}
 	})
 
 	// Group routes that require authentication
-	router.Group(func(router chi.Router) {
-		router.Use(middleware.WebAuth)
+	router.HandleFunc("GET /clients", middleware.WebAuth(HandleSimplePage))
+	router.HandleFunc("GET /sessions", middleware.WebAuth(HandleSimplePage))
+	router.HandleFunc("GET /space-quota-reached", middleware.WebAuth(HandleSimplePage))
+	router.HandleFunc("GET /profile", middleware.WebAuth(HandleUserProfilePage))
+	router.HandleFunc("GET /logout", middleware.WebAuth(HandleLogoutPage))
+	router.HandleFunc("GET /usage", middleware.WebAuth(HandleSimplePage))
 
-		router.Get("/clients", HandleSimplePage)
-		router.Get("/sessions", HandleSimplePage)
-		router.Get("/space-quota-reached", HandleSimplePage)
-		router.Get("/profile", HandleUserProfilePage)
-		router.Get("/logout", HandleLogoutPage)
-		router.Get("/usage", HandleSimplePage)
+	router.HandleFunc("GET /terminal/{space_id}", middleware.WebAuth(HandleTerminalPage))
+	router.HandleFunc("GET /terminal/{space_id}/{vsc}", middleware.WebAuth(HandleTerminalPage))
 
-		router.Get("/terminal/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTerminalPage)
-		router.Get("/terminal/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/{vsc:vscode-tunnel}", HandleTerminalPage)
+	router.HandleFunc("GET /api-tokens", middleware.WebAuth(HandleSimplePage))
+	router.HandleFunc("GET /api-tokens/create", middleware.WebAuth(HandleSimplePage))
+	router.HandleFunc("GET /api-tokens/create/{token_name}", middleware.WebAuth(HandleTokenCreatePage))
 
-		router.Route("/api-tokens", func(router chi.Router) {
-			router.Get("/", HandleSimplePage)
-			router.Get("/create", HandleSimplePage)
-			router.Get("/create/{token_name}", HandleTokenCreatePage)
-		})
+	router.HandleFunc("GET /spaces", middleware.WebAuth(HandleListSpaces))
+	router.HandleFunc("GET /spaces/{user_id}", middleware.WebAuth(checkPermissionUseManageSpaces(HandleListSpaces)))
+	router.HandleFunc("GET /spaces/create/{template_id}", middleware.WebAuth(checkPermissionUseManageSpaces(HandleSpacesCreate)))
+	router.HandleFunc("GET /spaces/create/{template_id}/{user_id}", middleware.WebAuth(checkPermissionUseManageSpaces(HandleSpacesCreate)))
+	router.HandleFunc("GET /spaces/edit/{space_id}", middleware.WebAuth(checkPermissionUseManageSpaces(HandleSpacesEdit)))
 
-		router.Route("/spaces", func(router chi.Router) {
+	router.HandleFunc("GET /templates", middleware.WebAuth(HandleSimplePage))
+	router.HandleFunc("GET /templates/create", middleware.WebAuth(checkPermissionManageTemplates(HandleTemplateCreate)))
+	router.HandleFunc("GET /templates/edit/{template_id}", middleware.WebAuth(checkPermissionManageTemplates(HandleTemplateEdit)))
 
-			router.Get("/", HandleListSpaces)
+	router.HandleFunc("GET /variables", middleware.WebAuth(checkPermissionManageVariables(HandleSimplePage)))
+	router.HandleFunc("GET /variables/create", middleware.WebAuth(checkPermissionManageVariables(HandleTemplateVarCreate)))
+	router.HandleFunc("GET /variables/edit/{templatevar_id}", middleware.WebAuth(checkPermissionManageVariables(HandleTemplateVarEdit)))
 
-			router.Group(func(router chi.Router) {
-				router.Use(checkPermissionUseManageSpaces)
+	router.HandleFunc("GET /users", middleware.WebAuth(checkPermissionManageUsers(HandleSimplePage)))
+	router.HandleFunc("GET /users/create", middleware.WebAuth(checkPermissionManageUsers(HandleUserCreate)))
+	router.HandleFunc("GET /users/edit/{user_id}", middleware.WebAuth(checkPermissionManageUsers(HandleUserEdit)))
 
-				router.Get("/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleListSpaces)
-				router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
-				router.Get("/create/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesCreate)
-				router.Get("/edit/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleSpacesEdit)
-			})
-		})
+	router.HandleFunc("GET /groups", middleware.WebAuth(checkPermissionManageGroups(HandleSimplePage)))
+	router.HandleFunc("GET /groups/create", middleware.WebAuth(checkPermissionManageGroups(HandleGroupCreate)))
+	router.HandleFunc("GET /groups/edit/{group_id}", middleware.WebAuth(checkPermissionManageGroups(HandleGroupEdit)))
 
-		router.Route("/templates", func(router chi.Router) {
-			router.Use(checkPermissionManageTemplates)
+	router.HandleFunc("GET /roles", middleware.WebAuth(checkPermissionManageRoles(HandleSimplePage)))
+	router.HandleFunc("GET /roles/create", middleware.WebAuth(checkPermissionManageRoles(HandleRoleCreate)))
+	router.HandleFunc("GET /roles/edit/{role_id}", middleware.WebAuth(checkPermissionManageRoles(HandleRoleEdit)))
 
-			router.Get("/create", HandleTemplateCreate)
-			router.Get("/edit/{template_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateEdit)
-		})
-		router.Get("/templates", HandleSimplePage)
+	router.HandleFunc("GET /volumes", middleware.WebAuth(checkPermissionManageVolumes(HandleSimplePage)))
+	router.HandleFunc("GET /volumes/create", middleware.WebAuth(checkPermissionManageVolumes(HandleVolumeCreate)))
+	router.HandleFunc("GET /volumes/edit/{volume_id}", middleware.WebAuth(checkPermissionManageVolumes(HandleVolumeEdit)))
 
-		router.Route("/variables", func(router chi.Router) {
-			router.Use(checkPermissionManageVariables)
+	router.HandleFunc("GET /logs/{space_id}", middleware.WebAuth(HandleLogsPage))
 
-			router.Get("/", HandleSimplePage)
-			router.Get("/create", HandleTemplateVarCreate)
-			router.Get("/edit/{templatevar_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleTemplateVarEdit)
-		})
+	if viper.GetString("server.listen_tunnel") != "" {
+		router.HandleFunc("GET /tunnels", middleware.WebAuth(checkPermissionUseTunnels(HandleSimplePage)))
+	}
 
-		router.Route("/users", func(router chi.Router) {
-			router.Use(checkPermissionManageUsers)
+	if database.GetInstance().HasAuditLog() {
+		router.HandleFunc("GET /audit-logs", middleware.WebAuth(checkPermissionViewAuditLogs(HandleSimplePage)))
+	}
 
-			router.Get("/", HandleSimplePage)
-			router.Get("/create", HandleUserCreate)
-			router.Get("/edit/{user_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleUserEdit)
-		})
-
-		router.Route("/groups", func(router chi.Router) {
-			router.Use(checkPermissionManageGroups)
-
-			router.Get("/", HandleSimplePage)
-			router.Get("/create", HandleGroupCreate)
-			router.Get("/edit/{group_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleGroupEdit)
-		})
-
-		router.Route("/roles", func(router chi.Router) {
-			router.Use(checkPermissionManageRoles)
-
-			router.Get("/", HandleSimplePage)
-			router.Get("/create", HandleRoleCreate)
-			router.Get("/edit/{role_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleRoleEdit)
-		})
-
-		router.Route("/volumes", func(router chi.Router) {
-			router.Use(checkPermissionManageVolumes)
-
-			router.Get("/", HandleSimplePage)
-			router.Get("/create", HandleVolumeCreate)
-			router.Get("/edit/{volume_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleVolumeEdit)
-		})
-
-		router.Get("/logs/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}", HandleLogsPage)
-
-		if viper.GetString("server.listen_tunnel") != "" {
-			router.Route("/tunnels", func(router chi.Router) {
-				router.Use(checkPermissionUseTunnels)
-
-				router.Get("/", HandleSimplePage)
-			})
-		}
-
-		if database.GetInstance().HasAuditLog() {
-			router.Route("/audit-logs", func(router chi.Router) {
-				router.Use(checkPermissionViewAuditLogs)
-
-				router.Get("/", HandleSimplePage)
-			})
-		}
-	})
-
-	// Group routes that require authentication
-	router.Group(func(router chi.Router) {
-		router.Use(middleware.ApiAuth)
-		router.Get("/logs/{space_id:^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$}/stream", HandleLogsStream)
-	})
+	router.HandleFunc("GET /logs/{space_id}/stream", middleware.ApiAuth(HandleLogsStream))
 
 	// Routes without authentication
 	if !middleware.HasUsers {
-		router.Get("/initial-system-setup", HandleInitialSystemSetupPage)
+		router.HandleFunc("GET /initial-system-setup", HandleInitialSystemSetupPage)
 	}
-	router.Get("/login", HandleLoginPage)
-	router.Get("/health", HandleHealthPage)
+	router.HandleFunc("GET /login", HandleLoginPage)
 
 	// If download path set then enable serving of the download folder
 	downloadPath := viper.GetString("server.download_path")
 	if downloadPath != "" {
 		log.Info().Msgf("server: enabling download endpoint, source folder %s", downloadPath)
 
-		router.Get("/download/*", func(w http.ResponseWriter, r *http.Request) {
+		router.HandleFunc("GET /download/", func(w http.ResponseWriter, r *http.Request) {
 			filePath := r.URL.Path[len("/download/"):]
 
 			if strings.Contains(filePath, "..") {
@@ -281,8 +230,6 @@ func Routes() chi.Router {
 			http.ServeFile(w, r, filepath.Join(downloadPath, filePath))
 		})
 	}
-
-	return router
 }
 
 func showPageNotFound(w http.ResponseWriter, r *http.Request) {
