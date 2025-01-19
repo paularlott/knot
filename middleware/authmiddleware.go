@@ -146,16 +146,20 @@ type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-func ApiPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
+func checkPremission(next http.HandlerFunc, permission uint16, msg string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionManageTemplates) {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage templates"})
+		if !user.HasPermission(permission) {
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: msg})
 			return
 		}
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func ApiPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
+	return checkPremission(next, model.PermissionManageTemplates, "No permission to manage templates")
 }
 
 func ApiPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
@@ -171,39 +175,15 @@ func ApiPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ApiPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionManageVariables) {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage variables"})
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPremission(next, model.PermissionManageVariables, "No permission to manage variables")
 }
 
 func ApiPermissionUseTunnels(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionUseTunnels) {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to use tunnels"})
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPremission(next, model.PermissionUseTunnels, "No permission to use tunnels")
 }
 
 func ApiPermissionViewAuditLogs(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionViewAuditLogs) {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to use tunnels"})
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPremission(next, model.PermissionViewAuditLogs, "No permission to view audit logs")
 }
 
 func ApiPermissionManageUsers(next http.HandlerFunc) http.HandlerFunc {
@@ -265,27 +245,11 @@ func ApiPermissionUseSpaces(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ApiPermissionManageGroups(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionManageGroups) {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage groups"})
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPremission(next, model.PermissionManageGroups, "No permission to manage groups")
 }
 
 func ApiPermissionManageRoles(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionManageRoles) {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage roles"})
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPremission(next, model.PermissionManageRoles, "No permission to manage roles")
 }
 
 func WebAuth(next http.HandlerFunc) http.HandlerFunc {
