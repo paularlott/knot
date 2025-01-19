@@ -6,8 +6,8 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util/validate"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
@@ -21,7 +21,12 @@ func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
 
 	user, data := getCommonTemplateData(r)
 
-	name := chi.URLParam(r, "token_name")
+	name := r.PathValue("token_name")
+	if !validate.Name(name) {
+		showPageNotFound(w, r)
+		return
+	}
+
 	name, err = url.PathUnescape(name)
 	if err != nil {
 		log.Error().Msg(err.Error())

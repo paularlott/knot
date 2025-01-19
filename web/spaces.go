@@ -7,9 +7,9 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/util/validate"
 	"github.com/spf13/viper"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
@@ -23,7 +23,12 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userId := chi.URLParam(r, "user_id")
+	userId := r.PathValue("user_id")
+	if userId != "" && !validate.UUID(userId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	user, data := getCommonTemplateData(r)
 	if userId != "" && user.Id != userId && !user.HasPermission(model.PermissionManageSpaces) {
 		showPageForbidden(w, r)
@@ -61,7 +66,11 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 
-	templateId := chi.URLParam(r, "template_id")
+	templateId := r.PathValue("template_id")
+	if !validate.UUID(templateId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	tmpl, err := newTemplate("spaces-create-edit.tmpl")
 	if err != nil {
@@ -74,7 +83,12 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 	data["preferredShell"] = user.PreferredShell
 	data["isEdit"] = false
 
-	userId := chi.URLParam(r, "user_id")
+	userId := r.PathValue("user_id")
+	if userId != "" && !validate.UUID(userId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	if userId != "" && user.Id != userId && !user.HasPermission(model.PermissionManageSpaces) {
 		showPageForbidden(w, r)
 		return
@@ -171,7 +185,12 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load the space
-	spaceId := chi.URLParam(r, "space_id")
+	spaceId := r.PathValue("space_id")
+	if !validate.UUID(spaceId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	space, err := db.GetSpace(spaceId)
 	if err != nil {
 		log.Error().Msg(err.Error())

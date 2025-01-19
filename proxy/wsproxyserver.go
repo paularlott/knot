@@ -3,11 +3,12 @@ package proxy
 import (
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/util/validate"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
@@ -18,8 +19,18 @@ func HandleWSProxyServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	host := chi.URLParam(r, "host")
-	port := chi.URLParam(r, "port")
+	host := r.PathValue("host")
+	if !validate.Name(host) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	port := r.PathValue("port")
+	portInt, err := strconv.Atoi(port)
+	if err != nil || !validate.IsNumber(portInt, 0, 65535) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	// If port is 0 then use SRV lookup to find port
 	if port == "0" {
@@ -33,11 +44,9 @@ func HandleWSProxyServer(w http.ResponseWriter, r *http.Request) {
 
 		host = (*hostPorts)[0].Host
 		port = (*hostPorts)[0].Port
-
-		log.Info().Msgf("ws: proxying to %s via %s:%s", chi.URLParam(r, "host"), host, port)
-	} else {
-		log.Info().Msgf("ws: proxying to %s:%s", host, port)
 	}
+
+	log.Info().Msgf("ws: proxying to %s:%s", host, port)
 
 	// Open tcp connection to target
 	tcpConn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 10*time.Second)

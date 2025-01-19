@@ -12,8 +12,6 @@ import (
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func HandleGetTokens(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +36,13 @@ func HandleGetTokens(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
-	tokenId := chi.URLParam(r, "token_id")
+	tokenId := r.PathValue("token_id")
+
+	if !validate.UUID(tokenId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid token ID"})
+		return
+	}
+
 	db := database.GetInstance()
 	user := r.Context().Value("user").(*model.User)
 

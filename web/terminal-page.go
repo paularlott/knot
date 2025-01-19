@@ -5,15 +5,20 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util/validate"
 	"github.com/spf13/viper"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
 func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
-	spaceId := chi.URLParam(r, "space_id")
 	user := r.Context().Value("user").(*model.User)
+
+	spaceId := r.PathValue("space_id")
+	if !validate.UUID(spaceId) {
+		showPageNotFound(w, r)
+		return
+	}
 
 	// Load the space
 	db := database.GetInstance()
@@ -45,7 +50,7 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 
 	// If the last segment of the url is vscode-tunnel log it
 	shell := space.Shell
-	if chi.URLParam(r, "vsc") == "vscode-tunnel" {
+	if r.PathValue("vsc") == "vscode-tunnel" {
 		shell = "vscode-tunnel"
 	}
 

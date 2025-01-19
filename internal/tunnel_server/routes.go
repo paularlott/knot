@@ -1,18 +1,11 @@
 package tunnel_server
 
 import (
-	"github.com/paularlott/knot/middleware"
+	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/paularlott/knot/middleware"
 )
 
-func Routes() chi.Router {
-	router := chi.NewRouter()
-
-	router.Use(middleware.ApiAuth)
-
-	// Tunnel server
-	router.Get("/server/{tunnel_name:^[a-zA-Z][a-zA-Z0-9-]{1,63}$}", HandleTunnel)
-
-	return router
+func Routes(router *http.ServeMux) {
+	router.HandleFunc("GET /tunnel/server/{tunnel_name}", middleware.ApiAuth(HandleTunnel))
 }

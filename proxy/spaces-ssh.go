@@ -6,13 +6,16 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
-
-	"github.com/go-chi/chi/v5"
+	"github.com/paularlott/knot/util/validate"
 )
 
 func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
-	spaceName := chi.URLParam(r, "space_name")
+	spaceName := r.PathValue("space_name")
+	if !validate.Name(spaceName) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	// Load the space
 	db := database.GetInstance()

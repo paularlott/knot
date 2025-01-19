@@ -23,8 +23,7 @@ func ProxyTcp(stream net.Conn, port string) {
 }
 
 func ProxyTcpTls(stream net.Conn, port string, serverName string) {
-	//	conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%s", port), &tls.Config{
-	conn, err := tls.Dial("tcp", fmt.Sprintf("paul.arlott.me:%s", port), &tls.Config{
+	conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%s", port), &tls.Config{
 		InsecureSkipVerify: true,
 		ServerName:         serverName,
 	})
@@ -32,7 +31,6 @@ func ProxyTcpTls(stream net.Conn, port string, serverName string) {
 		log.Error().Err(err).Msg("agent: failed to connect to code server")
 		return
 	}
-
 	defer conn.Close()
 
 	// copy data between code server and server

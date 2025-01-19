@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util/validate"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
 
@@ -45,8 +45,14 @@ func HandleRoleEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	roleId := r.PathValue("role_id")
+	if !validate.UUID(roleId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	data["isEdit"] = true
-	data["roleId"] = chi.URLParam(r, "role_id")
+	data["roleId"] = roleId
 
 	err = tmpl.Execute(w, data)
 	if err != nil {

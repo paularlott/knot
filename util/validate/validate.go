@@ -25,6 +25,11 @@ func VarName(name string) bool {
 	return re.MatchString(name)
 }
 
+func Subdomain(subdomain string) bool {
+	re := regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9\-]{1,63}$`)
+	return re.MatchString(subdomain)
+}
+
 func Password(password string) bool {
 	return len(password) >= 8
 }
@@ -61,4 +66,9 @@ func IsPositiveNumber(value int) bool {
 func IsTime(time string) bool {
 	re := regexp.MustCompile(`^\d{1,2}:\d{2}[ap]m$`)
 	return re.MatchString(time)
+}
+
+func UUID(uuid string) bool {
+	re := regexp.MustCompile(`^^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
+	return re.MatchString(uuid)
 }

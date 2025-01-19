@@ -7,7 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 )
 
-func checkPermissionUseManageSpaces(next http.Handler) http.Handler {
+func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
@@ -19,7 +19,7 @@ func checkPermissionUseManageSpaces(next http.Handler) http.Handler {
 	})
 }
 
-func checkPermissionManageTemplates(next http.Handler) http.Handler {
+func checkPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageTemplates) {
@@ -31,7 +31,7 @@ func checkPermissionManageTemplates(next http.Handler) http.Handler {
 	})
 }
 
-func checkPermissionManageVariables(next http.Handler) http.Handler {
+func checkPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageVariables) {
@@ -43,7 +43,7 @@ func checkPermissionManageVariables(next http.Handler) http.Handler {
 	})
 }
 
-func checkPermissionManageVolumes(next http.Handler) http.Handler {
+func checkPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageVolumes) {
@@ -55,7 +55,7 @@ func checkPermissionManageVolumes(next http.Handler) http.Handler {
 	})
 }
 
-func checkPermissionUseTunnels(next http.Handler) http.Handler {
+func checkPermissionUseTunnels(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionUseTunnels) {
@@ -66,7 +66,7 @@ func checkPermissionUseTunnels(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-func checkPermissionViewAuditLogs(next http.Handler) http.Handler {
+func checkPermissionViewAuditLogs(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionViewAuditLogs) {
@@ -78,7 +78,7 @@ func checkPermissionViewAuditLogs(next http.Handler) http.Handler {
 	})
 }
 
-func checkPermissionManageUsers(next http.Handler) http.Handler {
+func checkPermissionManageUsers(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if server_info.RestrictedLeaf || !user.HasPermission(model.PermissionManageUsers) {
@@ -90,7 +90,7 @@ func checkPermissionManageUsers(next http.Handler) http.Handler {
 	})
 }
 
-func checkPermissionManageGroups(next http.Handler) http.Handler {
+func checkPermissionManageGroups(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageGroups) {
@@ -102,7 +102,7 @@ func checkPermissionManageGroups(next http.Handler) http.Handler {
 	})
 }
 
-func checkPermissionManageRoles(next http.Handler) http.Handler {
+func checkPermissionManageRoles(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageRoles) {

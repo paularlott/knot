@@ -10,16 +10,21 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/util/validate"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
 func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
-	spaceId := chi.URLParam(r, "space_id")
 	user := r.Context().Value("user").(*model.User)
+
+	spaceId := r.PathValue("space_id")
+	if !validate.UUID(spaceId) {
+		showPageNotFound(w, r)
+		return
+	}
 
 	// Load the space
 	db := database.GetInstance()
@@ -62,8 +67,13 @@ func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
-	spaceId := chi.URLParam(r, "space_id")
 	user := r.Context().Value("user").(*model.User)
+
+	spaceId := r.PathValue("space_id")
+	if !validate.UUID(spaceId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	// Load the space
 	db := database.GetInstance()

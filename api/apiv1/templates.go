@@ -13,8 +13,6 @@ import (
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +121,11 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
-	templateId := chi.URLParam(r, "template_id")
+	templateId := r.PathValue("template_id")
+	if !validate.UUID(templateId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
+		return
+	}
 
 	request := apiclient.TemplateUpdateRequest{}
 	err := rest.BindJSON(w, r, &request)
@@ -376,7 +378,11 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
-	templateId := chi.URLParam(r, "template_id")
+	templateId := r.PathValue("template_id")
+	if !validate.UUID(templateId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
+		return
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -441,7 +447,11 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
-	templateId := chi.URLParam(r, "template_id")
+	templateId := r.PathValue("template_id")
+	if !validate.UUID(templateId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
+		return
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")

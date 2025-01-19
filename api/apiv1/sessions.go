@@ -8,8 +8,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/rest"
-
-	"github.com/go-chi/chi/v5"
+	"github.com/paularlott/knot/util/validate"
 )
 
 func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
@@ -45,11 +44,17 @@ func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
 
 func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
+	sessionId := r.PathValue("session_id")
+
+	if !validate.UUID(sessionId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid session ID"})
+		return
+	}
 
 	// Load the session if not found or doesn't belong to the user then treat both as not found
-	session, err := database.GetCacheInstance().GetSession(chi.URLParam(r, "session_id"))
+	session, err := database.GetCacheInstance().GetSession(sessionId)
 	if err != nil || session.UserId != user.Id {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("token %s not found", chi.URLParam(r, "session_id"))})
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("token %s not found", sessionId)})
 		return
 	}
 

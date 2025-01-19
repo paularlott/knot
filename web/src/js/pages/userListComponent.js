@@ -123,7 +123,7 @@ window.userListComponent = function() {
     },
     async stopSpaces(userId) {
       var self = this;
-      await fetch(`/api/v1/spaces/stop-for-user/${userId}`, {
+      await fetch(`/api/v1/spaces/${userId}/stop-for-user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

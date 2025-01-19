@@ -10,12 +10,16 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-
-	"github.com/go-chi/chi/v5"
+	"github.com/paularlott/knot/util/validate"
 )
 
 func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
-	spaceId := chi.URLParam(r, "space_id")
+	spaceId := r.PathValue("space_id")
+	if !validate.UUID(spaceId) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	user := r.Context().Value("user").(*model.User)
 
 	// Load the space

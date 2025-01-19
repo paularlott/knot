@@ -16,8 +16,6 @@ import (
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +61,11 @@ func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
-	volemeId := chi.URLParam(r, "volume_id")
+	volumeId := r.PathValue("volume_id")
+	if !validate.UUID(volumeId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
+		return
+	}
 
 	request := apiclient.VolumeUpdateRequest{}
 	err := rest.BindJSON(w, r, &request)
@@ -86,7 +88,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 	if remoteClient != nil && !server_info.RestrictedLeaf {
 		client := remoteClient.(*apiclient.ApiClient)
 
-		code, err := client.UpdateVolume(volemeId, request.Name, request.Definition)
+		code, err := client.UpdateVolume(volumeId, request.Name, request.Definition)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -95,7 +97,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 		db := database.GetInstance()
 		user := r.Context().Value("user").(*model.User)
 
-		volume, err := database.GetInstance().GetVolume(volemeId)
+		volume, err := database.GetInstance().GetVolume(volumeId)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -193,7 +195,11 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
-	volumeId := chi.URLParam(r, "volume_id")
+	volumeId := r.PathValue("volume_id")
+	if !validate.UUID(volumeId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
+		return
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -247,7 +253,11 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
-	volumeId := chi.URLParam(r, "volume_id")
+	volumeId := r.PathValue("volume_id")
+	if !validate.UUID(volumeId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
+		return
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
@@ -289,7 +299,12 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 
 	db := database.GetInstance()
 
-	volumeId := chi.URLParam(r, "volume_id")
+	volumeId := r.PathValue("volume_id")
+
+	if !validate.UUID(volumeId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
+		return
+	}
 
 	// If remote client present then fetch the volume information from the remote
 	remoteClient := r.Context().Value("remote_client")
@@ -369,7 +384,11 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 
 	db := database.GetInstance()
 
-	volumeId := chi.URLParam(r, "volume_id")
+	volumeId := r.PathValue("volume_id")
+	if !validate.UUID(volumeId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
+		return
+	}
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
