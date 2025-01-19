@@ -437,7 +437,11 @@ var serverCmd = &cobra.Command{
 				} else if match.MatchString(r.Host) {
 					wildcardRoutes.ServeHTTP(w, r)
 				} else {
-					http.NotFound(w, r)
+					if r.URL.Path == "/health" {
+						web.HandleHealthPage(w, r)
+					} else {
+						http.NotFound(w, r)
+					}
 				}
 			})
 
