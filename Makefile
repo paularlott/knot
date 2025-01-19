@@ -70,6 +70,7 @@ homebrew-formula:
 legal: legal/license.txt legal/notice.txt
 	rm -rf ./legal/licenses
 	~/go/bin/go-licenses save --save_path ./legal/licenses/ --skip_copy_source --ignore github.com/paularlott/knot .
+	find ./legal/licenses -type f -exec gzip {} \;
 
 ## Copy the application licence file fpr inclusion in the binary
 legal/license.txt: LICENSE.txt
