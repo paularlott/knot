@@ -366,5 +366,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"isOriginOrLeaf":            server_info.IsOrigin || server_info.IsLeaf,
 		"isRestrictedServer":        server_info.RestrictedLeaf,
 		"timezone":                  server_info.Timezone,
+		"disableSpaceCreate":        viper.GetBool("server.disable_space_create"),
 	}
 }

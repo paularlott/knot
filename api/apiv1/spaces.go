@@ -223,6 +223,12 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If space create is disabled then fail
+	if viper.GetBool("server.disable_space_create") {
+		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Space creation is disabled"})
+		return
+	}
+
 	// Remove any blank alt names, any that match the primary name, and any duplicates
 	request.AltNames = removeBlankAndDuplicates(request.AltNames, request.Name)
 

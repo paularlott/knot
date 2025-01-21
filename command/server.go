@@ -60,6 +60,7 @@ func init() {
 	serverCmd.Flags().StringP("timezone", "", "", "The timezone to use for the server (default is system timezone).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TIMEZONE environment variable if set.")
 	serverCmd.Flags().StringP("tunnel-domain", "", "", "The domain to use for tunnel connections.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN environment variable if set.")
 	serverCmd.Flags().Int("audit-retention", 90, "The number of days to keep audit logs (default \"90\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION environment variable if set.")
+	serverCmd.Flags().BoolP("disable-space-create", "", false, "Disable the ability to create spaces.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE environment variable if set.")
 
 	// DNS Server
 	serverCmd.Flags().BoolP("enable-dns", "", false, "Experimental. Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
@@ -203,6 +204,10 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.audit_retention", cmd.Flags().Lookup("audit-retention"))
 		viper.BindEnv("server.audit_retention", config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION")
 		viper.SetDefault("server.audit_retention", 90)
+
+		viper.BindPFlag("server.disable_space_create", cmd.Flags().Lookup("disable-space-create"))
+		viper.BindEnv("server.disable_space_create", config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE")
+		viper.SetDefault("server.disable_space_create", false)
 
 		// TLS
 		viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
