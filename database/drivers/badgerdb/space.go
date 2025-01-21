@@ -27,7 +27,7 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space) error {
 			if err != nil {
 				return err
 			} else if exists {
-				return fmt.Errorf("duplicate space name")
+				return fmt.Errorf("space name already used")
 			}
 		}
 
@@ -103,7 +103,7 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space) error {
 				if err != nil {
 					return err
 				} else if exists {
-					return fmt.Errorf("duplicate space name")
+					return fmt.Errorf("space name already used")
 				}
 
 				e = badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(name))), []byte(space.Id))

@@ -55,7 +55,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 		if err != nil {
 			return err
 		} else if exists {
-			return fmt.Errorf("duplicate space name")
+			return fmt.Errorf("space name already used")
 		}
 	}
 
@@ -76,7 +76,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 			if err != nil {
 				return err
 			} else if exists {
-				return fmt.Errorf("duplicate space name")
+				return fmt.Errorf("space name already used")
 			}
 		}
 	}
