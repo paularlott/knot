@@ -312,7 +312,16 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
 
+	// Save the space
+	err = db.SaveSpace(space)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if remoteClient == nil {
 		audit.Log(
 			user.Username,
 			model.AuditActorTypeUser,
@@ -326,13 +335,6 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 				"space_name":      space.Name,
 			},
 		)
-	}
-
-	// Save the space
-	err = db.SaveSpace(space)
-	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
-		return
 	}
 
 	leaf.UpdateSpace(space)

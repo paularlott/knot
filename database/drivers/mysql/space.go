@@ -58,6 +58,19 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
 			space.Name, space.TemplateId, time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, space.NomadNamespace, space.ContainerId, space.TemplateHash, space.Location, space.Id,
 		)
 	} else {
+		// Check if the space name already exists
+		var exists bool
+		err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM spaces WHERE user_id=? AND name=?)", space.UserId, space.Name).Scan(&exists)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		if exists {
+			tx.Rollback()
+			return fmt.Errorf("space name already used")
+		}
+
 		_, err = tx.Exec("INSERT INTO spaces (space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, location, ssh_host_signer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			space.Id, space.UserId, space.TemplateId, space.Name, time.Now().UTC(), time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, space.NomadNamespace, space.ContainerId, space.TemplateHash, space.Location, space.SSHHostSigner,
 		)
