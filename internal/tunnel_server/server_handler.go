@@ -3,6 +3,7 @@ package tunnel_server
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -77,7 +78,8 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	webName := fmt.Sprintf("%s--%s", user.Username, tunnelName)
+	tunnelName = strings.ToLower(tunnelName)
+	webName := strings.ToLower(fmt.Sprintf("%s--%s", user.Username, tunnelName))
 
 	log.Info().Msgf("tunnel: new tunnel %s", webName)
 

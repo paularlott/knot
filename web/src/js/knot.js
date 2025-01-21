@@ -71,7 +71,7 @@ window.openVSCodeDev = function(tunnelName) {
 }
 
 window.openVNC = function(spaceId, domain, username, spaceName) {
-  const subdomain = window.location.protocol + '//' + username + '--' + spaceName + '--vnc';
+  const subdomain = window.location.protocol + '//' + username.toLowerCase() + '--' + spaceName.toLowerCase() + '--vnc';
   const maxWidth = Math.min(window.innerWidth, 1440);
   const maxHeight = window.innerHeight;
 
@@ -80,7 +80,7 @@ window.openVNC = function(spaceId, domain, username, spaceName) {
 }
 
 window.openPortWindow = function(spaceId, domain, username, spaceName, port) {
-  var subdomain = window.location.protocol + '//' + username + '--' + spaceName + '--' + port;
+  var subdomain = window.location.protocol + '//' + username.toLowerCase() + '--' + spaceName.toLowerCase() + '--' + port;
   window.open(domain.replace(/^\*/, subdomain), 'spaces_' + spaceId + '_http_port_' + port);
   return false;
 }
