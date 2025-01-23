@@ -491,7 +491,9 @@ var serverCmd = &cobra.Command{
 					log.Fatal().Msg(err.Error())
 				}
 				sslDomains = append(sslDomains, u.Host)
-				sslDomains = append(sslDomains, "localhost")
+				if u.Host != "localhost" {
+					sslDomains = append(sslDomains, "localhost")
+				}
 
 				// If wildcard domain given add it
 				wildcardDomain := viper.GetString("server.wildcard_domain")

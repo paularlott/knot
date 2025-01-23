@@ -62,7 +62,7 @@ func (db *MySQLDriver) realConnect() error {
 
 		log.Debug().Msg("db: connected to MySQL")
 	} else {
-		log.Fatal().Err(err).Msg("db: failed to connect to MySQL")
+		log.Error().Err(err).Msg("db: failed to connect to MySQL")
 	}
 
 	return err
@@ -77,27 +77,24 @@ func (db *MySQLDriver) Connect() error {
 		}
 	}
 
-	// If the host starts with srv+ then start a go routine to monitor the database
-	host := viper.GetString("server.mysql.host")
-	if host[:4] == "srv+" {
-		go func() {
-			for {
-				time.Sleep(10 * time.Second)
+	// Start a go routine to monitor the database
+	go func() {
+		for {
+			time.Sleep(10 * time.Second)
 
-				log.Debug().Msg("db: testing MySQL connection")
+			log.Debug().Msg("db: testing MySQL connection")
 
-				// Ping the database
-				err := db.connection.Ping()
-				if err != nil {
-					log.Error().Err(err).Msg("db: failed to ping MySQL database")
-					db.connection.Close()
+			// Ping the database
+			err := db.connection.Ping()
+			if err != nil {
+				log.Error().Err(err).Msg("db: failed to ping MySQL database")
+				db.connection.Close()
 
-					// Attempt to reconnect
-					db.realConnect()
-				}
+				// Attempt to reconnect
+				db.realConnect()
 			}
-		}()
-	}
+		}
+	}()
 
 	return err
 }
