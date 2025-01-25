@@ -91,14 +91,18 @@ func LeafConnectAndServe(server string) {
 			if err != nil {
 				ws.Close()
 
-				// If versions mismatch then done
-				if registerResponse.Version != build.Version {
-					log.Fatal().Msg("leaf: origin and leaf servers must run the same versions.")
-				}
-
 				log.Error().Msgf("leaf: error while reading message: %s", err)
 				time.Sleep(3 * time.Second)
 				continue
+			}
+
+			// If versions mismatch then done
+			originVersionParts := strings.Split(registerResponse.Version, ".")
+			leafVersionParts := strings.Split(build.Version, ".")
+
+			if len(originVersionParts) < 2 || len(leafVersionParts) < 2 || originVersionParts[0] != leafVersionParts[0] || originVersionParts[1] != leafVersionParts[1] {
+				ws.Close()
+				log.Fatal().Str("origin version", registerResponse.Version).Str("leaf version", build.Version).Msg("leaf: origin and leaf servers must run the same major and minor versions.")
 			}
 
 			log.Info().Msg("leaf: successfully registered with origin server")
