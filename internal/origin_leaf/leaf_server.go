@@ -99,7 +99,6 @@ func LeafConnectAndServe(server string) {
 			// If versions mismatch then done
 			originVersionParts := strings.Split(registerResponse.Version, ".")
 			leafVersionParts := strings.Split(build.Version, ".")
-
 			if len(originVersionParts) < 2 || len(leafVersionParts) < 2 || originVersionParts[0] != leafVersionParts[0] || originVersionParts[1] != leafVersionParts[1] {
 				ws.Close()
 				log.Fatal().Str("origin version", registerResponse.Version).Str("leaf version", build.Version).Msg("leaf: origin and leaf servers must run the same major and minor versions.")
