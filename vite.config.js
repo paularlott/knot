@@ -1,9 +1,12 @@
 import {defineConfig} from 'vite';
 import {resolve} from 'path';
-import tailwindcss from "tailwindcss";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   base: "/assets/",
+  plugins: [
+    tailwindcss(),
+  ],
   build: {
     chunkSizeWarningLimit: 1024 * 1024, // 1MB
     outDir: "./web/public_html/assets/",

@@ -10,7 +10,7 @@
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Role{{ else }}Create Role{{ end }}</h1>
     </div>
 
-    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
 
       {{ template "loading" . }}
       <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
@@ -24,7 +24,7 @@
           <template x-for="(perm, index) in permissions.permissions" :key="index">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="permissions[]" :value="perm.id" :checked="formData.permissions.includes(perm.id)" @change="togglePermission(perm.id)">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="perm.name"></span>
             </label>
           </template>

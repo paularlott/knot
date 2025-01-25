@@ -158,6 +158,13 @@ func ConnectAndServe(server string, spaceId string) {
 				continue
 			}
 
+			// Check the versions, the major and minor versions must match
+			originVersionParts := strings.Split(response.Version, ".")
+			agentVersionParts := strings.Split(build.Version, ".")
+			if len(originVersionParts) < 2 || len(agentVersionParts) < 2 || originVersionParts[0] != agentVersionParts[0] || originVersionParts[1] != agentVersionParts[1] {
+				log.Fatal().Str("origin version", response.Version).Str("leaf version", build.Version).Msg("agent: server and agent must run the same major and minor versions.")
+			}
+
 			log.Info().Msgf("agent: registered with server: %s (%s)", serverAddr, response.Version)
 
 			// If 1st registration then start the ssh server if required

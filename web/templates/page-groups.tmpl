@@ -14,8 +14,8 @@
       <div>
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-          <input type="search" name="search" id="search" class="form-field bg-white flex-grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-          <div class="absolute right-2 top-50 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
+          <input type="search" name="search" id="search" class="form-field bg-white grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+          <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
         </div>
       </div>
       <div>
@@ -28,7 +28,7 @@
       </div>
     </form>
 
-    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
 
       {{ template "loading" . }}
       <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
@@ -53,7 +53,7 @@
                 <td class="px-6 py-4" x-text="g.max_tunnels"></td>
                 <td class="px-6 py-4">
                   <div class="flex items-center justify-end" x-data>
-                    <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
+                    <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
                         <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
                       </svg><span class="sr-only">More</span>
@@ -81,7 +81,7 @@
       </div>
 
       <!-- Modal delete -->
-      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" @click.self="deleteConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-sm sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false" @click.self="deleteConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
         <!-- Modal Dialog -->
         <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
