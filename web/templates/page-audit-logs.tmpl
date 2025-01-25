@@ -10,7 +10,7 @@
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Audit Logs</h1>
     </div>
 
-    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-sm col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
 
       {{ template "loading" . }}
       <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
@@ -55,7 +55,7 @@
         <!-- Start Pagination -->
         <template x-if="totalPages > 1">
           <div class="mt-4 mb-1 flex justify-end">
-            <nav class="inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            <nav class="inline-flex rounded-md shadow-xs -space-x-px" aria-label="Pagination">
               <button @click="currentPage = 0; getAuditLogs()" :disabled="currentPage === 0" :class="{'hover:bg-gray-50 dark:hover:bg-gray-700': currentPage !== 0}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m18.75 4.5-7.5 7.5 7.5 7.5m-6-15L5.25 12l7.5 7.5" />
