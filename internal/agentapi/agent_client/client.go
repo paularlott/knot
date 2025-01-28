@@ -116,11 +116,20 @@ func ConnectAndServe(server string, spaceId string) {
 
 			// Open the connection
 			if viper.GetBool("agent.tls.use_tls") {
-				conn, err = tls.Dial("tcp", serverAddr, &tls.Config{
-					InsecureSkipVerify: viper.GetBool("tls_skip_verify"),
-				})
+				dialer := &tls.Dialer{
+					NetDialer: &net.Dialer{
+						Timeout: 3 * time.Second,
+					},
+					Config: &tls.Config{
+						InsecureSkipVerify: viper.GetBool("tls_skip_verify"),
+					},
+				}
+				conn, err = dialer.Dial("tcp", serverAddr)
 			} else {
-				conn, err = tls.Dial("tcp", serverAddr, nil)
+				dialer := &net.Dialer{
+					Timeout: 3 * time.Second,
+				}
+				conn, err = dialer.Dial("tcp", serverAddr)
 			}
 			if err != nil {
 				log.Error().Msgf("agent: connecting to server: %v", err)
