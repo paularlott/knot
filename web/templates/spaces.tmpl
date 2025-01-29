@@ -28,6 +28,14 @@
             </select>
           </div>
       </div>
+      <div class="hidden sm:block sm:order-3">
+        <a href="/templates" class="btn-primary flex items-center mt-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
+            <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+          </svg>
+          New Space
+        </a>
+      </div>
       <div class="sm:order-1">
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
@@ -39,7 +47,14 @@
 
     <div class="mb-4 col-span-full">
       {{ template "loading" . }}
-      <div x-show="!loading" x-cloak class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+
+      <template x-if="!loading && !spaces.length">
+        <div class="w-full max-w-lg mt-6 mx-auto p-4 bg-white border border-gray-200 rounded-lg shadow-lg dark:border-gray-700 dark:bg-gray-800">
+            <div class="text-center text-gray-500 dark:text-gray-400">No spaces found.<br />Get started by selecting a <a href="/templates" class="text-blue-500 hover:underline dark:text-blue-400">template</a>.</div>
+        </div>
+      </template>
+
+      <div x-show="!loading && spaces.length" x-cloak class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         <template x-for="s in spaces" :key="s.space_id">
           <div x-data x-show="!s.searchHide" class="p-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 dark:bg-gray-800 flex flex-col justify-between">
             <div>
