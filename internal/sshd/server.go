@@ -6,9 +6,10 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/paularlott/knot/build"
+
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
-	"github.com/paularlott/knot/build"
 	"github.com/rs/zerolog/log"
 	gossh "golang.org/x/crypto/ssh"
 )
@@ -46,6 +47,14 @@ func ListenAndServe(port int, privateKeyPEM string) {
 		HostSigners:      []ssh.Signer{signer},
 		PublicKeyHandler: publicKeyHandler,
 		Handler:          defaultHandler,
+		ChannelHandlers: map[string]ssh.ChannelHandler{
+			"session":      ssh.DefaultSessionHandler,
+			"direct-tcpip": ssh.DirectTCPIPHandler,
+		},
+		LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
+			log.Debug().Msgf("sshd: local port forwarding requested to %s:%d", dhost, dport)
+			return true
+		}),
 	}
 
 	go func() {
@@ -96,6 +105,7 @@ func defaultHandler(s ssh.Session) {
 		io.Copy(s, tty) // stdout
 		cmd.Wait()
 	} else {
+		log.Error().Msg("No PTY requested.")
 		io.WriteString(s, "No PTY requested.\n")
 		s.Exit(1)
 	}
