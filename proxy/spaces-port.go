@@ -12,6 +12,8 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/util/validate"
+
+	"github.com/rs/zerolog/log"
 )
 
 func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
@@ -19,6 +21,7 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 
 	spaceName := r.PathValue("space_name")
 	if !validate.Name(spaceName) {
+		log.Debug().Str("space_name", spaceName).Msg("Invalid space name")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -26,6 +29,7 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 	port := r.PathValue("port")
 	portUInt, err := strconv.ParseUint(port, 10, 16)
 	if err != nil || !validate.IsNumber(int(portUInt), 0, 65535) {
+		log.Debug().Str("port", port).Msg("Invalid port")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -34,6 +38,7 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	space, err := db.GetSpaceByName(user.Id, spaceName)
 	if err != nil {
+		log.Error().Err(err).Str("space_name", spaceName).Msg("Error loading space")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -41,12 +46,16 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 	// Get the space session
 	agentSession := agent_server.GetSession(space.Id)
 	if agentSession == nil {
+		log.Debug().Str("space_name", spaceName).Msg("Space session not found")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	// Check the port is allowed
-	if _, ok := agentSession.TcpPorts[port]; !ok {
+	// Check the port is allowed must be in the TcpPorts or HttpPorts
+	_, tcpOk := agentSession.TcpPorts[port]
+	_, httpOk := agentSession.HttpPorts[port]
+	if !tcpOk && !httpOk {
+		log.Debug().Str("port", port).Msg("Port not allowed")
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

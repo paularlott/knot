@@ -351,7 +351,9 @@ func handleAgentClientStream(stream net.Conn) {
 		}
 
 		// Check if the port is allowed
-		if _, ok := tcpPortMap[fmt.Sprintf("%d", tcpPort.Port)]; !ok {
+		_, okTcp := tcpPortMap[fmt.Sprintf("%d", tcpPort.Port)]
+		_, okHttp := httpPortMap[fmt.Sprintf("%d", tcpPort.Port)]
+		if !okTcp && !okHttp {
 			log.Error().Msgf("agent: tcp port %d is not allowed", tcpPort.Port)
 			return
 		}
