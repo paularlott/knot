@@ -123,7 +123,6 @@ func Routes(router *http.ServeMux) {
 		}
 
 		agentPath := viper.GetString("server.agent_path")
-		agentPath = ""
 		if agentPath != "" {
 			// If the file does exist then return a 404
 			info, err := os.Stat(filepath.Join(agentPath, fileName))
