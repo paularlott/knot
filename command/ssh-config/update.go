@@ -19,7 +19,14 @@ var sshConfigUpdateCmd = &cobra.Command{
 
 		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
 
-		spaces, _, err := client.GetSpaces("")
+		// Get the current user
+		user, err := client.WhoAmI()
+		if err != nil {
+			fmt.Println("Error getting user: ", err)
+			return
+		}
+
+		spaces, _, err := client.GetSpaces(user.Id)
 		if err != nil {
 			fmt.Println("Error getting spaces: ", err)
 			return
