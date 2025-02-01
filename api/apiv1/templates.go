@@ -82,6 +82,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			templateData.ComputeUnits = template.ComputeUnits
 			templateData.StorageUnits = template.StorageUnits
 			templateData.ScheduleEnabled = template.ScheduleEnabled
+			templateData.Locations = template.Locations
 
 			// If schedule is enabled then return the schedule
 			if template.ScheduleEnabled {
@@ -172,7 +173,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
-		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &request.Schedule)
+		code, err := client.UpdateTemplate(templateId, request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &request.Schedule, request.Locations)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -220,6 +221,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.StorageUnits = request.StorageUnits
 		template.ScheduleEnabled = request.ScheduleEnabled
 		template.Schedule = make(model.JSONDbScheduleDays, 7)
+		template.Locations = request.Locations
 
 		for i, day := range request.Schedule {
 			template.Schedule[i] = model.TemplateScheduleDays{
@@ -315,7 +317,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		var code int
 		var err error
 
-		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &request.Schedule)
+		templateId, code, err = client.CreateTemplate(request.Name, request.Job, request.Description, request.Volumes, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &request.Schedule, request.Locations)
 		if err != nil {
 			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -342,7 +344,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &scheduleDays)
+		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &scheduleDays, request.Locations)
 
 		err = database.GetInstance().SaveTemplate(template)
 		if err != nil {
@@ -496,6 +498,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 			Hash:             template.Hash,
 			Deployed:         deployed,
 			Groups:           template.Groups,
+			Locations:        template.Locations,
 			LocalContainer:   template.LocalContainer,
 			IsManual:         template.IsManual,
 			WithTerminal:     template.WithTerminal,

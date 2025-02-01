@@ -56,6 +56,7 @@ var importCmd = &cobra.Command{
 					template.Template.StorageUnits,
 					template.Template.ScheduleEnabled,
 					&template.Template.Schedule,
+					template.Template.Locations,
 				)
 				if err != nil {
 					fmt.Println("Error creating template: ", err)
@@ -82,6 +83,7 @@ var importCmd = &cobra.Command{
 				template.Template.StorageUnits,
 				template.Template.ScheduleEnabled,
 				&template.Template.Schedule,
+				template.Template.Locations,
 			)
 			if err != nil {
 				fmt.Println("Error updating template: ", err)

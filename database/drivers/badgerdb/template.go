@@ -11,106 +11,106 @@ import (
 )
 
 func (db *BadgerDbDriver) SaveTemplate(template *model.Template) error {
-  err := db.connection.Update(func(txn *badger.Txn) error {
-    // Load the existing template
-    existingTemplate, _ := db.GetTemplate(template.Id)
-    if existingTemplate == nil {
-      template.CreatedAt = time.Now().UTC()
-    }
+	err := db.connection.Update(func(txn *badger.Txn) error {
+		// Load the existing template
+		existingTemplate, _ := db.GetTemplate(template.Id)
+		if existingTemplate == nil {
+			template.CreatedAt = time.Now().UTC()
+		}
 
-    template.UpdatedUserId = template.CreatedUserId
-    template.UpdatedAt = time.Now().UTC()
-    data, err := json.Marshal(template)
-    if err != nil {
-      return err
-    }
+		template.UpdatedUserId = template.CreatedUserId
+		template.UpdatedAt = time.Now().UTC()
+		data, err := json.Marshal(template)
+		if err != nil {
+			return err
+		}
 
-    e := badger.NewEntry([]byte(fmt.Sprintf("Templates:%s", template.Id)), data)
-    if err = txn.SetEntry(e); err != nil {
-      return err
-    }
+		e := badger.NewEntry([]byte(fmt.Sprintf("Templates:%s", template.Id)), data)
+		if err = txn.SetEntry(e); err != nil {
+			return err
+		}
 
-    return nil
-  })
+		return nil
+	})
 
-  return err
+	return err
 }
 
 func (db *BadgerDbDriver) DeleteTemplate(template *model.Template) error {
 
-  // Test if the space in in use
-  spaces, err := db.GetSpacesByTemplateId(template.Id)
-  if err != nil {
-    return err
-  }
+	// Test if the space in in use
+	spaces, err := db.GetSpacesByTemplateId(template.Id)
+	if err != nil {
+		return err
+	}
 
-  if len(spaces) > 0 {
-    return fmt.Errorf("template in use")
-  }
+	if len(spaces) > 0 {
+		return fmt.Errorf("template in use")
+	}
 
-  err = db.connection.Update(func(txn *badger.Txn) error {
-    err := txn.Delete([]byte(fmt.Sprintf("Templates:%s", template.Id)))
-    if err != nil {
-      return err
-    }
+	err = db.connection.Update(func(txn *badger.Txn) error {
+		err := txn.Delete([]byte(fmt.Sprintf("Templates:%s", template.Id)))
+		if err != nil {
+			return err
+		}
 
-    return nil
-  })
+		return nil
+	})
 
-  return err
+	return err
 }
 
 func (db *BadgerDbDriver) GetTemplate(id string) (*model.Template, error) {
-  var template = &model.Template{}
+	var template = &model.Template{}
 
-  err := db.connection.View(func(txn *badger.Txn) error {
-    item, err := txn.Get([]byte(fmt.Sprintf("Templates:%s", id)))
-    if err != nil {
-      return err
-    }
+	err := db.connection.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(fmt.Sprintf("Templates:%s", id)))
+		if err != nil {
+			return err
+		}
 
-    return item.Value(func(val []byte) error {
-      return json.Unmarshal(val, template)
-    })
-  })
+		return item.Value(func(val []byte) error {
+			return json.Unmarshal(val, template)
+		})
+	})
 
-  if err != nil {
-    return nil, err
-  }
+	if err != nil {
+		return nil, err
+	}
 
-  return template, err
+	return template, err
 }
 
 func (db *BadgerDbDriver) GetTemplates() ([]*model.Template, error) {
-  var templates []*model.Template
+	var templates []*model.Template
 
-  err := db.connection.View(func(txn *badger.Txn) error {
-    it := txn.NewIterator(badger.DefaultIteratorOptions)
-    defer it.Close()
+	err := db.connection.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
 
-    prefix := []byte("Templates:")
+		prefix := []byte("Templates:")
 
-    for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-      item := it.Item()
-      var template = &model.Template{}
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			var template = &model.Template{}
 
-      err := item.Value(func(val []byte) error {
-        return json.Unmarshal(val, template)
-      })
-      if err != nil {
-        return err
-      }
+			err := item.Value(func(val []byte) error {
+				return json.Unmarshal(val, template)
+			})
+			if err != nil {
+				return err
+			}
 
-      templates = append(templates, template)
-    }
+			templates = append(templates, template)
+		}
 
-    return nil
-  })
+		return nil
+	})
 
-  // Sort the templates by name
-  sort.Slice(templates, func(i, j int) bool {
-    return templates[i].Name < templates[j].Name
-  })
+	// Sort the templates by name
+	sort.Slice(templates, func(i, j int) bool {
+		return templates[i].Name < templates[j].Name
+	})
 
-  return templates, err
+	return templates, err
 }

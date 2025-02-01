@@ -16,6 +16,7 @@ type TemplateCreateRequest struct {
 	Schedule         []TemplateDetailsDay `json:"schedule"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
+	Locations        []string             `json:"locations"`
 }
 
 type TemplateUpdateRequest struct {
@@ -32,6 +33,7 @@ type TemplateUpdateRequest struct {
 	Schedule         []TemplateDetailsDay `json:"schedule"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
+	Locations        []string             `json:"locations"`
 }
 
 type TemplateCreateResponse struct {
@@ -52,6 +54,7 @@ type TemplateInfo struct {
 	ComputeUnits    uint32               `json:"compute_units"`
 	StorageUnits    uint32               `json:"storage_units"`
 	Schedule        []TemplateDetailsDay `json:"schedule"`
+	Locations       []string             `json:"locations"`
 }
 
 type TemplateList struct {
@@ -84,6 +87,7 @@ type TemplateDetails struct {
 	StorageUnits     uint32               `json:"storage_units"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
+	Locations        []string             `json:"locations"`
 }
 
 func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
@@ -97,7 +101,7 @@ func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay) (int, error) {
+func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string) (int, error) {
 	request := TemplateUpdateRequest{
 		Name:             name,
 		Job:              job,
@@ -110,6 +114,7 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 		WithSSH:          withSSH,
 		ComputeUnits:     computeUnits,
 		StorageUnits:     storageUnits,
+		Locations:        locations,
 	}
 
 	if schedule == nil || !scheduleEnabled {
@@ -123,7 +128,7 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 	return c.httpClient.Put("/api/v1/templates/"+templateId, &request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay) (string, int, error) {
+func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string) (string, int, error) {
 	request := TemplateCreateRequest{
 		Name:             name,
 		Job:              job,
@@ -138,6 +143,7 @@ func (c *ApiClient) CreateTemplate(name string, job string, description string, 
 		WithSSH:          withSSH,
 		ComputeUnits:     computeUnits,
 		StorageUnits:     storageUnits,
+		Locations:        locations,
 	}
 
 	if schedule == nil || !scheduleEnabled {

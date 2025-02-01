@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Templates{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="templateListComponent({{ .permissionManageSpaces }})">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="templateListComponent({{ .permissionManageSpaces }}, {{ if and .isOriginOrLeaf (not .isRestrictedServer)}}'{{ .location }}'{{ else }}''{{ end }})">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
 
     <div class="mb-4 col-span-full xl:mb-2">
@@ -11,12 +11,23 @@
     </div>
 
     <form class="col-span-full sm:flex justify-between">
-      <div>
-        <label for="search" class="sr-only">Search</label>
-        <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-          <input type="search" name="search" id="search" class="form-field bg-white grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-          <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
+      <div class="flex">
+        <div>
+          <label for="search" class="sr-only">Search</label>
+          <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
+            <input type="search" name="search" id="search" class="form-field bg-white grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+            <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
+          </div>
         </div>
+        {{ if and .permissionManageTemplates .isOriginOrLeaf (not .isRestrictedServer) }}
+        <div class="flex items-center mt-1 ml-4">
+          <label class="flex items-center cursor-pointer mb-2">
+            <input type="checkbox" class="sr-only peer" value="1" :checked="showAll" x-model="showAll">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All</span>
+          </label>
+        </div>
+        {{ end }}
       </div>
       {{ if .permissionManageTemplates }}
       <div>
@@ -35,7 +46,8 @@
       {{ template "loading" . }}
       <div x-show="!loading" x-cloak class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         <template x-for="t in templates" :key="t.template_id">
-          <div x-data x-show="!t.searchHide" class="p-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 dark:bg-gray-800 flex flex-col justify-between">
+          <template x-if="!t.searchHide && (showAll || location === '' || !t.locations || !t.locations.length || t.locations.includes(location))">
+          <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 dark:bg-gray-800 flex flex-col justify-between">
             <div>
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="t.name"></h2>
               <div class="mt-2">
@@ -91,10 +103,25 @@
                     </template>
                   </td>
                 </tr>
+                <tr>
+                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 align-top">Locations:</td>
+                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
+                    <template x-if="!t.locations.length">
+                      <span>-</span>
+                    </template>
+                    <template x-if="t.locations.length">
+                      <div class="flex flex-wrap gap-2">
+                        <template x-for="l in t.locations">
+                          <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300" x-text="l"></span>
+                        </template>
+                      </div>
+                    </template>
+                  </td>
+                </tr>
                 {{ end }}
               </table>
             </div>
-            <div class="mt-4 flex items-center justify-end relative">
+            <div class="mt-4 flex items-center justify-end relative" x-data>
               {{ if and (not .permissionManageTemplates) (not .permissionManageSpaces) }}
                 {{ if not .disableSpaceCreate }}
                 <button @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center text-xs">
@@ -143,6 +170,7 @@
               {{ end }}
             </div>
           </div>
+          </template>
         </template>
       </div>
 

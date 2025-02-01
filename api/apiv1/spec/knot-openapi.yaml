@@ -2300,6 +2300,11 @@ components:
           x-condition:
             property: schedule_enabled
             value: true
+        locations:
+          type: array
+          items:
+            type: string
+          description: The list of locations the template is valid for.
 
     TemplateList:
       type: object
@@ -2373,6 +2378,11 @@ components:
           maxItems: 7
           items:
             $ref: '#/components/schemas/TemplateDetailsDay'
+        locations:
+          type: array
+          items:
+            type: string
+          description: The list of locations the template is valid for.
 
     TemplateUpdateRequest:
       type: object
@@ -2428,6 +2438,11 @@ components:
           maxItems: 7
           items:
             $ref: '#/components/schemas/TemplateDetailsDay'
+        locations:
+          type: array
+          items:
+            type: string
+          description: The list of locations the template is valid for.
 
     TemplateDetails:
       type: object
@@ -2496,6 +2511,11 @@ components:
           maxItems: 7
           items:
             $ref: '#/components/schemas/TemplateDetailsDay'
+        locations:
+          type: array
+          items:
+            type: string
+          description: The list of locations the template is valid for.
 
     TemplateDetailsDay:
       type: object
