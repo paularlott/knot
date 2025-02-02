@@ -35,6 +35,7 @@ func init() {
 	command.RootCmd.AddCommand(adminCmd)
 	adminCmd.AddCommand(renameLocationCmd)
 	adminCmd.AddCommand(setPasswordCmd)
+	adminCmd.AddCommand(resetTOTPCmd)
 }
 
 var adminCmd = &cobra.Command{

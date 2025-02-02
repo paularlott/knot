@@ -34,7 +34,7 @@ knot is designed to be used within trusted environments rather than on the open 
 
 For complex deployments over many different locations a mesh network may be appropriate.
 
-When tunneling is enabled the tunnel port is separate from the web interface and the agent interface and therefore public traffic can be restricted to the tunnel interface only.
+When tunneling is enabled the tunnel port is separate from the web interface and the agent interface, it is expected that public traffic be directed to the tunnel interface only.
 
 TOTP should be enabled if the web interface is exposed to the internet. The TOTP code works with Google Authenticator, Microsoft Authenticator, and other TOTP apps.
 
