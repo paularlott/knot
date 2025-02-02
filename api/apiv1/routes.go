@@ -94,6 +94,7 @@ func ApiRoutes(router *http.ServeMux) {
 	// Unauthenticated routes
 	router.HandleFunc("POST /api/v1/auth", HandleAuthorization)
 	router.HandleFunc("POST /api/v1/auth/web", HandleAuthorization)
+	router.HandleFunc("GET /api/v1/auth/using-totp", HandleUsingTotp)
 
 	// Additional endpoints exposed by origin servers
 	if server_info.IsOrigin {

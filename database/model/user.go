@@ -15,6 +15,7 @@ type User struct {
 	Username        string      `json:"username"`
 	Email           string      `json:"email"`
 	Password        string      `json:"password"`
+	TOTPSecret      string      `json:"totp_secret"`
 	ServicePassword string      `json:"service_password"`
 	SSHPublicKey    string      `json:"ssh_public_key"`
 	GitHubUsername  string      `json:"github_username"`

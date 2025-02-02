@@ -32,7 +32,11 @@ Knot is a powerful tool to manage Cloud Development Environment within a Nomad c
 
 knot is designed to be used within trusted environments rather than on the open internet, that is it is expected to be run on a private network with developers connecting to the it via a VPN or similar technology.
 
-For complex deployments over many different locations a mesh network may be more appropriate.
+For complex deployments over many different locations a mesh network may be appropriate.
+
+When tunneling is enabled the tunnel port is separate from the web interface and the agent interface and therefore public traffic can be restricted to the tunnel interface only.
+
+TOTP should be enabled if the web interface is exposed to the internet. The TOTP code works with Google Authenticator, Microsoft Authenticator, and other TOTP apps.
 
 ## Documentation
 

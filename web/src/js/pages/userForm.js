@@ -21,6 +21,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       max_tunnels: 0,
       roles: [],
       groups: [],
+      totp_secret: "",
     },
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create ' + entity,
@@ -38,6 +39,9 @@ window.userForm = function(isEdit, userId, isProfile) {
     computeUnitsValid: true,
     storageUnitsValid: true,
     maxTunnelsValid: true,
+    showTOTP: false,
+    resetConfirmShow: false,
+
     async initUsers() {
       focusElement('input[name="username"]');
 
@@ -82,6 +86,7 @@ window.userForm = function(isEdit, userId, isProfile) {
           this.formData.groups = user.groups;
           this.formData.timezone = user.timezone;
           this.formData.service_password = user.service_password;
+          this.formData.totp_secret = user.totp_secret;
         }
       } else {
         this.formData.preferred_shell = 'bash';
@@ -215,6 +220,11 @@ window.userForm = function(isEdit, userId, isProfile) {
         .finally(() => {
           this.buttonLabel = isEdit ? 'Update' : 'Create ' + entity;
         })
+    },
+    resetTOTP() {
+      this.formData.totp_secret = "";
+      this.resetConfirmShow = false;
+      this.submitData();
     },
   }
 }

@@ -58,8 +58,17 @@ var ConnectCmd = &cobra.Command{
 
 		hostname = "knot client " + hostname
 
-		// If using web authentication
-		if cmd.Flags().Lookup("use-web-auth").Value.String() == "true" {
+		client := apiclient.NewClient(server, "", cmd.Flags().Lookup("tls-skip-verify").Value.String() == "true")
+
+		// Query if the server is using TOTP
+		totp, _, err := client.UsingTOTP()
+		if err != nil {
+			fmt.Println("Failed to query server for TOTP")
+			os.Exit(1)
+		}
+
+		// If using web authentication or server has TOTP enabled then open the server URL in the default browser
+		if totp || cmd.Flags().Lookup("use-web-auth").Value.String() == "true" {
 
 			// Build the registration URL
 			u.Path = "/api-tokens/create/" + url.PathEscape(hostname)
@@ -111,8 +120,7 @@ var ConnectCmd = &cobra.Command{
 			}
 
 			// Open an API connection to the server
-			client := apiclient.NewClient(server, "", cmd.Flags().Lookup("tls-skip-verify").Value.String() == "true")
-			sessionToken, _, _ := client.Login(username, string(password))
+			sessionToken, _, _, _ := client.Login(username, string(password), "")
 			if sessionToken == "" {
 				fmt.Println("Failed to login")
 				os.Exit(1)

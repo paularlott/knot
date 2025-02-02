@@ -8,7 +8,10 @@ import (
 // update the user on a leaf node
 func (s *Session) UpdateUser(user *model.User) {
 	if s.token == nil || s.token.UserId == user.Id {
+
+		// Don't send the password or TOTP secret to leaf nodes
 		user.Password = ""
+		user.TOTPSecret = ""
 
 		message := &msg.ClientMessage{
 			Command: msg.MSG_UPDATE_USER,

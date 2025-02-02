@@ -194,6 +194,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		SSHPublicKey:    user.SSHPublicKey,
 		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
+		TOTPSecret:      user.TOTPSecret,
 		Timezone:        user.Timezone,
 		Current:         activeUser != nil && user.Id == activeUser.Id,
 		LastLoginAt:     nil,
@@ -450,6 +451,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	user.GitHubUsername = request.GitHubUsername
 	user.PreferredShell = request.PreferredShell
 	user.Timezone = request.Timezone
+	user.TOTPSecret = request.TOTPSecret
 
 	if request.ServicePassword != "" {
 		user.ServicePassword = request.ServicePassword

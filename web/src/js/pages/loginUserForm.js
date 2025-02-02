@@ -3,11 +3,14 @@ window.loginUserForm = function(redirect) {
     formData: {
       email: "",
       password: "",
+      totp_code: "",
     },
     loading: false,
     buttonLabel: 'Login to Your Account',
     emailValid: true,
     passwordValid: true,
+    showTOTP: false,
+    totpSecret: "",
     redirect: redirect,
     init() {
       focusElement('input[name="email"]');
@@ -33,6 +36,7 @@ window.loginUserForm = function(redirect) {
       var data = {
         email: this.formData.email,
         password: this.formData.password,
+        totp_code: this.formData.totp_code,
       }
 
       fetch('/api/v1/auth/web', {
@@ -44,9 +48,19 @@ window.loginUserForm = function(redirect) {
         })
         .then((response) => {
           if (response.status === 200) {
-            window.location.href = self.redirect;
+
+            return response.json().then((data) => {
+              // If need to show the TOTP code then show it otherwise redirect
+              if(data.totp_secret.length > 0) {
+                self.showTOTP = true;
+                self.totpSecret = data.totp_secret;
+              }
+              else {
+                window.location.href = self.redirect;
+              }
+            });
           } else {
-            self.$dispatch('show-alert', { msg: "Invalid email or password", type: 'error' });
+            self.$dispatch('show-alert', { msg: "Invalid email, password or TOTP code", type: 'error' });
           }
         })
         .catch((error) => {

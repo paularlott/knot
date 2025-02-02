@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/middleware"
+	"github.com/spf13/viper"
 
 	"github.com/rs/zerolog/log"
 )
@@ -45,8 +46,9 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := map[string]interface{}{
-			"redirect": redirect,
-			"version":  build.Version,
+			"redirect":    redirect,
+			"version":     build.Version,
+			"totpEnabled": viper.GetBool("server.totp.enabled"),
 		}
 
 		err = tmpl.Execute(w, data)

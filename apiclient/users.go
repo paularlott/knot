@@ -28,6 +28,7 @@ type UserResponse struct {
 	LastLoginAt     *time.Time `json:"last_login_at"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
+	TOTPSecret      string     `json:"totp_secret"`
 }
 
 type userRequest struct {
@@ -46,6 +47,7 @@ type userRequest struct {
 	GitHubUsername  string   `json:"github_username"`
 	PreferredShell  string   `json:"preferred_shell"`
 	Timezone        string   `json:"timezone"`
+	TOTPSecret      string   `json:"totp_secret"`
 }
 type CreateUserRequest = userRequest
 type UpdateUserRequest = userRequest
@@ -133,6 +135,7 @@ func (c *ApiClient) GetUser(userId string) (*model.User, error) {
 		LastLoginAt:     response.LastLoginAt,
 		CreatedAt:       response.CreatedAt,
 		UpdatedAt:       response.UpdatedAt,
+		TOTPSecret:      response.TOTPSecret,
 	}
 
 	return user, nil
@@ -201,6 +204,7 @@ func (c *ApiClient) UpdateUser(user *model.User) error {
 		GitHubUsername:  user.GitHubUsername,
 		PreferredShell:  user.PreferredShell,
 		Timezone:        user.Timezone,
+		TOTPSecret:      user.TOTPSecret,
 	}
 
 	_, err := c.httpClient.Put("/api/v1/users/"+user.Id, &request, nil, 200)

@@ -22,7 +22,7 @@ func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
 	user, data := getCommonTemplateData(r)
 
 	name := r.PathValue("token_name")
-	if !validate.Name(name) {
+	if !validate.TokenName(name) {
 		showPageNotFound(w, r)
 		return
 	}
