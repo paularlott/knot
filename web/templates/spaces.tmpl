@@ -17,16 +17,25 @@
     </div>
 
     <form class="col-span-full sm:flex justify-between">
-      <div x-show="canManageSpaces && !showingSpecificUser" class="sm:order-2">
-          <label for="countries" class="sr-only">Select an option</label>
-          <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 justify-end">
-            <select x-show="!loading" class="form-field bg-white" name="user" x-model="forUserId" x-on:change="userChanged">
-              <option value="" x-bind:selected="forUserId === ''">All Users</option>
-              <template x-for="user in users" :key="user.user_id">
-                <option x-bind:value="user.user_id" x-text="user.username" x-bind:selected="user.user_id === forUserId"></option>
-              </template>
-            </select>
+      <div class="sm:flex">
+        <div x-show="canManageSpaces && !showingSpecificUser" class="sm:order-2 sm:ml-2">
+            <label for="countries" class="sr-only">Select an option</label>
+            <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 justify-end">
+              <select x-show="!loading" class="form-field bg-white" name="user" x-model="forUserId" x-on:change="userChanged">
+                <option value="" x-bind:selected="forUserId === ''">All Users</option>
+                <template x-for="user in users" :key="user.user_id">
+                  <option x-bind:value="user.user_id" x-text="user.username" x-bind:selected="user.user_id === forUserId"></option>
+                </template>
+              </select>
+            </div>
+        </div>
+        <div class="sm:order-1">
+          <label for="search" class="sr-only">Search</label>
+          <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
+            <input type="search" name="search" id="search" class="form-field bg-white grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+            <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
           </div>
+        </div>
       </div>
       <div class="hidden sm:block sm:order-3">
         <a href="/templates" class="btn-primary flex items-center mt-1">
@@ -35,13 +44,6 @@
           </svg>
           New Space
         </a>
-      </div>
-      <div class="sm:order-1">
-        <label for="search" class="sr-only">Search</label>
-        <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-          <input type="search" name="search" id="search" class="form-field bg-white grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-          <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
-        </div>
       </div>
     </form>
 

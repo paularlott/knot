@@ -51,7 +51,7 @@
 }
 
 @utility description {
-  @apply text-sm text-gray-500 dark:text-gray-600;
+  @apply text-sm text-gray-600 dark:text-gray-500;
 }
 
 @utility btn-primary {

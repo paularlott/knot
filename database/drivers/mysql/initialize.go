@@ -16,6 +16,7 @@ user_id CHAR(36) PRIMARY KEY,
 username VARCHAR(64) UNIQUE,
 email VARCHAR(255) UNIQUE,
 password VARCHAR(255),
+totp_secret VARCHAR(16) DEFAULT '',
 service_password VARCHAR(255),
 preferred_shell VARCHAR(8) DEFAULT 'zsh',
 timezone VARCHAR(128) DEFAULT 'UTC',
@@ -39,9 +40,9 @@ INDEX active (active)
 
 	log.Debug().Msg("db: creating session table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS sessions (
-session_id CHAR(36) PRIMARY KEY,
+session_id CHAR(64) PRIMARY KEY,
 user_id CHAR(36),
-remote_session_id CHAR(36),
+remote_session_id CHAR(64),
 ip VARCHAR(256),
 user_agent VARCHAR(255),
 expires_after TIMESTAMP,
@@ -54,9 +55,9 @@ INDEX user_id (user_id)
 
 	log.Debug().Msg("db: creating API tokens table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS tokens (
-token_id CHAR(36) PRIMARY KEY,
+token_id CHAR(64) PRIMARY KEY,
 user_id CHAR(36),
-session_id CHAR(36),
+session_id CHAR(64),
 name VARCHAR(255),
 expires_after TIMESTAMP,
 INDEX expires_after (expires_after),
@@ -104,6 +105,7 @@ job MEDIUMTEXT,
 volumes MEDIUMTEXT,
 groups JSON DEFAULT NULL,
 schedule JSON DEFAULT NULL,
+locations JSON DEFAULT NULL,
 local_container TINYINT NOT NULL DEFAULT 0,
 is_manual TINYINT NOT NULL DEFAULT 0,
 with_terminal TINYINT NOT NULL DEFAULT 1,

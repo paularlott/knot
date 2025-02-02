@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/paularlott/knot/util/crypt"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -38,13 +39,13 @@ func NewSession(r *http.Request, userId string, remoteSessionId string) *Session
 		ip = ipOnly
 	}
 
-	id, err := uuid.NewV7()
+	id, err := crypt.GenerateAPIKey()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 	}
 
 	session := &Session{
-		Id:              id.String(),
+		Id:              id,
 		Ip:              ip,
 		UserId:          userId,
 		RemoteSessionId: remoteSessionId,

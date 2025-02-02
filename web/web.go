@@ -229,6 +229,8 @@ func Routes(router *http.ServeMux) {
 			http.ServeFile(w, r, filepath.Join(downloadPath, filePath))
 		})
 	}
+
+	router.HandleFunc("GET /qrcode/{code}", middleware.WebAuth(HandleCreateQRCode))
 }
 
 func showPageNotFound(w http.ResponseWriter, r *http.Request) {
@@ -366,5 +368,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"isRestrictedServer":        server_info.RestrictedLeaf,
 		"timezone":                  server_info.Timezone,
 		"disableSpaceCreate":        viper.GetBool("server.disable_space_create"),
+		"totpEnabled":               viper.GetBool("server.totp.enabled"),
 	}
 }

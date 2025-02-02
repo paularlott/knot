@@ -8,6 +8,7 @@ window.templateForm = function(isEdit, templateId) {
       job: "",
       volumes: "",
       groups: [],
+      locations: [],
       local_container: false,
       is_manual: false,
       with_terminal: false,
@@ -67,6 +68,7 @@ window.templateForm = function(isEdit, templateId) {
     groups: [],
     fromHours: [],
     toHours: [],
+    locationValid: [],
 
     async initData() {
 
@@ -116,6 +118,13 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.storage_units = template.storage_units;
           this.formData.schedule_enabled = template.schedule_enabled;
           this.formData.schedule = template.schedule;
+
+          // Set the locations and mark all as valid
+          this.formData.locations =template.locations ? template.locations : [];
+          this.locationValid = [];
+          this.formData.locations.forEach(() => {
+            this.locationValid.push(true);
+          });
         }
       }
 
@@ -243,7 +252,7 @@ window.templateForm = function(isEdit, templateId) {
     },
 
     async submitData() {
-      var err = false,
+      let err = false,
           self = this;
       err = !this.checkName() || err;
       err = !this.checkJob() || err;
@@ -256,7 +265,7 @@ window.templateForm = function(isEdit, templateId) {
       }
       this.loading = true;
 
-      var data = {
+      let data = {
         name: this.formData.name,
         description: this.formData.description,
         job: this.formData.is_manual ? "" : this.formData.job,
@@ -270,6 +279,7 @@ window.templateForm = function(isEdit, templateId) {
         storage_units: parseInt(this.formData.storage_units),
         schedule_enabled: this.formData.schedule_enabled,
         schedule: this.formData.schedule,
+        locations: this.formData.locations,
       };
 
       if(!isEdit) {
@@ -312,6 +322,33 @@ window.templateForm = function(isEdit, templateId) {
     },
     getDayOfWeek(day) {
       return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day];
-    }
+    },
+    async addLocation() {
+      this.locationValid.push(true);
+      this.formData.locations.push('');
+    },
+    async removeLocation(index) {
+      this.formData.locations.splice(index, 1);
+      this.locationValid.splice(index, 1);
+    },
+    checkLocation(index) {
+      if(index >= 0 && index < this.formData.locations.length) {
+        let isValid = validate.maxLength(this.formData.locations[index], 64);
+
+        // If valid then check for duplicate extra name
+        if(isValid) {
+          for (let i = 0; i < this.formData.locations.length; i++) {
+            if(i !== index && this.formData.locations[i] === this.formData.locations[index]) {
+              isValid = false;
+              break;
+            }
+          }
+        }
+
+        return this.locationValid[index] = isValid;
+      } else {
+        return false;
+      }
+    },
   }
 }

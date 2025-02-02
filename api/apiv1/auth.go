@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/totp"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
@@ -22,6 +23,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	var userId string = ""
 	var tokenId string = ""
 	var statusCode int = 0
+	var showTOTPSecret string = ""
 
 	db := database.GetInstance()
 	request := apiclient.AuthLoginRequest{}
@@ -43,7 +45,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		log.Debug().Msg("Forwarding auth request to origin server")
 
 		client := apiclient.NewRemoteToken(viper.GetString("server.shared_token"))
-		tokenId, statusCode, err = client.Login(request.Email, request.Password)
+		tokenId, showTOTPSecret, statusCode, err = client.Login(request.Email, request.Password, request.TOTPCode)
 		if err != nil {
 			if statusCode == http.StatusNotFound {
 				// Look for the user by email and if found delete it
@@ -136,9 +138,24 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 				},
 			)
 
-			rest.SendJSON(code, w, r, ErrorResponse{Error: "invalid email or password"})
+			rest.SendJSON(code, w, r, ErrorResponse{Error: "invalid email, password or TOTP code"})
 
 			return
+		}
+
+		// If TOTP is enabled
+		if viper.GetBool("server.totp.enabled") {
+			// If the user has a TOTP secret then check the code
+			if user.TOTPSecret != "" {
+				if !totp.VerifyCode(user.TOTPSecret, request.TOTPCode, viper.GetInt("server.totp.window")) {
+					rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: "invalid email, password or TOTP code"})
+					return
+				}
+			} else {
+				// Generate a new TOTP secret
+				user.TOTPSecret = totp.GenerateSecret()
+				showTOTPSecret = user.TOTPSecret
+			}
 		}
 
 		// Update the last login time
@@ -191,8 +208,9 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
 	// Return the authentication token
 	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLoginResponse{
-		Status: true,
-		Token:  session.Id,
+		Status:     true,
+		Token:      session.Id,
+		TOTPSecret: showTOTPSecret,
 	})
 }
 
@@ -218,5 +236,13 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	// Return the authentication token
 	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLogoutResponse{
 		Status: result,
+	})
+}
+
+// Returns if the server is using TOTP or not, the CLI client uses this to work out
+// the authentication flow it should use.
+func HandleUsingTotp(w http.ResponseWriter, r *http.Request) {
+	rest.SendJSON(http.StatusOK, w, r, apiclient.UsingTOTPResponse{
+		UsingTOTP: viper.GetBool("server.totp.enabled"),
 	})
 }

@@ -31,6 +31,7 @@ type Template struct {
 	StorageUnits     uint32             `json:"storage_units"`
 	ScheduleEnabled  bool               `json:"schedule_enabled"`
 	Schedule         JSONDbScheduleDays `json:"schedule"`
+	Locations        JSONDbArray        `json:"locations"`
 	CreatedUserId    string             `json:"created_user_id"`
 	CreatedAt        time.Time          `json:"created_at"`
 	UpdatedUserId    string             `json:"updated_user_id"`
@@ -43,7 +44,7 @@ type TemplateScheduleDays struct {
 	To      string `json:"to"`
 }
 
-func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool, isManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateScheduleDays) *Template {
+func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool, isManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateScheduleDays, locations []string) *Template {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -56,6 +57,7 @@ func NewTemplate(name string, description string, job string, volumes string, us
 		Job:              job,
 		Volumes:          volumes,
 		Groups:           groups,
+		Locations:        locations,
 		CreatedUserId:    userId,
 		LocalContainer:   localContainer,
 		IsManual:         isManual,

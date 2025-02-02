@@ -38,7 +38,7 @@ func HandleGetTokens(w http.ResponseWriter, r *http.Request) {
 func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	tokenId := r.PathValue("token_id")
 
-	if !validate.UUID(tokenId) {
+	if !validate.Required(tokenId) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid token ID"})
 		return
 	}

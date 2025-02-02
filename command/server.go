@@ -62,6 +62,11 @@ func init() {
 	serverCmd.Flags().Int("audit-retention", 90, "The number of days to keep audit logs (default \"90\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION environment variable if set.")
 	serverCmd.Flags().BoolP("disable-space-create", "", false, "Disable the ability to create spaces.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE environment variable if set.")
 
+	// TOTP
+	serverCmd.Flags().BoolP("enable-totp", "", false, "Enable TOTP for users.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_TOTP environment variable if set.")
+	serverCmd.Flags().IntP("totp-window", "", 1, "The number of time steps (30 seconds) to check for TOTP codes (default \"1\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOTP_WINDOW environment variable if set.")
+	serverCmd.Flags().StringP("totp-issuer", "", "Knot", "The issuer to use for TOTP codes (default \"Knot\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOTP_ISSUER environment variable if set.")
+
 	// DNS Server
 	serverCmd.Flags().BoolP("enable-dns", "", false, "Experimental. Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
 	serverCmd.Flags().StringP("dns-listen", "", ":8600", "The address to listen on for DNS requests (default \":8600\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_LISTEN environment variable if set.")
@@ -233,6 +238,19 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.timezone", cmd.Flags().Lookup("timezone"))
 		viper.BindEnv("server.timezone", config.CONFIG_ENV_PREFIX+"_TIMEZONE")
 		viper.SetDefault("server.timezone", "")
+
+		// TOTP
+		viper.BindPFlag("server.totp.enabled", cmd.Flags().Lookup("enable-totp"))
+		viper.BindEnv("server.totp.enabled", config.CONFIG_ENV_PREFIX+"_ENABLE_TOTP")
+		viper.SetDefault("server.totp.enabled", false)
+
+		viper.BindPFlag("server.totp.window", cmd.Flags().Lookup("totp-window"))
+		viper.BindEnv("server.totp.window", config.CONFIG_ENV_PREFIX+"_TOTP_WINDOW")
+		viper.SetDefault("server.totp.window", 1)
+
+		viper.BindPFlag("server.totp.issuer", cmd.Flags().Lookup("totp-issuer"))
+		viper.BindEnv("server.totp.issuer", config.CONFIG_ENV_PREFIX+"_TOTP_ISSUER")
+		viper.SetDefault("server.totp.issuer", "Knot")
 
 		// DNS
 		viper.BindPFlag("server.dns.enabled", cmd.Flags().Lookup("enable-dns"))

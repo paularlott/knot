@@ -1,4 +1,4 @@
-window.templateListComponent = function(canManageSpaces) {
+window.templateListComponent = function(canManageSpaces, location) {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
@@ -9,6 +9,8 @@ window.templateListComponent = function(canManageSpaces) {
 
   return {
     loading: true,
+    showAll: Alpine.$persist(false).as('templates-show-all').using(sessionStorage),
+    location: location,
     deleteConfirm: {
       show: false,
       template: {
@@ -94,7 +96,7 @@ window.templateListComponent = function(canManageSpaces) {
       window.location.href = `/spaces/create/${templateId}`;
     },
     async deleteTemplate(templateId) {
-      var self = this;
+      let self = this;
       await fetch(`/api/v1/templates/${templateId}`, {
         method: 'DELETE',
         headers: {
@@ -127,7 +129,7 @@ window.templateListComponent = function(canManageSpaces) {
           response.json().then((templates) => {
 
             // If the selected template is in the list then created
-            var template = templates.templates.find(template => template.template_id === this.chooseUser.template.template_id);
+            let template = templates.templates.find(template => template.template_id === this.chooseUser.template.template_id);
             if(template) {
               this.chooseUser.show = false;
               window.location.href = `/spaces/create/${this.chooseUser.template.template_id}/${this.chooseUser.forUserId}`;

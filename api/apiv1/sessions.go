@@ -46,7 +46,7 @@ func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	sessionId := r.PathValue("session_id")
 
-	if !validate.UUID(sessionId) {
+	if !validate.Required(sessionId) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid session ID"})
 		return
 	}
