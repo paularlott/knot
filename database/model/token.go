@@ -3,7 +3,8 @@ package model
 import (
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/paularlott/knot/util/crypt"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -17,13 +18,13 @@ type Token struct {
 }
 
 func NewToken(name string, userId string) *Token {
-	id, err := uuid.NewV7()
+	id, err := crypt.GenerateAPIKey()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 	}
 
 	token := &Token{
-		Id:        id.String(),
+		Id:        id,
 		UserId:    userId,
 		SessionId: "",
 		Name:      name,

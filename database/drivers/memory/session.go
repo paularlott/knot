@@ -14,8 +14,11 @@ func (db *MemoryDbDriver) SaveSession(session *model.Session) error {
 	db.sessionMutex.Lock()
 	defer db.sessionMutex.Unlock()
 
-	db.sessions[session.Id] = session
-	db.sessionsByUserId[session.UserId] = append(db.sessionsByUserId[session.UserId], session)
+	// Test if the session already exists, if not add it
+	if _, ok := db.sessions[session.Id]; !ok {
+		db.sessionsByUserId[session.UserId] = append(db.sessionsByUserId[session.UserId], session)
+		db.sessions[session.Id] = session
+	}
 
 	return nil
 }

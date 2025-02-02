@@ -18,13 +18,13 @@ server:
   terminal:
     webgl: true
 
-  # Encryption key for protected variables
+  # Encryption key for protected variables (knot genkey)
   # encrypt: VF9hmdXZyzNF3rcP6M0P
 
   # Optional server location, defaults to the hostname
   # location: myservers
 
-  # Shared secret when using leaf servers with an origin server
+  # Shared secret when using leaf servers with an origin server (knot gen-server-key)
   # shared_token: secret
 
   # Enables leaf servers to work in a restricted mode using API tokens

@@ -723,7 +723,6 @@ paths:
           description: The ID of the session to delete.
           schema:
             type: string
-            format: uuid
       responses:
         '200':
           description: Session deleted successfully.
@@ -875,7 +874,6 @@ paths:
           name: token_id
           schema:
             type: string
-            format: uuid
           required: true
           description: The ID of the token to delete.
       responses:
@@ -1828,7 +1826,6 @@ components:
           description: The status of the operation, true if successful login.
         token:
           type: string
-          format: uuid
           description: The token for the user session.
         totp_secret:
           type: string
@@ -2071,7 +2068,6 @@ components:
       properties:
         session_id:
           type: string
-          format: uuid
           description: The ID of the session.
         ip:
           type: string
@@ -2627,7 +2623,6 @@ components:
       properties:
         token_id:
           type: string
-          format: uuid
           description: The ID of the token.
         name:
           type: string
@@ -2654,7 +2649,6 @@ components:
           description: The status of the operation.
         token_id:
           type: string
-          format: uuid
           description: The ID of the created token.
 
     userRequest:

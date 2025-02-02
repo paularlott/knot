@@ -52,7 +52,6 @@ func GetCode(secret string, timeSlice int64) (string, error) {
 func VerifyCode(secret, code string, discrepancy int) bool {
 	currentTimeSlice := time.Now().UTC().Unix() / 30
 	for i := -discrepancy; i <= discrepancy; i++ {
-		fmt.Println(i)
 		c, err := GetCode(secret, currentTimeSlice+int64(i))
 		if err == nil && c == code {
 			return true

@@ -40,9 +40,9 @@ INDEX active (active)
 
 	log.Debug().Msg("db: creating session table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS sessions (
-session_id CHAR(36) PRIMARY KEY,
+session_id CHAR(64) PRIMARY KEY,
 user_id CHAR(36),
-remote_session_id CHAR(36),
+remote_session_id CHAR(64),
 ip VARCHAR(256),
 user_agent VARCHAR(255),
 expires_after TIMESTAMP,
@@ -55,9 +55,9 @@ INDEX user_id (user_id)
 
 	log.Debug().Msg("db: creating API tokens table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS tokens (
-token_id CHAR(36) PRIMARY KEY,
+token_id CHAR(64) PRIMARY KEY,
 user_id CHAR(36),
-session_id CHAR(36),
+session_id CHAR(64),
 name VARCHAR(255),
 expires_after TIMESTAMP,
 INDEX expires_after (expires_after),
