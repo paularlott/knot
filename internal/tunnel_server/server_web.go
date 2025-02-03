@@ -13,8 +13,6 @@ import (
 
 // Start a web server to listen for connections to tunnels, the left most part of the domain is the <username>--<tunnel name>
 func ListenAndServe(listen string, tlsConfig *tls.Config) {
-	listen = "0.0.0.0:3001"
-
 	log.Info().Msgf("tunnel: listening on %s", listen)
 
 	go func() {

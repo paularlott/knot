@@ -131,7 +131,7 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.listen_agent", config.CONFIG_ENV_PREFIX+"_LISTEN_AGENT")
 		viper.SetDefault("server.listen_agent", "127.0.0.1:3010")
 
-		viper.BindPFlag("server.listen_tunnel", cmd.Flags().Lookup("listen-tunnels"))
+		viper.BindPFlag("server.listen_tunnel", cmd.Flags().Lookup("listen-tunnel"))
 		viper.BindEnv("server.listen_tunnel", config.CONFIG_ENV_PREFIX+"_LISTEN_TUNNEL")
 		viper.SetDefault("server.listen_tunnel", "")
 
