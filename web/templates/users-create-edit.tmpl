@@ -125,7 +125,7 @@
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">
-          <div class="col-span-1">
+          <div class="col-span-1" x-show="roles.length" x-cloak>
             <label class="form-label">Roles</label>
             <template x-for="(role, index) in roles" :key="index">
               <label class="flex items-center cursor-pointer mb-2">
@@ -135,7 +135,7 @@
               </label>
             </template>
           </div>
-          <div class="col-span-1">
+          <div class="col-span-1" x-show="groups.length" x-cloak>
             <label class="form-label">Groups</label>
             <template x-for="(group, index) in groups" :key="index">
               <label class="flex items-center cursor-pointer mb-2">

@@ -158,7 +158,7 @@
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">VSCode Tunnel</span>
             </label>
           </div>
-          <div class="col-span-1">
+          <div class="col-span-1" x-show="groups.length" x-cloak>
             <label class="form-label">Restrict to Groups</label>
             <template x-for="(group, index) in groups" :key="index">
               <label class="flex items-center cursor-pointer mb-2">
