@@ -7,10 +7,11 @@ import (
 	"os/exec"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/util"
 
 	"github.com/creack/pty"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 func startTerminal(conn net.Conn, shell string) {
@@ -22,26 +23,23 @@ func startTerminal(conn net.Conn, shell string) {
 	}
 
 	// Check requested shell exists, if not find one
-	shellPaths := []string{shell, "zsh", "bash", "sh"}
-	var tty *os.File
-	var cmd *exec.Cmd
-	var selectedShell string
-	for _, shellPath := range shellPaths {
-		var err error
-
-		cmd = exec.Command(shellPath, "-l")
-		cmd.Dir = home
-		cmd.Env = os.Environ()
-
-		if tty, err = pty.Start(cmd); err == nil {
-			selectedShell = shellPath
-			break
-		}
-	}
-
+	selectedShell := util.CheckShells(shell)
 	if selectedShell == "" {
 		log.Error().Msg("no valid shell found")
 		conn.Write([]byte("No valid shell found"))
+		return
+	}
+
+	var tty *os.File
+	var cmd *exec.Cmd
+
+	cmd = exec.Command(selectedShell, "-l")
+	cmd.Dir = home
+	cmd.Env = os.Environ()
+
+	if tty, err = pty.Start(cmd); err != nil {
+		log.Error().Msgf("failed to start shell: %s", err)
+		conn.Write([]byte("Failed to start shell"))
 		return
 	}
 

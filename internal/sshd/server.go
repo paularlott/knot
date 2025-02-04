@@ -7,6 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/util"
 
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
@@ -72,26 +73,39 @@ func defaultHandler(s ssh.Session) {
 		}
 
 		// Check requested shell exists, if not find one
-		shellPaths := []string{preferredShell, "zsh", "bash", "sh"}
-		var cmd *exec.Cmd
-		var tty *os.File
-		var selectedShell string
-		for _, shellPath := range shellPaths {
-			var err error
-
-			cmd = exec.Command(shellPath, "-l")
-			cmd.Dir = home
-			cmd.Env = os.Environ()
-			cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
-
-			if tty, err = pty.Start(cmd); err == nil {
-				selectedShell = shellPath
-				break
-			}
+		selectedShell := util.CheckShells(preferredShell)
+		if selectedShell == "" {
+			log.Error().Msg("sshd: no valid shell found")
+			s.Exit(1)
+			return
 		}
 
-		if selectedShell == "" {
-			log.Fatal().Msg("sshd: no valid shell found")
+		log.Debug().Msgf("sshd: starting shell %s", selectedShell)
+
+		var cmd *exec.Cmd
+		var tty *os.File
+
+		cmd = exec.Command(selectedShell, "-l")
+		cmd.Dir = home
+		cmd.Env = append(os.Environ(), s.Environ()...)
+		cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
+
+		// If agent forwarding then start the agent listener and add the env var
+		if ssh.AgentRequested(s) {
+			l, err := ssh.NewAgentListener()
+			if err != nil {
+				log.Error().Err(err).Msg("sshd: Failed to open listener for agent forwarding")
+			}
+			defer l.Close()
+			go ssh.ForwardAgentConnections(l, s)
+
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", "SSH_AUTH_SOCK", l.Addr().String()))
+		}
+
+		if tty, err = pty.Start(cmd); err != nil {
+			log.Error().Err(err).Msg("sshd: Failed to start PTY")
+			s.Exit(1)
+			return
 		}
 
 		go func() {
