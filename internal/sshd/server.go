@@ -119,9 +119,23 @@ func defaultHandler(s ssh.Session) {
 		io.Copy(s, tty) // stdout
 		cmd.Wait()
 	} else {
-		log.Error().Msg("No PTY requested.")
-		io.WriteString(s, "No PTY requested.\n")
-		s.Exit(1)
+		commands := s.Command()
+		if len(commands) > 0 {
+			cmd := exec.Command(commands[0], commands[1:]...)
+			cmd.Env = append(os.Environ(), s.Environ()...)
+			stdout, _ := cmd.StdoutPipe()
+			stderr, _ := cmd.StderrPipe()
+			stdin, _ := cmd.StdinPipe()
+			cmd.Start()
+			go io.Copy(stdin, s)  // forward input
+			go io.Copy(s, stdout) // forward output
+			io.Copy(s, stderr)    // forward errors
+			cmd.Wait()
+		} else {
+			log.Error().Msg("sshd: no command provided")
+			io.WriteString(s, "No command provided.\n")
+			s.Exit(1)
+		}
 	}
 }
 
