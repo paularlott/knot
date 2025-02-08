@@ -168,3 +168,42 @@ func GetTunnelsForUser(userId string) []string {
 
 	return userTunnels
 }
+
+func DeleteTunnel(userId, tunnelName string) error {
+
+	// Split on -- and take the last part
+	parts := strings.Split(tunnelName, "--")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid tunnel name format")
+	}
+	tunnelName = parts[1]
+
+	tunnelMutex.Lock()
+	defer tunnelMutex.Unlock()
+
+	fmt.Println("deleteing tunnel", userId, tunnelName)
+
+	for key, t := range tunnels {
+		fmt.Println("checking tunnel", t.user.Id, t.tunnelName)
+		if t.user.Id == userId && t.tunnelName == tunnelName {
+			// Open a new stream to the tunnel client
+			stream, err := t.muxSession.Open()
+			if err == nil {
+				defer stream.Close()
+
+				// Write a byte with a value of 0 so the client knows to close the stream
+				stream.Write([]byte{0})
+
+				// Wait for the client to close the stream
+				time.Sleep(1 * time.Second)
+			}
+
+			t.muxSession.Close()
+			t.ws.Close()
+			delete(tunnels, key)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("tunnel not found")
+}

@@ -110,6 +110,20 @@ func ConnectAndForward(wsUrl string, protocol string, port uint16, tunnelName st
 func handleTunnelStream(stream net.Conn, protocol string, port uint16, hostname string) {
 	defer stream.Close()
 
+	// Read the 1st byte to determine if this is a new connection or terminate
+	buf := make([]byte, 1)
+	_, err := stream.Read(buf)
+	if err != nil {
+		log.Error().Msgf("Error reading from stream: %v", err)
+		return
+	}
+
+	// If the byte is 0, then close the stream
+	if buf[0] == 0 {
+		log.Fatal().Msg("Received close signal from server")
+		return
+	}
+
 	if protocol == "http" {
 		agent_client.ProxyTcp(stream, fmt.Sprintf("%d", port))
 	} else if protocol == "https" {

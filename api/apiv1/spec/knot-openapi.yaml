@@ -89,6 +89,32 @@ paths:
         '500':
           $ref: '#/components/responses/internal-server-error'
 
+  /api/v1/tunnels/{tunnel_id}:
+    delete:
+      tags:
+        - Tunnels
+      summary: Delete Tunnel
+      description: Delete a specific tunnel for the authenticated user.
+      operationId: deleteTunnel
+      parameters:
+        - name: tunnel_name
+          in: path
+          required: true
+          description: The name of the tunnel to delete.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tunnel deleted successfully.
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security:
+        - BearerAuth: []
+
   /api/v1/tunnels:
     get:
       tags:

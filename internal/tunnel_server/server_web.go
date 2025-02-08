@@ -46,6 +46,13 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 			}
 			defer stream.Close()
 
+			// Write a byte with a value of 1 so the client knows this is a new connection
+			_, err = stream.Write([]byte{1})
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
 			targetURL, err := url.Parse("http://127.0.0.1/")
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)

@@ -33,3 +33,21 @@ func HandleGetTunnels(w http.ResponseWriter, r *http.Request) {
 func HandleGetTunnelDomain(w http.ResponseWriter, r *http.Request) {
 	rest.SendJSON(http.StatusOK, w, r, viper.GetString("server.tunnel_domain"))
 }
+
+func HandleDeleteTunnel(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+
+	tunnelName := r.PathValue("tunnel_name")
+	if tunnelName == "" {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "tunnel_name parameter is required"})
+		return
+	}
+
+	err := tunnel_server.DeleteTunnel(user.Id, tunnelName)
+	if err != nil {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	} else {
+		rest.SendJSON(http.StatusOK, w, r, ErrorResponse{Error: "tunnel deleted"})
+	}
+}
