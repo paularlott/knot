@@ -81,6 +81,7 @@
       </a>
     </li>
     {{ end }}
+    {{ if not .hideAPITokens }}
     <li>
       <a href="/api-tokens" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -89,6 +90,7 @@
         <span class="ml-3">API Tokens</span>
       </a>
     </li>
+    {{ end }}
     {{ if .permissionViewAuditLogs }}
     <li>
       <a href="/audit-logs" class="nav-item">
@@ -104,6 +106,7 @@
 {{ end }}
 
 {{ define "main-menu2" }}
+{{ if or .withDownloads (not .hideSupportLinks) }}
 <nav>
   <ul class="pb-2 space-y-2">
     {{ if .withDownloads }}
@@ -116,6 +119,7 @@
       </a>
     </li>
     {{ end }}
+    {{ if not .hideSupportLinks }}
     <li>
       <a href="/api-docs/" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -140,8 +144,10 @@
         <span class="ml-3">GitHub</span>
       </a>
     </li>
+    {{ end }}
   </ul>
 </nav>
+{{ end }}
 {{ end }}
 
 {{ define "menu-user"}}

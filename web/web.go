@@ -349,6 +349,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"username":                  user.Username,
 		"user_id":                   user.Id,
 		"withDownloads":             withDownloads,
+		"hideSupportLinks":          viper.GetBool("server.ui.hide_support_links"),
+		"hideAPITokens":             viper.GetBool("server.ui.hide_api_tokens"),
 		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers) && !server_info.RestrictedLeaf,
 		"permissionManageGroups":    user.HasPermission(model.PermissionManageGroups) && !server_info.RestrictedLeaf,
 		"permissionManageRoles":     user.HasPermission(model.PermissionManageRoles) && !server_info.RestrictedLeaf,
