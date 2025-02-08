@@ -11,6 +11,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     template_id: templateId,
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create Space',
+    buttonLabelWorking: isEdit ? 'Updating...' : 'Creating...',
     nameValid: true,
     addressValid: true,
     forUsername: forUserUsername,
@@ -19,6 +20,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     isEdit: isEdit,
     stayOnPage: true,
     altNameValid: [],
+    startOnCreate: true,
+    saving: false,
 
     async initData() {
       focusElement('input[name="name"]');
@@ -113,6 +116,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     submitData() {
       var err = false,
           self = this;
+
+      self.saving = true;
       err = !this.checkName() || err;
 
       // Remove the blank alt names
@@ -129,6 +134,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       }
 
       if(err) {
+        self.saving = false;
         return;
       }
 
@@ -150,9 +156,35 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
               self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
             } else {
               window.location.href = '/spaces';
+              return;
             }
           } else if (response.status === 201) {
-            window.location.href = '/spaces';
+
+            // If start on create
+            if (this.startOnCreate) {
+              response.json().then((data) => {
+                fetch('/api/v1/spaces/' + data.space_id + '/start', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  }
+                }).then((response) => {
+                  if (response.status === 200) {
+                    self.$dispatch('show-alert', { msg: "Space started", type: 'success' });
+                  } else {
+                    response.json().then((data) => {
+                      self.$dispatch('show-alert', { msg: "Failed to start space, " + data.error, type: 'error' });
+                    });
+                  }
+                }).catch((error) => {
+                  self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+                }).finally(() => {
+                  window.location.href = '/spaces';
+                })
+              });
+            } else {
+              window.location.href = '/spaces';
+            }
           } else if (response.status === 507) {
             self.$dispatch('show-alert', { msg: "Failed to create space, limit reached", type: 'error' });
           } else {
@@ -168,6 +200,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.buttonLabel = isEdit ? 'Update' : 'Create Space';
           this.loading = false;
         })
+
+      self.saving = false;
     },
   }
 }

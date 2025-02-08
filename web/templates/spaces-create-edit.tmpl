@@ -61,9 +61,18 @@
           </select>
           <div class="description">The shell that will be used when you open a web terminal in this space.</div>
         </div>
+        {{ if not .isEdit }}
+        <div>
+          <label class="flex items-center cursor-pointer mb-2">
+            <input type="checkbox" class="sr-only peer" value="1" x-model="startOnCreate" :checked="startOnCreate">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Start Space On Create</span>
+          </label>
+        </div>
+        {{ end }}
 
-        <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
-        <button type="submit" class="btn-primary" x-show="isEdit" x-on:click="stayOnPage=false">Save</button>
+        <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="saving ? buttonLabelWorking : buttonLabel" :disabled="loading || saving" x-on:click="stayOnPage=true"></button>
+        <button type="submit" class="btn-primary" x-show="isEdit" :disabled="saving" x-on:click="stayOnPage=false">Save</button>
       </form>
 
     </div>
