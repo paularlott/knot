@@ -20,6 +20,7 @@ const (
 	PermissionUseSpaces              // Can Use Spaces
 	PermissionUseTunnels             // Can Use Tunnels
 	PermissionViewAuditLogs          // Can View Audit Logs
+	PermissionTransferSpaces         // Can Transfer Spaces
 )
 
 type PermissionName struct {
@@ -38,6 +39,7 @@ var PermissionNames = []PermissionName{
 	{PermissionUseSpaces, "Can Use Spaces"},
 	{PermissionUseTunnels, "Can Use Tunnels"},
 	{PermissionViewAuditLogs, "View Audit Logs"},
+	{PermissionTransferSpaces, "Can Transfer Spaces"},
 }
 
 // Role
@@ -79,6 +81,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionUseSpaces,
 			PermissionUseTunnels,
 			PermissionViewAuditLogs,
+			PermissionTransferSpaces,
 		},
 	}
 
