@@ -223,10 +223,10 @@ func ConnectAndServe(server string, spaceId string) {
 				AcceptBacklog:          256,
 				EnableKeepAlive:        true,
 				KeepAliveInterval:      30 * time.Second,
-				ConnectionWriteTimeout: 10 * time.Second,
+				ConnectionWriteTimeout: 2 * time.Second,
 				MaxStreamWindowSize:    256 * 1024,
-				StreamCloseTimeout:     5 * time.Minute,
-				StreamOpenTimeout:      75 * time.Second,
+				StreamCloseTimeout:     3 * time.Minute,
+				StreamOpenTimeout:      3 * time.Second,
 				LogOutput:              io.Discard,
 				//Logger:                 logger.NewMuxLogger(),
 			})
@@ -247,7 +247,6 @@ func ConnectAndServe(server string, spaceId string) {
 					// In the case of errors, destroy the session and start over
 					muxSession.Close()
 					conn.Close()
-					time.Sleep(3 * time.Second)
 
 					break
 				}

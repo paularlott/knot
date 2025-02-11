@@ -103,11 +103,11 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 	session.muxSession, err = yamux.Server(localConn, &yamux.Config{
 		AcceptBacklog:          256,
 		EnableKeepAlive:        true,
-		KeepAliveInterval:      30 * time.Second,
+		KeepAliveInterval:      2 * time.Second,
 		ConnectionWriteTimeout: 10 * time.Second,
 		MaxStreamWindowSize:    256 * 1024,
-		StreamCloseTimeout:     5 * time.Minute,
-		StreamOpenTimeout:      75 * time.Second,
+		StreamCloseTimeout:     3 * time.Minute,
+		StreamOpenTimeout:      3 * time.Second,
 		LogOutput:              nil,
 		Logger:                 logger.NewMuxLogger(),
 	})

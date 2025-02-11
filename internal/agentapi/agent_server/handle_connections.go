@@ -113,10 +113,10 @@ func handleAgentConnection(conn net.Conn) {
 		AcceptBacklog:          256,
 		EnableKeepAlive:        true,
 		KeepAliveInterval:      30 * time.Second,
-		ConnectionWriteTimeout: 10 * time.Second,
+		ConnectionWriteTimeout: 2 * time.Second,
 		MaxStreamWindowSize:    256 * 1024,
-		StreamCloseTimeout:     5 * time.Minute,
-		StreamOpenTimeout:      75 * time.Second,
+		StreamCloseTimeout:     3 * time.Minute,
+		StreamOpenTimeout:      3 * time.Second,
 		LogOutput:              nil,
 		Logger:                 logger.NewMuxLogger(),
 	})
