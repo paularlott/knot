@@ -204,7 +204,7 @@ func ApiPermissionManageUsersOrSpaces(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if HasUsers {
 			user := r.Context().Value("user").(*model.User)
-			if HasUsers && !user.HasPermission(model.PermissionManageUsers) && !user.HasPermission(model.PermissionManageSpaces) {
+			if HasUsers && !user.HasPermission(model.PermissionManageUsers) && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionTransferSpaces) {
 				rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
 				return
 			}
@@ -242,6 +242,10 @@ func ApiPermissionUseSpaces(next http.HandlerFunc) http.HandlerFunc {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func ApiPermissionTransferSpaces(next http.HandlerFunc) http.HandlerFunc {
+	return checkPremission(next, model.PermissionTransferSpaces, "No permission to transfer spaces")
 }
 
 func ApiPermissionManageGroups(next http.HandlerFunc) http.HandlerFunc {

@@ -1,4 +1,4 @@
-window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, location) {
+window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, location, canTransferSpaces) {
 
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -19,9 +19,19 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         name: '',
       }
     },
+    chooseUser: {
+      toUserId: '',
+      invalidUser: false,
+      show: false,
+      space: {
+        space_id: '',
+        name: '',
+      }
+    },
     showingSpecificUser: userId !== forUserId,
     forUserId: userId == forUserId && canManageSpaces ? Alpine.$persist(forUserId).as('forUserId').using(sessionStorage) : forUserId,
     canManageSpaces: canManageSpaces,
+    canTransferSpaces: canTransferSpaces,
     users: [],
     searchTerm: Alpine.$persist('').as('spaces-search-term').using(sessionStorage),
     quotaComputeLimitShow: false,
@@ -29,7 +39,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     badScheduleShow: false,
 
     async init() {
-      if(this.canManageSpaces) {
+      if(this.canManageSpaces || this.canTransferSpaces) {
         const usersResponse = await fetch('/api/v1/users?state=active', {
           headers: {
             'Content-Type': 'application/json'
@@ -169,7 +179,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           // If time exists for the space then clear it
           if (this.timerIDs[space.space_id]) {
             clearInterval(this.timerIDs[space.space_id]);
-            delete this.timerIDs[space.space_id];
+            this.timerIDs[space.space_id] = null;
           }
         }
       });
@@ -212,7 +222,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         self.$dispatch('show-alert', { msg: "Space could not be started: " + error, type: 'error' });
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
-        this.fetchServiceState(space, true);
+        this.fetchServiceState(space);
       });
     },
     async stopSpace(spaceId) {
@@ -232,7 +242,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         self.$dispatch('show-alert', { msg: "Space could not be stopped: " + error, type: 'error' });
       }).finally(() => {
         const space = this.spaces.find(space => space.space_id === spaceId);
-        this.fetchServiceState(space, true);
+        this.fetchServiceState(space);
       });
     },
     async deleteSpace(spaceId) {
@@ -283,5 +293,50 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       await navigator.clipboard.writeText(text);
       this.$dispatch('show-alert', { msg: "Copied to clipboard", type: 'success' });
     },
+    async transferSpaceTo() {
+      let self = this;
+
+      if(this.chooseUser.toUserId == '') {
+        this.chooseUser.invalidUser = true;
+        return;
+      }
+
+      this.chooseUser.invalidUser = false;
+
+      // Transfer the space to the new user
+      await fetch(`/api/v1/spaces/${this.chooseUser.space.space_id}/transfer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: this.chooseUser.toUserId
+        })
+      }).then((response) => {
+        if (response.status === 200) {
+          // Remove the space from the array
+          self.spaces = self.spaces.filter(s => s.space_id !== self.chooseUser.space.space_id);
+
+          // If time exists for the space then clear it
+          if (self.timerIDs[self.chooseUser.space.space_id]) {
+            clearInterval(self.timerIDs[self.chooseUser.space.space_id]);
+            self.timerIDs[self.chooseUser.space.space_id] = null;
+          }
+
+          this.$dispatch('show-alert', { msg: "Space transferred", type: 'success' });
+          this.chooseUser.show = false;
+        } else if(response.status === 507) {
+          this.$dispatch('show-alert', { msg: "Space could not be transferred as the user has exceeded their quota.", type: 'error' });
+        } else if(response.status === 403) {
+          this.$dispatch('show-alert', { msg: "Space could not be transferred as the user is not allowed to use the template.", type: 'error' });
+        } else {
+          response.json().then((data) => {
+            this.$dispatch('show-alert', { msg: "Space could not be transferred: " + data.error, type: 'error' });
+          });
+        }
+      }).catch((error) => {
+        this.$dispatch('show-alert', { msg: "Space could not be transferred: " + error, type: 'error' });
+      });
+    }
   };
 }

@@ -54,8 +54,15 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
 
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE spaces SET name=?, template_id=?, updated_at=?, shell=?, is_deployed=?, is_pending=?, is_deleting=?, volume_data=?, nomad_namespace=?, container_id=?, template_hash=?, location=? WHERE space_id=?",
-			space.Name, space.TemplateId, time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, space.NomadNamespace, space.ContainerId, space.TemplateHash, space.Location, space.Id,
+		// Update the owner of alt names
+		_, err = tx.Exec("UPDATE spaces SET user_id=? WHERE parent_space_id = ?", space.UserId, space.Id)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		_, err = tx.Exec("UPDATE spaces SET name=?, template_id=?, updated_at=?, shell=?, is_deployed=?, is_pending=?, is_deleting=?, volume_data=?, nomad_namespace=?, container_id=?, template_hash=?, location=?, user_id=? WHERE space_id=?",
+			space.Name, space.TemplateId, time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, space.NomadNamespace, space.ContainerId, space.TemplateHash, space.Location, space.UserId, space.Id,
 		)
 	} else {
 		// Check if the space name already exists

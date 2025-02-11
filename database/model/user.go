@@ -40,6 +40,13 @@ type Usage struct {
 	NumberSpacesDeployed int
 }
 
+type Quota struct {
+	ComputeUnits uint32
+	StorageUnits uint32
+	MaxSpaces    uint32
+	MaxTunnels   uint32
+}
+
 func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string, timezone string, maxSpaces uint32, githubUsername string, computeUnits uint32, storageUnits uint32, maxTunnels uint32) *User {
 	id, err := uuid.NewV7()
 	if err != nil {

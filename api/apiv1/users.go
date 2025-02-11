@@ -655,39 +655,23 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userQuota, err := database.GetUserQuota(user)
+	if err != nil {
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
 	quota := apiclient.UserQuota{
-		MaxSpaces:    user.MaxSpaces,
-		ComputeUnits: user.ComputeUnits,
-		StorageUnits: user.StorageUnits,
-		MaxTunnels:   user.MaxTunnels,
+		MaxSpaces:    userQuota.MaxSpaces,
+		ComputeUnits: userQuota.ComputeUnits,
+		StorageUnits: userQuota.StorageUnits,
+		MaxTunnels:   userQuota.MaxTunnels,
 
 		NumberSpaces:         usage.NumberSpaces,
 		NumberSpacesDeployed: usage.NumberSpacesDeployed,
 		UsedComputeUnits:     usage.ComputeUnits,
 		UsedStorageUnits:     usage.StorageUnits,
 		UsedTunnels:          tunnel_server.CountUserTunnels(userId),
-	}
-
-	// Get the groups and build a map
-	groups, err := db.GetGroups()
-	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-	groupMap := make(map[string]*model.Group)
-	for _, group := range groups {
-		groupMap[group.Id] = group
-	}
-
-	// Sum the compute and storage units from groups
-	for _, groupId := range user.Groups {
-		group, ok := groupMap[groupId]
-		if ok {
-			quota.MaxSpaces += group.MaxSpaces
-			quota.ComputeUnits += group.ComputeUnits
-			quota.StorageUnits += group.StorageUnits
-			quota.MaxTunnels += group.MaxTunnels
-		}
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, quota)

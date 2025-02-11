@@ -361,6 +361,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionUseSpaces":       user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces) || server_info.RestrictedLeaf,
 		"permissionUseTunnels":      user.HasPermission(model.PermissionUseTunnels) && viper.GetString("server.listen_tunnel") != "",
 		"permissionViewAuditLogs":   user.HasPermission(model.PermissionViewAuditLogs) && !server_info.RestrictedLeaf && database.GetInstance().HasAuditLog(),
+		"permissionTransferSpaces":  user.HasPermission(model.PermissionTransferSpaces) && !server_info.RestrictedLeaf,
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"location":                  server_info.LeafLocation,
