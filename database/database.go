@@ -213,3 +213,37 @@ func GetUserUsage(userId string) (*model.Usage, error) {
 
 	return usage, nil
 }
+
+func GetUserQuota(user *model.User) (*model.Quota, error) {
+	db := GetInstance()
+
+	quota := &model.Quota{
+		ComputeUnits: user.ComputeUnits,
+		StorageUnits: user.StorageUnits,
+		MaxSpaces:    user.MaxSpaces,
+		MaxTunnels:   user.MaxTunnels,
+	}
+
+	// Get the groups and build a map
+	groups, err := db.GetGroups()
+	if err != nil {
+		return nil, err
+	}
+	groupMap := make(map[string]*model.Group)
+	for _, group := range groups {
+		groupMap[group.Id] = group
+	}
+
+	// Sum the compute and storage units from groups
+	for _, groupId := range user.Groups {
+		group, ok := groupMap[groupId]
+		if ok {
+			quota.MaxSpaces += group.MaxSpaces
+			quota.ComputeUnits += group.ComputeUnits
+			quota.StorageUnits += group.StorageUnits
+			quota.MaxTunnels += group.MaxTunnels
+		}
+	}
+
+	return quota, nil
+}

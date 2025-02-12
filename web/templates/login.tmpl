@@ -46,7 +46,9 @@
       <!-- Dialog Body -->
       <div class="px-4 py-4 text-center">
         <p>This system has one time passwords enabled, please scan or record this code within your authenticator app:<br /><br /><strong x-text="totpSecret"></strong></p>
-        <img :src="'/qrcode/' + totpSecret" alt="QR Code" class="w-48 h-48 mx-auto mt-4">
+        <template x-if="totpSecret.length">
+          <img :src="'/qrcode/' + totpSecret" alt="QR Code" class="w-48 h-48 mx-auto mt-4">
+        </template>
         <p class="mt-4">The code will be available from your profile page.</p>
       </div>
       <!-- Dialog Footer -->

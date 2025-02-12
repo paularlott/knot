@@ -29,7 +29,7 @@ func UpdateAuthorizedKeys(key string, githubUsername string) error {
 	}
 
 	if key != "" {
-		log.Debug().Msg("Adding key")
+		log.Debug().Msg("sshd: Adding key")
 		authKeys = append(authKeys, key)
 	}
 

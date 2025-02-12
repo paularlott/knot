@@ -2,7 +2,6 @@ package agent_server
 
 import (
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/agentapi/msg"
@@ -24,7 +23,6 @@ type Session struct {
 	HasVSCodeTunnel  bool
 	VSCodeTunnelName string
 	AgentIp          string
-	ExpiresAfter     time.Time
 	MuxSession       *yamux.Session
 
 	// The log history
@@ -47,7 +45,6 @@ func NewSession(spaceId string, version string) *Session {
 		HasTerminal:       false,
 		TcpPorts:          make(map[string]string, 0),
 		HttpPorts:         make(map[string]string, 0),
-		ExpiresAfter:      time.Now().UTC().Add(AGENT_SESSION_TIMEOUT),
 		AgentIp:           "",
 		MuxSession:        nil,
 		LogHistoryMutex:   &sync.RWMutex{},

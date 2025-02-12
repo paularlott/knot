@@ -22,6 +22,10 @@ type CreateSpaceResponse struct {
 	SpaceID string `json:"space_id"`
 }
 
+type SpaceTransferRequest struct {
+	UserId string `json:"user_id"`
+}
+
 type SpaceInfo struct {
 	Id             string `json:"space_id"`
 	Name           string `json:"name"`
@@ -172,4 +176,12 @@ func (c *ApiClient) StartSpace(spaceId string) (int, error) {
 
 func (c *ApiClient) StopSpace(spaceId string) (int, error) {
 	return c.httpClient.Post("/api/v1/spaces/"+spaceId+"/stop", nil, nil, 200)
+}
+
+func (c *ApiClient) TransferSpace(spaceId string, userId string) (int, error) {
+	request := &SpaceTransferRequest{
+		UserId: userId,
+	}
+
+	return c.httpClient.Post("/api/v1/spaces/"+spaceId+"/transfer", request, nil, 200)
 }

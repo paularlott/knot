@@ -9,7 +9,8 @@ import (
 
 func (db *MemoryDbDriver) SaveSession(session *model.Session) error {
 	// Calculate the expiration time as now + 2 hours
-	session.ExpiresAfter = time.Now().UTC().Add(time.Hour * 2)
+	now := time.Now().UTC()
+	session.ExpiresAfter = now.Add(time.Hour * 2)
 
 	db.sessionMutex.Lock()
 	defer db.sessionMutex.Unlock()

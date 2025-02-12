@@ -87,6 +87,7 @@ func handleAgentConnection(conn net.Conn) {
 	sessionMutex.Lock()
 	sessions[registerMsg.SpaceId] = session
 	sessionMutex.Unlock()
+	defer RemoveSession(registerMsg.SpaceId)
 
 	// Return the SSH key and GitHub username
 	response.Success = true
@@ -102,9 +103,6 @@ func handleAgentConnection(conn net.Conn) {
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
 		log.Error().Msgf("Error writing register response: %v", err)
-
-		// Terminate the session
-		RemoveSession(registerMsg.SpaceId)
 		return
 	}
 
@@ -122,7 +120,6 @@ func handleAgentConnection(conn net.Conn) {
 	})
 	if err != nil {
 		log.Error().Msgf("agent: creating mux session: %v", err)
-		RemoveSession(registerMsg.SpaceId)
 		return
 	}
 
@@ -139,9 +136,6 @@ func handleAgentConnection(conn net.Conn) {
 			}
 
 			log.Error().Msgf("agent: accepting connection: %v", err)
-
-			// Destroy the session
-			RemoveSession(registerMsg.SpaceId)
 			return
 		}
 
@@ -183,7 +177,6 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel
 				session.VSCodeTunnelName = state.VSCodeTunnelName
 				session.AgentIp = state.AgentIp
-				session.ExpiresAfter = time.Now().UTC().Add(AGENT_SESSION_TIMEOUT)
 			}
 
 		case byte(msg.CmdLogMessage):

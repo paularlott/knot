@@ -3,6 +3,7 @@ package apiv1
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
@@ -1058,4 +1059,181 @@ func RealDeleteSpace(space *model.Space) {
 	}()
 
 	leaf.DeleteSpace(space.Id)
+}
+
+func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var space *model.Space
+
+	user := r.Context().Value("user").(*model.User)
+	spaceId := r.PathValue("space_id")
+
+	request := apiclient.SpaceTransferRequest{}
+	err = rest.BindJSON(w, r, &request)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
+	if !validate.UUID(request.UserId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		return
+	}
+
+	db := database.GetInstance()
+
+	space, err = db.GetSpace(spaceId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If user doesn't own the space then 404
+	if space.UserId != user.Id {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	// If the space is running or changing state then fail
+	if space.IsDeployed || space.IsPending || space.IsDeleting {
+		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be transferred at this time"})
+		return
+	}
+
+	// If the user is transferring to themselves then fail
+	if space.UserId == request.UserId {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "cannot transfer to yourself"})
+		return
+	}
+
+	// Load the new user
+	newUser, err := db.GetUser(request.UserId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If user not found or not active then fail
+	if newUser == nil || !newUser.Active {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		return
+	}
+
+	// Check the user has space for the transfer
+	userQuota, err := database.GetUserQuota(newUser)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	userUsage, err := database.GetUserUsage(newUser.Id)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if userQuota.MaxSpaces > 0 && uint32(userUsage.NumberSpaces) >= userQuota.MaxSpaces {
+		rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "space quota exceeded"})
+		return
+	}
+
+	// Load the template
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Check the storage quota
+	if userQuota.StorageUnits > 0 && userUsage.StorageUnits+template.StorageUnits > userQuota.StorageUnits {
+		rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage unit quota exceeded"})
+		return
+	}
+
+	// If template has groups then check the user is in one
+	if len(template.Groups) > 0 {
+		if !newUser.HasAnyGroup(&template.Groups) {
+			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "user does not have permission to use the space template"})
+			return
+		}
+	}
+
+	// If the volume spec references user.username or user.email then fail
+	if strings.Contains(template.Volumes, "user.username") || strings.Contains(template.Volumes, "user.email") {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "template volume spec cannot reference user.username or user.email"})
+		return
+	}
+
+	// If remote client present then forward the request
+	remoteClient := r.Context().Value("remote_client")
+	if remoteClient != nil {
+		client := remoteClient.(*apiclient.ApiClient)
+
+		code, err := client.TransferSpace(spaceId, request.UserId)
+		if err != nil {
+			log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+	} else {
+
+		// Test if the target user already has a space with the same name
+		name := space.Name
+		attempt := 1
+		for {
+			existing, err := db.GetSpaceByName(request.UserId, name)
+			if err == nil && existing != nil {
+				name = fmt.Sprintf("%s-%d", space.Name, attempt)
+				attempt++
+
+				// If we've had 10 attempts then fail
+				if attempt > 10 {
+					rest.SendJSON(http.StatusConflict, w, r, ErrorResponse{Error: "user already has a space with the same name"})
+					return
+				}
+			} else {
+				break
+			}
+		}
+
+		// Move the space
+		space.Name = name
+		space.UserId = request.UserId
+		err = db.SaveSpace(space)
+		if err != nil {
+			log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		leaf.UpdateSpace(space)
+
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventSpaceTransfer,
+			fmt.Sprintf("Transfer space %s to user %s", space.Name, request.UserId),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"space_id":        space.Id,
+				"space_name":      space.Name,
+				"user_id":         request.UserId,
+			},
+		)
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

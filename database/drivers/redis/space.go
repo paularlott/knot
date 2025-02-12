@@ -46,7 +46,11 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 	if existingSpace == nil {
 		space.CreatedAt = time.Now().UTC()
 	} else {
-		space.UserId = existingSpace.UserId
+		// If user changed then delete the space and add back in with new user
+		if existingSpace.UserId != space.UserId {
+			db.DeleteSpace(existingSpace)
+			existingSpace = nil
+		}
 	}
 
 	// If new space or name changed check if the new name is unique

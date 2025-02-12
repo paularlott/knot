@@ -16,41 +16,13 @@ import (
 )
 
 const (
-	AGENT_SESSION_GC_INTERVAL = 5 * time.Second
-	AGENT_SESSION_TIMEOUT     = 5 * time.Second
-	AGENT_SCHEDULE_INTERVAL   = 1 * time.Minute
+	AGENT_SCHEDULE_INTERVAL = 1 * time.Minute
 )
 
 var (
 	sessionMutex = sync.RWMutex{}
 	sessions     = make(map[string]*Session)
 )
-
-func agentSessionGC() {
-
-	// Start a goroutine to garbage collect expired agents
-	log.Info().Msg("agent: starting agent session garbage collector")
-	go func() {
-		for {
-			time.Sleep(AGENT_SESSION_GC_INTERVAL)
-
-			log.Debug().Msg("agent: gc expired agents")
-
-			sessionMutex.Lock()
-			for k, v := range sessions {
-				if time.Now().UTC().After(v.ExpiresAfter) {
-					log.Debug().Msgf("agent: gc expired agent: %s", k)
-					if v.MuxSession != nil {
-						v.MuxSession.Close()
-						v.MuxSession = nil
-					}
-					delete(sessions, k)
-				}
-			}
-			sessionMutex.Unlock()
-		}
-	}()
-}
 
 // Periodically check to see if the space has a schedule which requires it be stopped
 func checkSchedules() {
@@ -120,7 +92,6 @@ func checkSchedules() {
 func ListenAndServe(listen string, tlsConfig *tls.Config) {
 
 	// Start the session garbage collector & schedule checker
-	agentSessionGC()
 	checkSchedules()
 
 	log.Info().Msgf("server: listening for agents on: %s", listen)

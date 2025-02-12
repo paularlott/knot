@@ -11,7 +11,8 @@ import (
 
 func (db *RedisDbDriver) SaveToken(token *model.Token) error {
 	// Calculate the expiration time as now + 1 week
-	token.ExpiresAfter = time.Now().UTC().Add(time.Hour * 168)
+	now := time.Now().UTC()
+	token.ExpiresAfter = now.Add(time.Hour * 168)
 
 	data, err := json.Marshal(token)
 	if err != nil {

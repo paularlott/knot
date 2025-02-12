@@ -23,10 +23,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *ApiClient
 		httpClient: rest.NewClient(baseURL, token, insecureSkipVerify),
 	}
 
-	// TODO Remove this as it's just here as we move from JSON to msgpack
-	if !viper.GetBool("legacy") {
-		c.httpClient.SetContentType(rest.ContentTypeMsgPack)
-	}
+	c.httpClient.SetContentType(rest.ContentTypeMsgPack)
 
 	if server_info.IsLeaf {
 		c.httpClient.AppendUserAgent("Remote (" + server_info.LeafLocation + ")")

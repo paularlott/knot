@@ -1109,6 +1109,48 @@ paths:
       security:
         - BearerAuth: []
 
+  /api/v1/spaces/{space_id}/transfer:
+    post:
+      summary: Transfer a Space
+      description: Transfer a space to another user.
+      operationId: transferSpace
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space to transfer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceTransferRequest'
+
+      responses:
+        '200':
+          description: Successful operation
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '406':
+          $ref: '#/components/responses/not-acceptable'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        '503':
+          $ref: '#/components/responses/service-unavailable'
+        '507':
+          $ref: '#/components/responses/insufficient-storage'
+      security:
+        - BearerAuth: []
+
   /api/v1/spaces/{space_id}/start:
     post:
       summary: Start a Space
@@ -3014,6 +3056,14 @@ components:
         local_container:
           type: boolean
           description: If the volume is a local container volume, docker or podman.
+
+    SpaceTransferRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: The ID of the user to transfer the space to.
 
   responses:
     bad-request:

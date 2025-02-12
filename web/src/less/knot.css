@@ -59,7 +59,7 @@
 }
 
 @utility nav-item {
-  @apply flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 border-none my-1;
+  @apply flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 border-none my-1 cursor-pointer;
 }
 
 @utility nav-item-icon {
