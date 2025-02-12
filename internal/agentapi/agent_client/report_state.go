@@ -73,9 +73,9 @@ func ReportState(spaceId string) {
 			if withSSH && sshPort > 0 && sshAlivePort == 0 {
 				// Check health of sshd
 				address := fmt.Sprintf("127.0.0.1:%d", sshPort)
-				conn, err := net.DialTimeout("tcp", address, time.Second)
+				connSSH, err := net.DialTimeout("tcp", address, time.Second)
 				if err == nil {
-					conn.Close()
+					connSSH.Close()
 					sshAlivePort = sshPort
 				}
 			}
@@ -95,9 +95,9 @@ func ReportState(spaceId string) {
 			if vncHttpPort > 0 {
 				// Check health of sshd
 				address := fmt.Sprintf("127.0.0.1:%d", vncHttpPort)
-				conn, err := net.DialTimeout("tcp", address, time.Second)
+				connVNC, err := net.DialTimeout("tcp", address, time.Second)
 				if err == nil {
-					conn.Close()
+					connVNC.Close()
 					vncAliveHttpPort = vncHttpPort
 				}
 			}
