@@ -24,7 +24,7 @@
               <select x-show="!loading" class="form-field bg-white" name="user" x-model="forUserId" x-on:change="userChanged">
                 <option value="" x-bind:selected="forUserId === ''">All Users</option>
                 <template x-for="user in users" :key="user.user_id">
-                  <option x-bind:value="user.user_id" x-text="user.username" x-bind:selected="user.user_id === forUserId"></option>
+                  <option x-bind:value="user.user_id" x-text="user.user_id === '{{ .user_id }}' ? 'My Spaces' : user.username" x-bind:selected="user.user_id === forUserId"></option>
                 </template>
               </select>
             </div>
@@ -241,8 +241,8 @@
                   </button>
 
                   {{ if .permissionTransferSpaces }}
-                  <hr x-cloak class="my-2" />
-                  <button x-cloak @click="$refs.panel.close; chooseUser.show = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                  <hr x-cloak class="my-2" x-show="(!s.is_deployed && !s.is_pending) || s.is_manual" />
+                  <button x-cloak x-show="(!s.is_deployed && !s.is_pending) || s.is_manual" @click="$refs.panel.close; chooseUser.show = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
                     </svg> Transfer To &hellip;
@@ -262,7 +262,7 @@
       <!-- Modal choose user -->
       <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" @click.self="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
         <!-- Modal Dialog -->
-        <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-visible rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
           <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
             <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Select User</h3>
@@ -276,15 +276,16 @@
           <div class="px-4 py-4">
 
             <p>Select the user to transfer the space to.</p>
-
-            <select id="user" name="user" x-model="chooseUser.toUserId" class="form-field mt-2">
-              <option value="" x-bind:selected="chooseUser.toUserId === ''">Select Users</option>
-              <template x-for="user in users" :key="user.user_id">
-                <template x-if="user.user_id !== '{{ .user_id }}'">
-                  <option x-bind:value="user.user_id" x-text="user.username" x-bind:selected="user.user_id === chooseUser.toUserId"></option>
-                </template>
-              </template>
-            </select>
+            <div x-data="autocompleterUser()" x-init="setDataSource('users')" data-parent-var-group="chooseUser" data-parent-variable="toUserId" @refresh-autocompleter.window="refresh()" class="relative mt-2">
+              <input x-model="search" class="form-field" type="search" placeholder="Search..." @focus="showList = true" @blur.debounce.200ms="showList = false" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
+              <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+                <ul class="list-none">
+                  <template x-for="(option, index) in filteredOptions" :key="index">
+                    <li @click="selectOption(option)" x-text="option.username" class="my-1 cursor-pointer nav-item text-sm"></li>
+                  </template>
+                </ul>
+              </div>
+            </div>
             <div x-show="chooseUser.invalidUser" class="error-message" x-cloak>Select a valid user.</div>
 
           </div>

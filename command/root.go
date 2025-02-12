@@ -32,9 +32,6 @@ func init() {
 	RootCmd.PersistentFlags().StringP("config", "c", "", "Config file (default is "+config.CONFIG_FILE_NAME+"."+config.CONFIG_FILE_TYPE+" in the current directory or $HOME/).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CONFIG environment variable if set.")
 	RootCmd.PersistentFlags().StringP("log-level", "", "info", "Log level (debug, info, warn, error, fatal, panic).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOGLEVEL environment variable if set.")
 
-	// TODO Remove this as it's just here as we move from JSON to msgpack
-	RootCmd.PersistentFlags().BoolP("legacy", "", false, "Use legacy mode, json rather than msgpack for encoding/decoding.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LEGACY environment variable if set.")
-
 	RootCmd.AddCommand(agentcmd.AgentCmd)
 	RootCmd.AddCommand(agentCommands.ConnectCmd)
 	RootCmd.AddCommand(command_tunnel.TunnelCmd)

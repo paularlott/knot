@@ -1187,7 +1187,28 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
+
+		// Test if the target user already has a space with the same name
+		name := space.Name
+		attempt := 1
+		for {
+			existing, err := db.GetSpaceByName(request.UserId, name)
+			if err == nil && existing != nil {
+				name = fmt.Sprintf("%s-%d", space.Name, attempt)
+				attempt++
+
+				// If we've had 10 attempts then fail
+				if attempt > 10 {
+					rest.SendJSON(http.StatusConflict, w, r, ErrorResponse{Error: "user already has a space with the same name"})
+					return
+				}
+			} else {
+				break
+			}
+		}
+
 		// Move the space
+		space.Name = name
 		space.UserId = request.UserId
 		err = db.SaveSpace(space)
 		if err != nil {

@@ -47,13 +47,6 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         });
         let usersList = await usersResponse.json();
         this.users = usersList.users;
-
-        // Look through the users list and change the one that matches the userId to be Your spaces
-        this.users.forEach(user => {
-          if(user.user_id === userId) {
-            user.username = "My Spaces";
-          }
-        });
       }
 
       this.getSpaces(true);

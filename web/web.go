@@ -230,7 +230,9 @@ func Routes(router *http.ServeMux) {
 		})
 	}
 
-	router.HandleFunc("GET /qrcode/{code}", middleware.WebAuth(HandleCreateQRCode))
+	if viper.GetBool("server.totp.enabled") {
+		router.HandleFunc("GET /qrcode/{code}", middleware.WebAuth(HandleCreateQRCode))
+	}
 }
 
 func showPageNotFound(w http.ResponseWriter, r *http.Request) {
