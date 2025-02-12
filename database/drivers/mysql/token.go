@@ -17,7 +17,8 @@ func (db *MySQLDriver) SaveToken(token *model.Token) error {
 	}
 
 	// Calculate the expiration time as now + 1 week
-	token.ExpiresAfter = time.Now().UTC().Add(time.Hour * 168)
+	now := time.Now().UTC()
+	token.ExpiresAfter = now.Add(time.Hour * 168)
 
 	// Test if the PK exists in the database
 	var doUpdate bool

@@ -12,7 +12,8 @@ import (
 func (db *BadgerDbDriver) SaveSession(session *model.Session) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
 		// Calculate the expiration time as now + 2 hours
-		session.ExpiresAfter = time.Now().UTC().Add(time.Hour * 2)
+		now := time.Now().UTC()
+		session.ExpiresAfter = now.Add(time.Hour * 2)
 
 		data, err := json.Marshal(session)
 		if err != nil {
