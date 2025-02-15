@@ -1,6 +1,6 @@
 ARG DOCKER_HUB
 
-FROM ${DOCKER_HUB}library/golang:1.23.4-alpine AS builder
+FROM ${DOCKER_HUB}library/golang:1.24.0-alpine AS builder
 
 RUN apk update \
   && apk add bash unzip zip make nodejs npm
@@ -25,6 +25,8 @@ RUN make all
 RUN make build
 
 FROM ${DOCKER_HUB}library/alpine:3.21
+
+ARG VERSION=0.0.1
 
 # Upgrade to the latest versions
 RUN apk update \
@@ -59,3 +61,12 @@ EXPOSE 3010/tcp
 
 # Set the entrypoint
 CMD ["/usr/local/bin/knot", "server"]
+
+LABEL org.opencontainers.image.version=v${VERSION}
+LABEL org.opencontainers.image.title=Knot
+LABEL org.opencontainers.image.description="Tool for creating and managing cloud-based development environments"
+LABEL org.opencontainers.image.url=https://getknot.dev
+LABEL org.opencontainers.image.documentation=https://getknot.dev
+LABEL org.opencontainers.image.vendor="Paul Arlott"
+LABEL org.opencontainers.image.licenses=Apache-2.0
+LABEL org.opencontainers.image.source="https://github.com/paularlott/knot"

@@ -115,6 +115,7 @@ container:
 		--platform linux/amd64,linux/arm64 \
 		--tag $(REGISTRY)/knot:$(VERSION) \
 		--tag $(REGISTRY)/knot:latest \
+		--build-arg VERSION=$(VERSION) \
 		--push \
 		.
 
