@@ -33,10 +33,13 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     canManageSpaces: canManageSpaces,
     canTransferSpaces: canTransferSpaces,
     users: [],
+    forUsersList: [],
     searchTerm: Alpine.$persist('').as('spaces-search-term').using(sessionStorage),
     quotaComputeLimitShow: false,
     quotaStorageLimitShow: false,
     badScheduleShow: false,
+    showRunningOnly:Alpine.$persist(false).as('spaceFilterRunningOnly').using(sessionStorage),
+    showLocalOnly:Alpine.$persist(true).as('spaceFilterLocalOnly').using(sessionStorage),
 
     async init() {
       if(this.canManageSpaces || this.canTransferSpaces) {
@@ -47,6 +50,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         });
         let usersList = await usersResponse.json();
         this.users = usersList.users;
+
+        this.forUsersList = [{ user_id: '', username: '[All Users]' }, { user_id: userId, username: '[My Spaces]' }, ...usersList.users];
+
+        this.$dispatch('refresh-user-autocompleter');
       }
 
       this.getSpaces(true);
@@ -55,6 +62,12 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       setInterval(async () => {
         this.getSpaces(false);
       }, 3000);
+    },
+    async userSearchReset() {
+      this.forUserId = userId;
+      this.forUsername = '[My Spaces]';
+      this.$dispatch('refresh-user-autocompleter');
+      this.userChanged();
     },
     async userChanged() {
       this.loading = true;
@@ -272,13 +285,17 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       // For all spaces if name or template name contains the term show; else hide
       this.spaces.forEach(space => {
         if(term.length == 0) {
-          space.searchHide = false;
+          space.searchHide =
+            (this.showLocalOnly && !space.is_local) ||
+            (this.showRunningOnly && !space.is_deployed);
         } else {
           space.searchHide = !(
             space.name.toLowerCase().includes(term) ||
             space.template_name.toLowerCase().includes(term) ||
             space.location.toLowerCase().includes(term)
-          );
+          ) ||
+          (this.showLocalOnly && !space.is_local) ||
+          (this.showRunningOnly && !space.is_deployed);
         }
       });
     },
@@ -330,6 +347,6 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       }).catch((error) => {
         this.$dispatch('show-alert', { msg: "Space could not be transferred: " + error, type: 'error' });
       });
-    }
+    },
   };
 }

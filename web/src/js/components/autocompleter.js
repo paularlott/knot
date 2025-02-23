@@ -39,18 +39,26 @@ window.autocompleterUser = function() {
     parentVariable: '',
     parentVarGroup: '',
     dataSource: 'users',
+    element: null,
+
     setDataSource(dataSource) {
       this.dataSource = dataSource;
       this.loadOptions();
     },
     loadOptions() {
+      this.element = this.$el;
+
       this.parentVarGroup = this.$el.getAttribute('data-parent-var-group');
       if(!this.parentVarGroup) {
-        this.parentVarGroup = 'formData';
+        this.parentVarGroup = '';
       }
       this.parentVariable = this.$el.getAttribute('data-parent-variable');
 
-      if(this[this.parentVarGroup]) {
+      if(this.parentVarGroup === '') {
+        let selectedUser = this[this.dataSource].find(user => user.user_id === this[this.parentVariable]);
+        this.search = selectedUser ? selectedUser.username : '';
+      }
+      else if(this[this.parentVarGroup]) {
         let selectedUser = this[this.dataSource].find(user => user.user_id === this[this.parentVarGroup][this.parentVariable]);
         this.search = selectedUser ? selectedUser.username : '';
       } else {
@@ -59,7 +67,14 @@ window.autocompleterUser = function() {
     },
     selectOption(option) {
       this.search = option.username;
-      this[this.parentVarGroup][this.parentVariable] = option.user_id;
+      if(this.parentVarGroup === '') {
+        this[this.parentVariable] = option.user_id;
+      }
+      else {
+        this[this.parentVarGroup][this.parentVariable] = option.user_id;
+      }
+
+      this.element.dispatchEvent(new Event('user-selected'));
     },
     get filteredOptions() {
       if(this[this.dataSource] === undefined) {
