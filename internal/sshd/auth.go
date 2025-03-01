@@ -14,23 +14,27 @@ var (
 	authorizedKeys      = []string{}
 )
 
-func UpdateAuthorizedKeys(key string, githubUsername string) error {
+func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 	var authKeys = []string{}
 
 	// If the github username is not empty, then download the keys from github
-	if githubUsername != "" {
+	if len(githubUsernames) > 0 {
 		log.Debug().Msg("Downloading keys from GitHub")
-		githubKeys, err := util.GetGitHubKeysArray(githubUsername)
-		if err != nil {
-			return err
-		}
+		for _, githubUsername := range githubUsernames {
+			githubKeys, err := util.GetGitHubKeysArray(githubUsername)
+			if err != nil {
+				return err
+			}
 
-		authKeys = append(authKeys, githubKeys...)
+			authKeys = append(authKeys, githubKeys...)
+		}
 	}
 
-	if key != "" {
+	if len(keys) > 0 {
 		log.Debug().Msg("sshd: Adding key")
-		authKeys = append(authKeys, key)
+		for _, key := range keys {
+			authKeys = append(authKeys, key)
+		}
 	}
 
 	authorizedKeysMutex.Lock()

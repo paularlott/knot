@@ -31,8 +31,8 @@ func handleAgentConnection(conn net.Conn) {
 	response := msg.RegisterResponse{
 		Version:          build.Version,
 		Success:          false,
-		SSHKey:           "",
-		GitHubUsername:   "",
+		SSHKeys:          []string{},
+		GitHubUsernames:  []string{},
 		Shell:            "",
 		SSHHostSigner:    "",
 		WithTerminal:     false,
@@ -91,14 +91,32 @@ func handleAgentConnection(conn net.Conn) {
 
 	// Return the SSH key and GitHub username
 	response.Success = true
-	response.SSHKey = user.SSHPublicKey
-	response.GitHubUsername = user.GitHubUsername
 	response.Shell = space.Shell
 	response.SSHHostSigner = space.SSHHostSigner
 	response.WithTerminal = template.WithTerminal
 	response.WithVSCodeTunnel = template.WithVSCodeTunnel
 	response.WithCodeServer = template.WithCodeServer
 	response.WithSSH = template.WithSSH
+
+	if user.SSHPublicKey != "" {
+		response.SSHKeys = append(response.SSHKeys, user.SSHPublicKey)
+	}
+	if user.GitHubUsername != "" {
+		response.GitHubUsernames = append(response.GitHubUsernames, user.GitHubUsername)
+	}
+
+	// If space shared then get the keys from the shared user
+	if space.SharedWithUserId != "" {
+		sharedUser, err := db.GetUser(space.SharedWithUserId)
+		if err == nil {
+			if sharedUser.SSHPublicKey != "" {
+				response.SSHKeys = append(response.SSHKeys, sharedUser.SSHPublicKey)
+			}
+			if sharedUser.GitHubUsername != "" {
+				response.GitHubUsernames = append(response.GitHubUsernames, sharedUser.GitHubUsername)
+			}
+		}
+	}
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {

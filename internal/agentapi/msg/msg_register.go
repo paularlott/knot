@@ -10,8 +10,8 @@ type Register struct {
 type RegisterResponse struct {
 	Version          string
 	Success          bool
-	SSHKey           string
-	GitHubUsername   string
+	SSHKeys          []string
+	GitHubUsernames  []string
 	Shell            string
 	SSHHostSigner    string
 	WithTerminal     bool

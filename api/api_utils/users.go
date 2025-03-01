@@ -136,34 +136,73 @@ func updateSpacesSSHKey(user *model.User) {
 
 	// Loop through all spaces updating the active ones
 	for _, space := range spaces {
-		template, err := db.GetTemplate(space.TemplateId)
-		if err != nil || template == nil {
-			log.Debug().Msgf("Update SSH Keys: Failed to get template for space %s: %s", space.Id, err)
-			continue
-		}
-
-		if space.IsDeployed || template.IsManual {
-			// Get the agent state
-			agentState := agent_server.GetSession(space.Id)
-			if agentState == nil {
-				// Silently ignore if space is on a different server
-				if space.Location == "" || space.Location == server_info.LeafLocation {
-					log.Debug().Msgf("Update SSH Keys: Agent state not found for space %s", space.Id)
-				}
-				continue
-			}
-
-			// If agent accepting SSH keys then update
-			if agentState.SSHPort > 0 {
-				log.Debug().Msgf("Sending SSH public key to agent %s", space.Id)
-				if err := agentState.SendUpdateAuthorizedKeys(user.SSHPublicKey, user.GitHubUsername); err != nil {
-					log.Debug().Msgf("Failed to send SSH public key to agent: %s", err)
-				}
-			}
-		}
+		UpdateSpaceSSHKeys(space, user)
 	}
 
 	log.Debug().Msgf("Finished updating agent SSH key for user %s", user.Id)
+}
+
+func UpdateSpaceSSHKeys(space *model.Space, user *model.User) {
+	db := database.GetInstance()
+
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil || template == nil {
+		log.Debug().Msgf("Update SSH Keys: Failed to get template for space %s: %s", space.Id, err)
+		return
+	}
+
+	if space.IsDeployed || template.IsManual {
+		// Get the agent state
+		agentState := agent_server.GetSession(space.Id)
+		if agentState == nil {
+			// Silently ignore if space is on a different server
+			if space.Location == "" || space.Location == server_info.LeafLocation {
+				log.Debug().Msgf("Update SSH Keys: Agent state not found for space %s", space.Id)
+			}
+
+			return
+		}
+
+		// If agent accepting SSH keys then update
+		if agentState.SSHPort > 0 {
+			keys := []string{}
+			usernames := []string{}
+
+			// Add the given users keys
+			if user.SSHPublicKey != "" {
+				keys = append(keys, user.SSHPublicKey)
+			}
+			if user.GitHubUsername != "" {
+				usernames = append(usernames, user.GitHubUsername)
+			}
+
+			// If space is shared then get the other users keys
+			if space.SharedWithUserId != "" {
+				var uid string
+
+				if space.UserId == user.Id {
+					uid = space.SharedWithUserId
+				} else {
+					uid = space.UserId
+				}
+
+				other, err := db.GetUser(uid)
+				if err == nil && other != nil {
+					if other.SSHPublicKey != "" {
+						keys = append(keys, other.SSHPublicKey)
+					}
+					if other.GitHubUsername != "" {
+						usernames = append(usernames, other.GitHubUsername)
+					}
+				}
+			}
+
+			log.Debug().Msgf("Sending SSH public key to agent %s", space.Id)
+			if err := agentState.SendUpdateAuthorizedKeys(keys, usernames); err != nil {
+				log.Debug().Msgf("Failed to send SSH public key to agent: %s", err)
+			}
+		}
+	}
 }
 
 // For disabled users ensure all spaces are stopped, for enabled users update the SSH key on the agents

@@ -1326,6 +1326,8 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 
 	leaf.UpdateSpace(space)
 
+	api_utils.UpdateSpaceSSHKeys(space, user)
+
 	audit.Log(
 		user.Username,
 		model.AuditActorTypeUser,
@@ -1386,6 +1388,8 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	leaf.UpdateSpace(space)
+
+	api_utils.UpdateSpaceSSHKeys(space, user)
 
 	audit.Log(
 		user.Username,

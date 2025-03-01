@@ -11,22 +11,25 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func UpdateAuthorizedKeys(key string, githubUsername string) error {
+func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 	var lines []string
-	var keys string = key
+	var combinedKeys string = ""
 
 	log.Debug().Msg("Start updating authorized_keys")
 
+	// Merge the keys into a single string
+	for _, key := range keys {
+		combinedKeys += key + "\n"
+	}
+
 	// If the github username is not empty, then download the keys from github
-	if githubUsername != "" {
-		log.Debug().Msg("Downloading keys from GitHub")
+	log.Debug().Msg("Downloading keys from GitHub")
+	for _, githubUsername := range githubUsernames {
 		githubKeys, err := GetGitHubKeys(githubUsername)
-		if err == nil {
-			if keys != "" {
-				keys += "\n"
-			}
-			keys += githubKeys
+		if err != nil {
+			return err
 		}
+		combinedKeys += githubKeys + "\n"
 	}
 
 	home, err := os.UserHomeDir()
@@ -67,11 +70,11 @@ func UpdateAuthorizedKeys(key string, githubUsername string) error {
 	}
 
 	// If keys then add them to the authorized_keys
-	if keys != "" {
+	if combinedKeys != "" {
 		log.Debug().Msg("Adding key to authorized_keys")
 
 		lines = append(lines, "#===KNOT-START===")
-		lines = append(lines, keys)
+		lines = append(lines, combinedKeys)
 		lines = append(lines, "#===KNOT-END===")
 	}
 
