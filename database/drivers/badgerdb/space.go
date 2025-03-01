@@ -270,6 +270,18 @@ func (db *BadgerDbDriver) GetSpaceByName(userId string, spaceName string) (*mode
 	})
 
 	if err != nil {
+		// Try getting all the spaces and see if it's a shared space
+		spaces, err2 := db.GetSpaces()
+		if err2 != nil {
+			return nil, err2
+		}
+
+		for _, s := range spaces {
+			if s.Name == spaceName && s.SharedWithUserId == userId {
+				return s, nil
+			}
+		}
+
 		return nil, err
 	}
 

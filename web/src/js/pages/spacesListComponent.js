@@ -316,8 +316,8 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     async openWindowForPort(spaceUsername, spaceId, spaceName, port) {
       openPortWindow(spaceId, wildcardDomain, spaceUsername == '' ? username : spaceUsername, spaceName, port);
     },
-    async openWindowForVNC(spaceId, spaceName) {
-      openVNC(spaceId, wildcardDomain, username, spaceName);
+    async openWindowForVNC(spaceUsername, spaceId, spaceName) {
+      openVNC(spaceId, wildcardDomain, spaceUsername == '' ? username : spaceUsername, spaceName);
     },
     async searchChanged() {
       let term = this.searchTerm.toLowerCase();

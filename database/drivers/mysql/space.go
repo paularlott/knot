@@ -265,7 +265,7 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
 	var parentId string
 	var err error
 
-	rows, err := db.connection.Query("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer, shared_with_user_id FROM spaces WHERE user_id = ? AND name = ?", userId, spaceName)
+	rows, err := db.connection.Query("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer, shared_with_user_id FROM spaces WHERE (user_id = ? || shared_with_user_id = ?) AND name = ? ORDER BY shared_with_user_id ASC LIMIT 1", userId, userId, spaceName)
 	if err != nil {
 		return nil, err
 	}
