@@ -265,7 +265,7 @@ func (db *RedisDbDriver) GetSpaceByName(userId string, spaceName string) (*model
 	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, userId, strings.ToLower(spaceName))).Result()
 	if err != nil {
 		// Try getting all the spaces and see if it's a shared space
-		spaces, err2 := db.GetSpaces()
+		spaces, err2 := db.GetSpacesForUser(userId)
 		if err2 != nil {
 			return nil, err2
 		}
