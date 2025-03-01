@@ -61,8 +61,8 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
 			return err
 		}
 
-		_, err = tx.Exec("UPDATE spaces SET name=?, template_id=?, updated_at=?, shell=?, is_deployed=?, is_pending=?, is_deleting=?, volume_data=?, nomad_namespace=?, container_id=?, template_hash=?, location=?, user_id=? WHERE space_id=?",
-			space.Name, space.TemplateId, time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, space.NomadNamespace, space.ContainerId, space.TemplateHash, space.Location, space.UserId, space.Id,
+		_, err = tx.Exec("UPDATE spaces SET name=?, template_id=?, updated_at=?, shell=?, is_deployed=?, is_pending=?, is_deleting=?, volume_data=?, nomad_namespace=?, container_id=?, template_hash=?, location=?, user_id=?, shared_with_user_id=? WHERE space_id=?",
+			space.Name, space.TemplateId, time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, space.NomadNamespace, space.ContainerId, space.TemplateHash, space.Location, space.UserId, space.SharedWithUserId, space.Id,
 		)
 	} else {
 		// Check if the space name already exists
@@ -78,8 +78,8 @@ func (db *MySQLDriver) SaveSpace(space *model.Space) error {
 			return fmt.Errorf("space name already used")
 		}
 
-		_, err = tx.Exec("INSERT INTO spaces (space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, location, ssh_host_signer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			space.Id, space.UserId, space.TemplateId, space.Name, time.Now().UTC(), time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, space.NomadNamespace, space.ContainerId, space.TemplateHash, space.Location, space.SSHHostSigner,
+		_, err = tx.Exec("INSERT INTO spaces (space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, location, ssh_host_signer, shared_with_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			space.Id, space.UserId, space.TemplateId, space.Name, time.Now().UTC(), time.Now().UTC(), space.Shell, space.IsDeployed, space.IsPending, space.IsDeleting, volumeData, space.NomadNamespace, space.ContainerId, space.TemplateHash, space.Location, space.SSHHostSigner, space.SharedWithUserId,
 		)
 	}
 	if err != nil {
@@ -179,7 +179,7 @@ func (db *MySQLDriver) getRow(rows *sql.Rows) (*model.Space, string, error) {
 	var volumeData []byte
 	var parentId string
 
-	err := rows.Scan(&space.Id, &space.UserId, &space.TemplateId, &space.Name, &createdAt, &updatedAt, &space.Shell, &space.IsDeployed, &space.IsPending, &space.IsDeleting, &volumeData, &space.NomadNamespace, &space.ContainerId, &space.TemplateHash, &parentId, &space.Location, &space.SSHHostSigner)
+	err := rows.Scan(&space.Id, &space.UserId, &space.TemplateId, &space.Name, &createdAt, &updatedAt, &space.Shell, &space.IsDeployed, &space.IsPending, &space.IsDeleting, &volumeData, &space.NomadNamespace, &space.ContainerId, &space.TemplateHash, &parentId, &space.Location, &space.SSHHostSigner, &space.SharedWithUserId)
 	if err != nil {
 		return nil, "", err
 	}
@@ -234,7 +234,7 @@ func (db *MySQLDriver) getSpaces(query string, args ...interface{}) ([]*model.Sp
 }
 
 func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
-	spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer FROM spaces WHERE space_id = ? AND parent_space_id = ''", id)
+	spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer, shared_with_user_id FROM spaces WHERE space_id = ? AND parent_space_id = ''", id)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
 }
 
 func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
-	spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer FROM spaces WHERE user_id = ? AND parent_space_id = '' ORDER BY name ASC", userId)
+	spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer, shared_with_user_id FROM spaces WHERE (user_id = ? || shared_with_user_id = ?) AND parent_space_id = '' ORDER BY name ASC", userId, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
 	var parentId string
 	var err error
 
-	rows, err := db.connection.Query("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer FROM spaces WHERE user_id = ? AND name = ?", userId, spaceName)
+	rows, err := db.connection.Query("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer, shared_with_user_id FROM spaces WHERE user_id = ? AND name = ?", userId, spaceName)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +279,7 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
 
 		// If has a parent ID then load the parent space
 		if parentId != "" {
-			rows2, err := db.connection.Query("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer FROM spaces WHERE space_id = ?", parentId)
+			rows2, err := db.connection.Query("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer, shared_with_user_id FROM spaces WHERE space_id = ?", parentId)
 			if err != nil {
 				return nil, err
 			}
@@ -300,7 +300,7 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
 }
 
 func (db *MySQLDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space, error) {
-	spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer FROM spaces WHERE template_id = ? AND parent_space_id = '' ORDER BY name ASC", templateId)
+	spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer, shared_with_user_id FROM spaces WHERE template_id = ? AND parent_space_id = '' ORDER BY name ASC", templateId)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +309,7 @@ func (db *MySQLDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space,
 }
 
 func (db *MySQLDriver) GetSpaces() ([]*model.Space, error) {
-	spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer FROM spaces WHERE parent_space_id = '' ORDER BY name ASC")
+	spaces, err := db.getSpaces("SELECT space_id, user_id, template_id, name, created_at, updated_at, shell, is_deployed, is_pending, is_deleting, volume_data, nomad_namespace, container_id, template_hash, parent_space_id, location, ssh_host_signer, shared_with_user_id FROM spaces WHERE parent_space_id = '' ORDER BY name ASC")
 	if err != nil {
 		return nil, err
 	}

@@ -259,9 +259,13 @@ func showPageForbidden(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := r.Context().Value("user").(*model.User)
+	canUseSpaces := user != nil && (user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces) || server_info.RestrictedLeaf)
+
 	w.WriteHeader(http.StatusForbidden)
 	err = tmpl.Execute(w, map[string]interface{}{
-		"version": build.Version,
+		"version":             build.Version,
+		"permissionUseSpaces": canUseSpaces,
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -364,6 +368,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionUseTunnels":      user.HasPermission(model.PermissionUseTunnels) && viper.GetString("server.listen_tunnel") != "",
 		"permissionViewAuditLogs":   user.HasPermission(model.PermissionViewAuditLogs) && !server_info.RestrictedLeaf && database.GetInstance().HasAuditLog(),
 		"permissionTransferSpaces":  user.HasPermission(model.PermissionTransferSpaces) && !server_info.RestrictedLeaf,
+		"permissionShareSpaces":     user.HasPermission(model.PermissionShareSpaces) || server_info.RestrictedLeaf,
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"location":                  server_info.LeafLocation,

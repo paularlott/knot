@@ -101,6 +101,22 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 		return err
 	}
 
+	// If existing and shared but changed then delete the old shared information
+	if existingSpace != nil && existingSpace.SharedWithUserId != "" && existingSpace.SharedWithUserId != space.SharedWithUserId {
+		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, existingSpace.SharedWithUserId, space.Id)).Err()
+		if err != nil {
+			return err
+		}
+	}
+
+	// If shared with then add space under shared user
+	if space.SharedWithUserId != "" {
+		err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.SharedWithUserId, space.Id), space.Id, 0).Err()
+		if err != nil {
+			return err
+		}
+	}
+
 	if existingSpace != nil && existingSpace.Name != space.Name {
 		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(existingSpace.Name))).Err()
 		if err != nil {
@@ -171,6 +187,14 @@ func (db *RedisDbDriver) DeleteSpace(space *model.Space) error {
 	err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.UserId, space.Id)).Err()
 	if err != nil {
 		return err
+	}
+
+	// If shared with a user then delete space under shared user
+	if space.SharedWithUserId != "" {
+		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.SharedWithUserId, space.Id)).Err()
+		if err != nil {
+			return err
+		}
 	}
 
 	err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(space.Name))).Err()

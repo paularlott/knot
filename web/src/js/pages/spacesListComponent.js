@@ -1,4 +1,6 @@
-window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, location, canTransferSpaces) {
+import { space } from "postcss/lib/list";
+
+window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, location, canTransferSpaces, canShareSpaces) {
 
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -19,10 +21,18 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         name: '',
       }
     },
+    ceaseShareConfirm: {
+      show: false,
+      space: {
+        space_id: '',
+        name: '',
+      }
+    },
     chooseUser: {
       toUserId: '',
       invalidUser: false,
       show: false,
+      isShare: false,
       space: {
         space_id: '',
         name: '',
@@ -40,9 +50,11 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     badScheduleShow: false,
     showRunningOnly:Alpine.$persist(false).as('spaceFilterRunningOnly').using(sessionStorage),
     showLocalOnly:Alpine.$persist(true).as('spaceFilterLocalOnly').using(sessionStorage),
+    showSharedOnly:Alpine.$persist(false).as('spaceFilterSharedOnly').using(sessionStorage),
+    showSharedWithMeOnly:Alpine.$persist(false).as('spaceFilterSharedWithMeOnly').using(sessionStorage),
 
     async init() {
-      if(this.canManageSpaces || this.canTransferSpaces) {
+      if(this.canManageSpaces || this.canTransferSpaces || this.canShareSpaces) {
         const usersResponse = await fetch('/api/v1/users?state=active', {
           headers: {
             'Content-Type': 'application/json'
@@ -103,7 +115,8 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           response.json().then((spacesList) => {
             spacesList.spaces.forEach(async space => {
               // If this space isn't in this.spaces then add it
-              if(!this.spaces.find(s => s.space_id === space.space_id)) {
+              const existing = this.spaces.find(s => s.space_id === space.space_id);
+              if(!existing) {
                 // Setup the available services
                 space.update_available = false;
                 space.is_deployed = false;
@@ -130,12 +143,24 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                   this.fetchServiceState(s2);
                 }, 2000);
               }
+              // Else update the sharing information
+              else {
+                existing.shared_user_id = space.shared_user_id;
+                existing.shared_username = space.shared_username;
+              }
             });
 
              // If spaces added then sort them by name
             if(spacesAdded) {
               this.spaces.sort((a, b) => (a.name > b.name) ? 1 : -1);
             }
+
+            // Look through the list of spaces and remove any that are not in the spacesList
+            this.spaces.forEach((space, index) => {
+              if(!spacesList.spaces.find(s => s.space_id === space.space_id)) {
+                this.spaces.splice(index, 1);
+              }
+            });
 
             // Apply search filter
             this.searchChanged();
@@ -252,7 +277,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       });
     },
     async deleteSpace(spaceId) {
-      var self = this;
+      let self = this;
       await fetch(`/api/v1/spaces/${spaceId}`, {
         method: 'DELETE',
         headers: {
@@ -266,15 +291,30 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         }
       }).catch((error) => {
         self.$dispatch('show-alert', { msg: "Space could not be deleted: " + error, type: 'error' });
-      }).finally(() => {
-        const space = this.spaces.find(space => space.space_id === spaceId);
+      });
+    },
+    async ceaseSharing(spaceId) {
+      let self = this;
+      await fetch(`/api/v1/spaces/${spaceId}/share`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+          self.$dispatch('show-alert', { msg: "Sharing of Space Stopped", type: 'success' });
+        } else {
+          self.$dispatch('show-alert', { msg: "Could not stop sharing of space", type: 'error' });
+        }
+      }).catch((error) => {
+        self.$dispatch('show-alert', { msg: "Could not stop sharing of space: " + error, type: 'error' });
       });
     },
     editSpace(spaceId) {
       window.location.href = `/spaces/edit/${spaceId}`;
     },
-    async openWindowForPort(spaceId, spaceName, port) {
-      openPortWindow(spaceId, wildcardDomain, username, spaceName, port);
+    async openWindowForPort(spaceUsername, spaceId, spaceName, port) {
+      openPortWindow(spaceId, wildcardDomain, spaceUsername == '' ? username : spaceUsername, spaceName, port);
     },
     async openWindowForVNC(spaceId, spaceName) {
       openVNC(spaceId, wildcardDomain, username, spaceName);
@@ -287,7 +327,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         if(term.length == 0) {
           space.searchHide =
             (this.showLocalOnly && !space.is_local) ||
-            (this.showRunningOnly && !space.is_deployed);
+            (this.showRunningOnly && !space.is_deployed) ||
+            (this.showSharedOnly && (space.shared_user_id == "" || space.shared_user_id == this.forUserId)) ||
+            (this.showSharedWithMeOnly && (space.shared_user_id == "" || space.shared_user_id != this.forUserId));
         } else {
           space.searchHide = !(
             space.name.toLowerCase().includes(term) ||
@@ -295,7 +337,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
             space.location.toLowerCase().includes(term)
           ) ||
           (this.showLocalOnly && !space.is_local) ||
-          (this.showRunningOnly && !space.is_deployed);
+          (this.showRunningOnly && !space.is_deployed) ||
+          (this.showSharedOnly && (space.shared_user_id == "" || space.shared_user_id == this.forUserId)) ||
+          (this.showSharedWithMeOnly && (space.shared_user_id == "" || space.shared_user_id != this.forUserId));
         }
       });
     },
@@ -314,7 +358,11 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       this.chooseUser.invalidUser = false;
 
       // Transfer the space to the new user
-      await fetch(`/api/v1/spaces/${this.chooseUser.space.space_id}/transfer`, {
+      await fetch(
+        this.isShare
+          ? `/api/v1/spaces/${this.chooseUser.space.space_id}/transfer`
+          : `/api/v1/spaces/${this.chooseUser.space.space_id}/share`,
+      {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -324,28 +372,56 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         })
       }).then((response) => {
         if (response.status === 200) {
-          // Remove the space from the array
-          self.spaces = self.spaces.filter(s => s.space_id !== self.chooseUser.space.space_id);
 
-          // If time exists for the space then clear it
-          if (self.timerIDs[self.chooseUser.space.space_id]) {
-            clearInterval(self.timerIDs[self.chooseUser.space.space_id]);
-            self.timerIDs[self.chooseUser.space.space_id] = null;
+          if(!self.chooseUser.isShare) {
+            // Remove the space from the array
+            self.spaces = self.spaces.filter(s => s.space_id !== self.chooseUser.space.space_id);
+
+            // If time exists for the space then clear it
+            if (self.timerIDs[self.chooseUser.space.space_id]) {
+              clearInterval(self.timerIDs[self.chooseUser.space.space_id]);
+              self.timerIDs[self.chooseUser.space.space_id] = null;
+            }
           }
 
-          this.$dispatch('show-alert', { msg: "Space transferred", type: 'success' });
+          if(self.chooseUser.isShare) {
+            self.$dispatch('show-alert', { msg: "Space shared", type: 'success' });
+          }
+          else {
+            self.$dispatch('show-alert', { msg: "Space transferred", type: 'success' });
+          }
           this.chooseUser.show = false;
         } else if(response.status === 507) {
-          this.$dispatch('show-alert', { msg: "Space could not be transferred as the user has exceeded their quota.", type: 'error' });
+          if(self.chooseUser.isShare) {
+            self.$dispatch('show-alert', { msg: "Space could not be shared as the user has exceeded their quota.", type: 'error' });
+          }
+          else {
+            self.$dispatch('show-alert', { msg: "Space could not be transferred as the user has exceeded their quota.", type: 'error' });
+          }
         } else if(response.status === 403) {
-          this.$dispatch('show-alert', { msg: "Space could not be transferred as the user is not allowed to use the template.", type: 'error' });
+          if(self.chooseUser.isShare) {
+            self.$dispatch('show-alert', { msg: "Space could not be shared as the user is not allowed to use the template.", type: 'error' });
+          }
+          else {
+            self.$dispatch('show-alert', { msg: "Space could not be transferred as the user is not allowed to use the template.", type: 'error' });
+          }
         } else {
           response.json().then((data) => {
-            this.$dispatch('show-alert', { msg: "Space could not be transferred: " + data.error, type: 'error' });
+            if(self.isShare) {
+              self.$dispatch('show-alert', { msg: "Space could not be shared: " + data.error, type: 'error' });
+            }
+            else {
+              self.$dispatch('show-alert', { msg: "Space could not be transferred: " + data.error, type: 'error' });
+            }
           });
         }
       }).catch((error) => {
-        this.$dispatch('show-alert', { msg: "Space could not be transferred: " + error, type: 'error' });
+        if(self.chooseUser.isShare) {
+          self.$dispatch('show-alert', { msg: "Space could not be shared: " + error, type: 'error' });
+        }
+        else {
+          self.$dispatch('show-alert', { msg: "Space could not be transferred: " + error, type: 'error' });
+        }
       });
     },
   };

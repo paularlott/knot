@@ -51,6 +51,22 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space) error {
 			return err
 		}
 
+		// If existing and shared but changed then delete the old shared information
+		if existingSpace != nil && existingSpace.SharedWithUserId != "" && existingSpace.SharedWithUserId != space.SharedWithUserId {
+			err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserId:%s:%s", existingSpace.SharedWithUserId, space.Id)))
+			if err != nil {
+				return err
+			}
+		}
+
+		// If shared with then add space under shared user
+		if space.SharedWithUserId != "" {
+			e = badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserId:%s:%s", space.SharedWithUserId, space.Id)), []byte(space.Id))
+			if err = txn.SetEntry(e); err != nil {
+				return err
+			}
+		}
+
 		if existingSpace != nil && existingSpace.Name != space.Name {
 			err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(existingSpace.Name))))
 			if err != nil {
@@ -133,6 +149,14 @@ func (db *BadgerDbDriver) DeleteSpace(space *model.Space) error {
 		err = txn.Delete([]byte(fmt.Sprintf("SpacesByUserId:%s:%s", space.UserId, space.Id)))
 		if err != nil {
 			return err
+		}
+
+		// If shared with a user then delete
+		if space.SharedWithUserId != "" {
+			err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserId:%s:%s", space.SharedWithUserId, space.Id)))
+			if err != nil {
+				return err
+			}
 		}
 
 		err = txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(space.Name))))

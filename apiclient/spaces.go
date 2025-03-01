@@ -36,6 +36,8 @@ type SpaceInfo struct {
 	UserId         string `json:"user_id"`
 	LocalContainer bool   `json:"local_container"`
 	IsManual       bool   `json:"is_manual"`
+	SharedUserId   string `json:"shared_user_id"`
+	SharedUsername string `json:"shared_username"`
 }
 
 type SpaceInfoList struct {

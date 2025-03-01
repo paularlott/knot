@@ -1151,6 +1151,81 @@ paths:
       security:
         - BearerAuth: []
 
+  /api/v1/spaces/{space_id}/share:
+    post:
+      summary: Share a Space
+      description: Share a space with another user.
+      operationId: shareSpace
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space to share.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceTransferRequest'
+      responses:
+        '200':
+          description: Successful operation
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '406':
+          $ref: '#/components/responses/not-acceptable'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        '503':
+          $ref: '#/components/responses/service-unavailable'
+        '507':
+          $ref: '#/components/responses/insufficient-storage'
+      security:
+        - BearerAuth: []
+
+    delete:
+      summary: Remove Space Share
+      description: Remove a shared space from another user.
+      operationId: removeSpaceShare
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space to cease sharing.
+      responses:
+        '200':
+          description: Successful operation
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '406':
+          $ref: '#/components/responses/not-acceptable'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        '503':
+          $ref: '#/components/responses/service-unavailable'
+        '507':
+          $ref: '#/components/responses/insufficient-storage'
+      security:
+        - BearerAuth: []
+
   /api/v1/spaces/{space_id}/start:
     post:
       summary: Start a Space
@@ -1215,7 +1290,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces/{user_id}stop-for-user:
+  /api/v1/spaces/{user_id}/stop-for-user:
     post:
       summary: Stop Users Spaces
       description: Stop all the spaces belonging to a user.
@@ -2184,6 +2259,13 @@ components:
         is_manual:
           type: boolean
           description: If the space is manually created.
+        shared_user_id:
+          type: string
+          format: uuid
+          description: The ID of the user the space is shared with, or an empty string if not shared.
+        shared_username:
+          type: string
+          description: The name of the user the space is shared with, or an empty string if not shared.
 
     SpaceInfoList:
       type: object

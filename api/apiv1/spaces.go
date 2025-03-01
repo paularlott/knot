@@ -115,6 +115,17 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.Username = u.Username
 			s.UserId = u.Id
 
+			// If shared with another user then lookup the user
+			s.SharedUserId = ""
+			s.SharedUsername = ""
+			if space.SharedWithUserId != "" {
+				u, err = db.GetUser(space.SharedWithUserId)
+				if err == nil {
+					s.SharedUserId = u.Id
+					s.SharedUsername = u.Username
+				}
+			}
+
 			spaceData.Spaces = append(spaceData.Spaces, s)
 			spaceData.Count++
 		}
@@ -487,13 +498,13 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If user doesn't have permission to manage spaces and not their space then fail
-	if user.Id != space.UserId && !user.HasPermission(model.PermissionManageSpaces) {
+	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
 
 	// If the space is owned by a different user then load the user
-	if user.Id != space.UserId {
+	if user.Id != space.UserId && user.Id != space.SharedWithUserId {
 		user, err = db.GetUser(space.UserId)
 		if err != nil {
 			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
@@ -690,7 +701,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If user doesn't have permission to manage spaces and not their space then fail
-	if user.Id != space.UserId && !user.HasPermission(model.PermissionManageSpaces) {
+	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -1234,6 +1245,161 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var space *model.Space
+
+	user := r.Context().Value("user").(*model.User)
+	spaceId := r.PathValue("space_id")
+
+	request := apiclient.SpaceTransferRequest{}
+	err = rest.BindJSON(w, r, &request)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
+	if !validate.UUID(request.UserId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		return
+	}
+
+	db := database.GetInstance()
+
+	space, err = db.GetSpace(spaceId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If user doesn't own the space then 404
+	if space.UserId != user.Id {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	// If the space is deleting or changing state then fail
+	if space.IsDeleting {
+		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be shared at this time"})
+		return
+	}
+
+	// If the user is sharing with themselves then fail
+	if space.UserId == request.UserId {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "cannot share with yourself"})
+		return
+	}
+
+	// Load the new user
+	newUser, err := db.GetUser(request.UserId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If user not found or not active then fail
+	if newUser == nil || !newUser.Active {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		return
+	}
+
+	// Share the space
+	space.SharedWithUserId = newUser.Id
+	err = db.SaveSpace(space)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	leaf.UpdateSpace(space)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceShare,
+		fmt.Sprintf("Shared space %s to user %s", space.Name, request.UserId),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"space_id":        space.Id,
+			"space_name":      space.Name,
+			"user_id":         request.UserId,
+		},
+	)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var space *model.Space
+
+	user := r.Context().Value("user").(*model.User)
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
+	db := database.GetInstance()
+
+	space, err = db.GetSpace(spaceId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceRemoveShare: %s", err.Error())
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If user doesn't own the space or space not shared with the user then 404
+	if space.UserId != user.Id && space.SharedWithUserId != user.Id {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	if space.SharedWithUserId == "" {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "space is not shared"})
+		return
+	}
+
+	// Unshare the space
+	space.SharedWithUserId = ""
+	err = db.SaveSpace(space)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceRemoveShare: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	leaf.UpdateSpace(space)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceStopShare,
+		fmt.Sprintf("Stop space share %s", space.Name),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"space_id":        space.Id,
+			"space_name":      space.Name,
+		},
+	)
 
 	w.WriteHeader(http.StatusOK)
 }
