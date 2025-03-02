@@ -28,7 +28,8 @@ func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
 	for _, space := range spaces {
 		log.Debug().Msgf("delete user: Deleting space %s", space.Id)
 
-		if space.Location == server_info.LeafLocation {
+		// Skip spaces shared with the user but not owned by the user
+		if space.UserId == toDelete.Id && space.Location == server_info.LeafLocation {
 			log.Debug().Msgf("delete user: Deleting space %s from nomad", space.Id)
 
 			// Load the space template
@@ -219,7 +220,8 @@ func UpdateUserSpaces(user *model.User) {
 		nomadClient := nomad.NewClient()
 		containerClient := docker.NewClient()
 		for _, space := range spaces {
-			if space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
+			// Skip over spaces shared with the user but not owned by them
+			if space.UserId == user.Id && space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
 
 				// Load the space template
 				template, err := db.GetTemplate(space.TemplateId)

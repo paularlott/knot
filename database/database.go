@@ -174,7 +174,7 @@ func GetCacheInstance() IDbDriver {
 	return dbCacheInstance
 }
 
-func GetUserUsage(userId string) (*model.Usage, error) {
+func GetUserUsage(userId string, inLocation string) (*model.Usage, error) {
 	db := GetInstance()
 
 	// Load the spaces for the user and calculate the quota
@@ -184,17 +184,27 @@ func GetUserUsage(userId string) (*model.Usage, error) {
 	}
 
 	usage := &model.Usage{
-		ComputeUnits:         0,
-		StorageUnits:         0,
-		NumberSpaces:         0,
-		NumberSpacesDeployed: 0,
+		ComputeUnits:                   0,
+		StorageUnits:                   0,
+		NumberSpaces:                   0,
+		NumberSpacesDeployed:           0,
+		NumberSpacesDeployedInLocation: 0,
 	}
 
 	for _, space := range spaces {
+		// If space is shared with this user then ignore it
+		if space.UserId != userId {
+			continue
+		}
+
 		usage.NumberSpaces++
 
 		if space.IsDeployed {
 			usage.NumberSpacesDeployed++
+
+			if inLocation != "" && space.Location == inLocation {
+				usage.NumberSpacesDeployedInLocation++
+			}
 		}
 
 		// Get the template

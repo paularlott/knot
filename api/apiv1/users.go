@@ -281,17 +281,6 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Get the groups and build a map
-		groups, err := db.GetGroups()
-		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-		groupMap := make(map[string]*model.Group)
-		for _, group := range groups {
-			groupMap[group.Id] = group
-		}
-
 		for _, user := range users {
 			if requiredState == "all" || (requiredState == "active" && user.Active) || (requiredState == "inactive" && !user.Active) {
 				data := apiclient.UserInfo{}
@@ -308,16 +297,17 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 				data.MaxTunnels = user.MaxTunnels
 				data.Current = user.Id == activeUser.Id
 
-				// Sum the compute and storage units from groups
-				for _, groupId := range user.Groups {
-					group, ok := groupMap[groupId]
-					if ok {
-						data.MaxSpaces += group.MaxSpaces
-						data.ComputeUnits += group.ComputeUnits
-						data.StorageUnits += group.StorageUnits
-						data.MaxTunnels += group.MaxTunnels
-					}
+				// Get the users quota
+				quota, err := database.GetUserQuota(user)
+				if err != nil {
+					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+					return
 				}
+
+				data.MaxSpaces = quota.MaxSpaces
+				data.ComputeUnits = quota.ComputeUnits
+				data.StorageUnits = quota.StorageUnits
+				data.MaxTunnels = quota.MaxTunnels
 
 				if user.LastLoginAt != nil {
 					t := user.LastLoginAt.UTC()
@@ -326,45 +316,18 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 					data.LastLoginAt = nil
 				}
 
-				// Find the number of spaces the user has
-				spaces, err := db.GetSpacesForUser(user.Id)
+				// Get the users usage
+				usage, err := database.GetUserUsage(user.Id, inLocation)
 				if err != nil {
 					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 					return
 				}
 
-				var deployed int = 0
-				var deployedInLocation int = 0
-				var computeUnits uint32 = 0
-				var storageUnits uint32 = 0
-				for _, space := range spaces {
-					if space.IsDeployed || space.IsPending {
-						deployed++
-
-						if inLocation != "" && space.Location == inLocation {
-							deployedInLocation++
-						}
-					}
-
-					// Get the template
-					template, err := db.GetTemplate(space.TemplateId)
-					if err == nil {
-						if space.IsDeployed {
-							computeUnits += template.ComputeUnits
-						}
-
-						// If there's volumes then the space has been deployed and has storage
-						if len(space.VolumeData) > 0 {
-							storageUnits += template.StorageUnits
-						}
-					}
-				}
-
-				data.NumberSpaces = len(spaces)
-				data.NumberSpacesDeployed = deployed
-				data.NumberSpacesDeployedInLocation = deployedInLocation
-				data.UsedComputeUnits = computeUnits
-				data.UsedStorageUnits = storageUnits
+				data.NumberSpaces = usage.NumberSpaces
+				data.NumberSpacesDeployed = usage.NumberSpacesDeployed
+				data.NumberSpacesDeployedInLocation = usage.NumberSpacesDeployedInLocation
+				data.UsedComputeUnits = usage.ComputeUnits
+				data.UsedStorageUnits = usage.StorageUnits
 
 				userData.Users = append(userData.Users, data)
 				userData.Count++
@@ -649,7 +612,7 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	usage, err := database.GetUserUsage(userId)
+	usage, err := database.GetUserUsage(userId, "")
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return

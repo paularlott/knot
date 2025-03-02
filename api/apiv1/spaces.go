@@ -504,7 +504,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the space is owned by a different user then load the user
-	if user.Id != space.UserId && user.Id != space.SharedWithUserId {
+	if user.Id != space.UserId {
 		user, err = db.GetUser(space.UserId)
 		if err != nil {
 			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
@@ -540,7 +540,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		space.AltNames = spaceRemote.AltNames
 		space.Shell = spaceRemote.Shell
 	} else {
-		usage, err := database.GetUserUsage(user.Id)
+		usage, err := database.GetUserUsage(user.Id, "")
 		if err != nil {
 			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -910,7 +910,8 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, space := range spaces {
-		if space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
+		// We skip spaces that have been shared with the user
+		if space.UserId == userId && space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
 
 			// Load the template for the space
 			template, err := db.GetTemplate(space.TemplateId)
@@ -1146,7 +1147,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userUsage, err := database.GetUserUsage(newUser.Id)
+	userUsage, err := database.GetUserUsage(newUser.Id, "")
 	if err != nil {
 		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
