@@ -102,6 +102,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.TemplateName = templateName
 			s.TemplateId = space.TemplateId
 			s.Location = space.Location
+			s.IsRemote = space.Location != "" && space.Location != server_info.LeafLocation
 			s.LocalContainer = localContainer
 			s.IsManual = isManual
 
@@ -124,6 +125,54 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 					s.SharedUserId = u.Id
 					s.SharedUsername = u.Username
 				}
+			}
+
+			// Get the space state
+			s.IsDeployed = space.IsDeployed
+			s.IsPending = space.IsPending
+			s.IsDeleting = space.IsDeleting
+
+			state := agent_server.GetSession(space.Id)
+			if state == nil {
+				s.HasCodeServer = false
+				s.HasSSH = false
+				s.HasTerminal = false
+				s.HasHttpVNC = false
+				s.TcpPorts = make(map[string]string)
+				s.HttpPorts = make(map[string]string)
+				s.HasVSCodeTunnel = false
+				s.VSCodeTunnel = ""
+				s.HasState = false
+			} else {
+				s.HasCodeServer = state.HasCodeServer
+				s.HasSSH = state.SSHPort > 0
+				s.HasTerminal = state.HasTerminal
+				s.HasHttpVNC = state.VNCHttpPort > 0
+				s.TcpPorts = state.TcpPorts
+				s.HasState = true
+
+				// If wildcard domain is set then offer the http ports
+				if viper.GetString("server.wildcard_domain") == "" {
+					s.HttpPorts = make(map[string]string)
+				} else {
+					s.HttpPorts = state.HttpPorts
+				}
+
+				s.HasVSCodeTunnel = state.HasVSCodeTunnel
+				s.VSCodeTunnel = state.VSCodeTunnelName
+
+				// If template is manual then force IsDeployed to true as agent is live
+				if template.IsManual {
+					s.IsDeployed = true
+				}
+			}
+
+			// Check if the template has been updated
+			hash := api_utils.GetTemplateHash(space.TemplateId)
+			if template.IsManual || hash == "" {
+				s.UpdateAvailable = false
+			} else {
+				s.UpdateAvailable = space.IsDeployed && space.TemplateHash != hash
 			}
 
 			spaceData.Spaces = append(spaceData.Spaces, s)
@@ -365,113 +414,6 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		Status:  true,
 		SpaceID: space.Id,
 	})
-}
-
-func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
-	spaceId := r.PathValue("space_id")
-
-	if !validate.UUID(spaceId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
-	db := database.GetInstance()
-
-	space, err := db.GetSpace(spaceId)
-	if err != nil || space == nil {
-		if err.Error() == "space not found" {
-			// Try to get space from remote
-			remoteClient := r.Context().Value("remote_client")
-			if remoteClient != nil {
-				client := remoteClient.(*apiclient.ApiClient)
-
-				var code int
-				var err error
-
-				space, code, err = client.GetSpace(spaceId)
-				if err != nil || space == nil {
-					log.Error().Msgf("HandleGetSpaceServiceState: GetSpace from origin %s", err.Error())
-					rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
-					return
-				}
-
-				// Save the space
-				err = db.SaveSpace(space)
-				if err != nil {
-					log.Error().Msgf("HandleGetSpaceServiceState: SaveSpace %s", err.Error())
-					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-					return
-				}
-			} else {
-				rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
-				return
-			}
-		} else {
-			log.Error().Msgf("HandleGetSpaceServiceState: GetSpace %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-	}
-
-	template, err := db.GetTemplate(space.TemplateId)
-	if err != nil {
-		log.Error().Msgf("HandleGetSpaceServiceState: GetTemplate %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	response := apiclient.SpaceServiceState{}
-	response.Name = space.Name
-	response.Location = space.Location
-	response.IsDeployed = space.IsDeployed
-	response.IsPending = space.IsPending
-	response.IsDeleting = space.IsDeleting
-	response.IsRemote = space.Location != "" && space.Location != server_info.LeafLocation
-
-	state := agent_server.GetSession(spaceId)
-	if state == nil {
-		response.HasCodeServer = false
-		response.HasSSH = false
-		response.HasTerminal = false
-		response.HasHttpVNC = false
-		response.TcpPorts = make(map[string]string)
-		response.HttpPorts = make(map[string]string)
-		response.HasVSCodeTunnel = false
-		response.VSCodeTunnel = ""
-		response.HasState = false
-	} else {
-		response.HasCodeServer = state.HasCodeServer
-		response.HasSSH = state.SSHPort > 0
-		response.HasTerminal = state.HasTerminal
-		response.HasHttpVNC = state.VNCHttpPort > 0
-		response.TcpPorts = state.TcpPorts
-		response.HasState = true
-
-		// If wildcard domain is set then offer the http ports
-		if viper.GetString("server.wildcard_domain") == "" {
-			response.HttpPorts = make(map[string]string)
-		} else {
-			response.HttpPorts = state.HttpPorts
-		}
-
-		response.HasVSCodeTunnel = state.HasVSCodeTunnel
-		response.VSCodeTunnel = state.VSCodeTunnelName
-
-		// If template is manual then force IsDeployed to true as agent is live
-		if template.IsManual {
-			response.IsDeployed = true
-		}
-	}
-
-	// Check if the template has been updated
-	hash := api_utils.GetTemplateHash(space.TemplateId)
-	if template.IsManual || hash == "" {
-		response.UpdateAvailable = false
-	} else {
-		response.UpdateAvailable = space.IsDeployed && space.TemplateHash != hash
-	}
-
-	rest.SendJSON(http.StatusOK, w, r, response)
 }
 
 func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {

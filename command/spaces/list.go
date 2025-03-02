@@ -38,58 +38,46 @@ var listCmd = &cobra.Command{
 			status := ""
 			ports := make([]string, 0)
 
-			// Get the status for the space
-			state, code, err := client.GetSpaceServiceState(space.Id)
-			if err != nil {
-
-				fmt.Println(code, space.Id)
-
-				fmt.Println("Error getting space state: ", err)
-				return
+			if space.IsRemote {
+				status = "Remote "
 			}
 
-			if state != nil {
-				if state.IsRemote {
-					status = "Remote "
+			if space.IsDeployed {
+				if space.IsPending {
+					status = status + "Stopping"
+				} else {
+					status = status + "Running"
+				}
+			} else if space.IsDeleting {
+				status = status + "Deleting"
+			} else if space.IsPending {
+				status = status + "Starting"
+			}
+
+			// The list of HTTP ports
+			for port, desc := range space.HttpPorts {
+				var p string
+
+				if port == desc {
+					p = port
+				} else {
+					p = fmt.Sprintf("%s (%s)", desc, port)
 				}
 
-				if state.IsDeployed {
-					if state.IsPending {
-						status = status + "Stopping"
-					} else {
-						status = status + "Running"
-					}
-				} else if state.IsDeleting {
-					status = status + "Deleting"
-				} else if state.IsPending {
-					status = status + "Starting"
+				ports = append(ports, p)
+			}
+
+			// The list of TCP ports
+			for port, desc := range space.TcpPorts {
+				var p string
+
+				if port == desc {
+					p = port
+				} else {
+					p = fmt.Sprintf("%s (%s)", desc, port)
 				}
 
-				// The list of HTTP ports
-				for port, desc := range state.HttpPorts {
-					var p string
-
-					if port == desc {
-						p = port
-					} else {
-						p = fmt.Sprintf("%s (%s)", desc, port)
-					}
-
-					ports = append(ports, p)
-				}
-
-				// The list of TCP ports
-				for port, desc := range state.TcpPorts {
-					var p string
-
-					if port == desc {
-						p = port
-					} else {
-						p = fmt.Sprintf("%s (%s)", desc, port)
-					}
-
-					ports = append(ports, p)
-				}
+				ports = append(ports, p)
 			}
 
 			// Join the ports array into a comma separated string
