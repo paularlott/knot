@@ -39,7 +39,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 			// Create the volume
 			err := client.CreateCSIVolume(&volume)
 			if err != nil {
-				db.SaveSpace(space) // Save the space to capture the volumes
+				db.UpdateSpace(space, "VolumeData") // Save the space to capture the volumes
 				return err
 			}
 
@@ -58,7 +58,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 			// Delete the volume
 			err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
 			if err != nil {
-				db.SaveSpace(space) // Save the space to capture the volumes
+				db.UpdateSpace(space, "VolumeData") // Save the space to capture the volumes
 				return err
 			}
 
@@ -67,7 +67,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 	}
 
 	// Save the space with the volume data
-	err = db.SaveSpace(space)
+	err = db.UpdateSpace(space, "VolumeData")
 	if err != nil {
 		return err
 	}
@@ -86,12 +86,12 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 	for _, volume := range space.VolumeData {
 		err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
 		if err != nil {
-			db.SaveSpace(space) // Save the space to capture the volumes
+			db.UpdateSpace(space, "VolumeData") // Save the space to capture the volumes
 			return err
 		}
 
 		delete(space.VolumeData, volume.Id)
-		db.SaveSpace(space)
+		db.UpdateSpace(space, "VolumeData")
 	}
 
 	log.Debug().Msg("nomad: volumes deleted")
@@ -138,7 +138,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	space.IsDeleting = false
 	space.TemplateHash = template.Hash
 	space.Location = server_info.LeafLocation
-	err = db.SaveSpace(space)
+	err = db.UpdateSpace(space, "NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location")
 	if err != nil {
 		log.Error().Msgf("nomad: creating space job %s error %s", space.Id, err)
 		return err
@@ -162,7 +162,7 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
 	space.IsPending = true
 
 	db := database.GetInstance()
-	err = db.SaveSpace(space)
+	err = db.UpdateSpace(space, "IsPending")
 	if err != nil {
 		log.Debug().Msgf("nomad: deleting space job %s error %s", space.Id, err)
 		return err
@@ -195,7 +195,7 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 
 						space.IsPending = false
 						space.IsDeployed = true
-						err = database.GetInstance().SaveSpace(space)
+						err = database.GetInstance().UpdateSpace(space, "IsPending", "IsDeployed")
 						if err != nil {
 							log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
 						}
@@ -208,7 +208,7 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 
 					space.IsPending = false
 					space.IsDeployed = false
-					err = database.GetInstance().SaveSpace(space)
+					err = database.GetInstance().UpdateSpace(space, "IsPending", "IsDeployed")
 					if err != nil {
 						log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
 					}

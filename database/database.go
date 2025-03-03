@@ -48,7 +48,8 @@ type IDbDriver interface {
 	GetTokensForUser(userId string) ([]*model.Token, error)
 
 	// Space
-	SaveSpace(space *model.Space) error
+	CreateSpace(space *model.Space) error
+	UpdateSpace(space *model.Space, updateFields ...string) error
 	DeleteSpace(space *model.Space) error
 	GetSpace(id string) (*model.Space, error)
 	GetSpacesForUser(userId string) ([]*model.Space, error)

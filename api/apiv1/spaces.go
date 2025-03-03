@@ -242,7 +242,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	if space.Location == server_info.LeafLocation {
 		// Mark the space as deleting and delete it in the background
 		space.IsDeleting = true
-		db.SaveSpace(space)
+		db.UpdateSpace(space, "IsDeleting")
 
 		// Delete the space in the background
 		RealDeleteSpace(space)
@@ -381,8 +381,8 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Save the space
-	err = db.SaveSpace(space)
+	// Create the space
+	err = db.CreateSpace(space)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -561,7 +561,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 	// Mark the space as pending and save it
 	space.IsPending = true
-	if err = db.SaveSpace(space); err != nil {
+	if err = db.UpdateSpace(space, "IsPending", "Shell", "AltNames"); err != nil {
 		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -575,7 +575,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		if deployFailed {
 			// If the deploy failed then revert the space to not pending
 			space.IsPending = false
-			db.SaveSpace(space)
+			db.UpdateSpace(space, "IsPending")
 
 			// If remote then need to update the remote
 			origin.UpdateSpace(space)
@@ -676,7 +676,7 @@ func deleteSpaceJob(space *model.Space) error {
 
 	// Mark the space as pending and save it
 	space.IsPending = true
-	if err = db.SaveSpace(space); err != nil {
+	if err = db.UpdateSpace(space, "IsPending"); err != nil {
 		log.Error().Msgf("DeleteSpaceJob: failed to save space %s", err.Error())
 		return err
 	}
@@ -694,7 +694,7 @@ func deleteSpaceJob(space *model.Space) error {
 	err = containerClient.DeleteSpaceJob(space)
 	if err != nil {
 		space.IsPending = false
-		db.SaveSpace(space)
+		db.UpdateSpace(space, "IsPending")
 		origin.UpdateSpace(space)
 
 		log.Error().Msgf("DeleteSpaceJob: failed to delete space %s", err.Error())
@@ -800,7 +800,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	err = db.SaveSpace(space)
+	err = db.UpdateSpace(space, "Name", "TemplateId", "Shell", "AltNames")
 	if err != nil {
 		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -865,7 +865,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 
 			// Mark the space as pending and save it
 			space.IsPending = true
-			if err = db.SaveSpace(space); err != nil {
+			if err = db.UpdateSpace(space, "IsPending"); err != nil {
 				log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
@@ -880,7 +880,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 			}
 			if err != nil {
 				space.IsPending = false
-				db.SaveSpace(space)
+				db.UpdateSpace(space, "IsPending")
 				origin.UpdateSpace(space)
 
 				log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
@@ -932,7 +932,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		space.Shell = spaceRemote.Shell
 
 		// Save the space
-		err = database.GetInstance().SaveSpace(space)
+		err = database.GetInstance().UpdateSpace(space, "Name", "AltNames", "Shell")
 		if err != nil {
 			log.Error().Msgf("HandleGetSpace: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -975,7 +975,7 @@ func RealDeleteSpace(space *model.Space) {
 			log.Error().Msgf("api: RealDeleteSpace load template %s", err.Error())
 
 			space.IsDeleting = false
-			db.SaveSpace(space)
+			db.UpdateSpace(space, "IsDeleting")
 			return
 		}
 
@@ -992,7 +992,7 @@ func RealDeleteSpace(space *model.Space) {
 			log.Error().Msgf("api: RealDeleteSpace %s", err.Error())
 
 			space.IsDeleting = false
-			db.SaveSpace(space)
+			db.UpdateSpace(space, "IsDeleting")
 			return
 		}
 
@@ -1002,7 +1002,7 @@ func RealDeleteSpace(space *model.Space) {
 			log.Error().Msgf("api: RealDeleteSpace %s", err.Error())
 
 			space.IsDeleting = false
-			db.SaveSpace(space)
+			db.UpdateSpace(space, "IsDeleting")
 			return
 		}
 
@@ -1164,7 +1164,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		// Move the space
 		space.Name = name
 		space.UserId = request.UserId
-		err = db.SaveSpace(space)
+		err = db.UpdateSpace(space, "Name", "UserId")
 		if err != nil {
 			log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -1260,7 +1260,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 
 	// Share the space
 	space.SharedWithUserId = newUser.Id
-	err = db.SaveSpace(space)
+	err = db.UpdateSpace(space, "SharedWithUserId")
 	if err != nil {
 		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -1323,7 +1323,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 
 	// Unshare the space
 	space.SharedWithUserId = ""
-	err = db.SaveSpace(space)
+	err = db.UpdateSpace(space, "SharedWithUserId")
 	if err != nil {
 		log.Error().Msgf("HandleSpaceRemoveShare: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})

@@ -380,7 +380,7 @@ func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token) error {
 		leaf.UpdateSpace(&space)
 
 		// Update the space in the database
-		return db.SaveSpace(&space)
+		return db.UpdateSpace(&space)
 	} else if token != nil && existingSpace != nil && existingSpace.UserId != token.UserId {
 		log.Warn().Msgf("origin: space %s not owned by token owner", space.Id)
 		leaf.DeleteSpace(space.Id)

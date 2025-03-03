@@ -72,7 +72,7 @@ NOTE: The location name is updated within the database however spaces and volume
 			fmt.Print("Checking Space: ", space.Name)
 			if space.Location == args[0] {
 				space.Location = args[1]
-				err := db.SaveSpace(space)
+				err := db.UpdateSpace(space, "Location")
 				if err != nil {
 					fmt.Println("Error updating space: ", err)
 					return

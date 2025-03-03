@@ -36,6 +36,8 @@ func UpdateSpace(space *model.Space) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
+	// FIXME now we're only doing partial updates we need to read the space before we send or just send the changes!
+
 	// Send the space to all followers
 	for _, session := range session {
 		session.UpdateSpace(space)
