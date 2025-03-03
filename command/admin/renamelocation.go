@@ -13,7 +13,7 @@ var renameLocationCmd = &cobra.Command{
 	Short: "Rename a location",
 	Long: `Rename a location.
 
-NOTE: The location name is updated within the database however spaces and volumes are not moved.
+The location name is updated within the database however spaces and volumes are not moved.
 
   old   The old location name
   new   The new location name`,
