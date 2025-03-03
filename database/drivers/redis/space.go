@@ -34,10 +34,10 @@ func (db *RedisDbDriver) mutexUnlock() error {
 }
 
 func (db *RedisDbDriver) CreateSpace(space *model.Space) error {
-	return db.UpdateSpace(space)
+	return db.UpdateSpace(space, nil)
 }
 
-func (db *RedisDbDriver) UpdateSpace(space *model.Space, updateFields ...string) error {
+func (db *RedisDbDriver) UpdateSpace(space *model.Space, updateFields []string) error {
 
 	// Grab a mutex lock on the redis database, automatically release on function exit
 	err := db.mutexLock()
@@ -51,7 +51,7 @@ func (db *RedisDbDriver) UpdateSpace(space *model.Space, updateFields ...string)
 	// Load the existing space
 	existingSpace, _ := db.GetSpace(space.Id)
 	if existingSpace == nil {
-		space.CreatedAt = model.NullTime{Time: &now}
+		space.CreatedAt = now
 	} else {
 		// If user changed then delete the space and add back in with new user
 		if existingSpace.UserId != space.UserId {
@@ -98,7 +98,7 @@ func (db *RedisDbDriver) UpdateSpace(space *model.Space, updateFields ...string)
 		space = existingSpace
 	}
 
-	space.UpdatedAt = model.NullTime{Time: &now}
+	space.UpdatedAt = now
 	data, err := json.Marshal(space)
 	if err != nil {
 		return err

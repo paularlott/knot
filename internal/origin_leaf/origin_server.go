@@ -248,7 +248,7 @@ func originHandleSyncSpace(ws *websocket.Conn, session *leaf.Session) error {
 			return err
 		}
 	} else {
-		if !session.UpdateSpace(space) {
+		if !session.UpdateSpace(space, nil) {
 			log.Warn().Msgf("origin: space %s not permitted to sync by token", space.Id)
 			session.DeleteSpace(syncSpaceId)
 		}
@@ -363,8 +363,8 @@ func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token) error {
 
 func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token) error {
 	// read the message
-	var space model.Space
-	err := msg.ReadMessage(ws, &space)
+	var updateMsg msg.UpdateSpace
+	err := msg.ReadMessage(ws, &updateMsg)
 	if err != nil {
 		return err
 	}
@@ -372,18 +372,18 @@ func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token) error {
 	db := database.GetInstance()
 
 	// Attempt to load the space, only update existing spaces
-	existingSpace, err := db.GetSpace(space.Id)
-	if err == nil && existingSpace != nil && existingSpace.UserId == space.UserId && (token == nil || existingSpace.UserId == token.UserId) {
-		log.Debug().Msgf("origin: updating space %s", space.Id)
+	existingSpace, err := db.GetSpace(updateMsg.Space.Id)
+	if err == nil && existingSpace != nil && existingSpace.UserId == updateMsg.Space.UserId && (token == nil || existingSpace.UserId == token.UserId) {
+		log.Debug().Msgf("origin: updating space %s", updateMsg.Space.Id)
 
 		// notify all leaf servers to update the space
-		leaf.UpdateSpace(&space)
+		leaf.UpdateSpace(&updateMsg.Space, updateMsg.UpdateFields)
 
 		// Update the space in the database
-		return db.UpdateSpace(&space)
+		return db.UpdateSpace(&updateMsg.Space, updateMsg.UpdateFields)
 	} else if token != nil && existingSpace != nil && existingSpace.UserId != token.UserId {
-		log.Warn().Msgf("origin: space %s not owned by token owner", space.Id)
-		leaf.DeleteSpace(space.Id)
+		log.Warn().Msgf("origin: space %s not owned by token owner", updateMsg.Space.Id)
+		leaf.DeleteSpace(updateMsg.Space.Id)
 	}
 
 	return nil

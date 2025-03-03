@@ -1,6 +1,6 @@
 package msg
 
-// message sent from an follower to the leader to register itself
+// message sent from a follower to the leader to register itself
 type Register struct {
 	Version  string
 	Location string

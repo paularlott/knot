@@ -2,7 +2,6 @@ package leaf_server
 
 import (
 	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
 
 	"github.com/gorilla/websocket"
@@ -12,18 +11,18 @@ import (
 func HandleUpdateSpace(ws *websocket.Conn) error {
 	db := database.GetInstance()
 
-	var data model.Space
+	var data msg.UpdateSpace
 	err := msg.ReadMessage(ws, &data)
 	if err != nil {
 		return err
 	}
 
 	// Check the user for the space is present
-	user, err := db.GetUser(data.UserId)
+	user, err := db.GetUser(data.Space.UserId)
 	if err == nil && user != nil {
-		log.Debug().Msgf("leaf: updating space %s - %s", data.Id, data.Name)
+		log.Debug().Msgf("leaf: updating space %s - %s", data.Space.Id, data.Space.Name)
 
-		if err := db.UpdateSpace(&data); err != nil {
+		if err := db.UpdateSpace(&data.Space, data.UpdateFields); err != nil {
 			log.Error().Msgf("error saving space: %s", err)
 			return err
 		}

@@ -10,7 +10,7 @@ func (db *MemoryDbDriver) CreateSpace(space *model.Space) error {
 	return errors.New("memorydb: not implemented")
 }
 
-func (db *MemoryDbDriver) UpdateSpace(space *model.Space, updateFields ...string) error {
+func (db *MemoryDbDriver) UpdateSpace(space *model.Space, updateFields []string) error {
 	return errors.New("memorydb: not implemented")
 }
 

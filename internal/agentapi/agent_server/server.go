@@ -56,12 +56,12 @@ func checkSchedules() {
 
 						// Mark the space as pending and save it
 						space.IsPending = true
-						if err = db.UpdateSpace(space, "IsPending"); err != nil {
+						if err = db.UpdateSpace(space, []string{"IsPending"}); err != nil {
 							log.Error().Msgf("DeleteSpaceJob: failed to save space %s", err.Error())
 							continue
 						}
 
-						origin.UpdateSpace(space)
+						origin.UpdateSpace(space, []string{"IsPending"})
 
 						var containerClient container.ContainerManager
 						if template.LocalContainer {
@@ -74,8 +74,8 @@ func checkSchedules() {
 						err = containerClient.DeleteSpaceJob(space)
 						if err != nil {
 							space.IsPending = false
-							db.UpdateSpace(space, "IsPending")
-							origin.UpdateSpace(space)
+							db.UpdateSpace(space, []string{"IsPending"})
+							origin.UpdateSpace(space, []string{"IsPending"})
 
 							log.Error().Msgf("DeleteSpaceJob: failed to delete space %s", err.Error())
 							continue

@@ -6,11 +6,14 @@ import (
 )
 
 // update the space on a leaf node
-func (s *Session) UpdateSpace(space *model.Space) bool {
+func (s *Session) UpdateSpace(space *model.Space, updateFields []string) bool {
 	if s.token == nil || space.UserId == s.token.UserId {
 		message := &msg.ClientMessage{
 			Command: msg.MSG_UPDATE_SPACE,
-			Payload: space,
+			Payload: &msg.UpdateSpace{
+				Space:        *space,
+				UpdateFields: updateFields,
+			},
 		}
 
 		s.ch <- message
@@ -32,15 +35,13 @@ func (s *Session) DeleteSpace(id string) {
 }
 
 // update the space on all leaf nodes
-func UpdateSpace(space *model.Space) {
+func UpdateSpace(space *model.Space, updateFields []string) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
-	// FIXME now we're only doing partial updates we need to read the space before we send or just send the changes!
-
 	// Send the space to all followers
 	for _, session := range session {
-		session.UpdateSpace(space)
+		session.UpdateSpace(space, updateFields)
 	}
 }
 

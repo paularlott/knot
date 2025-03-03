@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/paularlott/knot/util"
 )
@@ -186,6 +187,9 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 				if _, ok := jsonFields[i]; ok {
 					tempValues[i] = new(string)
 					columnPointers[i] = tempValues[i]
+				} else if field.Type() == reflect.TypeOf(time.Time{}) {
+					tempValues[i] = new([]uint8)
+					columnPointers[i] = tempValues[i]
 				} else {
 					columnPointers[i] = field.Addr().Interface()
 				}
@@ -207,6 +211,18 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 				if err := json.Unmarshal([]byte(jsonStr), field.Addr().Interface()); err != nil {
 					return err
 				}
+			}
+		}
+
+		// Convert []uint8 to time.Time if necessary
+		for i, field := range fieldNames {
+			if obj.FieldByName(field).Type() == reflect.TypeOf(time.Time{}) {
+				timeBytes := *(tempValues[i].(*[]uint8))
+				parsedTime, err := time.Parse("2006-01-02 15:04:05", string(timeBytes))
+				if err != nil {
+					return err
+				}
+				obj.FieldByName(field).Set(reflect.ValueOf(parsedTime))
 			}
 		}
 

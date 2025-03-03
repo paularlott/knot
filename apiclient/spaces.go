@@ -105,8 +105,8 @@ func (c *ApiClient) GetSpace(spaceId string) (*model.Space, int, error) {
 		IsPending:    response.IsPending,
 		IsDeleting:   response.IsDeleting,
 		VolumeData:   response.VolumeData,
-		CreatedAt:    model.NullTime{Time: &now},
-		UpdatedAt:    model.NullTime{Time: &now},
+		CreatedAt:    now,
+		UpdatedAt:    now,
 		Location:     response.Location,
 	}
 

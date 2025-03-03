@@ -70,7 +70,7 @@ func (db *MySQLDriver) CreateSpace(space *model.Space) error {
 	return nil
 }
 
-func (db *MySQLDriver) UpdateSpace(space *model.Space, updateFields ...string) error {
+func (db *MySQLDriver) UpdateSpace(space *model.Space, updateFields []string) error {
 	tx, err := db.connection.Begin()
 	if err != nil {
 		return err
@@ -112,8 +112,8 @@ func (db *MySQLDriver) UpdateSpace(space *model.Space, updateFields ...string) e
 
 	// Update the update time
 	now := time.Now().UTC()
-	space.UpdatedAt = model.NullTime{Time: &now}
-	if !util.InArray(updateFields, "UpdatedAt") {
+	space.UpdatedAt = now
+	if len(updateFields) > 0 && !util.InArray(updateFields, "UpdatedAt") {
 		updateFields = append(updateFields, "UpdatedAt")
 	}
 
