@@ -32,6 +32,13 @@ func (db *MySQLDriver) create(tableName string, obj interface{}) error {
 					return err
 				}
 				values = append(values, string(jsonValue))
+			} else if field.Type == reflect.PointerTo(reflect.TypeOf(time.Time{})) {
+				timePtr := val.Field(i).Interface().(*time.Time)
+				if timePtr == nil {
+					values = append(values, nil)
+				} else {
+					values = append(values, timePtr.Format("2006-01-02 15:04:05"))
+				}
 			} else {
 				values = append(values, val.Field(i).Interface())
 			}
@@ -74,6 +81,13 @@ func (db *MySQLDriver) update(tableName string, obj interface{}, fieldsToUpdate 
 						return err
 					}
 					values = append(values, string(jsonValue))
+				} else if field.Type == reflect.PointerTo(reflect.TypeOf(time.Time{})) {
+					timePtr := val.Field(i).Interface().(*time.Time)
+					if timePtr == nil {
+						values = append(values, nil)
+					} else {
+						values = append(values, timePtr.Format("2006-01-02 15:04:05"))
+					}
 				} else {
 					fieldValue := val.Field(i).Interface()
 					// Check if the field implements the driver.Valuer interface
@@ -187,7 +201,7 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 				if _, ok := jsonFields[i]; ok {
 					tempValues[i] = new(string)
 					columnPointers[i] = tempValues[i]
-				} else if field.Type() == reflect.TypeOf(time.Time{}) {
+				} else if field.Type() == reflect.TypeOf(time.Time{}) || field.Type() == reflect.PointerTo(reflect.TypeOf(time.Time{})) {
 					tempValues[i] = new([]uint8)
 					columnPointers[i] = tempValues[i]
 				} else {
@@ -214,15 +228,27 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 			}
 		}
 
-		// Convert []uint8 to time.Time if necessary
+		// Convert []uint8 to time.Time or *time.Time if necessary
 		for i, field := range fieldNames {
-			if obj.FieldByName(field).Type() == reflect.TypeOf(time.Time{}) {
+			fieldValue := obj.FieldByName(field)
+			if fieldValue.Type() == reflect.TypeOf(time.Time{}) {
 				timeBytes := *(tempValues[i].(*[]uint8))
 				parsedTime, err := time.Parse("2006-01-02 15:04:05", string(timeBytes))
 				if err != nil {
 					return err
 				}
-				obj.FieldByName(field).Set(reflect.ValueOf(parsedTime))
+				fieldValue.Set(reflect.ValueOf(parsedTime))
+			} else if fieldValue.Type() == reflect.PointerTo(reflect.TypeOf(time.Time{})) {
+				timeBytes := *(tempValues[i].(*[]uint8))
+				if len(timeBytes) == 0 {
+					fieldValue.Set(reflect.Zero(fieldValue.Type()))
+				} else {
+					parsedTime, err := time.Parse("2006-01-02 15:04:05", string(timeBytes))
+					if err != nil {
+						return err
+					}
+					fieldValue.Set(reflect.ValueOf(&parsedTime))
+				}
 			}
 		}
 

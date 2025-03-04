@@ -18,13 +18,10 @@ func (db *BadgerDbDriver) CreateSpace(space *model.Space) error {
 
 func (db *BadgerDbDriver) UpdateSpace(space *model.Space, updateFields []string) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
-		now := time.Now().UTC()
 
 		// Load the existing space
 		existingSpace, _ := db.GetSpace(space.Id)
-		if existingSpace == nil {
-			space.CreatedAt = now
-		} else {
+		if existingSpace != nil {
 			// If user changed then delete the space and add back in with new user
 			if existingSpace.UserId != space.UserId {
 				db.DeleteSpace(existingSpace)
@@ -48,6 +45,7 @@ func (db *BadgerDbDriver) UpdateSpace(space *model.Space, updateFields []string)
 			space = existingSpace
 		}
 
+		now := time.Now().UTC()
 		space.UpdatedAt = now
 		data, err := json.Marshal(space)
 		if err != nil {
