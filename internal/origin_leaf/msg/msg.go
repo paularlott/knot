@@ -28,6 +28,7 @@ const (
 	MSG_SYNC_SPACE // Sent to origin server to request a space sync back to the leaf
 	MSG_UPDATE_SPACE
 	MSG_DELETE_SPACE
+	MSG_SYNC_USER_SPACES
 
 	MSG_UPDATE_VOLUME // Sent to origin server to update a volume
 

@@ -33,11 +33,7 @@ func (db *RedisDbDriver) mutexUnlock() error {
 	return err
 }
 
-func (db *RedisDbDriver) CreateSpace(space *model.Space) error {
-	return db.UpdateSpace(space, nil)
-}
-
-func (db *RedisDbDriver) UpdateSpace(space *model.Space, updateFields []string) error {
+func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) error {
 
 	// Grab a mutex lock on the redis database, automatically release on function exit
 	err := db.mutexLock()

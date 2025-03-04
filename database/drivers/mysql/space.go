@@ -25,59 +25,23 @@ func (db *MySQLDriver) getAltNames(id string) ([]string, error) {
 	return altNames, nil
 }
 
-func (db *MySQLDriver) CreateSpace(space *model.Space) error {
+func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) error {
 	tx, err := db.connection.Begin()
 	if err != nil {
 		return err
 	}
 
-	// Check if the space name already exists
-	var exists bool
-	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM spaces WHERE user_id=? AND name=?)", space.UserId, space.Name).Scan(&exists)
+	var existingSpaces []model.Space
+	err = db.read("spaces", &existingSpaces, []string{"Name"}, "space_id = ?", space.Id)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	if exists {
-		tx.Rollback()
-		return fmt.Errorf("space name already used")
-	}
-
-	err = db.create("spaces", space)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// Add alt names
-	for _, name := range space.AltNames {
-		altId, err := uuid.NewV7()
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-
-		_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, location) VALUES (?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name, space.Location)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-
-	tx.Commit()
-
-	return nil
-}
-
-func (db *MySQLDriver) UpdateSpace(space *model.Space, updateFields []string) error {
-	tx, err := db.connection.Begin()
-	if err != nil {
-		return err
-	}
+	var doUpdate = len(existingSpaces) > 0
 
 	// Update the owner of alt names
-	if len(updateFields) == 0 || util.InArray(updateFields, "UserId") {
+	if doUpdate && (len(updateFields) == 0 || util.InArray(updateFields, "UserId")) {
 		_, err = tx.Exec("UPDATE spaces SET user_id=? WHERE parent_space_id = ?", space.UserId, space.Id)
 		if err != nil {
 			tx.Rollback()
@@ -85,16 +49,9 @@ func (db *MySQLDriver) UpdateSpace(space *model.Space, updateFields []string) er
 		}
 	}
 
-	// Check if saving the name then check if the name has changed, and if it has is it still unique
+	// If saving the name then check if the name has changed, and if it has is it still unique
 	if len(updateFields) == 0 || util.InArray(updateFields, "Name") {
-		var existingSpaces []model.Space
-		err = db.read("spaces", &existingSpaces, []string{"Name"}, "space_id = ?", space.Id)
-		if err != nil || len(existingSpaces) == 0 {
-			tx.Rollback()
-			return err
-		}
-
-		if existingSpaces[0].Name != space.Name {
+		if !doUpdate || existingSpaces[0].Name != space.Name {
 			// Check if the space name already in use by another space
 			var exists bool
 			err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM spaces WHERE user_id=? AND name=?)", space.UserId, space.Name).Scan(&exists)
@@ -110,17 +67,25 @@ func (db *MySQLDriver) UpdateSpace(space *model.Space, updateFields []string) er
 		}
 	}
 
-	// Update the update time
-	now := time.Now().UTC()
-	space.UpdatedAt = now
-	if len(updateFields) > 0 && !util.InArray(updateFields, "UpdatedAt") {
-		updateFields = append(updateFields, "UpdatedAt")
-	}
+	if doUpdate {
+		// Update the update time
+		now := time.Now().UTC()
+		space.UpdatedAt = now
+		if len(updateFields) > 0 && !util.InArray(updateFields, "UpdatedAt") {
+			updateFields = append(updateFields, "UpdatedAt")
+		}
 
-	err = db.update("spaces", space, updateFields)
-	if err != nil {
-		tx.Rollback()
-		return err
+		err = db.update("spaces", space, updateFields)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	} else {
+		err = db.create("spaces", space)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 
 	// If updating all or explicitly updating alt names

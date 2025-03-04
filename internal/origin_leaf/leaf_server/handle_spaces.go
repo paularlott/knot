@@ -22,7 +22,7 @@ func HandleUpdateSpace(ws *websocket.Conn) error {
 	if err == nil && user != nil {
 		log.Debug().Msgf("leaf: updating space %s - %s", data.Space.Id, data.Space.Name)
 
-		if err := db.UpdateSpace(&data.Space, data.UpdateFields); err != nil {
+		if err := db.SaveSpace(&data.Space, data.UpdateFields); err != nil {
 			log.Error().Msgf("error saving space: %s", err)
 			return err
 		}

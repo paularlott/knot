@@ -7,3 +7,8 @@ type UpdateSpace struct {
 	Space        model.Space
 	UpdateFields []string
 }
+
+type SyncUserSpaces struct {
+	UserId   string
+	Existing []string
+}

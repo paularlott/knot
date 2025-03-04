@@ -12,11 +12,7 @@ import (
 	"github.com/paularlott/knot/util"
 )
 
-func (db *BadgerDbDriver) CreateSpace(space *model.Space) error {
-	return db.UpdateSpace(space, nil)
-}
-
-func (db *BadgerDbDriver) UpdateSpace(space *model.Space, updateFields []string) error {
+func (db *BadgerDbDriver) SaveSpace(space *model.Space, updateFields []string) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
 
 		// Load the existing space

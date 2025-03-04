@@ -136,7 +136,7 @@ func LeafConnectAndServe(server string) {
 			for _, user := range users {
 				requestUserFromOrigin(user.Id)
 
-				// Get the list of spaces for the user
+				// Get the list of spaces for the user in the local database
 				spaces, err := db.GetSpacesForUser(user.Id)
 				if err != nil {
 					log.Error().Msgf("leaf: error fetching spaces for user %s: %s", user.Id, err)
@@ -145,10 +145,15 @@ func LeafConnectAndServe(server string) {
 					break
 				}
 
-				// Request the origin server to sync the spaces
+				// Request the origin server to sync the spaces, this will update the local data and remove local spaces that don't exist
+				var ids []string
 				for _, space := range spaces {
 					requestSpaceFromOrigin(space.Id)
+					ids = append(ids, space.Id)
 				}
+
+				// Ask the origin server to send all spaces for the user other than those already synced
+				requestUserSpacesFromOrigin(user.Id, ids)
 			}
 
 			// Mark the end of the bootstrap process
@@ -389,6 +394,18 @@ func requestSpaceFromOrigin(id string) {
 	message := &msg.ClientMessage{
 		Command: msg.MSG_SYNC_SPACE,
 		Payload: &id,
+	}
+
+	origin.OriginChannel <- message
+}
+
+func requestUserSpacesFromOrigin(userId string, existing []string) {
+	message := &msg.ClientMessage{
+		Command: msg.MSG_SYNC_USER_SPACES,
+		Payload: &msg.SyncUserSpaces{
+			UserId:   userId,
+			Existing: existing,
+		},
 	}
 
 	origin.OriginChannel <- message
