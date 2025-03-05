@@ -20,32 +20,35 @@ func HandleUpdateUser(ws *websocket.Conn) error {
 		return err
 	}
 
-	// If the user isn't active then delete it
-	if !userData.Active {
-		log.Debug().Msgf("leaf: removing inactive user %s - %s", userData.Id, userData.Username)
+	go func() {
+		// If the user isn't active then delete it
+		if !userData.Active {
+			log.Debug().Msgf("leaf: removing inactive user %s - %s", userData.Id, userData.Username)
 
-		// Load the user & delete it
-		user, err := db.GetUser(userData.Id)
-		if err == nil && user != nil {
-			log.Debug().Msgf("leaf: deleting user %s - %s", user.Id, user.Username)
-			api_utils.DeleteUser(db, user)
-		}
-	} else {
-		// Attempt to load the user, only update existing users
-		user, err := db.GetUser(userData.Id)
-		if err == nil && user != nil {
-			log.Debug().Msgf("leaf: updating user %s - %s", userData.Id, userData.Username)
-
-			// Update the user in the database
-			err = db.SaveUser(&userData)
-			if err != nil {
-				return err
+			// Load the user & delete it
+			user, err := db.GetUser(userData.Id)
+			if err == nil && user != nil {
+				log.Debug().Msgf("leaf: deleting user %s - %s", user.Id, user.Username)
+				api_utils.DeleteUser(db, user)
 			}
+		} else {
+			// Attempt to load the user, only update existing users
+			user, err := db.GetUser(userData.Id)
+			if err == nil && user != nil {
+				log.Debug().Msgf("leaf: updating user %s - %s", userData.Id, userData.Username)
 
-			// Update the user's spaces, ssh keys or stop spaces
-			go api_utils.UpdateUserSpaces(&userData)
+				// Update the user in the database
+				err = db.SaveUser(&userData)
+				if err != nil {
+					log.Error().Msgf("error saving user: %s", err)
+					return
+				}
+
+				// Update the user's spaces, ssh keys or stop spaces
+				api_utils.UpdateUserSpaces(&userData)
+			}
 		}
-	}
+	}()
 
 	return nil
 }

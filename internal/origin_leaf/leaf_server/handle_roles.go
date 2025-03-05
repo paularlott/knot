@@ -14,7 +14,9 @@ func HandleUpdateRole(ws *websocket.Conn) error {
 		return err
 	}
 
-	model.SaveRoleToCache(&role)
+	go func() {
+		model.SaveRoleToCache(&role)
+	}()
 
 	return nil
 }

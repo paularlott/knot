@@ -27,11 +27,12 @@ import (
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 	var spaceData *apiclient.SpaceInfoList
 
+	user := r.Context().Value("user").(*model.User)
 	userId := r.URL.Query().Get("user_id")
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
+	if remoteClient != nil && userId != user.Id {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		var code int
@@ -45,7 +46,6 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		db := database.GetInstance()
-		user := r.Context().Value("user").(*model.User)
 
 		spaceData = &apiclient.SpaceInfoList{
 			Count:  0,

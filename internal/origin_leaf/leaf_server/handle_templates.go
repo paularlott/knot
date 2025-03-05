@@ -18,11 +18,17 @@ func HandleUpdateTemplate(ws *websocket.Conn) error {
 		return err
 	}
 
-	log.Debug().Msgf("leaf: updating template %s - %s", data.Id, data.Name)
+	go func() {
+		log.Debug().Msgf("leaf: updating template %s - %s", data.Id, data.Name)
 
-	db := database.GetInstance()
-	api_utils.UpdateTemplateHash(data.Id, data.Hash)
-	return db.SaveTemplate(&data)
+		db := database.GetInstance()
+		api_utils.UpdateTemplateHash(data.Id, data.Hash)
+		if err := db.SaveTemplate(&data); err != nil {
+			log.Error().Msgf("error saving template: %s", err)
+		}
+	}()
+
+	return nil
 }
 
 // handle template deletes sent from the origin server

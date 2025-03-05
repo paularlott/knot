@@ -17,16 +17,17 @@ func HandleUpdateSpace(ws *websocket.Conn) error {
 		return err
 	}
 
-	// Check the user for the space is present
-	user, err := db.GetUser(data.Space.UserId)
-	if err == nil && user != nil {
-		log.Debug().Msgf("leaf: updating space %s - %s", data.Space.Id, data.Space.Name)
+	go func() {
+		// Check the user for the space is present
+		user, err := db.GetUser(data.Space.UserId)
+		if err == nil && user != nil {
+			log.Debug().Msgf("leaf: updating space %s - %s", data.Space.Id, data.Space.Name)
 
-		if err := db.SaveSpace(&data.Space, data.UpdateFields); err != nil {
-			log.Error().Msgf("error saving space: %s", err)
-			return err
+			if err := db.SaveSpace(&data.Space, data.UpdateFields); err != nil {
+				log.Error().Msgf("error saving space: %s", err)
+			}
 		}
-	}
+	}()
 
 	return nil
 }

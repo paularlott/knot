@@ -144,6 +144,11 @@ run-server: agents
 run-leaf:
 	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf1.yml
 
+.PHONY: run-leaf2
+## Run a leaf server for development
+run-leaf2:
+	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf2.yml
+
 .PHONY: help
 ## This help screen
 help:
