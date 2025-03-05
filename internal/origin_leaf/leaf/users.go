@@ -6,7 +6,7 @@ import (
 )
 
 // update the user on a leaf node
-func (s *Session) UpdateUser(user *model.User) {
+func (s *Session) UpdateUser(user *model.User, updateFields []string) {
 	if s.token == nil || s.token.UserId == user.Id {
 
 		// Don't send the password or TOTP secret to leaf nodes
@@ -15,7 +15,10 @@ func (s *Session) UpdateUser(user *model.User) {
 
 		message := &msg.ClientMessage{
 			Command: msg.MSG_UPDATE_USER,
-			Payload: user,
+			Payload: &msg.UpdateUser{
+				User:         *user,
+				UpdateFields: updateFields,
+			},
 		}
 
 		s.ch <- message
@@ -33,13 +36,13 @@ func (s *Session) DeleteUser(id string) {
 }
 
 // update the user on all leaf nodes
-func UpdateUser(user *model.User) {
+func UpdateUser(user *model.User, updateFields []string) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.UpdateUser(user)
+		session.UpdateUser(user, updateFields)
 	}
 }
 

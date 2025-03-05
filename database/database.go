@@ -26,7 +26,7 @@ type IDbDriver interface {
 	Connect() error
 
 	// Users
-	SaveUser(user *model.User) error
+	SaveUser(user *model.User, updateFields []string) error
 	DeleteUser(user *model.User) error
 	GetUser(id string) (*model.User, error)
 	GetUserByEmail(email string) (*model.User, error)

@@ -156,7 +156,7 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 			if tag != "" {
 				if strings.Contains(tag, ",json") {
 					tag = strings.Replace(tag, ",json", "", -1)
-					jsonFields[i] = field.Name
+					jsonFields[len(columns)] = field.Name
 				}
 				columns = append(columns, strings.Replace(tag, ",pk", "", -1))
 				fieldNames = append(fieldNames, field.Name)

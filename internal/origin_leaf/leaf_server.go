@@ -153,7 +153,7 @@ func LeafConnectAndServe(server string) {
 				}
 
 				// Ask the origin server to send all spaces for the user other than those already synced
-				requestUserSpacesFromOrigin(user.Id, ids)
+				RequestUserSpacesFromOrigin(user.Id, ids)
 			}
 
 			// Mark the end of the bootstrap process
@@ -399,7 +399,7 @@ func requestSpaceFromOrigin(id string) {
 	origin.OriginChannel <- message
 }
 
-func requestUserSpacesFromOrigin(userId string, existing []string) {
+func RequestUserSpacesFromOrigin(userId string, existing []string) {
 	message := &msg.ClientMessage{
 		Command: msg.MSG_SYNC_USER_SPACES,
 		Payload: &msg.SyncUserSpaces{

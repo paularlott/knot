@@ -44,7 +44,7 @@ var setPasswordCmd = &cobra.Command{
 		user.SetPassword(string(password))
 
 		// Save the user
-		err = db.SaveUser(user)
+		err = db.SaveUser(user, []string{"Password"})
 		if err != nil {
 			fmt.Println("Error saving user: ", err)
 			return

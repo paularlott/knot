@@ -3,7 +3,6 @@ package leaf_server
 import (
 	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
 
 	"github.com/gorilla/websocket"
@@ -14,7 +13,7 @@ import (
 func HandleUpdateUser(ws *websocket.Conn) error {
 	db := database.GetInstance()
 
-	var userData model.User
+	var userData msg.UpdateUser
 	err := msg.ReadMessage(ws, &userData)
 	if err != nil {
 		return err
@@ -22,30 +21,30 @@ func HandleUpdateUser(ws *websocket.Conn) error {
 
 	go func() {
 		// If the user isn't active then delete it
-		if !userData.Active {
-			log.Debug().Msgf("leaf: removing inactive user %s - %s", userData.Id, userData.Username)
+		if !userData.User.Active {
+			log.Debug().Msgf("leaf: removing inactive user %s - %s", userData.User.Id, userData.User.Username)
 
 			// Load the user & delete it
-			user, err := db.GetUser(userData.Id)
+			user, err := db.GetUser(userData.User.Id)
 			if err == nil && user != nil {
 				log.Debug().Msgf("leaf: deleting user %s - %s", user.Id, user.Username)
 				api_utils.DeleteUser(db, user)
 			}
 		} else {
 			// Attempt to load the user, only update existing users
-			user, err := db.GetUser(userData.Id)
+			user, err := db.GetUser(userData.User.Id)
 			if err == nil && user != nil {
-				log.Debug().Msgf("leaf: updating user %s - %s", userData.Id, userData.Username)
+				log.Debug().Msgf("leaf: updating user %s - %s", userData.User.Id, userData.User.Username)
 
 				// Update the user in the database
-				err = db.SaveUser(&userData)
+				err = db.SaveUser(&userData.User, userData.UpdateFields)
 				if err != nil {
 					log.Error().Msgf("error saving user: %s", err)
 					return
 				}
 
 				// Update the user's spaces, ssh keys or stop spaces
-				api_utils.UpdateUserSpaces(&userData)
+				api_utils.UpdateUserSpaces(&userData.User)
 			}
 		}
 	}()

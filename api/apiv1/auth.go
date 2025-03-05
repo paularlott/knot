@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/origin_leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/internal/totp"
 	"github.com/paularlott/knot/middleware"
@@ -58,7 +59,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 				user, err := db.GetUserByEmail(request.Email)
 				if err == nil && user.Active {
 					user.Active = false
-					db.SaveUser(user)
+					db.SaveUser(user, []string{"Active"})
 					api_utils.UpdateUserSpaces(user)
 				}
 			}
@@ -98,15 +99,27 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// Try loading the user from the database, if it's a new user we will need to trigger a sync of spaces
+		u, err := db.GetUser(user.Id)
+		if err != nil && err.Error() != "user not found" {
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
 		// Store the user in the local database
 		db := database.GetInstance()
-		err = db.SaveUser(user)
+		err = db.SaveUser(user, nil)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		go api_utils.UpdateUserSpaces(user)
+
+		// If new user then trigger spaces to sync
+		if u == nil {
+			origin_leaf.RequestUserSpacesFromOrigin(user.Id, []string{})
+		}
 
 		userId = user.Id
 
@@ -143,6 +156,8 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		saveFields := []string{"LastLoginAt"}
+
 		// If TOTP is enabled
 		if viper.GetBool("server.totp.enabled") {
 			// If the user has a TOTP secret then check the code
@@ -155,13 +170,15 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 				// Generate a new TOTP secret
 				user.TOTPSecret = totp.GenerateSecret()
 				showTOTPSecret = user.TOTPSecret
+
+				saveFields = append(saveFields, "TOTPSecret")
 			}
 		}
 
 		// Update the last login time
 		now := time.Now().UTC()
 		user.LastLoginAt = &now
-		err = db.SaveUser(user)
+		err = db.SaveUser(user, saveFields)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return

@@ -211,7 +211,7 @@ func originHandleSyncUser(ws *websocket.Conn, session *leaf.Session, token *mode
 	} else {
 		// for token users only update matching tokens owner
 		if token == nil || syncUserId == token.UserId {
-			session.UpdateUser(user)
+			session.UpdateUser(user, nil)
 		} else if token != nil {
 			log.Warn().Msgf("origin: user %s, not owned by token owner removing", syncUserId)
 			session.DeleteUser(syncUserId)

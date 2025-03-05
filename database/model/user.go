@@ -11,26 +11,26 @@ import (
 
 // User object
 type User struct {
-	Id              string      `json:"user_id"`
-	Username        string      `json:"username"`
-	Email           string      `json:"email"`
-	Password        string      `json:"password"`
-	TOTPSecret      string      `json:"totp_secret"`
-	ServicePassword string      `json:"service_password"`
-	SSHPublicKey    string      `json:"ssh_public_key"`
-	GitHubUsername  string      `json:"github_username"`
-	Roles           JSONDbArray `json:"roles"`
-	Groups          JSONDbArray `json:"groups"`
-	Active          bool        `json:"active"`
-	MaxSpaces       uint32      `json:"max_spaces"`
-	ComputeUnits    uint32      `json:"compute_units"`
-	StorageUnits    uint32      `json:"storage_units"`
-	MaxTunnels      uint32      `json:"max_tunnels"`
-	PreferredShell  string      `json:"preferred_shell"`
-	Timezone        string      `json:"timezone"`
-	LastLoginAt     *time.Time  `json:"last_login_at"`
-	UpdatedAt       time.Time   `json:"updated_at"`
-	CreatedAt       time.Time   `json:"created_at"`
+	Id              string     `json:"user_id" db:"user_id,pk"`
+	Username        string     `json:"username" db:"username"`
+	Email           string     `json:"email" db:"email"`
+	Password        string     `json:"password" db:"password"`
+	TOTPSecret      string     `json:"totp_secret" db:"totp_secret"`
+	ServicePassword string     `json:"service_password" db:"service_password"`
+	SSHPublicKey    string     `json:"ssh_public_key" db:"ssh_public_key"`
+	GitHubUsername  string     `json:"github_username" db:"github_username"`
+	Roles           []string   `json:"roles" db:"roles,json"`
+	Groups          []string   `json:"groups" db:"groups,json"`
+	Active          bool       `json:"active" db:"active"`
+	MaxSpaces       uint32     `json:"max_spaces" db:"max_spaces"`
+	ComputeUnits    uint32     `json:"compute_units" db:"compute_units"`
+	StorageUnits    uint32     `json:"storage_units" db:"storage_units"`
+	MaxTunnels      uint32     `json:"max_tunnels" db:"max_tunnels"`
+	PreferredShell  string     `json:"preferred_shell" db:"preferred_shell"`
+	Timezone        string     `json:"timezone" db:"timezone"`
+	LastLoginAt     *time.Time `json:"last_login_at" db:"last_login_at"`
+	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 }
 
 type Usage struct {
@@ -54,6 +54,8 @@ func NewUser(username string, email string, password string, roles []string, gro
 		log.Fatal().Msg(err.Error())
 	}
 
+	now := time.Now().UTC()
+
 	user := &User{
 		Id:              id.String(),
 		Username:        username,
@@ -70,6 +72,8 @@ func NewUser(username string, email string, password string, roles []string, gro
 		StorageUnits:    storageUnits,
 		MaxTunnels:      maxTunnels,
 		ServicePassword: generateRandomString(16),
+		UpdatedAt:       now,
+		CreatedAt:       now,
 	}
 
 	user.SetPassword(password)
