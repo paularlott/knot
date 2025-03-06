@@ -57,7 +57,7 @@ type IDbDriver interface {
 	GetSpaces() ([]*model.Space, error)
 
 	// Templates
-	SaveTemplate(template *model.Template) error
+	SaveTemplate(template *model.Template, updateFields []string) error
 	DeleteTemplate(template *model.Template) error
 	GetTemplate(id string) (*model.Template, error)
 	GetTemplates() ([]*model.Template, error)

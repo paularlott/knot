@@ -6,7 +6,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 )
 
-func (db *MemoryDbDriver) SaveTemplate(template *model.Template) error {
+func (db *MemoryDbDriver) SaveTemplate(template *model.Template, updateFields []string) error {
 	return errors.New("memorydb: not implemented")
 }
 

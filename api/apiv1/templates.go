@@ -30,6 +30,8 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 
 		rest.SendJSON(http.StatusOK, w, r, templates)
 	} else {
+		db := database.GetInstance()
+
 		user := r.Context().Value("user").(*model.User)
 
 		// Get the query parameter user_id if present load the user
@@ -41,7 +43,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			}
 
 			var err error
-			user, err = database.GetInstance().GetUser(userId)
+			user, err = db.GetUser(userId)
 			if err != nil {
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
@@ -52,7 +54,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		templates, err := database.GetInstance().GetTemplates()
+		templates, err := db.GetTemplates()
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -220,7 +222,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		template.ComputeUnits = request.ComputeUnits
 		template.StorageUnits = request.StorageUnits
 		template.ScheduleEnabled = request.ScheduleEnabled
-		template.Schedule = make(model.JSONDbScheduleDays, 7)
+		template.Schedule = make([]model.TemplateScheduleDays, 7)
 		template.Locations = request.Locations
 
 		for i, day := range request.Schedule {
@@ -233,14 +235,14 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
 		template.UpdateHash()
 
-		err = db.SaveTemplate(template)
+		err = db.SaveTemplate(template, nil)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		api_utils.UpdateTemplateHash(template.Id, template.Hash)
-		leaf.UpdateTemplate(template)
+		leaf.UpdateTemplate(template, nil)
 
 		audit.Log(
 			user.Username,
@@ -346,7 +348,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 		template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &scheduleDays, request.Locations)
 
-		err = database.GetInstance().SaveTemplate(template)
+		err = database.GetInstance().SaveTemplate(template, nil)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -355,7 +357,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		templateId = template.Id
 
 		api_utils.UpdateTemplateHash(template.Id, template.Hash)
-		leaf.UpdateTemplate(template)
+		leaf.UpdateTemplate(template, nil)
 
 		audit.Log(
 			user.Username,

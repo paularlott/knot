@@ -113,7 +113,7 @@ func (u *User) HasPermission(permission uint16) bool {
 	return false
 }
 
-func (u *User) HasAnyGroup(groups *JSONDbArray) bool {
+func (u *User) HasAnyGroup(groups *[]string) bool {
 
 	// If user has no groups then return false
 	if len(u.Groups) == 0 {

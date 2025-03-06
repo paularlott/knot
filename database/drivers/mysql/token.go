@@ -30,9 +30,9 @@ func (db *MySQLDriver) SaveToken(token *model.Token) error {
 
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE tokens SET expires_after=?, name=?, session_id=? WHERE token_id=?", token.ExpiresAfter.UTC(), token.Name, token.SessionId, token.Id)
+		err = db.update("tokens", token, []string{"ExpiresAfter", "Name", "SessionId"})
 	} else {
-		_, err = tx.Exec("INSERT INTO tokens (token_id, name, expires_after, user_id, session_id) VALUES (?, ?, ?, ?, ?)", token.Id, token.Name, token.ExpiresAfter.UTC(), token.UserId, token.SessionId)
+		err = db.create("tokens", token)
 	}
 	if err != nil {
 		tx.Rollback()
@@ -49,39 +49,11 @@ func (db *MySQLDriver) DeleteToken(token *model.Token) error {
 	return err
 }
 
-func (db *MySQLDriver) getTokens(query string, args ...interface{}) ([]*model.Token, error) {
+func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
 	var tokens []*model.Token
 
-	rows, err := db.connection.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var token = &model.Token{}
-		var expiresAfter string
-
-		err := rows.Scan(&token.Id, &token.Name, &expiresAfter, &token.UserId, &token.SessionId)
-		if err != nil {
-			return nil, err
-		}
-
-		// Parse the dates
-		token.ExpiresAfter, err = time.Parse("2006-01-02 15:04:05", expiresAfter)
-		if err != nil {
-			return nil, err
-		}
-
-		tokens = append(tokens, token)
-	}
-
-	return tokens, nil
-}
-
-func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
-	tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id,session_id FROM tokens WHERE token_id = ?", id)
-	if len(tokens) == 0 {
+	err := db.read("tokens", &tokens, nil, "token_id = ?", id)
+	if err != nil || len(tokens) == 0 {
 		return nil, fmt.Errorf("token not found")
 	}
 	if err != nil {
@@ -92,7 +64,9 @@ func (db *MySQLDriver) GetToken(id string) (*model.Token, error) {
 }
 
 func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
-	tokens, err := db.getTokens("SELECT token_id, name, expires_after,user_id,session_id FROM tokens WHERE user_id = ?", userId)
+	var tokens []*model.Token
+
+	err := db.read("tokens", &tokens, nil, "user_id = ?", userId)
 	if err != nil {
 		return nil, err
 	}

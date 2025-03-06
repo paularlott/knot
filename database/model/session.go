@@ -14,12 +14,12 @@ const WEBUI_SESSION_COOKIE = "__KNOT_WEBUI_SESSION"
 
 // Session object
 type Session struct {
-	Id              string    `json:"session_id"`
-	Ip              string    `json:"ip"`
-	UserId          string    `json:"user_id"`
-	RemoteSessionId string    `json:"remote_session_id"`
-	UserAgent       string    `json:"user_agent"`
-	ExpiresAfter    time.Time `json:"expires_after"`
+	Id              string    `json:"session_id" db:"session_id,pk"`
+	Ip              string    `json:"ip" db:"ip"`
+	UserId          string    `json:"user_id" db:"user_id"`
+	RemoteSessionId string    `json:"remote_session_id" db:"remote_session_id"`
+	UserAgent       string    `json:"user_agent" db:"user_agent"`
+	ExpiresAfter    time.Time `json:"expires_after" db:"expires_after"`
 }
 
 func NewSession(r *http.Request, userId string, remoteSessionId string) *Session {

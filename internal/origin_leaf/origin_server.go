@@ -344,7 +344,7 @@ func originHandleSyncTemplates(ws *websocket.Conn, session *leaf.Session) error 
 
 	// Loop through the templates and update the leaf, track those in data.Existing not in templates to delete
 	for _, template := range templates {
-		session.UpdateTemplate(template)
+		session.UpdateTemplate(template, nil)
 
 		// Remove the template from the data.Existing
 		for i, existing := range data.Existing {
