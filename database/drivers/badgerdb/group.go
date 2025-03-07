@@ -12,12 +12,6 @@ import (
 
 func (db *BadgerDbDriver) SaveGroup(group *model.Group) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
-		// Load the existing space
-		existingSpace, _ := db.GetGroup(group.Id)
-		if existingSpace == nil {
-			group.CreatedAt = time.Now().UTC()
-		}
-
 		group.UpdatedUserId = group.CreatedUserId
 		group.UpdatedAt = time.Now().UTC()
 		data, err := json.Marshal(group)

@@ -16,7 +16,9 @@ func (db *MySQLDriver) SaveTemplateVar(templateVar *model.TemplateVar) error {
 		return err
 	}
 
-	val := templateVar.GetValueEncrypted()
+	// Clone the templateVar to avoid modifying the original
+	templateVarClone := *templateVar
+	templateVarClone.Value = templateVar.GetValueEncrypted()
 
 	// Test if the PK exists in the database
 	var doUpdate bool
@@ -28,13 +30,11 @@ func (db *MySQLDriver) SaveTemplateVar(templateVar *model.TemplateVar) error {
 
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE templatevars SET name=?, location=?, local=?, value=?, protected=?, restricted=?, updated_user_id=?, updated_at=? WHERE templatevar_id=?",
-			templateVar.Name, templateVar.Location, templateVar.Local, val, templateVar.Protected, templateVar.Restricted, templateVar.UpdatedUserId, time.Now().UTC(), templateVar.Id,
-		)
+		now := time.Now().UTC()
+		templateVarClone.UpdatedAt = now
+		err = db.update("templatevars", &templateVarClone, nil)
 	} else {
-		_, err = tx.Exec("INSERT INTO templatevars (templatevar_id, name, location, local, value, protected, restricted, created_user_id, created_at, updated_user_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			templateVar.Id, templateVar.Name, templateVar.Location, templateVar.Local, val, templateVar.Protected, templateVar.Restricted, templateVar.CreatedUserId, time.Now().UTC(), templateVar.CreatedUserId, time.Now().UTC(),
-		)
+		err = db.create("templatevars", &templateVarClone)
 	}
 	if err != nil {
 		tx.Rollback()
@@ -51,54 +51,36 @@ func (db *MySQLDriver) DeleteTemplateVar(templateVar *model.TemplateVar) error {
 	return err
 }
 
-func (db *MySQLDriver) getTemplateVars(query string, args ...interface{}) ([]*model.TemplateVar, error) {
+func (db *MySQLDriver) GetTemplateVar(id string) (*model.TemplateVar, error) {
 	var templateVars []*model.TemplateVar
 
-	rows, err := db.connection.Query(query, args...)
+	err := db.read("templatevars", &templateVars, nil, "templatevar_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var templateVar = &model.TemplateVar{}
-		var createdAt string
-		var updatedAt string
-
-		err := rows.Scan(&templateVar.Id, &templateVar.Name, &templateVar.Location, &templateVar.Local, &templateVar.Value, &templateVar.Protected, &templateVar.Restricted, &templateVar.CreatedUserId, &createdAt, &templateVar.UpdatedUserId, &updatedAt)
-		if err != nil {
-			return nil, err
-		}
-
-		// Parse the dates
-		templateVar.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
-		if err != nil {
-			return nil, err
-		}
-		templateVar.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", updatedAt)
-		if err != nil {
-			return nil, err
-		}
-
-		templateVar.DecryptSetValue(templateVar.Value)
-		templateVars = append(templateVars, templateVar)
-	}
-
-	return templateVars, nil
-}
-
-func (db *MySQLDriver) GetTemplateVar(id string) (*model.TemplateVar, error) {
-	templateVars, err := db.getTemplateVars("SELECT templatevar_id, name, location, local, value, protected, restricted, created_user_id, created_at, updated_user_id, updated_at FROM templatevars WHERE templatevar_id = ?", id)
-	if err != nil {
-		return nil, err
-	}
 	if len(templateVars) == 0 {
 		return nil, fmt.Errorf("template value not found")
 	}
+
+	// Decrypt the value
+	templateVars[0].DecryptSetValue(templateVars[0].Value)
 
 	return templateVars[0], nil
 }
 
 func (db *MySQLDriver) GetTemplateVars() ([]*model.TemplateVar, error) {
-	return db.getTemplateVars("SELECT templatevar_id, name, location, local, value, protected, restricted, created_user_id, created_at, updated_user_id, updated_at FROM templatevars ORDER BY name")
+	var templateVars []*model.TemplateVar
+
+	err := db.read("templatevars", &templateVars, nil, "1 ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+
+	// Decrypt the values
+	for _, templateVar := range templateVars {
+		templateVar.DecryptSetValue(templateVar.Value)
+	}
+
+	return templateVars, nil
 }

@@ -46,13 +46,13 @@ var PermissionNames = []PermissionName{
 
 // Role
 type Role struct {
-	Id            string          `json:"role_id"`
-	Name          string          `json:"name"`
-	Permissions   JSONDbUIntArray `json:"permissions"`
-	CreatedUserId string          `json:"created_user_id"`
-	CreatedAt     time.Time       `json:"created_at"`
-	UpdatedUserId string          `json:"updated_user_id"`
-	UpdatedAt     time.Time       `json:"updated_at"`
+	Id            string    `json:"role_id" db:"role_id,pk"`
+	Name          string    `json:"name" db:"name"`
+	Permissions   []uint16  `json:"permissions" db:"permissions,json"`
+	CreatedUserId string    `json:"created_user_id" db:"created_user_id"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedUserId string    `json:"updated_user_id" db:"updated_user_id"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // Roles

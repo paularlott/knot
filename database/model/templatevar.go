@@ -11,17 +11,17 @@ import (
 
 // Template Variable object
 type TemplateVar struct {
-	Id            string    `json:"templatevar_id"`
-	Name          string    `json:"name"`
-	Location      string    `json:"location"`
-	Value         string    `json:"value"`
-	Protected     bool      `json:"protected"`
-	Local         bool      `json:"local"`
-	Restricted    bool      `json:"restricted"`
-	CreatedUserId string    `json:"created_user_id"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedUserId string    `json:"updated_user_id"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	Id            string    `json:"templatevar_id" db:"templatevar_id,pk"`
+	Name          string    `json:"name" db:"name"`
+	Location      string    `json:"location" db:"location"`
+	Value         string    `json:"value" db:"value"`
+	Protected     bool      `json:"protected" db:"protected"`
+	Local         bool      `json:"local" db:"local"`
+	Restricted    bool      `json:"restricted" db:"restricted"`
+	CreatedUserId string    `json:"created_user_id" db:"created_user_id"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedUserId string    `json:"updated_user_id" db:"updated_user_id"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }
 
 func NewTemplateVar(name string, location string, local bool, value string, protected bool, restricted bool, userId string) *TemplateVar {

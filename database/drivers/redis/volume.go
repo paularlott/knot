@@ -11,12 +11,6 @@ import (
 )
 
 func (db *RedisDbDriver) SaveVolume(volume *model.Volume) error {
-	// Load the existing volume
-	existingVolume, _ := db.GetTemplate(volume.Id)
-	if existingVolume == nil {
-		volume.CreatedAt = time.Now().UTC()
-	}
-
 	volume.UpdatedAt = time.Now().UTC()
 	data, err := json.Marshal(volume)
 	if err != nil {

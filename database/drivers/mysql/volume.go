@@ -26,13 +26,11 @@ func (db *MySQLDriver) SaveVolume(volume *model.Volume) error {
 
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE volumes SET name=?, definition=?, updated_user_id=?, updated_at=?, active=?, location=?, local_container=? WHERE volume_id=?",
-			volume.Name, volume.Definition, volume.UpdatedUserId, time.Now().UTC(), volume.Active, volume.Location, volume.LocalContainer, volume.Id,
-		)
+		now := time.Now().UTC()
+		volume.UpdatedAt = now
+		err = db.update("volumes", volume, nil)
 	} else {
-		_, err = tx.Exec("INSERT INTO volumes (volume_id, name, definition, created_user_id, created_at, updated_user_id, updated_at, active, location, local_container) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-			volume.Id, volume.Name, volume.Definition, volume.CreatedUserId, time.Now().UTC(), volume.CreatedUserId, time.Now().UTC(), volume.Active, volume.Location, volume.LocalContainer,
-		)
+		err = db.create("volumes", volume)
 	}
 	if err != nil {
 		tx.Rollback()
@@ -49,53 +47,28 @@ func (db *MySQLDriver) DeleteVolume(volume *model.Volume) error {
 	return err
 }
 
-func (db *MySQLDriver) getVolumes(query string, args ...interface{}) ([]*model.Volume, error) {
+func (db *MySQLDriver) GetVolume(id string) (*model.Volume, error) {
 	var volumes []*model.Volume
 
-	rows, err := db.connection.Query(query, args...)
+	err := db.read("volumes", &volumes, nil, "volume_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var volume = &model.Volume{}
-		var createdAt string
-		var updatedAt string
-
-		err := rows.Scan(&volume.Id, &volume.Name, &volume.Definition, &volume.Active, &volume.CreatedUserId, &createdAt, &volume.UpdatedUserId, &updatedAt, &volume.Location, &volume.LocalContainer)
-		if err != nil {
-			return nil, err
-		}
-
-		// Parse the dates
-		volume.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
-		if err != nil {
-			return nil, err
-		}
-		volume.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", updatedAt)
-		if err != nil {
-			return nil, err
-		}
-
-		volumes = append(volumes, volume)
-	}
-
-	return volumes, nil
-}
-
-func (db *MySQLDriver) GetVolume(id string) (*model.Volume, error) {
-	templates, err := db.getVolumes("SELECT volume_id, name, definition, active, created_user_id, created_at, updated_user_id, updated_at, location, local_container FROM volumes WHERE volume_id = ?", id)
-	if err != nil {
-		return nil, err
-	}
-	if len(templates) == 0 {
+	if len(volumes) == 0 {
 		return nil, fmt.Errorf("volume not found")
 	}
 
-	return templates[0], nil
+	return volumes[0], nil
 }
 
 func (db *MySQLDriver) GetVolumes() ([]*model.Volume, error) {
-	return db.getVolumes("SELECT volume_id, name, definition, active, created_user_id, created_at, updated_user_id, updated_at, location, local_container FROM volumes ORDER BY name")
+	var volumes []*model.Volume
+
+	err := db.read("volumes", &volumes, nil, "1 ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+
+	return volumes, nil
 }

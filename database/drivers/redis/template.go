@@ -18,7 +18,7 @@ func (db *RedisDbDriver) SaveTemplate(template *model.Template, updateFields []s
 		template.CreatedAt = time.Now().UTC()
 	}
 
-	// Apply changes from space to existing space if doing partial update
+	// Apply changes from new to existing if doing partial update
 	if existingTemplate != nil && len(updateFields) > 0 {
 		util.CopyFields(template, existingTemplate, updateFields)
 		template = existingTemplate

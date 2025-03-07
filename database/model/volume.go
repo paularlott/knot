@@ -9,16 +9,16 @@ import (
 
 // Template object
 type Volume struct {
-	Id             string    `json:"volume_id"`
-	Name           string    `json:"name"`
-	Location       string    `json:"location"`
-	Definition     string    `json:"definition"`
-	Active         bool      `json:"active"`
-	LocalContainer bool      `json:"local_container"`
-	CreatedUserId  string    `json:"created_user_id"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedUserId  string    `json:"updated_user_id"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	Id             string    `json:"volume_id" db:"volume_id,pk"`
+	Name           string    `json:"name" db:"name"`
+	Location       string    `json:"location" db:"location"`
+	Definition     string    `json:"definition" db:"definition"`
+	Active         bool      `json:"active" db:"active"`
+	LocalContainer bool      `json:"local_container" db:"local_container"`
+	CreatedUserId  string    `json:"created_user_id" db:"created_user_id"`
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
+	UpdatedUserId  string    `json:"updated_user_id" db:"updated_user_id"`
+	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
 }
 
 func NewVolume(name string, definition string, userId string, localContainer bool) *Volume {

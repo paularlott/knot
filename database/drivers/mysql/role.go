@@ -26,13 +26,11 @@ func (db *MySQLDriver) SaveRole(role *model.Role) error {
 
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE roles SET name=?, permissions=?, updated_user_id=?, updated_at=? WHERE role_id=?",
-			role.Name, role.Permissions, role.UpdatedUserId, time.Now().UTC(), role.Id,
-		)
+		now := time.Now().UTC()
+		role.UpdatedAt = now
+		err = db.update("roles", role, nil)
 	} else {
-		_, err = tx.Exec("INSERT INTO roles (role_id, name, permissions, created_user_id, created_at, updated_user_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-			role.Id, role.Name, role.Permissions, role.CreatedUserId, time.Now().UTC(), role.CreatedUserId, time.Now().UTC(),
-		)
+		err = db.create("roles", role)
 	}
 	if err != nil {
 		tx.Rollback()
@@ -49,46 +47,14 @@ func (db *MySQLDriver) DeleteRole(role *model.Role) error {
 	return err
 }
 
-func (db *MySQLDriver) getRoles(query string, args ...interface{}) ([]*model.Role, error) {
+func (db *MySQLDriver) GetRole(id string) (*model.Role, error) {
 	var roles []*model.Role
 
-	rows, err := db.connection.Query(query, args...)
+	err := db.read("roles", &roles, nil, "role_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	for rows.Next() {
-		var role = &model.Role{}
-		var createdAt string
-		var updatedAt string
-
-		err := rows.Scan(&role.Id, &role.Name, &role.Permissions, &role.CreatedUserId, &createdAt, &role.UpdatedUserId, &updatedAt)
-		if err != nil {
-			return nil, err
-		}
-
-		// Parse the dates
-		role.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
-		if err != nil {
-			return nil, err
-		}
-		role.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", updatedAt)
-		if err != nil {
-			return nil, err
-		}
-
-		roles = append(roles, role)
-	}
-
-	return roles, nil
-}
-
-func (db *MySQLDriver) GetRole(id string) (*model.Role, error) {
-	roles, err := db.getRoles("SELECT role_id, name, permissions, created_user_id, created_at, updated_user_id, updated_at FROM roles WHERE role_id = ?", id)
-	if err != nil {
-		return nil, err
-	}
 	if len(roles) == 0 {
 		return nil, fmt.Errorf("user role not found")
 	}
@@ -97,5 +63,12 @@ func (db *MySQLDriver) GetRole(id string) (*model.Role, error) {
 }
 
 func (db *MySQLDriver) GetRoles() ([]*model.Role, error) {
-	return db.getRoles("SELECT role_id, name, permissions, created_user_id, created_at, updated_user_id, updated_at FROM roles ORDER BY name")
+	var roles []*model.Role
+
+	err := db.read("roles", &roles, nil, "1 ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+
+	return roles, nil
 }
