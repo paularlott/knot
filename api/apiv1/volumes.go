@@ -107,7 +107,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 		volume.Definition = request.Definition
 		volume.UpdatedUserId = user.Id
 
-		err = db.SaveVolume(volume)
+		err = db.SaveVolume(volume, []string{"Name", "Definition", "UpdatedUserId"})
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -166,7 +166,7 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 
 		volume := model.NewVolume(request.Name, request.Definition, user.Id, request.LocalContainer)
 
-		err = db.SaveVolume(volume)
+		err = db.SaveVolume(volume, nil)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -365,9 +365,9 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 
 	if client != nil {
 		// Tell remote volume started
-		origin.UpdateVolume(volume)
+		origin.UpdateVolume(volume, []string{"Active", "Location"})
 	} else {
-		db.SaveVolume(volume)
+		db.SaveVolume(volume, []string{"Active", "Location"})
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, &apiclient.StartVolumeResponse{
@@ -443,9 +443,9 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 
 	if client != nil {
 		// Tell remote volume stopped
-		origin.UpdateVolume(volume)
+		origin.UpdateVolume(volume, []string{"Active", "Location"})
 	} else {
-		db.SaveVolume(volume)
+		db.SaveVolume(volume, []string{"Active", "Location"})
 	}
 
 	w.WriteHeader(http.StatusOK)

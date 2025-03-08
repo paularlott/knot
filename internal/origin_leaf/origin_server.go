@@ -419,7 +419,7 @@ func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token) error {
 
 func originHandleUpdateVolume(ws *websocket.Conn, token *model.Token) error {
 	// read the message
-	var volume model.Volume
+	var volume msg.UpdateVolume
 	err := msg.ReadMessage(ws, &volume)
 	if err != nil {
 		return err
@@ -430,12 +430,12 @@ func originHandleUpdateVolume(ws *websocket.Conn, token *model.Token) error {
 		db := database.GetInstance()
 
 		// Attempt to load the volume, only update existing volumes
-		existingVolume, err := db.GetVolume(volume.Id)
+		existingVolume, err := db.GetVolume(volume.Volume.Id)
 		if err == nil && existingVolume != nil {
-			log.Debug().Msgf("origin: updating volume %s", volume.Id)
+			log.Debug().Msgf("origin: updating volume %s", volume.Volume.Id)
 
 			// Update the volume in the database
-			return db.SaveVolume(&volume)
+			return db.SaveVolume(&volume.Volume, volume.UpdateFields)
 		}
 	}
 

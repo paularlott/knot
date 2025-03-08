@@ -118,11 +118,12 @@ func (c *ApiClient) GetVolumeObject(volumeId string) (*model.Volume, int, error)
 	}
 
 	volume := &model.Volume{
-		Id:         volumeId,
-		Name:       response.Name,
-		Definition: response.Definition,
-		Location:   response.Location,
-		Active:     response.Active,
+		Id:             volumeId,
+		Name:           response.Name,
+		Definition:     response.Definition,
+		Location:       response.Location,
+		Active:         response.Active,
+		LocalContainer: response.LocalContainer,
 	}
 
 	return volume, code, nil

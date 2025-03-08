@@ -8,10 +8,22 @@ import (
 
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util"
 )
 
-func (db *BadgerDbDriver) SaveVolume(volume *model.Volume) error {
+func (db *BadgerDbDriver) SaveVolume(volume *model.Volume, updateFields []string) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
+
+		// Apply changes from new to existing existing if doing partial update
+		if len(updateFields) > 0 {
+			// Load the existing
+			existing, _ := db.GetVolume(volume.Id)
+			if existing != nil {
+				util.CopyFields(volume, existing, updateFields)
+				volume = existing
+			}
+		}
+
 		volume.UpdatedAt = time.Now().UTC()
 		data, err := json.Marshal(volume)
 		if err != nil {

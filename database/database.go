@@ -75,7 +75,7 @@ type IDbDriver interface {
 	GetTemplateVars() ([]*model.TemplateVar, error)
 
 	// Volumes
-	SaveVolume(volume *model.Volume) error
+	SaveVolume(volume *model.Volume, updateFields []string) error
 	DeleteVolume(volume *model.Volume) error
 	GetVolume(id string) (*model.Volume, error)
 	GetVolumes() ([]*model.Volume, error)

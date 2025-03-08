@@ -9,7 +9,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func (db *MySQLDriver) SaveVolume(volume *model.Volume) error {
+func (db *MySQLDriver) SaveVolume(volume *model.Volume, updateFields []string) error {
 
 	tx, err := db.connection.Begin()
 	if err != nil {
@@ -28,7 +28,7 @@ func (db *MySQLDriver) SaveVolume(volume *model.Volume) error {
 	if doUpdate {
 		now := time.Now().UTC()
 		volume.UpdatedAt = now
-		err = db.update("volumes", volume, nil)
+		err = db.update("volumes", volume, updateFields)
 	} else {
 		err = db.create("volumes", volume)
 	}

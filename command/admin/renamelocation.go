@@ -48,7 +48,7 @@ The location name is updated within the database however spaces and volumes are 
 			fmt.Print("Checking Volume: ", volume.Name)
 			if volume.Location == args[0] {
 				volume.Location = args[1]
-				err := db.SaveVolume(volume)
+				err := db.SaveVolume(volume, []string{"Location"})
 				if err != nil {
 					fmt.Println("Error updating volume: ", err)
 					return
