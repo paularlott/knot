@@ -166,6 +166,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 		return err
 	}
+	origin.UpdateSpace(space, []string{"IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location"})
 
 	// launch the container in a go routing to avoid blocking
 	go func() {
@@ -176,6 +177,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			if err := db.SaveSpace(space, []string{"IsPending"}); err != nil {
 				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 			}
+			origin.UpdateSpace(space, []string{"IsPending"})
 		}()
 
 		// Create a Docker client
@@ -271,6 +273,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 	if err != nil {
 		return err
 	}
+	origin.UpdateSpace(space, []string{"IsPending"})
 
 	// Run the delete in a go routine to avoid blocking
 	go func() {
@@ -280,6 +283,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 			if err := db.SaveSpace(space, []string{"IsPending"}); err != nil {
 				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 			}
+			origin.UpdateSpace(space, []string{"VolumeData"})
 		}()
 
 		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -352,6 +356,7 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 			volume, err := cli.VolumeCreate(context.Background(), volume.CreateOptions{Name: volName})
 			if err != nil {
 				db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
+				origin.UpdateSpace(space, []string{"VolumeData"})
 				return err
 			}
 
@@ -371,6 +376,7 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 			err := cli.VolumeRemove(context.Background(), volName, true)
 			if err != nil {
 				db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
+				origin.UpdateSpace(space, []string{"VolumeData"})
 				return err
 			}
 
@@ -383,6 +389,7 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 	if err != nil {
 		return err
 	}
+	origin.UpdateSpace(space, []string{"VolumeData"})
 
 	log.Debug().Msg("docker: volumes checked")
 
@@ -406,11 +413,14 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 		err := cli.VolumeRemove(context.Background(), volName, true)
 		if err != nil {
 			db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
+			origin.UpdateSpace(space, []string{"VolumeData"})
+
 			return err
 		}
 
 		delete(space.VolumeData, volName)
 		db.SaveSpace(space, []string{"VolumeData"})
+		origin.UpdateSpace(space, []string{"VolumeData"})
 	}
 
 	log.Debug().Msg("docker: volumes deleted")

@@ -243,6 +243,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		// Mark the space as deleting and delete it in the background
 		space.IsDeleting = true
 		db.SaveSpace(space, []string{"IsDeleting"})
+		origin.UpdateSpace(space, []string{"IsDeleting"})
 
 		// Delete the space in the background
 		RealDeleteSpace(space)
@@ -561,13 +562,13 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 	// Mark the space as pending and save it
 	space.IsPending = true
-	if err = db.SaveSpace(space, []string{"IsPending", "Shell", "AltNames"}); err != nil {
+	if err = db.SaveSpace(space, []string{"IsPending"}); err != nil {
 		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	origin.UpdateSpace(space, []string{"IsPending", "Shell", "AltNames"})
+	origin.UpdateSpace(space, []string{"IsPending"})
 
 	// Revert the pending status if the deploy fails
 	var deployFailed = true
@@ -976,6 +977,7 @@ func RealDeleteSpace(space *model.Space) {
 
 			space.IsDeleting = false
 			db.SaveSpace(space, []string{"IsDeleting"})
+			origin.UpdateSpace(space, []string{"IsDeleting"})
 			return
 		}
 
@@ -993,6 +995,7 @@ func RealDeleteSpace(space *model.Space) {
 
 			space.IsDeleting = false
 			db.SaveSpace(space, []string{"IsDeleting"})
+			origin.UpdateSpace(space, []string{"IsDeleting"})
 			return
 		}
 
@@ -1003,6 +1006,7 @@ func RealDeleteSpace(space *model.Space) {
 
 			space.IsDeleting = false
 			db.SaveSpace(space, []string{"IsDeleting"})
+			origin.UpdateSpace(space, []string{"IsDeleting"})
 			return
 		}
 
@@ -1010,9 +1014,9 @@ func RealDeleteSpace(space *model.Space) {
 		agent_server.RemoveSession(space.Id)
 
 		log.Info().Msgf("api: RealDeleteSpace: deleted %s", space.Id)
-	}()
 
-	leaf.DeleteSpace(space.Id)
+		leaf.DeleteSpace(space.Id)
+	}()
 }
 
 func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {

@@ -125,7 +125,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case msg.MSG_UPDATE_SPACE:
-			err := originHandleUpdateSpace(ws, token)
+			err := originHandleUpdateSpace(ws, token, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling update space: %s", err)
 				return
@@ -389,7 +389,7 @@ func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token) error {
 	return nil
 }
 
-func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token) error {
+func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token, session *leaf.Session) error {
 	// read the message
 	var updateMsg msg.UpdateSpace
 	err := msg.ReadMessage(ws, &updateMsg)
@@ -410,8 +410,9 @@ func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token) error {
 		// Update the space in the database
 		return db.SaveSpace(&updateMsg.Space, updateMsg.UpdateFields)
 	} else if token != nil && existingSpace != nil && existingSpace.UserId != token.UserId {
+		// Get the leaf to drop the space as it's out of sync with the origin server
 		log.Warn().Msgf("origin: space %s not owned by token owner", updateMsg.Space.Id)
-		leaf.DeleteSpace(updateMsg.Space.Id)
+		session.DeleteSpace(updateMsg.Space.Id)
 	}
 
 	return nil

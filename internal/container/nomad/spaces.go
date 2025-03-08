@@ -59,6 +59,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 			err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
 			if err != nil {
 				db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
+				origin.UpdateSpace(space, []string{"VolumeData"})
 				return err
 			}
 
@@ -71,6 +72,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 	if err != nil {
 		return err
 	}
+	origin.UpdateSpace(space, []string{"VolumeData"})
 
 	log.Debug().Msg("nomad: volumes checked")
 
@@ -87,11 +89,13 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 		err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
 		if err != nil {
 			db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
+			origin.UpdateSpace(space, []string{"VolumeData"})
 			return err
 		}
 
 		delete(space.VolumeData, volume.Id)
 		db.SaveSpace(space, []string{"VolumeData"})
+		origin.UpdateSpace(space, []string{"VolumeData"})
 	}
 
 	log.Debug().Msg("nomad: volumes deleted")
@@ -143,6 +147,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 		log.Error().Msgf("nomad: creating space job %s error %s", space.Id, err)
 		return err
 	}
+	origin.UpdateSpace(space, []string{"NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location"})
 
 	client.MonitorJobState(space)
 
@@ -167,6 +172,7 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
 		log.Debug().Msgf("nomad: deleting space job %s error %s", space.Id, err)
 		return err
 	}
+	origin.UpdateSpace(space, []string{"IsPending"})
 
 	client.MonitorJobState(space)
 
@@ -195,12 +201,6 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 
 						space.IsPending = false
 						space.IsDeployed = true
-						err = database.GetInstance().SaveSpace(space, []string{"IsPending", "IsDeployed"})
-						if err != nil {
-							log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
-						}
-
-						origin.UpdateSpace(space, []string{"IsPending", "IsDeployed"})
 						break
 					}
 				} else if code == 404 || data["Status"] == "dead" {
@@ -208,13 +208,6 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 
 					space.IsPending = false
 					space.IsDeployed = false
-					err = database.GetInstance().SaveSpace(space, []string{"IsPending", "IsDeployed"})
-					if err != nil {
-						log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
-					}
-
-					origin.UpdateSpace(space, []string{"IsPending", "IsDeployed"})
-
 					break
 				}
 			}
@@ -222,5 +215,12 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 			// Sleep for a bit
 			time.Sleep(2 * time.Second)
 		}
+
+		log.Info().Msgf("nomad: update space job %s status", space.ContainerId)
+		err := database.GetInstance().SaveSpace(space, []string{"IsPending", "IsDeployed"})
+		if err != nil {
+			log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
+		}
+		origin.UpdateSpace(space, []string{"IsPending", "IsDeployed"})
 	}()
 }
