@@ -3,6 +3,7 @@ package leaf_server
 import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
+	"github.com/rs/zerolog/log"
 
 	"github.com/gorilla/websocket"
 )
@@ -15,6 +16,7 @@ func HandleUpdateRole(ws *websocket.Conn) error {
 	}
 
 	go func() {
+		log.Debug().Msgf("leaf: updating role %s", role.Name)
 		model.SaveRoleToCache(&role)
 	}()
 
