@@ -51,9 +51,13 @@ func WriteCommand(ws *websocket.Conn, cmdType byte) error {
 }
 
 func ReadCommand(ws *websocket.Conn) (byte, error) {
-	_, message, err := ws.ReadMessage()
+	mtype, message, err := ws.ReadMessage()
 	if err != nil {
 		return 0, err
+	}
+
+	if mtype != websocket.BinaryMessage {
+		return 0, fmt.Errorf("expected binary message, got %d", mtype)
 	}
 
 	if len(message) < 1 {

@@ -146,7 +146,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case msg.MSG_DELETE_SPACE:
-			err := originHandleDeleteSpace(ws, token)
+			err := originHandleDeleteSpace(ws, token, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling delete space: %s", err)
 				return
@@ -364,7 +364,7 @@ func originHandleSyncTemplates(ws *websocket.Conn, session *leaf.Session) error 
 }
 
 // origin server handler to process delete space messages
-func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token) error {
+func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token, session *leaf.Session) error {
 	// read the message
 	var spaceId string
 	err := msg.ReadMessage(ws, &spaceId)
@@ -379,7 +379,7 @@ func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token) error {
 	if err == nil && space != nil && (token == nil || space.UserId == token.UserId) {
 
 		// notify all leaf servers to delete the space
-		leaf.DeleteSpace(spaceId)
+		leaf.DeleteSpace(spaceId, session)
 
 		// Delete the space
 		log.Debug().Msgf("origin: deleting space %s - %s", space.Id, space.Name)
@@ -405,7 +405,7 @@ func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token, session *le
 		log.Debug().Msgf("origin: updating space %s", updateMsg.Space.Id)
 
 		// notify all leaf servers to update the space
-		leaf.UpdateSpace(&updateMsg.Space, updateMsg.UpdateFields)
+		leaf.UpdateSpace(&updateMsg.Space, updateMsg.UpdateFields, session)
 
 		// Update the space in the database
 		return db.SaveSpace(&updateMsg.Space, updateMsg.UpdateFields)

@@ -35,23 +35,27 @@ func (s *Session) DeleteSpace(id string) {
 }
 
 // update the space on all leaf nodes
-func UpdateSpace(space *model.Space, updateFields []string) {
+func UpdateSpace(space *model.Space, updateFields []string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the space to all followers
 	for _, session := range session {
-		session.UpdateSpace(space, updateFields)
+		if session != skipSession {
+			session.UpdateSpace(space, updateFields)
+		}
 	}
 }
 
 // delete the space on all leaf nodes
-func DeleteSpace(id string) {
+func DeleteSpace(id string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.DeleteSpace(id)
+		if session != skipSession {
+			session.DeleteSpace(id)
+		}
 	}
 }

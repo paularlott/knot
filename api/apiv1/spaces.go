@@ -256,7 +256,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		leaf.DeleteSpace(spaceId)
+		leaf.DeleteSpace(spaceId, nil)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -405,7 +405,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	leaf.UpdateSpace(space, nil)
+	leaf.UpdateSpace(space, nil, nil)
 
 	// Return the Token ID
 	rest.SendJSON(http.StatusCreated, w, r, struct {
@@ -810,7 +810,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 
 	// If the space is in a pending state then don't notify the leaf servers as another update will be coming, avoids a race condition
 	if !space.IsPending {
-		leaf.UpdateSpace(space, []string{"Name", "TemplateId", "Shell", "AltNames"})
+		leaf.UpdateSpace(space, []string{"Name", "TemplateId", "Shell", "AltNames"}, nil)
 	}
 
 	if template != nil && (space.IsDeployed || template.IsManual) {
@@ -1015,7 +1015,7 @@ func RealDeleteSpace(space *model.Space) {
 
 		log.Info().Msgf("api: RealDeleteSpace: deleted %s", space.Id)
 
-		leaf.DeleteSpace(space.Id)
+		leaf.DeleteSpace(space.Id, nil)
 	}()
 }
 
@@ -1175,7 +1175,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		leaf.UpdateSpace(space, []string{"Name", "UserId"})
+		leaf.UpdateSpace(space, []string{"Name", "UserId"}, nil)
 
 		audit.Log(
 			user.Username,
@@ -1271,7 +1271,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	leaf.UpdateSpace(space, []string{"SharedWithUserId"})
+	leaf.UpdateSpace(space, []string{"SharedWithUserId"}, nil)
 
 	api_utils.UpdateSpaceSSHKeys(space, user)
 
@@ -1334,7 +1334,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	leaf.UpdateSpace(space, []string{"SharedWithUserId"})
+	leaf.UpdateSpace(space, []string{"SharedWithUserId"}, nil)
 
 	api_utils.UpdateSpaceSSHKeys(space, user)
 

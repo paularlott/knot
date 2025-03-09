@@ -20,6 +20,19 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 		return err
 	}
 
+	if len(volumes.Volumes) == 0 && len(space.VolumeData) == 0 {
+		log.Debug().Msg("nomad: no volumes to create")
+		return nil
+	}
+
+	defer func() {
+		// Save the space with the volume data
+		if err := db.SaveSpace(space, []string{"VolumeData"}); err != nil {
+			log.Error().Msgf("nomad: saving space %s error %s", space.Id, err)
+		}
+		origin.UpdateSpace(space, []string{"VolumeData"})
+	}()
+
 	log.Debug().Msg("nomad: checking for required volumes")
 
 	// Find the volumes that are defined but not yet created in the space and create them
@@ -39,7 +52,6 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 			// Create the volume
 			err := client.CreateCSIVolume(&volume)
 			if err != nil {
-				db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
 				return err
 			}
 
@@ -58,21 +70,12 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 			// Delete the volume
 			err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
 			if err != nil {
-				db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
-				origin.UpdateSpace(space, []string{"VolumeData"})
 				return err
 			}
 
 			delete(space.VolumeData, volume.Id)
 		}
 	}
-
-	// Save the space with the volume data
-	err = db.SaveSpace(space, []string{"VolumeData"})
-	if err != nil {
-		return err
-	}
-	origin.UpdateSpace(space, []string{"VolumeData"})
 
 	log.Debug().Msg("nomad: volumes checked")
 
@@ -84,18 +87,24 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 
 	log.Debug().Msg("nomad: deleting volumes")
 
+	if len(space.VolumeData) == 0 {
+		log.Debug().Msg("nomad: no volumes to delete")
+		return nil
+	}
+
+	defer func() {
+		db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
+		origin.UpdateSpace(space, []string{"VolumeData"})
+	}()
+
 	// For all volumes in the space delete them
 	for _, volume := range space.VolumeData {
 		err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
 		if err != nil {
-			db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
-			origin.UpdateSpace(space, []string{"VolumeData"})
 			return err
 		}
 
 		delete(space.VolumeData, volume.Id)
-		db.SaveSpace(space, []string{"VolumeData"})
-		origin.UpdateSpace(space, []string{"VolumeData"})
 	}
 
 	log.Debug().Msg("nomad: volumes deleted")

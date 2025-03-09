@@ -336,6 +336,11 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 		return err
 	}
 
+	if len(volInfo.Volumes) == 0 && len(space.VolumeData) == 0 {
+		log.Debug().Msg("nomad: no volumes to create")
+		return nil
+	}
+
 	log.Debug().Msg("docker: checking for required volumes")
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -344,6 +349,11 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 	}
 
 	db := database.GetInstance()
+
+	defer func() {
+		db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
+		origin.UpdateSpace(space, []string{"VolumeData"})
+	}()
 
 	// Find the volumes that are defined but not yet created in the space and create them
 	for volName, _ := range volInfo.Volumes {
@@ -355,8 +365,6 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 
 			volume, err := cli.VolumeCreate(context.Background(), volume.CreateOptions{Name: volName})
 			if err != nil {
-				db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
-				origin.UpdateSpace(space, []string{"VolumeData"})
 				return err
 			}
 
@@ -375,21 +383,12 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 
 			err := cli.VolumeRemove(context.Background(), volName, true)
 			if err != nil {
-				db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
-				origin.UpdateSpace(space, []string{"VolumeData"})
 				return err
 			}
 
 			delete(space.VolumeData, volName)
 		}
 	}
-
-	// Save the space with the volume data
-	err = db.SaveSpace(space, []string{"VolumeData"})
-	if err != nil {
-		return err
-	}
-	origin.UpdateSpace(space, []string{"VolumeData"})
 
 	log.Debug().Msg("docker: volumes checked")
 
@@ -401,10 +400,20 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 
 	log.Debug().Msg("docker: deleting volumes")
 
+	if len(space.VolumeData) == 0 {
+		log.Debug().Msg("nomad: no volumes to delete")
+		return nil
+	}
+
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
+		origin.UpdateSpace(space, []string{"VolumeData"})
+	}()
 
 	// For all volumes in the space delete them
 	for volName, _ := range space.VolumeData {
@@ -412,15 +421,10 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 
 		err := cli.VolumeRemove(context.Background(), volName, true)
 		if err != nil {
-			db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
-			origin.UpdateSpace(space, []string{"VolumeData"})
-
 			return err
 		}
 
 		delete(space.VolumeData, volName)
-		db.SaveSpace(space, []string{"VolumeData"})
-		origin.UpdateSpace(space, []string{"VolumeData"})
 	}
 
 	log.Debug().Msg("docker: volumes deleted")

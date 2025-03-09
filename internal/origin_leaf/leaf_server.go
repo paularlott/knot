@@ -59,7 +59,10 @@ func LeafConnectAndServe(server string) {
 			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", viper.GetString("server.shared_token"))}}
 			dialer := websocket.DefaultDialer
 			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
-			dialer.HandshakeTimeout = 5 * time.Second
+			dialer.HandshakeTimeout = 10 * time.Second
+			dialer.ReadBufferSize = 32768
+			dialer.WriteBufferSize = 32768
+			dialer.EnableCompression = true
 			ws, response, err := dialer.Dial(wsUrl, header)
 			if err != nil {
 				if response != nil && response.StatusCode == http.StatusUnauthorized {
@@ -159,7 +162,7 @@ func LeafConnectAndServe(server string) {
 			// Mark the end of the bootstrap process
 			bootstrapMarker()
 
-			// Process messages from the channel
+			// Send the next message form the channel to the origin server
 			go func() {
 				for {
 					message := <-origin.OriginChannel
@@ -186,7 +189,10 @@ func LeafConnectAndServe(server string) {
 
 			// Run forever processing messages from the origin server
 			for {
-				cmd, err := msg.ReadCommand(ws)
+				var err error
+				var cmd byte
+
+				cmd, err = msg.ReadCommand(ws)
 				if err != nil {
 					log.Error().Msgf("leaf: error reading command: %s", err)
 
@@ -209,106 +215,77 @@ func LeafConnectAndServe(server string) {
 					log.Debug().Msg("leaf: ping")
 
 				case msg.MSG_UPDATE_TEMPLATE:
-					err := leaf_server.HandleUpdateTemplate(ws)
+					err = leaf_server.HandleUpdateTemplate(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating template: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				case msg.MSG_DELETE_TEMPLATE:
-					err := leaf_server.HandleDeleteTemplate(ws)
+					err = leaf_server.HandleDeleteTemplate(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting template: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				case msg.MSG_UPDATE_USER:
-					err := leaf_server.HandleUpdateUser(ws)
+					err = leaf_server.HandleUpdateUser(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating user: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				case msg.MSG_DELETE_USER:
-					err := leaf_server.HandleDeleteUser(ws)
+					err = leaf_server.HandleDeleteUser(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting user: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				case msg.MSG_UPDATE_TEMPLATEVAR:
-					err := leaf_server.HandleUpdateTemplateVar(ws)
+					err = leaf_server.HandleUpdateTemplateVar(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting template var: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				case msg.MSG_DELETE_TEMPLATEVAR:
-					err := leaf_server.HandleDeleteTemplateVar(ws)
+					err = leaf_server.HandleDeleteTemplateVar(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting template var: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				case msg.MSG_UPDATE_SPACE:
-					err := leaf_server.HandleUpdateSpace(ws)
+					err = leaf_server.HandleUpdateSpace(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating space: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				case msg.MSG_DELETE_SPACE:
-					err := leaf_server.HandleDeleteSpace(ws)
+					err = leaf_server.HandleDeleteSpace(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting space: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				case msg.MSG_DELETE_TOKEN:
-					err := leaf_server.HandleDeleteToken(ws)
+					err = leaf_server.HandleDeleteToken(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting token: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				case msg.MSG_UPDATE_ROLE:
-					err := leaf_server.HandleUpdateRole(ws)
+					err = leaf_server.HandleUpdateRole(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating role: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				case msg.MSG_DELETE_ROLE:
-					err := leaf_server.HandleDeleteRole(ws)
+					err = leaf_server.HandleDeleteRole(ws)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting role: %s", err)
-						ws.Close()
-						time.Sleep(3 * time.Second)
-						break
 					}
 
 				default:
 					log.Error().Msgf("leaf: unknown command: %d", cmd)
+					err = fmt.Errorf("unknown command: %d", cmd)
+				}
+
+				if err != nil {
 					ws.Close()
 					time.Sleep(3 * time.Second)
 					break
