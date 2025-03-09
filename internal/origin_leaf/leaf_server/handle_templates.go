@@ -9,9 +9,9 @@ import (
 )
 
 // handle template updates sent from the origin server
-func HandleUpdateTemplate(packet *msg.Packet) error {
+func HandleUpdateTemplate(message *msg.Message) error {
 	var data msg.UpdateTemplate
-	err := packet.UnmarshalPayload(&data)
+	err := message.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -30,9 +30,9 @@ func HandleUpdateTemplate(packet *msg.Packet) error {
 }
 
 // handle template deletes sent from the origin server
-func HandleDeleteTemplate(packet *msg.Packet) error {
+func HandleDeleteTemplate(message *msg.Message) error {
 	var id string
-	err := packet.UnmarshalPayload(&id)
+	err := message.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

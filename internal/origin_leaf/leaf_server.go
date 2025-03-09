@@ -78,7 +78,7 @@ func LeafConnectAndServe(server string) {
 			log.Debug().Msg("leaf: registering with origin server")
 
 			// Write a register message to the origin server
-			err = msg.WritePacket(ws, msg.MSG_REGISTER, &msg.Register{
+			err = msg.WriteMessage(ws, msg.MSG_REGISTER, &msg.Register{
 				Version:   build.Version,
 				Location:  viper.GetString("server.location"),
 				SessionId: leafSessionId,
@@ -91,7 +91,7 @@ func LeafConnectAndServe(server string) {
 			}
 
 			// Read the response
-			packet, err := msg.ReadPacket(ws)
+			message, err := msg.ReadMessgae(ws)
 			if err != nil {
 				log.Error().Msgf("leaf: error while reading register response: %s", err)
 
@@ -101,7 +101,7 @@ func LeafConnectAndServe(server string) {
 			}
 
 			var registerResponse msg.RegisterResponse
-			err = packet.UnmarshalPayload(&registerResponse)
+			err = message.UnmarshalPayload(&registerResponse)
 			if err != nil {
 				log.Error().Msgf("leaf: error while reading message: %s", err)
 
@@ -210,7 +210,7 @@ func LeafConnectAndServe(server string) {
 					}
 
 					// Write the message
-					err := msg.WritePacket(ws, message.Command, message.Payload)
+					err := msg.WriteMessage(ws, message.Command, message.Payload)
 					if err != nil {
 						// If not retry then close the connection and put the message on the retry channel
 						if !isRetry {
@@ -228,7 +228,7 @@ func LeafConnectAndServe(server string) {
 
 			// Run forever processing messages from the origin server
 			for {
-				packet, err := msg.ReadPacket(ws)
+				message, err := msg.ReadMessgae(ws)
 				if err != nil {
 					log.Error().Msgf("leaf: error while reading message: %s", err)
 					ws.Close()
@@ -236,7 +236,7 @@ func LeafConnectAndServe(server string) {
 					break
 				}
 
-				switch packet.Command {
+				switch message.Command {
 				case msg.MSG_BOOTSTRAP:
 					if initialBoot {
 						log.Debug().Msg("leaf: bootstrap done")
@@ -249,74 +249,74 @@ func LeafConnectAndServe(server string) {
 					lastFullSyncCompleted = true
 
 				case msg.MSG_UPDATE_TEMPLATE:
-					err = leaf_server.HandleUpdateTemplate(packet)
+					err = leaf_server.HandleUpdateTemplate(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating template: %s", err)
 					}
 
 				case msg.MSG_DELETE_TEMPLATE:
-					err = leaf_server.HandleDeleteTemplate(packet)
+					err = leaf_server.HandleDeleteTemplate(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting template: %s", err)
 					}
 
 				case msg.MSG_UPDATE_USER:
-					err = leaf_server.HandleUpdateUser(packet)
+					err = leaf_server.HandleUpdateUser(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating user: %s", err)
 					}
 
 				case msg.MSG_DELETE_USER:
-					err = leaf_server.HandleDeleteUser(packet)
+					err = leaf_server.HandleDeleteUser(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting user: %s", err)
 					}
 
 				case msg.MSG_UPDATE_TEMPLATEVAR:
-					err = leaf_server.HandleUpdateTemplateVar(packet)
+					err = leaf_server.HandleUpdateTemplateVar(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting template var: %s", err)
 					}
 
 				case msg.MSG_DELETE_TEMPLATEVAR:
-					err = leaf_server.HandleDeleteTemplateVar(packet)
+					err = leaf_server.HandleDeleteTemplateVar(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting template var: %s", err)
 					}
 
 				case msg.MSG_UPDATE_SPACE:
-					err = leaf_server.HandleUpdateSpace(packet)
+					err = leaf_server.HandleUpdateSpace(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating space: %s", err)
 					}
 
 				case msg.MSG_DELETE_SPACE:
-					err = leaf_server.HandleDeleteSpace(packet)
+					err = leaf_server.HandleDeleteSpace(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting space: %s", err)
 					}
 
 				case msg.MSG_DELETE_TOKEN:
-					err = leaf_server.HandleDeleteToken(packet)
+					err = leaf_server.HandleDeleteToken(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting token: %s", err)
 					}
 
 				case msg.MSG_UPDATE_ROLE:
-					err = leaf_server.HandleUpdateRole(packet)
+					err = leaf_server.HandleUpdateRole(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating role: %s", err)
 					}
 
 				case msg.MSG_DELETE_ROLE:
-					err = leaf_server.HandleDeleteRole(packet)
+					err = leaf_server.HandleDeleteRole(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting role: %s", err)
 					}
 
 				default:
-					log.Error().Msgf("leaf: unknown command: %d", packet.Command)
-					err = fmt.Errorf("unknown command: %d", packet.Command)
+					log.Error().Msgf("leaf: unknown command: %d", message.Command)
+					err = fmt.Errorf("unknown command: %d", message.Command)
 				}
 
 				if err != nil {

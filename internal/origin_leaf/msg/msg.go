@@ -46,13 +46,13 @@ type LeafOriginMessage struct {
 	Payload interface{}
 }
 
-type Packet struct {
+type Message struct {
 	Command byte
 	payload []byte
 }
 
-func WritePacket(ws *websocket.Conn, cmd byte, payload interface{}) error {
-	// Serialize the packet using MessagePack
+func WriteMessage(ws *websocket.Conn, cmd byte, payload interface{}) error {
+	// Serialize the message using MessagePack
 	encodedPacket, err := msgpack.Marshal(payload)
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ func WritePacket(ws *websocket.Conn, cmd byte, payload interface{}) error {
 	return ws.WriteMessage(websocket.BinaryMessage, encodedPacket)
 }
 
-func ReadPacket(ws *websocket.Conn) (*Packet, error) {
+func ReadMessgae(ws *websocket.Conn) (*Message, error) {
 	msgType, message, err := ws.ReadMessage()
 	if err != nil {
 		return nil, err
@@ -83,12 +83,12 @@ func ReadPacket(ws *websocket.Conn) (*Packet, error) {
 	command := message[len(message)-1]
 	payload := message // The decoder ignores the trailing command byte
 
-	return &Packet{
+	return &Message{
 		Command: command,
 		payload: payload,
 	}, nil
 }
 
-func (p *Packet) UnmarshalPayload(v interface{}) error {
+func (p *Message) UnmarshalPayload(v interface{}) error {
 	return msgpack.Unmarshal(p.payload, v)
 }

@@ -9,11 +9,11 @@ import (
 )
 
 // handle update messages sent from the origin server
-func HandleUpdateUser(packet *msg.Packet) error {
+func HandleUpdateUser(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var userData msg.UpdateUser
-	err := packet.UnmarshalPayload(&userData)
+	err := message.UnmarshalPayload(&userData)
 	if err != nil {
 		return err
 	}
@@ -51,11 +51,11 @@ func HandleUpdateUser(packet *msg.Packet) error {
 	return nil
 }
 
-func HandleDeleteUser(packet *msg.Packet) error {
+func HandleDeleteUser(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var id string
-	err := packet.UnmarshalPayload(&id)
+	err := message.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

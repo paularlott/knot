@@ -101,7 +101,7 @@ func Register(id string, ws *websocket.Conn, location string, token *model.Token
 
 					attempts := 3
 					for i := 1; i <= attempts; i++ {
-						err := msg.WritePacket(ws, message.Command, message.Payload)
+						err := msg.WriteMessage(ws, message.Command, message.Payload)
 						if err == nil {
 							break
 						}

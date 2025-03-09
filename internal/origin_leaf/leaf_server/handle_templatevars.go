@@ -8,11 +8,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func HandleUpdateTemplateVar(packet *msg.Packet) error {
+func HandleUpdateTemplateVar(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var data model.TemplateVar
-	err := packet.UnmarshalPayload(&data)
+	err := message.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -30,11 +30,11 @@ func HandleUpdateTemplateVar(packet *msg.Packet) error {
 	return nil
 }
 
-func HandleDeleteTemplateVar(packet *msg.Packet) error {
+func HandleDeleteTemplateVar(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var id string
-	err := packet.UnmarshalPayload(&id)
+	err := message.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

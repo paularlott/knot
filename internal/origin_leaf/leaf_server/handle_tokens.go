@@ -7,11 +7,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func HandleDeleteToken(packet *msg.Packet) error {
+func HandleDeleteToken(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var id string
-	err := packet.UnmarshalPayload(&id)
+	err := message.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

@@ -7,11 +7,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func HandleUpdateSpace(packet *msg.Packet) error {
+func HandleUpdateSpace(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var data msg.UpdateSpace
-	err := packet.UnmarshalPayload(&data)
+	err := message.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -31,11 +31,11 @@ func HandleUpdateSpace(packet *msg.Packet) error {
 	return nil
 }
 
-func HandleDeleteSpace(packet *msg.Packet) error {
+func HandleDeleteSpace(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var id string
-	err := packet.UnmarshalPayload(&id)
+	err := message.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

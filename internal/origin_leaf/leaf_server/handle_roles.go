@@ -7,9 +7,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func HandleUpdateRole(packet *msg.Packet) error {
+func HandleUpdateRole(message *msg.Message) error {
 	var role model.Role
-	err := packet.UnmarshalPayload(&role)
+	err := message.UnmarshalPayload(&role)
 	if err != nil {
 		return err
 	}
@@ -22,10 +22,10 @@ func HandleUpdateRole(packet *msg.Packet) error {
 	return nil
 }
 
-func HandleDeleteRole(packet *msg.Packet) error {
+func HandleDeleteRole(message *msg.Message) error {
 
 	var id string
-	err := packet.UnmarshalPayload(&id)
+	err := message.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

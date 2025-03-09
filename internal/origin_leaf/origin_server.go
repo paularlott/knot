@@ -32,15 +32,15 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 	defer ws.Close()
 
 	// Wait for the register message
-	packet, err := msg.ReadPacket(ws)
+	message, err := msg.ReadMessgae(ws)
 	if err != nil {
-		log.Error().Msgf("origin: error while reading packet: %s", err)
+		log.Error().Msgf("origin: error while reading message: %s", err)
 		return
 	}
 
-	// Decode the packet payload
+	// Decode the message payload
 	var registerMsg msg.Register
-	err = packet.UnmarshalPayload(&registerMsg)
+	err = message.UnmarshalPayload(&registerMsg)
 	if err != nil {
 		log.Error().Msgf("origin: error while reading message: %s", err)
 		return
@@ -75,7 +75,7 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 	registerReply.SessionId = leafSession.Id
 
 	// Write the response
-	err = msg.WritePacket(ws, msg.MSG_REGISTER, &registerReply)
+	err = msg.WriteMessage(ws, msg.MSG_REGISTER, &registerReply)
 	if err != nil {
 		log.Error().Msgf("origin: error while writing message: %s", err)
 		return
@@ -90,83 +90,83 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 	// Loop forever processing messages from the websocket
 	for {
 
-		// Read the message packet
-		packet, err := msg.ReadPacket(ws)
+		// Read the message
+		message, err := msg.ReadMessgae(ws)
 		if err != nil {
-			log.Error().Msgf("origin: error while reading packet: %s", err)
+			log.Error().Msgf("origin: error while reading message: %s", err)
 			return
 		}
 
 		// Process the command
-		switch packet.Command {
+		switch message.Command {
 		case msg.MSG_BOOTSTRAP:
 			leafSession.Bootstrap()
 
 		case msg.MSG_SYNC_TEMPLATES:
-			err := originHandleSyncTemplates(packet, leafSession)
+			err := originHandleSyncTemplates(message, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync templates: %s", err)
 				return
 			}
 
 		case msg.MSG_SYNC_USER:
-			err := originHandleSyncUser(packet, leafSession, token)
+			err := originHandleSyncUser(message, leafSession, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync user: %s", err)
 				return
 			}
 
 		case msg.MSG_SYNC_TEMPLATEVARS:
-			err := originHandleSyncTemplateVars(packet, leafSession)
+			err := originHandleSyncTemplateVars(message, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync template vars: %s", err)
 				return
 			}
 
 		case msg.MSG_UPDATE_SPACE:
-			err := originHandleUpdateSpace(packet, token, leafSession)
+			err := originHandleUpdateSpace(message, token, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling update space: %s", err)
 				return
 			}
 
 		case msg.MSG_SYNC_SPACE:
-			err := originHandleSyncSpace(packet, leafSession)
+			err := originHandleSyncSpace(message, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync space: %s", err)
 				return
 			}
 
 		case msg.MSG_SYNC_USER_SPACES:
-			err := originHandleSyncUserSpaces(packet, leafSession)
+			err := originHandleSyncUserSpaces(message, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync user spaces: %s", err)
 				return
 			}
 
 		case msg.MSG_DELETE_SPACE:
-			err := originHandleDeleteSpace(packet, token, leafSession)
+			err := originHandleDeleteSpace(message, token, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling delete space: %s", err)
 				return
 			}
 
 		case msg.MSG_UPDATE_VOLUME:
-			err := originHandleUpdateVolume(packet, token)
+			err := originHandleUpdateVolume(message, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling update volume: %s", err)
 				return
 			}
 
 		case msg.MSG_MIRROR_TOKEN:
-			err := originHandleMirrorToken(packet, token)
+			err := originHandleMirrorToken(message, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling mirror token: %s", err)
 				return
 			}
 
 		case msg.MSG_DELETE_TOKEN:
-			err := originHandleDeleteToken(packet, token)
+			err := originHandleDeleteToken(message, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling delete token: %s", err)
 				return
@@ -180,17 +180,17 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 			}
 
 		default:
-			log.Error().Msgf("origin: unknown command: %d", packet.Command)
+			log.Error().Msgf("origin: unknown command: %d", message.Command)
 			return
 		}
 	}
 }
 
 // origin server handler to process sync user messages
-func originHandleSyncUser(packet *msg.Packet, session *leaf.Session, token *model.Token) error {
+func originHandleSyncUser(message *msg.Message, session *leaf.Session, token *model.Token) error {
 	// Read the message
 	var syncUserId string
-	err := packet.UnmarshalPayload(&syncUserId)
+	err := message.UnmarshalPayload(&syncUserId)
 	if err != nil {
 		return err
 	}
@@ -221,10 +221,10 @@ func originHandleSyncUser(packet *msg.Packet, session *leaf.Session, token *mode
 }
 
 // origin server handler to process sync space messages
-func originHandleSyncSpace(packet *msg.Packet, session *leaf.Session) error {
+func originHandleSyncSpace(message *msg.Message, session *leaf.Session) error {
 	// Read the message
 	var syncSpaceId string
-	err := packet.UnmarshalPayload(&syncSpaceId)
+	err := message.UnmarshalPayload(&syncSpaceId)
 	if err != nil {
 		return err
 	}
@@ -251,10 +251,10 @@ func originHandleSyncSpace(packet *msg.Packet, session *leaf.Session) error {
 	return nil
 }
 
-func originHandleSyncUserSpaces(packet *msg.Packet, session *leaf.Session) error {
+func originHandleSyncUserSpaces(message *msg.Message, session *leaf.Session) error {
 	// Read the message
 	var data msg.SyncUserSpaces
-	err := packet.UnmarshalPayload(&data)
+	err := message.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -283,10 +283,10 @@ func originHandleSyncUserSpaces(packet *msg.Packet, session *leaf.Session) error
 }
 
 // origin server handler to process sync template vars messages
-func originHandleSyncTemplateVars(packet *msg.Packet, session *leaf.Session) error {
+func originHandleSyncTemplateVars(message *msg.Message, session *leaf.Session) error {
 	// Read the message
 	var data msg.SyncTemplateVars
-	err := packet.UnmarshalPayload(&data)
+	err := message.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -323,12 +323,12 @@ func originHandleSyncTemplateVars(packet *msg.Packet, session *leaf.Session) err
 }
 
 // origin server handler to process sync templates messages
-func originHandleSyncTemplates(packet *msg.Packet, session *leaf.Session) error {
+func originHandleSyncTemplates(message *msg.Message, session *leaf.Session) error {
 	log.Debug().Msgf("origin: sync templates")
 
 	// read the message
 	var data msg.SyncTemplates
-	err := packet.UnmarshalPayload(&data)
+	err := message.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -363,10 +363,10 @@ func originHandleSyncTemplates(packet *msg.Packet, session *leaf.Session) error 
 }
 
 // origin server handler to process delete space messages
-func originHandleDeleteSpace(packet *msg.Packet, token *model.Token, session *leaf.Session) error {
+func originHandleDeleteSpace(message *msg.Message, token *model.Token, session *leaf.Session) error {
 	// read the message
 	var spaceId string
-	err := packet.UnmarshalPayload(&spaceId)
+	err := message.UnmarshalPayload(&spaceId)
 	if err != nil {
 		return err
 	}
@@ -388,10 +388,10 @@ func originHandleDeleteSpace(packet *msg.Packet, token *model.Token, session *le
 	return nil
 }
 
-func originHandleUpdateSpace(packet *msg.Packet, token *model.Token, session *leaf.Session) error {
+func originHandleUpdateSpace(message *msg.Message, token *model.Token, session *leaf.Session) error {
 	// read the message
 	var updateMsg msg.UpdateSpace
-	err := packet.UnmarshalPayload(&updateMsg)
+	err := message.UnmarshalPayload(&updateMsg)
 	if err != nil {
 		return err
 	}
@@ -417,10 +417,10 @@ func originHandleUpdateSpace(packet *msg.Packet, token *model.Token, session *le
 	return nil
 }
 
-func originHandleUpdateVolume(packet *msg.Packet, token *model.Token) error {
+func originHandleUpdateVolume(message *msg.Message, token *model.Token) error {
 	// read the message
 	var volume msg.UpdateVolume
-	err := packet.UnmarshalPayload(&volume)
+	err := message.UnmarshalPayload(&volume)
 	if err != nil {
 		return err
 	}
@@ -442,10 +442,10 @@ func originHandleUpdateVolume(packet *msg.Packet, token *model.Token) error {
 	return nil
 }
 
-func originHandleMirrorToken(packet *msg.Packet, accessToken *model.Token) error {
+func originHandleMirrorToken(message *msg.Message, accessToken *model.Token) error {
 	// read the message
 	var token model.Token
-	err := packet.UnmarshalPayload(&token)
+	err := message.UnmarshalPayload(&token)
 	if err != nil {
 		return err
 	}
@@ -465,10 +465,10 @@ func originHandleMirrorToken(packet *msg.Packet, accessToken *model.Token) error
 	return nil
 }
 
-func originHandleDeleteToken(packet *msg.Packet, accessToken *model.Token) error {
+func originHandleDeleteToken(message *msg.Message, accessToken *model.Token) error {
 	// read the message
 	var data model.Token
-	err := packet.UnmarshalPayload(&data)
+	err := message.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
