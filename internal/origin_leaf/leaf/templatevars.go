@@ -39,23 +39,27 @@ func (s *Session) DeleteTemplateVar(id string) {
 }
 
 // update the template var on all leaf nodes
-func UpdateTemplateVar(templateVar *model.TemplateVar) {
+func UpdateTemplateVar(templateVar *model.TemplateVar, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.UpdateTemplateVar(templateVar)
+		if session != skipSession {
+			session.UpdateTemplateVar(templateVar)
+		}
 	}
 }
 
 // delete the template var on all leaf nodes
-func DeleteTemplateVar(id string) {
+func DeleteTemplateVar(id string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.DeleteTemplateVar(id)
+		if session != skipSession {
+			session.DeleteTemplateVar(id)
+		}
 	}
 }

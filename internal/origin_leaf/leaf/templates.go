@@ -29,21 +29,25 @@ func (s *Session) DeleteTemplate(templateId string) {
 }
 
 // update the template on all leaf nodes
-func UpdateTemplate(template *model.Template, updateFields []string) {
+func UpdateTemplate(template *model.Template, updateFields []string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	for _, session := range session {
-		session.UpdateTemplate(template, updateFields)
+		if session != skipSession {
+			session.UpdateTemplate(template, updateFields)
+		}
 	}
 }
 
 // delete the template on all leaf nodes
-func DeleteTemplate(templateId string) {
+func DeleteTemplate(templateId string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	for _, session := range session {
-		session.DeleteTemplate(templateId)
+		if session != skipSession {
+			session.DeleteTemplate(templateId)
+		}
 	}
 }

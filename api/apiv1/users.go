@@ -515,7 +515,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		go api_utils.UpdateUserSpaces(user)
 
 		// notify all remote servers of the change
-		leaf.UpdateUser(user, saveFields)
+		leaf.UpdateUser(user, saveFields, nil)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -580,7 +580,7 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If core server then notify all remote servers of the change
-	leaf.DeleteUser(userId)
+	leaf.DeleteUser(userId, nil)
 
 	w.WriteHeader(http.StatusOK)
 }

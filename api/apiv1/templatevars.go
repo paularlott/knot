@@ -139,9 +139,9 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if sendDelete {
-			leaf.DeleteTemplateVar(templateVarId)
+			leaf.DeleteTemplateVar(templateVarId, nil)
 		} else {
-			leaf.UpdateTemplateVar(templateVar)
+			leaf.UpdateTemplateVar(templateVar, nil)
 		}
 
 		audit.Log(
@@ -215,7 +215,7 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		leaf.UpdateTemplateVar(templateVar)
+		leaf.UpdateTemplateVar(templateVar, nil)
 
 		id = templateVar.Id
 
@@ -277,7 +277,7 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		leaf.DeleteTemplateVar(templateVarId)
+		leaf.DeleteTemplateVar(templateVarId, nil)
 
 		user := r.Context().Value("user").(*model.User)
 		audit.Log(

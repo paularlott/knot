@@ -61,7 +61,7 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 
 	// if running on a leaf then notify the origin server and origin notify the leaf servers
 	origin.DeleteToken(token)
-	leaf.DeleteToken(token.Id)
+	leaf.DeleteToken(token.Id, nil)
 
 	w.WriteHeader(http.StatusOK)
 }

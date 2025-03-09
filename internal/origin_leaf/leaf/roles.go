@@ -25,23 +25,27 @@ func (s *Session) DeleteRole(id string) {
 }
 
 // delete the role on all leaf nodes
-func DeleteRole(id string) {
+func DeleteRole(id string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.DeleteRole(id)
+		if session != skipSession {
+			session.DeleteRole(id)
+		}
 	}
 }
 
 // update the role on all leaf nodes
-func UpdateRole(role *model.Role) {
+func UpdateRole(role *model.Role, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.UpdateRole(role)
+		if session != skipSession {
+			session.UpdateRole(role)
+		}
 	}
 }
