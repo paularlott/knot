@@ -6,7 +6,7 @@ import (
 )
 
 func (s *Session) UpdateRole(role *model.Role) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_UPDATE_ROLE,
 		Payload: role,
 	}
@@ -16,7 +16,7 @@ func (s *Session) UpdateRole(role *model.Role) {
 
 // delete the role on a leaf node
 func (s *Session) DeleteRole(id string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_DELETE_ROLE,
 		Payload: &id,
 	}

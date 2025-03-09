@@ -417,6 +417,10 @@ var serverCmd = &cobra.Command{
 				log.Fatal().Msgf("server: failed to get roles: %s", err.Error())
 			}
 			model.SetRoleCache(roles)
+
+			if server_info.IsOrigin {
+				origin_leaf.StartLeafSessionGC()
+			}
 		}
 
 		// Check for local spaces that are pending state changes and setup watches

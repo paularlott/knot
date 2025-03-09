@@ -6,7 +6,7 @@ import (
 
 // delete the space on a leaf node
 func (s *Session) DeleteToken(id string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_DELETE_TOKEN,
 		Payload: &id,
 	}

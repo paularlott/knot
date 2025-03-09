@@ -5,16 +5,15 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
 
-	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
 
 // handle update messages sent from the origin server
-func HandleUpdateUser(ws *websocket.Conn) error {
+func HandleUpdateUser(packet *msg.Packet) error {
 	db := database.GetInstance()
 
 	var userData msg.UpdateUser
-	err := msg.ReadMessage(ws, &userData)
+	err := packet.UnmarshalPayload(&userData)
 	if err != nil {
 		return err
 	}
@@ -52,11 +51,11 @@ func HandleUpdateUser(ws *websocket.Conn) error {
 	return nil
 }
 
-func HandleDeleteUser(ws *websocket.Conn) error {
+func HandleDeleteUser(packet *msg.Packet) error {
 	db := database.GetInstance()
 
 	var id string
-	err := msg.ReadMessage(ws, &id)
+	err := packet.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,7 @@ import (
 
 // update the template on a leaf node
 func (s *Session) UpdateTemplate(template *model.Template, updateFields []string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_UPDATE_TEMPLATE,
 		Payload: &msg.UpdateTemplate{
 			Template:     *template,
@@ -20,7 +20,7 @@ func (s *Session) UpdateTemplate(template *model.Template, updateFields []string
 
 // delete the template on a leaf node
 func (s *Session) DeleteTemplate(templateId string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_DELETE_TEMPLATE,
 		Payload: &templateId,
 	}

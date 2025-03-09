@@ -5,14 +5,13 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
 
-	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
 
 // handle template updates sent from the origin server
-func HandleUpdateTemplate(ws *websocket.Conn) error {
+func HandleUpdateTemplate(packet *msg.Packet) error {
 	var data msg.UpdateTemplate
-	err := msg.ReadMessage(ws, &data)
+	err := packet.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -31,9 +30,9 @@ func HandleUpdateTemplate(ws *websocket.Conn) error {
 }
 
 // handle template deletes sent from the origin server
-func HandleDeleteTemplate(ws *websocket.Conn) error {
+func HandleDeleteTemplate(packet *msg.Packet) error {
 	var id string
-	err := msg.ReadMessage(ws, &id)
+	err := packet.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

@@ -13,7 +13,7 @@ func (s *Session) UpdateUser(user *model.User, updateFields []string) {
 		user.Password = ""
 		user.TOTPSecret = ""
 
-		message := &msg.ClientMessage{
+		message := &msg.LeafOriginMessage{
 			Command: msg.MSG_UPDATE_USER,
 			Payload: &msg.UpdateUser{
 				User:         *user,
@@ -27,7 +27,7 @@ func (s *Session) UpdateUser(user *model.User, updateFields []string) {
 
 // delete the user on a leaf node
 func (s *Session) DeleteUser(id string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_DELETE_USER,
 		Payload: &id,
 	}

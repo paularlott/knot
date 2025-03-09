@@ -12,7 +12,7 @@ func (s *Session) UpdateTemplateVar(templateVar *model.TemplateVar) bool {
 	if s.token == nil || (!templateVar.Protected && !templateVar.Restricted) {
 		// Only send vars that match the location or are global, never local
 		if !templateVar.Local && (templateVar.Location == "" || templateVar.Location == s.location) {
-			message := &msg.ClientMessage{
+			message := &msg.LeafOriginMessage{
 				Command: msg.MSG_UPDATE_TEMPLATEVAR,
 				Payload: templateVar,
 			}
@@ -30,7 +30,7 @@ func (s *Session) UpdateTemplateVar(templateVar *model.TemplateVar) bool {
 
 // delete the template var on a leaf node
 func (s *Session) DeleteTemplateVar(id string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_DELETE_TEMPLATEVAR,
 		Payload: &id,
 	}

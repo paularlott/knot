@@ -2,7 +2,6 @@ package msg
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/vmihailenco/msgpack/v5"
@@ -11,7 +10,8 @@ import (
 const (
 	MSG_NONE = iota
 	MSG_BOOTSTRAP
-	MSG_PING
+
+	MSG_REGISTER // Used when passing registration messages
 
 	MSG_SYNC_TEMPLATES // Sent to origin server to request all templates
 	MSG_UPDATE_TEMPLATE
@@ -40,58 +40,55 @@ const (
 	MSG_DELETE_ROLE
 )
 
-// message used internally over the leader / follower channels
-type ClientMessage struct {
+// message used internally between the leaf and origin
+type LeafOriginMessage struct {
 	Command byte
 	Payload interface{}
 }
 
-func WriteCommand(ws *websocket.Conn, cmdType byte) error {
-	return ws.WriteMessage(websocket.BinaryMessage, []byte{cmdType})
+type Packet struct {
+	Command byte
+	payload []byte
 }
 
-func ReadCommand(ws *websocket.Conn) (byte, error) {
-	mtype, message, err := ws.ReadMessage()
-	if err != nil {
-		return 0, err
-	}
-
-	if mtype != websocket.BinaryMessage {
-		return 0, fmt.Errorf("expected binary message, got %d", mtype)
-	}
-
-	if len(message) < 1 {
-		return 0, fmt.Errorf("received empty message")
-	}
-
-	return message[0], nil
-}
-
-func WriteMessage(ws *websocket.Conn, payload interface{}) error {
-	// Serialize the payload using MessagePack
-	encodedPayload, err := msgpack.Marshal(payload)
+func WritePacket(ws *websocket.Conn, cmd byte, payload interface{}) error {
+	// Serialize the packet using MessagePack
+	encodedPacket, err := msgpack.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
-	// Write the encoded payload
-	return ws.WriteMessage(websocket.BinaryMessage, encodedPayload)
+	// Append the command byte to the end of the payload
+	encodedPacket = append(encodedPacket, cmd)
+
+	// Write the encoded packet
+	return ws.WriteMessage(websocket.BinaryMessage, encodedPacket)
 }
 
-func ReadMessage(ws *websocket.Conn, v interface{}) error {
-	// Set a read deadline
-	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
-	defer ws.SetReadDeadline(time.Time{})
-
+func ReadPacket(ws *websocket.Conn) (*Packet, error) {
 	msgType, message, err := ws.ReadMessage()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if msgType != websocket.BinaryMessage {
-		return fmt.Errorf("expected binary message, got %d", msgType)
+		return nil, fmt.Errorf("expected binary message, got %d", msgType)
 	}
 
-	// Deserialize the payload into v
-	return msgpack.Unmarshal(message, v)
+	if len(message) < 1 {
+		return nil, fmt.Errorf("received empty message")
+	}
+
+	// Extract the command byte and the payload
+	command := message[len(message)-1]
+	payload := message // The decoder ignores the trailing command byte
+
+	return &Packet{
+		Command: command,
+		payload: payload,
+	}, nil
+}
+
+func (p *Packet) UnmarshalPayload(v interface{}) error {
+	return msgpack.Unmarshal(p.payload, v)
 }

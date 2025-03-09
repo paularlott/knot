@@ -3,7 +3,6 @@ package origin_leaf
 import (
 	"net/http"
 
-	"github.com/gorilla/websocket"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
@@ -12,27 +11,17 @@ import (
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
+
+func StartLeafSessionGC() {
+	go leaf.Gc()
+}
 
 func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 
 	// If auth was done with an API token then get it as we use it to restrict what the user can do
 	token, _ := r.Context().Value("access_token").(*model.Token)
-
-	// Generate a UUID for the follower
-	id, err := uuid.NewV7()
-	if err != nil {
-		log.Fatal().Msgf("origin: failed to create leaf ID: %s", err)
-	}
-	leafId := id.String()
-
-	if token != nil {
-		log.Info().Msgf("origin: new leaf %s connecting using API token for %s", leafId, token.UserId)
-	} else {
-		log.Info().Msgf("origin: new leaf %s connecting", leafId)
-	}
 
 	// Upgrade to a websocket
 	ws := util.UpgradeToWS(w, r)
@@ -43,8 +32,15 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 	defer ws.Close()
 
 	// Wait for the register message
+	packet, err := msg.ReadPacket(ws)
+	if err != nil {
+		log.Error().Msgf("origin: error while reading packet: %s", err)
+		return
+	}
+
+	// Decode the packet payload
 	var registerMsg msg.Register
-	err = msg.ReadMessage(ws, &registerMsg)
+	err = packet.UnmarshalPayload(&registerMsg)
 	if err != nil {
 		log.Error().Msgf("origin: error while reading message: %s", err)
 		return
@@ -74,124 +70,127 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 		registerReply.Success = false
 	}
 
-	// Create a new follower server
-	leafSession := leaf.Register(leafId, ws, registerMsg.Location, token)
-	defer leaf.Unregister(leafId)
+	// Create or get the leaf session
+	leafSession := leaf.Register(registerMsg.SessionId, ws, registerMsg.Location, token)
+	registerReply.SessionId = leafSession.Id
 
 	// Write the response
-	err = msg.WriteMessage(ws, &registerReply)
+	err = msg.WritePacket(ws, msg.MSG_REGISTER, &registerReply)
 	if err != nil {
 		log.Error().Msgf("origin: error while writing message: %s", err)
 		return
 	}
 
+	// Set up the ping handler, used to keep the lead session alive
+	ws.SetPingHandler(func(appData string) error {
+		leafSession.KeepAlive()
+		return nil
+	})
+
 	// Loop forever processing messages from the websocket
 	for {
 
-		// Get the command
-		cmd, err := msg.ReadCommand(ws)
+		// Read the message packet
+		packet, err := msg.ReadPacket(ws)
 		if err != nil {
-			log.Error().Msgf("origin: error while reading command: %s", err)
+			log.Error().Msgf("origin: error while reading packet: %s", err)
 			return
 		}
 
 		// Process the command
-		switch cmd {
+		switch packet.Command {
 		case msg.MSG_BOOTSTRAP:
 			leafSession.Bootstrap()
 
-		case msg.MSG_PING:
-			leafSession.Ping()
-
 		case msg.MSG_SYNC_TEMPLATES:
-			err := originHandleSyncTemplates(ws, leafSession)
+			err := originHandleSyncTemplates(packet, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync templates: %s", err)
 				return
 			}
 
 		case msg.MSG_SYNC_USER:
-			err := originHandleSyncUser(ws, leafSession, token)
+			err := originHandleSyncUser(packet, leafSession, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync user: %s", err)
 				return
 			}
 
 		case msg.MSG_SYNC_TEMPLATEVARS:
-			err := originHandleSyncTemplateVars(ws, leafSession)
+			err := originHandleSyncTemplateVars(packet, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync template vars: %s", err)
 				return
 			}
 
 		case msg.MSG_UPDATE_SPACE:
-			err := originHandleUpdateSpace(ws, token, leafSession)
+			err := originHandleUpdateSpace(packet, token, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling update space: %s", err)
 				return
 			}
 
 		case msg.MSG_SYNC_SPACE:
-			err := originHandleSyncSpace(ws, leafSession)
+			err := originHandleSyncSpace(packet, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync space: %s", err)
 				return
 			}
 
 		case msg.MSG_SYNC_USER_SPACES:
-			err := originHandleSyncUserSpaces(ws, leafSession)
+			err := originHandleSyncUserSpaces(packet, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync user spaces: %s", err)
 				return
 			}
 
 		case msg.MSG_DELETE_SPACE:
-			err := originHandleDeleteSpace(ws, token, leafSession)
+			err := originHandleDeleteSpace(packet, token, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling delete space: %s", err)
 				return
 			}
 
 		case msg.MSG_UPDATE_VOLUME:
-			err := originHandleUpdateVolume(ws, token)
+			err := originHandleUpdateVolume(packet, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling update volume: %s", err)
 				return
 			}
 
 		case msg.MSG_MIRROR_TOKEN:
-			err := originHandleMirrorToken(ws, token)
+			err := originHandleMirrorToken(packet, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling mirror token: %s", err)
 				return
 			}
 
 		case msg.MSG_DELETE_TOKEN:
-			err := originHandleDeleteToken(ws, token)
+			err := originHandleDeleteToken(packet, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling delete token: %s", err)
 				return
 			}
 
 		case msg.MSG_SYNC_ROLES:
-			err := originHandleSyncRoles(ws, leafSession)
+			err := originHandleSyncRoles(leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync roles: %s", err)
 				return
 			}
 
 		default:
-			log.Error().Msgf("origin: unknown command: %d", cmd)
+			log.Error().Msgf("origin: unknown command: %d", packet.Command)
 			return
 		}
 	}
 }
 
 // origin server handler to process sync user messages
-func originHandleSyncUser(ws *websocket.Conn, session *leaf.Session, token *model.Token) error {
+func originHandleSyncUser(packet *msg.Packet, session *leaf.Session, token *model.Token) error {
 	// Read the message
 	var syncUserId string
-	err := msg.ReadMessage(ws, &syncUserId)
+	err := packet.UnmarshalPayload(&syncUserId)
 	if err != nil {
 		return err
 	}
@@ -222,42 +221,40 @@ func originHandleSyncUser(ws *websocket.Conn, session *leaf.Session, token *mode
 }
 
 // origin server handler to process sync space messages
-func originHandleSyncSpace(ws *websocket.Conn, session *leaf.Session) error {
+func originHandleSyncSpace(packet *msg.Packet, session *leaf.Session) error {
 	// Read the message
 	var syncSpaceId string
-	err := msg.ReadMessage(ws, &syncSpaceId)
+	err := packet.UnmarshalPayload(&syncSpaceId)
 	if err != nil {
 		return err
 	}
 
-	go func() {
-		db := database.GetInstance()
+	db := database.GetInstance()
 
-		// Fetch the space from the database
-		space, err := db.GetSpace(syncSpaceId)
-		if err != nil {
-			// If space not found then tell the follower to delete the space
-			if err.Error() == "space not found" {
-				log.Debug().Msgf("origin: space %s not found", syncSpaceId)
-				session.DeleteSpace(syncSpaceId)
-			} else {
-				return
-			}
+	// Fetch the space from the database
+	space, err := db.GetSpace(syncSpaceId)
+	if err != nil {
+		// If space not found then tell the follower to delete the space
+		if err.Error() == "space not found" {
+			log.Debug().Msgf("origin: space %s not found", syncSpaceId)
+			session.DeleteSpace(syncSpaceId)
 		} else {
-			if !session.UpdateSpace(space, nil) {
-				log.Warn().Msgf("origin: space %s not permitted to sync by token", space.Id)
-				session.DeleteSpace(syncSpaceId)
-			}
+			return err
 		}
-	}()
+	} else {
+		if !session.UpdateSpace(space, nil) {
+			log.Warn().Msgf("origin: space %s not permitted to sync by token", space.Id)
+			session.DeleteSpace(syncSpaceId)
+		}
+	}
 
 	return nil
 }
 
-func originHandleSyncUserSpaces(ws *websocket.Conn, session *leaf.Session) error {
+func originHandleSyncUserSpaces(packet *msg.Packet, session *leaf.Session) error {
 	// Read the message
 	var data msg.SyncUserSpaces
-	err := msg.ReadMessage(ws, &data)
+	err := packet.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -286,10 +283,10 @@ func originHandleSyncUserSpaces(ws *websocket.Conn, session *leaf.Session) error
 }
 
 // origin server handler to process sync template vars messages
-func originHandleSyncTemplateVars(ws *websocket.Conn, session *leaf.Session) error {
+func originHandleSyncTemplateVars(packet *msg.Packet, session *leaf.Session) error {
 	// Read the message
 	var data msg.SyncTemplateVars
-	err := msg.ReadMessage(ws, &data)
+	err := packet.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -326,10 +323,12 @@ func originHandleSyncTemplateVars(ws *websocket.Conn, session *leaf.Session) err
 }
 
 // origin server handler to process sync templates messages
-func originHandleSyncTemplates(ws *websocket.Conn, session *leaf.Session) error {
+func originHandleSyncTemplates(packet *msg.Packet, session *leaf.Session) error {
+	log.Debug().Msgf("origin: sync templates")
+
 	// read the message
 	var data msg.SyncTemplates
-	err := msg.ReadMessage(ws, &data)
+	err := packet.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -364,10 +363,10 @@ func originHandleSyncTemplates(ws *websocket.Conn, session *leaf.Session) error 
 }
 
 // origin server handler to process delete space messages
-func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token, session *leaf.Session) error {
+func originHandleDeleteSpace(packet *msg.Packet, token *model.Token, session *leaf.Session) error {
 	// read the message
 	var spaceId string
-	err := msg.ReadMessage(ws, &spaceId)
+	err := packet.UnmarshalPayload(&spaceId)
 	if err != nil {
 		return err
 	}
@@ -389,10 +388,10 @@ func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token, session *le
 	return nil
 }
 
-func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token, session *leaf.Session) error {
+func originHandleUpdateSpace(packet *msg.Packet, token *model.Token, session *leaf.Session) error {
 	// read the message
 	var updateMsg msg.UpdateSpace
-	err := msg.ReadMessage(ws, &updateMsg)
+	err := packet.UnmarshalPayload(&updateMsg)
 	if err != nil {
 		return err
 	}
@@ -418,10 +417,10 @@ func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token, session *le
 	return nil
 }
 
-func originHandleUpdateVolume(ws *websocket.Conn, token *model.Token) error {
+func originHandleUpdateVolume(packet *msg.Packet, token *model.Token) error {
 	// read the message
 	var volume msg.UpdateVolume
-	err := msg.ReadMessage(ws, &volume)
+	err := packet.UnmarshalPayload(&volume)
 	if err != nil {
 		return err
 	}
@@ -443,10 +442,10 @@ func originHandleUpdateVolume(ws *websocket.Conn, token *model.Token) error {
 	return nil
 }
 
-func originHandleMirrorToken(ws *websocket.Conn, accessToken *model.Token) error {
+func originHandleMirrorToken(packet *msg.Packet, accessToken *model.Token) error {
 	// read the message
 	var token model.Token
-	err := msg.ReadMessage(ws, &token)
+	err := packet.UnmarshalPayload(&token)
 	if err != nil {
 		return err
 	}
@@ -466,10 +465,10 @@ func originHandleMirrorToken(ws *websocket.Conn, accessToken *model.Token) error
 	return nil
 }
 
-func originHandleDeleteToken(ws *websocket.Conn, accessToken *model.Token) error {
+func originHandleDeleteToken(packet *msg.Packet, accessToken *model.Token) error {
 	// read the message
 	var data model.Token
-	err := msg.ReadMessage(ws, &data)
+	err := packet.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -487,7 +486,7 @@ func originHandleDeleteToken(ws *websocket.Conn, accessToken *model.Token) error
 }
 
 // origin server handler to process sync roles messages
-func originHandleSyncRoles(ws *websocket.Conn, session *leaf.Session) error {
+func originHandleSyncRoles(session *leaf.Session) error {
 	roles := model.GetRolesFromCache()
 	for _, role := range roles {
 		session.UpdateRole(role)
