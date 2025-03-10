@@ -29,7 +29,7 @@ window.rolesListComponent = function() {
     },
 
     async getRoles() {
-      const response = await fetch('/api/v1/roles', {
+      const response = await fetch('/api/roles', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -51,7 +51,7 @@ window.rolesListComponent = function() {
     },
     async deleteRole(roleId) {
       let self = this;
-      await fetch(`/api/v1/roles/${roleId}`, {
+      await fetch(`/api/roles/${roleId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

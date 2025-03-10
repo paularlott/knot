@@ -26,7 +26,20 @@ Knot is a powerful tool to manage Cloud Development Environment within a Nomad c
 - **Support for VNC:** Support for web based VNC servers such as KasmVNC.
 - **Remote Servers** Maximize performance by deploying environment close to developers but manage templates and users from one central location.
 - **Custom Roles:** Create custom roles to manage permissions.
+- **Sharing:** Spaces can be shared with other users allowing SSH and terminal access.
+- **Logging:** Syslog compatible interface allows logging and display within a window.
+- **Tunneling:** Securely expose development environments to the internet when required.
 - **API:** Provides an API for integration with other systems.
+
+## API Versioning
+
+The API version is specified in the request header:
+
+```http
+X-Knot-Api-Version: 2025-03-10
+```
+
+Any non-breaking changes are available in all versions of the API while breaking changes are only available in the latest version of the API.
 
 ## Security
 

@@ -39,7 +39,7 @@ window.loginUserForm = function(redirect) {
         totp_code: this.formData.totp_code,
       }
 
-      fetch('/api/v1/auth/web', {
+      fetch('/api/auth/web', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

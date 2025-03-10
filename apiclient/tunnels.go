@@ -8,7 +8,7 @@ type TunnelInfo struct {
 func (c *ApiClient) GetTunnels() ([]TunnelInfo, int, error) {
 	response := []TunnelInfo{}
 
-	code, err := c.httpClient.Get("/api/v1/tunnels", &response)
+	code, err := c.httpClient.Get("/api/tunnels", &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -19,7 +19,7 @@ func (c *ApiClient) GetTunnels() ([]TunnelInfo, int, error) {
 func (c *ApiClient) GetTunnelDomain() (string, int, error) {
 	response := ""
 
-	code, err := c.httpClient.Get("/api/v1/tunnels/domain", &response)
+	code, err := c.httpClient.Get("/api/tunnels/domain", &response)
 	if err != nil {
 		return "", code, err
 	}

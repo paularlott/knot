@@ -29,7 +29,7 @@ type RoleResponse struct {
 func (c *ApiClient) GetRoles() (*RoleInfoList, int, error) {
 	response := &RoleInfoList{}
 
-	code, err := c.httpClient.Get("/api/v1/roles", response)
+	code, err := c.httpClient.Get("/api/roles", response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -43,7 +43,7 @@ func (c *ApiClient) UpdateRole(roleId string, roleName string, permissions []uin
 		Permissions: permissions,
 	}
 
-	code, err := c.httpClient.Put("/api/v1/roles/"+roleId, request, nil, 200)
+	code, err := c.httpClient.Put("/api/roles/"+roleId, request, nil, 200)
 	if err != nil {
 		return code, err
 	}
@@ -59,7 +59,7 @@ func (c *ApiClient) CreateRole(roleName string, permissions []uint16) (string, i
 
 	response := &RoleResponse{}
 
-	code, err := c.httpClient.Post("/api/v1/roles", request, response, 201)
+	code, err := c.httpClient.Post("/api/roles", request, response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -68,13 +68,13 @@ func (c *ApiClient) CreateRole(roleName string, permissions []uint16) (string, i
 }
 
 func (c *ApiClient) DeleteRole(roleId string) (int, error) {
-	return c.httpClient.Delete("/api/v1/roles/"+roleId, nil, nil, 200)
+	return c.httpClient.Delete("/api/roles/"+roleId, nil, nil, 200)
 }
 
 func (c *ApiClient) GetRole(roleId string) (*RoleDetails, int, error) {
 	response := &RoleDetails{}
 
-	code, err := c.httpClient.Get("/api/v1/roles/"+roleId, response)
+	code, err := c.httpClient.Get("/api/roles/"+roleId, response)
 	if err != nil {
 		return nil, code, err
 	}

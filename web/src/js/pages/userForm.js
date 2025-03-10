@@ -45,7 +45,7 @@ window.userForm = function(isEdit, userId, isProfile) {
     async initUsers() {
       focusElement('input[name="username"]');
 
-      const rolesResponse = await fetch('/api/v1/roles', {
+      const rolesResponse = await fetch('/api/roles', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -53,7 +53,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       let roleList = await rolesResponse.json();
       this.roles = roleList.roles;
 
-      const groupsResponse = await fetch('/api/v1/groups', {
+      const groupsResponse = await fetch('/api/groups', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -62,7 +62,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       this.groups = groupsList.groups;
 
       if(isEdit) {
-        const userResponse = await fetch('/api/v1/users/' + userId, {
+        const userResponse = await fetch('/api/users/' + userId, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -192,7 +192,7 @@ window.userForm = function(isEdit, userId, isProfile) {
         timezone: this.formData.timezone,
       };
 
-      fetch(isEdit ? '/api/v1/users/' + userId : '/api/v1/users', {
+      fetch(isEdit ? '/api/users/' + userId : '/api/users', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'

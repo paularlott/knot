@@ -38,7 +38,7 @@ window.userListComponent = function() {
     },
 
     async getUsers() {
-      const rolesResponse = await fetch('/api/v1/roles', {
+      const rolesResponse = await fetch('/api/roles', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -46,7 +46,7 @@ window.userListComponent = function() {
       let roleList = await rolesResponse.json();
       this.roles = roleList.roles;
 
-      const groupsResponse = await fetch('/api/v1/groups', {
+      const groupsResponse = await fetch('/api/groups', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -54,7 +54,7 @@ window.userListComponent = function() {
       groupList = await groupsResponse.json();
       this.groups = groupList.groups;
 
-      const response = await fetch('/api/v1/users', {
+      const response = await fetch('/api/users', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -105,7 +105,7 @@ window.userListComponent = function() {
     },
     async deleteUser(userId) {
       var self = this;
-      await fetch(`/api/v1/users/${userId}`, {
+      await fetch(`/api/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -123,7 +123,7 @@ window.userListComponent = function() {
     },
     async stopSpaces(userId) {
       var self = this;
-      await fetch(`/api/v1/spaces/${userId}/stop-for-user`, {
+      await fetch(`/api/spaces/${userId}/stop-for-user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

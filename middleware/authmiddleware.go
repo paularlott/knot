@@ -135,6 +135,13 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 
 			// Add the user to the context
 			ctx = context.WithValue(ctx, "user", user)
+
+			// Get the API version
+			apiVersion := r.Header.Get("X-Knot-Api-Version")
+			if apiVersion == "" {
+				apiVersion = "2025-03-10"
+			}
+			ctx = context.WithValue(ctx, "api_version", apiVersion)
 		}
 
 		// If authenticated, continue

@@ -29,7 +29,7 @@ window.templateVarListComponent = function() {
     },
 
     async getTemplateVars() {
-      const response = await fetch('/api/v1/templatevars', {
+      const response = await fetch('/api/templatevars', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -51,7 +51,7 @@ window.templateVarListComponent = function() {
     },
     async deleteTemplateVar(templateVarId) {
       var self = this;
-      await fetch(`/api/v1/templatevars/${templateVarId}`, {
+      await fetch(`/api/templatevars/${templateVarId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

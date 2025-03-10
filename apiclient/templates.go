@@ -93,7 +93,7 @@ type TemplateDetails struct {
 func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
 	response := &TemplateList{}
 
-	code, err := c.httpClient.Get("/api/v1/templates", response)
+	code, err := c.httpClient.Get("/api/templates", response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -125,7 +125,7 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 		request.Schedule = *schedule
 	}
 
-	return c.httpClient.Put("/api/v1/templates/"+templateId, &request, nil, 200)
+	return c.httpClient.Put("/api/templates/"+templateId, &request, nil, 200)
 }
 
 func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string) (string, int, error) {
@@ -156,7 +156,7 @@ func (c *ApiClient) CreateTemplate(name string, job string, description string, 
 
 	response := &TemplateCreateResponse{}
 
-	code, err := c.httpClient.Post("/api/v1/templates", &request, &response, 201)
+	code, err := c.httpClient.Post("/api/templates", &request, &response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -165,13 +165,13 @@ func (c *ApiClient) CreateTemplate(name string, job string, description string, 
 }
 
 func (c *ApiClient) DeleteTemplate(templateId string) (int, error) {
-	return c.httpClient.Delete("/api/v1/templates/"+templateId, nil, nil, 200)
+	return c.httpClient.Delete("/api/templates/"+templateId, nil, nil, 200)
 }
 
 func (c *ApiClient) GetTemplate(templateId string) (*TemplateDetails, int, error) {
 	response := &TemplateDetails{}
 
-	code, err := c.httpClient.Get("/api/v1/templates/"+templateId, response)
+	code, err := c.httpClient.Get("/api/templates/"+templateId, response)
 	if err != nil {
 		return nil, code, err
 	}

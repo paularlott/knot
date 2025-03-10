@@ -46,6 +46,6 @@ func HandleLookup(w http.ResponseWriter, r *http.Request) {
 
 func CallLookup(client *rest.RESTClient, service string) (*LookupResponse, int, error) {
 	lookup := &LookupResponse{}
-	statusCode, err := client.Get(fmt.Sprintf("/api/v1/lookup/%s", service), lookup)
+	statusCode, err := client.Get(fmt.Sprintf("/api/lookup/%s", service), lookup)
 	return lookup, statusCode, err
 }

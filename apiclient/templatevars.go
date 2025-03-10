@@ -31,7 +31,7 @@ type TemplateVarCreateResponse struct {
 func (c *ApiClient) GetTemplateVars() (*TemplateVarList, int, error) {
 	response := &TemplateVarList{}
 
-	code, err := c.httpClient.Get("/api/v1/templatevars", response)
+	code, err := c.httpClient.Get("/api/templatevars", response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -49,7 +49,7 @@ func (c *ApiClient) UpdateTemplateVar(templateVarId string, name string, locatio
 		Restricted: restricted,
 	}
 
-	return c.httpClient.Put("/api/v1/templatevars/"+templateVarId, request, nil, 200)
+	return c.httpClient.Put("/api/templatevars/"+templateVarId, request, nil, 200)
 }
 
 func (c *ApiClient) CreateTemplateVar(name string, location string, local bool, value string, protected bool, restricted bool) (string, int, error) {
@@ -64,7 +64,7 @@ func (c *ApiClient) CreateTemplateVar(name string, location string, local bool, 
 
 	response := &TemplateVarCreateResponse{}
 
-	code, err := c.httpClient.Post("/api/v1/templatevars", request, response, 201)
+	code, err := c.httpClient.Post("/api/templatevars", request, response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -73,13 +73,13 @@ func (c *ApiClient) CreateTemplateVar(name string, location string, local bool, 
 }
 
 func (c *ApiClient) DeleteTemplateVar(templateVarId string) (int, error) {
-	return c.httpClient.Delete("/api/v1/templatevars/"+templateVarId, nil, nil, 200)
+	return c.httpClient.Delete("/api/templatevars/"+templateVarId, nil, nil, 200)
 }
 
 func (c *ApiClient) GetTemplateVar(templateVarId string) (*TemplateVarValue, int, error) {
 	response := &TemplateVarValue{}
 
-	code, err := c.httpClient.Get("/api/v1/templatevars/"+templateVarId, response)
+	code, err := c.httpClient.Get("/api/templatevars/"+templateVarId, response)
 	if err != nil {
 		return nil, code, err
 	}

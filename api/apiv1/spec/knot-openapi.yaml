@@ -33,7 +33,7 @@ tags:
       These operations are for working with users.
 paths:
 
-  /api/v1/auth/using-totp:
+  /api/auth/using-totp:
     get:
       tags:
         - Authorization
@@ -52,7 +52,7 @@ paths:
                     type: boolean
                     description: True if TOTP is enabled.
 
-  /api/v1/audit-logs:
+  /api/audit-logs:
     get:
       tags:
       - Audit Logs
@@ -89,7 +89,7 @@ paths:
         '500':
           $ref: '#/components/responses/internal-server-error'
 
-  /api/v1/tunnels/{tunnel_id}:
+  /api/tunnels/{tunnel_id}:
     delete:
       tags:
         - Tunnels
@@ -115,7 +115,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/tunnels:
+  /api/tunnels:
     get:
       tags:
         - Tunnels
@@ -136,7 +136,7 @@ paths:
         '500':
           $ref: '#/components/responses/internal-server-error'
 
-  /api/v1/tunnels/domain:
+  /api/tunnels/domain:
     get:
       tags:
         - Tunnels
@@ -155,7 +155,7 @@ paths:
         '500':
           $ref: '#/components/responses/internal-server-error'
 
-  /api/v1/users:
+  /api/users:
     post:
       tags:
         - Users
@@ -246,7 +246,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/users/{user_id}:
+  /api/users/{user_id}:
     get:
       tags:
         - Users
@@ -340,7 +340,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/users/{user_id}/quota:
+  /api/users/{user_id}/quota:
     get:
       tags:
         - Users
@@ -372,7 +372,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/users/whoami:
+  /api/users/whoami:
     get:
       tags:
         - Users
@@ -392,7 +392,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/permissions:
+  /api/permissions:
     get:
       summary: Get Permissions
       description: Retrieve all permissions.
@@ -413,7 +413,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/groups:
+  /api/groups:
     get:
       summary: Get Groups
       description: Retrieve all groups.
@@ -462,7 +462,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/groups/{group_id}:
+  /api/groups/{group_id}:
     put:
       summary: Update a Group
       description: Update a group.
@@ -559,7 +559,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/roles:
+  /api/roles:
     get:
       tags:
         - Roles
@@ -615,7 +615,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/roles/{role_id}:
+  /api/roles/{role_id}:
     put:
       summary: Update a Role
       description: Update a role.
@@ -712,7 +712,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/sessions:
+  /api/sessions:
     get:
       tags:
         - Users
@@ -735,7 +735,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/sessions/{session_id}:
+  /api/sessions/{session_id}:
     delete:
       tags:
         - Users
@@ -761,7 +761,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/auth:
+  /api/auth:
     post:
       tags:
         - Authorization
@@ -791,7 +791,7 @@ paths:
         '500':
           $ref: '#/components/responses/internal-server-error'
 
-  /api/v1/auth/web:
+  /api/auth/web:
     post:
       tags:
         - Authorization
@@ -821,7 +821,7 @@ paths:
         '500':
           $ref: '#/components/responses/internal-server-error'
 
-  /api/v1/auth/logout:
+  /api/auth/logout:
     post:
       tags:
         - Authorization
@@ -841,7 +841,7 @@ paths:
         '500':
           $ref: '#/components/responses/internal-server-error'
 
-  /api/v1/tokens:
+  /api/tokens:
     get:
       summary: Get Tokens
       description: Get all tokens for the authenticated user.
@@ -888,7 +888,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/tokens/{token_id}:
+  /api/tokens/{token_id}:
     delete:
       summary: Delete Token
       description: Delete a specific token for the authenticated user.
@@ -914,7 +914,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces:
+  /api/spaces:
     get:
       summary: Get Spaces
       description: Retrieve all spaces for a user.
@@ -983,7 +983,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces/{space_id}:
+  /api/spaces/{space_id}:
     delete:
       summary: Delete a Space
       description: Delete a space for the authenticated user.
@@ -1078,7 +1078,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces/{space_id}/transfer:
+  /api/spaces/{space_id}/transfer:
     post:
       summary: Transfer a Space
       description: Transfer a space to another user.
@@ -1120,7 +1120,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces/{space_id}/share:
+  /api/spaces/{space_id}/share:
     post:
       summary: Share a Space
       description: Share a space with another user.
@@ -1195,7 +1195,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces/{space_id}/start:
+  /api/spaces/{space_id}/start:
     post:
       summary: Start a Space
       description: Deploy a space to the Nomad cluster creating any required volumes.
@@ -1230,7 +1230,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces/{space_id}/stop:
+  /api/spaces/{space_id}/stop:
     post:
       summary: Stop a Space
       description: Stop the space from running, volumes are left intact.
@@ -1259,7 +1259,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces/{user_id}/stop-for-user:
+  /api/spaces/{user_id}/stop-for-user:
     post:
       summary: Stop Users Spaces
       description: Stop all the spaces belonging to a user.
@@ -1285,7 +1285,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/templates:
+  /api/templates:
     get:
       summary: Get Templates
       description: Retrieve all templates.
@@ -1355,7 +1355,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/templates/{template_id}:
+  /api/templates/{template_id}:
     put:
       summary: Update a Template
       description: Update a template.
@@ -1455,7 +1455,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/templatevars:
+  /api/templatevars:
     get:
       summary: Get Template Variables
       description: Retrieve all template variables.
@@ -1514,7 +1514,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/templatevars/{templatevar_id}:
+  /api/templatevars/{templatevar_id}:
     put:
       summary: Update a Template Variable
       description: Update a template variable.
@@ -1600,7 +1600,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/volumes:
+  /api/volumes:
     get:
       summary: Get Volumes
       description: Retrieve all volumes.
@@ -1669,7 +1669,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/volumes/{volume_id}:
+  /api/volumes/{volume_id}:
     put:
       summary: Update a Volume
       description: Update a volume.
@@ -1760,7 +1760,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/volumes/{volume_id}/start:
+  /api/volumes/{volume_id}/start:
     post:
       summary: Start a Volume
       description: Start a specified volume.
@@ -1802,7 +1802,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/volumes/{volume_id}/stop:
+  /api/volumes/{volume_id}/stop:
     post:
       summary: Stop a Volume
       description: Stop a specified volume.
@@ -1861,7 +1861,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/lookup/{service}:
+  /api/lookup/{service}:
     get:
       tags:
         - Core
@@ -1886,7 +1886,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/ping:
+  /api/ping:
     get:
       tags:
         - Core

@@ -45,7 +45,7 @@ window.templateListComponent = function(canManageSpaces, location) {
 
     async getTemplates() {
       if(this.canManageSpaces) {
-        const usersResponse = await fetch('/api/v1/users?state=active', {
+        const usersResponse = await fetch('/api/users?state=active', {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -54,7 +54,7 @@ window.templateListComponent = function(canManageSpaces, location) {
         this.users = usersList.users;
       }
 
-      const groupsResponse = await fetch('/api/v1/groups', {
+      const groupsResponse = await fetch('/api/groups', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -62,7 +62,7 @@ window.templateListComponent = function(canManageSpaces, location) {
       groupsList = await groupsResponse.json();
       this.groups = groupsList.groups;
 
-      const response = await fetch('/api/v1/templates', {
+      const response = await fetch('/api/templates', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -97,7 +97,7 @@ window.templateListComponent = function(canManageSpaces, location) {
     },
     async deleteTemplate(templateId) {
       let self = this;
-      await fetch(`/api/v1/templates/${templateId}`, {
+      await fetch(`/api/templates/${templateId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -120,7 +120,7 @@ window.templateListComponent = function(canManageSpaces, location) {
       this.chooseUser.invalidUser = this.chooseUser.invalidTemplate = false;
 
       // Get the list of templates
-      await fetch('/api/v1/templates?user_id=' + this.chooseUser.forUserId, {
+      await fetch('/api/templates?user_id=' + this.chooseUser.forUserId, {
         headers: {
           'Content-Type': 'application/json'
         }

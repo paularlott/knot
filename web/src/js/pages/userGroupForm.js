@@ -22,7 +22,7 @@ window.userGroupForm = function(isEdit, groupId) {
       focusElement('input[name="name"]');
 
       if(isEdit) {
-        const groupResponse = await fetch('/api/v1/groups/' + groupId, {
+        const groupResponse = await fetch('/api/groups/' + groupId, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -84,7 +84,7 @@ window.userGroupForm = function(isEdit, groupId) {
         max_tunnels: parseInt(this.formData.max_tunnels),
       }
 
-      fetch(isEdit ? '/api/v1/groups/' + groupId : '/api/v1/groups', {
+      fetch(isEdit ? '/api/groups/' + groupId : '/api/groups', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'

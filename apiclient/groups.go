@@ -30,7 +30,7 @@ type GroupResponse struct {
 func (c *ApiClient) GetGroups() (*GroupInfoList, int, error) {
 	response := &GroupInfoList{}
 
-	code, err := c.httpClient.Get("/api/v1/groups", response)
+	code, err := c.httpClient.Get("/api/groups", response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -47,7 +47,7 @@ func (c *ApiClient) UpdateGroup(groupId string, groupName string, maxSpaces uint
 		MaxTunnels:   maxTunnels,
 	}
 
-	code, err := c.httpClient.Put("/api/v1/groups/"+groupId, request, nil, 200)
+	code, err := c.httpClient.Put("/api/groups/"+groupId, request, nil, 200)
 	if err != nil {
 		return code, err
 	}
@@ -66,7 +66,7 @@ func (c *ApiClient) CreateGroup(groupName string, maxSpaces uint32, computeUnits
 
 	response := &GroupResponse{}
 
-	code, err := c.httpClient.Post("/api/v1/groups", request, response, 201)
+	code, err := c.httpClient.Post("/api/groups", request, response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -75,13 +75,13 @@ func (c *ApiClient) CreateGroup(groupName string, maxSpaces uint32, computeUnits
 }
 
 func (c *ApiClient) DeleteGroup(groupId string) (int, error) {
-	return c.httpClient.Delete("/api/v1/groups/"+groupId, nil, nil, 200)
+	return c.httpClient.Delete("/api/groups/"+groupId, nil, nil, 200)
 }
 
 func (c *ApiClient) GetGroup(groupId string) (*GroupInfo, int, error) {
 	response := &GroupInfo{}
 
-	code, err := c.httpClient.Get("/api/v1/groups/"+groupId, response)
+	code, err := c.httpClient.Get("/api/groups/"+groupId, response)
 	if err != nil {
 		return nil, code, err
 	}

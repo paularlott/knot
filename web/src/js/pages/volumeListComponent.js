@@ -36,7 +36,7 @@ window.volumeListComponent = function() {
     },
 
     async getVolumes() {
-      const response = await fetch('/api/v1/volumes', {
+      const response = await fetch('/api/volumes', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -59,7 +59,7 @@ window.volumeListComponent = function() {
     },
     async deleteVolume(volumeId) {
     var self = this;
-      await fetch(`/api/v1/volumes/${volumeId}`, {
+      await fetch(`/api/volumes/${volumeId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -76,7 +76,7 @@ window.volumeListComponent = function() {
     async startVolume(volumeId) {
       var self = this;
 
-      await fetch(`/api/v1/volumes/${volumeId}/start`, {
+      await fetch(`/api/volumes/${volumeId}/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -107,7 +107,7 @@ window.volumeListComponent = function() {
       volume.stopping = true;
       volume.location = "";
 
-      await fetch(`/api/v1/volumes/${volumeId}/stop`, {
+      await fetch(`/api/volumes/${volumeId}/stop`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

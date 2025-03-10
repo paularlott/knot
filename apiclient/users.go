@@ -96,7 +96,7 @@ type UserQuota struct {
 func (c *ApiClient) CreateUser(request *CreateUserRequest) (string, int, error) {
 	response := CreateUserResponse{}
 
-	code, err := c.httpClient.Post("/api/v1/users", request, &response, 201)
+	code, err := c.httpClient.Post("/api/users", request, &response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -107,7 +107,7 @@ func (c *ApiClient) CreateUser(request *CreateUserRequest) (string, int, error) 
 func (c *ApiClient) GetUser(userId string) (*model.User, error) {
 	response := UserResponse{}
 
-	code, err := c.httpClient.Get("/api/v1/users/"+userId, &response)
+	code, err := c.httpClient.Get("/api/users/"+userId, &response)
 	if err != nil {
 		if code == 404 {
 			return nil, errors.New("user not found")
@@ -144,7 +144,7 @@ func (c *ApiClient) GetUser(userId string) (*model.User, error) {
 func (c *ApiClient) WhoAmI() (*model.User, error) {
 	response := UserResponse{}
 
-	_, err := c.httpClient.Get("/api/v1/users/whoami", &response)
+	_, err := c.httpClient.Get("/api/users/whoami", &response)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func (c *ApiClient) GetUsers(state string, location string) (*UserInfoList, erro
 	stateEncoded := url.QueryEscape(state)
 	locationEncoded := url.QueryEscape(location)
 
-	_, err := c.httpClient.Get("/api/v1/users?state="+stateEncoded+"&location="+locationEncoded, &response)
+	_, err := c.httpClient.Get("/api/users?state="+stateEncoded+"&location="+locationEncoded, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (c *ApiClient) UpdateUser(user *model.User) error {
 		TOTPSecret:      user.TOTPSecret,
 	}
 
-	_, err := c.httpClient.Put("/api/v1/users/"+user.Id, &request, nil, 200)
+	_, err := c.httpClient.Put("/api/users/"+user.Id, &request, nil, 200)
 	if err != nil {
 		return err
 	}
@@ -216,14 +216,14 @@ func (c *ApiClient) UpdateUser(user *model.User) error {
 }
 
 func (c *ApiClient) DeleteUser(userId string) error {
-	_, err := c.httpClient.Delete("/api/v1/users/"+userId, nil, nil, 200)
+	_, err := c.httpClient.Delete("/api/users/"+userId, nil, nil, 200)
 	return err
 }
 
 func (c *ApiClient) GetUserQuota(userId string) (*UserQuota, error) {
 	response := UserQuota{}
 
-	code, err := c.httpClient.Get("/api/v1/users/"+userId+"/quota", &response)
+	code, err := c.httpClient.Get("/api/users/"+userId+"/quota", &response)
 	if err != nil {
 		if code == 404 {
 			return nil, errors.New("user not found")

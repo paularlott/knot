@@ -20,7 +20,7 @@ type CreateTokenResponse struct {
 func (c *ApiClient) GetTokens() (*[]TokenInfo, int, error) {
 	response := &[]TokenInfo{}
 
-	code, err := c.httpClient.Get("/api/v1/tokens", response)
+	code, err := c.httpClient.Get("/api/tokens", response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -29,7 +29,7 @@ func (c *ApiClient) GetTokens() (*[]TokenInfo, int, error) {
 }
 
 func (c *ApiClient) DeleteToken(tokenId string) (int, error) {
-	return c.httpClient.Delete("/api/v1/tokens/"+tokenId, nil, nil, 200)
+	return c.httpClient.Delete("/api/tokens/"+tokenId, nil, nil, 200)
 }
 
 func (c *ApiClient) CreateToken(name string) (string, int, error) {
@@ -39,7 +39,7 @@ func (c *ApiClient) CreateToken(name string) (string, int, error) {
 
 	response := &CreateTokenResponse{}
 
-	code, err := c.httpClient.Post("/api/v1/tokens", request, response, 201)
+	code, err := c.httpClient.Post("/api/tokens", request, response, 201)
 	if err != nil {
 		return "", code, err
 	}

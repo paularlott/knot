@@ -9,7 +9,7 @@ type PingResponse struct {
 
 func (c *ApiClient) Ping() (string, error) {
 	ping := PingResponse{}
-	statusCode, err := c.httpClient.Get("/api/v1/ping", &ping)
+	statusCode, err := c.httpClient.Get("/api/ping", &ping)
 	if statusCode != 200 {
 		return "", errors.New("invalid status code")
 	}

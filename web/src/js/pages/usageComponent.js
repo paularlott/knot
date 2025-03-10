@@ -24,7 +24,7 @@ window.usageComponent = function(userId) {
 
     async getUsage() {
       let self = this;
-      const quotaResponse = await fetch('/api/v1/users/' + userId + '/quota', {
+      const quotaResponse = await fetch('/api/users/' + userId + '/quota', {
         headers: {
           'Content-Type': 'application/json'
         }

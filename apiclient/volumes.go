@@ -62,7 +62,7 @@ type StartVolumeResponse struct {
 func (c *ApiClient) GetVolumes() (*VolumeInfoList, int, error) {
 	response := &VolumeInfoList{}
 
-	code, err := c.httpClient.Get("/api/v1/volumes", response)
+	code, err := c.httpClient.Get("/api/volumes", response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -79,7 +79,7 @@ func (c *ApiClient) CreateVolume(name string, definition string, localContainer 
 
 	response := &VolumeCreateResponse{}
 
-	code, err := c.httpClient.Post("/api/v1/volumes", request, response, 201)
+	code, err := c.httpClient.Post("/api/volumes", request, response, 201)
 	if err != nil {
 		return nil, code, err
 	}
@@ -93,17 +93,17 @@ func (c *ApiClient) UpdateVolume(volumeId string, name string, definition string
 		Definition: definition,
 	}
 
-	return c.httpClient.Put("/api/v1/volumes/"+volumeId, request, nil, 200)
+	return c.httpClient.Put("/api/volumes/"+volumeId, request, nil, 200)
 }
 
 func (c *ApiClient) DeleteVolume(volumeId string) (int, error) {
-	return c.httpClient.Delete("/api/v1/volumes/"+volumeId, nil, nil, 200)
+	return c.httpClient.Delete("/api/volumes/"+volumeId, nil, nil, 200)
 }
 
 func (c *ApiClient) GetVolume(volumeId string) (*VolumeDefinition, int, error) {
 	response := VolumeDefinition{}
 
-	code, err := c.httpClient.Get("/api/v1/volumes/"+volumeId, &response)
+	code, err := c.httpClient.Get("/api/volumes/"+volumeId, &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -132,7 +132,7 @@ func (c *ApiClient) GetVolumeObject(volumeId string) (*model.Volume, int, error)
 func (c *ApiClient) StartVolume(volumeId string) (*StartVolumeResponse, int, error) {
 	response := StartVolumeResponse{}
 
-	code, err := c.httpClient.Post("/api/v1/volumes/"+volumeId+"/start", nil, &response, 200)
+	code, err := c.httpClient.Post("/api/volumes/"+volumeId+"/start", nil, &response, 200)
 	if err != nil {
 		return nil, code, err
 	}
@@ -141,5 +141,5 @@ func (c *ApiClient) StartVolume(volumeId string) (*StartVolumeResponse, int, err
 }
 
 func (c *ApiClient) StopVolume(volumeId string) (int, error) {
-	return c.httpClient.Post("/api/v1/volumes/"+volumeId+"/stop", nil, nil, 200)
+	return c.httpClient.Post("/api/volumes/"+volumeId+"/stop", nil, nil, 200)
 }
