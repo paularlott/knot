@@ -1,8 +1,7 @@
 package driver_mysql
 
 import (
-	"encoding/json"
-	"time"
+	"fmt"
 
 	"github.com/paularlott/knot/database/model"
 
@@ -35,15 +34,7 @@ func (db *MySQLDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
 		return err
 	}
 
-	propertiesJSON, err := json.Marshal(auditLog.Properties)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	_, err = tx.Exec("INSERT INTO audit_logs (actor, actor_type, event, created_at, details, properties) VALUES (?, ?, ?, ?, ?, ?)",
-		auditLog.Actor, auditLog.ActorType, auditLog.Event, auditLog.When, auditLog.Details, propertiesJSON,
-	)
+	err = db.create("audit_logs", auditLog)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -57,31 +48,10 @@ func (db *MySQLDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
 func (db *MySQLDriver) GetAuditLogs(offset int, limit int) ([]*model.AuditLogEntry, error) {
 	var auditLogs []*model.AuditLogEntry
 
-	rows, err := db.connection.Query("SELECT audit_log_id, actor, actor_type, event, created_at, details, properties FROM audit_logs WHERE created_at ORDER BY created_at DESC LIMIT ? OFFSET ?", limit, offset)
+	err := db.read("audit_logs", &auditLogs, nil, fmt.Sprintf("1 ORDER BY created_at DESC LIMIT %d OFFSET %d", limit, offset))
 	if err != nil {
+		fmt.Println("Error reading audit logs:", err)
 		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var auditLog model.AuditLogEntry
-		var propertiesJSON []byte
-		var when string
-		err := rows.Scan(&auditLog.Id, &auditLog.Actor, &auditLog.ActorType, &auditLog.Event, &when, &auditLog.Details, &propertiesJSON)
-		if err != nil {
-			return nil, err
-		}
-
-		auditLog.When, err = time.Parse("2006-01-02 15:04:05", when)
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(propertiesJSON, &auditLog.Properties)
-		if err != nil {
-			return nil, err
-		}
-		auditLogs = append(auditLogs, &auditLog)
 	}
 
 	return auditLogs, nil

@@ -10,11 +10,11 @@ import (
 
 // Session object
 type Token struct {
-	Id           string    `json:"token_id"`
-	UserId       string    `json:"user_id"`
-	SessionId    string    `json:"session_id"`
-	Name         string    `json:"name"`
-	ExpiresAfter time.Time `json:"expires_after"`
+	Id           string    `json:"token_id" db:"token_id,pk"`
+	UserId       string    `json:"user_id" db:"user_id"`
+	SessionId    string    `json:"session_id" db:"session_id"`
+	Name         string    `json:"name" db:"name"`
+	ExpiresAfter time.Time `json:"expires_after" db:"expires_after"`
 }
 
 func NewToken(name string, userId string) *Token {

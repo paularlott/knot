@@ -14,28 +14,28 @@ import (
 
 // Template object
 type Template struct {
-	Id               string             `json:"template_id"`
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	Hash             string             `json:"hash"`
-	Job              string             `json:"job"`
-	Volumes          string             `json:"volumes"`
-	Groups           JSONDbArray        `json:"groups"`
-	LocalContainer   bool               `json:"local_container"`
-	IsManual         bool               `json:"is_manual"`
-	WithTerminal     bool               `json:"with_terminal"`
-	WithVSCodeTunnel bool               `json:"with_vscode_tunnel"`
-	WithCodeServer   bool               `json:"with_code_server"`
-	WithSSH          bool               `json:"with_ssh"`
-	ComputeUnits     uint32             `json:"compute_units"`
-	StorageUnits     uint32             `json:"storage_units"`
-	ScheduleEnabled  bool               `json:"schedule_enabled"`
-	Schedule         JSONDbScheduleDays `json:"schedule"`
-	Locations        JSONDbArray        `json:"locations"`
-	CreatedUserId    string             `json:"created_user_id"`
-	CreatedAt        time.Time          `json:"created_at"`
-	UpdatedUserId    string             `json:"updated_user_id"`
-	UpdatedAt        time.Time          `json:"updated_at"`
+	Id               string                 `json:"template_id" db:"template_id,pk"`
+	Name             string                 `json:"name" db:"name"`
+	Description      string                 `json:"description" db:"description"`
+	Hash             string                 `json:"hash" db:"hash"`
+	Job              string                 `json:"job" db:"job"`
+	Volumes          string                 `json:"volumes" db:"volumes"`
+	Groups           []string               `json:"groups" db:"groups,json"`
+	LocalContainer   bool                   `json:"local_container" db:"local_container"`
+	IsManual         bool                   `json:"is_manual" db:"is_manual"`
+	WithTerminal     bool                   `json:"with_terminal" db:"with_terminal"`
+	WithVSCodeTunnel bool                   `json:"with_vscode_tunnel" db:"with_vscode_tunnel"`
+	WithCodeServer   bool                   `json:"with_code_server" db:"with_code_server"`
+	WithSSH          bool                   `json:"with_ssh" db:"with_ssh"`
+	ComputeUnits     uint32                 `json:"compute_units" db:"compute_units"`
+	StorageUnits     uint32                 `json:"storage_units" db:"storage_units"`
+	ScheduleEnabled  bool                   `json:"schedule_enabled" db:"schedule_enabled"`
+	Schedule         []TemplateScheduleDays `json:"schedule" db:"schedule,json"`
+	Locations        []string               `json:"locations" db:"locations,json"`
+	CreatedUserId    string                 `json:"created_user_id" db:"created_user_id"`
+	CreatedAt        time.Time              `json:"created_at" db:"created_at"`
+	UpdatedUserId    string                 `json:"updated_user_id" db:"updated_user_id"`
+	UpdatedAt        time.Time              `json:"updated_at" db:"updated_at"`
 }
 
 type TemplateScheduleDays struct {

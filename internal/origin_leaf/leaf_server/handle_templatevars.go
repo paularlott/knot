@@ -19,12 +19,13 @@ func HandleUpdateTemplateVar(ws *websocket.Conn) error {
 	}
 
 	if !data.Local {
-		log.Debug().Msgf("leaf: updating template var %s - %s", data.Id, data.Name)
+		go func() {
+			log.Debug().Msgf("leaf: updating template var %s - %s", data.Id, data.Name)
 
-		if err := db.SaveTemplateVar(&data); err != nil {
-			log.Error().Msgf("error saving template var: %s", err)
-			return err
-		}
+			if err := db.SaveTemplateVar(&data); err != nil {
+				log.Error().Msgf("error saving template var: %s", err)
+			}
+		}()
 	}
 
 	return nil

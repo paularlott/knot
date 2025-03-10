@@ -6,10 +6,13 @@ import (
 )
 
 // update the template on a leaf node
-func (s *Session) UpdateTemplate(template *model.Template) {
+func (s *Session) UpdateTemplate(template *model.Template, updateFields []string) {
 	message := &msg.ClientMessage{
 		Command: msg.MSG_UPDATE_TEMPLATE,
-		Payload: template,
+		Payload: &msg.UpdateTemplate{
+			Template:     *template,
+			UpdateFields: updateFields,
+		},
 	}
 
 	s.ch <- message
@@ -26,12 +29,12 @@ func (s *Session) DeleteTemplate(templateId string) {
 }
 
 // update the template on all leaf nodes
-func UpdateTemplate(template *model.Template) {
+func UpdateTemplate(template *model.Template, updateFields []string) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	for _, session := range session {
-		session.UpdateTemplate(template)
+		session.UpdateTemplate(template, updateFields)
 	}
 }
 

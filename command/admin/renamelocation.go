@@ -13,7 +13,7 @@ var renameLocationCmd = &cobra.Command{
 	Short: "Rename a location",
 	Long: `Rename a location.
 
-NOTE: The location name is updated within the database however spaces and volumes are not moved.
+The location name is updated within the database however spaces and volumes are not moved.
 
   old   The old location name
   new   The new location name`,
@@ -48,7 +48,7 @@ NOTE: The location name is updated within the database however spaces and volume
 			fmt.Print("Checking Volume: ", volume.Name)
 			if volume.Location == args[0] {
 				volume.Location = args[1]
-				err := db.SaveVolume(volume)
+				err := db.SaveVolume(volume, []string{"Location"})
 				if err != nil {
 					fmt.Println("Error updating volume: ", err)
 					return
@@ -72,7 +72,7 @@ NOTE: The location name is updated within the database however spaces and volume
 			fmt.Print("Checking Space: ", space.Name)
 			if space.Location == args[0] {
 				space.Location = args[1]
-				err := db.SaveSpace(space)
+				err := db.SaveSpace(space, []string{"Location"})
 				if err != nil {
 					fmt.Println("Error updating space: ", err)
 					return

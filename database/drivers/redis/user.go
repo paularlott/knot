@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util"
 
 	"github.com/redis/go-redis/v9"
 )
 
-func (db *RedisDbDriver) SaveUser(user *model.User) error {
+func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error {
 	var err error
 	var newUser bool = true
 
@@ -54,6 +55,12 @@ func (db *RedisDbDriver) SaveUser(user *model.User) error {
 		} else if exists {
 			return fmt.Errorf("duplicate username")
 		}
+	}
+
+	// Apply changes from new to existing existing if doing partial update
+	if existingUser != nil && len(updateFields) > 0 {
+		util.CopyFields(user, existingUser, updateFields)
+		user = existingUser
 	}
 
 	user.UpdatedAt = time.Now().UTC()

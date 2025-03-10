@@ -8,13 +8,20 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util"
 )
 
-func (db *RedisDbDriver) SaveTemplate(template *model.Template) error {
+func (db *RedisDbDriver) SaveTemplate(template *model.Template, updateFields []string) error {
 	// Load the existing template
 	existingTemplate, _ := db.GetTemplate(template.Id)
 	if existingTemplate == nil {
 		template.CreatedAt = time.Now().UTC()
+	}
+
+	// Apply changes from new to existing if doing partial update
+	if existingTemplate != nil && len(updateFields) > 0 {
+		util.CopyFields(template, existingTemplate, updateFields)
+		template = existingTemplate
 	}
 
 	template.UpdatedUserId = template.CreatedUserId

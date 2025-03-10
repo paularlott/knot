@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util"
 
 	badger "github.com/dgraph-io/badger/v4"
 )
 
-func (db *BadgerDbDriver) SaveUser(user *model.User) error {
+func (db *BadgerDbDriver) SaveUser(user *model.User, updateFields []string) error {
 	var err error
 
 	err = db.connection.Update(func(txn *badger.Txn) error {
@@ -55,6 +56,12 @@ func (db *BadgerDbDriver) SaveUser(user *model.User) error {
 			} else if exists {
 				return fmt.Errorf("duplicate username")
 			}
+		}
+
+		// Apply changes from new to existing existing if doing partial update
+		if existingUser != nil && len(updateFields) > 0 {
+			util.CopyFields(user, existingUser, updateFields)
+			user = existingUser
 		}
 
 		user.UpdatedAt = time.Now().UTC()

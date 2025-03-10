@@ -98,15 +98,12 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 		// Process the command
 		switch cmd {
 		case msg.MSG_BOOTSTRAP:
-			log.Debug().Msg("origin: bootstrap")
 			leafSession.Bootstrap()
 
 		case msg.MSG_PING:
-			log.Debug().Msg("origin: ping")
 			leafSession.Ping()
 
 		case msg.MSG_SYNC_TEMPLATES:
-			log.Debug().Msg("origin: sync templates")
 			err := originHandleSyncTemplates(ws, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync templates: %s", err)
@@ -114,7 +111,6 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case msg.MSG_SYNC_USER:
-			log.Debug().Msg("origin: sync user")
 			err := originHandleSyncUser(ws, leafSession, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync user: %s", err)
@@ -122,7 +118,6 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case msg.MSG_SYNC_TEMPLATEVARS:
-			log.Debug().Msg("origin: sync template variables")
 			err := originHandleSyncTemplateVars(ws, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync template vars: %s", err)
@@ -130,31 +125,34 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case msg.MSG_UPDATE_SPACE:
-			log.Debug().Msg("origin: update space")
-			err := originHandleUpdateSpace(ws, token)
+			err := originHandleUpdateSpace(ws, token, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling update space: %s", err)
 				return
 			}
 
 		case msg.MSG_SYNC_SPACE:
-			log.Debug().Msg("origin: sync space")
 			err := originHandleSyncSpace(ws, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync space: %s", err)
 				return
 			}
 
+		case msg.MSG_SYNC_USER_SPACES:
+			err := originHandleSyncUserSpaces(ws, leafSession)
+			if err != nil {
+				log.Error().Msgf("origin: error while handling sync user spaces: %s", err)
+				return
+			}
+
 		case msg.MSG_DELETE_SPACE:
-			log.Debug().Msg("origin: delete space")
-			err := originHandleDeleteSpace(ws, token)
+			err := originHandleDeleteSpace(ws, token, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling delete space: %s", err)
 				return
 			}
 
 		case msg.MSG_UPDATE_VOLUME:
-			log.Debug().Msg("origin: update volume")
 			err := originHandleUpdateVolume(ws, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling update volume: %s", err)
@@ -162,7 +160,6 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case msg.MSG_MIRROR_TOKEN:
-			log.Debug().Msg("origin: mirror token")
 			err := originHandleMirrorToken(ws, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling mirror token: %s", err)
@@ -170,7 +167,6 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case msg.MSG_DELETE_TOKEN:
-			log.Debug().Msg("origin: delete token")
 			err := originHandleDeleteToken(ws, token)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling delete token: %s", err)
@@ -178,7 +174,6 @@ func OriginListenAndServe(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case msg.MSG_SYNC_ROLES:
-			log.Debug().Msg("origin: sync roles")
 			err := originHandleSyncRoles(ws, leafSession)
 			if err != nil {
 				log.Error().Msgf("origin: error while handling sync roles: %s", err)
@@ -216,7 +211,7 @@ func originHandleSyncUser(ws *websocket.Conn, session *leaf.Session, token *mode
 	} else {
 		// for token users only update matching tokens owner
 		if token == nil || syncUserId == token.UserId {
-			session.UpdateUser(user)
+			session.UpdateUser(user, nil)
 		} else if token != nil {
 			log.Warn().Msgf("origin: user %s, not owned by token owner removing", syncUserId)
 			session.DeleteUser(syncUserId)
@@ -235,22 +230,55 @@ func originHandleSyncSpace(ws *websocket.Conn, session *leaf.Session) error {
 		return err
 	}
 
+	go func() {
+		db := database.GetInstance()
+
+		// Fetch the space from the database
+		space, err := db.GetSpace(syncSpaceId)
+		if err != nil {
+			// If space not found then tell the follower to delete the space
+			if err.Error() == "space not found" {
+				log.Debug().Msgf("origin: space %s not found", syncSpaceId)
+				session.DeleteSpace(syncSpaceId)
+			} else {
+				return
+			}
+		} else {
+			if !session.UpdateSpace(space, nil) {
+				log.Warn().Msgf("origin: space %s not permitted to sync by token", space.Id)
+				session.DeleteSpace(syncSpaceId)
+			}
+		}
+	}()
+
+	return nil
+}
+
+func originHandleSyncUserSpaces(ws *websocket.Conn, session *leaf.Session) error {
+	// Read the message
+	var data msg.SyncUserSpaces
+	err := msg.ReadMessage(ws, &data)
+	if err != nil {
+		return err
+	}
+
 	db := database.GetInstance()
 
-	// Fetch the space from the database
-	space, err := db.GetSpace(syncSpaceId)
+	// Get the spaces for the user
+	spaces, err := db.GetSpacesForUser(data.UserId)
 	if err != nil {
-		// If space not found then tell the follower to delete the space
-		if err.Error() == "space not found" {
-			log.Debug().Msgf("origin: space %s not found", syncSpaceId)
-			session.DeleteSpace(syncSpaceId)
-		} else {
-			return err
-		}
-	} else {
-		if !session.UpdateSpace(space) {
-			log.Warn().Msgf("origin: space %s not permitted to sync by token", space.Id)
-			session.DeleteSpace(syncSpaceId)
+		return err
+	}
+
+	// Loop through the spaces and any not in the existing list send to the leaf
+	for _, space := range spaces {
+		if space.UserId == data.UserId && !util.InArray(data.Existing, space.Id) {
+			// Read the space again to ensure we get the alt names
+			s, err := db.GetSpace(space.Id)
+			if err == nil && s != nil {
+				space = s
+			}
+			session.UpdateSpace(s, nil)
 		}
 	}
 
@@ -316,7 +344,7 @@ func originHandleSyncTemplates(ws *websocket.Conn, session *leaf.Session) error 
 
 	// Loop through the templates and update the leaf, track those in data.Existing not in templates to delete
 	for _, template := range templates {
-		session.UpdateTemplate(template)
+		session.UpdateTemplate(template, nil)
 
 		// Remove the template from the data.Existing
 		for i, existing := range data.Existing {
@@ -336,7 +364,7 @@ func originHandleSyncTemplates(ws *websocket.Conn, session *leaf.Session) error 
 }
 
 // origin server handler to process delete space messages
-func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token) error {
+func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token, session *leaf.Session) error {
 	// read the message
 	var spaceId string
 	err := msg.ReadMessage(ws, &spaceId)
@@ -351,7 +379,7 @@ func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token) error {
 	if err == nil && space != nil && (token == nil || space.UserId == token.UserId) {
 
 		// notify all leaf servers to delete the space
-		leaf.DeleteSpace(spaceId)
+		leaf.DeleteSpace(spaceId, session)
 
 		// Delete the space
 		log.Debug().Msgf("origin: deleting space %s - %s", space.Id, space.Name)
@@ -361,10 +389,10 @@ func originHandleDeleteSpace(ws *websocket.Conn, token *model.Token) error {
 	return nil
 }
 
-func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token) error {
+func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token, session *leaf.Session) error {
 	// read the message
-	var space model.Space
-	err := msg.ReadMessage(ws, &space)
+	var updateMsg msg.UpdateSpace
+	err := msg.ReadMessage(ws, &updateMsg)
 	if err != nil {
 		return err
 	}
@@ -372,18 +400,19 @@ func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token) error {
 	db := database.GetInstance()
 
 	// Attempt to load the space, only update existing spaces
-	existingSpace, err := db.GetSpace(space.Id)
-	if err == nil && existingSpace != nil && existingSpace.UserId == space.UserId && (token == nil || existingSpace.UserId == token.UserId) {
-		log.Debug().Msgf("origin: updating space %s", space.Id)
+	existingSpace, err := db.GetSpace(updateMsg.Space.Id)
+	if err == nil && existingSpace != nil && existingSpace.UserId == updateMsg.Space.UserId && (token == nil || existingSpace.UserId == token.UserId) {
+		log.Debug().Msgf("origin: updating space %s", updateMsg.Space.Id)
 
 		// notify all leaf servers to update the space
-		leaf.UpdateSpace(&space)
+		leaf.UpdateSpace(&updateMsg.Space, updateMsg.UpdateFields, session)
 
 		// Update the space in the database
-		return db.SaveSpace(&space)
+		return db.SaveSpace(&updateMsg.Space, updateMsg.UpdateFields)
 	} else if token != nil && existingSpace != nil && existingSpace.UserId != token.UserId {
-		log.Warn().Msgf("origin: space %s not owned by token owner", space.Id)
-		leaf.DeleteSpace(space.Id)
+		// Get the leaf to drop the space as it's out of sync with the origin server
+		log.Warn().Msgf("origin: space %s not owned by token owner", updateMsg.Space.Id)
+		session.DeleteSpace(updateMsg.Space.Id)
 	}
 
 	return nil
@@ -391,7 +420,7 @@ func originHandleUpdateSpace(ws *websocket.Conn, token *model.Token) error {
 
 func originHandleUpdateVolume(ws *websocket.Conn, token *model.Token) error {
 	// read the message
-	var volume model.Volume
+	var volume msg.UpdateVolume
 	err := msg.ReadMessage(ws, &volume)
 	if err != nil {
 		return err
@@ -402,12 +431,12 @@ func originHandleUpdateVolume(ws *websocket.Conn, token *model.Token) error {
 		db := database.GetInstance()
 
 		// Attempt to load the volume, only update existing volumes
-		existingVolume, err := db.GetVolume(volume.Id)
+		existingVolume, err := db.GetVolume(volume.Volume.Id)
 		if err == nil && existingVolume != nil {
-			log.Debug().Msgf("origin: updating volume %s", volume.Id)
+			log.Debug().Msgf("origin: updating volume %s", volume.Volume.Id)
 
 			// Update the volume in the database
-			return db.SaveVolume(&volume)
+			return db.SaveVolume(&volume.Volume, volume.UpdateFields)
 		}
 	}
 

@@ -28,6 +28,7 @@ const (
 	MSG_SYNC_SPACE // Sent to origin server to request a space sync back to the leaf
 	MSG_UPDATE_SPACE
 	MSG_DELETE_SPACE
+	MSG_SYNC_USER_SPACES
 
 	MSG_UPDATE_VOLUME // Sent to origin server to update a volume
 
@@ -50,9 +51,13 @@ func WriteCommand(ws *websocket.Conn, cmdType byte) error {
 }
 
 func ReadCommand(ws *websocket.Conn) (byte, error) {
-	_, message, err := ws.ReadMessage()
+	mtype, message, err := ws.ReadMessage()
 	if err != nil {
 		return 0, err
+	}
+
+	if mtype != websocket.BinaryMessage {
+		return 0, fmt.Errorf("expected binary message, got %d", mtype)
 	}
 
 	if len(message) < 1 {

@@ -170,7 +170,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 		// Read the command
 		cmd, err := msg.ReadCommand(stream)
 		if err != nil {
-			log.Error().Msgf("agent: reading command: %v", err)
+			log.Error().Msgf("agent: session reading command: %v", err)
 			return
 		}
 

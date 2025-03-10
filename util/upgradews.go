@@ -17,8 +17,8 @@ func UpgradeToWS(w http.ResponseWriter, r *http.Request) *websocket.Conn {
 	// If upgrader not initialized then initialize it
 	if upgrader.CheckOrigin == nil {
 		upgrader = websocket.Upgrader{
-			ReadBufferSize:    4096,
-			WriteBufferSize:   4096,
+			ReadBufferSize:    32768,
+			WriteBufferSize:   32768,
 			HandshakeTimeout:  10 * time.Second,
 			EnableCompression: true,
 			CheckOrigin: func(r *http.Request) bool {

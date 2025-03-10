@@ -58,13 +58,13 @@ const (
 )
 
 type AuditLogEntry struct {
-	Id         int64                  `json:"audit_log_id"`
-	Actor      string                 `json:"actor"`
-	ActorType  string                 `json:"actor_type"`
-	Event      string                 `json:"event"`
-	When       time.Time              `json:"created_at"`
-	Details    string                 `json:"details"`
-	Properties map[string]interface{} `json:"properties"`
+	Id         int64                  `json:"audit_log_id" db:"audit_log_id,pk"`
+	Actor      string                 `json:"actor" db:"actor"`
+	ActorType  string                 `json:"actor_type" db:"actor_type"`
+	Event      string                 `json:"event" db:"event"`
+	When       time.Time              `json:"created_at" db:"created_at"`
+	Details    string                 `json:"details" db:"details"`
+	Properties map[string]interface{} `json:"properties" db:"properties,json"`
 }
 
 func NewAuditLogEntry(actor, actorType, event, details string, properties *map[string]interface{}) *AuditLogEntry {

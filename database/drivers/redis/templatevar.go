@@ -11,13 +11,6 @@ import (
 )
 
 func (db *RedisDbDriver) SaveTemplateVar(templateVar *model.TemplateVar) error {
-
-	// Load the existing template var
-	existingTemplateVar, _ := db.GetTemplate(templateVar.Id)
-	if existingTemplateVar == nil {
-		templateVar.CreatedAt = time.Now().UTC()
-	}
-
 	templateVar.Value = templateVar.GetValueEncrypted()
 	templateVar.UpdatedAt = time.Now().UTC()
 	data, err := json.Marshal(templateVar)

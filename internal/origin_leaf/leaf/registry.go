@@ -75,6 +75,10 @@ func Unregister(id string) {
 	delete(session, id)
 }
 
+func (s *Session) GetLocation() string {
+	return s.location
+}
+
 func (s *Session) Ping() {
 	message := &msg.ClientMessage{
 		Command: msg.MSG_PING,

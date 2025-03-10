@@ -6,16 +6,24 @@ import (
 	"sort"
 	"time"
 
-	badger "github.com/dgraph-io/badger/v4"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util"
+
+	badger "github.com/dgraph-io/badger/v4"
 )
 
-func (db *BadgerDbDriver) SaveTemplate(template *model.Template) error {
+func (db *BadgerDbDriver) SaveTemplate(template *model.Template, updateFields []string) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
 		// Load the existing template
 		existingTemplate, _ := db.GetTemplate(template.Id)
 		if existingTemplate == nil {
 			template.CreatedAt = time.Now().UTC()
+		}
+
+		// Apply changes from new to existing if doing partial update
+		if existingTemplate != nil && len(updateFields) > 0 {
+			util.CopyFields(template, existingTemplate, updateFields)
+			template = existingTemplate
 		}
 
 		template.UpdatedUserId = template.CreatedUserId

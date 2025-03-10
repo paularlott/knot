@@ -8,13 +8,19 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util"
 )
 
-func (db *RedisDbDriver) SaveVolume(volume *model.Volume) error {
-	// Load the existing volume
-	existingVolume, _ := db.GetTemplate(volume.Id)
-	if existingVolume == nil {
-		volume.CreatedAt = time.Now().UTC()
+func (db *RedisDbDriver) SaveVolume(volume *model.Volume, updateFields []string) error {
+
+	// Apply changes from new to existing existing if doing partial update
+	if len(updateFields) > 0 {
+		// Load the existing
+		existing, _ := db.GetVolume(volume.Id)
+		if existing != nil {
+			util.CopyFields(volume, existing, updateFields)
+			volume = existing
+		}
 	}
 
 	volume.UpdatedAt = time.Now().UTC()

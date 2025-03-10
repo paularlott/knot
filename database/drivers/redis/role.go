@@ -11,13 +11,6 @@ import (
 )
 
 func (db *RedisDbDriver) SaveRole(role *model.Role) error {
-	// Load the existing space
-	existingSpace, _ := db.GetRole(role.Id)
-	if existingSpace == nil {
-		role.CreatedAt = time.Now().UTC()
-	}
-
-	role.UpdatedUserId = role.CreatedUserId
 	role.UpdatedAt = time.Now().UTC()
 	data, err := json.Marshal(role)
 	if err != nil {

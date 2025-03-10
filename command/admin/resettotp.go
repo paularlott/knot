@@ -32,7 +32,7 @@ var resetTOTPCmd = &cobra.Command{
 		user.TOTPSecret = ""
 
 		// Save the user
-		err = db.SaveUser(user)
+		err = db.SaveUser(user, []string{"TOTPSecret"})
 		if err != nil {
 			fmt.Println("Error saving user: ", err)
 			return

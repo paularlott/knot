@@ -104,7 +104,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		if request.ServicePassword != "" {
 			userNew.ServicePassword = request.ServicePassword
 		}
-		err = db.SaveUser(userNew)
+		err = db.SaveUser(userNew, nil)
 		if err != nil {
 			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -460,6 +460,8 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.MaxTunnels = request.MaxTunnels
 	}
 
+	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredSheel", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels"}
+
 	// If on leaf
 	if client != nil {
 		user.Password = request.Password
@@ -473,6 +475,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		// Update the user password
 		if len(request.Password) > 0 {
 			user.SetPassword(request.Password)
+			saveFields = append(saveFields, "Password")
 		}
 
 		// Check the groups are present in the system
@@ -502,7 +505,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if existsLocal {
 		// Save
-		err = db.SaveUser(user)
+		err = db.SaveUser(user, saveFields)
 		if err != nil {
 			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -512,7 +515,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		go api_utils.UpdateUserSpaces(user)
 
 		// notify all remote servers of the change
-		leaf.UpdateUser(user)
+		leaf.UpdateUser(user, saveFields)
 	}
 
 	w.WriteHeader(http.StatusOK)

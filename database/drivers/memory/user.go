@@ -6,7 +6,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 )
 
-func (db *MemoryDbDriver) SaveUser(user *model.User) error {
+func (db *MemoryDbDriver) SaveUser(user *model.User, updateFields []string) error {
 	return errors.New("memorydb: not implemented")
 }
 

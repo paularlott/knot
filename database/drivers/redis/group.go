@@ -11,12 +11,6 @@ import (
 )
 
 func (db *RedisDbDriver) SaveGroup(group *model.Group) error {
-	// Load the existing space
-	existingSpace, _ := db.GetGroup(group.Id)
-	if existingSpace == nil {
-		group.CreatedAt = time.Now().UTC()
-	}
-
 	group.UpdatedUserId = group.CreatedUserId
 	group.UpdatedAt = time.Now().UTC()
 	data, err := json.Marshal(group)

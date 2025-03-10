@@ -26,7 +26,7 @@ type IDbDriver interface {
 	Connect() error
 
 	// Users
-	SaveUser(user *model.User) error
+	SaveUser(user *model.User, updateFields []string) error
 	DeleteUser(user *model.User) error
 	GetUser(id string) (*model.User, error)
 	GetUserByEmail(email string) (*model.User, error)
@@ -48,7 +48,7 @@ type IDbDriver interface {
 	GetTokensForUser(userId string) ([]*model.Token, error)
 
 	// Space
-	SaveSpace(space *model.Space) error
+	SaveSpace(space *model.Space, updateFields []string) error
 	DeleteSpace(space *model.Space) error
 	GetSpace(id string) (*model.Space, error)
 	GetSpacesForUser(userId string) ([]*model.Space, error)
@@ -57,7 +57,7 @@ type IDbDriver interface {
 	GetSpaces() ([]*model.Space, error)
 
 	// Templates
-	SaveTemplate(template *model.Template) error
+	SaveTemplate(template *model.Template, updateFields []string) error
 	DeleteTemplate(template *model.Template) error
 	GetTemplate(id string) (*model.Template, error)
 	GetTemplates() ([]*model.Template, error)
@@ -75,7 +75,7 @@ type IDbDriver interface {
 	GetTemplateVars() ([]*model.TemplateVar, error)
 
 	// Volumes
-	SaveVolume(volume *model.Volume) error
+	SaveVolume(volume *model.Volume, updateFields []string) error
 	DeleteVolume(volume *model.Volume) error
 	GetVolume(id string) (*model.Volume, error)
 	GetVolumes() ([]*model.Volume, error)

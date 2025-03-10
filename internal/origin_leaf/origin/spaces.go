@@ -22,11 +22,14 @@ func DeleteSpace(id string) {
 	}
 }
 
-func UpdateSpace(space *model.Space) {
+func UpdateSpace(space *model.Space, updateFields []string) {
 	if server_info.IsLeaf {
 		message := &msg.ClientMessage{
 			Command: msg.MSG_UPDATE_SPACE,
-			Payload: space,
+			Payload: &msg.UpdateSpace{
+				Space:        *space,
+				UpdateFields: updateFields,
+			},
 		}
 
 		OriginChannel <- message

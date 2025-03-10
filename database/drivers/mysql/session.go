@@ -29,9 +29,9 @@ func (db *MySQLDriver) SaveSession(session *model.Session) error {
 
 	// Update
 	if doUpdate {
-		_, err = tx.Exec("UPDATE sessions SET expires_after=? WHERE session_id=?", session.ExpiresAfter.UTC(), session.Id)
+		err = db.update("sessions", session, []string{"ExpiresAfter"})
 	} else {
-		_, err = tx.Exec("INSERT INTO sessions (session_id, expires_after, ip, user_id, user_agent, remote_session_id) VALUES (?, ?, ?, ?, ?, ?)", session.Id, session.ExpiresAfter.UTC(), session.Ip, session.UserId, session.UserAgent, session.RemoteSessionId)
+		err = db.create("sessions", session)
 	}
 	if err != nil {
 		tx.Rollback()
@@ -48,46 +48,21 @@ func (db *MySQLDriver) DeleteSession(session *model.Session) error {
 	return err
 }
 
-func (db *MySQLDriver) getSessions(query string, args ...interface{}) ([]*model.Session, error) {
+func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
 	var sessions []*model.Session
 
-	rows, err := db.connection.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var session = &model.Session{}
-		var expiresAfter string
-
-		err := rows.Scan(&session.Id, &expiresAfter, &session.Ip, &session.UserId, &session.UserAgent, &session.RemoteSessionId)
-		if err != nil {
-			return nil, err
-		}
-
-		// Parse the dates
-		session.ExpiresAfter, err = time.Parse("2006-01-02 15:04:05", expiresAfter)
-		if err != nil {
-			return nil, err
-		}
-
-		sessions = append(sessions, session)
-	}
-
-	return sessions, nil
-}
-
-func (db *MySQLDriver) GetSession(id string) (*model.Session, error) {
-	sessions, err := db.getSessions("SELECT session_id, expires_after, ip, user_id, user_agent, remote_session_id FROM sessions WHERE session_id = ?", id)
+	err := db.read("sessions", &sessions, nil, "session_id = ?", id)
 	if err != nil || len(sessions) == 0 {
 		return nil, err
 	}
+
 	return sessions[0], nil
 }
 
 func (db *MySQLDriver) GetSessionsForUser(userId string) ([]*model.Session, error) {
-	sessions, err := db.getSessions("SELECT session_id, expires_after, ip, user_id, user_agent, remote_session_id FROM sessions WHERE user_id = ?", userId)
+	var sessions []*model.Session
+
+	err := db.read("sessions", &sessions, nil, "user_id = ?", userId)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +71,9 @@ func (db *MySQLDriver) GetSessionsForUser(userId string) ([]*model.Session, erro
 }
 
 func (db *MySQLDriver) GetSessions() ([]*model.Session, error) {
-	sessions, err := db.getSessions("SELECT session_id, expires_after, ip, user_id, user_agent, remote_session_id FROM sessions")
+	var sessions []*model.Session
+
+	err := db.read("sessions", &sessions, nil, "1")
 	if err != nil {
 		return nil, err
 	}

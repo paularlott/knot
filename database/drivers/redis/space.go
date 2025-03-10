@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/util"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -32,7 +33,7 @@ func (db *RedisDbDriver) mutexUnlock() error {
 	return err
 }
 
-func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
+func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) error {
 
 	// Grab a mutex lock on the redis database, automatically release on function exit
 	err := db.mutexLock()
@@ -43,9 +44,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 
 	// Load the existing space
 	existingSpace, _ := db.GetSpace(space.Id)
-	if existingSpace == nil {
-		space.CreatedAt = time.Now().UTC()
-	} else {
+	if existingSpace != nil {
 		// If user changed then delete the space and add back in with new user
 		if existingSpace.UserId != space.UserId {
 			db.DeleteSpace(existingSpace)
@@ -54,7 +53,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 	}
 
 	// If new space or name changed check if the new name is unique
-	if existingSpace == nil || space.Name != existingSpace.Name {
+	if existingSpace == nil || (space.Name != existingSpace.Name && (len(updateFields) == 0 || util.InArray(updateFields, "Name"))) {
 		exists, err := db.keyExists(fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(space.Name)))
 		if err != nil {
 			return err
@@ -85,7 +84,14 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space) error {
 		}
 	}
 
-	space.UpdatedAt = time.Now().UTC()
+	// Apply changes from space to existing space if doing partial update
+	if existingSpace != nil && len(updateFields) > 0 {
+		util.CopyFields(space, existingSpace, updateFields)
+		space = existingSpace
+	}
+
+	now := time.Now().UTC()
+	space.UpdatedAt = now
 	data, err := json.Marshal(space)
 	if err != nil {
 		return err

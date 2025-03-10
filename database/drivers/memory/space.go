@@ -6,7 +6,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 )
 
-func (db *MemoryDbDriver) SaveSpace(space *model.Space) error {
+func (db *MemoryDbDriver) SaveSpace(space *model.Space, updateFields []string) error {
 	return errors.New("memorydb: not implemented")
 }
 

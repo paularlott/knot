@@ -6,11 +6,14 @@ import (
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 )
 
-func UpdateVolume(volume *model.Volume) {
+func UpdateVolume(volume *model.Volume, updateFields []string) {
 	if server_info.IsLeaf && !server_info.RestrictedLeaf {
 		message := &msg.ClientMessage{
 			Command: msg.MSG_UPDATE_VOLUME,
-			Payload: volume,
+			Payload: &msg.UpdateVolume{
+				Volume:       *volume,
+				UpdateFields: updateFields,
+			},
 		}
 
 		OriginChannel <- message
