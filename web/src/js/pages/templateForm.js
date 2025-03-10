@@ -83,7 +83,7 @@ window.templateForm = function(isEdit, templateId) {
       }
       this.toHours.push('11:59pm');
 
-      const groupsResponse = await fetch('/api/v1/groups', {
+      const groupsResponse = await fetch('/api/groups', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -92,7 +92,7 @@ window.templateForm = function(isEdit, templateId) {
       this.groups = groupsList.groups;
 
       if(isEdit) {
-        const templateResponse = await fetch('/api/v1/templates/' + templateId, {
+        const templateResponse = await fetch('/api/templates/' + templateId, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -287,7 +287,7 @@ window.templateForm = function(isEdit, templateId) {
         data.is_manual = this.formData.is_manual;
       }
 
-      fetch(isEdit ? '/api/v1/templates/' + templateId : '/api/v1/templates', {
+      fetch(isEdit ? '/api/templates/' + templateId : '/api/templates', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'

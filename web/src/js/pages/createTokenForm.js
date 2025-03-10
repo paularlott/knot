@@ -27,7 +27,7 @@ window.createTokenForm = function() {
         name: this.formData.name,
       }
 
-      fetch('/api/v1/tokens', {
+      fetch('/api/tokens', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

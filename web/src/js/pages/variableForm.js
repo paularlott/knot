@@ -20,7 +20,7 @@ window.variableForm = function(isEdit, templateVarId) {
       focusElement('input[name="name"]');
 
       if(isEdit) {
-        const response = await fetch('/api/v1/templatevars/' + templateVarId, {
+        const response = await fetch('/api/templatevars/' + templateVarId, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -97,7 +97,7 @@ window.variableForm = function(isEdit, templateVarId) {
       }
       this.loading = true;
 
-      fetch(isEdit ? '/api/v1/templatevars/' + templateVarId : '/api/v1/templatevars', {
+      fetch(isEdit ? '/api/templatevars/' + templateVarId : '/api/templatevars', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'

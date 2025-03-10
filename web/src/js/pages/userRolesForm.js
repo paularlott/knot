@@ -16,7 +16,7 @@ window.userRolesForm = function(isEdit, roleId) {
       focusElement('input[name="name"]');
 
       // fetch the permission list
-      const response = await fetch('/api/v1/permissions', {
+      const response = await fetch('/api/permissions', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -24,7 +24,7 @@ window.userRolesForm = function(isEdit, roleId) {
       this.permissions = await response.json();
 
       if(isEdit) {
-        const roleResponse = await fetch('/api/v1/roles/' + roleId, {
+        const roleResponse = await fetch('/api/roles/' + roleId, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -64,7 +64,7 @@ window.userRolesForm = function(isEdit, roleId) {
       }
       this.loading = true;
 
-      fetch(isEdit ? '/api/v1/roles/' + roleId : '/api/v1/roles', {
+      fetch(isEdit ? '/api/roles/' + roleId : '/api/roles', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'

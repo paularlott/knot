@@ -27,7 +27,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       focusElement('input[name="name"]');
 
       // Fetch the available templates
-      const templatesResponse = await fetch('/api/v1/templates', {
+      const templatesResponse = await fetch('/api/templates', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -36,7 +36,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       this.templates = templateList.templates;
 
       if(isEdit) {
-        const spaceResponse = await fetch('/api/v1/spaces/' + spaceId, {
+        const spaceResponse = await fetch('/api/spaces/' + spaceId, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -75,7 +75,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       }
 
       // Fetch the template to get the volume sizes
-      const templateResponse = await fetch('/api/v1/templates/' + this.template_id, {
+      const templateResponse = await fetch('/api/templates/' + this.template_id, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -143,7 +143,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       }
       this.loading = true;
 
-      fetch(isEdit ? '/api/v1/spaces/' + spaceId : '/api/v1/spaces', {
+      fetch(isEdit ? '/api/spaces/' + spaceId : '/api/spaces', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -163,7 +163,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
             // If start on create
             if (this.startOnCreate) {
               response.json().then((data) => {
-                fetch('/api/v1/spaces/' + data.space_id + '/start', {
+                fetch('/api/spaces/' + data.space_id + '/start', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json'

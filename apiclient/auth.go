@@ -28,7 +28,7 @@ func (c *ApiClient) Login(email string, password string, totpCode string) (strin
 	}
 	response := AuthLoginResponse{}
 
-	code, err := c.httpClient.Post("/api/v1/auth", &request, &response, 200)
+	code, err := c.httpClient.Post("/api/auth", &request, &response, 200)
 	if err != nil {
 		return "", "", code, err
 	}
@@ -39,7 +39,7 @@ func (c *ApiClient) Login(email string, password string, totpCode string) (strin
 func (c *ApiClient) Logout() error {
 	response := AuthLogoutResponse{}
 
-	_, err := c.httpClient.Post("/api/v1/auth/logout", nil, &response, 200)
+	_, err := c.httpClient.Post("/api/auth/logout", nil, &response, 200)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (c *ApiClient) Logout() error {
 func (c *ApiClient) LoginUserToken(userId string, token string) error {
 	response := AuthLoginResponse{}
 
-	_, err := c.httpClient.Post("/api/v1/auth/user", nil, &response, 200)
+	_, err := c.httpClient.Post("/api/auth/user", nil, &response, 200)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (c *ApiClient) LoginUserToken(userId string, token string) error {
 func (c *ApiClient) UsingTOTP() (bool, int, error) {
 	response := UsingTOTPResponse{}
 
-	code, err := c.httpClient.Get("/api/v1/auth/using-totp", &response)
+	code, err := c.httpClient.Get("/api/auth/using-totp", &response)
 	if err != nil {
 		return false, code, err
 	}

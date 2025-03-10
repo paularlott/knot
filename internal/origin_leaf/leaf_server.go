@@ -52,7 +52,7 @@ func LeafConnectAndServe(server string) {
 			} else {
 				wsUrl = "wss://" + wsUrl
 			}
-			wsUrl += "/api/v1/leaf-server"
+			wsUrl += "/api/leaf-server"
 
 			log.Debug().Msgf("leaf: connecting to %s", wsUrl)
 

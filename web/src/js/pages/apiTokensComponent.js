@@ -29,7 +29,7 @@ window.apiTokensComponent = function() {
     },
 
     async getTokens() {
-      const response = await fetch('/api/v1/tokens', {
+      const response = await fetch('/api/tokens', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -43,7 +43,7 @@ window.apiTokensComponent = function() {
     },
     async deleteToken(tokenId) {
       var self = this;
-      await fetch(`/api/v1/tokens/${tokenId}`, {
+      await fetch(`/api/tokens/${tokenId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

@@ -13,7 +13,7 @@ type PermissionInfoList struct {
 func (c *ApiClient) GetPermissions() (*PermissionInfoList, int, error) {
 	response := &PermissionInfoList{}
 
-	code, err := c.httpClient.Get("/api/v1/permissions", response)
+	code, err := c.httpClient.Get("/api/permissions", response)
 	if err != nil {
 		return nil, code, err
 	}

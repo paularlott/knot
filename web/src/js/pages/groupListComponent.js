@@ -29,7 +29,7 @@ window.groupListComponent = function() {
     },
 
     async getGroups() {
-      const response = await fetch('/api/v1/groups', {
+      const response = await fetch('/api/groups', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -50,7 +50,7 @@ window.groupListComponent = function() {
     },
     async deleteGroup(groupId) {
       var self = this;
-      await fetch(`/api/v1/groups/${groupId}`, {
+      await fetch(`/api/groups/${groupId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

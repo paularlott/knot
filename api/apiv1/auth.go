@@ -196,7 +196,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Only create the cookie for web auth
-	if r.URL.Path == "/api/v1/auth/web" {
+	if r.URL.Path == "/api/auth/web" {
 		cookie := &http.Cookie{
 			Name:     model.WEBUI_SESSION_COOKIE,
 			Value:    session.Id,

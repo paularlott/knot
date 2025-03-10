@@ -19,7 +19,7 @@ window.sessionsListComponent = function() {
     },
 
     async getSessions() {
-      const response = await fetch('/api/v1/sessions', {
+      const response = await fetch('/api/sessions', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -32,7 +32,7 @@ window.sessionsListComponent = function() {
     },
     async deleteSession(sessionId) {
       var self = this;
-      await fetch(`/api/v1/sessions/${sessionId}`, {
+      await fetch(`/api/sessions/${sessionId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

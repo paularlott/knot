@@ -16,7 +16,7 @@ window.volumeForm = function(isEdit, volumeId) {
       focusElement('input[name="name"]');
 
       if(isEdit) {
-        const volumeResponse = await fetch('/api/v1/volumes/' + volumeId, {
+        const volumeResponse = await fetch('/api/volumes/' + volumeId, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -99,7 +99,7 @@ window.volumeForm = function(isEdit, volumeId) {
         data.local_container = this.formData.local_container;
       }
 
-      fetch(isEdit ? '/api/v1/volumes/' + volumeId : '/api/v1/volumes', {
+      fetch(isEdit ? '/api/volumes/' + volumeId : '/api/volumes', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'

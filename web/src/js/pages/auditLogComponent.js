@@ -15,7 +15,7 @@ window.auditLogComponent = function() {
     },
 
     async getAuditLogs() {
-      const response = await fetch('/api/v1/audit-logs?start=' + (this.currentPage * 10), {
+      const response = await fetch('/api/audit-logs?start=' + (this.currentPage * 10), {
         headers: {
           'Content-Type': 'application/json'
         }

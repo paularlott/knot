@@ -52,7 +52,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
     async init() {
       if(this.canManageSpaces || this.canTransferSpaces || this.canShareSpaces) {
-        const usersResponse = await fetch('/api/v1/users?state=active', {
+        const usersResponse = await fetch('/api/users?state=active', {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -92,7 +92,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       this.getSpaces();
     },
     async getSpaces() {
-      await fetch('/api/v1/spaces?user_id=' + this.forUserId, {
+      await fetch('/api/spaces?user_id=' + this.forUserId, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -161,7 +161,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     },
     async startSpace(spaceId) {
       var self = this;
-      await fetch(`/api/v1/spaces/${spaceId}/start`, {
+      await fetch(`/api/spaces/${spaceId}/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -201,7 +201,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     },
     async stopSpace(spaceId) {
       var self = this;
-      await fetch(`/api/v1/spaces/${spaceId}/stop`, {
+      await fetch(`/api/spaces/${spaceId}/stop`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -220,7 +220,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     },
     async deleteSpace(spaceId) {
       let self = this;
-      await fetch(`/api/v1/spaces/${spaceId}`, {
+      await fetch(`/api/spaces/${spaceId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -237,7 +237,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     },
     async ceaseSharing(spaceId) {
       let self = this;
-      await fetch(`/api/v1/spaces/${spaceId}/share`, {
+      await fetch(`/api/spaces/${spaceId}/share`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -302,8 +302,8 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       // Transfer the space to the new user
       await fetch(
         this.isShare
-          ? `/api/v1/spaces/${this.chooseUser.space.space_id}/transfer`
-          : `/api/v1/spaces/${this.chooseUser.space.space_id}/share`,
+          ? `/api/spaces/${this.chooseUser.space.space_id}/transfer`
+          : `/api/spaces/${this.chooseUser.space.space_id}/share`,
       {
         method: 'POST',
         headers: {

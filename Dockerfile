@@ -1,6 +1,6 @@
 ARG DOCKER_HUB
 
-FROM ${DOCKER_HUB}library/golang:1.24.0-alpine AS builder
+FROM ${DOCKER_HUB}library/golang:1.24.1-alpine AS builder
 
 RUN apk update \
   && apk add bash unzip zip make nodejs npm

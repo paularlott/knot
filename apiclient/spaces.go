@@ -75,7 +75,7 @@ type SpaceDefinition struct {
 func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
 	response := &SpaceInfoList{}
 
-	code, err := c.httpClient.Get("/api/v1/spaces?user_id="+userId, &response)
+	code, err := c.httpClient.Get("/api/spaces?user_id="+userId, &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -86,7 +86,7 @@ func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
 func (c *ApiClient) GetSpace(spaceId string) (*model.Space, int, error) {
 	response := &SpaceDefinition{}
 
-	code, err := c.httpClient.Get("/api/v1/spaces/"+spaceId, &response)
+	code, err := c.httpClient.Get("/api/spaces/"+spaceId, &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -123,7 +123,7 @@ func (c *ApiClient) UpdateSpace(space *model.Space) (int, error) {
 		Location:   space.Location,
 	}
 
-	code, err := c.httpClient.Put("/api/v1/spaces/"+space.Id, request, nil, 200)
+	code, err := c.httpClient.Put("/api/spaces/"+space.Id, request, nil, 200)
 	if err != nil {
 		return code, err
 	}
@@ -143,7 +143,7 @@ func (c *ApiClient) CreateSpace(space *model.Space) (int, error) {
 
 	response := &CreateSpaceResponse{}
 
-	code, err := c.httpClient.Post("/api/v1/spaces", request, response, 201)
+	code, err := c.httpClient.Post("/api/spaces", request, response, 201)
 	if err != nil {
 		return code, err
 	}
@@ -155,15 +155,15 @@ func (c *ApiClient) CreateSpace(space *model.Space) (int, error) {
 }
 
 func (c *ApiClient) DeleteSpace(spaceId string) (int, error) {
-	return c.httpClient.Delete("/api/v1/spaces/"+spaceId, nil, nil, 200)
+	return c.httpClient.Delete("/api/spaces/"+spaceId, nil, nil, 200)
 }
 
 func (c *ApiClient) StartSpace(spaceId string) (int, error) {
-	return c.httpClient.Post("/api/v1/spaces/"+spaceId+"/start", nil, nil, 200)
+	return c.httpClient.Post("/api/spaces/"+spaceId+"/start", nil, nil, 200)
 }
 
 func (c *ApiClient) StopSpace(spaceId string) (int, error) {
-	return c.httpClient.Post("/api/v1/spaces/"+spaceId+"/stop", nil, nil, 200)
+	return c.httpClient.Post("/api/spaces/"+spaceId+"/stop", nil, nil, 200)
 }
 
 func (c *ApiClient) TransferSpace(spaceId string, userId string) (int, error) {
@@ -171,5 +171,5 @@ func (c *ApiClient) TransferSpace(spaceId string, userId string) (int, error) {
 		UserId: userId,
 	}
 
-	return c.httpClient.Post("/api/v1/spaces/"+spaceId+"/transfer", request, nil, 200)
+	return c.httpClient.Post("/api/spaces/"+spaceId+"/transfer", request, nil, 200)
 }

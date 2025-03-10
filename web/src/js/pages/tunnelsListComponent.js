@@ -13,7 +13,7 @@ window.tunnelsListComponent = function() {
     },
 
     async getTunnels() {
-      const response = await fetch('/api/v1/tunnels', {
+      const response = await fetch('/api/tunnels', {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -25,7 +25,7 @@ window.tunnelsListComponent = function() {
     async terminateTunnel(tunnel) {
       let self = this;
 
-      fetch(`/api/v1/tunnels/${tunnel}`, {
+      fetch(`/api/tunnels/${tunnel}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
