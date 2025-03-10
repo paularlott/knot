@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	LEAF_PING_INTERVAL = 15 * time.Second
+	LEAF_PING_INTERVAL = 2 * time.Second
+	RECONNECT_DELAY    = 2 * time.Second
 )
 
 // connect to the origin server and start processing messages from origin
@@ -31,17 +32,17 @@ func LeafConnectAndServe(server string) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	origin.OriginChannel = make(chan *msg.ClientMessage, 100)
-
-	// Start a go routine to ping the origin server
-	go func() {
-		for {
-			time.Sleep(LEAF_PING_INTERVAL)
-			pingOrigin()
-		}
-	}()
+	origin.OriginChannel = make(chan *msg.LeafOriginMessage, 100)
+	origin.OriginRetryChannel = make(chan *msg.LeafOriginMessage, 2)
 
 	go func() {
+
+		// Track the session ID with the origin server used during a reconnect
+		leafSessionId := ""
+
+		var doFullSync bool
+		lastFullSyncCompleted := false
+
 		for {
 
 			// Lookup the origin server address and make the endpoint URL
@@ -77,9 +78,10 @@ func LeafConnectAndServe(server string) {
 			log.Debug().Msg("leaf: registering with origin server")
 
 			// Write a register message to the origin server
-			err = msg.WriteMessage(ws, &msg.Register{
-				Version:  build.Version,
-				Location: viper.GetString("server.location"),
+			err = msg.WriteMessage(ws, msg.MSG_REGISTER, &msg.Register{
+				Version:   build.Version,
+				Location:  viper.GetString("server.location"),
+				SessionId: leafSessionId,
 			})
 			if err != nil {
 				log.Error().Msgf("leaf: error while writing register message: %s", err)
@@ -89,12 +91,21 @@ func LeafConnectAndServe(server string) {
 			}
 
 			// Read the response
-			var registerResponse msg.RegisterResponse
-			err = msg.ReadMessage(ws, &registerResponse)
+			message, err := msg.ReadMessgae(ws)
 			if err != nil {
-				ws.Close()
+				log.Error().Msgf("leaf: error while reading register response: %s", err)
 
+				ws.Close()
+				time.Sleep(3 * time.Second)
+				continue
+			}
+
+			var registerResponse msg.RegisterResponse
+			err = message.UnmarshalPayload(&registerResponse)
+			if err != nil {
 				log.Error().Msgf("leaf: error while reading message: %s", err)
+
+				ws.Close()
 				time.Sleep(3 * time.Second)
 				continue
 			}
@@ -107,6 +118,10 @@ func LeafConnectAndServe(server string) {
 				log.Fatal().Str("origin version", registerResponse.Version).Str("leaf version", build.Version).Msg("leaf: origin and leaf servers must run the same major and minor versions.")
 			}
 
+			// Save the session ID for the next connection
+			doFullSync = leafSessionId != registerResponse.SessionId || !lastFullSyncCompleted
+			leafSessionId = registerResponse.SessionId
+
 			log.Info().Msg("leaf: successfully registered with origin server")
 
 			if registerResponse.RestrictedNode {
@@ -118,179 +133,200 @@ func LeafConnectAndServe(server string) {
 			server_info.Timezone = registerResponse.Timezone
 			log.Info().Msgf("leaf: origin server timezone: %s", server_info.Timezone)
 
-			// Request origin server to sync resources
-			requestTemplatesFromOrigin()
-			requestTemplateVarsFromOrigin()
-			requestRolesFromOrigin()
+			// Send ping messages at regular intervals
+			go func() {
+				for {
+					time.Sleep(LEAF_PING_INTERVAL)
+					err := ws.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(time.Second))
+					if err != nil {
+						log.Error().Msgf("leaf: error sending ping: %s", err)
 
-			// Request sync from the origin server
-			db := database.GetInstance()
+						ws.Close()
+						break
+					}
+				}
+			}()
 
-			log.Info().Msg("leaf: requesting sync of users from origin server")
-			users, err := db.GetUsers()
-			if err != nil {
-				log.Error().Msgf("leaf: error fetching users: %s", err)
-				ws.Close()
-				time.Sleep(3 * time.Second)
-				continue
-			}
+			if doFullSync {
+				lastFullSyncCompleted = false
 
-			// Request the local users be updated from the origin server
-			for _, user := range users {
-				requestUserFromOrigin(user.Id)
+				// Request origin server to sync resources
+				requestTemplatesFromOrigin()
+				requestTemplateVarsFromOrigin()
+				requestRolesFromOrigin()
 
-				// Get the list of spaces for the user in the local database
-				spaces, err := db.GetSpacesForUser(user.Id)
+				// Request sync from the origin server
+				db := database.GetInstance()
+
+				log.Info().Msg("leaf: requesting sync of users from origin server")
+				users, err := db.GetUsers()
 				if err != nil {
-					log.Error().Msgf("leaf: error fetching spaces for user %s: %s", user.Id, err)
+					log.Error().Msgf("leaf: error fetching users: %s", err)
 					ws.Close()
 					time.Sleep(3 * time.Second)
-					break
+					continue
 				}
 
-				// Request the origin server to sync the spaces, this will update the local data and remove local spaces that don't exist
-				var ids []string
-				for _, space := range spaces {
-					requestSpaceFromOrigin(space.Id)
-					ids = append(ids, space.Id)
+				// Request the local users be updated from the origin server
+				for _, user := range users {
+					requestUserFromOrigin(user.Id)
+
+					// Get the list of spaces for the user in the local database
+					spaces, err := db.GetSpacesForUser(user.Id)
+					if err != nil {
+						log.Error().Msgf("leaf: error fetching spaces for user %s: %s", user.Id, err)
+						ws.Close()
+						time.Sleep(3 * time.Second)
+						break
+					}
+
+					// Request the origin server to sync the spaces, this will update the local data and remove local spaces that don't exist
+					var ids []string
+					for _, space := range spaces {
+						requestSpaceFromOrigin(space.Id)
+						ids = append(ids, space.Id)
+					}
+
+					// Ask the origin server to send all spaces for the user other than those already synced
+					RequestUserSpacesFromOrigin(user.Id, ids)
 				}
 
-				// Ask the origin server to send all spaces for the user other than those already synced
-				RequestUserSpacesFromOrigin(user.Id, ids)
+				// Mark the end of the bootstrap process
+				bootstrapMarker()
 			}
-
-			// Mark the end of the bootstrap process
-			bootstrapMarker()
 
 			// Send the next message form the channel to the origin server
 			go func() {
 				for {
-					message := <-origin.OriginChannel
+					var isRetry bool
+					var message *msg.LeafOriginMessage
 
-					// Write the command
-					err := msg.WriteCommand(ws, message.Command)
-					if err != nil {
-						log.Error().Msgf("leaf: error while writing command: %s", err)
-						ws.Close()
-						break
+					select {
+					case message = <-origin.OriginRetryChannel:
+						isRetry = true
+
+					case message = <-origin.OriginChannel:
+						isRetry = false
 					}
 
 					// Write the message
-					if message.Payload != nil {
-						err = msg.WriteMessage(ws, message.Payload)
-						if err != nil {
-							log.Error().Msgf("leaf: error while writing message: %s", err)
-							ws.Close()
-							break
+					err := msg.WriteMessage(ws, message.Command, message.Payload)
+					if err != nil {
+						// If not retry then close the connection and put the message on the retry channel
+						if !isRetry {
+							log.Warn().Msgf("leaf: error writing message to origin server: %s", err)
+							origin.OriginRetryChannel <- message
+						} else {
+							log.Error().Msgf("leaf: error writing message to origin server: %s", err)
 						}
+
+						ws.Close()
+						break
 					}
 				}
 			}()
 
 			// Run forever processing messages from the origin server
 			for {
-				var err error
-				var cmd byte
-
-				cmd, err = msg.ReadCommand(ws)
+				message, err := msg.ReadMessgae(ws)
 				if err != nil {
-					log.Error().Msgf("leaf: error reading command: %s", err)
-
+					log.Error().Msgf("leaf: error while reading message: %s", err)
 					ws.Close()
-					time.Sleep(3 * time.Second)
+
 					break
 				}
 
-				switch cmd {
+				switch message.Command {
 				case msg.MSG_BOOTSTRAP:
 					if initialBoot {
-						log.Debug().Msg("leaf: bootstrap")
+						log.Debug().Msg("leaf: bootstrap done")
 
 						// Release the main app to run on the 1st run through
 						initialBoot = false
 						wg.Done()
 					}
 
-				case msg.MSG_PING:
-					log.Debug().Msg("leaf: ping")
+					lastFullSyncCompleted = true
 
 				case msg.MSG_UPDATE_TEMPLATE:
-					err = leaf_server.HandleUpdateTemplate(ws)
+					err = leaf_server.HandleUpdateTemplate(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating template: %s", err)
 					}
 
 				case msg.MSG_DELETE_TEMPLATE:
-					err = leaf_server.HandleDeleteTemplate(ws)
+					err = leaf_server.HandleDeleteTemplate(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting template: %s", err)
 					}
 
 				case msg.MSG_UPDATE_USER:
-					err = leaf_server.HandleUpdateUser(ws)
+					err = leaf_server.HandleUpdateUser(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating user: %s", err)
 					}
 
 				case msg.MSG_DELETE_USER:
-					err = leaf_server.HandleDeleteUser(ws)
+					err = leaf_server.HandleDeleteUser(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting user: %s", err)
 					}
 
 				case msg.MSG_UPDATE_TEMPLATEVAR:
-					err = leaf_server.HandleUpdateTemplateVar(ws)
+					err = leaf_server.HandleUpdateTemplateVar(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting template var: %s", err)
 					}
 
 				case msg.MSG_DELETE_TEMPLATEVAR:
-					err = leaf_server.HandleDeleteTemplateVar(ws)
+					err = leaf_server.HandleDeleteTemplateVar(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting template var: %s", err)
 					}
 
 				case msg.MSG_UPDATE_SPACE:
-					err = leaf_server.HandleUpdateSpace(ws)
+					err = leaf_server.HandleUpdateSpace(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating space: %s", err)
 					}
 
 				case msg.MSG_DELETE_SPACE:
-					err = leaf_server.HandleDeleteSpace(ws)
+					err = leaf_server.HandleDeleteSpace(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting space: %s", err)
 					}
 
 				case msg.MSG_DELETE_TOKEN:
-					err = leaf_server.HandleDeleteToken(ws)
+					err = leaf_server.HandleDeleteToken(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting token: %s", err)
 					}
 
 				case msg.MSG_UPDATE_ROLE:
-					err = leaf_server.HandleUpdateRole(ws)
+					err = leaf_server.HandleUpdateRole(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error updating role: %s", err)
 					}
 
 				case msg.MSG_DELETE_ROLE:
-					err = leaf_server.HandleDeleteRole(ws)
+					err = leaf_server.HandleDeleteRole(message)
 					if err != nil {
 						log.Error().Msgf("leaf: error deleting role: %s", err)
 					}
 
 				default:
-					log.Error().Msgf("leaf: unknown command: %d", cmd)
-					err = fmt.Errorf("unknown command: %d", cmd)
+					log.Error().Msgf("leaf: unknown command: %d", message.Command)
+					err = fmt.Errorf("unknown command: %d", message.Command)
 				}
 
 				if err != nil {
 					ws.Close()
-					time.Sleep(3 * time.Second)
 					break
 				}
 			}
+
+			// Wait a bit before trying to reconnect
+			time.Sleep(RECONNECT_DELAY)
 		}
 	}()
 
@@ -319,7 +355,7 @@ func requestTemplatesFromOrigin() {
 		syncTemplates.Existing = append(syncTemplates.Existing, template.Id)
 	}
 
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_SYNC_TEMPLATES,
 		Payload: syncTemplates,
 	}
@@ -349,7 +385,7 @@ func requestTemplateVarsFromOrigin() {
 		}
 	}
 
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_SYNC_TEMPLATEVARS,
 		Payload: syncTemplateVars,
 	}
@@ -359,7 +395,7 @@ func requestTemplateVarsFromOrigin() {
 
 // request the user update from the origin server
 func requestUserFromOrigin(id string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_SYNC_USER,
 		Payload: &id,
 	}
@@ -368,7 +404,7 @@ func requestUserFromOrigin(id string) {
 }
 
 func requestSpaceFromOrigin(id string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_SYNC_SPACE,
 		Payload: &id,
 	}
@@ -377,7 +413,7 @@ func requestSpaceFromOrigin(id string) {
 }
 
 func RequestUserSpacesFromOrigin(userId string, existing []string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_SYNC_USER_SPACES,
 		Payload: &msg.SyncUserSpaces{
 			UserId:   userId,
@@ -388,17 +424,8 @@ func RequestUserSpacesFromOrigin(userId string, existing []string) {
 	origin.OriginChannel <- message
 }
 
-func pingOrigin() {
-	message := &msg.ClientMessage{
-		Command: msg.MSG_PING,
-		Payload: nil,
-	}
-
-	origin.OriginChannel <- message
-}
-
 func bootstrapMarker() {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_BOOTSTRAP,
 		Payload: nil,
 	}
@@ -409,7 +436,7 @@ func bootstrapMarker() {
 func requestRolesFromOrigin() {
 	log.Info().Msg("leaf: requesting sync of roles from origin server")
 
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_SYNC_ROLES,
 		Payload: nil,
 	}

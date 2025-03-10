@@ -122,7 +122,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	model.SaveRoleToCache(role)
-	leaf.UpdateRole(role)
+	leaf.UpdateRole(role, nil)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -157,7 +157,7 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 			Permissions: request.Permissions,
 		}
 		model.SaveRoleToCache(role)
-		leaf.UpdateRole(role)
+		leaf.UpdateRole(role, nil)
 
 		rest.SendJSON(http.StatusCreated, w, r, apiclient.RoleResponse{
 			Status: true,
@@ -173,7 +173,7 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 		}
 
 		model.SaveRoleToCache(role)
-		leaf.UpdateRole(role)
+		leaf.UpdateRole(role, nil)
 
 		audit.Log(
 			user.Username,
@@ -254,7 +254,7 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	model.DeleteRoleFromCache(roleId)
-	leaf.DeleteRole(roleId)
+	leaf.DeleteRole(roleId, nil)
 
 	w.WriteHeader(http.StatusOK)
 }

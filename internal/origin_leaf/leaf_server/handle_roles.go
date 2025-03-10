@@ -3,14 +3,13 @@ package leaf_server
 import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
-	"github.com/rs/zerolog/log"
 
-	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 )
 
-func HandleUpdateRole(ws *websocket.Conn) error {
+func HandleUpdateRole(message *msg.Message) error {
 	var role model.Role
-	err := msg.ReadMessage(ws, &role)
+	err := message.UnmarshalPayload(&role)
 	if err != nil {
 		return err
 	}
@@ -23,10 +22,10 @@ func HandleUpdateRole(ws *websocket.Conn) error {
 	return nil
 }
 
-func HandleDeleteRole(ws *websocket.Conn) error {
+func HandleDeleteRole(message *msg.Message) error {
 
 	var id string
-	err := msg.ReadMessage(ws, &id)
+	err := message.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

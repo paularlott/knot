@@ -7,7 +7,7 @@ import (
 
 // update the template on a leaf node
 func (s *Session) UpdateTemplate(template *model.Template, updateFields []string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_UPDATE_TEMPLATE,
 		Payload: &msg.UpdateTemplate{
 			Template:     *template,
@@ -20,7 +20,7 @@ func (s *Session) UpdateTemplate(template *model.Template, updateFields []string
 
 // delete the template on a leaf node
 func (s *Session) DeleteTemplate(templateId string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_DELETE_TEMPLATE,
 		Payload: &templateId,
 	}
@@ -29,21 +29,25 @@ func (s *Session) DeleteTemplate(templateId string) {
 }
 
 // update the template on all leaf nodes
-func UpdateTemplate(template *model.Template, updateFields []string) {
+func UpdateTemplate(template *model.Template, updateFields []string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	for _, session := range session {
-		session.UpdateTemplate(template, updateFields)
+		if session != skipSession {
+			session.UpdateTemplate(template, updateFields)
+		}
 	}
 }
 
 // delete the template on all leaf nodes
-func DeleteTemplate(templateId string) {
+func DeleteTemplate(templateId string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	for _, session := range session {
-		session.DeleteTemplate(templateId)
+		if session != skipSession {
+			session.DeleteTemplate(templateId)
+		}
 	}
 }

@@ -8,7 +8,7 @@ import (
 
 func UpdateVolume(volume *model.Volume, updateFields []string) {
 	if server_info.IsLeaf && !server_info.RestrictedLeaf {
-		message := &msg.ClientMessage{
+		message := &msg.LeafOriginMessage{
 			Command: msg.MSG_UPDATE_VOLUME,
 			Payload: &msg.UpdateVolume{
 				Volume:       *volume,

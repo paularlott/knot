@@ -4,15 +4,14 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
 
-	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
 
-func HandleUpdateSpace(ws *websocket.Conn) error {
+func HandleUpdateSpace(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var data msg.UpdateSpace
-	err := msg.ReadMessage(ws, &data)
+	err := message.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -32,11 +31,11 @@ func HandleUpdateSpace(ws *websocket.Conn) error {
 	return nil
 }
 
-func HandleDeleteSpace(ws *websocket.Conn) error {
+func HandleDeleteSpace(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var id string
-	err := msg.ReadMessage(ws, &id)
+	err := message.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

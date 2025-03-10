@@ -2,8 +2,9 @@ package msg
 
 // message sent from a follower to the leader to register itself
 type Register struct {
-	Version  string
-	Location string
+	Version   string
+	Location  string
+	SessionId string
 }
 
 // message sent from the leader to the follower in response to a register message
@@ -13,4 +14,5 @@ type RegisterResponse struct {
 	Version        string
 	Location       string
 	Timezone       string
+	SessionId      string
 }

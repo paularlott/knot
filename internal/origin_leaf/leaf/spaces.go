@@ -8,7 +8,7 @@ import (
 // update the space on a leaf node
 func (s *Session) UpdateSpace(space *model.Space, updateFields []string) bool {
 	if s.token == nil || space.UserId == s.token.UserId {
-		message := &msg.ClientMessage{
+		message := &msg.LeafOriginMessage{
 			Command: msg.MSG_UPDATE_SPACE,
 			Payload: &msg.UpdateSpace{
 				Space:        *space,
@@ -26,7 +26,7 @@ func (s *Session) UpdateSpace(space *model.Space, updateFields []string) bool {
 
 // delete the space on a leaf node
 func (s *Session) DeleteSpace(id string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_DELETE_SPACE,
 		Payload: &id,
 	}

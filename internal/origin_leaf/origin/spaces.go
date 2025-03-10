@@ -8,12 +8,13 @@ import (
 
 var (
 	// Channel to send messages to the origin server
-	OriginChannel chan *msg.ClientMessage
+	OriginChannel      chan *msg.LeafOriginMessage
+	OriginRetryChannel chan *msg.LeafOriginMessage
 )
 
 func DeleteSpace(id string) {
 	if server_info.IsLeaf {
-		message := &msg.ClientMessage{
+		message := &msg.LeafOriginMessage{
 			Command: msg.MSG_DELETE_SPACE,
 			Payload: &id,
 		}
@@ -24,7 +25,7 @@ func DeleteSpace(id string) {
 
 func UpdateSpace(space *model.Space, updateFields []string) {
 	if server_info.IsLeaf {
-		message := &msg.ClientMessage{
+		message := &msg.LeafOriginMessage{
 			Command: msg.MSG_UPDATE_SPACE,
 			Payload: &msg.UpdateSpace{
 				Space:        *space,

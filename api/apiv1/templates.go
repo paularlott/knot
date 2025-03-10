@@ -242,7 +242,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		api_utils.UpdateTemplateHash(template.Id, template.Hash)
-		leaf.UpdateTemplate(template, nil)
+		leaf.UpdateTemplate(template, nil, nil)
 
 		audit.Log(
 			user.Username,
@@ -357,7 +357,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		templateId = template.Id
 
 		api_utils.UpdateTemplateHash(template.Id, template.Hash)
-		leaf.UpdateTemplate(template, nil)
+		leaf.UpdateTemplate(template, nil, nil)
 
 		audit.Log(
 			user.Username,
@@ -429,7 +429,7 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 
 		api_utils.DeleteTemplateHash(template.Id)
-		leaf.DeleteTemplate(template.Id)
+		leaf.DeleteTemplate(template.Id, nil)
 
 		user := r.Context().Value("user").(*model.User)
 		audit.Log(

@@ -6,7 +6,7 @@ import (
 
 // delete the space on a leaf node
 func (s *Session) DeleteToken(id string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_DELETE_TOKEN,
 		Payload: &id,
 	}
@@ -15,12 +15,14 @@ func (s *Session) DeleteToken(id string) {
 }
 
 // delete the space on all leaf nodes
-func DeleteToken(id string) {
+func DeleteToken(id string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.DeleteToken(id)
+		if session != skipSession {
+			session.DeleteToken(id)
+		}
 	}
 }

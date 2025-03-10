@@ -8,7 +8,7 @@ import (
 
 func MirrorToken(token *model.Token) {
 	if server_info.IsLeaf {
-		message := &msg.ClientMessage{
+		message := &msg.LeafOriginMessage{
 			Command: msg.MSG_MIRROR_TOKEN,
 			Payload: token,
 		}
@@ -19,7 +19,7 @@ func MirrorToken(token *model.Token) {
 
 func DeleteToken(token *model.Token) {
 	if server_info.IsLeaf {
-		message := &msg.ClientMessage{
+		message := &msg.LeafOriginMessage{
 			Command: msg.MSG_DELETE_TOKEN,
 			Payload: &token,
 		}

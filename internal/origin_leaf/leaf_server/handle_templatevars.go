@@ -5,15 +5,14 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/origin_leaf/msg"
 
-	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
 
-func HandleUpdateTemplateVar(ws *websocket.Conn) error {
+func HandleUpdateTemplateVar(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var data model.TemplateVar
-	err := msg.ReadMessage(ws, &data)
+	err := message.UnmarshalPayload(&data)
 	if err != nil {
 		return err
 	}
@@ -31,11 +30,11 @@ func HandleUpdateTemplateVar(ws *websocket.Conn) error {
 	return nil
 }
 
-func HandleDeleteTemplateVar(ws *websocket.Conn) error {
+func HandleDeleteTemplateVar(message *msg.Message) error {
 	db := database.GetInstance()
 
 	var id string
-	err := msg.ReadMessage(ws, &id)
+	err := message.UnmarshalPayload(&id)
 	if err != nil {
 		return err
 	}

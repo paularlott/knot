@@ -12,7 +12,7 @@ func (s *Session) UpdateTemplateVar(templateVar *model.TemplateVar) bool {
 	if s.token == nil || (!templateVar.Protected && !templateVar.Restricted) {
 		// Only send vars that match the location or are global, never local
 		if !templateVar.Local && (templateVar.Location == "" || templateVar.Location == s.location) {
-			message := &msg.ClientMessage{
+			message := &msg.LeafOriginMessage{
 				Command: msg.MSG_UPDATE_TEMPLATEVAR,
 				Payload: templateVar,
 			}
@@ -30,7 +30,7 @@ func (s *Session) UpdateTemplateVar(templateVar *model.TemplateVar) bool {
 
 // delete the template var on a leaf node
 func (s *Session) DeleteTemplateVar(id string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_DELETE_TEMPLATEVAR,
 		Payload: &id,
 	}
@@ -39,23 +39,27 @@ func (s *Session) DeleteTemplateVar(id string) {
 }
 
 // update the template var on all leaf nodes
-func UpdateTemplateVar(templateVar *model.TemplateVar) {
+func UpdateTemplateVar(templateVar *model.TemplateVar, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.UpdateTemplateVar(templateVar)
+		if session != skipSession {
+			session.UpdateTemplateVar(templateVar)
+		}
 	}
 }
 
 // delete the template var on all leaf nodes
-func DeleteTemplateVar(id string) {
+func DeleteTemplateVar(id string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.DeleteTemplateVar(id)
+		if session != skipSession {
+			session.DeleteTemplateVar(id)
+		}
 	}
 }

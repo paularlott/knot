@@ -13,7 +13,7 @@ func (s *Session) UpdateUser(user *model.User, updateFields []string) {
 		user.Password = ""
 		user.TOTPSecret = ""
 
-		message := &msg.ClientMessage{
+		message := &msg.LeafOriginMessage{
 			Command: msg.MSG_UPDATE_USER,
 			Payload: &msg.UpdateUser{
 				User:         *user,
@@ -27,7 +27,7 @@ func (s *Session) UpdateUser(user *model.User, updateFields []string) {
 
 // delete the user on a leaf node
 func (s *Session) DeleteUser(id string) {
-	message := &msg.ClientMessage{
+	message := &msg.LeafOriginMessage{
 		Command: msg.MSG_DELETE_USER,
 		Payload: &id,
 	}
@@ -36,23 +36,27 @@ func (s *Session) DeleteUser(id string) {
 }
 
 // update the user on all leaf nodes
-func UpdateUser(user *model.User, updateFields []string) {
+func UpdateUser(user *model.User, updateFields []string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.UpdateUser(user, updateFields)
+		if session != skipSession {
+			session.UpdateUser(user, updateFields)
+		}
 	}
 }
 
 // delete the user on all leaf nodes
-func DeleteUser(id string) {
+func DeleteUser(id string, skipSession *Session) {
 	sessionMutex.RLock()
 	defer sessionMutex.RUnlock()
 
 	// Send the user to all followers
 	for _, session := range session {
-		session.DeleteUser(id)
+		if session != skipSession {
+			session.DeleteUser(id)
+		}
 	}
 }
