@@ -29,7 +29,7 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the user has access to the space
-	if space.UserId != user.Id {
+	if space.UserId != user.Id && space.SharedWithUserId != user.Id {
 		showPageNotFound(w, r)
 		return
 	}

@@ -35,7 +35,7 @@ func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the user has access to the space
-	if space.UserId != user.Id {
+	if space.UserId != user.Id && space.SharedWithUserId != user.Id {
 		showPageNotFound(w, r)
 		return
 	}
@@ -78,7 +78,7 @@ func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 	// Load the space
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceId)
-	if err != nil || space == nil || space.UserId != user.Id {
+	if err != nil || space == nil || (space.UserId != user.Id && space.SharedWithUserId != user.Id) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

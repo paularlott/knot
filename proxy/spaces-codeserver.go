@@ -31,7 +31,7 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check user access to the space
-	if space.UserId != user.Id {
+	if space.UserId != user.Id && space.SharedWithUserId != user.Id {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

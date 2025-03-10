@@ -136,7 +136,7 @@ create-release:
 
 .PHONY: run-server
 ## Run the server for development
-run-server:
+run-server: agents
 	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --agent-path=./web/agents
 
 .PHONY: run-leaf

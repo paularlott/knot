@@ -102,6 +102,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.TemplateName = templateName
 			s.TemplateId = space.TemplateId
 			s.Location = space.Location
+			s.IsRemote = space.Location != "" && space.Location != server_info.LeafLocation
 			s.LocalContainer = localContainer
 			s.IsManual = isManual
 
@@ -114,6 +115,65 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			}
 			s.Username = u.Username
 			s.UserId = u.Id
+
+			// If shared with another user then lookup the user
+			s.SharedUserId = ""
+			s.SharedUsername = ""
+			if space.SharedWithUserId != "" {
+				u, err = db.GetUser(space.SharedWithUserId)
+				if err == nil {
+					s.SharedUserId = u.Id
+					s.SharedUsername = u.Username
+				}
+			}
+
+			// Get the space state
+			s.IsDeployed = space.IsDeployed
+			s.IsPending = space.IsPending
+			s.IsDeleting = space.IsDeleting
+
+			state := agent_server.GetSession(space.Id)
+			if state == nil {
+				s.HasCodeServer = false
+				s.HasSSH = false
+				s.HasTerminal = false
+				s.HasHttpVNC = false
+				s.TcpPorts = make(map[string]string)
+				s.HttpPorts = make(map[string]string)
+				s.HasVSCodeTunnel = false
+				s.VSCodeTunnel = ""
+				s.HasState = false
+			} else {
+				s.HasCodeServer = state.HasCodeServer
+				s.HasSSH = state.SSHPort > 0
+				s.HasTerminal = state.HasTerminal
+				s.HasHttpVNC = state.VNCHttpPort > 0
+				s.TcpPorts = state.TcpPorts
+				s.HasState = true
+
+				// If wildcard domain is set then offer the http ports
+				if viper.GetString("server.wildcard_domain") == "" {
+					s.HttpPorts = make(map[string]string)
+				} else {
+					s.HttpPorts = state.HttpPorts
+				}
+
+				s.HasVSCodeTunnel = state.HasVSCodeTunnel
+				s.VSCodeTunnel = state.VSCodeTunnelName
+
+				// If template is manual then force IsDeployed to true as agent is live
+				if template.IsManual {
+					s.IsDeployed = true
+				}
+			}
+
+			// Check if the template has been updated
+			hash := api_utils.GetTemplateHash(space.TemplateId)
+			if template.IsManual || hash == "" {
+				s.UpdateAvailable = false
+			} else {
+				s.UpdateAvailable = space.IsDeployed && space.TemplateHash != hash
+			}
 
 			spaceData.Spaces = append(spaceData.Spaces, s)
 			spaceData.Count++
@@ -356,113 +416,6 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func HandleGetSpaceServiceState(w http.ResponseWriter, r *http.Request) {
-	spaceId := r.PathValue("space_id")
-
-	if !validate.UUID(spaceId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
-	db := database.GetInstance()
-
-	space, err := db.GetSpace(spaceId)
-	if err != nil || space == nil {
-		if err.Error() == "space not found" {
-			// Try to get space from remote
-			remoteClient := r.Context().Value("remote_client")
-			if remoteClient != nil {
-				client := remoteClient.(*apiclient.ApiClient)
-
-				var code int
-				var err error
-
-				space, code, err = client.GetSpace(spaceId)
-				if err != nil || space == nil {
-					log.Error().Msgf("HandleGetSpaceServiceState: GetSpace from origin %s", err.Error())
-					rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
-					return
-				}
-
-				// Save the space
-				err = db.SaveSpace(space)
-				if err != nil {
-					log.Error().Msgf("HandleGetSpaceServiceState: SaveSpace %s", err.Error())
-					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-					return
-				}
-			} else {
-				rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
-				return
-			}
-		} else {
-			log.Error().Msgf("HandleGetSpaceServiceState: GetSpace %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-	}
-
-	template, err := db.GetTemplate(space.TemplateId)
-	if err != nil {
-		log.Error().Msgf("HandleGetSpaceServiceState: GetTemplate %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	response := apiclient.SpaceServiceState{}
-	response.Name = space.Name
-	response.Location = space.Location
-	response.IsDeployed = space.IsDeployed
-	response.IsPending = space.IsPending
-	response.IsDeleting = space.IsDeleting
-	response.IsRemote = space.Location != "" && space.Location != server_info.LeafLocation
-
-	state := agent_server.GetSession(spaceId)
-	if state == nil {
-		response.HasCodeServer = false
-		response.HasSSH = false
-		response.HasTerminal = false
-		response.HasHttpVNC = false
-		response.TcpPorts = make(map[string]string)
-		response.HttpPorts = make(map[string]string)
-		response.HasVSCodeTunnel = false
-		response.VSCodeTunnel = ""
-		response.HasState = false
-	} else {
-		response.HasCodeServer = state.HasCodeServer
-		response.HasSSH = state.SSHPort > 0
-		response.HasTerminal = state.HasTerminal
-		response.HasHttpVNC = state.VNCHttpPort > 0
-		response.TcpPorts = state.TcpPorts
-		response.HasState = true
-
-		// If wildcard domain is set then offer the http ports
-		if viper.GetString("server.wildcard_domain") == "" {
-			response.HttpPorts = make(map[string]string)
-		} else {
-			response.HttpPorts = state.HttpPorts
-		}
-
-		response.HasVSCodeTunnel = state.HasVSCodeTunnel
-		response.VSCodeTunnel = state.VSCodeTunnelName
-
-		// If template is manual then force IsDeployed to true as agent is live
-		if template.IsManual {
-			response.IsDeployed = true
-		}
-	}
-
-	// Check if the template has been updated
-	hash := api_utils.GetTemplateHash(space.TemplateId)
-	if template.IsManual || hash == "" {
-		response.UpdateAvailable = false
-	} else {
-		response.UpdateAvailable = space.IsDeployed && space.TemplateHash != hash
-	}
-
-	rest.SendJSON(http.StatusOK, w, r, response)
-}
-
 func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var code int
@@ -487,7 +440,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If user doesn't have permission to manage spaces and not their space then fail
-	if user.Id != space.UserId && !user.HasPermission(model.PermissionManageSpaces) {
+	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -529,7 +482,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		space.AltNames = spaceRemote.AltNames
 		space.Shell = spaceRemote.Shell
 	} else {
-		usage, err := database.GetUserUsage(user.Id)
+		usage, err := database.GetUserUsage(user.Id, "")
 		if err != nil {
 			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -690,7 +643,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If user doesn't have permission to manage spaces and not their space then fail
-	if user.Id != space.UserId && !user.HasPermission(model.PermissionManageSpaces) {
+	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -899,7 +852,8 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, space := range spaces {
-		if space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
+		// We skip spaces that have been shared with the user
+		if space.UserId == userId && space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
 
 			// Load the template for the space
 			template, err := db.GetTemplate(space.TemplateId)
@@ -1135,7 +1089,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userUsage, err := database.GetUserUsage(newUser.Id)
+	userUsage, err := database.GetUserUsage(newUser.Id, "")
 	if err != nil {
 		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -1234,6 +1188,165 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var space *model.Space
+
+	user := r.Context().Value("user").(*model.User)
+	spaceId := r.PathValue("space_id")
+
+	request := apiclient.SpaceTransferRequest{}
+	err = rest.BindJSON(w, r, &request)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
+	if !validate.UUID(request.UserId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		return
+	}
+
+	db := database.GetInstance()
+
+	space, err = db.GetSpace(spaceId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If user doesn't own the space then 404
+	if space.UserId != user.Id {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	// If the space is deleting or changing state then fail
+	if space.IsDeleting {
+		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be shared at this time"})
+		return
+	}
+
+	// If the user is sharing with themselves then fail
+	if space.UserId == request.UserId {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "cannot share with yourself"})
+		return
+	}
+
+	// Load the new user
+	newUser, err := db.GetUser(request.UserId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If user not found or not active then fail
+	if newUser == nil || !newUser.Active {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		return
+	}
+
+	// Share the space
+	space.SharedWithUserId = newUser.Id
+	err = db.SaveSpace(space)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	leaf.UpdateSpace(space)
+
+	api_utils.UpdateSpaceSSHKeys(space, user)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceShare,
+		fmt.Sprintf("Shared space %s to user %s", space.Name, request.UserId),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"space_id":        space.Id,
+			"space_name":      space.Name,
+			"user_id":         request.UserId,
+		},
+	)
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var space *model.Space
+
+	user := r.Context().Value("user").(*model.User)
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
+	db := database.GetInstance()
+
+	space, err = db.GetSpace(spaceId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceRemoveShare: %s", err.Error())
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If user doesn't own the space or space not shared with the user then 404
+	if space.UserId != user.Id && space.SharedWithUserId != user.Id {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	if space.SharedWithUserId == "" {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "space is not shared"})
+		return
+	}
+
+	// Unshare the space
+	space.SharedWithUserId = ""
+	err = db.SaveSpace(space)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceRemoveShare: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	leaf.UpdateSpace(space)
+
+	api_utils.UpdateSpaceSSHKeys(space, user)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceStopShare,
+		fmt.Sprintf("Stop space share %s", space.Name),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"space_id":        space.Id,
+			"space_name":      space.Name,
+		},
+	)
 
 	w.WriteHeader(http.StatusOK)
 }

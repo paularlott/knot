@@ -1078,37 +1078,6 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces/{space_id}/service-state:
-    get:
-      summary: Get Space State
-      description: Get the service states for a space.
-      operationId: getSpaceServiceState
-      tags:
-        - Spaces
-      parameters:
-        - name: space_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-            description: The ID of the space to get the service state for.
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SpaceServiceState'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
-
   /api/v1/spaces/{space_id}/transfer:
     post:
       summary: Transfer a Space
@@ -1131,6 +1100,81 @@ paths:
             schema:
               $ref: '#/components/schemas/SpaceTransferRequest'
 
+      responses:
+        '200':
+          description: Successful operation
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '406':
+          $ref: '#/components/responses/not-acceptable'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        '503':
+          $ref: '#/components/responses/service-unavailable'
+        '507':
+          $ref: '#/components/responses/insufficient-storage'
+      security:
+        - BearerAuth: []
+
+  /api/v1/spaces/{space_id}/share:
+    post:
+      summary: Share a Space
+      description: Share a space with another user.
+      operationId: shareSpace
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space to share.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceTransferRequest'
+      responses:
+        '200':
+          description: Successful operation
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '406':
+          $ref: '#/components/responses/not-acceptable'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+        '503':
+          $ref: '#/components/responses/service-unavailable'
+        '507':
+          $ref: '#/components/responses/insufficient-storage'
+      security:
+        - BearerAuth: []
+
+    delete:
+      summary: Remove Space Share
+      description: Remove a shared space from another user.
+      operationId: removeSpaceShare
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space to cease sharing.
       responses:
         '200':
           description: Successful operation
@@ -1215,7 +1259,7 @@ paths:
       security:
         - BearerAuth: []
 
-  /api/v1/spaces/{user_id}stop-for-user:
+  /api/v1/spaces/{user_id}/stop-for-user:
     post:
       summary: Stop Users Spaces
       description: Stop all the spaces belonging to a user.
@@ -2184,6 +2228,59 @@ components:
         is_manual:
           type: boolean
           description: If the space is manually created.
+        shared_user_id:
+          type: string
+          format: uuid
+          description: The ID of the user the space is shared with, or an empty string if not shared.
+        shared_username:
+          type: string
+          description: The name of the user the space is shared with, or an empty string if not shared.
+        has_code_server:
+          type: boolean
+          description: If the space has a running code server.
+        has_ssh:
+          type: boolean
+          description: If the space has a running SSH server.
+        has_http_vnc:
+          type: boolean
+          description: If the space has a running HTTP VNC server.
+        has_terminal:
+          type: boolean
+          description: If the space can support a web terminal.
+        has_vscode_tunnel:
+          type: boolean
+          description: If the space has a running VSCode tunnel.
+        vscode_tunnel_name:
+          type: string
+          description: The name of the VSCode tunnel.
+        is_deployed:
+          type: boolean
+          description: If the space is deployed.
+        is_pending:
+          type: boolean
+          description: If the space is pending a state change.
+        is_deleting:
+          type: boolean
+          description: If the space is being deleted.
+        tcp_ports:
+          type: object
+          additionalProperties:
+            type: string
+          description: A list of the available TCP ports exposed by the space.
+        http_ports:
+          type: object
+          additionalProperties:
+            type: string
+          description: A list of the available HTTP ports exposed by the space.
+        update_available:
+          type: boolean
+          description: If an update is available for the space.
+        is_remote:
+          type: boolean
+          description: Flags if the space is on a server other than the current one.
+        has_state:
+          type: boolean
+          description: If the space has an agent state.
 
     SpaceInfoList:
       type: object
@@ -2280,62 +2377,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SpaceVolume'
-
-    SpaceServiceState:
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of the space.
-        location:
-          type: string
-          description: The location of the space.
-        has_code_server:
-          type: boolean
-          description: If the space has a running code server.
-        has_ssh:
-          type: boolean
-          description: If the space has a running SSH server.
-        has_http_vnc:
-          type: boolean
-          description: If the space has a running HTTP VNC server.
-        has_terminal:
-          type: boolean
-          description: If the space can support a web terminal.
-        has_vscode_tunnel:
-          type: boolean
-          description: If the space has a running VSCode tunnel.
-        vscode_tunnel_name:
-          type: string
-          description: The name of the VSCode tunnel.
-        is_deployed:
-          type: boolean
-          description: If the space is deployed.
-        is_pending:
-          type: boolean
-          description: If the space is pending a state change.
-        is_deleting:
-          type: boolean
-          description: If the space is being deleted.
-        tcp_ports:
-          type: object
-          additionalProperties:
-            type: string
-          description: A list of the available TCP ports exposed by the space.
-        http_ports:
-          type: object
-          additionalProperties:
-            type: string
-          description: A list of the available HTTP ports exposed by the space.
-        update_available:
-          type: boolean
-          description: If an update is available for the space.
-        is_remote:
-          type: boolean
-          description: Flags if the space is on a server other than the current one.
-        has_state:
-          type: boolean
-          description: If the space has an agent state.
 
     TemplateInfo:
       type: object

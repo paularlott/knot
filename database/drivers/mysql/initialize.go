@@ -73,6 +73,7 @@ space_id CHAR(36) PRIMARY KEY,
 parent_space_id CHAR(36) DEFAULT '',
 user_id CHAR(36),
 template_id CHAR(36) DEFAULT '',
+shared_with_user_id CHAR(36) DEFAULT '',
 name VARCHAR(64),
 location VARCHAR(64),
 shell VARCHAR(8) DEFAULT '',
@@ -89,7 +90,8 @@ updated_at TIMESTAMP,
 INDEX user_id (user_id),
 INDEX template_id (template_id),
 UNIQUE INDEX name (user_id, name),
-INDEX parent_space_id (parent_space_id)
+INDEX parent_space_id (parent_space_id),
+INDEX shared_with_user_id (shared_with_user_id)
 )`)
 	if err != nil {
 		return err

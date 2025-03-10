@@ -29,10 +29,12 @@ const (
 	AuditEventRoleDelete = "Role Delete"
 
 	// Spaces
-	AuditEventSpaceCreate   = "Space Create"
-	AuditEventSpaceUpdate   = "Space Update"
-	AuditEventSpaceDelete   = "Space Delete"
-	AuditEventSpaceTransfer = "Space Transfer"
+	AuditEventSpaceCreate    = "Space Create"
+	AuditEventSpaceUpdate    = "Space Update"
+	AuditEventSpaceDelete    = "Space Delete"
+	AuditEventSpaceTransfer  = "Space Transfer"
+	AuditEventSpaceShare     = "Space Shared"
+	AuditEventSpaceStopShare = "Space Stop Share"
 
 	// Templates
 	AuditEventTemplateCreate = "Template Create"

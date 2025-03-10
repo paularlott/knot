@@ -104,7 +104,7 @@ func (s *Session) Ping() bool {
 	return true
 }
 
-func (s *Session) SendUpdateAuthorizedKeys(sshKey string, githubUsername string) error {
+func (s *Session) SendUpdateAuthorizedKeys(sshKeys []string, githubUsernames []string) error {
 	conn, err := s.MuxSession.Open()
 	if err != nil {
 		return err
@@ -120,8 +120,8 @@ func (s *Session) SendUpdateAuthorizedKeys(sshKey string, githubUsername string)
 
 	// Write the update authorized keys message
 	err = msg.WriteMessage(conn, &msg.UpdateAuthorizedKeys{
-		SSHKey:         sshKey,
-		GitHubUsername: githubUsername,
+		SSHKeys:         sshKeys,
+		GitHubUsernames: githubUsernames,
 	})
 	if err != nil {
 		log.Error().Msgf("agent: writing update authorized keys message: %v", err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"reflect"
 	"strings"
 	"time"
 
@@ -23,9 +24,9 @@ const (
 )
 
 var (
-	muxSession         *yamux.Session = nil
-	lastPublicSSHKey   string         = ""
-	lastGitHubUsername string         = ""
+	muxSession          *yamux.Session = nil
+	lastPublicSSHKeys   []string       = []string{}
+	lastGitHubUsernames []string       = []string{}
 
 	sshPort          int
 	usingInteralSSH  bool = false
@@ -206,14 +207,18 @@ func ConnectAndServe(server string, spaceId string) {
 				}
 			}
 
+			// Save the keys and github usernames
+			lastPublicSSHKeys = response.SSHKeys
+			lastGitHubUsernames = response.GitHubUsernames
+
 			// Update the authorized keys file & shell
 			if usingInteralSSH {
-				if err := sshd.UpdateAuthorizedKeys(response.SSHKey, response.GitHubUsername); err != nil {
+				if err := sshd.UpdateAuthorizedKeys(response.SSHKeys, response.GitHubUsernames); err != nil {
 					log.Error().Msgf("agent: updating internal SSH server keys: %v", err)
 				}
 				sshd.SetShell(response.Shell)
 			} else if viper.GetBool("agent.update_authorized_keys") && withSSH {
-				if err := util.UpdateAuthorizedKeys(response.SSHKey, response.GitHubUsername); err != nil {
+				if err := util.UpdateAuthorizedKeys(response.SSHKeys, response.GitHubUsernames); err != nil {
 					log.Error().Msgf("agent: updating authorized keys: %v", err)
 				}
 			}
@@ -290,21 +295,17 @@ func handleAgentClientStream(stream net.Conn) {
 			return
 		}
 
-		if usingInteralSSH {
-			if updateAuthorizedKeys.SSHKey != lastPublicSSHKey || updateAuthorizedKeys.GitHubUsername != lastGitHubUsername {
-				lastPublicSSHKey = updateAuthorizedKeys.SSHKey
-				lastGitHubUsername = updateAuthorizedKeys.GitHubUsername
+		// Test if the keys have changed
+		if !reflect.DeepEqual(updateAuthorizedKeys.SSHKeys, lastPublicSSHKeys) || !reflect.DeepEqual(updateAuthorizedKeys.GitHubUsernames, lastGitHubUsernames) {
+			lastPublicSSHKeys = updateAuthorizedKeys.SSHKeys
+			lastGitHubUsernames = updateAuthorizedKeys.GitHubUsernames
 
-				if err := sshd.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKey, updateAuthorizedKeys.GitHubUsername); err != nil {
+			if usingInteralSSH {
+				if err := sshd.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
 					log.Error().Msgf("agent: updating internal SSH server keys: %v", err)
 				}
-			}
-		} else if viper.GetBool("agent.update_authorized_keys") && withSSH {
-			if updateAuthorizedKeys.SSHKey != lastPublicSSHKey || updateAuthorizedKeys.GitHubUsername != lastGitHubUsername {
-				lastPublicSSHKey = updateAuthorizedKeys.SSHKey
-				lastGitHubUsername = updateAuthorizedKeys.GitHubUsername
-
-				if err := util.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKey, updateAuthorizedKeys.GitHubUsername); err != nil {
+			} else if viper.GetBool("agent.update_authorized_keys") && withSSH {
+				if err := util.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
 					log.Error().Msgf("agent: updating authorized keys: %v", err)
 				}
 			}

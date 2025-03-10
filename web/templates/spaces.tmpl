@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Spaces{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .location }}', {{ .permissionTransferSpaces }})">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .location }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }})">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
 
     <div class="mb-4 col-span-full xl:mb-2">
@@ -46,11 +46,11 @@
               </div>
             </div>
 
-            <div class="mb-4">
+            <div class="mb-4" :class="{'mt-4': !canManageSpaces || showingSpecificUser}">
               <label class="flex items-center cursor-pointer">
                 <input type="checkbox" @change="searchChanged" class="sr-only peer" value="1" :checked="showRunningOnly" x-model="showRunningOnly">
                 <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show Running Only</span>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Running</span>
               </label>
             </div>
 
@@ -59,10 +59,25 @@
               <label class="flex items-center cursor-pointer mb-4">
                 <input type="checkbox" @change="searchChanged" class="sr-only peer" value="1" :checked="showLocalOnly" x-model="showLocalOnly">
                 <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show Only this Location</span>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">This Location</span>
               </label>
             </div>
             {{ end }}
+
+            <div class="mb-4">
+              <label class="flex items-center cursor-pointer mb-4">
+                <input type="checkbox" @change="searchChanged" class="sr-only peer" value="1" :checked="showSharedOnly" x-model="showSharedOnly">
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Shared</span>
+              </label>
+            </div>
+            <div class="mb-4">
+              <label class="flex items-center cursor-pointer mb-4">
+                <input type="checkbox" @change="searchChanged" class="sr-only peer" value="1" :checked="showSharedWithMeOnly" x-model="showSharedWithMeOnly">
+                <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Shared With Me</span>
+              </label>
+            </div>
 
           </div>
 
@@ -102,6 +117,9 @@
                 <template x-if="s.is_local && s.local_container">
                   <span class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Local Container</span>
                 </template>
+                <template x-if="s.shared_username != ''">
+                  <span class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-300 border border-blue-300 text-nowrap" x-text="(s.shared_user_id == forUserId ? 'Shared By: ' : 'Shared With: ') + (s.shared_user_id == forUserId ? s.username : s.shared_username)"></span>
+                </template>
               </div>
               <table>
                 <tr>
@@ -135,10 +153,10 @@
               </table>
             </div>
             <div class="flex items-center justify-end mt-2">
-              <div x-show="s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}'" class="flex items-center justify-end">
+              <div x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}')" class="flex items-center justify-end">
 
                 <div x-data x-show="s.has_http_vnc" x-cloak class="mr-2">
-                  <button @click="openWindowForVNC(s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
+                  <button @click="openWindowForVNC(s.username, s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
                     </svg><span class="sr-only">Desktop</span>
@@ -184,7 +202,7 @@
 
                 <template x-if="(!s.tcp_ports || !Object.entries(s.tcp_ports).length) && (s.http_ports && Object.entries(s.http_ports).length == 1)">
                   <div x-data class="mr-2">
-                    <button @click="openWindowForPort(s.space_id, s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
+                    <button @click="openWindowForPort(s.username, s.space_id, s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
                       </svg><span class="sr-only" x-text="Object.entries(s.http_ports)[0][1]"></span>
@@ -204,7 +222,7 @@
                   </div>
                 </template>
 
-                <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}' && s.has_state">
+                <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}') && s.has_state">
                   <button @click="openLogWindow(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.046.83-1.867 1.866-2.013A24.204 24.204 0 0 1 12 12.75Zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 0 1-1.152 6.06M12 12.75c-2.883 0-5.647.508-8.208 1.44.125 2.104.52 4.136 1.153 6.06M12 12.75a2.25 2.25 0 0 0 2.248-2.354M12 12.75a2.25 2.25 0 0 1-2.248-2.354M12 8.25c.995 0 1.971-.08 2.922-.236.403-.066.74-.358.795-.762a3.778 3.778 0 0 0-.399-2.25M12 8.25c-.995 0-1.97-.08-2.922-.236-.402-.066-.74-.358-.795-.762a3.734 3.734 0 0 1 .4-2.253M12 8.25a2.25 2.25 0 0 0-2.248 2.146M12 8.25a2.25 2.25 0 0 1 2.248 2.146M8.683 5a6.032 6.032 0 0 1-1.155-1.002c.07-.63.27-1.222.574-1.747m.581 2.749A3.75 3.75 0 0 1 15.318 5m0 0c.427-.283.815-.62 1.155-.999a4.471 4.471 0 0 0-.575-1.752M4.921 6a24.048 24.048 0 0 0-.392 3.314c1.668.546 3.416.914 5.223 1.082M19.08 6c.205 1.08.337 2.187.392 3.314a23.882 23.882 0 0 1-5.223 1.082" />
@@ -215,7 +233,7 @@
 
                 <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
                   <template x-for="[key, value] in Object.entries(s.http_ports)" :key="key">
-                    <button x-text="key==value ? key : value + ' (' + key + ')'" @click="$refs.panel.close; openWindowForPort(s.space_id, s.name, key)" class="nav-item text-sm px-4 w-full" role="menuitem"></button>
+                    <button x-text="key==value ? key : value + ' (' + key + ')'" @click="$refs.panel.close; openWindowForPort(s.username, s.space_id, s.name, key)" class="nav-item text-sm px-4 w-full" role="menuitem"></button>
                   </template>
                   <hr x-show="Object.entries(s.http_ports).length && Object.entries(s.tcp_ports).length" class="my-2" />
                   <template x-for="[key, value] in Object.entries(s.tcp_ports)" :key="key">
@@ -239,22 +257,35 @@
                     </svg> Start
                   </button>
 
-                  <button x-show="s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}' && s.has_vscode_tunnel && s.vscode_tunnel_name.length" @click="$refs.panel.close; openTerminalTunnel(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                  <button x-show="s.user_id == forUserId && s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}' && s.has_vscode_tunnel && s.vscode_tunnel_name.length" @click="$refs.panel.close; openTerminalTunnel(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
                     </svg> VSCode Tunnel
                   </button>
 
-                  <button x-show="s.is_local && !s.is_pending" @click="$refs.panel.close; editSpace(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                  <button x-show="s.user_id == forUserId && s.is_local && !s.is_pending" @click="$refs.panel.close; editSpace(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                     </svg> Edit
                   </button>
 
-                  <button x-show="s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}' && s.has_ssh" @click="$refs.panel2.toggle" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                  <button x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}') && s.has_ssh" @click="$refs.panel2.toggle" class="group nav-item text-sm px-4 w-full" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
                       <path fill-rule="evenodd" d="M2.25 6a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V6Zm3.97.97a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 0 1 0-1.06Zm4.28 4.28a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clip-rule="evenodd" />
                     </svg> SSH Info
+                  </button>
+
+                  {{ if .permissionShareSpaces }}
+                  <button x-cloak x-show="s.shared_user_id == '' && s.is_local && !s.is_pending" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+                    </svg> Share
+                  </button>
+                  {{ end }}
+                  <button x-show="s.shared_user_id != '' && s.is_local && !s.is_pending" @click="$refs.panel.close; ceaseShareConfirm.show = true; ceaseShareConfirm.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+                    </svg> Stop Sharing
                   </button>
 
                   <hr x-show="(s.is_deployed || s.is_pending) && !s.is_manual" class="my-2" />
@@ -264,16 +295,16 @@
                       <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
                     </svg> Stop
                   </button>
-                  <hr x-show="s.is_local && ((!s.is_deployed && !s.is_pending) || s.is_manual)" class="my-2" />
-                  <button x-show="s.is_local && ((!s.is_deployed && !s.is_pending) || s.is_manual)" @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.space = s" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
+                  <hr x-show="s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.is_manual)" class="my-2" />
+                  <button x-show="s.user_id == forUserId && s.is_local && ((!s.is_deployed && !s.is_pending) || s.is_manual)" @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.space = s" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                     </svg> Delete
                   </button>
 
                   {{ if .permissionTransferSpaces }}
-                  <hr x-cloak class="my-2" x-show="(!s.is_deployed && !s.is_pending) || s.is_manual" />
-                  <button x-cloak x-show="(!s.is_deployed && !s.is_pending) || s.is_manual" @click="$refs.panel.close; chooseUser.show = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                  <hr x-cloak class="my-2" x-show="s.user_id == forUserId && ((!s.is_deployed && !s.is_pending) || s.is_manual)" />
+                  <button x-cloak x-show="s.user_id == forUserId && ((!s.is_deployed && !s.is_pending) || s.is_manual)" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = false; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
                     </svg> Transfer To &hellip;
@@ -296,7 +327,7 @@
         <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-visible rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
           <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Select User</h3>
+            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white" x-text="chooseUser.isShare ? 'User to Share Space With' : 'User to Transfer Space To'"></h3>
             <button @click="chooseUser.show = false;" aria-label="close modal">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -305,8 +336,8 @@
           </div>
           <!-- Dialog Body -->
           <div class="px-4 py-4">
-
-            <p>Select the user to transfer the space to.</p>
+            <p x-cloak x-show="!chooseUser.isShare">Select the user to transfer the space to.</p>
+            <p x-cloak x-show="chooseUser.isShare">Select the user to share the space with.</p>
             <div x-data="autocompleterUser()" x-init="setDataSource('users')" data-parent-var-group="chooseUser" data-parent-variable="toUserId" @refresh-autocompleter.window="refresh()" class="relative mt-2">
               <input x-model="search" class="form-field" type="search" placeholder="Search..." @focus="showList = true" @blur.debounce.200ms="showList = false" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
               <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
@@ -323,7 +354,7 @@
           <!-- Dialog Footer -->
           <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
               <button @click="chooseUser.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
-              <button @click="transferSpaceTo" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Transfer Space</button>
+              <button @click="transferSpaceTo" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white" x-text="chooseUser.isShare ? 'Share Space' : 'Transfer Space'"></button>
           </div>
         </div>
       </div>
@@ -355,6 +386,37 @@
           <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
               <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Keep Space</button>
               <button @click="deleteSpace(deleteConfirm.space.space_id); deleteConfirm.space.is_deleting=true; deleteConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Delete Space</button>
+          </div>
+        </div>
+      </div>
+
+      <div x-cloak x-show="ceaseShareConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="ceaseShareConfirm.show" @keydown.esc.window="ceaseShareConfirm.show = false" @click.self="ceaseShareConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+        <!-- Modal Dialog -->
+        <div x-show="ceaseShareConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+          <!-- Dialog Header -->
+          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
+            <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Stop Sharing</h3>
+            <button @click="ceaseShareConfirm.show = false" aria-label="close modal">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <!-- Dialog Body -->
+          <div class="px-4 py-4 text-center">
+            <p>Are you sure you want to stop sharing the space <strong x-text="ceaseShareConfirm.space.name"></strong>?</p>
+            <p x-cloak x-show="ceaseShareConfirm.space.shared_user_id != forUserId">Stopping sharing the space will revoke access for the user the space is currently shared with.</p>
+            <p x-cloak x-show="ceaseShareConfirm.space.shared_user_id == forUserId">You will no longer be able to access the space without requesting access from the owner of the space.</p>
+          </div>
+          <!-- Dialog Footer -->
+          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
+              <button @click="ceaseShareConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Keep Share</button>
+              <button @click="ceaseSharing(ceaseShareConfirm.space.space_id); ceaseShareConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Stop Sharing</button>
           </div>
         </div>
       </div>

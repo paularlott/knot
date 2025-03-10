@@ -27,25 +27,17 @@ type SpaceTransferRequest struct {
 }
 
 type SpaceInfo struct {
-	Id             string `json:"space_id"`
-	Name           string `json:"name"`
-	TemplateName   string `json:"template_name"`
-	TemplateId     string `json:"template_id"`
-	Location       string `json:"location"`
-	Username       string `json:"username"`
-	UserId         string `json:"user_id"`
-	LocalContainer bool   `json:"local_container"`
-	IsManual       bool   `json:"is_manual"`
-}
-
-type SpaceInfoList struct {
-	Count  int         `json:"count"`
-	Spaces []SpaceInfo `json:"spaces"`
-}
-
-type SpaceServiceState struct {
+	Id              string            `json:"space_id"`
 	Name            string            `json:"name"`
+	TemplateName    string            `json:"template_name"`
+	TemplateId      string            `json:"template_id"`
 	Location        string            `json:"location"`
+	Username        string            `json:"username"`
+	UserId          string            `json:"user_id"`
+	LocalContainer  bool              `json:"local_container"`
+	IsManual        bool              `json:"is_manual"`
+	SharedUserId    string            `json:"shared_user_id"`
+	SharedUsername  string            `json:"shared_username"`
 	HasCodeServer   bool              `json:"has_code_server"`
 	HasSSH          bool              `json:"has_ssh"`
 	HasHttpVNC      bool              `json:"has_http_vnc"`
@@ -60,6 +52,11 @@ type SpaceServiceState struct {
 	IsRemote        bool              `json:"is_remote"`
 	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
 	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
+}
+
+type SpaceInfoList struct {
+	Count  int         `json:"count"`
+	Spaces []SpaceInfo `json:"spaces"`
 }
 
 type SpaceDefinition struct {
@@ -79,17 +76,6 @@ func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
 	response := &SpaceInfoList{}
 
 	code, err := c.httpClient.Get("/api/v1/spaces?user_id="+userId, &response)
-	if err != nil {
-		return nil, code, err
-	}
-
-	return response, code, nil
-}
-
-func (c *ApiClient) GetSpaceServiceState(spaceId string) (*SpaceServiceState, int, error) {
-	response := &SpaceServiceState{}
-
-	code, err := c.httpClient.Get("/api/v1/spaces/"+spaceId+"/service-state", &response)
 	if err != nil {
 		return nil, code, err
 	}
