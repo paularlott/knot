@@ -23,7 +23,7 @@ import (
 
 const (
 	LEAF_PING_INTERVAL = 2 * time.Second
-	RECONNECT_DELAY    = 3 * time.Second
+	RECONNECT_DELAY    = 2 * time.Second
 )
 
 // connect to the origin server and start processing messages from origin
