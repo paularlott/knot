@@ -2,6 +2,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
   return {
     formData: {
       name: "",
+      description: "",
       template_id: "",
       shell: preferredShell,
       user_id: forUserId,
@@ -20,6 +21,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     isEdit: isEdit,
     stayOnPage: true,
     altNameValid: [],
+    descValid: true,
     startOnCreate: true,
     saving: false,
 
@@ -48,6 +50,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           const space = await spaceResponse.json();
 
           this.formData.name = space.name;
+          this.formData.description = space.description;
           this.formData.template_id = this.template_id = space.template_id;
           this.formData.shell = space.shell;
 
@@ -73,13 +76,6 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.formData.template_id = this.template_id;
         }
       }
-
-      // Fetch the template to get the volume sizes
-      const templateResponse = await fetch('/api/templates/' + this.template_id, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
 
       this.loading = false;
     },
@@ -113,12 +109,16 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         return false;
       }
     },
+    checkDesc() {
+      return this.descValid = this.formData.description.length <= 1024;
+    },
     submitData() {
       var err = false,
           self = this;
 
       self.saving = true;
       err = !this.checkName() || err;
+      err = !this.checkDesc() || err;
 
       // Remove the blank alt names
       for (var i = this.formData.alt_names.length - 1; i >= 0; i--) {

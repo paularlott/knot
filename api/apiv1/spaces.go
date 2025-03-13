@@ -99,6 +99,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 
 			s.Id = space.Id
 			s.Name = space.Name
+			s.Description = space.Description
 			s.TemplateName = templateName
 			s.TemplateId = space.TemplateId
 			s.Location = space.Location
@@ -299,6 +300,11 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !validate.MaxLength(request.Description, 1024) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Description too long"})
+		return
+	}
+
 	for _, altName := range request.AltNames {
 		if !validate.Name(altName) {
 			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid alt name given for space"})
@@ -321,7 +327,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	space := model.NewSpace(request.Name, user.Id, request.TemplateId, request.Shell, &request.AltNames)
+	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames)
 
 	// Lock the space to the location of the server creating it
 	if request.Location == "" {
@@ -748,6 +754,11 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !validate.MaxLength(request.Description, 1024) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Description too long"})
+		return
+	}
+
 	for _, altName := range request.AltNames {
 		if !validate.Name(altName) {
 			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid alt name given for space"})
@@ -762,6 +773,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 
 	// Update the space
 	space.Name = request.Name
+	space.Description = request.Description
 	space.TemplateId = request.TemplateId
 	space.Shell = request.Shell
 	space.AltNames = request.AltNames
@@ -801,7 +813,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	err = db.SaveSpace(space, []string{"Name", "TemplateId", "Shell", "AltNames"})
+	err = db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "Shell", "AltNames"})
 	if err != nil {
 		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -931,9 +943,10 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		space.Name = spaceRemote.Name
 		space.AltNames = spaceRemote.AltNames
 		space.Shell = spaceRemote.Shell
+		space.Description = spaceRemote.Description
 
 		// Save the space
-		err = db.SaveSpace(space, []string{"Name", "AltNames", "Shell"})
+		err = db.SaveSpace(space, []string{"Name", "AltNames", "Shell", "Description"})
 		if err != nil {
 			log.Error().Msgf("HandleGetSpace: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -950,16 +963,17 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := apiclient.SpaceDefinition{
-		UserId:     space.UserId,
-		TemplateId: space.TemplateId,
-		Name:       space.Name,
-		Shell:      space.Shell,
-		Location:   space.Location,
-		AltNames:   space.AltNames,
-		IsDeployed: space.IsDeployed,
-		IsPending:  space.IsPending,
-		IsDeleting: space.IsDeleting,
-		VolumeData: space.VolumeData,
+		UserId:      space.UserId,
+		TemplateId:  space.TemplateId,
+		Name:        space.Name,
+		Description: space.Description,
+		Shell:       space.Shell,
+		Location:    space.Location,
+		AltNames:    space.AltNames,
+		IsDeployed:  space.IsDeployed,
+		IsPending:   space.IsPending,
+		IsDeleting:  space.IsDeleting,
+		VolumeData:  space.VolumeData,
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, &response)

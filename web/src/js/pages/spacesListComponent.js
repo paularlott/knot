@@ -35,6 +35,14 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         name: '',
       }
     },
+    spaceDesc: {
+      show: false,
+      space: {
+        name: '',
+        description: '',
+      }
+    },
+
     showingSpecificUser: userId !== forUserId,
     forUserId: userId == forUserId && canManageSpaces ? Alpine.$persist(forUserId).as('forUserId').using(sessionStorage) : forUserId,
     canManageSpaces: canManageSpaces,
@@ -115,6 +123,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.shared_user_id = space.shared_user_id;
                 existing.shared_username = space.shared_username;
                 existing.name = space.name;
+                existing.description = space.description;
                 existing.location = space.location;
                 existing.has_code_server = space.has_code_server;
                 existing.has_ssh = space.has_ssh;

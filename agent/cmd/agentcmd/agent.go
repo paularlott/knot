@@ -6,10 +6,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/paularlott/knot/agent/cmd/agentcmd/space"
+	"github.com/paularlott/knot/internal/agent_service_api"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/dnsproxy"
-	"github.com/paularlott/knot/internal/logsink"
 	"github.com/paularlott/knot/internal/syslogd"
 
 	"github.com/rs/zerolog/log"
@@ -32,7 +33,7 @@ func init() {
 	AgentCmd.Flags().StringP("vscode-tunnel", "", "vscodetunnel", "The name of the screen running the Visual Studio Code tunnel, blank to disable.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_VSCODE_TUNNEL environment variable if set.")
 	AgentCmd.Flags().StringP("advertise-addr", "", "", "The address to advertise to the server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ADVERTISE_ADDR environment variable if set.")
 	AgentCmd.Flags().IntP("syslog-port", "", 514, "The port to listen on for syslog messages, syslog is disabled if set to 0.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SYSLOG_PORT environment variable if set.")
-	AgentCmd.Flags().IntP("logs-port", "", 12201, "The port to listen on for log messages, logs are disabled if set to 0.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOGS_PORT environment variable if set.")
+	AgentCmd.Flags().IntP("api-port", "", 12201, "The port to listen on for API requests and logs, disabled if set to 0.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_API_PORT environment variable if set.")
 
 	// TLS
 	AgentCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the agent.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -43,6 +44,8 @@ func init() {
 	// DNS Forwarding
 	AgentCmd.Flags().StringP("dns-listen", "", "", "The address and port to listen on for DNS requests (defaults to disabled).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_LISTEN environment variable if set.")
 	AgentCmd.Flags().Uint16P("dns-refresh-max-age", "", 180, "If a cached entry has been used within this number of seconds of it expiring then auto refresh.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MAX_AGE environment variable if set.")
+
+	AgentCmd.AddCommand(space.SpaceDescriptionCmd)
 }
 
 var AgentCmd = &cobra.Command{
@@ -100,9 +103,9 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		viper.BindEnv("agent.syslog_port", config.CONFIG_ENV_PREFIX+"_SYSLOG_PORT")
 		viper.SetDefault("agent.syslog_port", 514)
 
-		viper.BindPFlag("agent.logs_port", cmd.Flags().Lookup("logs-port"))
-		viper.BindEnv("agent.logs_port", config.CONFIG_ENV_PREFIX+"_LOGS_PORT")
-		viper.SetDefault("agent.logs_port", 12201)
+		viper.BindPFlag("agent.api_port", cmd.Flags().Lookup("api-port"))
+		viper.BindEnv("agent.api_port", config.CONFIG_ENV_PREFIX+"_LOGS_PORT")
+		viper.SetDefault("agent.api_port", 12201)
 
 		// TLS
 		viper.BindPFlag("agent.tls.cert_file", cmd.Flags().Lookup("cert-file"))
@@ -154,16 +157,16 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 
 		// Open agent connection to the server
 		agent_client.ConnectAndServe(serverAddr, spaceId)
-		go agent_client.ReportState(spaceId)
+		go agent_client.ReportState()
 
 		// Start the syslog server if enabled
 		if viper.GetInt("agent.syslog_port") > 0 {
 			go syslogd.StartSyslogd()
 		}
 
-		// Start the http log sink if enabled
-		if viper.GetInt("agent.logs_port") > 0 {
-			go logsink.ListenAndServe()
+		// Start the http rest and log sink if enabled
+		if viper.GetInt("agent.api_port") > 0 {
+			go agent_service_api.ListenAndServe()
 		}
 
 		c := make(chan os.Signal, 1)
