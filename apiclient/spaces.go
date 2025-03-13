@@ -7,12 +7,13 @@ import (
 )
 
 type SpaceRequest struct {
-	Name       string   `json:"name"`
-	TemplateId string   `json:"template_id"`
-	Shell      string   `json:"shell"`
-	UserId     string   `json:"user_id"`
-	AltNames   []string `json:"alt_names"`
-	Location   string   `json:"location"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	TemplateId  string   `json:"template_id"`
+	Shell       string   `json:"shell"`
+	UserId      string   `json:"user_id"`
+	AltNames    []string `json:"alt_names"`
+	Location    string   `json:"location"`
 }
 type CreateSpaceRequest = SpaceRequest
 type UpdateSpaceRequest = SpaceRequest
@@ -29,6 +30,7 @@ type SpaceTransferRequest struct {
 type SpaceInfo struct {
 	Id              string            `json:"space_id"`
 	Name            string            `json:"name"`
+	Description     string            `json:"description"`
 	TemplateName    string            `json:"template_name"`
 	TemplateId      string            `json:"template_id"`
 	Location        string            `json:"location"`
@@ -60,16 +62,17 @@ type SpaceInfoList struct {
 }
 
 type SpaceDefinition struct {
-	UserId     string                       `json:"user_id"`
-	TemplateId string                       `json:"template_id"`
-	Name       string                       `json:"name"`
-	Shell      string                       `json:"shell"`
-	Location   string                       `json:"location"`
-	AltNames   []string                     `json:"alt_names"`
-	IsDeployed bool                         `json:"is_deployed"`
-	IsPending  bool                         `json:"is_pending"`
-	IsDeleting bool                         `json:"is_deleting"`
-	VolumeData map[string]model.SpaceVolume `json:"volume_data"`
+	UserId      string                       `json:"user_id"`
+	TemplateId  string                       `json:"template_id"`
+	Name        string                       `json:"name"`
+	Description string                       `json:"description"`
+	Shell       string                       `json:"shell"`
+	Location    string                       `json:"location"`
+	AltNames    []string                     `json:"alt_names"`
+	IsDeployed  bool                         `json:"is_deployed"`
+	IsPending   bool                         `json:"is_pending"`
+	IsDeleting  bool                         `json:"is_deleting"`
+	VolumeData  map[string]model.SpaceVolume `json:"volume_data"`
 }
 
 func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
@@ -98,6 +101,7 @@ func (c *ApiClient) GetSpace(spaceId string) (*model.Space, int, error) {
 		UserId:       response.UserId,
 		TemplateId:   response.TemplateId,
 		Name:         response.Name,
+		Description:  response.Description,
 		AltNames:     response.AltNames,
 		Shell:        response.Shell,
 		TemplateHash: "",

@@ -1,4 +1,4 @@
-package logsink
+package agent_service_api
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 )
 
 func ListenAndServe() {
-	log.Debug().Msgf("logsink: starting log sink on port %d", viper.GetInt("agent.logs_port"))
+	log.Debug().Msgf("service_api: starting agent service api on port %d", viper.GetInt("agent.api_port"))
 
 	go func() {
 
@@ -18,10 +18,11 @@ func ListenAndServe() {
 		router.HandleFunc("POST /logs", handleLogMessage)
 		router.HandleFunc("POST /gelf", handleGelf)
 		router.HandleFunc("POST /loki/api/v1/push", handleLoki)
+		router.HandleFunc("POST /api/space/description", handleDescription)
 
 		// Run the http server
 		server := &http.Server{
-			Addr:         fmt.Sprintf(":%d", viper.GetInt("agent.logs_port")),
+			Addr:         fmt.Sprintf(":%d", viper.GetInt("agent.api_port")),
 			Handler:      router,
 			ReadTimeout:  10 * time.Second,
 			WriteTimeout: 10 * time.Second,

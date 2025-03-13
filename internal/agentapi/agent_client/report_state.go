@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func ReportState(spaceId string) {
+func ReportState() {
 	var codeServerPort int = viper.GetInt("agent.port.code_server")
 	var vncHttpPort int = viper.GetInt("agent.port.vnc_http")
 	var vscodeTunnelScreen string = viper.GetString("agent.vscode_tunnel")
@@ -154,7 +154,7 @@ func ReportState(spaceId string) {
 				Str("Agent IP", agentIp).
 				Msg("agent: state to server")
 
-			err = msg.SendState(conn, spaceId, codeServerAlive, sshAlivePort, vncAliveHttpPort, withTerminal, &tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, agentIp)
+			err = msg.SendState(conn, codeServerAlive, sshAlivePort, vncAliveHttpPort, withTerminal, &tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, agentIp)
 			if err != nil {
 				log.Error().Err(err).Msg("agent: failed to send state to server")
 				conn.Close()

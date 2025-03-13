@@ -20,6 +20,13 @@
           <div x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
         </div>
         <div>
+          <label for="desc" class="form-label">Description</label>
+          <div :class="{'form-field-error': !descValid, 'editor-wrap': true}">
+            <textarea name="desc" class="form-field" id="desc" x-model="formData.description"></textarea>
+          </div>
+          <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
+        </div>
+        <div>
           <div class="flex items-center mb-1">
             <label class="form-label mb-0 mr-2">Additional Space Names</label>
             <button type="button" x-on:click="addAltName()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">

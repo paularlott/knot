@@ -63,6 +63,7 @@ type Space struct {
 	TemplateId       string        `json:"template_id" db:"template_id"`
 	SharedWithUserId string        `json:"shared_with_user_id" db:"shared_with_user_id"`
 	Name             string        `json:"name" db:"name"`
+	Description      string        `json:"description" db:"description"`
 	Location         string        `json:"location" db:"location"`
 	Shell            string        `json:"shell" db:"shell"`
 	TemplateHash     string        `json:"template_hash" db:"template_hash"`
@@ -78,7 +79,7 @@ type Space struct {
 	UpdatedAt        time.Time     `json:"updated_at" db:"updated_at"`
 }
 
-func NewSpace(name string, userId string, templateId string, shell string, altNames *[]string) *Space {
+func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string) *Space {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -97,6 +98,7 @@ func NewSpace(name string, userId string, templateId string, shell string, altNa
 		UserId:           userId,
 		TemplateId:       templateId,
 		Name:             name,
+		Description:      description,
 		AltNames:         *altNames,
 		Shell:            shell,
 		TemplateHash:     "",

@@ -1,4 +1,4 @@
-package logsink
+package agent_service_api
 
 import (
 	"net/http"
@@ -29,7 +29,7 @@ func handleLoki(w http.ResponseWriter, r *http.Request) {
 	// Decode the loki push request
 	var lokiPushRequest lokiPushRequest
 	if err := rest.BindJSON(w, r, &lokiPushRequest); err != nil {
-		log.Error().Msgf("logsink: failed to decode loki push request: %v", err)
+		log.Error().Msgf("service_api: failed to decode loki push request: %v", err)
 		rest.SendJSON(http.StatusBadRequest, w, r, map[string]string{"error": "invalid loki push request"})
 		return
 	}

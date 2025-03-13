@@ -2205,6 +2205,9 @@ components:
         name:
           type: string
           description: The name of the space.
+        description:
+          type: string
+          description: The description of the space.
         template_name:
           type: string
           description: The name of the template the space was created from.
@@ -2302,6 +2305,9 @@ components:
           maxLength: 64
           example: "my space"
           description: The name of the space.
+        description:
+          type: string
+          description: The description of the space.
         template_id:
           type: string
           format: uuid
@@ -2349,6 +2355,9 @@ components:
         name:
           type: string
           description: The name of the space.
+        description:
+          type: string
+          description: The description of the space.
         shell:
           type: string
           enum: [bash, zsh, fish, sh]

@@ -7,7 +7,6 @@ import (
 )
 
 type AgentState struct {
-	SpaceId          string
 	HasCodeServer    bool
 	SSHPort          int
 	VNCHttpPort      int
@@ -19,7 +18,7 @@ type AgentState struct {
 	AgentIp          string
 }
 
-func SendState(conn net.Conn, spaceId string, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string, hasVSCodeTunnel bool, vscodeTunnelName string, ip string) error {
+func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string, hasVSCodeTunnel bool, vscodeTunnelName string, ip string) error {
 	// Write the state command
 	err := WriteCommand(conn, CmdUpdateState)
 	if err != nil {
@@ -29,7 +28,6 @@ func SendState(conn net.Conn, spaceId string, hasCodeServer bool, sshPort int, v
 
 	// Write the state message
 	err = WriteMessage(conn, &AgentState{
-		SpaceId:          spaceId,
 		HasCodeServer:    hasCodeServer,
 		SSHPort:          sshPort,
 		VNCHttpPort:      vncHttpPort,

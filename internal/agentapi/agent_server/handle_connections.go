@@ -221,6 +221,31 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				}
 			}()
 
+		case byte(msg.CmdUpdateSpaceDescription):
+			var spaceDesc msg.SpaceDescription
+			if err := msg.ReadMessage(stream, &spaceDesc); err != nil {
+				log.Error().Msgf("agent: reading space description message: %v", err)
+				return
+			}
+
+			// Load the space from the database
+			db := database.GetInstance()
+			space, err := db.GetSpace(session.Id)
+			if err != nil {
+				log.Error().Msgf("agent: unknown space: %s", session.Id)
+				return
+			}
+
+			// Update description and save it
+			space.Description = spaceDesc.Description
+			if err := db.SaveSpace(space, []string{"Description"}); err != nil {
+				log.Error().Msgf("agent: updating space description: %v", err)
+				return
+			}
+
+			// Single shot command so done
+			return
+
 		default:
 			log.Error().Msgf("agent: unknown command from agent: %d", cmd)
 			return
