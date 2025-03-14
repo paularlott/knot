@@ -220,6 +220,12 @@ paths:
           required: false
           schema:
             type: string
+        - name: local
+          in: query
+          description: If given and true then only users that have logged into a leaf node at least once will be returned.
+          required: false
+          schema:
+            type: boolean
       responses:
         '200':
           description: A list of users

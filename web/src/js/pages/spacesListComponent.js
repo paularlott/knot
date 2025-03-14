@@ -27,6 +27,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     },
     chooseUser: {
       toUserId: '',
+      toUserUsername: '',
       invalidUser: false,
       show: false,
       isShare: false,
@@ -49,6 +50,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     canTransferSpaces: canTransferSpaces,
     users: [],
     forUsersList: [],
+    shareUsers: [],
     searchTerm: Alpine.$persist('').as('spaces-search-term').using(sessionStorage),
     quotaComputeLimitShow: false,
     quotaStorageLimitShow: false,
@@ -60,7 +62,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
     async init() {
       if(this.canManageSpaces || this.canTransferSpaces || this.canShareSpaces) {
-        const usersResponse = await fetch('/api/users?state=active', {
+        let usersResponse = await fetch('/api/users?state=active', {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -69,6 +71,18 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         this.users = usersList.users;
 
         this.forUsersList = [{ user_id: '', username: '[All Users]' }, { user_id: userId, username: '[My Spaces]' }, ...usersList.users];
+
+        setTimeout(async () => {
+          usersResponse = await fetch('/api/users?state=active&local=true', {
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          usersList = await usersResponse.json();
+          this.shareUsers = usersList.users;
+
+          this.$dispatch('refresh-user-autocompleter');
+        }, 0);
 
         this.$dispatch('refresh-user-autocompleter');
       }

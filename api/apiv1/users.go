@@ -248,6 +248,8 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
 	requiredState := r.URL.Query().Get("state")
 	inLocation := r.URL.Query().Get("location")
+	local := r.URL.Query().Get("local") == "true"
+
 	if requiredState == "" {
 		requiredState = "all"
 	}
@@ -259,7 +261,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
+	if remoteClient != nil && !local {
 		client := remoteClient.(*apiclient.ApiClient)
 		userData, err := client.GetUsers(requiredState, server_info.LeafLocation)
 		if err != nil {

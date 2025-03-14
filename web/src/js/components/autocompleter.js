@@ -37,6 +37,7 @@ window.autocompleterUser = function() {
     search: '',
     showList: false,
     parentVariable: '',
+    parentVariableUsername: '',
     parentVarGroup: '',
     dataSource: 'users',
     element: null,
@@ -53,6 +54,7 @@ window.autocompleterUser = function() {
         this.parentVarGroup = '';
       }
       this.parentVariable = this.$el.getAttribute('data-parent-variable');
+      this.parentVariableUsername = this.$el.getAttribute('data-parent-variable-username');
 
       if(this.parentVarGroup === '') {
         let selectedUser = this[this.dataSource].find(user => user.user_id === this[this.parentVariable]);
@@ -69,9 +71,15 @@ window.autocompleterUser = function() {
       this.search = option.username;
       if(this.parentVarGroup === '') {
         this[this.parentVariable] = option.user_id;
+        if(this.parentVariableUsername) {
+          this[this.parentVariableUsername] = option.username;
+        }
       }
       else {
         this[this.parentVarGroup][this.parentVariable] = option.user_id;
+        if(this.parentVariableUsername) {
+          this[this.parentVarGroup][this.parentVariableUsername] = option.username;
+        }
       }
 
       this.element.dispatchEvent(new Event('user-selected'));
