@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/paularlott/knot/api/apiv1"
+	"github.com/paularlott/knot/api"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/util/rest"
 
@@ -24,7 +24,7 @@ The request is passed to the proxy server to be processed rather than run agains
 		cfg := config.GetServerAddr()
 		client := rest.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
 
-		lookup, _, err := apiv1.CallLookup(client, service)
+		lookup, _, err := api.CallLookup(client, service)
 		if err != nil || !lookup.Status {
 			fmt.Println("Failed to parse response")
 			os.Exit(1)

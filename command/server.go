@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/paularlott/knot/api"
 	"github.com/paularlott/knot/api/api_utils"
-	"github.com/paularlott/knot/api/apiv1"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
@@ -446,7 +446,7 @@ var serverCmd = &cobra.Command{
 		// Create the application routes
 		routes := http.NewServeMux()
 
-		apiv1.ApiRoutes(routes)
+		api.ApiRoutes(routes)
 		proxy.Routes(routes)
 		web.Routes(routes)
 
@@ -650,7 +650,7 @@ func startupCheckPendingSpaces() {
 			// If deleting then delete it
 			if space.IsDeleting && (space.Location == "" || space.Location == server_info.LeafLocation) {
 				log.Info().Msgf("server: found deleting space %s", space.Name)
-				apiv1.RealDeleteSpace(space)
+				api.RealDeleteSpace(space)
 			}
 		}
 	}
