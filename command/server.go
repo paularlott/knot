@@ -599,7 +599,7 @@ var serverCmd = &cobra.Command{
 func remoteSessionKeepAlive() {
 	log.Info().Msg("server: starting remote server session refresh services")
 
-	// Start a go routine that runs once per hour and pings all sessions to keep them alive
+	// Start a go routine that pings all sessions to keep them alive
 	go func() {
 		for {
 			time.Sleep(30 * time.Minute)
