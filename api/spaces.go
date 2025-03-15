@@ -1285,6 +1285,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	origin.UpdateSpace(space, []string{"SharedWithUserId"})
 	leaf.UpdateSpace(space, []string{"SharedWithUserId"}, nil)
 
 	api_utils.UpdateSpaceSSHKeys(space, user)
@@ -1348,6 +1349,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	origin.UpdateSpace(space, []string{"SharedWithUserId"})
 	leaf.UpdateSpace(space, []string{"SharedWithUserId"}, nil)
 
 	api_utils.UpdateSpaceSSHKeys(space, user)
