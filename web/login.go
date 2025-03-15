@@ -37,7 +37,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 		// Parse the URL to redirect to to get just the path
 		var redirect string
 		u, _ := url.Parse(r.URL.Query().Get("redirect"))
-		if u.Path == "" {
+		if u.Path == "" || u.Path == "/logout" {
 			redirect = "/spaces"
 		} else if u.Path[0:1] != "/" {
 			redirect = "/" + u.Path
@@ -71,9 +71,10 @@ func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		middleware.DeleteSessionCookie(w)
 		database.GetCacheInstance().DeleteSession(session)
 	}
+
+	middleware.DeleteSessionCookie(w)
 
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
