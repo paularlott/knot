@@ -130,6 +130,10 @@ func (db *BadgerDbDriver) GetUser(id string) (*model.User, error) {
 	})
 
 	if err != nil {
+		// if not found then change error to "user not found"
+		if err == badger.ErrKeyNotFound {
+			err = fmt.Errorf("user not found")
+		}
 		return nil, err
 	}
 
