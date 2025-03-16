@@ -189,7 +189,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
 	// Create a session
 	var session *model.Session = model.NewSession(r, userId, tokenId)
-	err = database.GetCacheInstance().SaveSession(session)
+	err = database.GetSessionStorage().SaveSession(session)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -240,7 +240,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 		// Delete the session
 		if session != nil {
-			err := database.GetCacheInstance().DeleteSession(session)
+			err := database.GetSessionStorage().DeleteSession(session)
 			if err != nil {
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return

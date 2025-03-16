@@ -38,21 +38,6 @@ INDEX active (active)
 		return err
 	}
 
-	log.Debug().Msg("db: creating session table")
-	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS sessions (
-session_id CHAR(64) PRIMARY KEY,
-user_id CHAR(36),
-remote_session_id CHAR(64),
-ip VARCHAR(256),
-user_agent VARCHAR(255),
-expires_after TIMESTAMP,
-INDEX expires_after (expires_after),
-INDEX user_id (user_id)
-)`)
-	if err != nil {
-		return err
-	}
-
 	log.Debug().Msg("db: creating API tokens table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS tokens (
 token_id CHAR(64) PRIMARY KEY,
@@ -213,8 +198,8 @@ INDEX created_at (created_at)
 
 	log.Debug().Msg("db: MySQL is initialized")
 
-	// Add a task to clean up expired sessions
-	log.Debug().Msg("db: starting session GC")
+	// Add a task to clean up expired data
+	log.Debug().Msg("db: starting database GC")
 	go func() {
 		ticker := time.NewTicker(15 * time.Minute)
 		defer ticker.Stop()
@@ -222,10 +207,6 @@ INDEX created_at (created_at)
 		again:
 			log.Debug().Msg("db: running GC")
 			now := time.Now().UTC()
-			_, err := db.connection.Exec("DELETE FROM sessions WHERE expires_after < ?", now)
-			if err != nil {
-				goto again
-			}
 
 			_, err = db.connection.Exec("DELETE FROM tokens WHERE expires_after < ?", now)
 			if err != nil {

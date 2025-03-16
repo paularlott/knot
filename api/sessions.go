@@ -14,7 +14,7 @@ import (
 func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
-	sessions, err := database.GetCacheInstance().GetSessionsForUser(user.Id)
+	sessions, err := database.GetSessionStorage().GetSessionsForUser(user.Id)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -51,15 +51,17 @@ func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	store := database.GetSessionStorage()
+
 	// Load the session if not found or doesn't belong to the user then treat both as not found
-	session, err := database.GetCacheInstance().GetSession(sessionId)
+	session, err := store.GetSession(sessionId)
 	if err != nil || session.UserId != user.Id {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("token %s not found", sessionId)})
 		return
 	}
 
 	// Delete the session
-	err = database.GetCacheInstance().DeleteSession(session)
+	err = store.DeleteSession(session)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return

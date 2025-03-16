@@ -15,14 +15,14 @@ import (
 )
 
 var (
-	once             sync.Once
-	dbInstance       IDbDriver
-	dbCacheInstance  IDbDriver
-	ErrTemplateInUse = errors.New("template in use")
+	once              sync.Once
+	dbInstance        DbDriver
+	dbSessionInstance SessionStorage
+	ErrTemplateInUse  = errors.New("template in use")
 )
 
-// IDbDriver is the interface for the database drivers
-type IDbDriver interface {
+// DbDriver is the interface for the database drivers
+type DbDriver interface {
 	Connect() error
 
 	// Users
@@ -33,13 +33,6 @@ type IDbDriver interface {
 	GetUserByUsername(email string) (*model.User, error)
 	GetUsers() ([]*model.User, error)
 	HasUsers() (bool, error)
-
-	// Sessions
-	SaveSession(session *model.Session) error
-	DeleteSession(session *model.Session) error
-	GetSession(id string) (*model.Session, error)
-	GetSessionsForUser(userId string) ([]*model.Session, error)
-	GetSessions() ([]*model.Session, error)
 
 	// Tokens
 	SaveToken(token *model.Token) error
@@ -93,10 +86,17 @@ type IDbDriver interface {
 	GetAuditLogs(offset int, limit int) ([]*model.AuditLogEntry, error)
 }
 
+type SessionStorage interface {
+	SaveSession(session *model.Session) error
+	DeleteSession(session *model.Session) error
+	GetSession(id string) (*model.Session, error)
+	GetSessionsForUser(userId string) ([]*model.Session, error)
+	GetSessions() ([]*model.Session, error)
+}
+
 // Initialize the database drivers
 func initDrivers() {
 	once.Do(func() {
-		var isCacheDriver bool = false
 
 		// Initialize the main driver
 		if viper.GetBool("server.mysql.enabled") {
@@ -116,7 +116,6 @@ func initDrivers() {
 			log.Debug().Msg("db: Redis enabled")
 
 			dbInstance = &driver_redis.RedisDbDriver{}
-			isCacheDriver = true
 		} else {
 			// Fail with no database
 			log.Fatal().Msg("db: no database enabled")
@@ -130,48 +129,47 @@ func initDrivers() {
 			log.Debug().Msg("db: connected to database")
 		}
 
-		// If not using a cache driver then try and initialize one or use the main driver
-		if !isCacheDriver {
+		// If database driver implements a session storage interface then use it
+		if dbInstance, ok := dbInstance.(SessionStorage); ok {
+			log.Debug().Msg("db: session storage using main database driver")
+			dbSessionInstance = dbInstance
+		} else {
+			// If redis is enabled then use it for session storage
 			if viper.GetBool("server.redis.enabled") {
 				// Connect to and use Redis
 				log.Debug().Msg("db: Redis enabled")
 
-				dbCacheInstance = &driver_redis.RedisDbDriver{}
-				err := dbCacheInstance.Connect()
+				driver := &driver_redis.RedisDbDriver{}
+				err := driver.Connect()
 				if err != nil {
 					log.Debug().Msg("db: failed to connect to redis")
-					dbCacheInstance = dbInstance
+				} else {
+					dbSessionInstance = driver
 				}
-			} else if viper.GetBool("server.memorydb.enabled") {
-				// Connect to and use MemoryDB
-				log.Debug().Msg("db: MemoryDB enabled")
-
-				dbCacheInstance = &driver_memory.MemoryDbDriver{}
-				err := dbCacheInstance.Connect()
-				if err != nil {
-					log.Debug().Msg("db: failed to connect to memorydb")
-					dbCacheInstance = dbInstance
-				}
-			} else {
-				// Use the main driver
-				dbCacheInstance = dbInstance
 			}
-		} else {
-			dbCacheInstance = dbInstance
+
+			// No driver so use memory
+			if dbSessionInstance == nil {
+				log.Debug().Msg("db: Using memory for session storage")
+
+				driver := &driver_memory.MemoryDbDriver{}
+				driver.Connect()
+				dbSessionInstance = driver
+			}
 		}
 	})
 }
 
 // Returns the database driver and on first call initializes it
-func GetInstance() IDbDriver {
+func GetInstance() DbDriver {
 	initDrivers()
 	return dbInstance
 }
 
 // Returns the caching database driver and on first call initializes it
-func GetCacheInstance() IDbDriver {
+func GetSessionStorage() SessionStorage {
 	initDrivers()
-	return dbCacheInstance
+	return dbSessionInstance
 }
 
 func GetUserUsage(userId string, inLocation string) (*model.Usage, error) {
