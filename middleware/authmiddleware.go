@@ -68,7 +68,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 			var userId string = ""
 
 			db := database.GetInstance()
-			cache := database.GetCacheInstance()
+			store := database.GetSessionStorage()
 
 			// If have an Authorization header then we use that for authentication
 			authorization := r.Header.Get("Authorization")
@@ -114,7 +114,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				userId = session.UserId
 
 				// Save the session to extend its life
-				cache.SaveSession(session)
+				store.SaveSession(session)
 
 				// Add the session to the context
 				ctx = context.WithValue(r.Context(), "session", session)
@@ -284,7 +284,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Save the session to update its life
-		database.GetCacheInstance().SaveSession(session)
+		database.GetSessionStorage().SaveSession(session)
 
 		ctx := context.WithValue(r.Context(), "user", user)
 		ctx = context.WithValue(ctx, "session", session)

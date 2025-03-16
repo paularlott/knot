@@ -15,7 +15,7 @@ type MemoryDbDriver struct {
 	sessionsByUserId map[string][]*model.Session
 }
 
-func (db *MemoryDbDriver) Connect() error {
+func (db *MemoryDbDriver) Connect() {
 	log.Debug().Msg("db: starting memory driver")
 
 	// Initialize the mutexes and maps
@@ -50,6 +50,4 @@ func (db *MemoryDbDriver) Connect() error {
 			db.sessionMutex.Unlock()
 		}
 	}()
-
-	return nil
 }

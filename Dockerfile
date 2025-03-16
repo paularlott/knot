@@ -48,7 +48,6 @@ RUN addgroup -S knot \
 ENV KNOT_DOWNLOAD_PATH=/srv
 ENV KNOT_BADGERDB_ENABLED=true
 ENV KNOT_BADGERDB_PATH=/data
-ENV KNOT_MEMORYDB_ENABLED=true
 
 # Set user and working directory
 USER knot

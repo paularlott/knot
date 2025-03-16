@@ -71,7 +71,7 @@ func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		database.GetCacheInstance().DeleteSession(session)
+		database.GetSessionStorage().DeleteSession(session)
 	}
 
 	middleware.DeleteSessionCookie(w)

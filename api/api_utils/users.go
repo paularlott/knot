@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
+func DeleteUser(db database.DbDriver, toDelete *model.User) error {
 	var hasError = false
 
 	log.Debug().Msgf("delete user: Deleting user %s", toDelete.Id)
@@ -99,13 +99,13 @@ func DeleteUser(db database.IDbDriver, toDelete *model.User) error {
 
 // Delete the sessions owned by a user
 func RemoveUsersSessions(user *model.User) {
-	cache := database.GetCacheInstance()
+	store := database.GetSessionStorage()
 
 	// Find sessions for the user and delete them
-	sessions, err := cache.GetSessionsForUser(user.Id)
+	sessions, err := store.GetSessionsForUser(user.Id)
 	if err == nil && sessions != nil {
 		for _, session := range sessions {
-			cache.DeleteSession(session)
+			store.DeleteSession(session)
 		}
 	}
 }
