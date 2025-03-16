@@ -137,13 +137,13 @@ func initDrivers() {
 			// If redis is enabled then use it for session storage
 			if viper.GetBool("server.redis.enabled") {
 				// Connect to and use Redis
-				log.Debug().Msg("db: Redis enabled")
-
 				driver := &driver_redis.RedisDbDriver{}
 				err := driver.Connect()
 				if err != nil {
 					log.Debug().Msg("db: failed to connect to redis")
 				} else {
+					log.Debug().Msg("db: Using redis for session storage")
+
 					dbSessionInstance = driver
 				}
 			}
