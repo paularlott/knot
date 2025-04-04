@@ -67,9 +67,9 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 		}
 	}
 
+	now := time.Now().UTC()
 	if doUpdate {
 		// Update the update time
-		now := time.Now().UTC()
 		space.UpdatedAt = now
 		if len(updateFields) > 0 && !util.InArray(updateFields, "UpdatedAt") {
 			updateFields = append(updateFields, "UpdatedAt")
@@ -124,7 +124,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 					found = true
 
 					// Update the location
-					_, err = tx.Exec("UPDATE spaces SET location=? WHERE parent_space_id = ? AND name = ?", space.Location, space.Id, name)
+					_, err = tx.Exec("UPDATE spaces SET location=?,updated_at=? WHERE parent_space_id = ? AND name = ?", now, space.Location, space.Id, name)
 					if err != nil {
 						tx.Rollback()
 						return err
@@ -140,7 +140,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 					return err
 				}
 
-				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, location) VALUES (?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name, space.Location)
+				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, location, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name, space.Location, now, now)
 				if err != nil {
 					tx.Rollback()
 					return err

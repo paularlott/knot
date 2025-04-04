@@ -11,6 +11,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
   return {
     loading: true,
     spaces: [],
+    visibleSpaces: 0,
     deleteConfirm: {
       show: false,
       space: {
@@ -288,6 +289,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       let term = this.searchTerm.toLowerCase();
 
       // For all spaces if name or template name contains the term show; else hide
+      this.visibleSpaces = 0;
       this.spaces.forEach(space => {
         if(term.length == 0) {
           space.searchHide =
@@ -305,6 +307,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           (this.showRunningOnly && !space.is_deployed) ||
           (this.showSharedOnly && (space.shared_user_id == "" || space.shared_user_id == this.forUserId)) ||
           (this.showSharedWithMeOnly && (space.shared_user_id == "" || space.shared_user_id != this.forUserId));
+        }
+
+        if(!space.searchHide) {
+          this.visibleSpaces++;
         }
       });
     },
