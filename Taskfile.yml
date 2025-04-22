@@ -236,7 +236,6 @@ tasks:
     sources:
       - Dockerfile
       - .dockerignore
-      # Add other files included in the Docker context if needed
 
   release:
     desc: Tag, build, push container, create GitHub release, checksums, and update Homebrew
@@ -252,6 +251,7 @@ tasks:
 
   create-release:
     desc: Create a GitHub release with the built artifacts
+    internal: true
     cmds:
       - gh release create v{{.VERSION}} {{.OUTPUT_DIR}}/*.zip -t "Release {{.VERSION}}" -n "Knot {{.VERSION}}"
     deps: [all] # Ensure artifacts exist
