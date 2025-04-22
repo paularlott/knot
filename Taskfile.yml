@@ -1,0 +1,278 @@
+version: '3'
+
+vars:
+  PROJECT_NAME: knot
+  PLATFORMS:
+    - linux/amd64
+    - linux/arm64
+    - darwin/amd64
+    - darwin/arm64
+    - windows/amd64
+    - windows/arm64
+  AGENT_PLATFORMS:
+    - linux/amd64
+    - linux/arm64
+  BUILT_AT:
+    sh: date +%Y%m%d.%H%M%S%z
+  BUILD_FLAGS: '-ldflags="-s -w -X github.com/paularlott/knot/build.Date={{.BUILT_AT}}" -trimpath'
+  OUTPUT_DIR: bin
+  AGENT_OUTPUT_DIR: web/agents
+  VERSION:
+    sh: go run ./scripts/getversion
+  REGISTRY: '{{.REGISTRY | default "paularlott"}}'
+
+tasks:
+  default:
+    desc: Build the binary for all platforms (default task)
+    deps: [all]
+
+  build:
+    desc: Build the binary for the current platform
+    deps: [agents, legal, apidocs, webassets]
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o {{.OUTPUT_DIR}}/{{.PROJECT_NAME}} .
+    sources:
+      - ./**/*.go
+      - go.mod
+      - go.sum
+      - legal/license.txt
+      - legal/notice.txt
+    generates:
+      - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}'
+
+  all:
+    desc: Build the binary for all platforms
+    deps: [agents, legal, apidocs, webassets]
+    cmds:
+      - task: build-platform
+        vars: { PLATFORM: '{{.ITEM}}' }
+        for:
+          var: 'PLATFORMS'
+    sources:
+      - ./**/*.go
+      - go.mod
+      - go.sum
+      - legal/license.txt
+      - legal/notice.txt
+      - web/**/*
+    generates:
+      - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}_{{.PLATFORMS}}*.zip'
+
+  build-platform:
+    internal: true
+    vars:
+      GOOS: '{{splitList "/" .PLATFORM | first}}'
+      GOARCH: '{{splitList "/" .PLATFORM | last}}'
+      EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
+      OUTPUT_FILE: '{{.OUTPUT_DIR}}/{{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}}'
+      ZIP_FILE: '{{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}}.zip'
+      FINAL_NAME: '{{$.PROJECT_NAME}}{{.EXT}}'
+    env:
+      GOOS: '{{.GOOS}}'
+      GOARCH: '{{.GOARCH}}'
+    cmds:
+      - go build {{$.BUILD_FLAGS}} -o {{.OUTPUT_FILE}} .
+      - |
+        cd {{$.OUTPUT_DIR}} && \
+        mv {{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}} {{.FINAL_NAME}} && \
+        zip {{.ZIP_FILE}} {{.FINAL_NAME}}
+    sources:
+      - ./**/*.go
+      - go.mod
+      - go.sum
+      - legal/license.txt
+      - legal/notice.txt
+      - web/**/*
+    generates:
+      - '{{.OUTPUT_DIR}}/{{.ZIP_FILE}}'
+    method: none
+
+  agents:
+    desc: Build the agent binaries
+    cmds:
+      - rm -f {{.AGENT_OUTPUT_DIR}}/knot-agent*.zip {{.AGENT_OUTPUT_DIR}}/knot-agent # Clean previous agent builds first
+      - task: build-agent
+        vars: { PLATFORM: '{{.ITEM}}' }
+        for:
+          var: 'AGENT_PLATFORMS'
+    sources:
+      - ./agent/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - '{{.AGENT_OUTPUT_DIR}}/{{.PROJECT_NAME}}_agent_*.zip' # Pattern for generated files
+
+  build-agent:
+    internal: true
+    vars:
+      GOOS: '{{splitList "/" .PLATFORM | first}}'
+      GOARCH: '{{splitList "/" .PLATFORM | last}}'
+      EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
+      OUTPUT_FILE: '{{.AGENT_OUTPUT_DIR}}/{{$.PROJECT_NAME}}_agent_{{.GOOS}}_{{.GOARCH}}{{.EXT}}'
+      ZIP_FILE: '{{.AGENT_OUTPUT_DIR}}/{{$.PROJECT_NAME}}_agent_{{.GOOS}}_{{.GOARCH}}{{.EXT}}.zip'
+      FINAL_NAME: 'knot-agent{{.EXT}}'
+    env:
+      GOOS: '{{.GOOS}}'
+      GOARCH: '{{.GOARCH}}'
+    cmds:
+      - go build {{$.BUILD_FLAGS}} -o {{.OUTPUT_FILE}} ./agent
+      - |
+        cd {{$.AGENT_OUTPUT_DIR}} && \
+        mv {{$.PROJECT_NAME}}_agent_{{.GOOS}}_{{.GOARCH}}{{.EXT}} {{.FINAL_NAME}} && \
+        zip {{$.PROJECT_NAME}}_agent_{{.GOOS}}_{{.GOARCH}}{{.EXT}}.zip {{.FINAL_NAME}} && \
+        rm -f {{.FINAL_NAME}}
+    sources:
+      - ./agent/**/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - '{{.ZIP_FILE}}'
+
+  checksums:
+    desc: Show the ZIP file checksums
+    cmds:
+      - shasum -a 256 {{.OUTPUT_DIR}}/*.zip
+
+  homebrew-formula:
+    desc: Generate the Homebrew formula
+    cmds:
+      - go run ./scripts/homebrew-formula/ > ../homebrew-tap/Formula/knot.rb
+    sources:
+      - ./scripts/homebrew-formula/**/*.go
+    generates:
+      - ../homebrew-tap/Formula/knot.rb
+
+  legal:
+    desc: Collect the license files from dependencies and copy them to the legal directory
+    deps: [legal-license, legal-notice]
+    cmds:
+      - rm -rf ./legal/licenses
+      - go-licenses save --save_path ./legal/licenses/ --skip_copy_source --ignore github.com/paularlott/knot --ignore github.com/golang/freetype --ignore github.com/yeqown/reedsolomon .
+      - find ./legal/licenses -type f -exec gzip {} \;
+    sources:
+      - go.mod
+      - go.sum
+      - LICENSE.txt
+      - NOTICE.txt
+    generates:
+      - legal/licenses/**/*
+
+  legal-license:
+    desc: Copy the application license file for inclusion in the binary
+    internal: true
+    cmds:
+      - cat LICENSE.txt > legal/license.txt
+    sources:
+      - LICENSE.txt
+    generates:
+      - legal/license.txt
+    method: checksum # Re-run only if LICENSE.txt changes
+
+  legal-notice:
+    desc: Copy the application notice file for inclusion in the binary
+    internal: true
+    cmds:
+      - cat NOTICE.txt > legal/notice.txt
+    sources:
+      - NOTICE.txt
+    generates:
+      - legal/notice.txt
+    method: checksum # Re-run only if NOTICE.txt changes
+
+  apidocs:
+    desc: Generate the API documentation
+    cmds:
+      - npx @redocly/cli build-docs --output ./web/public_html/api-docs/index.html --config ./redocly-config.yaml --disableGoogleFont
+      - sed -i.bak 's|<script src="https.*</script>||g' ./web/public_html/api-docs/index.html && rm ./web/public_html/api-docs/index.html.bak
+    sources:
+      - api/spec/knot-openapi.yaml # Adjust if spec file is different
+      - redocly-config.yaml
+    generates:
+      - ./web/public_html/api-docs/index.html
+
+  apidocs-preview:
+    desc: Run a preview server for the API documentation
+    cmds:
+      - npx @redocly/cli preview-docs api/spec/knot-openapi.yaml
+
+  webassets:
+    desc: Compile LESS/CSS and JavaScript
+    cmds:
+      - npx vite build
+    sources:
+      - vite.config.js # Or relevant config
+      - src/**/* # Assuming source files are here
+    generates:
+      - web/public_html/css/*
+      - web/public_html/js/*
+
+  watch:
+    desc: Watch for changes in LESS, CSS, JavaScript files and recompile
+    cmds:
+      - npx vite build --watch
+
+  clean:
+    desc: Remove the previous build artifacts
+    cmds:
+      - rm -rf {{.OUTPUT_DIR}}/*
+      - rm -rf {{.AGENT_OUTPUT_DIR}}/*
+      - rm -f legal/license.txt
+      - rm -f legal/notice.txt
+      - rm -rf web/public_html/api-docs/index.html
+      - rm -rf web/public_html/css/*
+      - rm -rf web/public_html/js/*
+
+  container:
+    desc: Build the docker image and push to Docker Hub
+    cmds:
+      - |
+        docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        --tag {{.REGISTRY}}/knot:{{.VERSION}} \
+        --tag {{.REGISTRY}}/knot:latest \
+        --build-arg VERSION={{.VERSION}} \
+        --push \
+        .
+    sources:
+      - Dockerfile
+      - .dockerignore
+      # Add other files included in the Docker context if needed
+
+  release:
+    desc: Tag, build, push container, create GitHub release, checksums, and update Homebrew
+    deps: [tag, all, container, create-release, checksums, homebrew-formula]
+
+  tag:
+    desc: Tag the current code with the derived version
+    cmds:
+      - git tag -a v{{.VERSION}} -m "Release {{.VERSION}}"
+      - git push origin v{{.VERSION}}
+    status:
+      - git tag -l v{{.VERSION}} # Check if tag already exists
+
+  create-release:
+    desc: Create a GitHub release with the built artifacts
+    cmds:
+      - gh release create v{{.VERSION}} {{.OUTPUT_DIR}}/*.zip -t "Release {{.VERSION}}" -n "Knot {{.VERSION}}"
+    deps: [all] # Ensure artifacts exist
+
+  run-server:
+    desc: Run the server for development
+    deps: [agents]
+    cmds:
+      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --agent-path={{.AGENT_OUTPUT_DIR}}
+    ignore_error: true
+
+  run-leaf:
+    desc: Run a leaf server for development
+    deps: [agents]
+    cmds:
+      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf1.yml
+    ignore_error: true
+
+  run-leaf2:
+    desc: Run a leaf server for development
+    deps: [agents]
+    cmds:
+      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf2.yml
+    ignore_error: true

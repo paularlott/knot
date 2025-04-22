@@ -3,7 +3,16 @@ ARG DOCKER_HUB
 FROM ${DOCKER_HUB}library/golang:1.24.2-alpine AS builder
 
 RUN apk update \
-  && apk add bash unzip zip make nodejs npm
+  && apk add bash unzip zip nodejs npm \
+  && GO_TASK_VERSION=3.43.2 \
+  && ARCH=$(uname -m) \
+  && case $ARCH in \
+    'x86_64') url="https://github.com/go-task/task/releases/download/v3.43.2/task_linux_amd64.tar.gz" ;; \
+    'aarch64') url="https://github.com/go-task/task/releases/download/v3.43.2/task_linux_arm64.tar.gz" ;; \
+    *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+  esac \
+  && wget -O /tmp/task.tgz $url \
+  && tar -xzf /tmp/task.tgz -C /usr/local/bin/
 
 WORKDIR /app
 
@@ -18,11 +27,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 	# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
 	go mod download
 
-# Build the clients
-RUN make all
-
-# Build the application for the current architecture
-RUN make build
+# Build the clients for all platforms and the application for the current architecture
+RUN task all build
 
 FROM ${DOCKER_HUB}library/alpine:3.21
 
