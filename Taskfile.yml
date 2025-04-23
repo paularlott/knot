@@ -60,6 +60,7 @@ tasks:
 
   build-platform:
     internal: true
+    label: "Building for {{.PLATFORM}}"
     vars:
       GOOS: '{{splitList "/" .PLATFORM | first}}'
       GOARCH: '{{splitList "/" .PLATFORM | last}}'
@@ -85,7 +86,6 @@ tasks:
       - web/**/*
     generates:
       - '{{.OUTPUT_DIR}}/{{.ZIP_FILE}}'
-    method: none
 
   agents:
     desc: Build the agent binaries
@@ -104,6 +104,7 @@ tasks:
 
   build-agent:
     internal: true
+    label: "Building agent for {{.PLATFORM}}"
     vars:
       GOOS: '{{splitList "/" .PLATFORM | first}}'
       GOARCH: '{{splitList "/" .PLATFORM | last}}'
