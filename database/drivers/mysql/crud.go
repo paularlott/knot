@@ -86,7 +86,7 @@ func (db *MySQLDriver) update(tableName string, obj interface{}, fieldsToUpdate 
 					if timePtr == nil {
 						values = append(values, nil)
 					} else {
-						values = append(values, timePtr.Format("2006-01-02 15:04:05"))
+						values = append(values, timePtr.Format("2006-01-02 15:04:05.000000"))
 					}
 				} else {
 					fieldValue := val.Field(i).Interface()

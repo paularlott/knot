@@ -29,9 +29,9 @@ max_spaces INT UNSIGNED NOT NULL DEFAULT 0,
 compute_units INT UNSIGNED NOT NULL DEFAULT 0,
 storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 max_tunnels INT UNSIGNED NOT NULL DEFAULT 0,
-last_login_at TIMESTAMP DEFAULT NULL,
-updated_at TIMESTAMP,
-created_at TIMESTAMP,
+last_login_at TIMESTAMP(6) DEFAULT NULL,
+updated_at TIMESTAMP(6),
+created_at TIMESTAMP(6),
 INDEX active (active)
 )`)
 	if err != nil {
@@ -44,7 +44,7 @@ token_id CHAR(64) PRIMARY KEY,
 user_id CHAR(36),
 session_id CHAR(64),
 name VARCHAR(255),
-expires_after TIMESTAMP,
+expires_after TIMESTAMP(6),
 INDEX expires_after (expires_after),
 INDEX user_id (user_id)
 )`)
@@ -71,8 +71,8 @@ description TEXT DEFAULT '',
 is_deployed TINYINT NOT NULL DEFAULT 0,
 is_pending TINYINT NOT NULL DEFAULT 0,
 is_deleting TINYINT NOT NULL DEFAULT 0,
-created_at TIMESTAMP,
-updated_at TIMESTAMP,
+created_at TIMESTAMP(6),
+updated_at TIMESTAMP(6),
 INDEX user_id (user_id),
 INDEX template_id (template_id),
 UNIQUE INDEX name (user_id, name),
@@ -104,9 +104,9 @@ schedule_enabled TINYINT NOT NULL DEFAULT 0,
 compute_units INT UNSIGNED NOT NULL DEFAULT 0,
 storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
-created_at TIMESTAMP,
+created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP
+updated_at TIMESTAMP(6)
 )`)
 	if err != nil {
 		return err
@@ -121,9 +121,9 @@ compute_units INT UNSIGNED NOT NULL DEFAULT 0,
 storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 max_tunnels INT UNSIGNED NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
-created_at TIMESTAMP,
+created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP
+updated_at TIMESTAMP(6)
 )`)
 	if err != nil {
 		return err
@@ -139,9 +139,9 @@ protected TINYINT NOT NULL DEFAULT 0,
 local TINYINT NOT NULL DEFAULT 0,
 restricted TINYINT NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
-created_at TIMESTAMP,
+created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP
+updated_at TIMESTAMP(6)
 )`)
 	if err != nil {
 		return err
@@ -156,9 +156,9 @@ definition MEDIUMTEXT,
 active TINYINT NOT NULL DEFAULT 0,
 local_container TINYINT NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
-created_at TIMESTAMP,
+created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP,
+updated_at TIMESTAMP(6),
 INDEX location (location)
 )`)
 	if err != nil {
@@ -171,9 +171,9 @@ role_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
 permissions JSON DEFAULT NULL,
 created_user_id CHAR(36),
-created_at TIMESTAMP,
+created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP
+updated_at TIMESTAMP(6)
 )`)
 	if err != nil {
 		return err
@@ -182,7 +182,7 @@ updated_at TIMESTAMP
 	log.Debug().Msg("db: creating audit_log table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
 audit_log_id bigint(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP,
 actor VARCHAR(255),
 actor_type VARCHAR(255),
 event VARCHAR(255),
