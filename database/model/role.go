@@ -69,6 +69,7 @@ func SetRoleCache(roles []*Role) {
 	log.Info().Msg("server: loading roles to cache")
 
 	// Create the admin role
+	adminTime := time.Date(2025, time.January, 1, 10, 0, 0, 0, time.UTC)
 	roleCache[RoleAdminUUID] = &Role{
 		Id:   RoleAdminUUID,
 		Name: "Admin",
@@ -86,6 +87,8 @@ func SetRoleCache(roles []*Role) {
 			PermissionTransferSpaces,
 			PermissionShareSpaces,
 		},
+		CreatedAt: adminTime,
+		UpdatedAt: adminTime,
 	}
 
 	roleCacheMutex.Lock()
@@ -140,14 +143,15 @@ func NewRole(name string, permissions []uint16, userId string) *Role {
 		log.Fatal().Msg(err.Error())
 	}
 
+	now := time.Now().UTC()
 	role := &Role{
 		Id:            id.String(),
 		Name:          name,
 		Permissions:   permissions,
 		CreatedUserId: userId,
-		CreatedAt:     time.Now().UTC(),
+		CreatedAt:     now,
 		UpdatedUserId: userId,
-		UpdatedAt:     time.Now().UTC(),
+		UpdatedAt:     now,
 	}
 
 	return role
