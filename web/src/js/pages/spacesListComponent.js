@@ -330,9 +330,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
       // Transfer the space to the new user
       await fetch(
-        this.isShare
-          ? `/api/spaces/${this.chooseUser.space.space_id}/transfer`
-          : `/api/spaces/${this.chooseUser.space.space_id}/share`,
+        this.chooseUser.isShare
+          ? `/api/spaces/${this.chooseUser.space.space_id}/share`
+          : `/api/spaces/${this.chooseUser.space.space_id}/transfer`,
       {
         method: 'POST',
         headers: {
@@ -373,7 +373,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           }
         } else {
           response.json().then((data) => {
-            if(self.isShare) {
+            if(self.chooseUser.isShare) {
               self.$dispatch('show-alert', { msg: "Space could not be shared: " + data.error, type: 'error' });
             }
             else {
