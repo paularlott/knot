@@ -8,6 +8,7 @@
 .knot-leaf1.yml
 .knot-leaf2.yml
 /.parcel-cache
+/.task
 /knot-server.nomad
 /web/public_html/api-docs/*
 !/web/public_html/api-docs/.gitignore
