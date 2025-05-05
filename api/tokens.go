@@ -7,9 +7,6 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/leaf"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 )
@@ -59,10 +56,6 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if running on a leaf then notify the origin server and origin notify the leaf servers
-	origin.DeleteToken(token)
-	leaf.DeleteToken(token.Id, nil)
-
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -91,12 +84,6 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
-	}
-
-	// if running on a leaf then notify the origin server
-	if server_info.IsLeaf {
-		token.Name += " (" + server_info.LeafLocation + ")"
-		origin.MirrorToken(token)
 	}
 
 	// Return the Token ID

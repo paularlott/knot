@@ -3,10 +3,8 @@ package web
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/validate"
 	"github.com/spf13/viper"
 
@@ -36,7 +34,7 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// User doesn't have permission to manage or use spaces so send them to the clients page
-	if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
+	if !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
 		http.Redirect(w, r, "/clients", http.StatusSeeOther)
 		return
 	}
@@ -115,39 +113,22 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 		forUser = user
 	}
 
-	// If leaf node then get the groups from the origin
-	if server_info.IsLeaf {
-		session := r.Context().Value("session").(*model.Session)
-		client := apiclient.NewRemoteSession(session.RemoteSessionId)
+	// Get the groups and build a map
+	groups, err := db.GetGroups()
+	if err != nil {
+		log.Error().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	groupMap := make(map[string]*model.Group)
+	for _, group := range groups {
+		groupMap[group.Id] = group
+	}
 
-		groups, _, err := client.GetGroups()
-		if err != nil {
-			log.Error().Msg(err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		for _, group := range groups.Groups {
+	for _, groupId := range forUser.Groups {
+		group, ok := groupMap[groupId]
+		if ok {
 			maxSpaces += group.MaxSpaces
-		}
-	} else {
-		// Get the groups and build a map
-		groups, err := db.GetGroups()
-		if err != nil {
-			log.Error().Msg(err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		groupMap := make(map[string]*model.Group)
-		for _, group := range groups {
-			groupMap[group.Id] = group
-		}
-
-		for _, groupId := range forUser.Groups {
-			group, ok := groupMap[groupId]
-			if ok {
-				maxSpaces += group.MaxSpaces
-			}
 		}
 	}
 

@@ -1,9 +1,6 @@
 package server_info
 
 var (
-	RestrictedLeaf bool   = false
-	IsLeaf         bool   = false
-	IsOrigin       bool   = false
-	LeafLocation   string = ""
-	Timezone       string = ""
+	LeafLocation string = "" // TODO rename to location?
+	Timezone     string = ""
 )

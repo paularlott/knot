@@ -4,13 +4,12 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 )
 
 func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
+		if !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
 			showPageForbidden(w, r)
 			return
 		}
@@ -22,7 +21,7 @@ func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
 func checkPermission(next http.HandlerFunc, permission uint16) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if !server_info.RestrictedLeaf && !user.HasPermission(permission) {
+		if !user.HasPermission(permission) {
 			showPageForbidden(w, r)
 			return
 		}
@@ -69,7 +68,7 @@ func checkPermissionViewAuditLogs(next http.HandlerFunc) http.HandlerFunc {
 func checkPermissionManageUsers(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if server_info.RestrictedLeaf || !user.HasPermission(model.PermissionManageUsers) {
+		if !user.HasPermission(model.PermissionManageUsers) {
 			showPageForbidden(w, r)
 			return
 		}

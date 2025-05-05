@@ -8,7 +8,6 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/middleware"
@@ -515,9 +514,6 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 		// Update the user's spaces, ssh keys or stop spaces
 		go api_utils.UpdateUserSpaces(user)
-
-		// notify all remote servers of the change
-		leaf.UpdateUser(user, saveFields, nil)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -580,9 +576,6 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 	}
-
-	// If core server then notify all remote servers of the change
-	leaf.DeleteUser(userId, nil)
 
 	w.WriteHeader(http.StatusOK)
 }

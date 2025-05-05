@@ -10,7 +10,6 @@ import (
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
 
 	"github.com/rs/zerolog/log"
 )
@@ -61,8 +60,6 @@ func checkSchedules() {
 							continue
 						}
 
-						origin.UpdateSpace(space, []string{"IsPending"})
-
 						var containerClient container.ContainerManager
 						if template.LocalContainer {
 							containerClient = docker.NewClient()
@@ -75,7 +72,6 @@ func checkSchedules() {
 						if err != nil {
 							space.IsPending = false
 							db.SaveSpace(space, []string{"IsPending"})
-							origin.UpdateSpace(space, []string{"IsPending"})
 
 							log.Error().Msgf("DeleteSpaceJob: failed to delete space %s", err.Error())
 							continue

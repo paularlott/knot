@@ -25,7 +25,6 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/dnsserver"
-	"github.com/paularlott/knot/internal/origin_leaf"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/middleware"
@@ -52,12 +51,9 @@ func init() {
 	serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENCRYPT environment variable if set.")
 	serverCmd.Flags().StringP("agent-endpoint", "", "", "The address agents should use to talk to the server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT environment variable if set.")
 	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to NOMAD_DC or hostname).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
-	serverCmd.Flags().StringP("origin-server", "", "", "The address of the origin server, when given this server becomes a leaf server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER environment variable if set.")
-	serverCmd.Flags().StringP("shared-token", "", "", "The shared token for lear to origin server communication (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SHARED_TOKEN environment variable if set.")
 	serverCmd.Flags().StringP("html-path", "", "", "The optional path to the html files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HTML_PATH environment variable if set.")
 	serverCmd.Flags().StringP("template-path", "", "", "The optional path to the template files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TEMPLATE_PATH environment variable if set.")
 	serverCmd.Flags().StringP("agent-path", "", "", "The optional path to the agent files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_PATH environment variable if set.")
-	serverCmd.Flags().BoolP("enable-leaf-api-tokens", "", false, "Allow the leaf servers to use an API token for authentication with the origin server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_LEAF_API_TOKENS environment variable if set.")
 	serverCmd.Flags().StringP("timezone", "", "", "The timezone to use for the server (default is system timezone).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TIMEZONE environment variable if set.")
 	serverCmd.Flags().StringP("tunnel-domain", "", "", "The domain to use for tunnel connections.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN environment variable if set.")
 	serverCmd.Flags().Int("audit-retention", 90, "The number of days to keep audit logs (default \"90\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION environment variable if set.")
@@ -180,10 +176,6 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.agent_endpoint", config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT")
 		viper.SetDefault("server.agent_endpoint", "")
 
-		viper.BindPFlag("server.enable_leaf_api_tokens", cmd.Flags().Lookup("enable-leaf-api-tokens"))
-		viper.BindEnv("server.enable_leaf_api_tokens", config.CONFIG_ENV_PREFIX+"_ENABLE_LEAF_API_TOKENS")
-		viper.SetDefault("server.enable_leaf_api_tokens", false)
-
 		viper.BindPFlag("server.ui.hide_support_links", cmd.Flags().Lookup("hide-support-links"))
 		viper.BindEnv("server.ui.hide_support_links", config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS")
 		viper.SetDefault("server.ui.hide_support_links", false)
@@ -207,14 +199,6 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.location", cmd.Flags().Lookup("location"))
 		viper.BindEnv("server.location", config.CONFIG_ENV_PREFIX+"_LOCATION")
 		viper.SetDefault("server.location", hostname)
-
-		viper.BindPFlag("server.origin_server", cmd.Flags().Lookup("origin-server"))
-		viper.BindEnv("server.origin_server", config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER")
-		viper.SetDefault("server.origin_server", "")
-
-		viper.BindPFlag("server.shared_token", cmd.Flags().Lookup("shared-token"))
-		viper.BindEnv("server.shared_token", config.CONFIG_ENV_PREFIX+"_SHARED_TOKEN")
-		viper.SetDefault("server.shared_token", "")
 
 		viper.BindPFlag("server.tunnel_domain", cmd.Flags().Lookup("tunnel-domain"))
 		viper.BindEnv("server.tunnel_domain", config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN")
@@ -365,12 +349,6 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.redis.key_prefix", cmd.Flags().Lookup("redis-key-prefix"))
 		viper.BindEnv("server.redis.key_prefix", config.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX")
 		viper.SetDefault("server.redis.key_prefix", "")
-
-		// Set if leaf, origin or standalone server
-		if viper.GetString("server.shared_token") != "" {
-			server_info.IsLeaf = viper.GetString("server.origin_server") != ""
-			server_info.IsOrigin = viper.GetString("server.origin_server") == ""
-		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := util.FixListenAddress(viper.GetString("server.listen"))
@@ -421,24 +399,12 @@ var serverCmd = &cobra.Command{
 		// Load template hashes
 		api_utils.LoadTemplateHashes()
 
-		// this is a leaf node, connect to the origin server
-		if server_info.IsLeaf {
-			origin_leaf.LeafConnectAndServe(viper.GetString("server.origin_server"))
-
-			// start keep alive for remote sessions
-			remoteSessionKeepAlive()
-		} else {
-			// Load roles into memory cache
-			roles, err := database.GetInstance().GetRoles()
-			if err != nil {
-				log.Fatal().Msgf("server: failed to get roles: %s", err.Error())
-			}
-			model.SetRoleCache(roles)
-
-			if server_info.IsOrigin {
-				origin_leaf.StartLeafSessionGC()
-			}
+		// Load roles into memory cache
+		roles, err := database.GetInstance().GetRoles()
+		if err != nil {
+			log.Fatal().Msgf("server: failed to get roles: %s", err.Error())
 		}
+		model.SetRoleCache(roles)
 
 		// Check for local spaces that are pending state changes and setup watches
 		startupCheckPendingSpaces()

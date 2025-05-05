@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Templates{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="templateListComponent({{ .permissionManageSpaces }}, {{ if and .isOriginOrLeaf (not .isRestrictedServer)}}'{{ .location }}'{{ else }}''{{ end }})">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="templateListComponent({{ .permissionManageSpaces }}, '{{ .location }}')">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
 
     <div class="mb-4 col-span-full xl:mb-2">
@@ -19,7 +19,7 @@
             <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
           </div>
         </div>
-        {{ if and .permissionManageTemplates .isOriginOrLeaf (not .isRestrictedServer) }}
+        {{ if .permissionManageTemplates }}
         <button @click.prevent="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />

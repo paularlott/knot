@@ -7,8 +7,6 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/leaf"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -16,7 +14,7 @@ import (
 
 func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 	remoteClient := r.Context().Value("remote_client")
-	if !server_info.RestrictedLeaf && remoteClient != nil {
+	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 		templateVars, code, err := client.GetTemplateVars()
 		if err != nil {
@@ -39,10 +37,6 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, variable := range templateVars {
-			if server_info.RestrictedLeaf && !variable.Local {
-				continue
-			}
-
 			v := apiclient.TemplateVar{
 				Id:         variable.Id,
 				Name:       variable.Name,
@@ -87,15 +81,8 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Force variables to local for restricted leaf nodes
-	if server_info.RestrictedLeaf {
-		request.Local = true
-		request.Restricted = false
-		request.Location = ""
-	}
-
 	remoteClient := r.Context().Value("remote_client")
-	if !server_info.RestrictedLeaf && remoteClient != nil {
+	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 		code, err := client.UpdateTemplateVar(templateVarId, request.Name, request.Location, request.Local, request.Value, request.Protected, request.Restricted)
 		if err != nil {
@@ -112,18 +99,6 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if server_info.RestrictedLeaf && !templateVar.Local {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage template variables"})
-			return
-		}
-
-		// if changing to a restricted mode send delete to leaf nodes
-		var sendDelete = false
-
-		if (request.Local && !templateVar.Local) || (request.Restricted && !templateVar.Restricted) {
-			sendDelete = true
-		}
-
 		templateVar.Name = request.Name
 		templateVar.Location = request.Location
 		templateVar.Local = request.Local
@@ -136,12 +111,6 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
-		}
-
-		if sendDelete {
-			leaf.DeleteTemplateVar(templateVarId, nil)
-		} else {
-			leaf.UpdateTemplateVar(templateVar, nil)
 		}
 
 		audit.Log(
@@ -188,15 +157,8 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Force variables to local for restricted leaf nodes
-	if server_info.RestrictedLeaf {
-		request.Local = true
-		request.Restricted = false
-		request.Location = ""
-	}
-
 	remoteClient := r.Context().Value("remote_client")
-	if !server_info.RestrictedLeaf && remoteClient != nil {
+	if remoteClient != nil {
 		var code int
 		var err error
 
@@ -214,8 +176,6 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
-
-		leaf.UpdateTemplateVar(templateVar, nil)
 
 		id = templateVar.Id
 
@@ -250,7 +210,7 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	remoteClient := r.Context().Value("remote_client")
-	if !server_info.RestrictedLeaf && remoteClient != nil {
+	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 		code, err := client.DeleteTemplateVar(templateVarId)
 		if err != nil {
@@ -265,19 +225,12 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if server_info.RestrictedLeaf && !templateVar.Local {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage template variables"})
-			return
-		}
-
 		// Delete the template variable
 		err = db.DeleteTemplateVar(templateVar)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
-
-		leaf.DeleteTemplateVar(templateVarId, nil)
 
 		user := r.Context().Value("user").(*model.User)
 		audit.Log(
@@ -307,7 +260,7 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	remoteClient := r.Context().Value("remote_client")
-	if !server_info.RestrictedLeaf && remoteClient != nil {
+	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 		templateVar, code, err := client.GetTemplateVar(templateVarId)
 		if err != nil {
@@ -323,7 +276,7 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
-		if templateVar == nil || (server_info.RestrictedLeaf && !templateVar.Local) {
+		if templateVar == nil {
 			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "Template variable not found"})
 			return
 		}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 
 	"github.com/rs/zerolog/log"
@@ -30,7 +29,6 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 		if err := db.SaveSpace(space, []string{"VolumeData"}); err != nil {
 			log.Error().Msgf("nomad: saving space %s error %s", space.Id, err)
 		}
-		origin.UpdateSpace(space, []string{"VolumeData"})
 	}()
 
 	log.Debug().Msg("nomad: checking for required volumes")
@@ -94,7 +92,6 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 
 	defer func() {
 		db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
-		origin.UpdateSpace(space, []string{"VolumeData"})
 	}()
 
 	// For all volumes in the space delete them
@@ -156,7 +153,6 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 		log.Error().Msgf("nomad: creating space job %s error %s", space.Id, err)
 		return err
 	}
-	origin.UpdateSpace(space, []string{"NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location"})
 
 	client.MonitorJobState(space)
 
@@ -181,7 +177,6 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
 		log.Debug().Msgf("nomad: deleting space job %s error %s", space.Id, err)
 		return err
 	}
-	origin.UpdateSpace(space, []string{"IsPending"})
 
 	client.MonitorJobState(space)
 
@@ -230,6 +225,5 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 		if err != nil {
 			log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
 		}
-		origin.UpdateSpace(space, []string{"IsPending", "IsDeployed"})
 	}()
 }

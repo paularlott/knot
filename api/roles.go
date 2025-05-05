@@ -8,7 +8,6 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/leaf"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -122,7 +121,6 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	model.SaveRoleToCache(role)
-	leaf.UpdateRole(role, nil)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -157,7 +155,6 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 			Permissions: request.Permissions,
 		}
 		model.SaveRoleToCache(role)
-		leaf.UpdateRole(role, nil)
 
 		rest.SendJSON(http.StatusCreated, w, r, apiclient.RoleResponse{
 			Status: true,
@@ -173,7 +170,6 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 		}
 
 		model.SaveRoleToCache(role)
-		leaf.UpdateRole(role, nil)
 
 		audit.Log(
 			user.Username,
@@ -254,7 +250,6 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	model.DeleteRoleFromCache(roleId)
-	leaf.DeleteRole(roleId, nil)
 
 	w.WriteHeader(http.StatusOK)
 }

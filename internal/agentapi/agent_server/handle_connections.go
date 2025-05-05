@@ -8,8 +8,6 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/internal/origin_leaf/leaf"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
 
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
@@ -244,9 +242,6 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				log.Error().Msgf("agent: updating space description: %v", err)
 				return
 			}
-
-			origin.UpdateSpace(space, []string{"Description"})
-			leaf.UpdateSpace(space, []string{"Description"}, nil)
 
 			// Single shot command so done
 			return

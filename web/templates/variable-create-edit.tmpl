@@ -26,14 +26,12 @@
           </div>
           <div x-show="!valueValid" class="error-message" x-cloak>Value must be less than 10MB.</div>
         </div>
-        {{ if not .isRestrictedServer}}
         <div>
           <label for="location" class="form-label">Location</label>
           <input type="text" class="form-field disabled:opacity-40" name="location" x-on:keyup.debounce.500ms="checkLocation()" :class="{'form-field-error': !locationValid}" placeholder="Optional Location Restriction" x-model="formData.location" :disabled="formData.local">
           <div x-show="!locationValid" class="error-message">Location is limited to 64 characters.</div>
           <div class="description">Location is an optional field that can be used to restrict the use of this variable to a specific location. If set, the variable will only be available in the specified location.</div>
         </div>
-        {{ end }}
         <div class="grid grid-cols-1 md:grid-cols-3 md:gap-4">
           <div class="col-span-1">
             <div class="col-span-1 mb-4 md:mb-0">
@@ -45,7 +43,6 @@
               <div class="description">Protected variables are encrypted and cannot be viewed once saved.</div>
             </div>
           </div>
-          {{ if not .isRestrictedServer}}
           <div class="col-span-1">
             <div class="col-span-1 mb-4 md:mb-0">
               <label class="inline-flex items-center mb-5 cursor-pointer">
@@ -64,7 +61,6 @@
             </label>
             <div class="description">A local variables will only be available on the server it was created on.</div>
           </div>
-          {{ end }}
         </div>
 
         <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>

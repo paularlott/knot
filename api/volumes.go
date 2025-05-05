@@ -11,7 +11,6 @@ import (
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
@@ -21,7 +20,7 @@ import (
 func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !server_info.RestrictedLeaf {
+	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		volumes, code, err := client.GetVolumes()
@@ -85,7 +84,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !server_info.RestrictedLeaf {
+	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		code, err := client.UpdateVolume(volumeId, request.Name, request.Definition)
@@ -150,7 +149,7 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !server_info.RestrictedLeaf {
+	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		response, code, err := client.CreateVolume(request.Name, request.Definition, request.LocalContainer)
@@ -203,7 +202,7 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !server_info.RestrictedLeaf {
+	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		code, err := client.DeleteVolume(volumeId)
@@ -261,7 +260,7 @@ func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !server_info.RestrictedLeaf {
+	if remoteClient != nil {
 		client := remoteClient.(*apiclient.ApiClient)
 
 		volume, code, err := client.GetVolume(volumeId)
@@ -308,7 +307,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then fetch the volume information from the remote
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !server_info.RestrictedLeaf {
+	if remoteClient != nil {
 		client = remoteClient.(*apiclient.ApiClient)
 
 		volume, code, err = client.GetVolumeObject(volumeId)
@@ -363,12 +362,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if client != nil {
-		// Tell remote volume started
-		origin.UpdateVolume(volume, []string{"Active", "Location"})
-	} else {
-		db.SaveVolume(volume, []string{"Active", "Location"})
-	}
+	db.SaveVolume(volume, []string{"Active", "Location"})
 
 	rest.SendJSON(http.StatusOK, w, r, &apiclient.StartVolumeResponse{
 		Status:   true,
@@ -392,7 +386,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 
 	// If remote client present then forward the request
 	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !server_info.RestrictedLeaf {
+	if remoteClient != nil {
 		client = remoteClient.(*apiclient.ApiClient)
 
 		volume, code, err = client.GetVolumeObject(volumeId)
@@ -441,12 +435,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if client != nil {
-		// Tell remote volume stopped
-		origin.UpdateVolume(volume, []string{"Active", "Location"})
-	} else {
-		db.SaveVolume(volume, []string{"Active", "Location"})
-	}
+	db.SaveVolume(volume, []string{"Active", "Location"})
 
 	w.WriteHeader(http.StatusOK)
 }

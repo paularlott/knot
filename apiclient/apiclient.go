@@ -1,7 +1,6 @@
 package apiclient
 
 import (
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/rest"
 
 	"github.com/spf13/viper"
@@ -25,13 +24,10 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *ApiClient
 
 	c.httpClient.SetContentType(rest.ContentTypeMsgPack)
 
-	if server_info.IsLeaf {
-		c.httpClient.AppendUserAgent("Remote (" + server_info.LeafLocation + ")")
-	}
-
 	return c
 }
 
+// TODO Remove this as server.origin_server isn't defined any more!
 func NewRemoteToken(token string) *ApiClient {
 	c := NewClient(viper.GetString("server.origin_server"), token, viper.GetBool("tls_skip_verify"))
 	return c

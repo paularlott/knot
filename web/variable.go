@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/rs/zerolog/log"
@@ -12,7 +11,7 @@ import (
 
 func HandleTemplateVarCreate(w http.ResponseWriter, r *http.Request) {
 	user, data := getCommonTemplateData(r)
-	if !user.HasPermission(model.PermissionManageVariables) && !server_info.RestrictedLeaf {
+	if !user.HasPermission(model.PermissionManageVariables) {
 		showPageForbidden(w, r)
 		return
 	}

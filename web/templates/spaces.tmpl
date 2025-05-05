@@ -54,7 +54,6 @@
               </label>
             </div>
 
-            {{ if .isOriginOrLeaf }}
             <div class="mb-4">
               <label class="flex items-center cursor-pointer mb-4">
                 <input type="checkbox" @change="searchChanged" class="sr-only peer" value="1" :checked="showLocalOnly" x-model="showLocalOnly">
@@ -62,7 +61,6 @@
                 <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">This Location</span>
               </label>
             </div>
-            {{ end }}
 
             <div class="mb-4">
               <label class="flex items-center cursor-pointer mb-4">

@@ -3,8 +3,6 @@ package api
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/internal/origin_leaf"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/middleware"
 )
 
@@ -98,10 +96,4 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/auth", HandleAuthorization)
 	router.HandleFunc("POST /api/auth/web", HandleAuthorization)
 	router.HandleFunc("GET /api/auth/using-totp", HandleUsingTotp)
-
-	// Additional endpoints exposed by origin servers
-	if server_info.IsOrigin {
-		// Remote server authenticated routes
-		router.HandleFunc("GET /api/leaf-server", middleware.LeafServerAuth(origin_leaf.OriginListenAndServe))
-	}
 }

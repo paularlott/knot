@@ -11,7 +11,6 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 
 	"github.com/docker/docker/api/types/container"
@@ -166,7 +165,6 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 		return err
 	}
-	origin.UpdateSpace(space, []string{"IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location"})
 
 	// launch the container in a go routing to avoid blocking
 	go func() {
@@ -177,7 +175,6 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			if err := db.SaveSpace(space, []string{"IsPending"}); err != nil {
 				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 			}
-			origin.UpdateSpace(space, []string{"IsPending"})
 		}()
 
 		// Create a Docker client
@@ -256,8 +253,6 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 			return
 		}
-
-		origin.UpdateSpace(space, []string{"ContainerId", "IsPending", "IsDeployed"})
 	}()
 
 	return nil
@@ -273,7 +268,6 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 	if err != nil {
 		return err
 	}
-	origin.UpdateSpace(space, []string{"IsPending"})
 
 	// Run the delete in a go routine to avoid blocking
 	go func() {
@@ -283,7 +277,6 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 			if err := db.SaveSpace(space, []string{"IsPending"}); err != nil {
 				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 			}
-			origin.UpdateSpace(space, []string{"VolumeData"})
 		}()
 
 		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -315,8 +308,6 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 			log.Error().Msgf("docker: deleting space job %s error %s", space.Id, err)
 			return
 		}
-
-		origin.UpdateSpace(space, []string{"IsPending", "IsDeployed"})
 	}()
 
 	return nil
@@ -352,7 +343,6 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 
 	defer func() {
 		db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
-		origin.UpdateSpace(space, []string{"VolumeData"})
 	}()
 
 	// Find the volumes that are defined but not yet created in the space and create them
@@ -412,7 +402,6 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 
 	defer func() {
 		db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
-		origin.UpdateSpace(space, []string{"VolumeData"})
 	}()
 
 	// For all volumes in the space delete them

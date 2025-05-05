@@ -260,7 +260,7 @@ func showPageForbidden(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := r.Context().Value("user").(*model.User)
-	canUseSpaces := user != nil && (user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces) || server_info.RestrictedLeaf)
+	canUseSpaces := user != nil && (user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces))
 
 	w.WriteHeader(http.StatusForbidden)
 	err = tmpl.Execute(w, map[string]interface{}{
@@ -357,25 +357,21 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"withDownloads":             withDownloads,
 		"hideSupportLinks":          viper.GetBool("server.ui.hide_support_links"),
 		"hideAPITokens":             viper.GetBool("server.ui.hide_api_tokens"),
-		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers) && !server_info.RestrictedLeaf,
-		"permissionManageGroups":    user.HasPermission(model.PermissionManageGroups) && !server_info.RestrictedLeaf,
-		"permissionManageRoles":     user.HasPermission(model.PermissionManageRoles) && !server_info.RestrictedLeaf,
-		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates) && !server_info.RestrictedLeaf,
-		"permissionManageVariables": user.HasPermission(model.PermissionManageVariables) && !server_info.RestrictedLeaf,
-		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces) && !server_info.RestrictedLeaf,
-		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes) || server_info.RestrictedLeaf,
-		"permissionUseSpaces":       user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces) || server_info.RestrictedLeaf,
+		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers),
+		"permissionManageGroups":    user.HasPermission(model.PermissionManageGroups),
+		"permissionManageRoles":     user.HasPermission(model.PermissionManageRoles),
+		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
+		"permissionManageVariables": user.HasPermission(model.PermissionManageVariables),
+		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces),
+		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes),
+		"permissionUseSpaces":       user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces),
 		"permissionUseTunnels":      user.HasPermission(model.PermissionUseTunnels) && viper.GetString("server.listen_tunnel") != "",
-		"permissionViewAuditLogs":   user.HasPermission(model.PermissionViewAuditLogs) && !server_info.RestrictedLeaf && database.GetInstance().HasAuditLog(),
-		"permissionTransferSpaces":  user.HasPermission(model.PermissionTransferSpaces) && !server_info.RestrictedLeaf,
-		"permissionShareSpaces":     user.HasPermission(model.PermissionShareSpaces) || server_info.RestrictedLeaf,
+		"permissionViewAuditLogs":   user.HasPermission(model.PermissionViewAuditLogs) && database.GetInstance().HasAuditLog(),
+		"permissionTransferSpaces":  user.HasPermission(model.PermissionTransferSpaces),
+		"permissionShareSpaces":     user.HasPermission(model.PermissionShareSpaces),
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"location":                  server_info.LeafLocation,
-		"isOrigin":                  server_info.IsOrigin,
-		"isLeaf":                    server_info.IsLeaf,
-		"isOriginOrLeaf":            server_info.IsOrigin || server_info.IsLeaf,
-		"isRestrictedServer":        server_info.RestrictedLeaf,
 		"timezone":                  server_info.Timezone,
 		"disableSpaceCreate":        viper.GetBool("server.disable_space_create"),
 		"totpEnabled":               viper.GetBool("server.totp.enabled"),
