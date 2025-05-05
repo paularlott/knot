@@ -2,8 +2,6 @@ package apiclient
 
 import (
 	"github.com/paularlott/knot/util/rest"
-
-	"github.com/spf13/viper"
 )
 
 // Enum for authorization methods
@@ -24,18 +22,6 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *ApiClient
 
 	c.httpClient.SetContentType(rest.ContentTypeMsgPack)
 
-	return c
-}
-
-// TODO Remove this as server.origin_server isn't defined any more!
-func NewRemoteToken(token string) *ApiClient {
-	c := NewClient(viper.GetString("server.origin_server"), token, viper.GetBool("tls_skip_verify"))
-	return c
-}
-
-func NewRemoteSession(token string) *ApiClient {
-	c := NewRemoteToken(token)
-	c.httpClient.UseSessionCookie(true)
 	return c
 }
 

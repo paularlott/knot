@@ -22,6 +22,8 @@ type Session struct {
 	ExpiresAfter    time.Time `json:"expires_after" db:"expires_after"`
 }
 
+// TODO Look at if we still need remote_session_id
+
 func NewSession(r *http.Request, userId string, remoteSessionId string) *Session {
 
 	// Get the users IP

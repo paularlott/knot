@@ -16,7 +16,6 @@ import (
 
 	"github.com/paularlott/knot/api"
 	"github.com/paularlott/knot/api/api_utils"
-	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
@@ -592,41 +591,6 @@ var serverCmd = &cobra.Command{
 		log.Info().Msg("server: shutdown")
 		os.Exit(0)
 	},
-}
-
-// periodically ping the origin server to keep remote sessions alive
-func remoteSessionKeepAlive() {
-	log.Info().Msg("server: starting remote server session refresh services")
-
-	// Start a go routine that pings all sessions to keep them alive
-	go func() {
-		for {
-			time.Sleep(30 * time.Minute)
-
-			log.Debug().Msg("leaf: refreshing remote sessions")
-
-			db := database.GetSessionStorage()
-			sessions, err := db.GetSessions()
-			if err != nil {
-				log.Error().Msgf("failed to get sessions: %s", err.Error())
-				continue
-			}
-
-			var count int = 0
-			for _, session := range sessions {
-				if session.RemoteSessionId != "" {
-					count++
-					client := apiclient.NewRemoteSession(session.RemoteSessionId)
-					_, err := client.Ping()
-					if err != nil {
-						log.Error().Msgf("failed to ping session: %s", err.Error())
-					}
-				}
-			}
-
-			log.Debug().Msgf("leaf: refreshed %d remote sessions", count)
-		}
-	}()
 }
 
 func startupCheckPendingSpaces() {

@@ -77,62 +77,49 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// If remote client present then forward the request
-	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
-		client := remoteClient.(*apiclient.ApiClient)
-
-		code := 0
-		newUserId, code, err = client.CreateUser(&request)
+	// Check the groups are present in the system
+	for _, groupId := range request.Groups {
+		_, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(code, w, r, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
 			return
 		}
-	} else {
-		// Check the groups are present in the system
-		for _, groupId := range request.Groups {
-			_, err := db.GetGroup(groupId)
-			if err != nil {
-				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
-				return
-			}
-		}
-
-		// Create the user
-		userNew := model.NewUser(request.Username, request.Email, request.Password, userRoles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.GitHubUsername, request.ComputeUnits, request.StorageUnits, request.MaxTunnels)
-		if request.ServicePassword != "" {
-			userNew.ServicePassword = request.ServicePassword
-		}
-		err = db.SaveUser(userNew, nil)
-		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		newUserId = userNew.Id
-
-		// Don't log the initial setup
-		if middleware.HasUsers {
-			user := r.Context().Value("user").(*model.User)
-			audit.Log(
-				user.Username,
-				model.AuditActorTypeUser,
-				model.AuditEventUserCreate,
-				fmt.Sprintf("Created user %s (%s)", userNew.Username, userNew.Email),
-				&map[string]interface{}{
-					"agent":           r.UserAgent(),
-					"IP":              r.RemoteAddr,
-					"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-					"user_id":         userNew.Id,
-					"user_name":       userNew.Username,
-					"user_email":      userNew.Email,
-				},
-			)
-		}
-
-		// Tell the middleware that users are present
-		middleware.HasUsers = true
 	}
+
+	// Create the user
+	userNew := model.NewUser(request.Username, request.Email, request.Password, userRoles, request.Groups, request.SSHPublicKey, request.PreferredShell, request.Timezone, request.MaxSpaces, request.GitHubUsername, request.ComputeUnits, request.StorageUnits, request.MaxTunnels)
+	if request.ServicePassword != "" {
+		userNew.ServicePassword = request.ServicePassword
+	}
+	err = db.SaveUser(userNew, nil)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	newUserId = userNew.Id
+
+	// Don't log the initial setup
+	if middleware.HasUsers {
+		user := r.Context().Value("user").(*model.User)
+		audit.Log(
+			user.Username,
+			model.AuditActorTypeUser,
+			model.AuditEventUserCreate,
+			fmt.Sprintf("Created user %s (%s)", userNew.Username, userNew.Email),
+			&map[string]interface{}{
+				"agent":           r.UserAgent(),
+				"IP":              r.RemoteAddr,
+				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"user_id":         userNew.Id,
+				"user_name":       userNew.Username,
+				"user_email":      userNew.Email,
+			},
+		)
+	}
+
+	// Tell the middleware that users are present
+	middleware.HasUsers = true
 
 	// Return the user ID
 	rest.SendJSON(http.StatusCreated, w, r, &apiclient.CreateUserResponse{
@@ -159,22 +146,10 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If remote client present then forward the request
-	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
-		client := remoteClient.(*apiclient.ApiClient)
-
-		user, err = client.GetUser(userId)
-		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-	} else {
-		user, err = db.GetUser(userId)
-		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
+	user, err = db.GetUser(userId)
+	if err != nil {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	// Build a json array of data to return to the client
@@ -247,7 +222,6 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
 	requiredState := r.URL.Query().Get("state")
 	inLocation := r.URL.Query().Get("location")
-	local := r.URL.Query().Get("local") == "true"
 
 	if requiredState == "" {
 		requiredState = "all"
@@ -258,85 +232,72 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 		inLocation = server_info.LeafLocation
 	}
 
-	// If remote client present then forward the request
-	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil && !local {
-		client := remoteClient.(*apiclient.ApiClient)
-		userData, err := client.GetUsers(requiredState, server_info.LeafLocation)
-		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		rest.SendJSON(http.StatusOK, w, r, userData)
-	} else {
-		var userData = &apiclient.UserInfoList{
-			Count: 0,
-			Users: []apiclient.UserInfo{},
-		}
-
-		db := database.GetInstance()
-		users, err := db.GetUsers()
-		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		for _, user := range users {
-			if requiredState == "all" || (requiredState == "active" && user.Active) || (requiredState == "inactive" && !user.Active) {
-				data := apiclient.UserInfo{}
-
-				data.Id = user.Id
-				data.Username = user.Username
-				data.Email = user.Email
-				data.Roles = user.Roles
-				data.Groups = user.Groups
-				data.Active = user.Active
-				data.MaxSpaces = user.MaxSpaces
-				data.ComputeUnits = user.ComputeUnits
-				data.StorageUnits = user.StorageUnits
-				data.MaxTunnels = user.MaxTunnels
-				data.Current = user.Id == activeUser.Id
-
-				// Get the users quota
-				quota, err := database.GetUserQuota(user)
-				if err != nil {
-					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-					return
-				}
-
-				data.MaxSpaces = quota.MaxSpaces
-				data.ComputeUnits = quota.ComputeUnits
-				data.StorageUnits = quota.StorageUnits
-				data.MaxTunnels = quota.MaxTunnels
-
-				if user.LastLoginAt != nil {
-					t := user.LastLoginAt.UTC()
-					data.LastLoginAt = &t
-				} else {
-					data.LastLoginAt = nil
-				}
-
-				// Get the users usage
-				usage, err := database.GetUserUsage(user.Id, inLocation)
-				if err != nil {
-					rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-					return
-				}
-
-				data.NumberSpaces = usage.NumberSpaces
-				data.NumberSpacesDeployed = usage.NumberSpacesDeployed
-				data.NumberSpacesDeployedInLocation = usage.NumberSpacesDeployedInLocation
-				data.UsedComputeUnits = usage.ComputeUnits
-				data.UsedStorageUnits = usage.StorageUnits
-
-				userData.Users = append(userData.Users, data)
-				userData.Count++
-			}
-		}
-
-		rest.SendJSON(http.StatusOK, w, r, userData)
+	var userData = &apiclient.UserInfoList{
+		Count: 0,
+		Users: []apiclient.UserInfo{},
 	}
+
+	db := database.GetInstance()
+	users, err := db.GetUsers()
+	if err != nil {
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	for _, user := range users {
+		if requiredState == "all" || (requiredState == "active" && user.Active) || (requiredState == "inactive" && !user.Active) {
+			data := apiclient.UserInfo{}
+
+			data.Id = user.Id
+			data.Username = user.Username
+			data.Email = user.Email
+			data.Roles = user.Roles
+			data.Groups = user.Groups
+			data.Active = user.Active
+			data.MaxSpaces = user.MaxSpaces
+			data.ComputeUnits = user.ComputeUnits
+			data.StorageUnits = user.StorageUnits
+			data.MaxTunnels = user.MaxTunnels
+			data.Current = user.Id == activeUser.Id
+
+			// Get the users quota
+			quota, err := database.GetUserQuota(user)
+			if err != nil {
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+
+			data.MaxSpaces = quota.MaxSpaces
+			data.ComputeUnits = quota.ComputeUnits
+			data.StorageUnits = quota.StorageUnits
+			data.MaxTunnels = quota.MaxTunnels
+
+			if user.LastLoginAt != nil {
+				t := user.LastLoginAt.UTC()
+				data.LastLoginAt = &t
+			} else {
+				data.LastLoginAt = nil
+			}
+
+			// Get the users usage
+			usage, err := database.GetUserUsage(user.Id, inLocation)
+			if err != nil {
+				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+
+			data.NumberSpaces = usage.NumberSpaces
+			data.NumberSpacesDeployed = usage.NumberSpacesDeployed
+			data.NumberSpacesDeployedInLocation = usage.NumberSpacesDeployedInLocation
+			data.UsedComputeUnits = usage.ComputeUnits
+			data.UsedStorageUnits = usage.StorageUnits
+
+			userData.Users = append(userData.Users, data)
+			userData.Count++
+		}
+	}
+
+	rest.SendJSON(http.StatusOK, w, r, userData)
 }
 
 func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -383,31 +344,10 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load the existing user
-	var existsLocal bool = true
-	var user *model.User
-	var client *apiclient.ApiClient = nil
-	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
-		client = remoteClient.(*apiclient.ApiClient)
-
-		user, err = client.GetUser(userId)
-		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		// Test if the user exists locally
-		_, err = db.GetUser(userId)
-		if err != nil {
-			existsLocal = false
-		}
-	} else {
-		user, err = db.GetUser(userId)
-		if err != nil {
-			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
+	user, err := db.GetUser(userId)
+	if err != nil {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	user.Email = request.Email
@@ -463,58 +403,45 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredSheel", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels"}
 
-	// If on leaf
-	if client != nil {
-		user.Password = request.Password
-
-		err = client.UpdateUser(user)
-		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-	} else {
-		// Update the user password
-		if len(request.Password) > 0 {
-			user.SetPassword(request.Password)
-			saveFields = append(saveFields, "Password")
-		}
-
-		// Check the groups are present in the system
-		for _, groupId := range request.Groups {
-			_, err := db.GetGroup(groupId)
-			if err != nil {
-				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
-				return
-			}
-		}
-
-		audit.Log(
-			activeUser.Username,
-			model.AuditActorTypeUser,
-			model.AuditEventUserUpdate,
-			fmt.Sprintf("Updated user %s (%s)", user.Username, user.Email),
-			&map[string]interface{}{
-				"agent":           r.UserAgent(),
-				"IP":              r.RemoteAddr,
-				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-				"user_id":         user.Id,
-				"user_name":       user.Username,
-				"user_email":      user.Email,
-			},
-		)
+	// Update the user password
+	if len(request.Password) > 0 {
+		user.SetPassword(request.Password)
+		saveFields = append(saveFields, "Password")
 	}
 
-	if existsLocal {
-		// Save
-		err = db.SaveUser(user, saveFields)
+	// Check the groups are present in the system
+	for _, groupId := range request.Groups {
+		_, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
 			return
 		}
-
-		// Update the user's spaces, ssh keys or stop spaces
-		go api_utils.UpdateUserSpaces(user)
 	}
+
+	audit.Log(
+		activeUser.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventUserUpdate,
+		fmt.Sprintf("Updated user %s (%s)", user.Username, user.Email),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"user_id":         user.Id,
+			"user_name":       user.Username,
+			"user_email":      user.Email,
+		},
+	)
+
+	// Save
+	err = db.SaveUser(user, saveFields)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Update the user's spaces, ssh keys or stop spaces
+	go api_utils.UpdateUserSpaces(user)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -535,20 +462,9 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If remote client present then forward the request
-	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
-		client := remoteClient.(*apiclient.ApiClient)
-		err := client.DeleteUser(userId)
-		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-	}
-
 	// Load the user to delete
 	toDelete, err := db.GetUser(userId)
-	if err != nil && remoteClient == nil {
+	if err != nil {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user %s not found", userId)})
 		return
 	}
@@ -560,7 +476,7 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if remoteClient == nil && toDelete != nil {
+	if toDelete != nil {
 		audit.Log(
 			user.Username,
 			model.AuditActorTypeUser,
@@ -586,20 +502,6 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 
 	if !validate.UUID(userId) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
-		return
-	}
-
-	// If remote client present then forward the request
-	remoteClient := r.Context().Value("remote_client")
-	if remoteClient != nil {
-		client := remoteClient.(*apiclient.ApiClient)
-		userQuota, err := client.GetUserQuota(userId)
-		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		rest.SendJSON(http.StatusOK, w, r, userQuota)
 		return
 	}
 
