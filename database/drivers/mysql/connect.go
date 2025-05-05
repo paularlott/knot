@@ -12,6 +12,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	healthCheckInterval = 10 * time.Second
+	gcInterval          = 1 * time.Minute // TODO change interval to 1h and keep to 7days
+	garbageMaxAge       = 10 * time.Minute
+)
+
 type MySQLDriver struct {
 	connection *sql.DB
 }
@@ -79,9 +85,10 @@ func (db *MySQLDriver) Connect() error {
 
 	// Start a go routine to monitor the database
 	go func() {
-		for {
-			time.Sleep(10 * time.Second)
+		internal := time.NewTicker(healthCheckInterval)
+		defer internal.Stop()
 
+		for range internal.C {
 			log.Debug().Msg("db: testing MySQL connection")
 
 			// Ping the database
@@ -93,6 +100,45 @@ func (db *MySQLDriver) Connect() error {
 				// Attempt to reconnect
 				db.realConnect()
 			}
+		}
+	}()
+
+	// Start a go routine to clear deleted items from the database
+	go func() {
+		intervalTimer := time.NewTicker(gcInterval)
+		defer intervalTimer.Stop()
+
+		for range intervalTimer.C {
+			log.Debug().Msg("db: running garbage collector")
+
+			before := time.Now().UTC()
+			before = before.Add(-garbageMaxAge)
+
+			// Remove old groups
+			_, err := db.connection.Exec("DELETE FROM groups WHERE is_deleted > 0 AND updated_at < ?", before)
+			if err != nil {
+				log.Error().Err(err).Msg("db: failed to delete old groups")
+			}
+
+			// Remove old roles
+			_, err = db.connection.Exec("DELETE FROM roles WHERE is_deleted > 0 AND updated_at < ?", before)
+			if err != nil {
+				log.Error().Err(err).Msg("db: failed to delete old roles")
+			}
+
+			// Remove old spaces
+			_, err = db.connection.Exec("DELETE FROM spaces WHERE is_deleted > 0 AND updated_at < ?", before)
+			if err != nil {
+				log.Error().Err(err).Msg("db: failed to delete old spaces")
+			}
+
+			// Remove old users
+			_, err = db.connection.Exec("DELETE FROM users WHERE is_deleted > 0 AND updated_at < ?", before)
+			if err != nil {
+				log.Error().Err(err).Msg("db: failed to delete old users")
+			}
+
+			// TODO Add cleanup for other tables
 		}
 	}()
 

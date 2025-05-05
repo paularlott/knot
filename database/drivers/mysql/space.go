@@ -67,10 +67,8 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 		}
 	}
 
-	now := time.Now().UTC()
 	if doUpdate {
 		// Update the update time
-		space.UpdatedAt = now
 		if len(updateFields) > 0 && !util.InArray(updateFields, "UpdatedAt") {
 			updateFields = append(updateFields, "UpdatedAt")
 		}
@@ -117,6 +115,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 		}
 
 		// Add any new alt names
+		now := time.Now().UTC()
 		for _, name := range space.AltNames {
 			found := false
 			for _, altName := range altNames {

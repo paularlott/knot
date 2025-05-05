@@ -46,13 +46,14 @@ var PermissionNames = []PermissionName{
 
 // Role
 type Role struct {
-	Id            string    `json:"role_id" db:"role_id,pk"`
-	Name          string    `json:"name" db:"name"`
-	Permissions   []uint16  `json:"permissions" db:"permissions,json"`
-	CreatedUserId string    `json:"created_user_id" db:"created_user_id"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
-	UpdatedUserId string    `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+	Id            string    `json:"role_id" db:"role_id,pk" msgpack:"role_id"`
+	Name          string    `json:"name" db:"name" msgpack:"name"`
+	Permissions   []uint16  `json:"permissions" db:"permissions,json" msgpack:"permissions"`
+	IsDeleted     bool      `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	CreatedUserId string    `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId string    `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 // Roles

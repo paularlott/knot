@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/google/uuid"
 	driver_badgerdb "github.com/paularlott/knot/database/drivers/badgerdb"
 	driver_memory "github.com/paularlott/knot/database/drivers/memory"
 	driver_mysql "github.com/paularlott/knot/database/drivers/mysql"
@@ -84,6 +85,10 @@ type DbDriver interface {
 	SaveAuditLog(auditLog *model.AuditLogEntry) error
 	GetNumberOfAuditLogs() (int, error)
 	GetAuditLogs(offset int, limit int) ([]*model.AuditLogEntry, error)
+
+	// Config Values
+	GetCfgValue(name string) (*model.CfgValue, error)
+	SaveCfgValue(cfgValue *model.CfgValue) error
 }
 
 type SessionStorage interface {
@@ -155,6 +160,25 @@ func initDrivers() {
 				driver := &driver_memory.MemoryDbDriver{}
 				driver.Connect()
 				dbSessionInstance = driver
+			}
+		}
+
+		// Generate a node ID if it doesn't exist
+		nodeId, err := dbInstance.GetCfgValue("node_id")
+		if err != nil || nodeId == nil {
+			log.Debug().Msg("db: node_id not found, generating a new one")
+
+			u, err := uuid.NewV7()
+			if err != nil {
+				log.Fatal().Err(err).Msg("db: failed to generate node_id")
+			}
+
+			dbInstance.SaveCfgValue(&model.CfgValue{
+				Name:  "node_id",
+				Value: u.String(),
+			})
+			if err != nil {
+				log.Fatal().Err(err).Msg("db: failed to save node_id")
 			}
 		}
 	})

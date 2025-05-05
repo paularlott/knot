@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/paularlott/knot/database/model"
@@ -12,7 +11,6 @@ import (
 
 func (db *BadgerDbDriver) SaveRole(role *model.Role) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
-		role.UpdatedAt = time.Now().UTC()
 		data, err := json.Marshal(role)
 		if err != nil {
 			return err

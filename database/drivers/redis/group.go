@@ -5,14 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 )
 
 func (db *RedisDbDriver) SaveGroup(group *model.Group) error {
-	group.UpdatedUserId = group.CreatedUserId
-	group.UpdatedAt = time.Now().UTC()
 	data, err := json.Marshal(group)
 	if err != nil {
 		return err

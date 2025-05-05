@@ -57,26 +57,27 @@ func (v *VolumeDataMap) Scan(value interface{}) error {
 
 // Space object
 type Space struct {
-	Id               string        `json:"space_id" db:"space_id,pk"`
-	ParentSpaceId    string        `json:"parent_space_id" db:"parent_space_id"`
-	UserId           string        `json:"user_id" db:"user_id"`
-	TemplateId       string        `json:"template_id" db:"template_id"`
-	SharedWithUserId string        `json:"shared_with_user_id" db:"shared_with_user_id"`
-	Name             string        `json:"name" db:"name"`
-	Description      string        `json:"description" db:"description"`
-	Location         string        `json:"location" db:"location"`
-	Shell            string        `json:"shell" db:"shell"`
-	TemplateHash     string        `json:"template_hash" db:"template_hash"`
-	NomadNamespace   string        `json:"nomad_namespace" db:"nomad_namespace"`
-	ContainerId      string        `json:"container_id" db:"container_id"`
-	VolumeData       VolumeDataMap `json:"volume_data" db:"volume_data"`
-	SSHHostSigner    string        `json:"ssh_host_signer" db:"ssh_host_signer"`
-	IsDeployed       bool          `json:"is_deployed" db:"is_deployed"`
-	IsPending        bool          `json:"is_pending" db:"is_pending"` // Flags if the space is pending a state change, starting or stopping
-	IsDeleting       bool          `json:"is_deleting" db:"is_deleting"`
-	AltNames         []string      `json:"alt_names"`
-	CreatedAt        time.Time     `json:"created_at" db:"created_at"`
-	UpdatedAt        time.Time     `json:"updated_at" db:"updated_at"`
+	Id               string        `json:"space_id" db:"space_id,pk" msgpack:"space_id"`
+	ParentSpaceId    string        `json:"parent_space_id" db:"parent_space_id" msgpack:"parent_space_id"`
+	UserId           string        `json:"user_id" db:"user_id" msgpack:"user_id"`
+	TemplateId       string        `json:"template_id" db:"template_id" msgpack:"template_id"`
+	SharedWithUserId string        `json:"shared_with_user_id" db:"shared_with_user_id" msgpack:"shared_with_user_id"`
+	Name             string        `json:"name" db:"name" msgpack:"name"`
+	Description      string        `json:"description" db:"description" msgpack:"description"`
+	Location         string        `json:"location" db:"location" msgpack:"location"`
+	Shell            string        `json:"shell" db:"shell" msgpack:"shell"`
+	TemplateHash     string        `json:"template_hash" db:"template_hash" msgpack:"template_hash"`
+	NomadNamespace   string        `json:"nomad_namespace" db:"nomad_namespace" msgpack:"nomad_namespace"`
+	ContainerId      string        `json:"container_id" db:"container_id" msgpack:"container_id"`
+	VolumeData       VolumeDataMap `json:"volume_data" db:"volume_data" msgpack:"volume_data"`
+	SSHHostSigner    string        `json:"ssh_host_signer" db:"ssh_host_signer" msgpack:"ssh_host_signer"`
+	IsDeployed       bool          `json:"is_deployed" db:"is_deployed" msgpack:"is_deployed"`
+	IsPending        bool          `json:"is_pending" db:"is_pending" msgpack:"is_pending"`    // Flags if the space is pending a state change, starting or stopping
+	IsDeleting       bool          `json:"is_deleting" db:"is_deleting" msgpack:"is_deleting"` // Flags if the space is pending a state change, starting or stopping
+	IsDeleted        bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	AltNames         []string      `json:"alt_names" msgpack:"alt_names"`
+	CreatedAt        time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedAt        time.Time     `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string) *Space {

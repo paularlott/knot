@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
@@ -26,8 +25,6 @@ func (db *BadgerDbDriver) SaveUser(user *model.User, updateFields []string) erro
 
 			// Don't allow username to be changed
 			user.Username = existingUser.Username
-		} else {
-			user.CreatedAt = time.Now().UTC()
 		}
 
 		// If email address changed, check if the new email address is unique
@@ -64,7 +61,6 @@ func (db *BadgerDbDriver) SaveUser(user *model.User, updateFields []string) erro
 			user = existingUser
 		}
 
-		user.UpdatedAt = time.Now().UTC()
 		data, err := json.Marshal(user)
 		if err != nil {
 			return err

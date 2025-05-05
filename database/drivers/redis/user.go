@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
@@ -25,8 +24,6 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 
 		// Don't allow username to be changed
 		user.Username = existingUser.Username
-	} else {
-		user.CreatedAt = time.Now().UTC()
 	}
 
 	// If email address changed, check if the new email address is unique
@@ -63,7 +60,6 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 		user = existingUser
 	}
 
-	user.UpdatedAt = time.Now().UTC()
 	data, err := json.Marshal(user)
 	if err != nil {
 		return err

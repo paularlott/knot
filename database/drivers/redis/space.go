@@ -90,8 +90,6 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 		space = existingSpace
 	}
 
-	now := time.Now().UTC()
-	space.UpdatedAt = now
 	data, err := json.Marshal(space)
 	if err != nil {
 		return err

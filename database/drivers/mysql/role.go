@@ -2,7 +2,6 @@ package driver_mysql
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 
@@ -26,8 +25,6 @@ func (db *MySQLDriver) SaveRole(role *model.Role) error {
 
 	// Update
 	if doUpdate {
-		now := time.Now().UTC()
-		role.UpdatedAt = now
 		err = db.update("roles", role, nil)
 	} else {
 		err = db.create("roles", role)

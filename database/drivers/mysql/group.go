@@ -2,7 +2,6 @@ package driver_mysql
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 
@@ -26,9 +25,6 @@ func (db *MySQLDriver) SaveGroup(group *model.Group) error {
 
 	// Update
 	if doUpdate {
-		// Update the update time
-		now := time.Now().UTC()
-		group.UpdatedAt = now
 		err = db.update("groups", group, nil)
 	} else {
 		err = db.create("groups", group)

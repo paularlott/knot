@@ -25,6 +25,7 @@ github_username VARCHAR(255) DEFAULT '',
 roles JSON DEFAULT NULL,
 groups JSON DEFAULT NULL,
 active TINYINT NOT NULL DEFAULT 1,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 max_spaces INT UNSIGNED NOT NULL DEFAULT 0,
 compute_units INT UNSIGNED NOT NULL DEFAULT 0,
 storage_units INT UNSIGNED NOT NULL DEFAULT 0,
@@ -32,7 +33,8 @@ max_tunnels INT UNSIGNED NOT NULL DEFAULT 0,
 last_login_at TIMESTAMP(6) DEFAULT NULL,
 updated_at TIMESTAMP(6),
 created_at TIMESTAMP(6),
-INDEX active (active)
+INDEX active (active),
+INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
 		return err
@@ -71,13 +73,15 @@ description TEXT DEFAULT '',
 is_deployed TINYINT NOT NULL DEFAULT 0,
 is_pending TINYINT NOT NULL DEFAULT 0,
 is_deleting TINYINT NOT NULL DEFAULT 0,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 created_at TIMESTAMP(6),
 updated_at TIMESTAMP(6),
 INDEX user_id (user_id),
 INDEX template_id (template_id),
 UNIQUE INDEX name (user_id, name),
 INDEX parent_space_id (parent_space_id),
-INDEX shared_with_user_id (shared_with_user_id)
+INDEX shared_with_user_id (shared_with_user_id),
+INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
 		return err
@@ -120,10 +124,12 @@ max_spaces INT UNSIGNED NOT NULL DEFAULT 0,
 compute_units INT UNSIGNED NOT NULL DEFAULT 0,
 storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 max_tunnels INT UNSIGNED NOT NULL DEFAULT 0,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP(6)
+updated_at TIMESTAMP(6),
+INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
 		return err
@@ -170,10 +176,12 @@ INDEX location (location)
 role_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
 permissions JSON DEFAULT NULL,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP(6)
+updated_at TIMESTAMP(6),
+INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
 		return err
@@ -191,6 +199,15 @@ properties JSON DEFAULT NULL,
 INDEX actor (actor, actor_type),
 INDEX event (event),
 INDEX created_at (created_at)
+)`)
+	if err != nil {
+		return err
+	}
+
+	log.Debug().Msg("db: creating configs table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS configs (
+name VARCHAR(64) PRIMARY KEY,
+value MEDIUMTEXT
 )`)
 	if err != nil {
 		return err

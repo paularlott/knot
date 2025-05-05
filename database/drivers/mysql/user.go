@@ -2,7 +2,6 @@ package driver_mysql
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
@@ -26,8 +25,6 @@ func (db *MySQLDriver) SaveUser(user *model.User, updateFields []string) error {
 
 	// Update
 	if doUpdate {
-		now := time.Now().UTC()
-		user.UpdatedAt = now
 		if len(updateFields) > 0 && !util.InArray(updateFields, "UpdatedAt") {
 			updateFields = append(updateFields, "UpdatedAt")
 		}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/paularlott/knot/database/model"
@@ -41,8 +40,6 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space, updateFields []string) e
 			space = existingSpace
 		}
 
-		now := time.Now().UTC()
-		space.UpdatedAt = now
 		data, err := json.Marshal(space)
 		if err != nil {
 			return err

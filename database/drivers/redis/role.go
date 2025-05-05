@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 )
 
 func (db *RedisDbDriver) SaveRole(role *model.Role) error {
-	role.UpdatedAt = time.Now().UTC()
 	data, err := json.Marshal(role)
 	if err != nil {
 		return err

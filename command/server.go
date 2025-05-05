@@ -21,6 +21,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/dnsserver"
@@ -63,6 +64,12 @@ func init() {
 	serverCmd.Flags().BoolP("disable-space-create", "", false, "Disable the ability to create spaces.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE environment variable if set.")
 	serverCmd.Flags().BoolP("hide-support-links", "", false, "Hide the support links in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS environment variable if set.")
 	serverCmd.Flags().BoolP("hide-api-tokens", "", false, "Hide the API tokens menu item in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_API_TOKENS environment variable if set.")
+
+	// Cluster
+	serverCmd.Flags().StringP("cluster-key", "", "", "The shared cluster key.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_KEY environment variable if set.")
+	serverCmd.Flags().StringP("cluster-advertise-addr", "", "", "The address to advertise to other servers (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_ADVERTISE_ADDR environment variable if set.")
+	serverCmd.Flags().StringP("cluster-bind-addr", "", "", "The address to bind to for cluster communication (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_BIND_ADDR environment variable if set.")
+	serverCmd.Flags().StringSliceP("cluster-peer", "", []string{}, "The addresses of the other servers in the cluster, can be given multiple times (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_PEERS environment variable if set.")
 
 	// TOTP
 	serverCmd.Flags().BoolP("enable-totp", "", false, "Enable TOTP for users.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_TOTP environment variable if set.")
@@ -220,6 +227,23 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.disable_space_create", cmd.Flags().Lookup("disable-space-create"))
 		viper.BindEnv("server.disable_space_create", config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE")
 		viper.SetDefault("server.disable_space_create", false)
+
+		// Cluster
+		viper.BindPFlag("server.cluster.key", cmd.Flags().Lookup("cluster-key"))
+		viper.BindEnv("server.cluster.key", config.CONFIG_ENV_PREFIX+"_CLUSTER_KEY")
+		viper.SetDefault("server.cluster.key", "")
+
+		viper.BindPFlag("server.cluster.advertise_addr", cmd.Flags().Lookup("cluster-advertise-addr"))
+		viper.BindEnv("server.cluster.advertise_addr", config.CONFIG_ENV_PREFIX+"_CLUSTER_ADVERTISE_ADDR")
+		viper.SetDefault("server.cluster.advertise_addr", "")
+
+		viper.BindPFlag("server.cluster.bind_addr", cmd.Flags().Lookup("cluster-bind-addr"))
+		viper.BindEnv("server.cluster.bind_addr", config.CONFIG_ENV_PREFIX+"_CLUSTER_BIND_ADDR")
+		viper.SetDefault("server.cluster.bind_addr", "")
+
+		viper.BindPFlag("server.cluster.peers", cmd.Flags().Lookup("cluster-peer"))
+		viper.BindEnv("server.cluster.peers", config.CONFIG_ENV_PREFIX+"_CLUSTER_PEERS")
+		viper.SetDefault("server.cluster.peers", []string{})
 
 		// TLS
 		viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
@@ -393,6 +417,7 @@ var serverCmd = &cobra.Command{
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()
 
+		// TODO Move this until after the gossip server is started
 		// Load template hashes
 		api_utils.LoadTemplateHashes()
 
@@ -541,13 +566,23 @@ var serverCmd = &cobra.Command{
 			}
 		}
 
+		// TODO Move this to after the gossip server is up and running
 		// Start the agent server
 		agent_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
 
+		// TODO Move this to after the gossip server is up and running
 		// Start a tunnel server
 		if viper.GetString("server.listen_tunnel") != "" {
 			tunnel_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_tunnel")), tlsConfig)
 		}
+
+		// Start the gossip server
+		cluster := cluster.NewCluster(
+			viper.GetString("server.cluster.key"),
+			viper.GetString("server.cluster.advertise_addr"),
+			viper.GetString("server.cluster.bind_addr"),
+			routes,
+		)
 
 		// Run the http server
 		server := &http.Server{
@@ -575,8 +610,14 @@ var serverCmd = &cobra.Command{
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
+		// Start the cluster and join the peers
+		cluster.Start(viper.GetStringSlice("server.cluster.peers"))
+
 		// Block until we receive our signal.
 		<-c
+
+		// Shutdown the server cluster
+		cluster.Stop()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
