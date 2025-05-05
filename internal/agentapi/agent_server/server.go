@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
@@ -55,10 +56,13 @@ func checkSchedules() {
 
 						// Mark the space as pending and save it
 						space.IsPending = true
-						if err = db.SaveSpace(space, []string{"IsPending"}); err != nil {
+						space.UpdatedAt = time.Now().UTC()
+						if err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 							log.Error().Msgf("DeleteSpaceJob: failed to save space %s", err.Error())
 							continue
 						}
+
+						cluster.GetInstance().GossipSpace(space)
 
 						var containerClient container.ContainerManager
 						if template.LocalContainer {
@@ -71,7 +75,9 @@ func checkSchedules() {
 						err = containerClient.DeleteSpaceJob(space)
 						if err != nil {
 							space.IsPending = false
-							db.SaveSpace(space, []string{"IsPending"})
+							space.UpdatedAt = time.Now().UTC()
+							db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
+							cluster.GetInstance().GossipSpace(space)
 
 							log.Error().Msgf("DeleteSpaceJob: failed to delete space %s", err.Error())
 							continue

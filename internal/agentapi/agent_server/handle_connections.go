@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/cluster"
 
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
@@ -238,10 +239,13 @@ func handleAgentSession(stream net.Conn, session *Session) {
 
 			// Update description and save it
 			space.Description = spaceDesc.Description
-			if err := db.SaveSpace(space, []string{"Description"}); err != nil {
+			space.UpdatedAt = time.Now().UTC()
+			if err := db.SaveSpace(space, []string{"Description", "UpdatedAt"}); err != nil {
 				log.Error().Msgf("agent: updating space description: %v", err)
 				return
 			}
+
+			cluster.GetInstance().GossipSpace(space)
 
 			// Single shot command so done
 			return

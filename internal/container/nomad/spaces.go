@@ -5,6 +5,7 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 
 	"github.com/rs/zerolog/log"
@@ -26,9 +27,11 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 
 	defer func() {
 		// Save the space with the volume data
-		if err := db.SaveSpace(space, []string{"VolumeData"}); err != nil {
+		space.UpdatedAt = time.Now().UTC()
+		if err := db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"}); err != nil {
 			log.Error().Msgf("nomad: saving space %s error %s", space.Id, err)
 		}
+		cluster.GetInstance().GossipSpace(space)
 	}()
 
 	log.Debug().Msg("nomad: checking for required volumes")
@@ -91,7 +94,9 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 	}
 
 	defer func() {
-		db.SaveSpace(space, []string{"VolumeData"}) // Save the space to capture the volumes
+		space.UpdatedAt = time.Now().UTC()
+		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
+		cluster.GetInstance().GossipSpace(space)
 	}()
 
 	// For all volumes in the space delete them
@@ -148,12 +153,14 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	space.IsDeleting = false
 	space.TemplateHash = template.Hash
 	space.Location = server_info.LeafLocation
-	err = db.SaveSpace(space, []string{"NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location"})
+	space.UpdatedAt = time.Now().UTC()
+	err = db.SaveSpace(space, []string{"NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location", "UpdatedAt"})
 	if err != nil {
 		log.Error().Msgf("nomad: creating space job %s error %s", space.Id, err)
 		return err
 	}
 
+	cluster.GetInstance().GossipSpace(space)
 	client.MonitorJobState(space)
 
 	return nil
@@ -170,14 +177,16 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
 
 	// Record stopping
 	space.IsPending = true
+	space.UpdatedAt = time.Now().UTC()
 
 	db := database.GetInstance()
-	err = db.SaveSpace(space, []string{"IsPending"})
+	err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
 	if err != nil {
 		log.Debug().Msgf("nomad: deleting space job %s error %s", space.Id, err)
 		return err
 	}
 
+	cluster.GetInstance().GossipSpace(space)
 	client.MonitorJobState(space)
 
 	return nil
@@ -221,9 +230,11 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 		}
 
 		log.Info().Msgf("nomad: update space job %s status", space.ContainerId)
-		err := database.GetInstance().SaveSpace(space, []string{"IsPending", "IsDeployed"})
+		space.UpdatedAt = time.Now().UTC()
+		err := database.GetInstance().SaveSpace(space, []string{"IsPending", "IsDeployed", "UpdatedAt"})
 		if err != nil {
 			log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
 		}
+		cluster.GetInstance().GossipSpace(space)
 	}()
 }

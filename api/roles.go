@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -19,10 +21,14 @@ func HandleGetRoles(w http.ResponseWriter, r *http.Request) {
 	// Build the response
 	roleInfoList := apiclient.RoleInfoList{
 		Count: len(roles),
-		Roles: make([]apiclient.RoleInfo, len(roles)),
+		Roles: make([]apiclient.RoleInfo, 0, len(roles)),
 	}
 
 	for i, role := range roles {
+		if role.IsDeleted {
+			continue
+		}
+
 		roleInfoList.Roles[i] = apiclient.RoleInfo{
 			Id:   role.Id,
 			Name: role.Name,
@@ -71,6 +77,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	role.Name = request.Name
 	role.Permissions = request.Permissions
 	role.UpdatedUserId = user.Id
+	role.UpdatedAt = time.Now().UTC()
 
 	err = db.SaveRole(role)
 	if err != nil {
@@ -93,6 +100,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	)
 
 	model.SaveRoleToCache(role)
+	cluster.GetInstance().GossipRole(role)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -121,6 +129,7 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	model.SaveRoleToCache(role)
+	cluster.GetInstance().GossipRole(role)
 
 	audit.Log(
 		user.Username,
@@ -163,8 +172,13 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := r.Context().Value("user").(*model.User)
+
 	// Delete the role
-	err = db.DeleteRole(role)
+	role.UpdatedAt = time.Now().UTC()
+	role.UpdatedUserId = user.Id
+	role.IsDeleted = true
+	err = db.SaveRole(role)
 	if err != nil {
 		if errors.Is(err, database.ErrTemplateInUse) {
 			rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
@@ -174,7 +188,6 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := r.Context().Value("user").(*model.User)
 	audit.Log(
 		user.Username,
 		model.AuditActorTypeUser,
@@ -190,6 +203,7 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 	)
 
 	model.DeleteRoleFromCache(roleId)
+	cluster.GetInstance().GossipRole(role)
 
 	w.WriteHeader(http.StatusOK)
 }

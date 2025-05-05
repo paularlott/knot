@@ -109,6 +109,15 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 				if err := db.SaveSpace(space, []string{}); err != nil {
 					log.Error().Err(err).Str("name", space.Name).Msg("cluster: Failed to update space")
 				}
+
+				//  If share user updated
+				if space.SharedWithUserId != localSpace.SharedWithUserId {
+					// TODO
+					/* 					user, err := db.GetUser(space.SharedWithUserId)
+					   					if err == nil && user != nil {
+					   						api_utils.UpdateSpaceSSHKeys(space, user)
+					   					} */
+				}
 			}
 		} else if !space.IsDeleted {
 			// If the space doesn't exist, create it unless it's deleted on the remote node

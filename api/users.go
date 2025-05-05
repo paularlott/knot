@@ -3,11 +3,13 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/middleware"
@@ -96,6 +98,8 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	cluster.GetInstance().GossipUser(userNew)
 
 	newUserId = userNew.Id
 
@@ -245,6 +249,10 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, user := range users {
+		if user.IsDeleted {
+			continue
+		}
+
 		if requiredState == "all" || (requiredState == "active" && user.Active) || (requiredState == "inactive" && !user.Active) {
 			data := apiclient.UserInfo{}
 
@@ -401,7 +409,8 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.MaxTunnels = request.MaxTunnels
 	}
 
-	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredSheel", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels"}
+	user.UpdatedAt = time.Now().UTC()
+	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredSheel", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
 
 	// Update the user password
 	if len(request.Password) > 0 {
@@ -439,6 +448,8 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	cluster.GetInstance().GossipUser(user)
 
 	// Update the user's spaces, ssh keys or stop spaces
 	go api_utils.UpdateUserSpaces(user)

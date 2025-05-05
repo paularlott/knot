@@ -2,6 +2,7 @@ package commands_admin
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/paularlott/knot/database"
 
@@ -72,7 +73,8 @@ The location name is updated within the database however spaces and volumes are 
 			fmt.Print("Checking Space: ", space.Name)
 			if space.Location == args[0] {
 				space.Location = args[1]
-				err := db.SaveSpace(space, []string{"Location"})
+				space.UpdatedAt = time.Now().UTC()
+				err := db.SaveSpace(space, []string{"Location", "UpdatedAt"})
 				if err != nil {
 					fmt.Println("Error updating space: ", err)
 					return

@@ -2,6 +2,7 @@ package commands_admin
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/paularlott/knot/database"
 
@@ -30,9 +31,10 @@ var resetTOTPCmd = &cobra.Command{
 
 		// Clear TOTP
 		user.TOTPSecret = ""
+		user.UpdatedAt = time.Now().UTC()
 
 		// Save the user
-		err = db.SaveUser(user, []string{"TOTPSecret"})
+		err = db.SaveUser(user, []string{"TOTPSecret", "UpdatedAt"})
 		if err != nil {
 			fmt.Println("Error saving user: ", err)
 			return

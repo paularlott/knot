@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -27,6 +29,10 @@ func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, group := range groups {
+		if group.IsDeleted {
+			continue
+		}
+
 		g := apiclient.GroupInfo{
 			Id:           group.Id,
 			Name:         group.Name,
@@ -93,12 +99,16 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	group.ComputeUnits = request.ComputeUnits
 	group.StorageUnits = request.StorageUnits
 	group.MaxTunnels = request.MaxTunnels
+	group.UpdatedAt = time.Now().UTC()
+	group.UpdatedUserId = user.Id
 
 	err = db.SaveGroup(group)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	cluster.GetInstance().GossipGroup(group)
 
 	audit.Log(
 		user.Username,
@@ -156,6 +166,8 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cluster.GetInstance().GossipGroup(group)
+
 	audit.Log(
 		user.Username,
 		model.AuditActorTypeUser,
@@ -192,8 +204,13 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := r.Context().Value("user").(*model.User)
+
 	// Delete the group
-	err = db.DeleteGroup(group)
+	group.IsDeleted = true
+	group.UpdatedAt = time.Now().UTC()
+	group.UpdatedUserId = user.Id
+	err = db.SaveGroup(group)
 	if err != nil {
 		if errors.Is(err, database.ErrTemplateInUse) {
 			rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
@@ -203,7 +220,8 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := r.Context().Value("user").(*model.User)
+	cluster.GetInstance().GossipGroup(group)
+
 	audit.Log(
 		user.Username,
 		model.AuditActorTypeUser,

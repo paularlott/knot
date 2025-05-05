@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"time"
 
 	"github.com/paularlott/knot/database"
 
@@ -42,9 +43,10 @@ var setPasswordCmd = &cobra.Command{
 
 		// Set the new password
 		user.SetPassword(string(password))
+		user.UpdatedAt = time.Now().UTC()
 
 		// Save the user
-		err = db.SaveUser(user, []string{"Password"})
+		err = db.SaveUser(user, []string{"Password", "UpdatedAt"})
 		if err != nil {
 			fmt.Println("Error saving user: ", err)
 			return

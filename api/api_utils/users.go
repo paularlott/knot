@@ -1,9 +1,12 @@
 package api_utils
 
 import (
+	"time"
+
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
@@ -79,17 +82,24 @@ func DeleteUser(db database.DbDriver, toDelete *model.User) error {
 			}
 		}
 
-		db.DeleteSpace(space)
+		space.IsDeleted = true
+		space.UpdatedAt = time.Now().UTC()
+		db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt"})
+		cluster.GetInstance().GossipSpace(space)
 	}
 
 	// Delete the user
 	if !hasError {
 		log.Debug().Msgf("delete user: Deleting user %s from database", toDelete.Id)
-		err = db.DeleteUser(toDelete)
+		toDelete.IsDeleted = true
+		toDelete.Active = false
+		toDelete.UpdatedAt = time.Now().UTC()
+		err = db.SaveUser(toDelete, []string{"IsDeleted", "UpdatedAt"})
 		if err != nil {
 			return err
 		}
 
+		cluster.GetInstance().GossipUser(toDelete)
 		RemoveUsersSessions(toDelete)
 		RemoveUsersTokens(toDelete)
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/totp"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
@@ -57,7 +58,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	saveFields := []string{"LastLoginAt"}
+	saveFields := []string{"LastLoginAt", "UpdatedAt"}
 
 	// If TOTP is enabled
 	if viper.GetBool("server.totp.enabled") {
@@ -79,11 +80,14 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	// Update the last login time
 	now := time.Now().UTC()
 	user.LastLoginAt = &now
+	user.UpdatedAt = now
 	err = db.SaveUser(user, saveFields)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	cluster.GetInstance().GossipUser(user)
 
 	userId = user.Id
 
