@@ -9,7 +9,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/cluster"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -24,15 +24,15 @@ func HandleGetRoles(w http.ResponseWriter, r *http.Request) {
 		Roles: make([]apiclient.RoleInfo, 0, len(roles)),
 	}
 
-	for i, role := range roles {
+	for _, role := range roles {
 		if role.IsDeleted {
 			continue
 		}
 
-		roleInfoList.Roles[i] = apiclient.RoleInfo{
+		roleInfoList.Roles = append(roleInfoList.Roles, apiclient.RoleInfo{
 			Id:   role.Id,
 			Name: role.Name,
-		}
+		})
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, roleInfoList)
@@ -100,7 +100,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	)
 
 	model.SaveRoleToCache(role)
-	cluster.GetInstance().GossipRole(role)
+	service.GetTransport().GossipRole(role)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -129,7 +129,7 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	model.SaveRoleToCache(role)
-	cluster.GetInstance().GossipRole(role)
+	service.GetTransport().GossipRole(role)
 
 	audit.Log(
 		user.Username,
@@ -203,7 +203,7 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 	)
 
 	model.DeleteRoleFromCache(roleId)
-	cluster.GetInstance().GossipRole(role)
+	service.GetTransport().GossipRole(role)
 
 	w.WriteHeader(http.StatusOK)
 }

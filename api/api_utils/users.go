@@ -6,16 +6,25 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
-	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/service"
 
 	"github.com/rs/zerolog/log"
 )
 
-func DeleteUser(db database.DbDriver, toDelete *model.User) error {
+type ApiUtilsUsers struct {
+}
+
+func NewApiUtilsUsers() *ApiUtilsUsers {
+	return &ApiUtilsUsers{}
+}
+
+func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 	var hasError = false
+
+	db := database.GetInstance()
 
 	log.Debug().Msgf("delete user: Deleting user %s", toDelete.Id)
 
@@ -85,7 +94,7 @@ func DeleteUser(db database.DbDriver, toDelete *model.User) error {
 		space.IsDeleted = true
 		space.UpdatedAt = time.Now().UTC()
 		db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt"})
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 	}
 
 	// Delete the user
@@ -94,21 +103,21 @@ func DeleteUser(db database.DbDriver, toDelete *model.User) error {
 		toDelete.IsDeleted = true
 		toDelete.Active = false
 		toDelete.UpdatedAt = time.Now().UTC()
-		err = db.SaveUser(toDelete, []string{"IsDeleted", "UpdatedAt"})
+		err = db.SaveUser(toDelete, []string{"IsDeleted", "Active", "UpdatedAt"})
 		if err != nil {
 			return err
 		}
 
-		cluster.GetInstance().GossipUser(toDelete)
-		RemoveUsersSessions(toDelete)
-		RemoveUsersTokens(toDelete)
+		service.GetTransport().GossipUser(toDelete)
+		auu.RemoveUsersSessions(toDelete)
+		auu.RemoveUsersTokens(toDelete)
 	}
 
 	return nil
 }
 
 // Delete the sessions owned by a user
-func RemoveUsersSessions(user *model.User) {
+func (auu *ApiUtilsUsers) RemoveUsersSessions(user *model.User) {
 	store := database.GetSessionStorage()
 
 	// Find sessions for the user and delete them
@@ -121,7 +130,7 @@ func RemoveUsersSessions(user *model.User) {
 }
 
 // Delete the tokens owned by a user
-func RemoveUsersTokens(user *model.User) {
+func (auu *ApiUtilsUsers) RemoveUsersTokens(user *model.User) {
 	db := database.GetInstance()
 
 	// Find API tokens for the user and delete them
@@ -133,7 +142,7 @@ func RemoveUsersTokens(user *model.User) {
 	}
 }
 
-func updateSpacesSSHKey(user *model.User) {
+func (auu *ApiUtilsUsers) UpdateSpacesSSHKey(user *model.User) {
 	db := database.GetInstance()
 
 	log.Debug().Msgf("Updating agent SSH key for user %s", user.Id)
@@ -147,13 +156,13 @@ func updateSpacesSSHKey(user *model.User) {
 
 	// Loop through all spaces updating the active ones
 	for _, space := range spaces {
-		UpdateSpaceSSHKeys(space, user)
+		auu.UpdateSpaceSSHKeys(space, user)
 	}
 
 	log.Debug().Msgf("Finished updating agent SSH key for user %s", user.Id)
 }
 
-func UpdateSpaceSSHKeys(space *model.Space, user *model.User) {
+func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.User) {
 	db := database.GetInstance()
 
 	template, err := db.GetTemplate(space.TemplateId)
@@ -217,7 +226,7 @@ func UpdateSpaceSSHKeys(space *model.Space, user *model.User) {
 }
 
 // For disabled users ensure all spaces are stopped, for enabled users update the SSH key on the agents
-func UpdateUserSpaces(user *model.User) {
+func (auu *ApiUtilsUsers) UpdateUserSpaces(user *model.User) {
 	// If the user is disabled then stop all spaces
 	if !user.Active {
 		spaces, err := database.GetInstance().GetSpacesForUser(user.Id)
@@ -249,9 +258,12 @@ func UpdateUserSpaces(user *model.User) {
 		}
 
 		// Kill the sessions to logout the user, but leave the tokens there until they expire
-		RemoveUsersSessions(user)
+		auu.RemoveUsersSessions(user)
 	} else {
 		// Update the SSH key on the agents
-		updateSpacesSSHKey(user)
+		auu.UpdateSpacesSSHKey(user)
 	}
 }
+
+// Make sure ApiUtilsUsers implements service.UserService
+var _ service.UserService = (*ApiUtilsUsers)(nil)

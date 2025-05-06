@@ -5,12 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
@@ -99,7 +98,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster.GetInstance().GossipUser(userNew)
+	service.GetTransport().GossipUser(userNew)
 
 	newUserId = userNew.Id
 
@@ -443,16 +442,17 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Save
+	user.UpdatedAt = time.Now().UTC()
 	err = db.SaveUser(user, saveFields)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	cluster.GetInstance().GossipUser(user)
+	service.GetTransport().GossipUser(user)
 
 	// Update the user's spaces, ssh keys or stop spaces
-	go api_utils.UpdateUserSpaces(user)
+	go service.GetUserService().UpdateUserSpaces(user)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -481,7 +481,7 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if toDelete != nil {
-		if err := api_utils.DeleteUser(db, toDelete); err != nil {
+		if err := service.GetUserService().DeleteUser(toDelete); err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}

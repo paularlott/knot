@@ -12,8 +12,8 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/service"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -169,7 +169,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		return err
 	}
 
-	cluster.GetInstance().GossipSpace(space)
+	service.GetTransport().GossipSpace(space)
 
 	// launch the container in a go routing to avoid blocking
 	go func() {
@@ -181,7 +181,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 			}
-			cluster.GetInstance().GossipSpace(space)
+			service.GetTransport().GossipSpace(space)
 		}()
 
 		// Create a Docker client
@@ -261,7 +261,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 			return
 		}
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 	}()
 
 	return nil
@@ -279,7 +279,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 		return err
 	}
 
-	cluster.GetInstance().GossipSpace(space)
+	service.GetTransport().GossipSpace(space)
 
 	// Run the delete in a go routine to avoid blocking
 	go func() {
@@ -291,7 +291,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 			}
 
-			cluster.GetInstance().GossipSpace(space)
+			service.GetTransport().GossipSpace(space)
 		}()
 
 		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -325,7 +325,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 			return
 		}
 
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 	}()
 
 	return nil
@@ -362,7 +362,7 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 	defer func() {
 		space.UpdatedAt = time.Now().UTC()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 	}()
 
 	// Find the volumes that are defined but not yet created in the space and create them
@@ -423,7 +423,7 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 	defer func() {
 		space.UpdatedAt = time.Now().UTC()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 	}()
 
 	// For all volumes in the space delete them

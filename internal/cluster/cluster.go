@@ -3,7 +3,6 @@ package cluster
 import (
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/paularlott/gossip"
@@ -19,27 +18,11 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	instance     *Cluster
-	instanceLock sync.Mutex
-)
-
 type Cluster struct {
 	gossipCluster *gossip.Cluster
 }
 
-func GetInstance() *Cluster {
-	return instance
-}
-
 func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes *http.ServeMux) *Cluster {
-	instanceLock.Lock()
-	defer instanceLock.Unlock()
-
-	if instance != nil {
-		return instance
-	}
-
 	cluster := &Cluster{}
 
 	if viper.GetString("server.cluster.advertise_addr") != "" {
@@ -122,7 +105,6 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 		})
 	}
 
-	instance = cluster
 	return cluster
 }
 

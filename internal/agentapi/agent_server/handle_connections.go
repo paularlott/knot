@@ -8,7 +8,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/internal/cluster"
+	"github.com/paularlott/knot/internal/service"
 
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
@@ -245,7 +245,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				return
 			}
 
-			cluster.GetInstance().GossipSpace(space)
+			service.GetTransport().GossipSpace(space)
 
 			// Single shot command so done
 			return

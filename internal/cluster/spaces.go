@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/service"
 
 	"github.com/rs/zerolog/log"
 )
@@ -112,11 +113,12 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 
 				//  If share user updated
 				if space.SharedWithUserId != localSpace.SharedWithUserId {
-					// TODO
-					/* 					user, err := db.GetUser(space.SharedWithUserId)
-					   					if err == nil && user != nil {
-					   						api_utils.UpdateSpaceSSHKeys(space, user)
-					   					} */
+					user, err := db.GetUser(space.SharedWithUserId)
+					if err != nil {
+						log.Error().Err(err).Str("name", space.Name).Msg("cluster: Failed to get user")
+						continue
+					}
+					service.GetUserService().UpdateSpaceSSHKeys(space, user)
 				}
 			}
 		} else if !space.IsDeleted {

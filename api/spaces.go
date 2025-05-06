@@ -11,11 +11,11 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
-	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -220,7 +220,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		space.IsDeleting = true
 		space.UpdatedAt = time.Now().UTC()
 		db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 
 		// Delete the space in the background
 		RealDeleteSpace(space)
@@ -234,7 +234,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -359,7 +359,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster.GetInstance().GossipSpace(space)
+	service.GetTransport().GossipSpace(space)
 
 	audit.Log(
 		user.Username,
@@ -509,7 +509,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster.GetInstance().GossipSpace(space)
+	service.GetTransport().GossipSpace(space)
 
 	// Revert the pending status if the deploy fails
 	var deployFailed = true
@@ -519,7 +519,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 			space.IsPending = false
 			space.UpdatedAt = time.Now().UTC()
 			db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
-			cluster.GetInstance().GossipSpace(space)
+			service.GetTransport().GossipSpace(space)
 		}
 	}()
 
@@ -622,7 +622,7 @@ func deleteSpaceJob(space *model.Space) error {
 		log.Error().Msgf("DeleteSpaceJob: failed to save space %s", err.Error())
 		return err
 	}
-	cluster.GetInstance().GossipSpace(space)
+	service.GetTransport().GossipSpace(space)
 
 	var containerClient container.ContainerManager
 	if template.LocalContainer {
@@ -637,7 +637,7 @@ func deleteSpaceJob(space *model.Space) error {
 		space.IsPending = false
 		space.UpdatedAt = time.Now().UTC()
 		db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 
 		log.Error().Msgf("DeleteSpaceJob: failed to delete space %s", err.Error())
 		return err
@@ -742,7 +742,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster.GetInstance().GossipSpace(space)
+	service.GetTransport().GossipSpace(space)
 
 	if template != nil && (space.IsDeployed || template.IsManual) {
 		// Get the agent state
@@ -804,7 +804,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			cluster.GetInstance().GossipSpace(space)
+			service.GetTransport().GossipSpace(space)
 
 			if template.LocalContainer {
 				err = containerClient.DeleteSpaceJob(space)
@@ -815,7 +815,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 				space.IsPending = false
 				space.UpdatedAt = time.Now().UTC()
 				db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
-				cluster.GetInstance().GossipSpace(space)
+				service.GetTransport().GossipSpace(space)
 
 				log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -884,7 +884,7 @@ func RealDeleteSpace(space *model.Space) {
 			space.IsDeleting = false
 			space.UpdatedAt = time.Now().UTC()
 			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-			cluster.GetInstance().GossipSpace(space)
+			service.GetTransport().GossipSpace(space)
 			return
 		}
 
@@ -903,7 +903,7 @@ func RealDeleteSpace(space *model.Space) {
 			space.IsDeleting = false
 			space.UpdatedAt = time.Now().UTC()
 			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-			cluster.GetInstance().GossipSpace(space)
+			service.GetTransport().GossipSpace(space)
 			return
 		}
 
@@ -917,11 +917,11 @@ func RealDeleteSpace(space *model.Space) {
 			space.IsDeleting = false
 			space.UpdatedAt = time.Now().UTC()
 			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-			cluster.GetInstance().GossipSpace(space)
+			service.GetTransport().GossipSpace(space)
 			return
 		}
 
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 
 		// Delete the agent state if present
 		agent_server.RemoveSession(space.Id)
@@ -1073,7 +1073,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 
 		audit.Log(
 			user.Username,
@@ -1170,8 +1170,8 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster.GetInstance().GossipSpace(space)
-	api_utils.UpdateSpaceSSHKeys(space, user)
+	service.GetTransport().GossipSpace(space)
+	service.GetUserService().UpdateSpaceSSHKeys(space, user)
 
 	audit.Log(
 		user.Username,
@@ -1233,8 +1233,8 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster.GetInstance().GossipSpace(space)
-	api_utils.UpdateSpaceSSHKeys(space, user)
+	service.GetTransport().GossipSpace(space)
+	service.GetUserService().UpdateSpaceSSHKeys(space, user)
 
 	audit.Log(
 		user.Username,

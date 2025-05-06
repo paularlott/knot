@@ -7,7 +7,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/cluster"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/totp"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
@@ -87,7 +87,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster.GetInstance().GossipUser(user)
+	service.GetTransport().GossipUser(user)
 
 	userId = user.Id
 

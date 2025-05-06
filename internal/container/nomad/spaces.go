@@ -5,8 +5,8 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/service"
 
 	"github.com/rs/zerolog/log"
 )
@@ -31,7 +31,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 		if err := db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"}); err != nil {
 			log.Error().Msgf("nomad: saving space %s error %s", space.Id, err)
 		}
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 	}()
 
 	log.Debug().Msg("nomad: checking for required volumes")
@@ -96,7 +96,7 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 	defer func() {
 		space.UpdatedAt = time.Now().UTC()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 	}()
 
 	// For all volumes in the space delete them
@@ -160,7 +160,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 		return err
 	}
 
-	cluster.GetInstance().GossipSpace(space)
+	service.GetTransport().GossipSpace(space)
 	client.MonitorJobState(space)
 
 	return nil
@@ -186,7 +186,7 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
 		return err
 	}
 
-	cluster.GetInstance().GossipSpace(space)
+	service.GetTransport().GossipSpace(space)
 	client.MonitorJobState(space)
 
 	return nil
@@ -235,6 +235,6 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 		if err != nil {
 			log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
 		}
-		cluster.GetInstance().GossipSpace(space)
+		service.GetTransport().GossipSpace(space)
 	}()
 }

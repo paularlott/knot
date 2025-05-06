@@ -25,6 +25,7 @@ import (
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/dnsserver"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/proxy"
@@ -370,6 +371,9 @@ var serverCmd = &cobra.Command{
 			},
 		)
 
+		// Initialize the API helpers
+		service.SetUserService(api_utils.NewApiUtilsUsers())
+
 		// If server.tunnel-domain doesn't start with a . then prefix it, strip leading * if present
 		tunnelDomain := viper.GetString("server.tunnel_domain")
 		if tunnelDomain != "" {
@@ -548,6 +552,7 @@ var serverCmd = &cobra.Command{
 			viper.GetString("server.cluster.bind_addr"),
 			routes,
 		)
+		service.SetTransport(cluster)
 
 		// Run the http server
 		server := &http.Server{

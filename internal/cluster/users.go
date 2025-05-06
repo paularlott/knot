@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/service"
 
 	"github.com/rs/zerolog/log"
 )
@@ -110,11 +111,12 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 					log.Error().Err(err).Str("name", user.Username).Msg("cluster: Failed to update user")
 
 					// If the user is deleted then we need to stop spaces etc
-					if user.IsDeleted {
-						// TODO This needs implementing
-						/* 						if err := api_utils.DeleteUser(db, user); err != nil {
+					if user.IsDeleted && !localUser.IsDeleted {
+						if err := service.GetUserService().DeleteUser(user); err != nil {
 							log.Error().Err(err).Str("name", user.Username).Msg("cluster: Failed to delete user")
-						} */
+						}
+					} else if user.GitHubUsername != localUser.GitHubUsername || user.SSHPublicKey != localUser.SSHPublicKey {
+						service.GetUserService().UpdateSpacesSSHKey(user)
 					}
 				}
 			}

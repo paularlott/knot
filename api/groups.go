@@ -9,7 +9,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/cluster"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -108,7 +108,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster.GetInstance().GossipGroup(group)
+	service.GetTransport().GossipGroup(group)
 
 	audit.Log(
 		user.Username,
@@ -166,7 +166,7 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster.GetInstance().GossipGroup(group)
+	service.GetTransport().GossipGroup(group)
 
 	audit.Log(
 		user.Username,
@@ -220,7 +220,7 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster.GetInstance().GossipGroup(group)
+	service.GetTransport().GossipGroup(group)
 
 	audit.Log(
 		user.Username,

@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
+	"github.com/paularlott/knot/internal/service"
 
 	"github.com/rs/zerolog/log"
 )
@@ -62,7 +62,7 @@ func checkSchedules() {
 							continue
 						}
 
-						cluster.GetInstance().GossipSpace(space)
+						service.GetTransport().GossipSpace(space)
 
 						var containerClient container.ContainerManager
 						if template.LocalContainer {
@@ -77,7 +77,7 @@ func checkSchedules() {
 							space.IsPending = false
 							space.UpdatedAt = time.Now().UTC()
 							db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
-							cluster.GetInstance().GossipSpace(space)
+							service.GetTransport().GossipSpace(space)
 
 							log.Error().Msgf("DeleteSpaceJob: failed to delete space %s", err.Error())
 							continue
