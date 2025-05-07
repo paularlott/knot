@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
@@ -90,7 +89,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Find the number of spaces using this template
-		spaces, err := database.GetInstance().GetSpacesByTemplateId(template.Id)
+		spaces, err := db.GetSpacesByTemplateId(template.Id)
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
@@ -222,7 +221,6 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	api_utils.UpdateTemplateHash(template.Id, template.Hash)
 	service.GetTransport().GossipTemplate(template)
 
 	audit.Log(
@@ -322,7 +320,6 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 	templateId = template.Id
 
-	api_utils.UpdateTemplateHash(template.Id, template.Hash)
 	service.GetTransport().GossipTemplate(template)
 
 	audit.Log(
@@ -385,7 +382,6 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	api_utils.DeleteTemplateHash(template.Id)
 	service.GetTransport().GossipTemplate(template)
 
 	user := r.Context().Value("user").(*model.User)

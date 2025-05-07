@@ -107,16 +107,12 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 			if template.UpdatedAt.After(localTemplate.UpdatedAt) {
 				if err := db.SaveTemplate(template, nil); err != nil {
 					log.Error().Err(err).Str("name", template.Name).Msg("cluster: Failed to update template")
-				} else {
-					// TODO Update the template hash
 				}
 			}
 		} else if !template.IsDeleted {
 			// If the template doesn't exist, create it unless it's deleted on the remote node
 			if err := db.SaveTemplate(template, nil); err != nil {
 				return err
-			} else {
-				// TODO Update the template hash
 			}
 		}
 	}

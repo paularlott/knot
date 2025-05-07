@@ -144,5 +144,5 @@ func (c *Cluster) gossipTemplateVars() {
 
 	// Get the 1st number of template vars up to the batch size & broadcast
 	templateVars = templateVars[:batchSize]
-	c.gossipCluster.Send(TemplateGossipMsg, &templateVars)
+	c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
 }

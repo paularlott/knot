@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
@@ -158,11 +157,10 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check if the template has been updated
-		hash := api_utils.GetTemplateHash(space.TemplateId)
-		if template.IsManual || hash == "" {
+		if template.IsManual || template.Hash == "" {
 			s.UpdateAvailable = false
 		} else {
-			s.UpdateAvailable = space.IsDeployed && space.TemplateHash != hash
+			s.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
 		}
 
 		spaceData.Spaces = append(spaceData.Spaces, s)

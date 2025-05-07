@@ -398,10 +398,6 @@ var serverCmd = &cobra.Command{
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()
 
-		// TODO Move this until after the gossip server is started
-		// Load template hashes
-		api_utils.LoadTemplateHashes()
-
 		// Load roles into memory cache
 		roles, err := database.GetInstance().GetRoles()
 		if err != nil {
