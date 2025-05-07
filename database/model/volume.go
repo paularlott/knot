@@ -15,6 +15,7 @@ type Volume struct {
 	Definition     string    `json:"definition" db:"definition"`
 	Active         bool      `json:"active" db:"active"`
 	LocalContainer bool      `json:"local_container" db:"local_container"`
+	IsDeleted      bool      `json:"is_deleted" db:"is_deleted"`
 	CreatedUserId  string    `json:"created_user_id" db:"created_user_id"`
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 	UpdatedUserId  string    `json:"updated_user_id" db:"updated_user_id"`

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/paularlott/knot/database/model"
@@ -13,7 +12,6 @@ import (
 func (db *BadgerDbDriver) SaveTemplateVar(templateVar *model.TemplateVar) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
 		templateVar.Value = templateVar.GetValueEncrypted()
-		templateVar.UpdatedAt = time.Now().UTC()
 		data, err := json.Marshal(templateVar)
 		if err != nil {
 			return err

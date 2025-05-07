@@ -2,7 +2,6 @@ package driver_mysql
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 
@@ -26,8 +25,6 @@ func (db *MySQLDriver) SaveVolume(volume *model.Volume, updateFields []string) e
 
 	// Update
 	if doUpdate {
-		now := time.Now().UTC()
-		volume.UpdatedAt = now
 		err = db.update("volumes", volume, updateFields)
 	} else {
 		err = db.create("volumes", volume)

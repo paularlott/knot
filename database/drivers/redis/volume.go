@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
@@ -23,7 +22,6 @@ func (db *RedisDbDriver) SaveVolume(volume *model.Volume, updateFields []string)
 		}
 	}
 
-	volume.UpdatedAt = time.Now().UTC()
 	data, err := json.Marshal(volume)
 	if err != nil {
 		return err

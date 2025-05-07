@@ -3,10 +3,12 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -26,6 +28,10 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, variable := range templateVars {
+		if variable.IsDeleted {
+			continue
+		}
+
 		v := apiclient.TemplateVar{
 			Id:         variable.Id,
 			Name:       variable.Name,
@@ -85,12 +91,15 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	templateVar.Protected = request.Protected
 	templateVar.Restricted = request.Restricted
 	templateVar.UpdatedUserId = user.Id
+	templateVar.UpdatedAt = time.Now().UTC()
 
 	err = db.SaveTemplateVar(templateVar)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	service.GetTransport().GossipTemplateVar(templateVar)
 
 	audit.Log(
 		user.Username,
@@ -143,6 +152,8 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	service.GetTransport().GossipTemplateVar(templateVar)
+
 	id = templateVar.Id
 
 	audit.Log(
@@ -181,14 +192,20 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := r.Context().Value("user").(*model.User)
+
 	// Delete the template variable
-	err = db.DeleteTemplateVar(templateVar)
+	templateVar.IsDeleted = true
+	templateVar.UpdatedAt = time.Now().UTC()
+	templateVar.UpdatedUserId = user.Id
+	err = db.SaveTemplateVar(templateVar)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	user := r.Context().Value("user").(*model.User)
+	service.GetTransport().GossipTemplateVar(templateVar)
+
 	audit.Log(
 		user.Username,
 		model.AuditActorTypeUser,

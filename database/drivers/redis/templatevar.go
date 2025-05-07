@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 )
 
 func (db *RedisDbDriver) SaveTemplateVar(templateVar *model.TemplateVar) error {
 	templateVar.Value = templateVar.GetValueEncrypted()
-	templateVar.UpdatedAt = time.Now().UTC()
 	data, err := json.Marshal(templateVar)
 	if err != nil {
 		return err

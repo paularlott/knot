@@ -111,7 +111,7 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 					log.Error().Err(err).Str("name", space.Name).Msg("cluster: Failed to update space")
 				}
 
-				//  If share user updated
+				//  If share user update the SSH keys
 				if space.SharedWithUserId != localSpace.SharedWithUserId {
 					user, err := db.GetUser(space.SharedWithUserId)
 					if err != nil {

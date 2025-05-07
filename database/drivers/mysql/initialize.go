@@ -105,12 +105,14 @@ with_vscode_tunnel TINYINT NOT NULL DEFAULT 0,
 with_code_server TINYINT NOT NULL DEFAULT 0,
 with_ssh TINYINT NOT NULL DEFAULT 0,
 schedule_enabled TINYINT NOT NULL DEFAULT 0,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 compute_units INT UNSIGNED NOT NULL DEFAULT 0,
 storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP(6)
+updated_at TIMESTAMP(6),
+INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
 		return err
@@ -144,10 +146,12 @@ value MEDIUMTEXT,
 protected TINYINT NOT NULL DEFAULT 0,
 local TINYINT NOT NULL DEFAULT 0,
 restricted TINYINT NOT NULL DEFAULT 0,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP(6)
+updated_at TIMESTAMP(6),
+INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
 		return err
@@ -161,11 +165,13 @@ location VARCHAR(64),
 definition MEDIUMTEXT,
 active TINYINT NOT NULL DEFAULT 0,
 local_container TINYINT NOT NULL DEFAULT 0,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
 updated_at TIMESTAMP(6),
-INDEX location (location)
+INDEX location (location),
+INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
 		return err

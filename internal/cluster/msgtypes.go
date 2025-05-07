@@ -9,7 +9,12 @@ const (
 	RoleGossipMsg
 	SpaceFullSyncMsg
 	SpaceGossipMsg
-
+	TemplateFullSyncMsg
+	TemplateGossipMsg
+	TemplateVarFullSyncMsg
+	TemplateVarGossipMsg
 	UserFullSyncMsg
 	UserGossipMsg
+	VolumeFullSyncMsg
+	VolumeGossipMsg
 )

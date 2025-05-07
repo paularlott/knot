@@ -6,8 +6,10 @@ type Transport interface {
 	GossipGroup(group *model.Group)
 	GossipRole(role *model.Role)
 	GossipSpace(space *model.Space)
-
+	GossipTemplate(template *model.Template)
+	GossipTemplateVar(templateVar *model.TemplateVar)
 	GossipUser(user *model.User)
+	GossipVolume(volume *model.Volume)
 }
 
 var (

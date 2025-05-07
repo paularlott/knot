@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/paularlott/knot/database/model"
@@ -24,7 +23,6 @@ func (db *BadgerDbDriver) SaveVolume(volume *model.Volume, updateFields []string
 			}
 		}
 
-		volume.UpdatedAt = time.Now().UTC()
 		data, err := json.Marshal(volume)
 		if err != nil {
 			return err

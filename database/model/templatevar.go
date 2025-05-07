@@ -18,6 +18,7 @@ type TemplateVar struct {
 	Protected     bool      `json:"protected" db:"protected"`
 	Local         bool      `json:"local" db:"local"`
 	Restricted    bool      `json:"restricted" db:"restricted"`
+	IsDeleted     bool      `json:"is_deleted" db:"is_deleted"`
 	CreatedUserId string    `json:"created_user_id" db:"created_user_id"`
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
 	UpdatedUserId string    `json:"updated_user_id" db:"updated_user_id"`

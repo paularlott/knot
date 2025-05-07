@@ -85,23 +85,24 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 		cluster.gossipCluster.HandleFunc(RoleGossipMsg, cluster.handleRoleGossip)
 		cluster.gossipCluster.HandleFuncWithReply(SpaceFullSyncMsg, cluster.handleSpaceFullSync)
 		cluster.gossipCluster.HandleFunc(SpaceGossipMsg, cluster.handleSpaceGossip)
-
-		// TODO templates
-		// TODO templatevars
-		// TODO tokens
-
+		cluster.gossipCluster.HandleFuncWithReply(TemplateFullSyncMsg, cluster.handleTemplateFullSync)
+		cluster.gossipCluster.HandleFunc(TemplateGossipMsg, cluster.handleTemplateGossip)
+		cluster.gossipCluster.HandleFuncWithReply(TemplateVarFullSyncMsg, cluster.handleTemplateVarFullSync)
+		cluster.gossipCluster.HandleFunc(TemplateVarGossipMsg, cluster.handleTemplateVarGossip)
 		cluster.gossipCluster.HandleFuncWithReply(UserFullSyncMsg, cluster.handleUserFullSync)
 		cluster.gossipCluster.HandleFunc(UserGossipMsg, cluster.handleUserGossip)
-
-		// TODO volumes
+		cluster.gossipCluster.HandleFuncWithReply(VolumeFullSyncMsg, cluster.handleVolumeFullSync)
+		cluster.gossipCluster.HandleFunc(VolumeGossipMsg, cluster.handleVolumeGossip)
 
 		// Periodically gossip the status of the objects
 		cluster.gossipCluster.HandleGossipFunc(func() {
 			cluster.gossipGroups()
 			cluster.gossipRoles()
 			cluster.gossipSpaces()
-
+			cluster.gossipTemplates()
+			cluster.gossipTemplateVars()
 			cluster.gossipUsers()
+			cluster.gossipVolumes()
 		})
 	}
 
@@ -139,8 +140,20 @@ func (c *Cluster) Start(peers []string) {
 						log.Error().Msgf("cluster: failed to sync spaces with node %s: %s", node.ID, err.Error())
 					}
 
+					if err := c.DoTemplateFullSync(node); err != nil {
+						log.Error().Msgf("cluster: failed to sync templates with node %s: %s", node.ID, err.Error())
+					}
+
+					if err := c.DoTemplateVarFullSync(node); err != nil {
+						log.Error().Msgf("cluster: failed to sync template vars with node %s: %s", node.ID, err.Error())
+					}
+
 					if err := c.DoUserFullSync(node); err != nil {
 						log.Error().Msgf("cluster: failed to sync users with node %s: %s", node.ID, err.Error())
+					}
+
+					if err := c.DoVolumeFullSync(node); err != nil {
+						log.Error().Msgf("cluster: failed to sync volumes with node %s: %s", node.ID, err.Error())
 					}
 				}
 

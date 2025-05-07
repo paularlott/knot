@@ -2,10 +2,8 @@ package driver_mysql
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/util"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -31,13 +29,6 @@ func (db *MySQLDriver) SaveTemplate(template *model.Template, updateFields []str
 
 	// Update
 	if doUpdate {
-		// Update the update time
-		now := time.Now().UTC()
-		template.UpdatedAt = now
-		if len(updateFields) > 0 && !util.InArray(updateFields, "UpdatedAt") {
-			updateFields = append(updateFields, "UpdatedAt")
-		}
-
 		err = db.update("templates", template, updateFields)
 	} else {
 		err = db.create("templates", template)

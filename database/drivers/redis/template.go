@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
@@ -14,9 +13,6 @@ import (
 func (db *RedisDbDriver) SaveTemplate(template *model.Template, updateFields []string) error {
 	// Load the existing template
 	existingTemplate, _ := db.GetTemplate(template.Id)
-	if existingTemplate == nil {
-		template.CreatedAt = time.Now().UTC()
-	}
 
 	// Apply changes from new to existing if doing partial update
 	if existingTemplate != nil && len(updateFields) > 0 {
@@ -24,8 +20,6 @@ func (db *RedisDbDriver) SaveTemplate(template *model.Template, updateFields []s
 		template = existingTemplate
 	}
 
-	template.UpdatedUserId = template.CreatedUserId
-	template.UpdatedAt = time.Now().UTC()
 	data, err := json.Marshal(template)
 	if err != nil {
 		return err

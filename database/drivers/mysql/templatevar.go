@@ -2,7 +2,6 @@ package driver_mysql
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 
@@ -30,8 +29,6 @@ func (db *MySQLDriver) SaveTemplateVar(templateVar *model.TemplateVar) error {
 
 	// Update
 	if doUpdate {
-		now := time.Now().UTC()
-		templateVarClone.UpdatedAt = now
 		err = db.update("templatevars", &templateVarClone, nil)
 	} else {
 		err = db.create("templatevars", &templateVarClone)

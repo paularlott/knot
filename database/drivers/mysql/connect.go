@@ -132,13 +132,29 @@ func (db *MySQLDriver) Connect() error {
 				log.Error().Err(err).Msg("db: failed to delete old spaces")
 			}
 
+			// Remove old templates
+			_, err = db.connection.Exec("DELETE FROM templates WHERE is_deleted > 0 AND updated_at < ?", before)
+			if err != nil {
+				log.Error().Err(err).Msg("db: failed to delete old templates")
+			}
+
+			// Remove old template vars
+			_, err = db.connection.Exec("DELETE FROM templatevars WHERE is_deleted > 0 AND updated_at < ?", before)
+			if err != nil {
+				log.Error().Err(err).Msg("db: failed to delete old template vars")
+			}
+
 			// Remove old users
 			_, err = db.connection.Exec("DELETE FROM users WHERE is_deleted > 0 AND updated_at < ?", before)
 			if err != nil {
 				log.Error().Err(err).Msg("db: failed to delete old users")
 			}
 
-			// TODO Add cleanup for other tables
+			// Remove old volumes
+			_, err = db.connection.Exec("DELETE FROM volumes WHERE is_deleted > 0 AND updated_at < ?", before)
+			if err != nil {
+				log.Error().Err(err).Msg("db: failed to delete old volumes")
+			}
 		}
 	}()
 

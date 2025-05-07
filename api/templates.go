@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/paularlott/knot/api/api_utils"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -53,6 +55,9 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, template := range templates {
+		if template.IsDeleted {
+			continue
+		}
 
 		// If the template has groups and no overlap with the user's groups then skip
 		if !user.HasPermission(model.PermissionManageTemplates) && len(template.Groups) > 0 && !user.HasAnyGroup(&template.Groups) {
@@ -198,6 +203,8 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.ScheduleEnabled = request.ScheduleEnabled
 	template.Schedule = make([]model.TemplateScheduleDays, 7)
 	template.Locations = request.Locations
+	template.UpdatedAt = time.Now().UTC()
+	template.UpdatedUserId = user.Id
 
 	for i, day := range request.Schedule {
 		template.Schedule[i] = model.TemplateScheduleDays{
@@ -216,6 +223,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	api_utils.UpdateTemplateHash(template.Id, template.Hash)
+	service.GetTransport().GossipTemplate(template)
 
 	audit.Log(
 		user.Username,
@@ -315,6 +323,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	templateId = template.Id
 
 	api_utils.UpdateTemplateHash(template.Id, template.Hash)
+	service.GetTransport().GossipTemplate(template)
 
 	audit.Log(
 		user.Username,
@@ -363,7 +372,10 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the template
-	err = database.GetInstance().DeleteTemplate(template)
+	template.IsDeleted = true
+	template.UpdatedAt = time.Now().UTC()
+	template.UpdatedUserId = r.Context().Value("user").(*model.User).Id
+	err = database.GetInstance().SaveTemplate(template, []string{"IsDeleted", "UpdatedAt", "UpdatedUserId"})
 	if err != nil {
 		if errors.Is(err, database.ErrTemplateInUse) {
 			rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
@@ -374,6 +386,7 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	api_utils.DeleteTemplateHash(template.Id)
+	service.GetTransport().GossipTemplate(template)
 
 	user := r.Context().Value("user").(*model.User)
 	audit.Log(

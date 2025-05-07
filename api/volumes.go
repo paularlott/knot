@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
@@ -12,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
@@ -31,6 +33,10 @@ func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, volume := range volumes {
+		if volume.IsDeleted {
+			continue
+		}
+
 		v := apiclient.VolumeInfo{
 			Id:             volume.Id,
 			Name:           volume.Name,
@@ -80,12 +86,15 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 	volume.Name = request.Name
 	volume.Definition = request.Definition
 	volume.UpdatedUserId = user.Id
+	volume.UpdatedAt = time.Now().UTC()
 
 	err = db.SaveVolume(volume, []string{"Name", "Definition", "UpdatedUserId"})
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	service.GetTransport().GossipVolume(volume)
 
 	audit.Log(
 		user.Username,
@@ -132,6 +141,8 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	service.GetTransport().GossipVolume(volume)
+
 	audit.Log(
 		user.Username,
 		model.AuditActorTypeUser,
@@ -175,11 +186,16 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the volume
-	err = database.GetInstance().DeleteVolume(volume)
+	volume.IsDeleted = true
+	volume.UpdatedAt = time.Now().UTC()
+	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
+	err = db.SaveVolume(volume, []string{"IsDeleted", "UpdatedAt", "UpdatedUserId"})
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	service.GetTransport().GossipVolume(volume)
 
 	user := r.Context().Value("user").(*model.User)
 	audit.Log(
@@ -282,7 +298,10 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db.SaveVolume(volume, []string{"Active", "Location"})
+	volume.UpdatedAt = time.Now().UTC()
+	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
+	db.SaveVolume(volume, []string{"Active", "Location", "UpdatedAt", "UpdatedUserId"})
+	service.GetTransport().GossipVolume(volume)
 
 	rest.SendJSON(http.StatusOK, w, r, &apiclient.StartVolumeResponse{
 		Status:   true,
@@ -341,7 +360,10 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db.SaveVolume(volume, []string{"Active", "Location"})
+	volume.UpdatedAt = time.Now().UTC()
+	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
+	db.SaveVolume(volume, []string{"Active", "Location", "UpdatedAt", "UpdatedUserId"})
+	service.GetTransport().GossipVolume(volume)
 
 	w.WriteHeader(http.StatusOK)
 }

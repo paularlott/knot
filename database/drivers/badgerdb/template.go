@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util"
@@ -16,9 +15,6 @@ func (db *BadgerDbDriver) SaveTemplate(template *model.Template, updateFields []
 	err := db.connection.Update(func(txn *badger.Txn) error {
 		// Load the existing template
 		existingTemplate, _ := db.GetTemplate(template.Id)
-		if existingTemplate == nil {
-			template.CreatedAt = time.Now().UTC()
-		}
 
 		// Apply changes from new to existing if doing partial update
 		if existingTemplate != nil && len(updateFields) > 0 {
@@ -26,8 +22,6 @@ func (db *BadgerDbDriver) SaveTemplate(template *model.Template, updateFields []
 			template = existingTemplate
 		}
 
-		template.UpdatedUserId = template.CreatedUserId
-		template.UpdatedAt = time.Now().UTC()
 		data, err := json.Marshal(template)
 		if err != nil {
 			return err
