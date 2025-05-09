@@ -1,0 +1,51 @@
+{{ template "layout-base.tmpl" . }}
+
+{{ define "pageTitle" }}Cluster Info{{ end }}
+
+{{ define "mainContent" }}
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="clusterInfoComponent()">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
+
+    <div class="mb-4 col-span-full xl:mb-2">
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Cluster Info</h1>
+    </div>
+
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
+      {{ template "loading" . }}
+      <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
+          <thead class="bg-gray-100 dark:bg-gray-700">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Id</th>
+              <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Address</th>
+              <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">State</th>
+              <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Metadata</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+            <template x-if="nodes.length > 0">
+              <template x-for="node in nodes" :key="node.id">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-600">
+                  <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-200 text-sm" x-text="node.id"></td>
+                  <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="node.address"></td>
+                  <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="node.state"></td>
+                  <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-200">
+                    <template x-if="node.metadata">
+                      <template x-for="(value, key) in node.metadata" :key="key">
+                        <div class="text-sm text-gray-500 dark:text-gray-400" x-text="`${key}: ${value}`"></div>
+                      </template>
+                    </template>
+                  </td>
+                </tr>
+              </template>
+            </template>
+          </tbody>
+        </table>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+{{ end }}

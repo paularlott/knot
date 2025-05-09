@@ -22,6 +22,7 @@ const (
 	PermissionViewAuditLogs          // Can View Audit Logs
 	PermissionTransferSpaces         // Can Transfer Spaces
 	PermissionShareSpaces            // Can Share Spaces
+	PermissionClusterInfo            // Can View Cluster Info
 )
 
 type PermissionName struct {
@@ -42,6 +43,7 @@ var PermissionNames = []PermissionName{
 	{PermissionManageRoles, "Manage Roles"},
 	{PermissionManageUsers, "Manage Users"},
 	{PermissionViewAuditLogs, "View Audit Logs"},
+	{PermissionClusterInfo, "View Cluster Info"},
 }
 
 // Role
@@ -87,6 +89,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionViewAuditLogs,
 			PermissionTransferSpaces,
 			PermissionShareSpaces,
+			PermissionClusterInfo,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: adminTime,

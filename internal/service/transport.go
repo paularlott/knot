@@ -1,6 +1,9 @@
 package service
 
-import "github.com/paularlott/knot/database/model"
+import (
+	"github.com/paularlott/gossip"
+	"github.com/paularlott/knot/database/model"
+)
 
 type Transport interface {
 	GossipGroup(group *model.Group)
@@ -10,6 +13,8 @@ type Transport interface {
 	GossipTemplateVar(templateVar *model.TemplateVar)
 	GossipUser(user *model.User)
 	GossipVolume(volume *model.Volume)
+
+	Nodes() []*gossip.Node
 }
 
 var (

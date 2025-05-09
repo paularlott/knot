@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/gossip/websocket"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
+	cfg "github.com/paularlott/knot/internal/config"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -106,6 +107,8 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 		})
 	}
 
+	cluster.gossipCluster.LocalMetadata().SetString("location", cfg.Location)
+
 	return cluster
 }
 
@@ -168,4 +171,11 @@ func (c *Cluster) Stop() {
 		log.Info().Msg("cluster: stopping gossip cluster")
 		c.gossipCluster.Stop()
 	}
+}
+
+func (c *Cluster) Nodes() []*gossip.Node {
+	if c.gossipCluster != nil {
+		return c.gossipCluster.Nodes()
+	}
+	return nil
 }

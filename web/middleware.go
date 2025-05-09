@@ -43,38 +43,15 @@ func checkPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func checkPermissionUseTunnels(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionUseTunnels) {
-			showPageForbidden(w, r)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPermission(next, model.PermissionUseTunnels)
 }
-func checkPermissionViewAuditLogs(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionViewAuditLogs) {
-			showPageForbidden(w, r)
-			return
-		}
 
-		next.ServeHTTP(w, r)
-	})
+func checkPermissionViewAuditLogs(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionViewAuditLogs)
 }
 
 func checkPermissionManageUsers(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionManageUsers) {
-			showPageForbidden(w, r)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPermission(next, model.PermissionManageUsers)
 }
 
 func checkPermissionManageGroups(next http.HandlerFunc) http.HandlerFunc {
@@ -83,4 +60,8 @@ func checkPermissionManageGroups(next http.HandlerFunc) http.HandlerFunc {
 
 func checkPermissionManageRoles(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionManageRoles)
+}
+
+func checkPermissionViewClusterInfo(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionClusterInfo)
 }

@@ -30,6 +30,7 @@ import './pages/spacesListComponent.js';
 import './pages/usageComponent.js';
 import './pages/tunnelsListComponent.js';
 import './pages/auditLogComponent.js';
+import './pages/clusterInfoComponent.js';
 
 window.validate = validate;
 window.focusElement = function(selector) {
