@@ -5,7 +5,7 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/service"
 
 	"github.com/rs/zerolog/log"
@@ -152,7 +152,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	space.IsDeployed = false
 	space.IsDeleting = false
 	space.TemplateHash = template.Hash
-	space.Location = server_info.LeafLocation
+	space.Location = config.Location
 	space.UpdatedAt = time.Now().UTC()
 	err = db.SaveSpace(space, []string{"NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location", "UpdatedAt"})
 	if err != nil {

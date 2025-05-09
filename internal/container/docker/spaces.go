@@ -12,7 +12,7 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	cfg "github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/service"
 
 	"github.com/docker/docker/api/types/container"
@@ -161,7 +161,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	space.IsDeployed = false
 	space.IsDeleting = false
 	space.TemplateHash = template.Hash
-	space.Location = server_info.LeafLocation
+	space.Location = cfg.Location
 	space.UpdatedAt = time.Now().UTC()
 	err = db.SaveSpace(space, []string{"IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location", "UpdatedAt"})
 	if err != nil {

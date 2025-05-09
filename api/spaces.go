@@ -10,10 +10,10 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
@@ -91,7 +91,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.TemplateName = templateName
 		s.TemplateId = space.TemplateId
 		s.Location = space.Location
-		s.IsRemote = space.Location != "" && space.Location != server_info.LeafLocation
+		s.IsRemote = space.Location != "" && space.Location != config.Location
 		s.LocalContainer = localContainer
 		s.IsManual = isManual
 
@@ -213,7 +213,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// If space is running on this server then delete it from nomad
-	if space.Location == server_info.LeafLocation {
+	if space.Location == config.Location {
 		// Mark the space as deleting and delete it in the background
 		space.IsDeleting = true
 		space.UpdatedAt = time.Now().UTC()
@@ -306,13 +306,13 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
 	// Lock the space to the location of the server creating it
 	if request.Location == "" {
-		space.Location = server_info.LeafLocation
+		space.Location = config.Location
 	} else {
 		space.Location = request.Location
 	}
 
 	// If space create is disabled then fail
-	if viper.GetBool("server.disable_space_create") && space.Location == server_info.LeafLocation {
+	if viper.GetBool("server.disable_space_create") && space.Location == config.Location {
 		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Space creation is disabled"})
 		return
 	}
@@ -467,7 +467,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Is the space has a location then it must match the server location
-	if space.Location != "" && space.Location != server_info.LeafLocation {
+	if space.Location != "" && space.Location != config.Location {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space location does not match server location"})
 		return
 	}
@@ -783,7 +783,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 
 	for _, space := range spaces {
 		// We skip spaces that have been shared with the user
-		if space.UserId == userId && space.IsDeployed && (space.Location == "" || space.Location == server_info.LeafLocation) {
+		if space.UserId == userId && space.IsDeployed && (space.Location == "" || space.Location == config.Location) {
 
 			// Load the template for the space
 			template, err := db.GetTemplate(space.TemplateId)

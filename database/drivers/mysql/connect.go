@@ -14,8 +14,8 @@ import (
 
 const (
 	healthCheckInterval = 10 * time.Second
-	gcInterval          = 1 * time.Minute // TODO change interval to 1h and keep to 7days
-	garbageMaxAge       = 10 * time.Minute
+	gcInterval          = 1 * time.Hour
+	garbageMaxAge       = 3 * 24 * time.Hour
 )
 
 type MySQLDriver struct {

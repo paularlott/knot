@@ -7,8 +7,9 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"github.com/paularlott/knot/internal/config"
+
 	"github.com/google/uuid"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/rs/zerolog/log"
 )
 
@@ -100,7 +101,7 @@ func (template *Template) AllowedBySchedule() bool {
 	}
 
 	// Get the timezone
-	loc, err := time.LoadLocation(server_info.Timezone)
+	loc, err := time.LoadLocation(config.Timezone)
 	if err != nil {
 		log.Error().Msgf("Error loading timezone: %s", err)
 		return false

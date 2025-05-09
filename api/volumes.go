@@ -9,10 +9,10 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
@@ -266,7 +266,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the volume has a location and it is not this server then fail
-	if volume.Location != "" && volume.Location != server_info.LeafLocation {
+	if volume.Location != "" && volume.Location != config.Location {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "volume is used by another server"})
 		return
 	}
@@ -281,7 +281,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 	vars := model.FilterVars(variables)
 
 	// Mark volume as started
-	volume.Location = server_info.LeafLocation
+	volume.Location = config.Location
 	volume.Active = true
 
 	var containerClient container.ContainerManager
@@ -328,7 +328,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the volume is not running or not this server then fail
-	if !volume.Active || volume.Location != server_info.LeafLocation {
+	if !volume.Active || volume.Location != config.Location {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "volume not running"})
 		return
 	}

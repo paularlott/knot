@@ -24,7 +24,6 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/dnsserver"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/middleware"
@@ -387,13 +386,13 @@ var serverCmd = &cobra.Command{
 		}
 
 		// set the server location and timezone
-		server_info.LeafLocation = viper.GetString("server.location")
-		server_info.Timezone = viper.GetString("server.timezone")
+		config.Location = viper.GetString("server.location")
+		config.Timezone = viper.GetString("server.timezone")
 
-		if server_info.Timezone == "" {
-			server_info.Timezone, _ = time.Now().Zone()
+		if config.Timezone == "" {
+			config.Timezone, _ = time.Now().Zone()
 		}
-		log.Info().Msgf("server: timezone: %s", server_info.Timezone)
+		log.Info().Msgf("server: timezone: %s", config.Timezone)
 
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()
@@ -531,16 +530,6 @@ var serverCmd = &cobra.Command{
 			}
 		}
 
-		// TODO Move this to after the gossip server is up and running
-		// Start the agent server
-		agent_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
-
-		// TODO Move this to after the gossip server is up and running
-		// Start a tunnel server
-		if viper.GetString("server.listen_tunnel") != "" {
-			tunnel_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_tunnel")), tlsConfig)
-		}
-
 		// Start the gossip server
 		cluster := cluster.NewCluster(
 			viper.GetString("server.cluster.key"),
@@ -579,6 +568,14 @@ var serverCmd = &cobra.Command{
 		// Start the cluster and join the peers
 		cluster.Start(viper.GetStringSlice("server.cluster.peers"))
 
+		// Start the agent server
+		agent_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
+
+		// Start a tunnel server
+		if viper.GetString("server.listen_tunnel") != "" {
+			tunnel_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_tunnel")), tlsConfig)
+		}
+
 		// Block until we receive our signal.
 		<-c
 
@@ -606,13 +603,13 @@ func startupCheckPendingSpaces() {
 
 		for _, space := range spaces {
 			// If space on this server and pending then monitor it
-			if space.Location == server_info.LeafLocation && space.IsPending {
+			if space.Location == config.Location && space.IsPending {
 				log.Info().Msgf("server: found pending space %s", space.Name)
 				nomadClient.MonitorJobState(space)
 			}
 
 			// If deleting then delete it
-			if space.IsDeleting && (space.Location == "" || space.Location == server_info.LeafLocation) {
+			if space.IsDeleting && (space.Location == "" || space.Location == config.Location) {
 				log.Info().Msgf("server: found deleting space %s", space.Name)
 				api.RealDeleteSpace(space)
 			}

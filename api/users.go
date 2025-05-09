@@ -8,7 +8,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/middleware"
@@ -232,7 +232,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 	// If no location given then use the servers
 	if inLocation == "" {
-		inLocation = server_info.LeafLocation
+		inLocation = config.Location
 	}
 
 	var userData = &apiclient.UserInfoList{
@@ -409,7 +409,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.UpdatedAt = time.Now().UTC()
-	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredSheel", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
+	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
 
 	// Update the user password
 	if len(request.Password) > 0 {

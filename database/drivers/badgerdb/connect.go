@@ -10,8 +10,8 @@ import (
 
 const (
 	badgerGCInterval = 5 * time.Minute
-	gcInterval       = 1 * time.Minute
-	garbageMaxAge    = 10 * time.Minute
+	gcInterval       = 1 * time.Hour
+	garbageMaxAge    = 3 * 24 * time.Hour
 )
 
 type BadgerDbDriver struct {

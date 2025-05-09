@@ -14,7 +14,7 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/middleware"
 
 	"github.com/rs/zerolog/log"
@@ -371,8 +371,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionShareSpaces":     user.HasPermission(model.PermissionShareSpaces),
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
-		"location":                  server_info.LeafLocation,
-		"timezone":                  server_info.Timezone,
+		"location":                  config.Location,
+		"timezone":                  config.Timezone,
 		"disableSpaceCreate":        viper.GetBool("server.disable_space_create"),
 		"totpEnabled":               viper.GetBool("server.totp.enabled"),
 	}
