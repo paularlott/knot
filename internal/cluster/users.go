@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/middleware"
 
 	"github.com/rs/zerolog/log"
 )
@@ -126,6 +127,9 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 				log.Error().Err(err).Str("name", user.Username).Msg("cluster: Failed to create user")
 				return err
 			}
+
+			// Make sure we move to has users mode
+			middleware.HasUsers = true
 		}
 	}
 
