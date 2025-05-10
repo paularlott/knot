@@ -89,6 +89,27 @@ paths:
         '500':
           $ref: '#/components/responses/internal-server-error'
 
+  /api/clister-info:
+    get:
+      tags:
+      - Cluster
+      summary: Get Cluster Info
+      description: Retrieve an overview of the cluster.
+      operationId: getClusterInfo
+      responses:
+        '200':
+          description: A list of cluster nodes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClusterNodeInfo'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+
   /api/tunnels/{tunnel_id}:
     delete:
       tags:
@@ -2170,6 +2191,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AuditLogsEntry'
+
+    ClusterNodeInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The ID of the cluster node.
+        address:
+          type: string
+          description: The advertised address of the cluster node.
+        state:
+          enum: [Alive, Suspect, Leaving, Dead]
+          description: The human readable state of the cluster node.
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: The metadata of the cluster node as key-value pairs.
 
     TunnelInfo:
       type: object
