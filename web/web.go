@@ -206,7 +206,7 @@ func Routes(router *http.ServeMux) {
 	}
 
 	router.HandleFunc("GET /logs/{space_id}/stream", middleware.ApiAuth(HandleLogsStream))
-	router.HandleFunc("GET /cluster-info", middleware.ApiAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
+	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 
 	// Routes without authentication
 	if !middleware.HasUsers {
