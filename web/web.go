@@ -377,5 +377,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"timezone":                  config.Timezone,
 		"disableSpaceCreate":        viper.GetBool("server.disable_space_create"),
 		"totpEnabled":               viper.GetBool("server.totp.enabled"),
+		"clusterMode":               viper.GetString("server.cluster.advertise_addr") != "",
 	}
 }

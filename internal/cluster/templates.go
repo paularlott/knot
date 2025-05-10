@@ -27,7 +27,7 @@ func (c *Cluster) handleTemplateFullSync(sender *gossip.Node, packet *gossip.Pac
 	}
 
 	// Merge the templates in the background
-	go c.mergeTemplates(existingTemplates)
+	go c.mergeTemplates(templates)
 
 	// Return the full dataset directly as response
 	return TemplateFullSyncMsg, existingTemplates, nil

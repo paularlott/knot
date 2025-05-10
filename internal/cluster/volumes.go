@@ -27,7 +27,7 @@ func (c *Cluster) handleVolumeFullSync(sender *gossip.Node, packet *gossip.Packe
 	}
 
 	// Merge the volumes in the background
-	go c.mergeVolumes(existingVolumes)
+	go c.mergeVolumes(volumes)
 
 	// Return the full dataset directly as response
 	return VolumeFullSyncMsg, existingVolumes, nil

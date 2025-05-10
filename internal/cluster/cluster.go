@@ -105,9 +105,9 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 			cluster.gossipUsers()
 			cluster.gossipVolumes()
 		})
-	}
 
-	cluster.gossipCluster.LocalMetadata().SetString("location", cfg.Location)
+		cluster.gossipCluster.LocalMetadata().SetString("location", cfg.Location)
+	}
 
 	return cluster
 }
