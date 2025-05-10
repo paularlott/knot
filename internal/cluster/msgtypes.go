@@ -17,4 +17,5 @@ const (
 	UserGossipMsg
 	VolumeFullSyncMsg
 	VolumeGossipMsg
+	AuditLogGossipMsg
 )

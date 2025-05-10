@@ -94,6 +94,7 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 		cluster.gossipCluster.HandleFunc(UserGossipMsg, cluster.handleUserGossip)
 		cluster.gossipCluster.HandleFuncWithReply(VolumeFullSyncMsg, cluster.handleVolumeFullSync)
 		cluster.gossipCluster.HandleFunc(VolumeGossipMsg, cluster.handleVolumeGossip)
+		cluster.gossipCluster.HandleFunc(AuditLogGossipMsg, cluster.handleAuditLogGossip)
 
 		// Periodically gossip the status of the objects
 		cluster.gossipCluster.HandleGossipFunc(func() {

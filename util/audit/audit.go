@@ -3,8 +3,14 @@ package audit
 import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/service"
 )
 
 func Log(actor, actorType, event, details string, properties *map[string]interface{}) error {
-	return database.GetInstance().SaveAuditLog(model.NewAuditLogEntry(actor, actorType, event, details, properties))
+	entry := model.NewAuditLogEntry(actor, actorType, event, details, properties)
+	transport := service.GetTransport()
+	if transport != nil {
+		transport.GossipAuditLog(entry)
+	}
+	return database.GetInstance().SaveAuditLog(entry)
 }

@@ -13,6 +13,7 @@ type Transport interface {
 	GossipTemplateVar(templateVar *model.TemplateVar)
 	GossipUser(user *model.User)
 	GossipVolume(volume *model.Volume)
+	GossipAuditLog(entry *model.AuditLogEntry)
 
 	Nodes() []*gossip.Node
 }

@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/paularlott/knot/internal/config"
+)
 
 // Define actor types
 const (
@@ -59,6 +63,7 @@ const (
 
 type AuditLogEntry struct {
 	Id         int64                  `json:"audit_log_id" db:"audit_log_id,pk"`
+	Location   string                 `json:"location" db:"location"`
 	Actor      string                 `json:"actor" db:"actor"`
 	ActorType  string                 `json:"actor_type" db:"actor_type"`
 	Event      string                 `json:"event" db:"event"`
@@ -69,6 +74,7 @@ type AuditLogEntry struct {
 
 func NewAuditLogEntry(actor, actorType, event, details string, properties *map[string]interface{}) *AuditLogEntry {
 	entry := &AuditLogEntry{
+		Location:  config.Location,
 		Actor:     actor,
 		ActorType: actorType,
 		Event:     event,

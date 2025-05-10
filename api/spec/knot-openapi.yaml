@@ -2160,6 +2160,9 @@ components:
           type: integer
           format: int64
           description: The ID of the audit log entry.
+        location:
+          type: string
+          description: The server location of the audit log entry.
         Actor:
           type: string
           description: The actor who performed the action.

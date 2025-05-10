@@ -197,6 +197,7 @@ INDEX idx_is_deleted (is_deleted)
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
 audit_log_id bigint(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
 created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP,
+location VARCHAR(64) DEFAULT '',
 actor VARCHAR(255),
 actor_type VARCHAR(255),
 event VARCHAR(255),

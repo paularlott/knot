@@ -360,16 +360,6 @@ var serverCmd = &cobra.Command{
 		log.Info().Msgf("server: starting knot version: %s", build.Version)
 		log.Info().Msgf("server: starting on: %s", listen)
 
-		audit.Log(
-			model.AuditActorSystem,
-			model.AuditActorTypeSystem,
-			model.AuditEventSystemStart,
-			"",
-			&map[string]interface{}{
-				"build": build.Version,
-			},
-		)
-
 		// Initialize the API helpers
 		service.SetUserService(api_utils.NewApiUtilsUsers())
 
@@ -575,6 +565,16 @@ var serverCmd = &cobra.Command{
 		if viper.GetString("server.listen_tunnel") != "" {
 			tunnel_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_tunnel")), tlsConfig)
 		}
+
+		audit.Log(
+			model.AuditActorSystem,
+			model.AuditActorTypeSystem,
+			model.AuditEventSystemStart,
+			"",
+			&map[string]interface{}{
+				"build": build.Version,
+			},
+		)
 
 		// Block until we receive our signal.
 		<-c
