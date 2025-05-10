@@ -2,7 +2,7 @@ module github.com/paularlott/knot
 
 go 1.24.2
 
-replace github.com/paularlott/gossip v0.0.0-20250427070721-f1be9b02b108 => ../gossip/
+replace github.com/paularlott/gossip => ../gossip/
 
 require (
 	github.com/creack/pty v1.1.24
