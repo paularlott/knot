@@ -193,7 +193,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the space is running or changing state then fail
-	if space.IsDeployed || space.IsPending || space.IsDeleting {
+	if space.IsDeployed || space.IsPending || space.IsDeleting || (space.Location != "" && space.Location != config.Location) {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be deleted"})
 		return
 	}
@@ -212,28 +212,14 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	// If space is running on this server then delete it from nomad
-	if space.Location == config.Location {
-		// Mark the space as deleting and delete it in the background
-		space.IsDeleting = true
-		space.UpdatedAt = time.Now().UTC()
-		db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-		service.GetTransport().GossipSpace(space)
+	// Mark the space as deleting and delete it in the background
+	space.IsDeleting = true
+	space.UpdatedAt = time.Now().UTC()
+	db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
+	service.GetTransport().GossipSpace(space)
 
-		// Delete the space in the background
-		RealDeleteSpace(space)
-	} else {
-		// Delete the space
-		space.IsDeleted = true
-		space.UpdatedAt = time.Now().UTC()
-		err = db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt"})
-		if err != nil {
-			log.Error().Msgf("HandleDeleteSpace: %s", err.Error())
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-		service.GetTransport().GossipSpace(space)
-	}
+	// Delete the space in the background
+	RealDeleteSpace(space)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -590,6 +576,12 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	// If the space is not running or changing state then fail
 	if (!space.IsDeployed && !space.IsPending) || space.IsDeleting {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be stopped"})
+		return
+	}
+
+	// If the space isn't on this server then fail
+	if space.Location != "" && space.Location != config.Location {
+		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
 
@@ -968,6 +960,12 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If space isn't on this server then fail
+	if space.Location != "" && space.Location != config.Location {
+		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
+		return
+	}
+
 	// If the space is running or changing state then fail
 	if space.IsDeployed || space.IsPending || space.IsDeleting {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be transferred at this time"})
@@ -1056,8 +1054,8 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 				rest.SendJSON(http.StatusConflict, w, r, ErrorResponse{Error: "user already has a space with the same name"})
 				return
 			}
-		} else {
-			break
+
+			continue
 		}
 
 		// Move the space
@@ -1087,6 +1085,8 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 				"user_id":         request.UserId,
 			},
 		)
+
+		break
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -1129,6 +1129,12 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	// If user doesn't own the space then 404
 	if space.UserId != user.Id {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	// If space isn't on this server then fail
+	if space.Location != "" && space.Location != config.Location {
+		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
 
@@ -1213,6 +1219,12 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	// If user doesn't own the space or space not shared with the user then 404
 	if space.UserId != user.Id && space.SharedWithUserId != user.Id {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	// If space isn't on this server then fail
+	if space.Location != "" && space.Location != config.Location {
+		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
 
