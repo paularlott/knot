@@ -83,6 +83,12 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If the volume is active then don't update
+	if volume.Active {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Cannot update an active volume"})
+		return
+	}
+
 	volume.Name = request.Name
 	volume.Definition = request.Definition
 	volume.UpdatedUserId = user.Id

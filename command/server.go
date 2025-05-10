@@ -111,6 +111,9 @@ func init() {
 	serverCmd.Flags().StringP("redis-master-name", "", "", "The name of the master to use for failover clients (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME environment variable if set.")
 	serverCmd.Flags().StringP("redis-key-prefix", "", "", "The prefix to use for all keys in the redis database (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX environment variable if set.")
 
+	// Docker
+	serverCmd.Flags().StringP("docker-host", "", "unix:///var/run/docker.sock", "The Docker host to connect to (default \"unix:///var/run/docker.sock\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DOCKER_HOST environment variable if set.")
+
 	RootCmd.AddCommand(serverCmd)
 }
 
@@ -348,6 +351,11 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.redis.key_prefix", cmd.Flags().Lookup("redis-key-prefix"))
 		viper.BindEnv("server.redis.key_prefix", config.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX")
 		viper.SetDefault("server.redis.key_prefix", "")
+
+		// Docker
+		viper.BindPFlag("server.docker.host", cmd.Flags().Lookup("docker-host"))
+		viper.BindEnv("server.docker.host", config.CONFIG_ENV_PREFIX+"_DOCKER_HOST")
+		viper.SetDefault("server.docker.host", "unix:///var/run/docker.sock")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := util.FixListenAddress(viper.GetString("server.listen"))

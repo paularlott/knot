@@ -14,6 +14,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 	cfg "github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/spf13/viper"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -185,7 +186,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		}()
 
 		// Create a Docker client
-		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
 		if err != nil {
 			log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 			return
@@ -294,7 +295,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 			service.GetTransport().GossipSpace(space)
 		}()
 
-		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
 		if err != nil {
 			log.Error().Msgf("docker: deleting space job %s error %s", space.Id, err)
 			return
@@ -352,7 +353,7 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 
 	log.Debug().Msg("docker: checking for required volumes")
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
 	if err != nil {
 		return err
 	}
@@ -415,7 +416,7 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 		return nil
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
 	if err != nil {
 		return err
 	}

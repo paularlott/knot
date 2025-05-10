@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/database/model"
+	"github.com/spf13/viper"
 
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
@@ -32,7 +33,7 @@ func (c *DockerClient) CreateVolume(vol *model.Volume, variables *map[string]int
 		return fmt.Errorf("volume definition must contain exactly 1 volume")
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
 	if err != nil {
 		return err
 	}
@@ -66,7 +67,7 @@ func (c *DockerClient) DeleteVolume(vol *model.Volume, variables *map[string]int
 		return err
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
 	if err != nil {
 		return err
 	}
