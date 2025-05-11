@@ -14,7 +14,7 @@ vars:
     - linux/arm64
   BUILT_AT:
     sh: date +%Y%m%d.%H%M%S%z
-  BUILD_FLAGS: '-ldflags="-s -w -X github.com/paularlott/knot/build.Date={{.BUILT_AT}}" -trimpath'
+  BUILD_FLAGS: '-ldflags="-s -w -X github.com/paularlott/knot/build.Date={{.BUILT_AT}}" -trimpath -tags "skip_codec_hashicorp_msgpack skip_codec_json skip_codec_shamaton_msgpack skip_encryption_chacha20 skip_websocket_coder"'
   OUTPUT_DIR: bin
   AGENT_OUTPUT_DIR: web/agents
   VERSION:

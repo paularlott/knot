@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/service"
@@ -20,6 +21,10 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 			Metadata: p.Metadata.GetAllAsString(),
 		}
 	}
+	// Sort the response by Address
+	sort.Slice(response, func(i, j int) bool {
+		return response[i].Address < response[j].Address
+	})
 
 	rest.SendJSON(http.StatusOK, w, r, response)
 }
