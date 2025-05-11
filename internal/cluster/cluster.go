@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -54,6 +55,14 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 			config.WebsocketProvider = websocket.NewGorillaProvider(5*time.Second, true, viper.GetString("server.cluster.key"))
 			config.SocketTransportEnabled = false
 			config.BearerToken = viper.GetString("server.cluster.key")
+
+			url, err := url.Parse(config.AdvertiseAddr)
+			if err != nil {
+				log.Fatal().Msgf("cluster: failed to parse advertise URL %s: %s", config.AdvertiseAddr, err.Error())
+			}
+
+			url.Path = "/cluster"
+			config.AdvertiseAddr = url.String()
 		}
 
 		config.Logger = common.NewZerologLogger(log.Logger)
@@ -117,6 +126,19 @@ func (c *Cluster) Start(peers []string) {
 	if c.gossipCluster != nil {
 		log.Info().Msg("cluster: starting gossip cluster")
 		c.gossipCluster.Start()
+
+		// Process the peers list, any that start with ws://, wss://, http:// or https:// need the path to be /cluster
+		for i, peer := range peers {
+			if strings.HasPrefix(peer, "ws://") || strings.HasPrefix(peer, "wss://") || strings.HasPrefix(peer, "http://") || strings.HasPrefix(peer, "https://") {
+				url, err := url.Parse(peer)
+				if err != nil {
+					log.Fatal().Msgf("cluster: failed to parse peer URL %s: %s", peer, err.Error())
+				}
+
+				url.Path = "/cluster"
+				peers[i] = url.String()
+			}
+		}
 
 		// Join the initial peers
 		if err := c.gossipCluster.Join(peers); err != nil {
