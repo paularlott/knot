@@ -131,6 +131,7 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 					if activeSpaces > 0 {
 						log.Error().Msg("cluster: Template is in use by spaces, cannot delete")
 						template.IsDeleted = false
+						template.Name = localTemplate.Name
 						template.UpdatedAt = localTemplate.UpdatedAt
 
 						refuteDelete = true

@@ -51,7 +51,6 @@ func (db *RedisDbDriver) GetTemplateVars() ([]*model.TemplateVar, error) {
 			return nil, err
 		}
 
-		templateVar.DecryptSetValue(templateVar.Value)
 		templateVars = append(templateVars, templateVar)
 	}
 	if err := iter.Err(); err != nil {

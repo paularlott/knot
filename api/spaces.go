@@ -899,15 +899,11 @@ func RealDeleteSpace(space *model.Space) {
 
 		// Delete the space
 		space.IsDeleted = true
+		space.Name = space.Id
 		space.UpdatedAt = time.Now().UTC()
-		err = db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt"})
+		err = db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt", "Name"})
 		if err != nil {
 			log.Error().Msgf("api: RealDeleteSpace %s", err.Error())
-
-			space.IsDeleting = false
-			space.UpdatedAt = time.Now().UTC()
-			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-			service.GetTransport().GossipSpace(space)
 			return
 		}
 

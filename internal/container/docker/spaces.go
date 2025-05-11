@@ -305,16 +305,20 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 		log.Debug().Msgf("docker: stopping container %s", space.ContainerId)
 		err = cli.ContainerStop(context.Background(), space.ContainerId, container.StopOptions{})
 		if err != nil {
-			log.Error().Msgf("docker: stopping container %s error %s", space.ContainerId, err)
-			return
+			if !strings.Contains(err.Error(), "No such container") {
+				log.Error().Msgf("docker: stopping container %s error %s", space.ContainerId, err)
+				return
+			}
 		}
 
 		// Remove the container
 		log.Debug().Msgf("docker: removing container %s", space.ContainerId)
 		err = cli.ContainerRemove(context.Background(), space.ContainerId, container.RemoveOptions{})
 		if err != nil {
-			log.Error().Msgf("docker: removing container %s error %s", space.ContainerId, err)
-			return
+			if !strings.Contains(err.Error(), "No such container") {
+				log.Error().Msgf("docker: removing container %s error %s", space.ContainerId, err)
+				return
+			}
 		}
 
 		space.IsPending = false

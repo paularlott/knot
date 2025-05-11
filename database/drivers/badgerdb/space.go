@@ -34,6 +34,48 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space, updateFields []string) e
 			}
 		}
 
+		if existingSpace != nil {
+			if existingSpace.UserId != space.UserId && (len(updateFields) == 0 || util.InArray(updateFields, "UserId")) {
+				err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserId:%s:%s", existingSpace.UserId, space.Id)))
+				if err != nil {
+					return err
+				}
+
+				err = txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", existingSpace.UserId, strings.ToLower(existingSpace.Name))))
+				if err != nil {
+					return err
+				}
+
+				// Delete alternate names
+				for _, altName := range existingSpace.AltNames {
+					err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", existingSpace.UserId, strings.ToLower(altName))))
+					if err != nil {
+						return err
+					}
+
+					err = txn.SetEntry(badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(altName))), []byte(space.Id)))
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			// If existing and shared but changed then delete the old shared information
+			if existingSpace != nil && existingSpace.SharedWithUserId != "" && existingSpace.SharedWithUserId != space.SharedWithUserId && (len(updateFields) == 0 || util.InArray(updateFields, "SharedWithUserId")) {
+				err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserId:%s:%s", existingSpace.SharedWithUserId, space.Id)))
+				if err != nil {
+					return err
+				}
+			}
+
+			if existingSpace != nil && existingSpace.Name != space.Name && (len(updateFields) == 0 || util.InArray(updateFields, "Name")) {
+				err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", existingSpace.UserId, strings.ToLower(existingSpace.Name))))
+				if err != nil {
+					return err
+				}
+			}
+		}
+
 		// Apply changes from space to existing space if doing partial update
 		if existingSpace != nil && len(updateFields) > 0 {
 			util.CopyFields(space, existingSpace, updateFields)
@@ -55,25 +97,10 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space, updateFields []string) e
 			return err
 		}
 
-		// If existing and shared but changed then delete the old shared information
-		if existingSpace != nil && existingSpace.SharedWithUserId != "" && existingSpace.SharedWithUserId != space.SharedWithUserId {
-			err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserId:%s:%s", existingSpace.SharedWithUserId, space.Id)))
-			if err != nil {
-				return err
-			}
-		}
-
 		// If shared with then add space under shared user
 		if space.SharedWithUserId != "" {
 			e = badger.NewEntry([]byte(fmt.Sprintf("SpacesByUserId:%s:%s", space.SharedWithUserId, space.Id)), []byte(space.Id))
 			if err = txn.SetEntry(e); err != nil {
-				return err
-			}
-		}
-
-		if existingSpace != nil && existingSpace.Name != space.Name {
-			err := txn.Delete([]byte(fmt.Sprintf("SpacesByUserIdByName:%s:%s", space.UserId, strings.ToLower(existingSpace.Name))))
-			if err != nil {
 				return err
 			}
 		}

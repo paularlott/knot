@@ -84,6 +84,47 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 		}
 	}
 
+	if existingSpace != nil {
+		if existingSpace.UserId != space.UserId && (len(updateFields) == 0 || util.InArray(updateFields, "UserId")) {
+			err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, existingSpace.UserId, space.Id)).Err()
+			if err != nil {
+				return err
+			}
+
+			err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, existingSpace.UserId, strings.ToLower(existingSpace.Name))).Err()
+			if err != nil {
+				return err
+			}
+
+			// Delete alternate names
+			for _, altName := range existingSpace.AltNames {
+				err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, existingSpace.UserId, strings.ToLower(altName))).Err()
+				if err != nil {
+					return err
+				}
+
+				err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(altName)), space.Id, 0).Err()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if existingSpace.SharedWithUserId != "" && existingSpace.SharedWithUserId != space.SharedWithUserId {
+			err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, existingSpace.SharedWithUserId, space.Id)).Err()
+			if err != nil {
+				return err
+			}
+		}
+
+		if existingSpace.Name != space.Name && (len(updateFields) == 0 || util.InArray(updateFields, "Name")) {
+			err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, existingSpace.UserId, strings.ToLower(existingSpace.Name))).Err()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	// Apply changes from space to existing space if doing partial update
 	if existingSpace != nil && len(updateFields) > 0 {
 		util.CopyFields(space, existingSpace, updateFields)
@@ -105,24 +146,9 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 		return err
 	}
 
-	// If existing and shared but changed then delete the old shared information
-	if existingSpace != nil && existingSpace.SharedWithUserId != "" && existingSpace.SharedWithUserId != space.SharedWithUserId {
-		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, existingSpace.SharedWithUserId, space.Id)).Err()
-		if err != nil {
-			return err
-		}
-	}
-
 	// If shared with then add space under shared user
 	if space.SharedWithUserId != "" {
 		err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.SharedWithUserId, space.Id), space.Id, 0).Err()
-		if err != nil {
-			return err
-		}
-	}
-
-	if existingSpace != nil && existingSpace.Name != space.Name {
-		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserIdByName:%s:%s", db.prefix, space.UserId, strings.ToLower(existingSpace.Name))).Err()
 		if err != nil {
 			return err
 		}
