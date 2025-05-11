@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/config"
 
 	"github.com/rs/zerolog/log"
 )
@@ -105,8 +106,42 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 	for _, template := range templates {
 		if localTemplate, ok := localTemplatesMap[template.Id]; ok {
 			if template.UpdatedAt.After(localTemplate.UpdatedAt) {
+				refuteDelete := false
+
+				// If the template is changing to deleted, then we need to stop and remove spaces
+				if template.IsDeleted && !localTemplate.IsDeleted {
+					// Get a list of the spaces using the template on this server
+					spaces, err := db.GetSpacesByTemplateId(template.Id)
+					if err != nil {
+						log.Error().Err(err).Msg("cluster: Failed to get spaces by template")
+						continue
+					}
+
+					// Count the spaces on this server
+					activeSpaces := 0
+					for _, space := range spaces {
+						if space.Location == config.Location && !space.IsDeleted {
+							activeSpaces++
+						}
+					}
+
+					// If we have spaces using the template then we refute the template delete
+					if activeSpaces > 0 {
+						log.Error().Msg("cluster: Template is in use by spaces, cannot delete")
+						template.IsDeleted = false
+						template.UpdatedAt = localTemplate.UpdatedAt
+
+						refuteDelete = true
+					}
+				}
+
 				if err := db.SaveTemplate(template, nil); err != nil {
 					log.Error().Err(err).Str("name", template.Name).Msg("cluster: Failed to update template")
+				}
+
+				if refuteDelete {
+					c.GossipTemplate(template)
+					log.Debug().Str("name", template.Name).Msg("cluster: Refuted template delete")
 				}
 			}
 		} else if !template.IsDeleted {

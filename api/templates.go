@@ -96,13 +96,17 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var deployed int = 0
+		var total int = 0
 		for _, space := range spaces {
-			if space.IsDeployed || space.IsPending {
-				deployed++
+			if !space.IsDeleted {
+				total++
+				if space.IsDeployed || space.IsPending {
+					deployed++
+				}
 			}
 		}
 
-		templateData.Usage = len(spaces)
+		templateData.Usage = total
 		templateData.Deployed = deployed
 
 		templateResponse.Templates = append(templateResponse.Templates, templateData)
@@ -363,7 +367,15 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(spaces) > 0 {
+	// Count the spaces on this server
+	activeSpaces := 0
+	for _, space := range spaces {
+		if !space.IsDeleted {
+			activeSpaces++
+		}
+	}
+
+	if activeSpaces > 0 {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "Template is in use by spaces"})
 		return
 	}
