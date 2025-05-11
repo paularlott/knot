@@ -110,15 +110,13 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 			if user.UpdatedAt.After(localUser.UpdatedAt) {
 				if err := db.SaveUser(user, []string{}); err != nil {
 					log.Error().Err(err).Str("name", user.Username).Msg("cluster: Failed to update user")
+				}
 
-					// If the user is deleted then we need to stop spaces etc
-					if user.IsDeleted && !localUser.IsDeleted {
-						if err := service.GetUserService().DeleteUser(user); err != nil {
-							log.Error().Err(err).Str("name", user.Username).Msg("cluster: Failed to delete user")
-						}
-					} else if user.GitHubUsername != localUser.GitHubUsername || user.SSHPublicKey != localUser.SSHPublicKey {
-						service.GetUserService().UpdateSpacesSSHKey(user)
-					}
+				// If deleting the user, then stop the spaces and delete them
+				if user.IsDeleted && !localUser.IsDeleted {
+					service.GetUserService().DeleteUser(user)
+				} else {
+					service.GetUserService().UpdateUserSpaces(user)
 				}
 			}
 		} else if !user.IsDeleted {

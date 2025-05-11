@@ -1,12 +1,14 @@
 package cluster
 
 import (
+	"fmt"
 	"math/rand"
 
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/util/audit"
 
 	"github.com/rs/zerolog/log"
 )
@@ -132,6 +134,14 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 						template.UpdatedAt = localTemplate.UpdatedAt
 
 						refuteDelete = true
+
+						audit.Log(
+							"cluster",
+							model.AuditActorSystem,
+							model.AuditEventTemplateDelete,
+							fmt.Sprintf("Refuted delete of template as in use on %s (%s)", config.Location, template.Name),
+							&map[string]interface{}{},
+						)
 					}
 				}
 
