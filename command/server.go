@@ -22,6 +22,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
+	containerHelper "github.com/paularlott/knot/internal/container/helper"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/dnsserver"
 	"github.com/paularlott/knot/internal/service"
@@ -370,6 +371,7 @@ var serverCmd = &cobra.Command{
 
 		// Initialize the API helpers
 		service.SetUserService(api_utils.NewApiUtilsUsers())
+		service.SetContainerService(containerHelper.NewContainerHelper())
 
 		// If server.tunnel-domain doesn't start with a . then prefix it, strip leading * if present
 		tunnelDomain := viper.GetString("server.tunnel_domain")
@@ -401,9 +403,6 @@ var serverCmd = &cobra.Command{
 			log.Fatal().Msgf("server: failed to get roles: %s", err.Error())
 		}
 		model.SetRoleCache(roles)
-
-		// Check for local spaces that are pending state changes and setup watches
-		startupCheckPendingSpaces()
 
 		// Start the DNS server
 		if viper.GetBool("server.dns.enabled") {
@@ -565,6 +564,9 @@ var serverCmd = &cobra.Command{
 
 		// Start the cluster and join the peers
 		cluster.Start(viper.GetStringSlice("server.cluster.peers"))
+
+		// Check for local spaces that are pending state changes and setup watches
+		startupCheckPendingSpaces()
 
 		// Start the agent server
 		agent_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)

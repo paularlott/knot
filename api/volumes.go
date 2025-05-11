@@ -10,9 +10,6 @@ import (
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/internal/container"
-	"github.com/paularlott/knot/internal/container/docker"
-	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
@@ -277,33 +274,14 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add the variables
-	variables, err := db.GetTemplateVars()
+	err = service.GetContainerService().CreateVolume(volume)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	vars := model.FilterVars(variables)
-
-	// Mark volume as started
 	volume.Location = config.Location
 	volume.Active = true
-
-	var containerClient container.ContainerManager
-	if volume.LocalContainer {
-		containerClient = docker.NewClient()
-	} else {
-		containerClient = nomad.NewClient()
-	}
-
-	// Create volumes
-	err = containerClient.CreateVolume(volume, &vars)
-	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
 	volume.UpdatedAt = time.Now().UTC()
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
 	db.SaveVolume(volume, []string{"Active", "Location", "UpdatedAt", "UpdatedUserId"})
@@ -339,33 +317,14 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add the variables
-	variables, err := db.GetTemplateVars()
-	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	vars := model.FilterVars(variables)
-
-	// Record the volume as not deployed
-	volume.Location = ""
-	volume.Active = false
-
-	var containerClient container.ContainerManager
-	if volume.LocalContainer {
-		containerClient = docker.NewClient()
-	} else {
-		containerClient = nomad.NewClient()
-	}
-
-	// Delete the volume
-	err = containerClient.DeleteVolume(volume, &vars)
+	err = service.GetContainerService().DeleteVolume(volume)
 	if err != nil && !strings.Contains(err.Error(), "volume not found") {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
+	volume.Location = ""
+	volume.Active = false
 	volume.UpdatedAt = time.Now().UTC()
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
 	db.SaveVolume(volume, []string{"Active", "Location", "UpdatedAt", "UpdatedUserId"})

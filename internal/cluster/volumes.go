@@ -2,14 +2,11 @@ package cluster
 
 import (
 	"math/rand"
-	"strings"
 
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/container"
-	"github.com/paularlott/knot/internal/container/docker"
-	"github.com/paularlott/knot/internal/container/nomad"
+	"github.com/paularlott/knot/internal/service"
 
 	"github.com/rs/zerolog/log"
 )
@@ -115,22 +112,8 @@ func (c *Cluster) mergeVolumes(volumes []*model.Volume) error {
 				if volume.IsDeleted && !localVolume.IsDeleted && localVolume.Active {
 					log.Debug().Str("name", volume.Name).Msg("cluster: Stopping deleted volume")
 
-					variables, err := db.GetTemplateVars()
-					if err == nil {
-						vars := model.FilterVars(variables)
-
-						var containerClient container.ContainerManager
-						if volume.LocalContainer {
-							containerClient = docker.NewClient()
-						} else {
-							containerClient = nomad.NewClient()
-						}
-
-						// Delete the volume
-						err = containerClient.DeleteVolume(volume, &vars)
-						if err != nil && !strings.Contains(err.Error(), "volume not found") {
-							log.Error().Err(err).Str("name", volume.Name).Msg("cluster: Failed to delete volume")
-						}
+					if err := service.GetContainerService().DeleteVolume(localVolume); err != nil {
+						log.Error().Err(err).Str("name", volume.Name).Msg("cluster: Failed to delete volume")
 					}
 				}
 
