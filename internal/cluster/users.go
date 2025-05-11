@@ -108,7 +108,7 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 		if localUser, ok := localUsersMap[user.Id]; ok {
 			// If the remote user is newer than the local user then use its data
 			if user.UpdatedAt.After(localUser.UpdatedAt) {
-				if err := db.SaveUser(user, []string{}); err != nil {
+				if err := db.SaveUser(user, nil); err != nil {
 					log.Error().Err(err).Str("name", user.Username).Msg("cluster: Failed to update user")
 				}
 

@@ -102,8 +102,10 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		log.Debug().Msgf("delete user: Deleting user %s from database", toDelete.Id)
 		toDelete.IsDeleted = true
 		toDelete.Active = false
+		toDelete.Username = toDelete.Id
+		toDelete.Email = toDelete.Id
 		toDelete.UpdatedAt = time.Now().UTC()
-		err = db.SaveUser(toDelete, []string{"IsDeleted", "Active", "UpdatedAt"})
+		err = db.SaveUser(toDelete, []string{"IsDeleted", "Active", "UpdatedAt", "Username", "Email"})
 		if err != nil {
 			return err
 		}

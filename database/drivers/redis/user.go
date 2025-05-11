@@ -22,12 +22,14 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 	if existingUser != nil {
 		newUser = false
 
-		// Don't allow username to be changed
-		user.Username = existingUser.Username
+		// Don't allow username to be changed unless deleting the user
+		if !user.IsDeleted || (len(updateFields) > 0 && !util.InArray(updateFields, "IsDeleted")) {
+			user.Username = existingUser.Username
+		}
 	}
 
 	// If email address changed, check if the new email address is unique
-	if newUser || user.Email != existingUser.Email {
+	if newUser || (user.Email != existingUser.Email && (len(updateFields) == 0 || util.InArray(updateFields, "Email"))) {
 		exists, err := db.keyExists(fmt.Sprintf("%sUsersByEmail:%s", db.prefix, user.Email))
 		if err != nil {
 			return err
@@ -51,6 +53,24 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 			return err
 		} else if exists {
 			return fmt.Errorf("duplicate username")
+		}
+	}
+
+	if existingUser != nil {
+		if existingUser.Email != user.Email && (len(updateFields) == 0 || util.InArray(updateFields, "Email")) {
+			// Delete the old email address
+			err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, existingUser.Email)).Err()
+			if err != nil {
+				return err
+			}
+		}
+
+		if existingUser.Username != user.Username && (len(updateFields) == 0 || util.InArray(updateFields, "Username")) {
+			// Delete the old username
+			err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(existingUser.Username))).Err()
+			if err != nil {
+				return err
+			}
 		}
 	}
 

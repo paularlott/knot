@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/util"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -25,10 +24,6 @@ func (db *MySQLDriver) SaveUser(user *model.User, updateFields []string) error {
 
 	// Update
 	if doUpdate {
-		if len(updateFields) > 0 && !util.InArray(updateFields, "UpdatedAt") {
-			updateFields = append(updateFields, "UpdatedAt")
-		}
-
 		err = db.update("users", user, updateFields)
 		if err != nil {
 			tx.Rollback()
