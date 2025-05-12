@@ -1,11 +1,14 @@
 package cluster
 
 import (
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/gossip/codec"
 	"github.com/paularlott/gossip/compression"
@@ -15,17 +18,26 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/database"
 	cfg "github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/middleware"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
+const (
+	GossipInterval = 15 * time.Second
+)
+
 type Cluster struct {
-	gossipCluster *gossip.Cluster
+	gossipCluster  *gossip.Cluster
+	leafSessionMux sync.RWMutex
+	leafSessions   map[uuid.UUID]*leafSession
 }
 
 func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes *http.ServeMux) *Cluster {
-	cluster := &Cluster{}
+	cluster := &Cluster{
+		leafSessions: make(map[uuid.UUID]*leafSession),
+	}
 
 	if viper.GetString("server.cluster.advertise_addr") != "" {
 
@@ -39,6 +51,7 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 
 		// Build configuration
 		config := gossip.DefaultConfig()
+		config.GossipInterval = GossipInterval
 		config.NodeID = nodeId.Value
 		config.BindAddr = viper.GetString("server.cluster.bind_addr")
 		config.AdvertiseAddr = viper.GetString("server.cluster.advertise_addr")
@@ -71,7 +84,7 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 		config.ApplicationVersion = build.Version
 		config.ApplicationVersionCheck = func(version string) bool {
 			ourParts := strings.Split(build.Version, ".")
-			versionParts := strings.Split(build.Version, ".")
+			versionParts := strings.Split(version, ".")
 			if len(ourParts) < 2 || len(versionParts) < 2 || ourParts[0] != versionParts[0] || ourParts[1] != versionParts[1] {
 				return false
 			}
@@ -119,10 +132,13 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 		cluster.gossipCluster.LocalMetadata().SetString("location", cfg.Location)
 	}
 
+	// Setup routes for leaf nodes
+	routes.HandleFunc("GET /cluster/leaf", middleware.ApiAuth(cluster.HandleLeafServer))
+
 	return cluster
 }
 
-func (c *Cluster) Start(peers []string) {
+func (c *Cluster) Start(peers []string, originServer string, originToken string) {
 	if c.gossipCluster != nil {
 		log.Info().Msg("cluster: starting gossip cluster")
 		c.gossipCluster.Start()
@@ -186,6 +202,22 @@ func (c *Cluster) Start(peers []string) {
 				log.Info().Msg("cluster: full state sync complete")
 			}()
 		}
+	} else if originServer != "" && originToken != "" {
+		c.runLeafClient(originServer, originToken)
+
+		// Periodically gossip objects to leaf nodes
+		go func() {
+			interval := time.NewTicker(GossipInterval)
+			defer interval.Stop()
+
+			for range interval.C {
+				c.gossipGroups()
+				c.gossipRoles()
+				c.gossipTemplates()
+				c.gossipTemplateVars()
+				c.gossipUsers()
+			}
+		}()
 	}
 }
 
@@ -201,4 +233,17 @@ func (c *Cluster) Nodes() []*gossip.Node {
 		return c.gossipCluster.Nodes()
 	}
 	return nil
+}
+
+func (c *Cluster) getBatchSize(totalNodes int) int {
+	if totalNodes <= 0 {
+		return 0
+	}
+
+	basePeerCount := math.Ceil(math.Log2(float64(totalNodes))*0.8) + 2
+	size := int(math.Max(1, math.Min(basePeerCount, 16.0)))
+	if size > totalNodes {
+		return totalNodes
+	}
+	return size
 }

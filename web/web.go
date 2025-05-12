@@ -209,7 +209,7 @@ func Routes(router *http.ServeMux) {
 	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 
 	// Routes without authentication
-	if !middleware.HasUsers {
+	if !middleware.HasUsers && viper.GetString("server.origin.server") == "" && viper.GetString("server.origin.token") == "" {
 		router.HandleFunc("GET /initial-system-setup", HandleInitialSystemSetupPage)
 	}
 	router.HandleFunc("GET /login", HandleLoginPage)

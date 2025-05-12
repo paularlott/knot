@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/cluster/leafmsg"
 
 	"github.com/rs/zerolog/log"
 )
@@ -57,6 +58,17 @@ func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
 
 		templateVars := []*model.TemplateVar{templateVar}
 		c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
+	}
+
+	if c.gossipCluster != nil {
+		log.Debug().Msg("cluster: Updating template var on leaf nodes")
+
+		if templateVar.Restricted {
+			templateVar.IsDeleted = true
+			templateVar.Value = ""
+			templateVar.Name = templateVar.Id
+		}
+		c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, []*model.TemplateVar{templateVar})
 	}
 }
 
@@ -122,6 +134,10 @@ func (c *Cluster) mergeTemplateVars(templateVars []*model.TemplateVar) error {
 
 // Gossips a subset of the template vars to the cluster
 func (c *Cluster) gossipTemplateVars() {
+	if c.gossipCluster == nil && len(c.leafSessions) == 0 {
+		return
+	}
+
 	// Get the list of templates in the system
 	db := database.GetInstance()
 	templateVars, err := db.GetTemplateVars()
@@ -130,19 +146,43 @@ func (c *Cluster) gossipTemplateVars() {
 		return
 	}
 
-	batchSize := c.gossipCluster.GetBatchSize(len(templateVars))
-	if batchSize == 0 {
-		return // No keys to send in this batch
-	}
-
-	log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Gossipping template vars")
-
 	// Shuffle the template vars
 	rand.Shuffle(len(templateVars), func(i, j int) {
 		templateVars[i], templateVars[j] = templateVars[j], templateVars[i]
 	})
 
-	// Get the 1st number of template vars up to the batch size & broadcast
-	templateVars = templateVars[:batchSize]
-	c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
+	if c.gossipCluster != nil {
+		batchSize := c.gossipCluster.GetBatchSize(len(templateVars))
+		if batchSize == 0 {
+			return // No keys to send in this batch
+		}
+
+		log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Gossipping template vars")
+
+		// Get the 1st number of template vars up to the batch size & broadcast
+		templateVars = templateVars[:batchSize]
+		c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
+	}
+
+	if len(c.leafSessions) > 0 {
+		batchSize := c.getBatchSize(len(templateVars))
+		if batchSize > 0 {
+			log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Template vars to leaf nodes")
+			templateVars = templateVars[:batchSize]
+			for _, templateVar := range templateVars {
+				if templateVar.Restricted {
+					templateVar.IsDeleted = true
+					templateVar.Value = ""
+					templateVar.Name = templateVar.Id
+				}
+			}
+
+			c.leafSessionMux.RLock()
+			defer c.leafSessionMux.RUnlock()
+
+			for _, session := range c.leafSessions {
+				session.SendMessage(leafmsg.MessageGossipTemplateVar, &templateVars)
+			}
+		}
+	}
 }

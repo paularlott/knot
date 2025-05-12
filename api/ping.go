@@ -11,6 +11,6 @@ import (
 func HandlePing(w http.ResponseWriter, r *http.Request) {
 	rest.SendJSON(http.StatusOK, w, r, apiclient.PingResponse{
 		Status:  true,
-		Version: build.Version + " (" + build.Date + ")",
+		Version: build.Version,
 	})
 }

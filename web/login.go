@@ -15,7 +15,7 @@ import (
 
 func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 
-	if !middleware.HasUsers {
+	if !middleware.HasUsers && viper.GetString("server.origin.server") == "" && viper.GetString("server.origin.token") == "" {
 		http.Redirect(w, r, "/initial-system-setup", http.StatusSeeOther)
 	} else {
 		session := middleware.GetSessionFromCookie(r)
