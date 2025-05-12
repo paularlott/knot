@@ -105,7 +105,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 
 			// Get the user
 			user, err := db.GetUser(userId)
-			if err != nil || !user.Active {
+			if err != nil || !user.Active || user.IsDeleted {
 				returnUnauthorized(w, r)
 				return
 			}
@@ -258,7 +258,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		db := database.GetInstance()
 		var err error
 		user, err := db.GetUser(session.UserId)
-		if err != nil || !user.Active {
+		if err != nil || !user.Active || user.IsDeleted {
 			DeleteSessionCookie(w)
 			http.Redirect(w, r, "/login?redirect="+r.URL.EscapedPath(), http.StatusSeeOther)
 			return
