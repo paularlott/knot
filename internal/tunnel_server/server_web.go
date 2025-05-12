@@ -59,8 +59,6 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 				return
 			}
 
-			log.Debug().Msgf("tunnel: proxying %s", r.Host)
-
 			httpProxy := proxy.CreateAgentReverseProxy(targetURL, stream, nil, r.Host)
 			httpProxy.ServeHTTP(w, r)
 		})

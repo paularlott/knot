@@ -29,7 +29,7 @@ var TunnelCmd = &cobra.Command{
 	Use: `tunnel <protocol> <port> <name>
 
   protocol      The type of endpoint, either http or https.
-  port          The port to tunnel to.
+  port          The local port to tunnel to.
   name          The name of the tunnel.
 `,
 	Short: "Manage a tunnel",
