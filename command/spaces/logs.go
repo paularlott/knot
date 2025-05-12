@@ -69,7 +69,7 @@ var logsCmd = &cobra.Command{
 		ws, response, err := dialer.Dial(wsUrl, header)
 		if err != nil {
 			if response != nil && response.StatusCode == http.StatusUnauthorized {
-				fmt.Println("failed to authenticate with origin server, check remote token")
+				fmt.Println("failed to authenticate with server, check remote token")
 			}
 
 			fmt.Println("Error connecting to websocket: ", err)
