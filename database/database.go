@@ -215,7 +215,7 @@ func GetUserUsage(userId string, inLocation string) (*model.Usage, error) {
 
 	for _, space := range spaces {
 		// If space is shared with this user then ignore it
-		if space.UserId != userId {
+		if space.UserId != userId || space.IsDeleted {
 			continue
 		}
 

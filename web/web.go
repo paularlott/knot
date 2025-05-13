@@ -378,6 +378,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"disableSpaceCreate":        viper.GetBool("server.disable_space_create"),
 		"totpEnabled":               viper.GetBool("server.totp.enabled"),
 		"clusterMode":               viper.GetString("server.cluster.advertise_addr") != "",
-		"leafNode":                  config.LeafNode,
+		"isLeafNode":                config.LeafNode,
 	}
 }

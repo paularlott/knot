@@ -51,7 +51,7 @@
       </a>
     </li>
     {{ end }}
-    {{ if .permissionManageUsers }}
+    {{ if and .permissionManageUsers (not .isLeafNode) }}
     <li>
       <a href="/users" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
