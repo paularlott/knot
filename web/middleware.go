@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/config"
 )
 
 func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
@@ -39,6 +40,10 @@ func checkPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func checkPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
+	if config.LeafNode {
+		return next
+	}
+
 	return checkPermission(next, model.PermissionManageVolumes)
 }
 

@@ -41,7 +41,7 @@
       </a>
     </li>
     {{ end }}
-    {{ if .permissionManageVolumes }}
+    {{ if or .permissionManageVolumes .isLeafNode }}
     <li>
       <a href="/volumes" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -61,7 +61,7 @@
       </a>
     </li>
     {{ end }}
-    {{ if .permissionManageGroups }}
+    {{ if and .permissionManageGroups (not .isLeafNode) }}
     <li>
       <a href="/groups" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -71,7 +71,7 @@
       </a>
     </li>
     {{ end }}
-    {{ if .permissionManageRoles }}
+    {{ if and .permissionManageRoles (not .isLeafNode) }}
     <li>
       <a href="/roles" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -101,7 +101,7 @@
       </a>
     </li>
     {{ end }}
-    {{ if .permissionViewClusterInfo }}
+    {{ if and .permissionViewClusterInfo (not .isLeafNode) }}
     <li>
       <a href="/cluster-info" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

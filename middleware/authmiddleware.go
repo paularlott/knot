@@ -6,6 +6,7 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 	"github.com/rs/zerolog/log"
@@ -147,6 +148,10 @@ func ApiPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ApiPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
+	if config.LeafNode {
+		return next
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageVolumes) {
