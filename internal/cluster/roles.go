@@ -49,6 +49,11 @@ func (c *Cluster) handleRoleGossip(sender *gossip.Node, packet *gossip.Packet) e
 		return err
 	}
 
+	// Forward to any leaf nodes
+	if len(c.leafSessions) > 0 {
+		c.sendToLeafNodes(leafmsg.MessageGossipRole, &roles)
+	}
+
 	return nil
 }
 

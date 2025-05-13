@@ -103,18 +103,6 @@ func SetRoleCache(roles []*Role) {
 	}
 }
 
-func GetRoleFromCache(roleId string) *Role {
-	roleCacheMutex.RLock()
-	defer roleCacheMutex.RUnlock()
-
-	role, ok := roleCache[roleId]
-	if !ok {
-		return nil
-	}
-
-	return role
-}
-
 func GetRolesFromCache() []*Role {
 	roleCacheMutex.RLock()
 	defer roleCacheMutex.RUnlock()

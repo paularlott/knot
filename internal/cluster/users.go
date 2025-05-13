@@ -51,6 +51,19 @@ func (c *Cluster) handleUserGossip(sender *gossip.Node, packet *gossip.Packet) e
 		return err
 	}
 
+	// Forward to any leaf nodes
+	if len(c.leafSessions) > 0 {
+		c.leafSessionMux.RLock()
+		defer c.leafSessionMux.RUnlock()
+		for _, session := range c.leafSessions {
+			for _, user := range users {
+				if session.user.Id == user.Id {
+					session.SendMessage(leafmsg.MessageGossipUser, []*model.User{user})
+				}
+			}
+		}
+	}
+
 	return nil
 }
 

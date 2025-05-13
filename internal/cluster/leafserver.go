@@ -143,10 +143,11 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 
 	// Mask restricted template vars and trigger them to delete
 	for _, templateVar := range templateVars {
-		if templateVar.Restricted {
+		if templateVar.Restricted || templateVar.Local {
 			templateVar.IsDeleted = true
 			templateVar.Value = ""
 			templateVar.Name = templateVar.Id
+			templateVar.Location = ""
 		}
 	}
 	session.SendMessage(leafmsg.MessageGossipTemplateVar, &templateVars)

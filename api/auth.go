@@ -18,7 +18,6 @@ import (
 
 func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	var userId string = ""
-	var tokenId string = ""
 	var showTOTPSecret string = ""
 
 	db := database.GetInstance()
@@ -92,7 +91,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	userId = user.Id
 
 	// Create a session
-	var session *model.Session = model.NewSession(r, userId, tokenId)
+	var session *model.Session = model.NewSession(r, userId)
 	err = database.GetSessionStorage().SaveSession(session)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})

@@ -52,6 +52,11 @@ func (c *Cluster) handleTemplateGossip(sender *gossip.Node, packet *gossip.Packe
 		return err
 	}
 
+	// Forward to any leaf nodes
+	if len(c.leafSessions) > 0 {
+		c.sendToLeafNodes(leafmsg.MessageGossipTemplate, &templates)
+	}
+
 	return nil
 }
 

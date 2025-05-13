@@ -30,6 +30,7 @@ const (
 
 type Cluster struct {
 	gossipCluster  *gossip.Cluster
+	config         *gossip.Config
 	leafSessionMux sync.RWMutex
 	leafSessions   map[uuid.UUID]*leafSession
 }
@@ -38,6 +39,10 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 	cluster := &Cluster{
 		leafSessions: make(map[uuid.UUID]*leafSession),
 	}
+
+	config := gossip.DefaultConfig()
+	config.GossipInterval = GossipInterval
+	cluster.config = config
 
 	if viper.GetString("server.cluster.advertise_addr") != "" {
 
@@ -49,9 +54,6 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 			log.Fatal().Msg("server: node_id not set")
 		}
 
-		// Build configuration
-		config := gossip.DefaultConfig()
-		config.GossipInterval = GossipInterval
 		config.NodeID = nodeId.Value
 		config.BindAddr = viper.GetString("server.cluster.bind_addr")
 		config.AdvertiseAddr = viper.GetString("server.cluster.advertise_addr")
@@ -207,7 +209,7 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 
 		// Periodically gossip objects to leaf nodes
 		go func() {
-			interval := time.NewTicker(GossipInterval)
+			interval := time.NewTicker(c.config.GossipInterval)
 			defer interval.Stop()
 
 			for range interval.C {
@@ -240,7 +242,7 @@ func (c *Cluster) getBatchSize(totalNodes int) int {
 		return 0
 	}
 
-	basePeerCount := math.Ceil(math.Log2(float64(totalNodes))*0.8) + 2
+	basePeerCount := math.Ceil(math.Log2(float64(totalNodes))*c.config.StateExchangeMultiplier) + 2
 	size := int(math.Max(1, math.Min(basePeerCount, 16.0)))
 	if size > totalNodes {
 		return totalNodes

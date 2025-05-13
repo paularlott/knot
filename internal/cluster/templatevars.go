@@ -49,10 +49,22 @@ func (c *Cluster) handleTemplateVarGossip(sender *gossip.Node, packet *gossip.Pa
 		return err
 	}
 
+	// Forward to any leaf nodes
+	if len(c.leafSessions) > 0 {
+		c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, &templateVars)
+	}
+
 	return nil
 }
 
 func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
+	if templateVar.Local {
+		templateVar.IsDeleted = true
+		templateVar.Value = ""
+		templateVar.Name = templateVar.Id
+		templateVar.Location = ""
+	}
+
 	if c.gossipCluster != nil {
 		log.Debug().Msg("cluster: Gossipping template var")
 
@@ -60,13 +72,14 @@ func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
 		c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
 	}
 
-	if c.gossipCluster != nil {
+	if len(c.leafSessions) > 0 {
 		log.Debug().Msg("cluster: Updating template var on leaf nodes")
 
 		if templateVar.Restricted {
 			templateVar.IsDeleted = true
 			templateVar.Value = ""
 			templateVar.Name = templateVar.Id
+			templateVar.Location = ""
 		}
 		c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, []*model.TemplateVar{templateVar})
 	}
@@ -79,6 +92,16 @@ func (c *Cluster) DoTemplateVarFullSync(node *gossip.Node) error {
 		templateVars, err := db.GetTemplateVars()
 		if err != nil {
 			return err
+		}
+
+		// Tag local variables for deletion
+		for _, templateVar := range templateVars {
+			if templateVar.Local {
+				templateVar.IsDeleted = true
+				templateVar.Value = ""
+				templateVar.Name = templateVar.Id
+				templateVar.Location = ""
+			}
 		}
 
 		// Exchange the template vars list with the remote node
@@ -153,15 +176,21 @@ func (c *Cluster) gossipTemplateVars() {
 
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.GetBatchSize(len(templateVars))
-		if batchSize == 0 {
-			return // No keys to send in this batch
+		if batchSize > 0 {
+			log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Gossipping template vars")
+
+			// Get the 1st number of template vars up to the batch size & broadcast
+			templateVars = templateVars[:batchSize]
+			for _, templateVar := range templateVars {
+				if templateVar.Local {
+					templateVar.IsDeleted = true
+					templateVar.Value = ""
+					templateVar.Name = templateVar.Id
+					templateVar.Location = ""
+				}
+			}
+			c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
 		}
-
-		log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Gossipping template vars")
-
-		// Get the 1st number of template vars up to the batch size & broadcast
-		templateVars = templateVars[:batchSize]
-		c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
 	}
 
 	if len(c.leafSessions) > 0 {
@@ -170,19 +199,15 @@ func (c *Cluster) gossipTemplateVars() {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Template vars to leaf nodes")
 			templateVars = templateVars[:batchSize]
 			for _, templateVar := range templateVars {
-				if templateVar.Restricted {
+				if templateVar.Restricted || templateVar.Local {
 					templateVar.IsDeleted = true
 					templateVar.Value = ""
 					templateVar.Name = templateVar.Id
+					templateVar.Location = ""
 				}
 			}
 
-			c.leafSessionMux.RLock()
-			defer c.leafSessionMux.RUnlock()
-
-			for _, session := range c.leafSessions {
-				session.SendMessage(leafmsg.MessageGossipTemplateVar, &templateVars)
-			}
+			c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, &templateVars)
 		}
 	}
 }

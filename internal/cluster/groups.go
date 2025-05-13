@@ -49,6 +49,11 @@ func (c *Cluster) handleGroupGossip(sender *gossip.Node, packet *gossip.Packet) 
 		return err
 	}
 
+	// Forward to any leaf nodes
+	if len(c.leafSessions) > 0 {
+		c.sendToLeafNodes(leafmsg.MessageGossipGroup, &groups)
+	}
+
 	return nil
 }
 

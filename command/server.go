@@ -426,6 +426,7 @@ var serverCmd = &cobra.Command{
 		// set the server location and timezone
 		config.Location = viper.GetString("server.location")
 		config.Timezone = viper.GetString("server.timezone")
+		config.LeafNode = viper.GetString("server.origin.server") != "" && viper.GetString("server.origin.token") != ""
 
 		if config.Timezone == "" {
 			config.Timezone, _ = time.Now().Zone()
