@@ -181,9 +181,11 @@ func (c *Cluster) handleLeafGossipUser(msg *leafmsg.Message) {
 		return
 	}
 
-	if err := c.mergeUsers(users); err != nil {
-		log.Error().Msgf("cluster: error while merging users from leaf: %s", err)
-		return
+	db := database.GetInstance()
+	for _, user := range users {
+		if err := db.SaveUser(user, nil); err != nil {
+			log.Error().Err(err).Msgf("cluster: error while updating user %s from leaf", user.Username)
+		}
 	}
 }
 
