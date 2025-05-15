@@ -196,6 +196,11 @@ func (c *Cluster) handleLeafGossipTemplate(msg *leafmsg.Message) {
 		return
 	}
 
+	// Set the is managed flag on the templates so we can identify them to stop local edits
+	for _, template := range templates {
+		template.IsManaged = true
+	}
+
 	if err := c.mergeTemplates(templates); err != nil {
 		log.Error().Msgf("cluster: error while merging templates from leaf: %s", err)
 		return

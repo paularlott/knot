@@ -144,6 +144,10 @@ func checkPermission(next http.HandlerFunc, permission uint16, msg string) http.
 }
 
 func ApiPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
+	if config.LeafNode {
+		return next
+	}
+
 	return checkPermission(next, model.PermissionManageTemplates, "No permission to manage templates")
 }
 

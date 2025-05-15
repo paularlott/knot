@@ -2468,6 +2468,9 @@ components:
         is_manual:
           type: boolean
           description: If the template is a manual template.
+        is_managed:
+          type: boolean
+          description: If the template is managed by an origin server.
         compute_units:
           type: integer
           format: uint32
@@ -2670,6 +2673,9 @@ components:
         is_manual:
           type: boolean
           description: If the template is a manual template.
+        is_managed:
+          type: boolean
+          description: If the template is managed by an origin server.
         with_terminal:
           type: boolean
           description: If the space should support a web terminal.
