@@ -462,7 +462,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	// If leaf node then attempt to update the information on the origin server
 	if config.LeafNode {
 		client := apiclient.NewClient(viper.GetString("server.origin.server"), viper.GetString("server.origin.token"), viper.GetBool("tls_skip_verify"))
-		client.UpdateUser(user)
+		client.UpdateUser(user.Id, &request)
 	}
 
 	w.WriteHeader(http.StatusOK)
