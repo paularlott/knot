@@ -64,15 +64,12 @@
                 <span x-show="t.local_container && !t.is_manual" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Local Container</span>
                 <span x-show="!t.local_container && !t.is_manual" class="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Nomad Job</span>
                 <span x-show="t.is_manual" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
+                {{ if .isLeafNode }}
+                <span x-show="t.is_managed" class="inline-block bg-gray-100 text-gray-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-400 border border-gray-500">Managed</span>
+                {{ end }}
               </div>
               <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-text="t.description"></p>
               <table>
-                {{ if .isLeafNode }}
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Managed:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="t.is_managed ? 'Yes' : 'No'"></td>
-                </tr>
-                {{ end }}
                 {{ if .permissionManageTemplates }}
                 <tr>
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Usage:</td>
@@ -103,7 +100,7 @@
                     </td>
                   </tr>
                 </template>
-                {{ if .permissionManageTemplates }}
+                {{ if and .permissionManageTemplates (not .isLeafNode) }}
                 <tr>
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 align-top">Groups:</td>
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">

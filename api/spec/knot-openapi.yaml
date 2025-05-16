@@ -2751,6 +2751,9 @@ components:
         restricted:
           type: boolean
           description: Whether the template variable is restricted to trusted servers only.
+        is_managed:
+          type: boolean
+          description: Whether the template variable is managed by an origin server.
 
     TemplateVarList:
       type: object
@@ -2790,6 +2793,9 @@ components:
         restricted:
           type: boolean
           description: Whether the template variable is restricted to trusted servers only.
+        is_managed:
+          type: boolean
+          description: Whether the template variable is managed by an origin server.
 
     TokenInfo:
       type: object

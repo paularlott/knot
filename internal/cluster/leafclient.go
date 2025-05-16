@@ -196,7 +196,7 @@ func (c *Cluster) handleLeafGossipTemplate(msg *leafmsg.Message) {
 		return
 	}
 
-	// Set the is managed flag on the templates so we can identify them to stop local edits
+	// Mark the templates as managed
 	for _, template := range templates {
 		template.IsManaged = true
 	}
@@ -212,6 +212,11 @@ func (c *Cluster) handleLeafGossipTemplateVar(msg *leafmsg.Message) {
 	if err := msg.UnmarshalPayload(&templateVars); err != nil {
 		log.Error().Msgf("cluster: error while unmarshalling leaf template var message: %s", err)
 		return
+	}
+
+	// Mark the template vars as managed
+	for _, templateVar := range templateVars {
+		templateVar.IsManaged = true
 	}
 
 	if err := c.mergeTemplateVars(templateVars); err != nil {

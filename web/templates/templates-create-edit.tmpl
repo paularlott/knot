@@ -108,6 +108,7 @@
           <div class="description text-right max-w-xl">All times are in {{ .timezone }}.</div>
         </div>
 
+        {{ if not .isLeafNode }}
         <div class="max-w-md">
           <div class="flex items-center mb-1">
             <label class="form-label mb-0 mr-2">Limit to Locations</label>
@@ -133,6 +134,7 @@
           </template>
           <div class="description">Restrict where a space can be created from this template.</div>
         </div>
+        {{ end }}
 
         <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">
           <div class="col-span-1">
@@ -158,6 +160,7 @@
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">VSCode Tunnel</span>
             </label>
           </div>
+          {{ if not .isLeafNode }}
           <div class="col-span-1" x-show="groups.length" x-cloak>
             <label class="form-label">Restrict to Groups</label>
             <template x-for="(group, index) in groups" :key="index">
@@ -168,6 +171,7 @@
               </label>
             </template>
           </div>
+          {{ end }}
         </div>
 
         <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
