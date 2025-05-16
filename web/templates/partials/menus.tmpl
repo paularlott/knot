@@ -1,7 +1,7 @@
 {{ define "main-menu" }}
 <nav>
   <ul class="pb-2 space-y-2">
-    {{ if .permissionUseSpaces }}
+    {{ if or .permissionUseSpaces .isLeafNode }}
     <li>
       <a href="/spaces" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -21,7 +21,7 @@
       </a>
     </li>
     {{ end }}
-    {{ if .permissionUseTunnels }}
+    {{ if and .permissionUseTunnels (not .isLeafNode) }}
     <li>
       <a href="/tunnels" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -31,7 +31,7 @@
       </a>
     </li>
     {{ end }}
-    {{ if .permissionManageVariables }}
+    {{ if or .permissionManageVariables .isLeafNode }}
     <li>
       <a href="/variables" class="nav-item">
         <svg class="nav-item-icon group" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
