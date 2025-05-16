@@ -40,6 +40,10 @@ func checkPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func checkPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
+	if config.LeafNode {
+		return next
+	}
+
 	return checkPermission(next, model.PermissionManageVariables)
 }
 

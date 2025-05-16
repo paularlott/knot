@@ -168,6 +168,10 @@ func ApiPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ApiPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
+	if config.LeafNode {
+		return next
+	}
+
 	return checkPermission(next, model.PermissionManageVariables, "No permission to manage variables")
 }
 
