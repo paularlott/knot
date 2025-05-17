@@ -52,7 +52,12 @@ func (db *MySQLDriver) DeleteTemplate(template *model.Template) error {
 	}
 
 	if len(spaces) > 0 {
-		return fmt.Errorf("template in use")
+		// Check if any of the spaces are not marked for deletion
+		for _, space := range spaces {
+			if !space.IsDeleted {
+				return fmt.Errorf("template in use")
+			}
+		}
 	}
 
 	_, err = db.connection.Exec("DELETE FROM templates WHERE template_id = ?", template.Id)

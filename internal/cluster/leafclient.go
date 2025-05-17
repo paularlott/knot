@@ -28,6 +28,80 @@ const (
 func (c *Cluster) runLeafClient(originServer, originToken string) {
 	log.Info().Msgf("cluster: starting link with origin server %s", originServer)
 
+	// Remove all roles, groups, managed templates and managed template vars from the local database
+	// once the initial sync is complete they will be added and up to date
+	db := database.GetInstance()
+	roles, err := db.GetRoles()
+	if err != nil {
+		log.Error().Msgf("cluster: error while getting roles from database: %s", err)
+	} else {
+		for _, role := range roles {
+			if err := db.DeleteRole(role); err != nil {
+				log.Error().Msgf("cluster: error while deleting role %s from database: %s", role.Name, err)
+			}
+		}
+	}
+
+	groups, err := db.GetGroups()
+	if err != nil {
+		log.Error().Msgf("cluster: error while getting groups from database: %s", err)
+	} else {
+		for _, group := range groups {
+			if err := db.DeleteGroup(group); err != nil {
+				log.Error().Msgf("cluster: error while deleting group %s from database: %s", group.Name, err)
+			}
+		}
+	}
+
+	spaces, err := db.GetSpaces()
+	if err != nil {
+		log.Error().Msgf("cluster: error while getting spaces from database: %s", err)
+	} else {
+		for _, space := range spaces {
+			if space.IsDeleted {
+				if err := db.DeleteSpace(space); err != nil {
+					log.Error().Msgf("cluster: error while deleting space %s from database: %s", space.Name, err)
+				}
+			}
+		}
+	}
+
+	templates, err := db.GetTemplates()
+	if err != nil {
+		log.Error().Msgf("cluster: error while getting templates from database: %s", err)
+	} else {
+		for _, template := range templates {
+			if template.IsManaged {
+				spaces, err := db.GetSpacesByTemplateId(template.Id)
+				if err == nil && len(spaces) > 0 {
+					// Check if any of the spaces are not marked for deletion
+					for _, space := range spaces {
+						if !space.IsDeleted {
+							continue
+						}
+					}
+				}
+
+				if err := db.DeleteTemplate(template); err != nil {
+					log.Error().Msgf("cluster: error while deleting template %s from database: %s", template.Name, err)
+				}
+			}
+		}
+	}
+
+	templateVars, err := db.GetTemplateVars()
+	if err != nil {
+		log.Error().Msgf("cluster: error while getting template vars from database: %s", err)
+	} else {
+		for _, templateVar := range templateVars {
+			if templateVar.IsManaged {
+				if err := db.DeleteTemplateVar(templateVar); err != nil {
+					log.Error().Msgf("cluster: error while deleting template var %s from database: %s", templateVar.Name, err)
+				}
+			}
+		}
+	}
+
 	go func() {
 		fullSyncDone := false
 

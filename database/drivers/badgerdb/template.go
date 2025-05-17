@@ -47,7 +47,12 @@ func (db *BadgerDbDriver) DeleteTemplate(template *model.Template) error {
 	}
 
 	if len(spaces) > 0 {
-		return fmt.Errorf("template in use")
+		// Check if any of the spaces are not marked for deletion
+		for _, space := range spaces {
+			if !space.IsDeleted {
+				return fmt.Errorf("template in use")
+			}
+		}
 	}
 
 	err = db.connection.Update(func(txn *badger.Txn) error {

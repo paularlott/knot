@@ -374,31 +374,6 @@ var serverCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := util.FixListenAddress(viper.GetString("server.listen"))
 
-		/* if viper.GetString("server.origin.server") != "" && viper.GetString("server.origin.token") != "" {
-
-			client := apiclient.NewClient(viper.GetString("server.origin.server"), viper.GetString("server.origin.token"), viper.GetBool("tls_skip_verify"))
-
-			version, err := client.Ping()
-			if err != nil {
-				if err.Error() == "unauthorized" {
-					log.Fatal().Msg("server: origin server token is invalid or expired")
-				}
-
-				log.Fatal().Err(err).Msgf("server: failed to ping origin server: %s", viper.GetString("server.origin.server"))
-			}
-
-			fmt.Println("Origin server ping response:", version)
-
-			who, err := client.WhoAmI()
-			if err != nil {
-				log.Fatal().Err(err).Msgf("server: failed to get whoami from origin server: %s", viper.GetString("server.origin.server"))
-			}
-
-			fmt.Println("Origin server whoami response:", who)
-
-			os.Exit(1)
-		} */
-
 		// If agent address not given then don't start
 		if viper.GetString("server.agent_endpoint") == "" {
 			log.Fatal().Msg("server: agent endpoint not given")
