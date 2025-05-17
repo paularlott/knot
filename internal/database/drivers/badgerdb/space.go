@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 
 	badger "github.com/dgraph-io/badger/v4"
 )

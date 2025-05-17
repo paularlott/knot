@@ -9,7 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/util/audit"
+	"github.com/paularlott/knot/internal/util/audit"
 
 	"github.com/rs/zerolog/log"
 )

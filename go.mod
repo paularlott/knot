@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.66
-	github.com/paularlott/gossip v0.0.0-20250510013950-3240054b29a0
+	github.com/paularlott/gossip v0.0.0-20250517073302-b04ff63c8495
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.8.0
 	github.com/rs/zerolog v1.34.0
@@ -23,7 +23,7 @@ require (
 	github.com/spf13/viper v1.20.1
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
-	github.com/yeqown/go-qrcode/writer/standard v1.2.6
+	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.38.0
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6
 	golang.org/x/net v0.40.0

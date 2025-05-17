@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"

@@ -6,7 +6,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/util/validate"
+	"github.com/paularlott/knot/internal/util/validate"
 )
 
 func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {

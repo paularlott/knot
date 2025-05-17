@@ -8,7 +8,7 @@ import (
 
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/database"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/miekg/dns"
 	"github.com/rs/zerolog/log"

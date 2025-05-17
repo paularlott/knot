@@ -10,9 +10,9 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/tunnel_server"
-	"github.com/paularlott/knot/util/validate"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/util/validate"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

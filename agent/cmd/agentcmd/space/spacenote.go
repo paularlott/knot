@@ -7,7 +7,7 @@ import (
 
 	"github.com/paularlott/knot/internal/agent_service_api"
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

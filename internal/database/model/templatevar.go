@@ -3,8 +3,9 @@ package model
 import (
 	"time"
 
+	"github.com/paularlott/knot/internal/util/crypt"
+
 	"github.com/google/uuid"
-	"github.com/paularlott/knot/util/crypt"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )

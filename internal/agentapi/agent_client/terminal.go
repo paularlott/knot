@@ -7,7 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/creack/pty"
 	"github.com/rs/zerolog/log"

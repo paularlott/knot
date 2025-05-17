@@ -12,10 +12,11 @@ import (
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/tunnel_server"
-	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/audit"
-	"github.com/paularlott/knot/util/rest"
-	"github.com/paularlott/knot/util/validate"
+	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/rest"
+	"github.com/paularlott/knot/internal/util/validate"
+
 	"github.com/spf13/viper"
 )
 

@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"

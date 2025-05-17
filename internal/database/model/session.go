@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/paularlott/knot/util/crypt"
+	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/rs/zerolog/log"
 )

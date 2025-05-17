@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/redis/go-redis/v9"
 )

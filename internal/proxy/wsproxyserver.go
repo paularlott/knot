@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/validate"
+	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/rs/zerolog/log"
 )

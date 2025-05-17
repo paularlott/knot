@@ -1,7 +1,7 @@
 package apiclient
 
 import (
-	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 // Enum for authorization methods

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"

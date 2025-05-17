@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"

@@ -5,7 +5,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 func HandlePing(w http.ResponseWriter, r *http.Request) {

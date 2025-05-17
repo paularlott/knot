@@ -12,8 +12,8 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/validate"
+	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"

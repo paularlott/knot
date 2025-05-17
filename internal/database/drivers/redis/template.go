@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 )
 
 func (db *RedisDbDriver) SaveTemplate(template *model.Template, updateFields []string) error {

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 )
 
 func (db *MySQLDriver) create(tableName string, obj interface{}) error {

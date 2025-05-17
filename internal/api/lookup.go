@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/rest"
-	"github.com/paularlott/knot/util/validate"
+	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/rest"
+	"github.com/paularlott/knot/internal/util/validate"
+
 	"github.com/rs/zerolog/log"
 )
 

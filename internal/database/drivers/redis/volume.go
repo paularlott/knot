@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 )
 
 func (db *RedisDbDriver) SaveVolume(volume *model.Volume, updateFields []string) error {

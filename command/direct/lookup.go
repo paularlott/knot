@@ -3,7 +3,7 @@ package commands_direct
 import (
 	"fmt"
 
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/spf13/cobra"
 )

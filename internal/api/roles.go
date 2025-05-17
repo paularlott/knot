@@ -10,9 +10,9 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
-	"github.com/paularlott/knot/util/audit"
-	"github.com/paularlott/knot/util/rest"
-	"github.com/paularlott/knot/util/validate"
+	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/rest"
+	"github.com/paularlott/knot/internal/util/validate"
 )
 
 func HandleGetRoles(w http.ResponseWriter, r *http.Request) {

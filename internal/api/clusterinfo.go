@@ -6,7 +6,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/service"
-	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {

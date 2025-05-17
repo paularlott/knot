@@ -6,8 +6,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/paularlott/knot/internal/util"
+
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/paularlott/knot/util"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )

@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 
 	"gopkg.in/yaml.v3"
 )

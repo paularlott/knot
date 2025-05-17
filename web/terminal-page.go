@@ -5,10 +5,10 @@ import (
 
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/util/validate"
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
