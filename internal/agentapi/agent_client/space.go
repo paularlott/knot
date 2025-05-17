@@ -4,7 +4,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 )
 
-func SendSpaceDescription(description string) error {
+func SendSpaceNote(note string) error {
 
 	// connect
 	conn, err := muxSession.Open()
@@ -13,5 +13,5 @@ func SendSpaceDescription(description string) error {
 	}
 	defer conn.Close()
 
-	return msg.SendSpaceDescription(conn, description)
+	return msg.SendSpaceNote(conn, note)
 }

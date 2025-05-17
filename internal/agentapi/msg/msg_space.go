@@ -6,24 +6,24 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type SpaceDescription struct {
-	Description string
+type SpaceNote struct {
+	Note string
 }
 
-func SendSpaceDescription(conn net.Conn, description string) error {
+func SendSpaceNote(conn net.Conn, note string) error {
 	// Write the state command
-	err := WriteCommand(conn, CmdUpdateSpaceDescription)
+	err := WriteCommand(conn, CmdUpdateSpaceNote)
 	if err != nil {
-		log.Error().Msgf("agent: writing update description command: %v", err)
+		log.Error().Msgf("agent: writing update note command: %v", err)
 		return err
 	}
 
 	// Write the state message
-	err = WriteMessage(conn, &SpaceDescription{
-		Description: description,
+	err = WriteMessage(conn, &SpaceNote{
+		Note: note,
 	})
 	if err != nil {
-		log.Error().Msgf("agent: writing update description message: %v", err)
+		log.Error().Msgf("agent: writing update note message: %v", err)
 		return err
 	}
 

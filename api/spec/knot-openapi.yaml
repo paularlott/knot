@@ -2257,6 +2257,9 @@ components:
         description:
           type: string
           description: The description of the space.
+        note:
+          type: string
+          description: The note set by the space itself.
         template_name:
           type: string
           description: The name of the template the space was created from.

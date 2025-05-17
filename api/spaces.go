@@ -88,6 +88,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.Id = space.Id
 		s.Name = space.Name
 		s.Description = space.Description
+		s.Note = space.Note
 		s.TemplateName = templateName
 		s.TemplateId = space.TemplateId
 		s.Location = space.Location

@@ -31,6 +31,7 @@ type SpaceInfo struct {
 	Id              string            `json:"space_id"`
 	Name            string            `json:"name"`
 	Description     string            `json:"description"`
+	Note            string            `json:"note"`
 	TemplateName    string            `json:"template_name"`
 	TemplateId      string            `json:"template_id"`
 	Location        string            `json:"location"`

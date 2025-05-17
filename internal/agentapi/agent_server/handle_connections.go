@@ -222,10 +222,10 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				}
 			}()
 
-		case byte(msg.CmdUpdateSpaceDescription):
-			var spaceDesc msg.SpaceDescription
-			if err := msg.ReadMessage(stream, &spaceDesc); err != nil {
-				log.Error().Msgf("agent: reading space description message: %v", err)
+		case byte(msg.CmdUpdateSpaceNote):
+			var spaceNote msg.SpaceNote
+			if err := msg.ReadMessage(stream, &spaceNote); err != nil {
+				log.Error().Msgf("agent: reading space note message: %v", err)
 				return
 			}
 
@@ -237,11 +237,11 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				return
 			}
 
-			// Update description and save it
-			space.Description = spaceDesc.Description
+			// Update note and save it
+			space.Note = spaceNote.Note
 			space.UpdatedAt = time.Now().UTC()
-			if err := db.SaveSpace(space, []string{"Description", "UpdatedAt"}); err != nil {
-				log.Error().Msgf("agent: updating space description: %v", err)
+			if err := db.SaveSpace(space, []string{"Note", "UpdatedAt"}); err != nil {
+				log.Error().Msgf("agent: updating space note: %v", err)
 				return
 			}
 

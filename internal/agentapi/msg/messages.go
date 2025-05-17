@@ -23,7 +23,7 @@ const (
 	CmdVSCodeTunnelTerminal
 	CmdLogMessage
 	CmdUpdateShell
-	CmdUpdateSpaceDescription
+	CmdUpdateSpaceNote
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

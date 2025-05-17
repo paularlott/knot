@@ -64,6 +64,7 @@ type Space struct {
 	SharedWithUserId string        `json:"shared_with_user_id" db:"shared_with_user_id" msgpack:"shared_with_user_id"`
 	Name             string        `json:"name" db:"name" msgpack:"name"`
 	Description      string        `json:"description" db:"description" msgpack:"description"`
+	Note             string        `json:"note" db:"note" msgpack:"note"`
 	Location         string        `json:"location" db:"location" msgpack:"location"`
 	Shell            string        `json:"shell" db:"shell" msgpack:"shell"`
 	TemplateHash     string        `json:"template_hash" db:"template_hash" msgpack:"template_hash"`

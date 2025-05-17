@@ -45,7 +45,7 @@ func init() {
 	AgentCmd.Flags().StringP("dns-listen", "", "", "The address and port to listen on for DNS requests (defaults to disabled).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_LISTEN environment variable if set.")
 	AgentCmd.Flags().Uint16P("dns-refresh-max-age", "", 180, "If a cached entry has been used within this number of seconds of it expiring then auto refresh.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MAX_AGE environment variable if set.")
 
-	AgentCmd.AddCommand(space.SpaceDescriptionCmd)
+	AgentCmd.AddCommand(space.SpaceNoteCmd)
 }
 
 var AgentCmd = &cobra.Command{

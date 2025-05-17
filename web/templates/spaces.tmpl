@@ -105,7 +105,7 @@
           <div x-data x-show="!s.searchHide" class="p-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 dark:bg-gray-800 flex flex-col justify-between">
             <div>
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="s.name"></h2>
-              <div x-show="s.description.length" @click="spaceDesc.show = true; spaceDesc.space = s" class="text-sm text-gray-500 dark:text-gray-400 mb-2 overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer" x-text="s.description"></div>
+              <div x-show="s.description.length || s.note.length" @click="spaceDesc.show = true; spaceDesc.space = s" class="text-sm text-gray-500 dark:text-gray-400 mb-2 overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer" x-text="s.description + ' ' + s.note"></div>
               <div>
                 <template x-if="!s.is_local">
                   <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Remote: <span x-text="s.location"></span></span>
@@ -543,8 +543,16 @@
             </button>
           </div>
           <!-- Dialog Body -->
-          <div class="px-4 py-4 text-center">
-            <div x-html="spaceDesc.space.description.replace(/\n/g, '<br />')" class="text-left text-sm text-neutral-600 dark:text-neutral-300 overflow-y-auto max-h-[60vh] pr-4"></div>
+          <div class="px-4 py-4 text-left text-sm text-neutral-600 dark:text-neutral-300 overflow-y-auto max-h-[60vh] pr-4">
+            <template x-if="spaceDesc.space.description">
+              <div x-text="spaceDesc.space.description.replace(/\n/g, '\n')" style="white-space:pre-line"></div>
+            </template>
+            <template x-if="spaceDesc.space.description && spaceDesc.space.note">
+              <hr class="my-4 border-t border-gray-200 dark:border-gray-700" />
+            </template>
+            <template x-if="spaceDesc.space.note">
+              <div x-text="spaceDesc.space.note.replace(/\n/g, '\n')" style="white-space:pre-line"></div>
+            </template>
           </div>
           <!-- Dialog Footer -->
           <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">

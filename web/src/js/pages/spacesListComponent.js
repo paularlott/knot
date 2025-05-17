@@ -42,6 +42,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       space: {
         name: '',
         description: '',
+        note: '',
       }
     },
 
@@ -132,6 +133,8 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
                 this.spaces.push(space);
                 spacesAdded = true;
+
+                console.log(space);
               }
               // Else update the sharing information
               else {
@@ -139,6 +142,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.shared_username = space.shared_username;
                 existing.name = space.name;
                 existing.description = space.description;
+                existing.note = space.note;
                 existing.location = space.location;
                 existing.has_code_server = space.has_code_server;
                 existing.has_ssh = space.has_ssh;

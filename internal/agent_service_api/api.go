@@ -9,13 +9,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type SpaceDescription struct {
-	Message string `json:"description" msgpack:"description"`
+type SpaceNote struct {
+	Note string `json:"note" msgpack:"note"`
 }
 
-func handleDescription(w http.ResponseWriter, r *http.Request) {
+func handleNote(w http.ResponseWriter, r *http.Request) {
 	// Decode the message
-	var message SpaceDescription
+	var message SpaceNote
 	if err := rest.BindJSON(w, r, &message); err != nil {
 		log.Error().Msgf("service_api: failed to decode message: %v", err)
 		rest.SendJSON(http.StatusBadRequest, w, r, map[string]string{"error": "invalid message"})
@@ -23,7 +23,7 @@ func handleDescription(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send the message to the server
-	agent_client.SendSpaceDescription(message.Message)
+	agent_client.SendSpaceNote(message.Note)
 
 	w.WriteHeader(http.StatusOK)
 }
