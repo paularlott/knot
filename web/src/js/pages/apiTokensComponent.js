@@ -69,5 +69,9 @@ window.apiTokensComponent = function() {
         }
       });
     },
+    async copyToClipboard(text) {
+      await navigator.clipboard.writeText(text);
+      this.$dispatch('show-alert', { msg: "Copied to clipboard", type: 'success' });
+    },
   };
 }
