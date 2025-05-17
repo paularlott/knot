@@ -12,7 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/middleware"
+	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/util"
 
 	"github.com/gorilla/websocket"

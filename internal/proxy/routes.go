@@ -3,7 +3,8 @@ package proxy
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/middleware"
+	"github.com/paularlott/knot/internal/middleware"
+
 	"github.com/spf13/viper"
 )
 

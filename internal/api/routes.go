@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/middleware"
+	"github.com/paularlott/knot/internal/middleware"
 )
 
 func ApiRoutes(router *http.ServeMux) {

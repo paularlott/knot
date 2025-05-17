@@ -3,7 +3,7 @@ package tunnel_server
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/middleware"
+	"github.com/paularlott/knot/internal/middleware"
 )
 
 func Routes(router *http.ServeMux) {

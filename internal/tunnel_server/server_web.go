@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/paularlott/knot/proxy"
+	"github.com/paularlott/knot/internal/proxy"
 
 	"github.com/rs/zerolog/log"
 )

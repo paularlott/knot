@@ -4,8 +4,9 @@ import (
 	"strconv"
 
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/proxy"
+	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/util"
+
 	"github.com/spf13/cobra"
 )
 

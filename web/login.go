@@ -7,10 +7,10 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/middleware"
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/middleware"
 
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
