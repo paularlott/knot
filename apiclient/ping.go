@@ -1,6 +1,8 @@
 package apiclient
 
-import "errors"
+import (
+	"errors"
+)
 
 type PingResponse struct {
 	Status  bool   `json:"status"`
@@ -10,8 +12,13 @@ type PingResponse struct {
 func (c *ApiClient) Ping() (string, error) {
 	ping := PingResponse{}
 	statusCode, err := c.httpClient.Get("/api/ping", &ping)
-	if statusCode != 200 {
-		return "", errors.New("invalid status code")
+	if statusCode > 0 {
+		if statusCode == 401 {
+			return "", errors.New("unauthorized")
+		} else if statusCode != 200 {
+			return "", errors.New("invalid status code")
+		}
 	}
+
 	return ping.Version, err
 }

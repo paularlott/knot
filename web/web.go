@@ -209,7 +209,7 @@ func Routes(router *http.ServeMux) {
 	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 
 	// Routes without authentication
-	if !middleware.HasUsers {
+	if !middleware.HasUsers && viper.GetString("server.origin.server") == "" && viper.GetString("server.origin.token") == "" {
 		router.HandleFunc("GET /initial-system-setup", HandleInitialSystemSetupPage)
 	}
 	router.HandleFunc("GET /login", HandleLoginPage)
@@ -378,5 +378,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"disableSpaceCreate":        viper.GetBool("server.disable_space_create"),
 		"totpEnabled":               viper.GetBool("server.totp.enabled"),
 		"clusterMode":               viper.GetString("server.cluster.advertise_addr") != "",
+		"isLeafNode":                config.LeafNode,
 	}
 }

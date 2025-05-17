@@ -71,6 +71,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.Groups = template.Groups
 		templateData.LocalContainer = template.LocalContainer
 		templateData.IsManual = template.IsManual
+		templateData.IsManaged = template.IsManaged
 		templateData.ComputeUnits = template.ComputeUnits
 		templateData.StorageUnits = template.StorageUnits
 		templateData.ScheduleEnabled = template.ScheduleEnabled
@@ -169,6 +170,11 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template, err := db.GetTemplate(templateId)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if template.IsManaged {
+		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot update managed template"})
 		return
 	}
 
@@ -454,6 +460,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		Locations:        template.Locations,
 		LocalContainer:   template.LocalContainer,
 		IsManual:         template.IsManual,
+		IsManaged:        template.IsManaged,
 		WithTerminal:     template.WithTerminal,
 		WithVSCodeTunnel: template.WithVSCodeTunnel,
 		WithCodeServer:   template.WithCodeServer,

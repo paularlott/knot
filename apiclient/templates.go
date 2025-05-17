@@ -50,6 +50,7 @@ type TemplateInfo struct {
 	Groups          []string             `json:"groups"`
 	LocalContainer  bool                 `json:"local_container"`
 	IsManual        bool                 `json:"is_manual"`
+	IsManaged       bool                 `json:"is_managed"`
 	ScheduleEnabled bool                 `json:"schedule_enabled"`
 	ComputeUnits    uint32               `json:"compute_units"`
 	StorageUnits    uint32               `json:"storage_units"`
@@ -79,6 +80,7 @@ type TemplateDetails struct {
 	Groups           []string             `json:"groups"`
 	LocalContainer   bool                 `json:"local_container"`
 	IsManual         bool                 `json:"is_manual"`
+	IsManaged        bool                 `json:"is_managed"`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`

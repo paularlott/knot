@@ -67,6 +67,10 @@ func init() {
 	serverCmd.Flags().StringP("cluster-bind-addr", "", "", "The address to bind to for cluster communication (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_BIND_ADDR environment variable if set.")
 	serverCmd.Flags().StringSliceP("cluster-peer", "", []string{}, "The addresses of the other servers in the cluster, can be given multiple times (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_PEERS environment variable if set.")
 
+	// Origin / Leaf servers
+	serverCmd.Flags().StringP("origin-server", "", "", "The address of the origin server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER environment variable if set.")
+	serverCmd.Flags().StringP("origin-token", "", "", "The token to use for the origin server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ORIGIN_TOKEN environment variable if set.")
+
 	// TOTP
 	serverCmd.Flags().BoolP("enable-totp", "", false, "Enable TOTP for users.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_TOTP environment variable if set.")
 	serverCmd.Flags().IntP("totp-window", "", 1, "The number of time steps (30 seconds) to check for TOTP codes (default \"1\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOTP_WINDOW environment variable if set.")
@@ -232,6 +236,15 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.cluster.peers", config.CONFIG_ENV_PREFIX+"_CLUSTER_PEERS")
 		viper.SetDefault("server.cluster.peers", []string{})
 
+		// Origin / Leaf servers
+		viper.BindPFlag("server.origin.server", cmd.Flags().Lookup("origin-server"))
+		viper.BindEnv("server.origin.server", config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER")
+		viper.SetDefault("server.origin.server", "")
+
+		viper.BindPFlag("server.origin.token", cmd.Flags().Lookup("origin-token"))
+		viper.BindEnv("server.origin.token", config.CONFIG_ENV_PREFIX+"_ORIGIN_TOKEN")
+		viper.SetDefault("server.origin.token", "")
+
 		// TLS
 		viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
 		viper.BindEnv("server.tls.cert_file", config.CONFIG_ENV_PREFIX+"_CERT_FILE")
@@ -361,6 +374,31 @@ var serverCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := util.FixListenAddress(viper.GetString("server.listen"))
 
+		/* if viper.GetString("server.origin.server") != "" && viper.GetString("server.origin.token") != "" {
+
+			client := apiclient.NewClient(viper.GetString("server.origin.server"), viper.GetString("server.origin.token"), viper.GetBool("tls_skip_verify"))
+
+			version, err := client.Ping()
+			if err != nil {
+				if err.Error() == "unauthorized" {
+					log.Fatal().Msg("server: origin server token is invalid or expired")
+				}
+
+				log.Fatal().Err(err).Msgf("server: failed to ping origin server: %s", viper.GetString("server.origin.server"))
+			}
+
+			fmt.Println("Origin server ping response:", version)
+
+			who, err := client.WhoAmI()
+			if err != nil {
+				log.Fatal().Err(err).Msgf("server: failed to get whoami from origin server: %s", viper.GetString("server.origin.server"))
+			}
+
+			fmt.Println("Origin server whoami response:", who)
+
+			os.Exit(1)
+		} */
+
 		// If agent address not given then don't start
 		if viper.GetString("server.agent_endpoint") == "" {
 			log.Fatal().Msg("server: agent endpoint not given")
@@ -388,6 +426,7 @@ var serverCmd = &cobra.Command{
 		// set the server location and timezone
 		config.Location = viper.GetString("server.location")
 		config.Timezone = viper.GetString("server.timezone")
+		config.LeafNode = viper.GetString("server.origin.server") != "" && viper.GetString("server.origin.token") != ""
 
 		if config.Timezone == "" {
 			config.Timezone, _ = time.Now().Zone()
@@ -563,7 +602,11 @@ var serverCmd = &cobra.Command{
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 		// Start the cluster and join the peers
-		cluster.Start(viper.GetStringSlice("server.cluster.peers"))
+		cluster.Start(
+			viper.GetStringSlice("server.cluster.peers"),
+			viper.GetString("server.origin.server"),
+			viper.GetString("server.origin.token"),
+		)
 
 		// Check for local spaces that are pending state changes and setup watches
 		startupCheckPendingSpaces()

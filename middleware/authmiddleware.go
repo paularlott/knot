@@ -6,6 +6,7 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
 	"github.com/rs/zerolog/log"
@@ -143,10 +144,18 @@ func checkPermission(next http.HandlerFunc, permission uint16, msg string) http.
 }
 
 func ApiPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
+	if config.LeafNode {
+		return next
+	}
+
 	return checkPermission(next, model.PermissionManageTemplates, "No permission to manage templates")
 }
 
 func ApiPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
+	if config.LeafNode {
+		return next
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageVolumes) {
@@ -159,6 +168,10 @@ func ApiPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ApiPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
+	if config.LeafNode {
+		return next
+	}
+
 	return checkPermission(next, model.PermissionManageVariables, "No permission to manage variables")
 }
 

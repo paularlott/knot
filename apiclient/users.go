@@ -187,27 +187,8 @@ func (c *ApiClient) GetUsers(state string, location string) (*UserInfoList, erro
 	return &response, nil
 }
 
-func (c *ApiClient) UpdateUser(user *model.User) error {
-	request := UpdateUserRequest{
-		Username:        user.Username,
-		Password:        user.Password,
-		Email:           user.Email,
-		ServicePassword: user.ServicePassword,
-		Roles:           user.Roles,
-		Groups:          user.Groups,
-		Active:          user.Active,
-		MaxSpaces:       user.MaxSpaces,
-		ComputeUnits:    user.ComputeUnits,
-		StorageUnits:    user.StorageUnits,
-		MaxTunnels:      user.MaxTunnels,
-		SSHPublicKey:    user.SSHPublicKey,
-		GitHubUsername:  user.GitHubUsername,
-		PreferredShell:  user.PreferredShell,
-		Timezone:        user.Timezone,
-		TOTPSecret:      user.TOTPSecret,
-	}
-
-	_, err := c.httpClient.Put("/api/users/"+user.Id, &request, nil, 200)
+func (c *ApiClient) UpdateUser(userId string, user *UpdateUserRequest) error {
+	_, err := c.httpClient.Put("/api/users/"+userId, &user, nil, 200)
 	if err != nil {
 		return err
 	}

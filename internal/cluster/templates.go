@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/cluster/leafmsg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/util/audit"
 
@@ -51,6 +52,11 @@ func (c *Cluster) handleTemplateGossip(sender *gossip.Node, packet *gossip.Packe
 		return err
 	}
 
+	// Forward to any leaf nodes
+	if len(c.leafSessions) > 0 {
+		c.sendToLeafNodes(leafmsg.MessageGossipTemplate, &templates)
+	}
+
 	return nil
 }
 
@@ -60,6 +66,13 @@ func (c *Cluster) GossipTemplate(template *model.Template) {
 
 		templates := []*model.Template{template}
 		c.gossipCluster.Send(TemplateGossipMsg, &templates)
+	}
+
+	if len(c.leafSessions) > 0 {
+		log.Debug().Msg("cluster: Updating template on leaf nodes")
+
+		templates := []*model.Template{template}
+		c.sendToLeafNodes(leafmsg.MessageGossipTemplate, templates)
 	}
 }
 
@@ -168,6 +181,10 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 
 // Gossips a subset of the templates to the cluster
 func (c *Cluster) gossipTemplates() {
+	if c.gossipCluster == nil && len(c.leafSessions) == 0 {
+		return
+	}
+
 	// Get the list of templates in the system
 	db := database.GetInstance()
 	templates, err := db.GetTemplates()
@@ -176,19 +193,26 @@ func (c *Cluster) gossipTemplates() {
 		return
 	}
 
-	batchSize := c.gossipCluster.GetBatchSize(len(templates))
-	if batchSize == 0 {
-		return // No keys to send in this batch
-	}
-
-	log.Debug().Int("batch_size", batchSize).Int("total", len(templates)).Msg("cluster: Gossipping templates")
-
 	// Shuffle the templates
 	rand.Shuffle(len(templates), func(i, j int) {
 		templates[i], templates[j] = templates[j], templates[i]
 	})
 
-	// Get the 1st number of templates up to the batch size & broadcast
-	templates = templates[:batchSize]
-	c.gossipCluster.Send(TemplateGossipMsg, &templates)
+	if c.gossipCluster != nil {
+		batchSize := c.gossipCluster.GetBatchSize(len(templates))
+		if batchSize > 0 {
+			log.Debug().Int("batch_size", batchSize).Int("total", len(templates)).Msg("cluster: Gossipping templates")
+			templates = templates[:batchSize]
+			c.gossipCluster.Send(TemplateGossipMsg, &templates)
+		}
+	}
+
+	if len(c.leafSessions) > 0 {
+		batchSize := c.getBatchSize(len(templates))
+		if batchSize > 0 {
+			log.Debug().Int("batch_size", batchSize).Int("total", len(templates)).Msg("cluster: Templates to leaf nodes")
+			templates = templates[:batchSize]
+			c.sendToLeafNodes(leafmsg.MessageGossipTemplate, &templates)
+		}
+	}
 }

@@ -32,6 +32,7 @@ type Template struct {
 	StorageUnits     uint32                 `json:"storage_units" db:"storage_units"`
 	ScheduleEnabled  bool                   `json:"schedule_enabled" db:"schedule_enabled"`
 	IsDeleted        bool                   `json:"is_deleted" db:"is_deleted"`
+	IsManaged        bool                   `json:"is_managed" db:"is_managed"`
 	Schedule         []TemplateScheduleDays `json:"schedule" db:"schedule,json"`
 	Locations        []string               `json:"locations" db:"locations,json"`
 	CreatedUserId    string                 `json:"created_user_id" db:"created_user_id"`

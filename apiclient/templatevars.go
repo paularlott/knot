@@ -7,6 +7,7 @@ type TemplateVarValue struct {
 	Value      string `json:"value"`
 	Protected  bool   `json:"protected"`
 	Restricted bool   `json:"restricted"`
+	IsManaged  bool   `json:"is_managed"`
 }
 
 type TemplateVar struct {
@@ -16,6 +17,7 @@ type TemplateVar struct {
 	Local      bool   `json:"local"`
 	Protected  bool   `json:"protected"`
 	Restricted bool   `json:"restricted"`
+	IsManaged  bool   `json:"is_managed"`
 }
 
 type TemplateVarList struct {

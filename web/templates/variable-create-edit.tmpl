@@ -4,7 +4,7 @@
 
 {{ define "mainContent" }}
 <main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
-  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="variableForm({{ .isEdit }}, '{{ .templateVarId }}')" x-init="initData()">
+  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="variableForm({{ .isEdit }}, '{{ .templateVarId }}', {{ if .isLeafNode }}true{{ else }}false{{ end }})" x-init="initData()">
 
     <div class="mb-4 col-span-full xl:mb-2">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Variable{{ else }}Create Variable{{ end }}</h1>
@@ -55,7 +55,7 @@
           </div>
           <div class="col-span-1">
             <label class="inline-flex items-center mb-5 cursor-pointer">
-              <input type="checkbox" name="protected" x-model="formData.local" class="sr-only peer" :disabled="formData.restricted" @change="if (formData.local) formData.restricted = false">
+              <input type="checkbox" name="protected" x-model="formData.local" class="sr-only peer" :disabled="formData.restricted || {{ .isLeafNode }}" @change="if (formData.local) formData.restricted = false">
               <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600 peer-disabled:opacity-40"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300 peer-disabled:text-gray-400 dark:peer-disabled:text-gray-600">Local Variable</span>
             </label>

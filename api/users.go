@@ -16,6 +16,7 @@ import (
 	"github.com/paularlott/knot/util/audit"
 	"github.com/paularlott/knot/util/rest"
 	"github.com/paularlott/knot/util/validate"
+	"github.com/spf13/viper"
 )
 
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -411,6 +412,10 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	user.UpdatedAt = time.Now().UTC()
 	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
 
+	if request.ServicePassword != "" {
+		saveFields = append(saveFields, "ServicePassword")
+	}
+
 	// Update the user password
 	if len(request.Password) > 0 {
 		user.SetPassword(request.Password)
@@ -453,6 +458,12 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Update the user's spaces, ssh keys or stop spaces
 	go service.GetUserService().UpdateUserSpaces(user)
+
+	// If leaf node then attempt to update the information on the origin server
+	if config.LeafNode {
+		client := apiclient.NewClient(viper.GetString("server.origin.server"), viper.GetString("server.origin.token"), viper.GetBool("tls_skip_verify"))
+		client.UpdateUser(user.Id, &request)
+	}
 
 	w.WriteHeader(http.StatusOK)
 }

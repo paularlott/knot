@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/cluster/leafmsg"
 
 	"github.com/rs/zerolog/log"
 )
@@ -48,6 +49,11 @@ func (c *Cluster) handleRoleGossip(sender *gossip.Node, packet *gossip.Packet) e
 		return err
 	}
 
+	// Forward to any leaf nodes
+	if len(c.leafSessions) > 0 {
+		c.sendToLeafNodes(leafmsg.MessageGossipRole, &roles)
+	}
+
 	return nil
 }
 
@@ -57,6 +63,13 @@ func (c *Cluster) GossipRole(role *model.Role) {
 
 		roles := []*model.Role{role}
 		c.gossipCluster.Send(RoleGossipMsg, &roles)
+	}
+
+	if len(c.leafSessions) > 0 {
+		log.Debug().Msg("cluster: Updating role on leaf nodes")
+
+		roles := []*model.Role{role}
+		c.sendToLeafNodes(leafmsg.MessageGossipRole, roles)
 	}
 }
 
@@ -130,6 +143,10 @@ func (c *Cluster) mergeRoles(roles []*model.Role) error {
 
 // Gossips a subset of the roles to the cluster
 func (c *Cluster) gossipRoles() {
+	if c.gossipCluster == nil && len(c.leafSessions) == 0 {
+		return
+	}
+
 	// Get the list of roles in the system
 	db := database.GetInstance()
 	roles, err := db.GetRoles()
@@ -138,19 +155,26 @@ func (c *Cluster) gossipRoles() {
 		return
 	}
 
-	batchSize := c.gossipCluster.GetBatchSize(len(roles))
-	if batchSize == 0 {
-		return // No keys to send in this batch
-	}
-
-	log.Debug().Int("batch_size", batchSize).Int("total", len(roles)).Msg("cluster: Gossipping roles")
-
 	// Shuffle the roles
 	rand.Shuffle(len(roles), func(i, j int) {
 		roles[i], roles[j] = roles[j], roles[i]
 	})
 
-	// Get the 1st number of roles up to the batch size & broadcast
-	roles = roles[:batchSize]
-	c.gossipCluster.Send(RoleGossipMsg, &roles)
+	if c.gossipCluster != nil {
+		batchSize := c.gossipCluster.GetBatchSize(len(roles))
+		if batchSize > 0 {
+			log.Debug().Int("batch_size", batchSize).Int("total", len(roles)).Msg("cluster: Gossipping roles")
+			roles = roles[:batchSize]
+			c.gossipCluster.Send(RoleGossipMsg, &roles)
+		}
+	}
+
+	if len(c.leafSessions) > 0 {
+		batchSize := c.getBatchSize(len(roles))
+		if batchSize > 0 {
+			log.Debug().Int("batch_size", batchSize).Int("total", len(roles)).Msg("cluster: Roles to leaf nodes")
+			roles = roles[:batchSize]
+			c.sendToLeafNodes(leafmsg.MessageGossipRole, &roles)
+		}
+	}
 }

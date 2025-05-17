@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/cluster/leafmsg"
 
 	"github.com/rs/zerolog/log"
 )
@@ -48,6 +49,11 @@ func (c *Cluster) handleGroupGossip(sender *gossip.Node, packet *gossip.Packet) 
 		return err
 	}
 
+	// Forward to any leaf nodes
+	if len(c.leafSessions) > 0 {
+		c.sendToLeafNodes(leafmsg.MessageGossipGroup, &groups)
+	}
+
 	return nil
 }
 
@@ -57,6 +63,13 @@ func (c *Cluster) GossipGroup(group *model.Group) {
 
 		groups := []*model.Group{group}
 		c.gossipCluster.Send(GroupGossipMsg, &groups)
+	}
+
+	if len(c.leafSessions) > 0 {
+		log.Debug().Msg("cluster: Updating group on leaf nodes")
+
+		groups := []*model.Group{group}
+		c.sendToLeafNodes(leafmsg.MessageGossipGroup, groups)
 	}
 }
 
@@ -123,6 +136,10 @@ func (c *Cluster) mergeGroups(groups []*model.Group) error {
 
 // Gossips a subset of the groups to the cluster
 func (c *Cluster) gossipGroups() {
+	if c.gossipCluster == nil && len(c.leafSessions) == 0 {
+		return
+	}
+
 	// Get the list of groups in the system
 	db := database.GetInstance()
 	groups, err := db.GetGroups()
@@ -131,19 +148,26 @@ func (c *Cluster) gossipGroups() {
 		return
 	}
 
-	batchSize := c.gossipCluster.GetBatchSize(len(groups))
-	if batchSize == 0 {
-		return // No keys to send in this batch
-	}
-
-	log.Debug().Int("batch_size", batchSize).Int("total", len(groups)).Msg("cluster: Gossipping groups")
-
 	// Shuffle the groups
 	rand.Shuffle(len(groups), func(i, j int) {
 		groups[i], groups[j] = groups[j], groups[i]
 	})
 
-	// Get the 1st number of groups up to the batch size & broadcast
-	groups = groups[:batchSize]
-	c.gossipCluster.Send(GroupGossipMsg, &groups)
+	if c.gossipCluster != nil {
+		batchSize := c.gossipCluster.GetBatchSize(len(groups))
+		if batchSize > 0 {
+			log.Debug().Int("batch_size", batchSize).Int("total", len(groups)).Msg("cluster: Gossipping groups")
+			groups = groups[:batchSize]
+			c.gossipCluster.Send(GroupGossipMsg, &groups)
+		}
+	}
+
+	if len(c.leafSessions) > 0 {
+		batchSize := c.getBatchSize(len(groups))
+		if batchSize > 0 {
+			log.Debug().Int("batch_size", batchSize).Int("total", len(groups)).Msg("cluster: Groups to leaf nodes")
+			groups = groups[:batchSize]
+			c.sendToLeafNodes(leafmsg.MessageGossipGroup, &groups)
+		}
+	}
 }

@@ -39,6 +39,7 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 			Local:      variable.Local,
 			Protected:  variable.Protected,
 			Restricted: variable.Restricted,
+			IsManaged:  variable.IsManaged,
 		}
 		data.TemplateVar = append(data.TemplateVar, v)
 		data.Count++
@@ -257,6 +258,7 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 		Local:      templateVar.Local,
 		Protected:  templateVar.Protected,
 		Restricted: templateVar.Restricted,
+		IsManaged:  templateVar.IsManaged,
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, data)

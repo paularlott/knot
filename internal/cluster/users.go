@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/cluster/leafmsg"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/middleware"
 
@@ -50,6 +51,19 @@ func (c *Cluster) handleUserGossip(sender *gossip.Node, packet *gossip.Packet) e
 		return err
 	}
 
+	// Forward to any leaf nodes
+	if len(c.leafSessions) > 0 {
+		c.leafSessionMux.RLock()
+		defer c.leafSessionMux.RUnlock()
+		for _, session := range c.leafSessions {
+			for _, user := range users {
+				if session.user.Id == user.Id {
+					session.SendMessage(leafmsg.MessageGossipUser, []*model.User{user})
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -59,6 +73,17 @@ func (c *Cluster) GossipUser(user *model.User) {
 
 		users := []*model.User{user}
 		c.gossipCluster.Send(UserGossipMsg, &users)
+	}
+
+	if len(c.leafSessions) > 0 {
+		// Look for sessions related to the user only
+		c.leafSessionMux.RLock()
+		defer c.leafSessionMux.RUnlock()
+		for _, session := range c.leafSessions {
+			if session.user.Id == user.Id {
+				session.SendMessage(leafmsg.MessageGossipUser, []*model.User{user})
+			}
+		}
 	}
 }
 
@@ -136,6 +161,10 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 
 // Gossips a subset of the users to the cluster
 func (c *Cluster) gossipUsers() {
+	if c.gossipCluster == nil && len(c.leafSessions) == 0 {
+		return
+	}
+
 	// Get the list of users in the system
 	db := database.GetInstance()
 	users, err := db.GetUsers()
@@ -144,19 +173,39 @@ func (c *Cluster) gossipUsers() {
 		return
 	}
 
-	batchSize := c.gossipCluster.GetBatchSize(len(users))
-	if batchSize == 0 {
-		return // No keys to send in this batch
-	}
-
-	log.Debug().Int("batch_size", batchSize).Int("total", len(users)).Msg("cluster: Gossipping users")
-
 	// Shuffle the users
 	rand.Shuffle(len(users), func(i, j int) {
 		users[i], users[j] = users[j], users[i]
 	})
 
-	// Get the 1st number of users up to the batch size & broadcast
-	users = users[:batchSize]
-	c.gossipCluster.Send(UserGossipMsg, &users)
+	if c.gossipCluster != nil {
+		batchSize := c.gossipCluster.GetBatchSize(len(users))
+		if batchSize == 0 {
+			return // No keys to send in this batch
+		}
+
+		log.Debug().Int("batch_size", batchSize).Int("total", len(users)).Msg("cluster: Gossipping users")
+
+		// Get the 1st number of users up to the batch size & broadcast
+		users = users[:batchSize]
+		c.gossipCluster.Send(UserGossipMsg, &users)
+	}
+
+	if len(c.leafSessions) > 0 {
+		batchSize := c.getBatchSize(len(users))
+		if batchSize > 0 {
+			log.Debug().Int("batch_size", batchSize).Int("total", len(users)).Msg("cluster: Users to leaf nodes")
+
+			c.leafSessionMux.RLock()
+			defer c.leafSessionMux.RUnlock()
+
+			for _, user := range users[:batchSize] {
+				for _, session := range c.leafSessions {
+					if session.user.Id == user.Id {
+						session.SendMessage(leafmsg.MessageGossipUser, []*model.User{user})
+					}
+				}
+			}
+		}
+	}
 }

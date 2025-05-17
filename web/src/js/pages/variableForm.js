@@ -1,10 +1,10 @@
-window.variableForm = function(isEdit, templateVarId) {
+window.variableForm = function(isEdit, templateVarId, isLeafServer) {
   return {
     formData: {
       name: "",
       location: "",
-      local: false,
-      restricted: false,
+      local: isLeafServer ? true : false,
+      restricted: isLeafServer ? false : true,
       value: "",
       protected: false,
     },
