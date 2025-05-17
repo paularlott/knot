@@ -51,14 +51,14 @@ func HandleSpacesPortProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check the port is allowed must be in the TcpPorts or HttpPorts
-	_, tcpOk := agentSession.TcpPorts[port]
-	_, httpOk := agentSession.HttpPorts[port]
-	if !tcpOk && !httpOk {
-		log.Debug().Str("port", port).Msg("Port not allowed")
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
+	/* 	// Check the port is allowed must be in the TcpPorts or HttpPorts
+	   	_, tcpOk := agentSession.TcpPorts[port]
+	   	_, httpOk := agentSession.HttpPorts[port]
+	   	if !tcpOk && !httpOk {
+	   		log.Debug().Str("port", port).Msg("Port not allowed")
+	   		w.WriteHeader(http.StatusNotFound)
+	   		return
+	   	} */
 
 	proxyAgentPort(w, r, agentSession, uint16(portUInt))
 }
