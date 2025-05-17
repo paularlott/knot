@@ -87,7 +87,7 @@ apidocs:
 
 ## Run a preview server for the API documentation
 apidocs-preview:
-	npx @redocly/cli preview-docs api/spec/knot-openapi.yaml
+	npx @redocly/cli preview-docs internal/api/spec/knot-openapi.yaml
 
 ## Compile LESS/CSS and JavaScript
 webassets:

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/paularlott/knot/api"
+	"github.com/paularlott/knot/internal/api"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/util/rest"
 
