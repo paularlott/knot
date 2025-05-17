@@ -19,9 +19,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-func ConnectAndForward(wsUrl string, protocol string, port uint16, tunnelName string, hostname string) {
+func ConnectAndForward(wsUrl string, serverUrl string, token string, protocol string, port uint16, tunnelName string, hostname string) {
 
-	client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
+	client := apiclient.NewClient(serverUrl, token, viper.GetBool("tls_skip_verify"))
 
 	// Get the current user
 	user, err := client.WhoAmI()
@@ -43,7 +43,7 @@ func ConnectAndForward(wsUrl string, protocol string, port uint16, tunnelName st
 		for {
 
 			// Open the websocket
-			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", viper.GetString("client.token"))}}
+			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", token)}}
 			dialer := websocket.DefaultDialer
 			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
 			dialer.HandshakeTimeout = 5 * time.Second

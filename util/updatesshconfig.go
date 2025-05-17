@@ -8,8 +8,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func UpdateSSHConfig(sshConfig string) error {
+func UpdateSSHConfig(sshConfig string, alias string) error {
 	var lines []string
+
+	if alias == "default" {
+		alias = ""
+	} else {
+		alias = " (" + alias + ")"
+	}
 
 	log.Debug().Msg("Start updating .ssh/config")
 
@@ -38,9 +44,9 @@ func UpdateSSHConfig(sshConfig string) error {
 		inBlock := false
 		for scanner.Scan() {
 			line := scanner.Text()
-			if strings.Contains(line, "#===KNOT-START===") {
+			if strings.Contains(line, "#===KNOT-START"+alias+"===") {
 				inBlock = true
-			} else if strings.Contains(line, "#===KNOT-END===") {
+			} else if strings.Contains(line, "#===KNOT-END"+alias+"===") {
 				inBlock = false
 			} else if !inBlock {
 				lines = append(lines, line)
@@ -56,9 +62,9 @@ func UpdateSSHConfig(sshConfig string) error {
 	if sshConfig != "" {
 		log.Debug().Msg("Adding ssh config to .ssh/config")
 
-		lines = append(lines, "#===KNOT-START===")
+		lines = append(lines, "#===KNOT-START"+alias+"===")
 		lines = append(lines, sshConfig)
-		lines = append(lines, "#===KNOT-END===")
+		lines = append(lines, "#===KNOT-END"+alias+"===")
 	}
 
 	// Write lines to .ssh/config file

@@ -22,6 +22,7 @@ func init() {
 	ConnectCmd.Flags().BoolP("use-web-auth", "", false, "If given then authorization will be done via the web interface.")
 	ConnectCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
 	ConnectCmd.Flags().StringP("username", "u", "", "Username to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_USERNAME environment variable if set.")
+	ConnectCmd.Flags().StringP("alias", "a", "default", "The server alias to use.")
 
 	RootCmd.AddCommand(ConnectCmd)
 }
@@ -137,14 +138,15 @@ var ConnectCmd = &cobra.Command{
 			}
 		}
 
+		alias, _ := cmd.Flags().GetString("alias")
 		if viper.ConfigFileUsed() == "" {
 			// No config file so save this to the home folder
 			home, err := os.UserHomeDir()
 			cobra.CheckErr(err)
 
 			partial := viper.New()
-			partial.Set("client.server", server)
-			partial.Set("client.token", token)
+			partial.Set("client."+alias+".server", server)
+			partial.Set("client."+alias+".token", token)
 
 			err = partial.WriteConfigAs(home + "/" + config.CONFIG_FILE_NAME + "." + config.CONFIG_FILE_TYPE)
 			if err != nil {
@@ -160,8 +162,8 @@ var ConnectCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			partial.Set("client.server", server)
-			partial.Set("client.token", token)
+			partial.Set("client."+alias+".server", server)
+			partial.Set("client."+alias+".token", token)
 
 			err = partial.WriteConfig()
 			if err != nil {

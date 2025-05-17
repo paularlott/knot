@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/util"
 
 	"github.com/spf13/cobra"
@@ -16,8 +17,9 @@ var sshConfigUpdateCmd = &cobra.Command{
 	Long:  `Update the .ssh/config file with the current live spaces that expose SSH.`,
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
+		client := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
 
 		// Get the current user
 		user, err := client.WhoAmI()
@@ -34,20 +36,28 @@ var sshConfigUpdateCmd = &cobra.Command{
 
 		// For all spaces query the service state and build a list of those that are deployed and have SSH exposed
 		sshConfig := ""
+		knotParams := ""
+		machineAlias := alias
+		if machineAlias == "default" {
+			machineAlias = ""
+		} else {
+			machineAlias = "." + machineAlias
+			knotParams = "--alias " + alias + " "
+		}
 		for _, space := range spaces.Spaces {
 			if space.IsDeployed && space.HasSSH {
-				fmt.Println("Adding knot." + space.Name + " to .ssh/config")
+				fmt.Println("Adding knot." + space.Name + machineAlias + " to .ssh/config")
 
-				sshConfig += "Host knot." + space.Name + "\n"
-				sshConfig += "  HostName knot." + space.Name + "\n"
+				sshConfig += "Host knot." + space.Name + machineAlias + "\n"
+				sshConfig += "  HostName knot." + space.Name + machineAlias + "\n"
 				sshConfig += "  StrictHostKeyChecking=no\n"
 				sshConfig += "  LogLevel ERROR\n"
 				sshConfig += "  UserKnownHostsFile=/dev/null\n"
-				sshConfig += "  ProxyCommand knot forward ssh " + space.Name + "\n"
+				sshConfig += "  ProxyCommand knot forward ssh " + knotParams + space.Name + "\n"
 			}
 		}
 
-		util.UpdateSSHConfig(sshConfig)
+		util.UpdateSSHConfig(sshConfig, alias)
 
 		fmt.Println(".ssh/config has been updated")
 	},

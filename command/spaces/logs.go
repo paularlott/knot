@@ -28,7 +28,9 @@ var logsCmd = &cobra.Command{
 
 		follow, _ := cmd.Flags().GetBool("follow")
 
-		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
+		client := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
 
 		// Get the current user
 		user, err := client.WhoAmI()
@@ -59,10 +61,9 @@ var logsCmd = &cobra.Command{
 		}
 
 		// Connect to the websocket at /logs/<spaceId>/stream and print the logs
-		cfg := config.GetServerAddr()
 		wsUrl := fmt.Sprintf("%s/logs/%s/stream", cfg.WsServer, spaceId)
 
-		header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", viper.GetString("client.token"))}}
+		header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", cfg.ApiToken)}}
 		dialer := websocket.DefaultDialer
 		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
 		dialer.HandshakeTimeout = 5 * time.Second

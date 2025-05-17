@@ -23,7 +23,8 @@ If <port> is not given then the port is found via a DNS SRV lookup against the s
 		var port int
 		var err error
 
-		cfg := config.GetServerAddr()
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
 
 		if len(args) == 2 {
 			port, err = strconv.Atoi(args[1])

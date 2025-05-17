@@ -14,7 +14,8 @@ var sshConfigRemoveCmd = &cobra.Command{
 	Long:  `Remove any knot space configurations from the .ssh/config file.`,
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		util.UpdateSSHConfig("")
+		alias, _ := cmd.Flags().GetString("alias")
+		util.UpdateSSHConfig("", alias)
 		fmt.Println(".ssh/config has been updated")
 	},
 }

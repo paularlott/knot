@@ -21,7 +21,8 @@ The request is passed to the proxy server to be processed rather than run agains
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		service := args[0]
-		cfg := config.GetServerAddr()
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
 		client := rest.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
 
 		lookup, _, err := api.CallLookup(client, service)

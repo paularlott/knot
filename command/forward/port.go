@@ -19,7 +19,8 @@ var portCmd = &cobra.Command{
   port      The remote port to connect to e.g. 80`,
 	Args: cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg := config.GetServerAddr()
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
 
 		port, err := strconv.Atoi(args[2])
 		if err != nil || port < 1 || port > 65535 {

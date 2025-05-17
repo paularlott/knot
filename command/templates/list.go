@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/util"
 
 	"github.com/spf13/cobra"
@@ -17,8 +18,9 @@ var listCmd = &cobra.Command{
 	Long:  `Lists the available templates within the system.`,
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-
-		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
+		client := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
 
 		templates, _, err := client.GetTemplates()
 		if err != nil {

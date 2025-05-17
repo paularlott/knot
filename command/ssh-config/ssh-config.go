@@ -10,6 +10,7 @@ import (
 
 func init() {
 	sshConfigCmd.PersistentFlags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
+	sshConfigCmd.PersistentFlags().StringP("alias", "a", "default", "The server alias to use.")
 
 	command.RootCmd.AddCommand(sshConfigCmd)
 	sshConfigCmd.AddCommand(sshConfigUpdateCmd)

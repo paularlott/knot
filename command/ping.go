@@ -13,6 +13,7 @@ import (
 
 func init() {
 	pingCmd.Flags().StringP("server", "s", "", "The address of the remote server to proxy through.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
+	pingCmd.Flags().StringP("alias", "a", "default", "The server alias to use.")
 
 	RootCmd.AddCommand(pingCmd)
 }
@@ -23,11 +24,14 @@ var pingCmd = &cobra.Command{
 	Long:  `Ping the server and display the health and version number.`,
 	Args:  cobra.NoArgs,
 	PreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("client.server", cmd.Flags().Lookup("server"))
-		viper.BindEnv("client.server", config.CONFIG_ENV_PREFIX+"_SERVER")
+		alias, _ := cmd.Flags().GetString("alias")
+
+		viper.BindPFlag("client."+alias+".server", cmd.Flags().Lookup("server"))
+		viper.BindEnv("client."+alias+".server", config.CONFIG_ENV_PREFIX+"_SERVER")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg := config.GetServerAddr()
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
 		fmt.Println("Pinging server: ", cfg.HttpServer)
 
 		client := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))

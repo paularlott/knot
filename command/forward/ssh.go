@@ -15,7 +15,8 @@ var sshCmd = &cobra.Command{
   space   The name of the space to connect to e.g. test1`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		cfg := config.GetServerAddr()
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
 
 		proxy.RunSSHForwarderViaAgent(cfg.WsServer, args[0], cfg.ApiToken)
 	},

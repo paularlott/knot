@@ -25,7 +25,8 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
 		var port int
 		var err error
 
-		cfg := config.GetServerAddr()
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
 
 		if len(args) == 3 {
 			port, err = strconv.Atoi(args[2])

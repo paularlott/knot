@@ -36,7 +36,9 @@ var createCmd = &cobra.Command{
 
 		fmt.Println("Creating space: ", args[0], " from template: ", args[1])
 
-		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
+		client := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
 
 		// Get a list of available templates
 		templates, _, err := client.GetTemplates()

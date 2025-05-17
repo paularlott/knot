@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -25,7 +26,9 @@ var deleteCmd = &cobra.Command{
 			return
 		}
 
-		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
+		alias, _ := cmd.Flags().GetString("alias")
+		cfg := config.GetServerAddr(alias)
+		client := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
 
 		// Get a list of available spaces
 		spaces, _, err := client.GetSpaces("")
