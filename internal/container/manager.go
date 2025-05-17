@@ -1,7 +1,7 @@
 package container
 
 import (
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 type ContainerManager interface {

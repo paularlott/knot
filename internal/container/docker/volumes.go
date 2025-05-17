@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/paularlott/knot/database/model"
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/database/model"
 
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 

@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/cluster/leafmsg"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/util"
 
 	"github.com/rs/zerolog/log"

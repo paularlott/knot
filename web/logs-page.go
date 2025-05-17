@@ -5,10 +5,10 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/util"
 	"github.com/paularlott/knot/util/validate"
 

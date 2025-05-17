@@ -1,8 +1,8 @@
 package audit
 
 import (
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 )
 

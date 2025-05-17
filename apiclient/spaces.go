@@ -3,7 +3,7 @@ package apiclient
 import (
 	"time"
 
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 type SpaceRequest struct {

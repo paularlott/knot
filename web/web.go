@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/middleware"
 
 	"github.com/rs/zerolog/log"

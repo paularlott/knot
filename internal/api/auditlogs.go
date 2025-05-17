@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/util/rest"
 )
 

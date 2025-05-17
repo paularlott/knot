@@ -1,6 +1,6 @@
 package apiclient
 
-import "github.com/paularlott/knot/database/model"
+import "github.com/paularlott/knot/internal/database/model"
 
 type VolumeInfo struct {
 	Id             string `json:"volume_id"`

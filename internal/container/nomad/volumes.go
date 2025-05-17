@@ -3,7 +3,7 @@ package nomad
 import (
 	"fmt"
 
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database/model"
 
 	"github.com/rs/zerolog/log"
 )

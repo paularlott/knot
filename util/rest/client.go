@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database/model"
 
 	"github.com/vmihailenco/msgpack/v5"
 )

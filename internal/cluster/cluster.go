@@ -16,8 +16,8 @@ import (
 	"github.com/paularlott/gossip/examples/common"
 	"github.com/paularlott/gossip/websocket"
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/database"
 	cfg "github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/middleware"
 
 	"github.com/rs/zerolog/log"

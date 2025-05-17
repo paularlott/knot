@@ -3,8 +3,8 @@ package cluster
 import (
 	"time"
 
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/cluster/leafmsg"
+	"github.com/paularlott/knot/internal/database/model"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"

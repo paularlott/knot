@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

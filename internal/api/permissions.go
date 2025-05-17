@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/util/rest"
 )
 

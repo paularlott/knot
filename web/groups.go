@@ -3,7 +3,7 @@ package web
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/rs/zerolog/log"

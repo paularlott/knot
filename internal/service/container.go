@@ -1,6 +1,6 @@
 package service
 
-import "github.com/paularlott/knot/database/model"
+import "github.com/paularlott/knot/internal/database/model"
 
 type Container interface {
 	// Volumes

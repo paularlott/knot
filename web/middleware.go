@@ -3,8 +3,8 @@ package web
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {

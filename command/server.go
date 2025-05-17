@@ -15,8 +15,6 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/api"
 	"github.com/paularlott/knot/internal/api/api_utils"
@@ -24,6 +22,8 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
 	"github.com/paularlott/knot/internal/container/nomad"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dnsserver"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/tunnel_server"

@@ -4,9 +4,9 @@ import (
 	"math/rand"
 
 	"github.com/paularlott/gossip"
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/cluster/leafmsg"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/middleware"
 

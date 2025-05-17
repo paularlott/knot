@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database/model"
 
 	"github.com/rs/zerolog/log"
 )

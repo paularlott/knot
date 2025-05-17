@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/service"
 
 	"github.com/hashicorp/yamux"

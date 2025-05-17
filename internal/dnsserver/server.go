@@ -6,8 +6,8 @@ import (
 	"sync" // Add sync package for mutex
 	"time" // Add time package for cache maintenance
 
-	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/util"
 
 	"github.com/miekg/dns"

@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 // UserService defines operations that can be performed on users
