@@ -8,6 +8,10 @@ import (
 )
 
 func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
+	if config.LeafNode {
+		return next
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {

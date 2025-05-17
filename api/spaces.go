@@ -466,16 +466,19 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the user has a compute limit then check it
-	if quota.ComputeUnits > 0 && quota.UsedComputeUnits+template.ComputeUnits > quota.ComputeUnits {
-		rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "compute unit quota exceeded"})
-		return
-	}
+	// Leaf nodes are the users machines so we don't need to worry about quotas
+	if !config.LeafNode {
+		// If the user has a compute limit then check it
+		if quota.ComputeUnits > 0 && quota.UsedComputeUnits+template.ComputeUnits > quota.ComputeUnits {
+			rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "compute unit quota exceeded"})
+			return
+		}
 
-	// If the user has a storage limit then check it
-	if quota.StorageUnits > 0 && quota.UsedStorageUnits+template.StorageUnits > quota.StorageUnits {
-		rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage unit quota exceeded"})
-		return
+		// If the user has a storage limit then check it
+		if quota.StorageUnits > 0 && quota.UsedStorageUnits+template.StorageUnits > quota.StorageUnits {
+			rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage unit quota exceeded"})
+			return
+		}
 	}
 
 	// Test if the schedule allows the space to be started

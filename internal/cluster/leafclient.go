@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/cluster/leafmsg"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/middleware"
 	"github.com/paularlott/knot/util"
 
 	"github.com/gorilla/websocket"
@@ -186,6 +187,11 @@ func (c *Cluster) handleLeafGossipUser(msg *leafmsg.Message) {
 		if err := db.SaveUser(user, nil); err != nil {
 			log.Error().Err(err).Msgf("cluster: error while updating user %s from leaf", user.Username)
 		}
+	}
+
+	// Track that we now have users so auth applies
+	if len(users) > 0 {
+		middleware.HasUsers = true
 	}
 }
 

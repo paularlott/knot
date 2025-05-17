@@ -50,12 +50,14 @@
             <div x-show="!jobValid" class="error-message" x-cloak>Template is required.</div>
           </div>
         </div>
+        {{ if not .isLeafNode }}
         <div x-show="!formData.is_manual" x-clock>
           <label for="compute_units" class="form-label">Compute Units</label>
           <input type="number" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
           <p class="description">The number of compute units (CPU, GPU, RAM, etc.) this template uses.<br />Compute units only count against the users limits when a space created from the template is running.</p>
           <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
         </div>
+        {{ end }}
         <div x-show="!formData.is_manual" x-cloak>
           <label for="vol" class="form-label">Volume Definition (YAML)</label>
           <div class="mid-editor">
@@ -65,12 +67,14 @@
             <div x-show="!volValid" class="error-message" x-cloak>Volume definition must be valid YAML.</div>
           </div>
         </div>
+        {{ if not .isLeafNode }}
         <div x-show="!formData.is_manual" x-clock>
           <label for="storage_units" class="form-label">Storage Units</label>
           <input type="number" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
           <p class="description">The number of storage units this template uses.<br />Once a space is created and started the storage units are counted against the user.</p>
           <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
         </div>
+        {{ end }}
 
         <div>
           <label class="flex items-center cursor-pointer mb-2">

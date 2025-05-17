@@ -10,6 +10,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     },
     templates: [],
     template_id: templateId,
+    isManual: false,
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create Space',
     buttonLabelWorking: isEdit ? 'Updating...' : 'Creating...',
@@ -76,6 +77,11 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.formData.template_id = this.template_id;
         }
       }
+
+      // Get if the template is manual
+      const selectedTemplate = this.templates.find(t => t.template_id === this.formData.template_id);
+      this.isManual = selectedTemplate ? selectedTemplate.is_manual : false;
+      this.startOnCreate = !this.isManual;
 
       this.loading = false;
     },

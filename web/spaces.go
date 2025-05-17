@@ -5,6 +5,7 @@ import (
 
 	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/util/validate"
 	"github.com/spf13/viper"
 
@@ -34,7 +35,7 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// User doesn't have permission to manage or use spaces so send them to the clients page
-	if !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
+	if !config.LeafNode && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
 		http.Redirect(w, r, "/clients", http.StatusSeeOther)
 		return
 	}

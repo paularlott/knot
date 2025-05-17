@@ -3,18 +3,13 @@ package web
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/util/validate"
 
 	"github.com/rs/zerolog/log"
 )
 
 func HandleTemplateVarCreate(w http.ResponseWriter, r *http.Request) {
-	user, data := getCommonTemplateData(r)
-	if !user.HasPermission(model.PermissionManageVariables) {
-		showPageForbidden(w, r)
-		return
-	}
+	_, data := getCommonTemplateData(r)
 
 	tmpl, err := newTemplate("variable-create-edit.tmpl")
 	if err != nil {
@@ -32,11 +27,7 @@ func HandleTemplateVarCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleTemplateVarEdit(w http.ResponseWriter, r *http.Request) {
-	user, data := getCommonTemplateData(r)
-	if !user.HasPermission(model.PermissionManageVariables) {
-		showPageForbidden(w, r)
-		return
-	}
+	_, data := getCommonTemplateData(r)
 
 	tmpl, err := newTemplate("variable-create-edit.tmpl")
 	if err != nil {
