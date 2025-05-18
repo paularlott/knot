@@ -77,6 +77,7 @@ type Space struct {
 	IsDeleting       bool          `json:"is_deleting" db:"is_deleting" msgpack:"is_deleting"` // Flags if the space is pending a state change, starting or stopping
 	IsDeleted        bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
 	AltNames         []string      `json:"alt_names" msgpack:"alt_names"`
+	StartedAt        time.Time     `json:"started_at" db:"started_at" msgpack:"started_at"`
 	CreatedAt        time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
 	UpdatedAt        time.Time     `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
@@ -108,6 +109,7 @@ func NewSpace(name string, description string, userId string, templateId string,
 		IsPending:        false,
 		IsDeleting:       false,
 		VolumeData:       make(map[string]SpaceVolume),
+		StartedAt:        now,
 		CreatedAt:        now,
 		UpdatedAt:        now,
 		Location:         "",

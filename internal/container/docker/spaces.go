@@ -157,14 +157,16 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	}
 
 	// Record deploying
+	now := time.Now().UTC()
 	db := database.GetInstance()
 	space.IsPending = true
 	space.IsDeployed = false
 	space.IsDeleting = false
 	space.TemplateHash = template.Hash
 	space.Location = cfg.Location
-	space.UpdatedAt = time.Now().UTC()
-	err = db.SaveSpace(space, []string{"IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location", "UpdatedAt"})
+	space.StartedAt = now
+	space.UpdatedAt = now
+	err = db.SaveSpace(space, []string{"IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location", "UpdatedAt", "StartedAt"})
 	if err != nil {
 		log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
 		return err
