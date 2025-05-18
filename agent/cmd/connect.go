@@ -148,7 +148,14 @@ var ConnectCmd = &cobra.Command{
 			partial.Set("client."+alias+".server", server)
 			partial.Set("client."+alias+".token", token)
 
-			err = partial.WriteConfigAs(home + "/" + config.CONFIG_FILE_NAME + "." + config.CONFIG_FILE_TYPE)
+			// Create any missing directories
+			err = os.MkdirAll(home+"/.config/"+config.CONFIG_FILE_NAME, os.ModePerm)
+			if err != nil {
+				fmt.Println("Failed to create config directory")
+				os.Exit(1)
+			}
+
+			err = partial.WriteConfigAs(home + "/.config/" + config.CONFIG_FILE_NAME + "/" + config.CONFIG_FILE_NAME + "." + config.CONFIG_FILE_TYPE)
 			if err != nil {
 				fmt.Println("Failed to create config file")
 				os.Exit(1)
