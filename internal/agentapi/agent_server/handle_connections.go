@@ -8,14 +8,17 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 const (
 	AGENT_SESSION_LOG_HISTORY = 1000 // Number of lines of log history to keep
+	AGENT_TOKEN_DESCRIPTION   = "agent token"
 )
 
 func handleAgentConnection(conn net.Conn) {
@@ -250,9 +253,61 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			// Single shot command so done
 			return
 
+		case byte(msg.CmdCreateToken):
+			handleCreateToken(stream, session)
+			return // Single shot command so done
+
 		default:
 			log.Error().Msgf("agent: unknown command from agent: %d", cmd)
 			return
 		}
+	}
+}
+
+func handleCreateToken(stream net.Conn, session *Session) {
+	db := database.GetInstance()
+
+	// Load the space from the database so we can get the user id
+	space, err := db.GetSpace(session.Id)
+	if err != nil {
+		log.Error().Msgf("agent: unknown space: %s", session.Id)
+		return
+	}
+
+	createTokenMutex.Lock()
+	defer createTokenMutex.Unlock()
+
+	// Get the users tokens
+	tokens, err := db.GetTokensForUser(space.UserId)
+	if err != nil {
+		log.Error().Msgf("agent: getting tokens for user: %s", err)
+		return
+	}
+
+	// Look for a token with the name AGENT_TOKEN_DESCRIPTION, if not found we create one
+	var token *model.Token
+	for _, t := range tokens {
+		if t.Name == AGENT_TOKEN_DESCRIPTION {
+			token = t
+			break
+		}
+	}
+
+	if token == nil {
+		token = model.NewToken(AGENT_TOKEN_DESCRIPTION, space.UserId)
+		err := db.SaveToken(token)
+		if err != nil {
+			log.Error().Msgf("agent: saving token: %v", err)
+			return
+		}
+	}
+
+	response := msg.CreateTokenResponse{
+		Server: viper.GetString("server.url"),
+		Token:  token.Id,
+	}
+	if err := msg.WriteMessage(stream, &response); err != nil {
+		log.Error().Msgf("agent: writing create token response: %v", err)
+		return
 	}
 }

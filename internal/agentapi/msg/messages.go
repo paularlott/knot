@@ -24,6 +24,7 @@ const (
 	CmdLogMessage
 	CmdUpdateShell
 	CmdUpdateSpaceNote
+	CmdCreateToken
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

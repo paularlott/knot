@@ -18,7 +18,6 @@ func ListenAndServe() {
 		router.HandleFunc("POST /logs", handleLogMessage)
 		router.HandleFunc("POST /gelf", handleGelf)
 		router.HandleFunc("POST /loki/api/v1/push", handleLoki)
-		router.HandleFunc("POST /api/space/note", handleNote)
 
 		// Run the http server
 		server := &http.Server{

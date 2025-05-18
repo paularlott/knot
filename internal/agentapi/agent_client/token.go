@@ -6,17 +6,17 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 )
 
-func SendSpaceNote(note string) error {
+func SendRequestToken() (string, string, error) {
 	if muxSession == nil {
-		return fmt.Errorf("no mux session")
+		return "", "", fmt.Errorf("no mux session")
 	}
 
 	// connect
 	conn, err := muxSession.Open()
 	if err != nil {
-		return err
+		return "", "", err
 	}
 	defer conn.Close()
 
-	return msg.SendSpaceNote(conn, note)
+	return msg.SendRequestToken(conn)
 }

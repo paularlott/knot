@@ -6,9 +6,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/paularlott/knot/agent/cmd/agentcmd/connect"
 	"github.com/paularlott/knot/agent/cmd/agentcmd/space"
 	"github.com/paularlott/knot/internal/agent_service_api"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
+	"github.com/paularlott/knot/internal/agentlink"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/dnsproxy"
 	"github.com/paularlott/knot/internal/syslogd"
@@ -46,6 +48,7 @@ func init() {
 	AgentCmd.Flags().Uint16P("dns-refresh-max-age", "", 180, "If a cached entry has been used within this number of seconds of it expiring then auto refresh.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MAX_AGE environment variable if set.")
 
 	AgentCmd.AddCommand(space.SpaceNoteCmd)
+	AgentCmd.AddCommand(connect.ConnectCmd)
 }
 
 var AgentCmd = &cobra.Command{
@@ -169,12 +172,16 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 			go agent_service_api.ListenAndServe()
 		}
 
+		// Start the command socket
+		agentlink.StartCommandSocket()
+
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 		// Block until we receive our signal.
 		<-c
 
+		agentlink.StopCommandSocket()
 		agent_client.Shutdown()
 		fmt.Println("\r")
 		log.Info().Msg("agent: shutdown")

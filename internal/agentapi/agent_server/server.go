@@ -20,8 +20,9 @@ const (
 )
 
 var (
-	sessionMutex = sync.RWMutex{}
-	sessions     = make(map[string]*Session)
+	sessionMutex     = sync.RWMutex{}
+	sessions         = make(map[string]*Session)
+	createTokenMutex = sync.Mutex{}
 )
 
 // Periodically check to see if the space has a schedule which requires it be stopped
