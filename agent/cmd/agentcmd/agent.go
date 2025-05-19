@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/paularlott/knot/agent/cmd/agentcmd/connect"
 	"github.com/paularlott/knot/agent/cmd/agentcmd/space"
 	"github.com/paularlott/knot/internal/agent_service_api"
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
@@ -48,7 +47,6 @@ func init() {
 	AgentCmd.Flags().Uint16P("dns-refresh-max-age", "", 180, "If a cached entry has been used within this number of seconds of it expiring then auto refresh.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MAX_AGE environment variable if set.")
 
 	AgentCmd.AddCommand(space.SpaceNoteCmd)
-	AgentCmd.AddCommand(connect.ConnectCmd)
 }
 
 var AgentCmd = &cobra.Command{

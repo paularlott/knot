@@ -119,20 +119,17 @@ func SendWithResponseMsg(commandType CommandType, payload interface{}, response 
 	// Check socket path exists
 	socketPath := home + "/" + commandSocketPath + "/" + commandSocket
 	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
-		log.Error().Err(err).Msg("agent: No running agent found")
 		return err
 	}
 
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
-		log.Error().Err(err).Msg("agent: Failed to connect to socket")
 		return err
 	}
 	defer conn.Close()
 
 	err = sendMsg(conn, commandType, payload)
 	if err != nil {
-		log.Error().Err(err).Msg("agent: Failed to send message")
 		return err
 	}
 
@@ -140,13 +137,11 @@ func SendWithResponseMsg(commandType CommandType, payload interface{}, response 
 		// Read response length
 		msgRec, err := receiveMsg(conn)
 		if err != nil {
-			log.Error().Err(err).Msg("agent: Failed to read response length")
 			return err
 		}
 
 		err = msgRec.Unmarshal(response)
 		if err != nil {
-			log.Error().Err(err).Msg("agent: Failed to unmarshal response")
 			return err
 		}
 	}
