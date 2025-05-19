@@ -133,6 +133,16 @@ func (u *User) HasAnyGroup(groups *[]string) bool {
 	return false
 }
 
+func (u *User) IsAdmin() bool {
+	for _, role := range u.Roles {
+		if role == RoleAdminUUID {
+			return true
+		}
+	}
+
+	return false
+}
+
 func generateRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 

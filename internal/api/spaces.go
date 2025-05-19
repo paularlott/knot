@@ -989,7 +989,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If user not found or not active then fail
-	if newUser == nil || !newUser.Active {
+	if newUser == nil || !newUser.Active || newUser.IsDeleted {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
 		return
 	}
@@ -1028,8 +1028,8 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If template has groups then check the user is in one
-	if len(template.Groups) > 0 {
+	// If template has groups then check the user is in one or is an admin
+	if len(template.Groups) > 0 && !newUser.IsAdmin() {
 		if !newUser.HasAnyGroup(&template.Groups) {
 			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "user does not have permission to use the space template"})
 			return
