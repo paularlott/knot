@@ -54,8 +54,14 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     forUsersList: [],
     shareUsers: [],
     searchTerm: Alpine.$persist('').as('spaces-search-term').using(sessionStorage),
-    quotaComputeLimitShow: false,
-    quotaStorageLimitShow: false,
+    quotaComputeLimit: {
+      show: false,
+      isShared: false,
+    },
+    quotaStorageLimit: {
+      show: false,
+      isShared: false,
+    },
     badScheduleShow: false,
     showRunningOnly:Alpine.$persist(false).as('spaceFilterRunningOnly').using(sessionStorage),
     showLocalOnly:Alpine.$persist(true).as('spaceFilterLocalOnly').using(sessionStorage),
@@ -210,9 +216,15 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           response.json().then((data) => {
             // If compute units exceeded then show the dialog
             if(data.error == 'compute unit quota exceeded') {
-              self.quotaComputeLimitShow = true;
+              const space = self.spaces.find(s => s.space_id === spaceId);
+
+              self.quotaComputeLimit.isShared = space.shared_user_id != '' && space.shared_user_id == this.forUserId;
+              self.quotaComputeLimit.show = true;
             } else if(data.error == 'storage unit quota exceeded') {
-              self.quotaStorageLimitShow = true;
+              const space = self.spaces.find(s => s.space_id === spaceId);
+
+              self.quotaStorageLimit.isShared = space.shared_user_id != '' && space.shared_user_id == this.forUserId;
+              self.quotaStorageLimit.show = true;
             } else {
               self.$dispatch('show-alert', { msg: "Space could not be as it has exceeded quota limits.", type: 'error' });
             }
