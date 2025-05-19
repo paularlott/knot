@@ -130,11 +130,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               const existing = this.spaces.find(s => s.space_id === space.space_id);
               if(!existing) {
                 space.is_local = space.location == '' || location == space.location;
+                space.uptime = this.formatTimeDiff(space.started_at);
 
                 this.spaces.push(space);
                 spacesAdded = true;
-
-                console.log(space);
               }
               // Else update the sharing information
               else {
@@ -159,6 +158,8 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.sshCmd = "ssh -o ProxyCommand='knot forward ssh " + space.name + "' -o StrictHostKeyChecking=no " + username + "@knot." + space.name;
                 existing.is_local = space.location == '' || location == space.location;
                 existing.has_state = space.has_state;
+                existing.started_at = space.started_at;
+                existing.uptime = this.formatTimeDiff(space.started_at);
               }
             });
 
@@ -394,5 +395,33 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         }
       });
     },
+
+    formatTimeDiff(utcTime) {
+      // Convert input to Date if not already
+      const givenTime = utcTime instanceof Date ? utcTime : new Date(utcTime);
+      const currentTime = new Date();
+
+      // Calculate difference in seconds
+      const diffSeconds = Math.abs(Math.floor((currentTime - givenTime) / 1000));
+
+      // Format based on magnitude
+      if (diffSeconds < 60) {
+        // Less than a minute: show seconds
+        return `${diffSeconds}s`;
+      } else if (diffSeconds < 3600) {
+        // Less than an hour: show minutes and seconds
+        const minutes = Math.floor(diffSeconds / 60);
+        const seconds = diffSeconds % 60;
+        return `${minutes}m ${seconds}s`;
+      } else if (diffSeconds < 86400) {
+        // Less than a day: show hours
+        const hours = Math.floor(diffSeconds / 3600);
+        return `${hours}h`;
+      } else {
+        // More than a day: show days
+        const days = Math.floor(diffSeconds / 86400);
+        return `${days}d`;
+      }
+    }
   };
 }

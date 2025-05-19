@@ -121,6 +121,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.IsDeployed = space.IsDeployed
 		s.IsPending = space.IsPending
 		s.IsDeleting = space.IsDeleting
+		s.StartedAt = space.StartedAt.UTC()
 
 		state := agent_server.GetSession(space.Id)
 		if state == nil {
@@ -860,6 +861,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		IsPending:   space.IsPending,
 		IsDeleting:  space.IsDeleting,
 		VolumeData:  space.VolumeData,
+		StartedAt:   space.StartedAt.UTC(),
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, &response)

@@ -145,6 +145,17 @@ func handleAgentConnection(conn net.Conn) {
 		return
 	}
 
+	// If manual template then record spaces start time
+	if template.IsManual {
+		now := time.Now().UTC()
+		space.UpdatedAt = now
+		space.StartedAt = now
+		if err := db.SaveSpace(space, []string{"UpdatedAt", "StartedAt"}); err != nil {
+			log.Error().Msgf("agent: updating space start time: %v", err)
+			return
+		}
+	}
+
 	// Loop forever waiting for connections on the mux session
 	for {
 		// Accept a new connection

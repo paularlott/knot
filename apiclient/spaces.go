@@ -55,6 +55,7 @@ type SpaceInfo struct {
 	IsRemote        bool              `json:"is_remote"`
 	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
 	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
+	StartedAt       time.Time         `json:"started_at"`
 }
 
 type SpaceInfoList struct {
@@ -74,6 +75,7 @@ type SpaceDefinition struct {
 	IsPending   bool                         `json:"is_pending"`
 	IsDeleting  bool                         `json:"is_deleting"`
 	VolumeData  map[string]model.SpaceVolume `json:"volume_data"`
+	StartedAt   time.Time                    `json:"started_at"`
 }
 
 func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {

@@ -2336,6 +2336,10 @@ components:
         has_state:
           type: boolean
           description: If the space has an agent state.
+        started_at:
+          type: string
+          format: date-time
+          description: The time when the space was started, UTC.
 
     SpaceInfoList:
       type: object
@@ -2438,6 +2442,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SpaceVolume'
+        started_at:
+          type: string
+          format: date-time
+          description: The time when the space was started, UTC.
 
     TemplateInfo:
       type: object
