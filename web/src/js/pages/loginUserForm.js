@@ -1,4 +1,6 @@
 window.loginUserForm = function(redirect) {
+  sessionStorage.clear();
+
   return {
     formData: {
       email: "",
