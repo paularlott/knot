@@ -26,16 +26,16 @@
           </svg> <span class="sr-only">Filter</span>
         </button>
 
-        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" id="panel-cDV5GZ12" aria-modal="true" role="dialog" style="position: fixed; display: block; left: 492.367px; top: 109px;">
+        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" id="panel-cDV5GZ12" aria-modal="true" role="dialog" style="position: fixed; display: block; left: 492.367px; top: 109px;">
 
-          <div class="mb-4 mt-2 mr-2">
+          <div class="mb-4 mt-2">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" value="1" :checked="showAll" x-model="showAll">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All Locations</span>
             </label>
           </div>
-          <div class="mb-2 mr-2">
+          <div class="mb-2">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" value="1" @change="searchChanged" :checked="showInactive" x-model="showInactive">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>

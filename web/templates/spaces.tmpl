@@ -31,7 +31,7 @@
             </svg> <span class="sr-only">Filter</span>
           </button>
 
-          <div x-ref="panel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" id="panel-cDV5GZ12" aria-modal="true" role="dialog" style="position: fixed; display: block; left: 492.367px; top: 109px;">
+          <div x-ref="panel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" id="panel-cDV5GZ12" aria-modal="true" role="dialog" style="position: fixed; display: block; left: 492.367px; top: 109px;">
 
             <div x-show="canManageSpaces && !showingSpecificUser" x-cloak class="mb-4">
               <div x-data="autocompleterUser()" x-init="setDataSource('forUsersList')" data-parent-group="" data-parent-variable="forUserId" data-on-change="userChagned" @refresh-user-autocompleter.window="refresh()" class="relative" @user-selected="userChanged">
