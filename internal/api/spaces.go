@@ -282,6 +282,17 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
 	db := database.GetInstance()
 
+	template, err := db.GetTemplate(request.TemplateId)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if template == nil || template.IsDeleted || !template.Active {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template given for new space"})
+		return
+	}
+
 	// Create the space
 	if request.UserId != "" {
 		user, err = db.GetUser(request.UserId)

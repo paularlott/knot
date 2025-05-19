@@ -7,6 +7,7 @@ type TemplateCreateRequest struct {
 	Volumes          string               `json:"volumes"`
 	Groups           []string             `json:"groups"`
 	LocalContainer   bool                 `json:"local_container"`
+	Active           bool                 `json:"active"`
 	IsManual         bool                 `json:"is_manual"`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
@@ -25,6 +26,7 @@ type TemplateUpdateRequest struct {
 	Description      string               `json:"description"`
 	Volumes          string               `json:"volumes"`
 	Groups           []string             `json:"groups"`
+	Active           bool                 `json:"active"`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`
@@ -49,6 +51,7 @@ type TemplateInfo struct {
 	Deployed        int                  `json:"deployed"`
 	Groups          []string             `json:"groups"`
 	LocalContainer  bool                 `json:"local_container"`
+	Active          bool                 `json:"active"`
 	IsManual        bool                 `json:"is_manual"`
 	IsManaged       bool                 `json:"is_managed"`
 	ScheduleEnabled bool                 `json:"schedule_enabled"`
@@ -79,6 +82,7 @@ type TemplateDetails struct {
 	Deployed         int                  `json:"deployed"`
 	Groups           []string             `json:"groups"`
 	LocalContainer   bool                 `json:"local_container"`
+	Active           bool                 `json:"active"`
 	IsManual         bool                 `json:"is_manual"`
 	IsManaged        bool                 `json:"is_managed"`
 	WithTerminal     bool                 `json:"with_terminal"`

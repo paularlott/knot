@@ -76,6 +76,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.StorageUnits = template.StorageUnits
 		templateData.ScheduleEnabled = template.ScheduleEnabled
 		templateData.Locations = template.Locations
+		templateData.Active = template.Active
 
 		// If schedule is enabled then return the schedule
 		if template.ScheduleEnabled {
@@ -214,6 +215,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.Locations = request.Locations
 	template.UpdatedAt = time.Now().UTC()
 	template.UpdatedUserId = user.Id
+	template.Active = request.Active
 
 	for i, day := range request.Schedule {
 		template.Schedule[i] = model.TemplateScheduleDays{
@@ -321,6 +323,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &scheduleDays, request.Locations)
+	template.Active = request.Active
 
 	err = database.GetInstance().SaveTemplate(template, nil)
 	if err != nil {
@@ -469,6 +472,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		Schedule:         make([]apiclient.TemplateDetailsDay, 7),
 		ComputeUnits:     template.ComputeUnits,
 		StorageUnits:     template.StorageUnits,
+		Active:           template.Active,
 	}
 
 	if len(template.Schedule) != 7 {

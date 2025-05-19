@@ -17,6 +17,7 @@ window.templateForm = function(isEdit, templateId) {
       with_ssh: false,
       compute_units: 0,
       storage_units: 0,
+      active: true,
       schedule_enabled: false,
       schedule: [
         {
@@ -116,6 +117,7 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.with_ssh = template.with_ssh;
           this.formData.compute_units = template.compute_units;
           this.formData.storage_units = template.storage_units;
+          this.formData.active = template.active;
           this.formData.schedule_enabled = template.schedule_enabled;
           this.formData.schedule = template.schedule;
 
@@ -220,6 +222,9 @@ window.templateForm = function(isEdit, templateId) {
         this.formData.local_container = false;
       }
     },
+    toggleActive() {
+      this.formData.active = !this.formData.active;
+    },
     toggleWithTerminal() {
       this.formData.with_terminal = !this.formData.with_terminal;
     },
@@ -280,6 +285,7 @@ window.templateForm = function(isEdit, templateId) {
         schedule_enabled: this.formData.schedule_enabled,
         schedule: this.formData.schedule,
         locations: this.formData.locations,
+        active: this.formData.active,
       };
 
       if(!isEdit) {

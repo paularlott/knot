@@ -2482,6 +2482,9 @@ components:
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
+        active:
+          type: boolean
+          description: If the template is active.
         compute_units:
           type: integer
           format: uint32
@@ -2551,6 +2554,9 @@ components:
         is_manual:
           type: boolean
           description: If the template is a manual template.
+        active:
+          type: boolean
+          description: If the template is active.
         with_terminal:
           type: boolean
           description: If the space should support a web terminal.
@@ -2610,7 +2616,10 @@ components:
             type: string
             format: uuid
             example: 00000000-0000-0000-0000-000000000000
-          description: The IDs of the groups to assign to the template.=
+          description: The IDs of the groups to assign to the template.
+        active:
+          type: boolean
+          description: If the template is active.
         with_terminal:
           type: boolean
           description: If the space should support a web terminal.
@@ -2687,6 +2696,9 @@ components:
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
+        active:
+          type: boolean
+          description: If the template is active.
         with_terminal:
           type: boolean
           description: If the space should support a web terminal.

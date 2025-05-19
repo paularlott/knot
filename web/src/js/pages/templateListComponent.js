@@ -10,6 +10,7 @@ window.templateListComponent = function(canManageSpaces, location) {
   return {
     loading: true,
     showAll: Alpine.$persist(false).as('templates-show-all').using(sessionStorage),
+    showInactive: Alpine.$persist(false).as('templates-show-inactive').using(sessionStorage),
     location: location,
     deleteConfirm: {
       show: false,
@@ -147,11 +148,16 @@ window.templateListComponent = function(canManageSpaces, location) {
       // For all templates if name or description contains the term show; else hide
       this.templates.forEach(template => {
         if(term.length == 0) {
-          template.searchHide = false;
+          template.searchHide = !(template.active || this.showInactive);
         } else {
           template.searchHide = !(
-            template.name.toLowerCase().includes(term) ||
-            template.description.toLowerCase().includes(term)
+            (
+              template.name.toLowerCase().includes(term) ||
+              template.description.toLowerCase().includes(term)
+            ) &&
+            (
+              template.active || this.showInactive
+            )
           );
         }
       });

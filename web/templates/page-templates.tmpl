@@ -28,11 +28,18 @@
 
         <div x-ref="panel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" id="panel-cDV5GZ12" aria-modal="true" role="dialog" style="position: fixed; display: block; left: 492.367px; top: 109px;">
 
-          <div class="flex items-center mt-1 ml-4">
+          <div class="mb-4 mt-2 mr-2">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" value="1" :checked="showAll" x-model="showAll">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All</span>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All Locations</span>
+            </label>
+          </div>
+          <div class="mb-2 mr-2">
+            <label class="flex items-center cursor-pointer mb-2">
+              <input type="checkbox" class="sr-only peer" value="1" @change="searchChanged" :checked="showInactive" x-model="showInactive">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show Inactive</span>
             </label>
           </div>
 
@@ -70,6 +77,13 @@
               </div>
               <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-text="t.description"></p>
               <table>
+                <tr>
+                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Active:</td>
+                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
+                    <span x-show="t.active" class="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
+                    <span x-show="!t.active" class="inline-block bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
+                  </td>
+                </tr>
                 {{ if .permissionManageTemplates }}
                 <tr>
                   <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Usage:</td>
@@ -137,7 +151,7 @@
             <div class="mt-4 flex items-center justify-end relative" x-data>
               {{ if and (not .permissionManageTemplates) (not .permissionManageSpaces) (not .isLeafNode) }}
                 {{ if not .disableSpaceCreate }}
-                <button @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center text-xs">
+                <button x-show="t.active" x-cloak @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center text-xs">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
                     <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
                   </svg> Create Space
@@ -145,7 +159,7 @@
                 {{ end }}
               {{ else }}
                 <template x-if="t.is_managed">
-                  <button @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center text-xs">
+                  <button x-show="t.active" x-cloak @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center text-xs">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
                       <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
                     </svg> Create Space
@@ -162,7 +176,7 @@
 
                 <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
                   {{ if not .disableSpaceCreate }}
-                  <button @click="$refs.panel.close; createSpaceFromTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                  <button x-show="t.active" x-cloak @click="$refs.panel.close; createSpaceFromTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                     <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
                     </svg> Create Space
@@ -182,8 +196,8 @@
                     </svg> Delete
                   </button>
                   {{ if and (not .disableSpaceCreate) (not .isLeafNode) }}
-                  <hr x-show="canManageSpaces" x-cloak class="my-2" />
-                  <button x-show="canManageSpaces" x-cloak @click="$refs.panel.close; chooseUser.show = true; chooseUser.invalidTemplate = false; chooseUser.template = t" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                  <hr x-show="canManageSpaces && t.active" x-cloak class="my-2" />
+                  <button x-show="t.active" x-show="canManageSpaces" x-cloak @click="$refs.panel.close; chooseUser.show = true; chooseUser.invalidTemplate = false; chooseUser.template = t" class="group nav-item text-sm px-4 w-full" role="menuitem">
                     <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
                     </svg> Create Space For &hellip;

@@ -23,6 +23,7 @@ type Template struct {
 	Volumes          string                 `json:"volumes" db:"volumes"`
 	Groups           []string               `json:"groups" db:"groups,json"`
 	LocalContainer   bool                   `json:"local_container" db:"local_container"`
+	Active           bool                   `json:"active" db:"active"`
 	IsManual         bool                   `json:"is_manual" db:"is_manual"`
 	WithTerminal     bool                   `json:"with_terminal" db:"with_terminal"`
 	WithVSCodeTunnel bool                   `json:"with_vscode_tunnel" db:"with_vscode_tunnel"`
