@@ -9,6 +9,10 @@ export var validate = {
     return re.test(name) && !/--/.test(name);
   },
 
+  templateName: function(name) {
+    return name.length <= 64 && name.length >= 2;
+  },
+
   varName: function(name) {
     var re = /^[a-zA-Z][a-zA-Z0-9_]{1,63}$/;
     return re.test(name);

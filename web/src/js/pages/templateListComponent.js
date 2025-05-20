@@ -93,6 +93,9 @@ window.templateListComponent = function(canManageSpaces, location) {
     editTemplate(templateId) {
       window.location.href = `/templates/edit/${templateId}`;
     },
+    duplicateTemplate(templateId) {
+      window.location.href = `/templates/edit/${templateId}#duplicate`;
+    },
     createSpaceFromTemplate(templateId) {
       window.location.href = `/spaces/create/${templateId}`;
     },

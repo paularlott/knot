@@ -128,6 +128,13 @@ window.templateForm = function(isEdit, templateId) {
             this.locationValid.push(true);
           });
         }
+
+        // If this is edit and duplicate then change to add
+        if (window.location.hash === '#duplicate') {
+          this.formData.name = 'Copy of ' + this.formData.name;
+          this.isEdit = isEdit = false;
+          this.buttonLabel = 'Create Template';
+        }
       }
 
       let darkMode = this.darkMode;
@@ -244,7 +251,7 @@ window.templateForm = function(isEdit, templateId) {
       this.formData.schedule[day].enabled = !this.formData.schedule[day].enabled;
     },
     checkName() {
-      return this.nameValid = validate.name(this.formData.name);
+      return this.nameValid = validate.templateName(this.formData.name);
     },
     checkJob() {
       return this.jobValid = this.formData.is_manual || validate.required(this.formData.job);
@@ -266,7 +273,7 @@ window.templateForm = function(isEdit, templateId) {
       }
 
       if(this.stayOnPage) {
-        this.buttonLabel = isEdit ? 'Updating template...' : 'Create template...'
+        this.buttonLabel = this.isEdit ? 'Updating template...' : 'Create template...'
       }
       this.loading = true;
 
@@ -322,7 +329,7 @@ window.templateForm = function(isEdit, templateId) {
           self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update' : 'Create Template';
+          this.buttonLabel = this.isEdit ? 'Update' : 'Create Template';
           this.loading = false;
         })
     },

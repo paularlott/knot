@@ -132,7 +132,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
+	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
 		return
 	}
@@ -267,7 +267,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.Volumes = ""
 	}
 
-	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 255) {
+	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
 		return
 	}
