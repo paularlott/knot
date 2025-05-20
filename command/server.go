@@ -562,13 +562,13 @@ var serverCmd = &cobra.Command{
 		if useTLS {
 			go func() {
 				if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-					log.Fatal().Msgf("server: %v", err.Error())
+					log.Error().Msgf("server: %v", err.Error())
 				}
 			}()
 		} else {
 			go func() {
 				if err := server.ListenAndServe(); err != http.ErrServerClosed {
-					log.Fatal().Msgf("server: %v", err.Error())
+					log.Error().Msgf("server: %v", err.Error())
 				}
 			}()
 		}
