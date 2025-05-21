@@ -559,19 +559,19 @@ var serverCmd = &cobra.Command{
 			TLSConfig:    tlsConfig,
 		}
 
-		if useTLS {
-			go func() {
-				if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-					log.Error().Msgf("server: %v", err.Error())
+		go func() {
+			for {
+				if useTLS {
+					if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+						log.Error().Err(err).Msgf("server: web server")
+					}
+				} else {
+					if err := server.ListenAndServe(); err != http.ErrServerClosed {
+						log.Error().Err(err).Msgf("server: web server")
+					}
 				}
-			}()
-		} else {
-			go func() {
-				if err := server.ListenAndServe(); err != http.ErrServerClosed {
-					log.Error().Msgf("server: %v", err.Error())
-				}
-			}()
-		}
+			}
+		}()
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
