@@ -112,6 +112,21 @@
           <div class="description text-right max-w-xl">All times are in {{ .timezone }}.</div>
         </div>
 
+        <div>
+          <label class="form-label">Maximum Uptime</label>
+          <div class="flex grid-cols-2 gap-2">
+            <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}">
+            <select class="form-field pr-10 w-auto" name="uptime_unit" x-model="formData.max_uptime_unit" x-on:change="checkUptime()" :class="{'form-field-error': !uptimeValid}">
+              <option value="disabled">No Limit</option>
+              <option value="minute">Minutes</option>
+              <option value="hour">Hours</option>
+              <option value="day">Days</option>
+            </select>
+          </div>
+          <p class="description">The maximum amount of time a space created from the template can run for.</p>
+          <div x-show="!uptimeValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
+        </div>
+
         {{ if not .isLeafNode }}
         <div class="max-w-md">
           <div class="flex items-center mb-1">

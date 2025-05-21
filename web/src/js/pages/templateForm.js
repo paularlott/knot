@@ -18,6 +18,8 @@ window.templateForm = function(isEdit, templateId) {
       compute_units: 0,
       storage_units: 0,
       active: true,
+      max_uptime: 0,
+      max_uptime_unit: 'disabled',
       schedule_enabled: false,
       schedule: [
         {
@@ -66,6 +68,7 @@ window.templateForm = function(isEdit, templateId) {
     volValid: true,
     computeUnitsValid: true,
     storageUnitsValid: true,
+    uptimeValid: true,
     groups: [],
     fromHours: [],
     toHours: [],
@@ -120,6 +123,8 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.active = template.active;
           this.formData.schedule_enabled = template.schedule_enabled;
           this.formData.schedule = template.schedule;
+          this.formData.max_uptime = template.max_uptime;
+          this.formData.max_uptime_unit = template.max_uptime_unit;
 
           // Set the locations and mark all as valid
           this.formData.locations =template.locations ? template.locations : [];
@@ -262,6 +267,13 @@ window.templateForm = function(isEdit, templateId) {
     checkStorageUnits() {
       return this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
     },
+    checkUptime() {
+      if(this.formData.max_uptime_unit === 'disabled') {
+        return this.uptimeValid = true;
+      } else {
+        return this.uptimeValid = validate.isNumber(this.formData.max_uptime, 0, Infinity) && validate.isOneOf(this.formData.max_uptime_unit, ['minute', 'hour', 'day']);
+      }
+    },
 
     async submitData() {
       let err = false,
@@ -293,6 +305,8 @@ window.templateForm = function(isEdit, templateId) {
         schedule: this.formData.schedule,
         locations: this.formData.locations,
         active: this.formData.active,
+        max_uptime: parseInt(this.formData.max_uptime),
+        max_uptime_unit: this.formData.max_uptime_unit,
       };
 
       if(!isEdit) {

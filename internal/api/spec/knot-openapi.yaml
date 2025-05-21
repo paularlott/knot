@@ -2506,6 +2506,14 @@ components:
           x-condition:
             property: schedule_enabled
             value: true
+        max_uptime:
+          type: integer
+          format: uint32
+          description: The maximum uptime of the space created from the template.
+        max_uptime_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the maximum uptime.
         locations:
           type: array
           items:
@@ -2587,6 +2595,14 @@ components:
           maxItems: 7
           items:
             $ref: '#/components/schemas/TemplateDetailsDay'
+        max_uptime:
+          type: integer
+          format: uint32
+          description: The maximum uptime of the space created from the template.
+        max_uptime_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the maximum uptime.
         locations:
           type: array
           items:
@@ -2650,6 +2666,14 @@ components:
           maxItems: 7
           items:
             $ref: '#/components/schemas/TemplateDetailsDay'
+        max_uptime:
+          type: integer
+          format: uint32
+          description: The maximum uptime of the space created from the template.
+        max_uptime_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the maximum uptime.
         locations:
           type: array
           items:
@@ -2729,6 +2753,14 @@ components:
           maxItems: 7
           items:
             $ref: '#/components/schemas/TemplateDetailsDay'
+        max_uptime:
+          type: integer
+          format: uint32
+          description: The maximum uptime of the space created from the template.
+        max_uptime_unit:
+          type: string
+          enum: [disabled, minute, hour, day]
+          description: The unit of the maximum uptime.
         locations:
           type: array
           items:

@@ -36,6 +36,8 @@ type Template struct {
 	IsManaged        bool                   `json:"is_managed" db:"is_managed"`
 	Schedule         []TemplateScheduleDays `json:"schedule" db:"schedule,json"`
 	Locations        []string               `json:"locations" db:"locations,json"`
+	MaxUptime        uint32                 `json:"max_uptime" db:"max_uptime"`
+	MaxUptimeUnit    string                 `json:"max_uptime_unit" db:"max_uptime_unit"`
 	CreatedUserId    string                 `json:"created_user_id" db:"created_user_id"`
 	CreatedAt        time.Time              `json:"created_at" db:"created_at"`
 	UpdatedUserId    string                 `json:"updated_user_id" db:"updated_user_id"`

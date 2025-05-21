@@ -167,6 +167,17 @@ window.templateListComponent = function(canManageSpaces, location) {
     },
     getDayOfWeek(day) {
       return ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][day];
+    },
+    getMaxUptime(maxUptime, maxUptimeUnit) {
+      let maxUptimeString = '';
+      if(maxUptimeUnit == 'minute') {
+        maxUptimeString = maxUptime + ' minute' + (maxUptime > 1 ? 's' : '');
+      } else if(maxUptimeUnit == 'hour') {
+        maxUptimeString = maxUptime + ' hour' + (maxUptime > 1 ? 's' : '');
+      } else if(maxUptimeUnit == 'day') {
+        maxUptimeString = maxUptime + ' day' + (maxUptime > 1 ? 's' : '');
+      }
+      return maxUptimeString;
     }
   };
 }

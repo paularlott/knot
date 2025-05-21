@@ -52,7 +52,7 @@ func checkSchedules() {
 						continue
 					}
 
-					if !template.AllowedBySchedule() {
+					if !template.AllowedBySchedule() || space.MaxUptimeReached(template) {
 						log.Info().Msgf("agent: stopping space %s due to schedule", space.Id)
 
 						// Mark the space as pending and save it

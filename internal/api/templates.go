@@ -77,6 +77,8 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.ScheduleEnabled = template.ScheduleEnabled
 		templateData.Locations = template.Locations
 		templateData.Active = template.Active
+		templateData.MaxUptime = template.MaxUptime
+		templateData.MaxUptimeUnit = template.MaxUptimeUnit
 
 		// If schedule is enabled then return the schedule
 		if template.ScheduleEnabled {
@@ -152,6 +154,11 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Storage units must be a positive number"})
 		return
 	}
+	if !validate.IsPositiveNumber(int(request.MaxUptime)) || !validate.OneOf(request.MaxUptimeUnit, []string{"disabled", "minute", "hour", "dat"}) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Max uptime must be a positive number and unit must be one of disabled, minute, hour, day"})
+		return
+	}
+
 	if request.ScheduleEnabled {
 		if len(request.Schedule) != 7 {
 			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Schedule must have 7 days"})
@@ -216,6 +223,8 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.UpdatedAt = time.Now().UTC()
 	template.UpdatedUserId = user.Id
 	template.Active = request.Active
+	template.MaxUptime = request.MaxUptime
+	template.MaxUptimeUnit = request.MaxUptimeUnit
 
 	for i, day := range request.Schedule {
 		template.Schedule[i] = model.TemplateScheduleDays{
@@ -287,6 +296,10 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Storage units must be a positive number"})
 		return
 	}
+	if !validate.IsPositiveNumber(int(request.MaxUptime)) || !validate.OneOf(request.MaxUptimeUnit, []string{"disabled", "minute", "hour", "dat"}) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Max uptime must be a positive number and unit must be one of disabled, minute, hour, day"})
+		return
+	}
 
 	if request.ScheduleEnabled {
 		if len(request.Schedule) != 7 {
@@ -324,6 +337,8 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 	template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &scheduleDays, request.Locations)
 	template.Active = request.Active
+	template.MaxUptime = request.MaxUptime
+	template.MaxUptimeUnit = request.MaxUptimeUnit
 
 	err = database.GetInstance().SaveTemplate(template, nil)
 	if err != nil {
@@ -473,6 +488,8 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		ComputeUnits:     template.ComputeUnits,
 		StorageUnits:     template.StorageUnits,
 		Active:           template.Active,
+		MaxUptime:        template.MaxUptime,
+		MaxUptimeUnit:    template.MaxUptimeUnit,
 	}
 
 	if len(template.Schedule) != 7 {

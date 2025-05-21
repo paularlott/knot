@@ -51,7 +51,7 @@
           </template>
         </div>
         <div>
-          <label for="name" class="form-label">Template</label>
+          <label for="template" class="form-label">Template</label>
           <select id="template" name="template" x-model="formData.template_id" readonly disabled class="form-field">
             <template x-for="template in templates" :key="template.template_id">
               <option :value="template.template_id" x-text="template.name"></option>
@@ -59,7 +59,7 @@
           </select>
         </div>
         <div>
-          <label for="name" class="form-label">Terminal Shell</label>
+          <label for="shell" class="form-label">Terminal Shell</label>
           <select class="form-field" name="shell" x-model="formData.shell">
             <option value="bash">Bash</option>
             <option value="zsh">Zsh</option>

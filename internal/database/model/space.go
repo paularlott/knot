@@ -119,3 +119,31 @@ func NewSpace(name string, description string, userId string, templateId string,
 
 	return space
 }
+
+func (s *Space) MaxUptimeReached(template *Template) bool {
+	if template.MaxUptimeUnit == "disabled" {
+		return false
+	}
+
+	if template.MaxUptime == 0 {
+		return true
+	}
+
+	var maxUptime time.Duration
+	switch template.MaxUptimeUnit {
+	case "minute":
+		maxUptime = time.Duration(template.MaxUptime) * time.Minute
+	case "hour":
+		maxUptime = time.Duration(template.MaxUptime) * time.Hour
+	case "day":
+		maxUptime = time.Duration(template.MaxUptime) * 24 * time.Hour
+	default:
+		maxUptime = time.Duration(template.MaxUptime) * time.Hour // fallback to hour
+	}
+
+	if s.StartedAt.Add(maxUptime).Before(time.Now().UTC()) {
+		return true
+	}
+
+	return false
+}

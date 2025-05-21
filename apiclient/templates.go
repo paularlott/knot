@@ -18,6 +18,8 @@ type TemplateCreateRequest struct {
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
 	Locations        []string             `json:"locations"`
+	MaxUptime        uint32               `json:"max_uptime"`
+	MaxUptimeUnit    string               `json:"max_uptime_unit"`
 }
 
 type TemplateUpdateRequest struct {
@@ -36,6 +38,8 @@ type TemplateUpdateRequest struct {
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
 	Locations        []string             `json:"locations"`
+	MaxUptime        uint32               `json:"max_uptime"`
+	MaxUptimeUnit    string               `json:"max_uptime_unit"`
 }
 
 type TemplateCreateResponse struct {
@@ -59,6 +63,8 @@ type TemplateInfo struct {
 	StorageUnits    uint32               `json:"storage_units"`
 	Schedule        []TemplateDetailsDay `json:"schedule"`
 	Locations       []string             `json:"locations"`
+	MaxUptime       uint32               `json:"max_uptime"`
+	MaxUptimeUnit   string               `json:"max_uptime_unit"`
 }
 
 type TemplateList struct {
@@ -94,6 +100,8 @@ type TemplateDetails struct {
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
 	Locations        []string             `json:"locations"`
+	MaxUptime        uint32               `json:"max_uptime"`
+	MaxUptimeUnit    string               `json:"max_uptime_unit"`
 }
 
 func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
@@ -121,6 +129,8 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 		ComputeUnits:     computeUnits,
 		StorageUnits:     storageUnits,
 		Locations:        locations,
+		MaxUptime:        0,
+		MaxUptimeUnit:    "disabled",
 	}
 
 	if schedule == nil || !scheduleEnabled {
