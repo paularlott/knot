@@ -21,7 +21,6 @@ import (
 	"github.com/paularlott/knot/internal/middleware"
 
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -35,7 +34,7 @@ type Cluster struct {
 	leafSessions   map[uuid.UUID]*leafSession
 }
 
-func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes *http.ServeMux) *Cluster {
+func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes *http.ServeMux, compress bool) *Cluster {
 	cluster := &Cluster{
 		leafSessions: make(map[uuid.UUID]*leafSession),
 	}
@@ -44,9 +43,9 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 	config.GossipInterval = GossipInterval
 	cluster.config = config
 
-	if viper.GetString("server.cluster.advertise_addr") != "" {
+	if advertiseAddr != "" {
 
-		log.Info().Msgf("cluster: enabling cluster mode on %s", viper.GetString("server.cluster.advertise_addr"))
+		log.Info().Msgf("cluster: enabling cluster mode on %s", advertiseAddr)
 
 		db := database.GetInstance()
 		nodeId, err := db.GetCfgValue("node_id")
@@ -55,21 +54,21 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 		}
 
 		config.NodeID = nodeId.Value
-		config.BindAddr = viper.GetString("server.cluster.bind_addr")
-		config.AdvertiseAddr = viper.GetString("server.cluster.advertise_addr")
+		config.BindAddr = bindAddr
+		config.AdvertiseAddr = advertiseAddr
 
 		if !strings.HasPrefix(config.AdvertiseAddr, "wss://") && !strings.HasPrefix(config.AdvertiseAddr, "https://") {
-			config.EncryptionKey = []byte(viper.GetString("server.cluster.key"))
+			config.EncryptionKey = []byte(clusterKey)
 			config.Cipher = encryption.NewAESEncryptor()
 			config.SocketTransportEnabled = true
 
-			if viper.GetBool("server.cluster.compression") {
+			if compress {
 				config.Compressor = compression.NewSnappyCompressor()
 			}
 		} else {
-			config.WebsocketProvider = websocket.NewGorillaProvider(5*time.Second, true, viper.GetString("server.cluster.key"))
+			config.WebsocketProvider = websocket.NewGorillaProvider(5*time.Second, true, clusterKey)
 			config.SocketTransportEnabled = false
-			config.BearerToken = viper.GetString("server.cluster.key")
+			config.BearerToken = clusterKey
 
 			url, err := url.Parse(config.AdvertiseAddr)
 			if err != nil {

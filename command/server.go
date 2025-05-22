@@ -552,6 +552,7 @@ var serverCmd = &cobra.Command{
 			viper.GetString("server.cluster.advertise_addr"),
 			viper.GetString("server.cluster.bind_addr"),
 			routes,
+			viper.GetBool("server.cluster.compression"),
 		)
 		service.SetTransport(cluster)
 
