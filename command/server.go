@@ -60,6 +60,7 @@ func init() {
 	serverCmd.Flags().BoolP("disable-space-create", "", false, "Disable the ability to create spaces.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE environment variable if set.")
 	serverCmd.Flags().BoolP("hide-support-links", "", false, "Hide the support links in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS environment variable if set.")
 	serverCmd.Flags().BoolP("hide-api-tokens", "", false, "Hide the API tokens menu item in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_API_TOKENS environment variable if set.")
+	serverCmd.Flags().BoolP("auth-ip-rate-limiting", "", true, "Enable IP rate limiting of authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUTH_IP_RATE_LIMITING environment variable if set.")
 
 	// Cluster
 	serverCmd.Flags().StringP("cluster-key", "", "", "The shared cluster key.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_KEY environment variable if set.")
@@ -218,6 +219,10 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.disable_space_create", cmd.Flags().Lookup("disable-space-create"))
 		viper.BindEnv("server.disable_space_create", config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE")
 		viper.SetDefault("server.disable_space_create", false)
+
+		viper.BindPFlag("server.auth_ip_rate_limiting", cmd.Flags().Lookup("auth-ip-rate-limiting"))
+		viper.BindEnv("server.auth_ip_rate_limiting", config.CONFIG_ENV_PREFIX+"_AUTH_IP_RATE_LIMITING")
+		viper.SetDefault("server.auth_ip_rate_limiting", true)
 
 		// Cluster
 		viper.BindPFlag("server.cluster.key", cmd.Flags().Lookup("cluster-key"))

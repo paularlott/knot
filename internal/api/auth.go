@@ -154,12 +154,14 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		clientIP = r.RemoteAddr
 	}
 
-	// Apply rate limiting by IP
-	ipLimiter := getIPLimiter(clientIP)
-	if !ipLimiter.Allow() {
-		log.Warn().Msgf("Rate limit exceeded for IP: %s", clientIP)
-		rest.SendJSON(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
-		return
+	if viper.GetBool("server.auth_ip_rate_limiting") {
+		// Apply rate limiting by IP
+		ipLimiter := getIPLimiter(clientIP)
+		if !ipLimiter.Allow() {
+			log.Warn().Msgf("Rate limit exceeded for IP: %s", clientIP)
+			rest.SendJSON(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
+			return
+		}
 	}
 
 	// Apply rate limiting by email
