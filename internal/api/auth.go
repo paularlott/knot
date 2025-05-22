@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
@@ -12,9 +14,130 @@ import (
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
+	"github.com/rs/zerolog/log"
 
 	"github.com/spf13/viper"
+	"golang.org/x/time/rate"
 )
+
+// Add metadata to track last use
+type rateLimiterEntry struct {
+	limiter  *rate.Limiter
+	lastUsed time.Time
+}
+
+var (
+	// Rate limit by IP address
+	ipLimiters = make(map[string]*rateLimiterEntry)
+	ipMutex    sync.Mutex
+
+	// Rate limit by email address
+	emailLimiters = make(map[string]*rateLimiterEntry)
+	emailMutex    sync.Mutex
+)
+
+const (
+	cleanupInterval = 10 * time.Minute
+	cleanupMaxAge   = 30 * time.Minute
+
+	ipRateLimit  = 5 // requests per minute
+	ipBurstLimit = 3 // burst size
+
+	emailRateLimit  = 3 // requests per minute
+	emailBurstLimit = 3 // burst size
+)
+
+func init() {
+	go cleanupLimiters(context.Background())
+}
+
+func cleanupLimiters(ctx context.Context) {
+	ticker := time.NewTicker(cleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			cleanupTime := time.Now().Add(-cleanupMaxAge)
+
+			// Cleanup IP limiters
+			ipMutex.Lock()
+			for ip, entry := range ipLimiters {
+				if entry.lastUsed.Before(cleanupTime) {
+					delete(ipLimiters, ip)
+				}
+			}
+			ipMutex.Unlock()
+
+			// Cleanup email limiters
+			emailMutex.Lock()
+			for email, entry := range emailLimiters {
+				if entry.lastUsed.Before(cleanupTime) {
+					delete(emailLimiters, email)
+				}
+			}
+			emailMutex.Unlock()
+
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// Helper function to get or create a rate limiter
+func getIPLimiter(ip string) *rate.Limiter {
+	ipMutex.Lock()
+	defer ipMutex.Unlock()
+
+	entry, exists := ipLimiters[ip]
+	if !exists {
+		// Allow 5 requests per minute with burst of 3
+		limiter := rate.NewLimiter(rate.Limit(ipRateLimit/60), ipBurstLimit)
+		entry = &rateLimiterEntry{
+			limiter:  limiter,
+			lastUsed: time.Now(),
+		}
+		ipLimiters[ip] = entry
+	} else {
+		entry.lastUsed = time.Now()
+	}
+
+	return entry.limiter
+}
+
+// Similar function for email
+func getEmailLimiter(email string) *rate.Limiter {
+	emailMutex.Lock()
+	defer emailMutex.Unlock()
+
+	entry, exists := emailLimiters[email]
+	if !exists {
+		// Allow 3 requests per minute with burst of 3
+		limiter := rate.NewLimiter(rate.Limit(emailRateLimit/60), emailBurstLimit)
+		entry = &rateLimiterEntry{
+			limiter:  limiter,
+			lastUsed: time.Now(),
+		}
+		emailLimiters[email] = entry
+	} else {
+		entry.lastUsed = time.Now()
+	}
+
+	return entry.limiter
+}
+
+// Remove limiters on successful login
+func removeRateLimiters(email, ip string) {
+	// Remove IP limiter
+	ipMutex.Lock()
+	delete(ipLimiters, ip)
+	ipMutex.Unlock()
+
+	// Remove email limiter
+	emailMutex.Lock()
+	delete(emailLimiters, email)
+	emailMutex.Unlock()
+}
 
 func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	var userId string = ""
@@ -29,9 +152,31 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get client IP (consistent with how we got it for rate limiting)
+	clientIP := r.Header.Get("X-Forwarded-For")
+	if clientIP == "" {
+		clientIP = r.RemoteAddr
+	}
+
+	// Apply rate limiting by IP
+	ipLimiter := getIPLimiter(clientIP)
+	if !ipLimiter.Allow() {
+		log.Warn().Msgf("Rate limit exceeded for IP: %s", clientIP)
+		rest.SendJSON(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
+		return
+	}
+
+	// Apply rate limiting by email
+	emailLimiter := getEmailLimiter(request.Email)
+	if !emailLimiter.Allow() {
+		log.Warn().Msgf("Rate limit exceeded for email: %s", request.Email)
+		rest.SendJSON(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
+		return
+	}
+
 	// Validate
 	if !validate.Email(request.Email) || !validate.Password(request.Password) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid email or password"})
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid credentials"})
 		return
 	}
 
@@ -46,9 +191,8 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 			model.AuditEventAuthFailed,
 			"",
 			&map[string]interface{}{
-				"agent":           r.UserAgent(),
-				"IP":              r.RemoteAddr,
-				"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+				"agent": r.UserAgent(),
+				"IP":    clientIP,
 			},
 		)
 
@@ -118,11 +262,13 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		model.AuditEventAuthOk,
 		"",
 		&map[string]interface{}{
-			"agent":           r.UserAgent(),
-			"IP":              r.RemoteAddr,
-			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"agent": r.UserAgent(),
+			"IP":    clientIP,
 		},
 	)
+
+	// Remove rate limiters on successful login
+	removeRateLimiters(request.Email, clientIP)
 
 	// Return the authentication token
 	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLoginResponse{
