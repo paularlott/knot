@@ -47,10 +47,6 @@ const (
 	emailBurstLimit = 3 // burst size
 )
 
-func init() {
-	go cleanupLimiters(context.Background())
-}
-
 func cleanupLimiters(ctx context.Context) {
 	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
@@ -91,8 +87,8 @@ func getIPLimiter(ip string) *rate.Limiter {
 
 	entry, exists := ipLimiters[ip]
 	if !exists {
-		// Allow 5 requests per minute with burst of 3
-		limiter := rate.NewLimiter(rate.Limit(ipRateLimit/60), ipBurstLimit)
+		// Allow ipRateLimit requests per minute with burst of ipBurstLimit
+		limiter := rate.NewLimiter(rate.Limit(ipRateLimit)/60.0, ipBurstLimit)
 		entry = &rateLimiterEntry{
 			limiter:  limiter,
 			lastUsed: time.Now(),
@@ -112,8 +108,8 @@ func getEmailLimiter(email string) *rate.Limiter {
 
 	entry, exists := emailLimiters[email]
 	if !exists {
-		// Allow 3 requests per minute with burst of 3
-		limiter := rate.NewLimiter(rate.Limit(emailRateLimit/60), emailBurstLimit)
+		// Allow emailRateLimit requests per minute with burst of emailBurstLimit
+		limiter := rate.NewLimiter(rate.Limit(emailRateLimit)/60.0, emailBurstLimit)
 		entry = &rateLimiterEntry{
 			limiter:  limiter,
 			lastUsed: time.Now(),

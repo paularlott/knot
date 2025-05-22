@@ -61,6 +61,8 @@ window.loginUserForm = function(redirect) {
                 window.location.href = self.redirect;
               }
             });
+          } else if (response.status == 429) {
+            self.$dispatch('show-alert', { msg: "Too many login attempts, please try again later", type: 'error' });
           } else {
             self.$dispatch('show-alert', { msg: "Invalid email, password or TOTP code", type: 'error' });
           }
