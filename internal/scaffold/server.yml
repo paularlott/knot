@@ -24,15 +24,6 @@ server:
   # Optional server location, defaults to the hostname
   # location: myservers
 
-  # Shared secret when using leaf servers with an origin server (knot gen-server-key)
-  # shared_token: secret
-
-  # Enables leaf servers to work in a restricted mode using API tokens
-  # enable_leaf_api_tokens: true
-
-  # The address of the origin server, when given along with shared_token the server will be configured as a leaf server
-  # origin_server: https://knot-origin.ecample.com:3000
-
   # MySQL storage
   mysql:
     enabled: false
@@ -60,6 +51,14 @@ server:
   nomad:
     addr: http://127.0.0.1:4646
     token: ""
+
+  cluster:
+    advertise_addr: wss://knot.example.com/
+    key: VF9hmdXZyzNF3rcP6M0P # knot genkey
+    peers:
+      - wss://knot.example.com
+      - wss://knot1.example.com
+      - wss://knot2.example.com
 
 # Optional nameservers to use for SRV lookups
 #resolver:
