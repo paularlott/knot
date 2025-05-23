@@ -5,15 +5,15 @@ import (
 )
 
 var (
-  //go:embed client.yml
-  ClientScaffold string
+	//go:embed client.toml
+	ClientScaffold string
 
-  //go:embed server.yml
-  ServerScaffold string
+	//go:embed server.toml
+	ServerScaffold string
 
-  //go:embed agent.yml
-  AgentScaffold string
+	//go:embed agent.toml
+	AgentScaffold string
 
-  //go:embed knot-server.nomad
-  NomadScaffold string
+	//go:embed knot-server.nomad
+	NomadScaffold string
 )

@@ -11,7 +11,7 @@ import (
 
 const CONFIG_FILE_NAME = "knot"
 const CONFIG_DOT_FILE_NAME = ".knot"
-const CONFIG_FILE_TYPE = "yaml"
+const CONFIG_FILE_TYPE = "toml"
 const CONFIG_ENV_PREFIX = "KNOT"
 
 func InitConfig(root *cobra.Command) {

@@ -28,33 +28,34 @@ job "knot-server" {
       }
 
       env {
-        KNOT_CONFIG = "/local/knot.yml"
+        KNOT_CONFIG = "/local/knot.toml"
       }
 
       template {
         data = <<EOF
-log:
-  level: info
-server:
-  listen: 0.0.0.0:3000
-  listen-agent: 0.0.0.0:3010
-  url: "https://knot.example.com"
-  wildcard_domain: "*.knot.example.com"
-  agent_endpoint: "srv+knot-server-agent.service.consul"
-  encrypt: "Gnat9SAejFszCla9n1FjCIXQb3py5i0w" # Replace this using knot genkey
+[log]
+level = "info"
 
-  mysql:
-      database: knot
-      enabled: true
-      host: ""
-      password: ""
-      user: ""
+[server]
+listen = "0.0.0.0:3000"
+listen_agent = "0.0.0.0:3010"
+url = "https://knot.example.com"
+wildcard_domain = "*.knot.example.com"
+agent_endpoint = "srv+knot-server-agent.service.consul"
+encrypt = "Gnat9SAejFszCla9n1FjCIXQb3py5i0w" # Replace this using knot genkey
 
-  nomad:
-      addr: "http://nomad.service.consul:4646"
-      token: ""
+[server.mysql]
+database = "knot"
+enabled = true
+host = ""
+password = ""
+user = ""
+
+[server.nomad]
+addr = "http://nomad.service.consul:4646"
+token = ""
 EOF
-        destination = "local/knot.yml"
+        destination = "local/knot.toml"
       }
 
       resources {
