@@ -34,7 +34,7 @@ type Cluster struct {
 	leafSessions   map[uuid.UUID]*leafSession
 }
 
-func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes *http.ServeMux, compress bool) *Cluster {
+func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes *http.ServeMux, compress bool, allowLeaf bool) *Cluster {
 	cluster := &Cluster{
 		leafSessions: make(map[uuid.UUID]*leafSession),
 	}
@@ -133,8 +133,12 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 		cluster.gossipCluster.LocalMetadata().SetString("location", cfg.Location)
 	}
 
-	// Setup routes for leaf nodes
-	routes.HandleFunc("GET /cluster/leaf", middleware.ApiAuth(cluster.HandleLeafServer))
+	if allowLeaf {
+		log.Info().Msg("cluster: enabling support for leaf ndoes")
+
+		// Setup routes for leaf nodes
+		routes.HandleFunc("GET /cluster/leaf", middleware.ApiAuth(cluster.HandleLeafServer))
+	}
 
 	return cluster
 }

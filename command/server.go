@@ -67,6 +67,7 @@ func init() {
 	serverCmd.Flags().StringP("cluster-advertise-addr", "", "", "The address to advertise to other servers (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_ADVERTISE_ADDR environment variable if set.")
 	serverCmd.Flags().StringP("cluster-bind-addr", "", "", "The address to bind to for cluster communication (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_BIND_ADDR environment variable if set.")
 	serverCmd.Flags().StringSliceP("cluster-peer", "", []string{}, "The addresses of the other servers in the cluster, can be given multiple times (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_PEERS environment variable if set.")
+	serverCmd.Flags().BoolP("allow-leaf-nodes", "", true, "Allow leaf nodes to connect to the cluster.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ALLOW_LEAF_NODES environment variable if set.")
 
 	// Origin / Leaf servers
 	serverCmd.Flags().StringP("origin-server", "", "", "The address of the origin server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER environment variable if set.")
@@ -240,6 +241,10 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.cluster.peers", cmd.Flags().Lookup("cluster-peer"))
 		viper.BindEnv("server.cluster.peers", config.CONFIG_ENV_PREFIX+"_CLUSTER_PEERS")
 		viper.SetDefault("server.cluster.peers", []string{})
+
+		viper.BindPFlag("server.cluster.allow_leaf_nodes", cmd.Flags().Lookup("allow-leaf-nodes"))
+		viper.BindEnv("server.cluster.allow_leaf_nodes", config.CONFIG_ENV_PREFIX+"_ALLOW_LEAF_NODES")
+		viper.SetDefault("server.cluster.allow_leaf_nodes", true)
 
 		// Origin / Leaf servers
 		viper.BindPFlag("server.origin.server", cmd.Flags().Lookup("origin-server"))
@@ -553,6 +558,7 @@ var serverCmd = &cobra.Command{
 			viper.GetString("server.cluster.bind_addr"),
 			routes,
 			viper.GetBool("server.cluster.compression"),
+			viper.GetBool("server.cluster.allow_leaf_nodes"),
 		)
 		service.SetTransport(cluster)
 

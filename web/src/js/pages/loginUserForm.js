@@ -8,7 +8,7 @@ window.loginUserForm = function(redirect) {
       totp_code: "",
     },
     loading: false,
-    buttonLabel: 'Login to Your Account',
+    buttonLabel: 'Sign In',
     emailValid: true,
     passwordValid: true,
     showTOTP: false,
@@ -32,7 +32,7 @@ window.loginUserForm = function(redirect) {
         return;
       }
 
-      this.buttonLabel = 'Logging in...'
+      this.buttonLabel = 'Signing In...'
       this.loading = true;
 
       var data = {
@@ -71,7 +71,7 @@ window.loginUserForm = function(redirect) {
           self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = 'Login to Your Account';
+          this.buttonLabel = 'Sign In';
           this.loading = false;
         })
     },

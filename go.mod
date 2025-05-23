@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.66
-	github.com/paularlott/gossip v0.0.0-20250517073302-b04ff63c8495
+	github.com/paularlott/gossip v0.0.0-20250522082353-9a34e0b0fa8b
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.8.0
 	github.com/rs/zerolog v1.34.0
@@ -28,6 +28,7 @@ require (
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6
 	golang.org/x/net v0.40.0
 	golang.org/x/term v0.32.0
+	golang.org/x/time v0.11.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -76,18 +77,17 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
-	go.opentelemetry.io/otel v1.35.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
+	go.opentelemetry.io/otel v1.36.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.32.0 // indirect
-	go.opentelemetry.io/otel/metric v1.35.0 // indirect
-	go.opentelemetry.io/otel/trace v1.35.0 // indirect
+	go.opentelemetry.io/otel/metric v1.36.0 // indirect
+	go.opentelemetry.io/otel/trace v1.36.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/image v0.27.0 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/sync v0.14.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
-	golang.org/x/time v0.11.0 // indirect
 	golang.org/x/tools v0.33.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
