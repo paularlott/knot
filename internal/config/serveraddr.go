@@ -28,11 +28,11 @@ func GetServerAddr(alias string) *ServerAddr {
 
 	// If flags.server empty then throw and error
 	if flags.HttpServer == "" {
-		cobra.CheckErr("Missing server address")
+		cobra.CheckErr("Missing knot server address")
 	}
 
 	if flags.ApiToken == "" {
-		cobra.CheckErr("Missing API token")
+		cobra.CheckErr("Missing knot API token")
 	}
 
 	if !strings.HasPrefix(flags.HttpServer, "http://") && !strings.HasPrefix(flags.HttpServer, "https://") {
