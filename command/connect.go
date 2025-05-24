@@ -9,11 +9,11 @@ import (
 	"strings"
 	"syscall"
 
+	connectcmd "github.com/paularlott/knot/agent/cmd/connect"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"golang.org/x/term"
 )
 
@@ -25,6 +25,8 @@ func init() {
 	ConnectCmd.Flags().StringP("alias", "a", "default", "The server alias to use.")
 
 	RootCmd.AddCommand(ConnectCmd)
+	ConnectCmd.AddCommand(connectcmd.ConnectListCmd)
+	ConnectCmd.AddCommand(connectcmd.ConnectDeleteCmd)
 }
 
 var ConnectCmd = &cobra.Command{
@@ -139,45 +141,12 @@ var ConnectCmd = &cobra.Command{
 		}
 
 		alias, _ := cmd.Flags().GetString("alias")
-		if viper.ConfigFileUsed() == "" {
-			// No config file so save this to the home folder
-			home, err := os.UserHomeDir()
-			cobra.CheckErr(err)
-
-			partial := viper.New()
-			partial.Set("client."+alias+".server", server)
-			partial.Set("client."+alias+".token", token)
-
-			// Create any missing directories
-			err = os.MkdirAll(home+"/.config/"+config.CONFIG_FILE_NAME, os.ModePerm)
-			if err != nil {
-				fmt.Println("Failed to create config directory")
-				os.Exit(1)
-			}
-
-			err = partial.WriteConfigAs(home + "/.config/" + config.CONFIG_FILE_NAME + "/" + config.CONFIG_FILE_NAME + "." + config.CONFIG_FILE_TYPE)
-			if err != nil {
-				fmt.Println("Failed to create config file")
-				os.Exit(1)
-			}
-		} else {
-			partial := viper.New()
-			partial.SetConfigFile(viper.ConfigFileUsed())
-			err = partial.ReadInConfig()
-			if err != nil {
-				fmt.Println("Failed to read config file")
-				os.Exit(1)
-			}
-
-			partial.Set("client."+alias+".server", server)
-			partial.Set("client."+alias+".token", token)
-
-			err = partial.WriteConfig()
-			if err != nil {
-				fmt.Println("Failed to save config file")
-				os.Exit(1)
-			}
+		if err := config.SaveConnection(alias, server, token); err != nil {
+			fmt.Println("Failed to save connection:", err)
+			os.Exit(1)
 		}
+
+		fmt.Println("Successfully connected to server:", server)
 	},
 }
 
