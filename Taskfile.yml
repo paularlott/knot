@@ -153,6 +153,7 @@ tasks:
     sources:
       - go.mod
       - go.sum
+      - ./**/*.go
       - LICENSE.txt
       - NOTICE.txt
     generates:
