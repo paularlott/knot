@@ -12,7 +12,7 @@
 
     <form class="col-span-full sm:flex justify-between">
       <div class="flex" x-data>
-        <div>
+        <div class="w-full sm:w-auto">
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
             <input type="search" name="search" id="search" class="form-field bg-white grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
@@ -58,168 +58,287 @@
       {{ end }}
     </form>
 
-    <div class="mb-4 col-span-full">
+    <!-- div class="mb-4 col-span-full" -->
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
 
       {{ template "loading" . }}
-      <div x-show="!loading" x-cloak class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        <template x-for="t in templates" :key="t.template_id">
-          <template x-if="!t.searchHide && (showAll || location === '' || !t.locations || !t.locations.length || t.locations.includes(location))">
-          <div class="p-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 dark:bg-gray-800 flex flex-col justify-between">
-            <div>
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="t.name"></h2>
-              <div class="mt-2">
-                <span x-show="t.local_container && !t.is_manual" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Local Container</span>
-                <span x-show="!t.local_container && !t.is_manual" class="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Nomad Job</span>
-                <span x-show="t.is_manual" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
-                {{ if .isLeafNode }}
-                <span x-show="t.is_managed" class="inline-block bg-gray-100 text-gray-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-400 border border-gray-500">Managed</span>
-                {{ end }}
-              </div>
-              <p class="mt-2 text-sm text-gray-500 dark:text-gray-400" x-text="t.description"></p>
-              <table>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Active:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
-                    <span x-show="t.active" class="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
-                    <span x-show="!t.active" class="inline-block bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
-                  </td>
-                </tr>
-                {{ if .permissionManageTemplates }}
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Usage:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="t.usage"></td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Deployed:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="t.deployed"></td>
-                </tr>
-                {{ end }}
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 text-nowrap">Compute Units:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="t.compute_units"></td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 text-nowrap">Storage Units:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="t.storage_units"></td>
-                </tr>
-                <template x-if="t.schedule_enabled">
-                  <tr>
-                    <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 align-top">Schedule:</td>
-                    <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
-                      <div class="flex flex-wrap gap-2">
-                        <template x-for="index in 7" :key="index">
-                          <span x-show="t.schedule[index % 7].enabled" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400" x-text="getDayOfWeek(index % 7) + ': ' + t.schedule[index % 7].from + ' / ' + t.schedule[index % 7].to"></span>
-                        </template>
+      <div x-show="!loading" x-cloak class="relative overflow-x-auto">
+        <table class="w-full text-sm text-left rtl:text-right">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+            <tr>
+              <th scope="col" class="px-4 py-3">Name & Description</th>
+              <th scope="col" class="px-4 py-3 hidden md:table-cell">Type</th>
+              <th scope="col" class="px-4 py-3 hidden md:table-cell">Status</th>
+              <th scope="col" class="px-4 py-3 hidden md:table-cell">Resources</th>
+              {{ if or .permissionManageTemplates (not .isLeafNode) }}
+              <th scope="col" class="px-4 py-3 hidden md:table-cell">Availability</th>
+              {{ end }}
+              <th scope="col" class="px-4 py-3">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="t in templates" :key="t.template_id">
+              <template x-if="!t.searchHide && (showAll || location === '' || !t.locations || !t.locations.length || t.locations.includes(location))">
+                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
+                  <!-- Name & Description -->
+                  <td class="px-4 py-3">
+                    <div class="font-semibold text-gray-900 dark:text-white" x-text="t.name"></div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400" x-text="t.description"></div>
+
+                    <!-- Mobile-only resource info -->
+                    <div class="md:hidden flex flex-col gap-1 mt-2">
+                      <div class="flex flex-col gap-1">
+                        <span x-show="t.local_container && !t.is_manual" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Local Container</span>
+                        <span x-show="!t.local_container && !t.is_manual" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 whitespace-nowrap">Nomad Job</span>
+                        <span x-show="t.is_manual" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
+                        {{ if .isLeafNode }}
+                        <span x-show="t.is_managed" class="inline-block mt-1 w-fit bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-400 border border-gray-500">Managed</span>
+                        {{ end }}
                       </div>
-                    </td>
-                  </tr>
-                </template>
-                <template x-if="t.max_uptime_unit != 'disabled'">
-                  <tr>
-                    <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 align-top">Max Uptime:</td>
-                    <td class="text-sm text-gray-500 dark:text-gray-400 pt-2"><span class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400" x-text="getMaxUptime(t.max_uptime, t.max_uptime_unit)"></span></td>
-                  </tr>
-                </template>
-                {{ if and .permissionManageTemplates (not .isLeafNode) }}
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 align-top">Groups:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
-                    <template x-if="!t.group_names.length">
-                      <span>-</span>
-                    </template>
+
+                      <span x-show="t.active" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
+                      <span x-show="!t.active" class="inline-block w-fit bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
+
+                      <div class="text-xs text-gray-500 dark:text-gray-400">
+                        <span class="font-medium">Compute:</span> <span x-text="t.compute_units"></span>
+                      </div>
+                      <div class="text-xs text-gray-500 dark:text-gray-400">
+                        <span class="font-medium">Storage:</span> <span x-text="t.storage_units"></span>
+                      </div>
+
+                      <!-- Mobile-only schedule indicators -->
+                      <template x-if="t.schedule_enabled">
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                          <span class="font-medium">Schedule:</span>
+                          <div class="flex flex-wrap gap-1 mt-1">
+                            <template x-for="index in 7" :key="index">
+                              <div x-show="t.schedule[index % 7].enabled" class="inline" x-data>
+                                <span @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400" x-text="getDayOfWeek(index % 7).substring(0,3)"></span>
+                                <div x-ref="panel" x-float.teleport.placement.bottom-start.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+                                  <span x-text="t.schedule[index % 7].from"></span> - <span x-text="t.schedule[index % 7].to"></span>
+                                </div>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+
+                      <!-- Mobile-only max uptime -->
+                      <template x-if="t.max_uptime_unit != 'disabled'">
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                          <span class="font-medium">Max Uptime:</span> <span x-text="getMaxUptime(t.max_uptime, t.max_uptime_unit)"></span>
+                        </div>
+                      </template>
+                    </div>
+
+                    <!-- Mobile-only location/groups -->
+                    {{ if and .permissionManageTemplates (not .isLeafNode) }}
+                    <div class="md:hidden mt-2">
+                      <template x-if="t.group_names && t.group_names.length > 0">
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                          <span class="font-medium">Groups:</span>
+                          <div class="flex flex-wrap gap-1 mt-1">
+                            <template x-for="group in t.group_names">
+                              <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="group"></span>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                      <template x-if="t.locations && t.locations.length > 0">
+                        <div class="text-xs text-gray-500 dark:text-gray-400" :class="t.group_names.length ? 'mt-1' : ''">
+                          <span class="font-medium">Locations:</span>
+                          <div class="flex flex-wrap gap-1 mt-1">
+                            <template x-for="l in t.locations">
+                              <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="l"></span>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                    {{ end }}
+
+                    <!-- Usage & Deployed (mobile only) -->
+                    {{ if .permissionManageTemplates }}
+                    <div class="md:hidden mt-2 flex gap-4">
+                      <div class="text-xs text-gray-500 dark:text-gray-400">
+                        <span class="font-medium">Usage:</span> <span x-text="t.usage"></span>
+                      </div>
+                      <div class="text-xs text-gray-500 dark:text-gray-400">
+                        <span class="font-medium">Deployed:</span> <span x-text="t.deployed"></span>
+                      </div>
+                    </div>
+                    {{ end }}
+                  </td>
+
+                  <!-- Type (desktop only) -->
+                  <td class="px-4 py-3 hidden md:table-cell">
+                    <div class="flex flex-col gap-1">
+                      <span x-show="t.local_container && !t.is_manual" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Local Container</span>
+                      <span x-show="!t.local_container && !t.is_manual" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 whitespace-nowrap">Nomad Job</span>
+                      <span x-show="t.is_manual" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
+                      {{ if .isLeafNode }}
+                      <span x-show="t.is_managed" class="inline-block mt-1 w-fit bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-400 border border-gray-500">Managed</span>
+                      {{ end }}
+                    </div>
+                  </td>
+
+                  <!-- Status (desktop only) -->
+                  <td class="px-4 py-3 hidden md:table-cell">
+                    <div class="flex flex-col gap-1">
+                      <span x-show="t.active" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
+                      <span x-show="!t.active" class="inline-block w-fit bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
+
+                      {{ if .permissionManageTemplates }}
+                      <div class="flex flex-col gap-1 mt-1">
+                        <div class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                          <span class="font-medium">Usage:</span> <span x-text="t.usage"></span>
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                          <span class="font-medium">Deployed:</span> <span x-text="t.deployed"></span>
+                        </div>
+                      </div>
+                      {{ end }}
+                    </div>
+                  </td>
+
+                  <!-- Resource Units (desktop only) -->
+                  <td class="px-4 py-3 hidden md:table-cell">
+                    <div class="flex flex-col gap-1">
+                      <div class="text-xs text-gray-500 dark:text-gray-400">
+                        <span class="font-medium">Compute:</span> <span x-text="t.compute_units"></span>
+                      </div>
+                      <div class="text-xs text-gray-500 dark:text-gray-400">
+                        <span class="font-medium">Storage:</span> <span x-text="t.storage_units"></span>
+                      </div>
+
+                      <!-- Schedule indicators -->
+                      <template x-if="t.schedule_enabled">
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          <span class="font-medium">Schedule:</span>
+                          <div class="flex flex-wrap gap-1 mt-1">
+                            <template x-for="index in 7" :key="index">
+                              <div x-show="t.schedule[index % 7].enabled" class="inline" x-data>
+                                <span @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400 cursor-pointer" x-text="getDayOfWeek(index % 7).substring(0,3)"></span>
+                                <div x-ref="panel" x-float.teleport.placement.bottom-center.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+                                  <span x-text="t.schedule[index % 7].from"></span> - <span x-text="t.schedule[index % 7].to"></span>
+                                </div>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+
+                      <!-- Max uptime -->
+                      <template x-if="t.max_uptime_unit != 'disabled'">
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          <span class="font-medium">Max Uptime:</span> <span x-text="getMaxUptime(t.max_uptime, t.max_uptime_unit)"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </td>
+
+                  <!-- Availability (desktop only) -->
+                  {{ if or .permissionManageTemplates (not .isLeafNode) }}
+                  <td class="px-4 py-3 hidden md:table-cell">
                     <template x-if="t.group_names.length">
-                      <div class="flex flex-wrap gap-2">
-                        <template x-for="group in t.group_names">
-                          <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300" x-text="group"></span>
-                        </template>
+                      <div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Groups:</div>
+                        <div class="flex flex-wrap gap-1">
+                          <template x-for="group in t.group_names">
+                            <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="group"></span>
+                          </template>
+                        </div>
                       </div>
-                    </template>
-                  </td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 align-top">Locations:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
-                    <template x-if="!t.locations.length">
-                      <span>-</span>
                     </template>
                     <template x-if="t.locations.length">
-                      <div class="flex flex-wrap gap-2">
-                        <template x-for="l in t.locations">
-                          <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300" x-text="l"></span>
-                        </template>
+                      <div :class="t.group_names.length ? 'mt-2' : ''">
+                        <div class="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Locations:</div>
+                        <div class="flex flex-wrap gap-1">
+                          <template x-for="l in t.locations">
+                          <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="l"></span>
+                          </template>
+                        </div>
                       </div>
                     </template>
+                    <template x-if="!t.group_names.length && !t.locations.length">
+                      <span class="text-xs text-gray-500 dark:text-gray-400">-</span>
+                    </template>
+                  </td>
+                  {{ end }}
+
+                  <!-- Actions -->
+                  <td class="px-4 py-3">
+                    <div class="flex items-center justify-end gap-2">
+                      {{ if and (not .permissionManageTemplates) (not .permissionManageSpaces) (not .isLeafNode) }}
+                        {{ if not .disableSpaceCreate }}
+                        <button x-show="t.active" x-cloak @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center text-xs w-fit whitespace-nowrap">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-1">
+                            <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+                          </svg> Create Space
+                        </button>
+                        {{ end }}
+                      {{ else }}
+                        <template x-if="t.is_managed">
+                          <button x-show="t.active" x-cloak @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center text-xs w-fit whitespace-nowrap">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-1">
+                              <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
+                            </svg> Create Space
+                          </button>
+                        </template>
+
+                        <template x-if="!t.is_managed">
+                          <div x-data>
+                            <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5 cursor-pointer">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
+                                <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
+                              </svg><span class="sr-only">More</span>
+                            </button>
+
+                            <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+                              {{ if not .disableSpaceCreate }}
+                              <button x-show="t.active" x-cloak @click="$refs.panel.close; createSpaceFromTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                                <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+                                </svg> Create Space
+                              </button>
+                              {{ end }}
+                              {{ if or .permissionManageTemplates .isLeafNode}}
+                              <button @click="$refs.panel.close; editTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                </svg> Edit
+                              </button>
+                              <button @click="$refs.panel.close; duplicateTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+                                </svg> Duplicate
+                              </button>
+                              {{ end }}
+                              <hr x-show="t.usage === 0" x-cloak class="my-2" />
+                              <button x-show="t.usage === 0" x-cloak @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.template = t" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg> Delete
+                              </button>
+                              {{ if and (not .disableSpaceCreate) (not .isLeafNode) }}
+                              <hr x-show="canManageSpaces && t.active" x-cloak class="my-2" />
+                              <button x-show="t.active" x-show="canManageSpaces" x-cloak @click="$refs.panel.close; chooseUser.show = true; chooseUser.invalidTemplate = false; chooseUser.template = t" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                                <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+                                </svg> Create For &hellip;
+                              </button>
+                              {{ end }}
+                            </div>
+                          </div>
+                        </template>
+                      {{ end }}
+                    </div>
                   </td>
                 </tr>
-                {{ end }}
-              </table>
-            </div>
-            <div class="mt-4 flex items-center justify-end relative" x-data>
-              {{ if and (not .permissionManageTemplates) (not .permissionManageSpaces) (not .isLeafNode) }}
-                {{ if not .disableSpaceCreate }}
-                <button x-show="t.active" x-cloak @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center text-xs">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
-                    <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
-                  </svg> Create Space
-                </button>
-                {{ end }}
-              {{ else }}
-                <template x-if="t.is_managed">
-                  <button x-show="t.active" x-cloak @click="createSpaceFromTemplate(t.template_id)" class="btn-primary flex items-center text-xs">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
-                      <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
-                    </svg> Create Space
-                  </button>
-                </template>
-
-                <template x-if="!t.is_managed">
-                  <button x-cloak x-show="!t.is_managed" @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5 cursor-pointer">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
-                      <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
-                    </svg><span class="sr-only">More</span>
-                  </button>
-                </template>
-
-                <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
-                  {{ if not .disableSpaceCreate }}
-                  <button x-show="t.active" x-cloak @click="$refs.panel.close; createSpaceFromTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
-                    <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-                    </svg> Create Space
-                  </button>
-                  {{ end }}
-                  {{ if or .permissionManageTemplates .isLeafNode}}
-                  <button @click="$refs.panel.close; editTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                    </svg> Edit
-                  </button>
-                  <button @click="$refs.panel.close; duplicateTemplate(t.template_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
-                    </svg> Duplicate
-                  </button>
-                  {{ end }}
-                  <hr x-show="t.usage === 0" x-cloak class="my-2" />
-                  <button x-show="t.usage === 0" x-cloak @click="$refs.panel.close; deleteConfirm.show = true; deleteConfirm.template = t" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg> Delete
-                  </button>
-                  {{ if and (not .disableSpaceCreate) (not .isLeafNode) }}
-                  <hr x-show="canManageSpaces && t.active" x-cloak class="my-2" />
-                  <button x-show="t.active" x-show="canManageSpaces" x-cloak @click="$refs.panel.close; chooseUser.show = true; chooseUser.invalidTemplate = false; chooseUser.template = t" class="group nav-item text-sm px-4 w-full" role="menuitem">
-                    <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-                    </svg> Create Space For &hellip;
-                  </button>
-                  {{ end }}
-                </div>
-              {{ end }}
-            </div>
-          </div>
-          </template>
-        </template>
+              </template>
+            </template>
+          </tbody>
+        </table>
       </div>
 
       <!-- Modal choose user -->

@@ -42,7 +42,7 @@
           </thead>
           <tbody>
           <template x-for="t in tokens" :key="t.token_id">
-            <tr x-show="!t.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+            <tr x-show="!t.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
               <td class="px-4 py-3">
                 <div class="flex flex-nowrap text-xs p-2 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer w-full" @click.debounce.750="copyToClipboard(t.token_id)">
                   <input type="text" readonly class="shrink grow w-full p-0 text-xs bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer outline-0 border-0 focus:border-0 focus:ring-0" x-model="t.token_id" @click.debounce.750="copyToClipboard(t.token_id)" />

@@ -23,7 +23,7 @@
           </thead>
           <tbody>
           <template x-for="tunnel in tunnels" :key="tunnel.name">
-            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
               <td class="px-4 py-3 text-nowrap">
                 <a :href="tunnel.address" :target="'tunnel--' + tunnel.name">
                   <span x-text="tunnel.address"></span>

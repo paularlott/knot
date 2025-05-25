@@ -28,7 +28,7 @@
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
             <template x-if="logs?.items?.length > 0">
               <template x-for="log in logs.items" :key="log.audit_log_id">
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-600">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200 text-sm" x-text="log.when"></td>
                   <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="log.event"></td>
                   <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="log.location"></td>
