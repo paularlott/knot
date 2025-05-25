@@ -9,6 +9,8 @@ import { validate } from './validators.js';
 import {} from './timezones.js';
 import {} from './components/autocompleter.js';
 
+import md5 from 'crypto-js/md5';
+
 import './pages/loginUserForm.js';
 import './pages/userGroupForm.js';
 import './pages/createTokenForm.js';
@@ -44,6 +46,10 @@ Alpine.plugin(persist);
 Alpine.plugin(AlpineFloatingUI);
 Alpine.plugin(focus);
 Alpine.start();
+
+window.MD5 = function(str) {
+  return md5(str).toString();
+}
 
 window.openTerminal = function(spaceId) {
   const timestamp = new Date().getTime();

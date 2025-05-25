@@ -1,6 +1,7 @@
 package web
 
 import (
+	"crypto/md5"
 	"embed"
 	"errors"
 	"fmt"
@@ -355,9 +356,12 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 	return user, map[string]interface{}{
 		"username":                  user.Username,
 		"user_id":                   user.Id,
+		"user_email":                user.Email,
+		"user_email_md5":            fmt.Sprintf("%x", md5.Sum([]byte(user.Email))),
 		"withDownloads":             withDownloads,
 		"hideSupportLinks":          viper.GetBool("server.ui.hide_support_links"),
 		"hideAPITokens":             viper.GetBool("server.ui.hide_api_tokens"),
+		"useGravatar":               viper.GetBool("server.ui.enable_gravatar"),
 		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers),
 		"permissionManageGroups":    user.HasPermission(model.PermissionManageGroups),
 		"permissionManageRoles":     user.HasPermission(model.PermissionManageRoles),

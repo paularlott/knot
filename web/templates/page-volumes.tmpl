@@ -35,27 +35,27 @@
         <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-6 py-3">Name</th>
-              <th scope="col" class="px-6 py-3">Location</th>
-              <th scope="col" class="px-6 py-3">Type</th>
-              <th scope="col" class="px-6 py-3">Deployed</th>
-              <th scope="col" class="px-6 py-3">&nbsp;</th>
+              <th scope="col" class="px-4 py-3">Name</th>
+              <th scope="col" class="px-4 py-3">Location</th>
+              <th scope="col" class="px-4 py-3">Type</th>
+              <th scope="col" class="px-4 py-3">Deployed</th>
+              <th scope="col" class="px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
           <template x-for="v in volumes" :key="v.volume_id">
             <tr x-show="!v.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-              <td x-text="v.name" class="px-6 py-4"></td>
-              <td x-text="v.location" class="px-6 py-4"></td>
-              <td class="px-6 py-4">
+              <td x-text="v.name" class="px-4 py-3"></td>
+              <td x-text="v.location" class="px-4 py-3"></td>
+              <td class="px-4 py-3">
                 <span x-show="v.local_container" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 text-nowrap">Docker Volume</span>
                 <span x-show="!v.local_container" class="inline-block bg-green-100 text-green-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 text-nowrap">CSI Volume</span>
               </td>
-              <td class="px-6 py-4">
+              <td class="px-4 py-3">
                 <span x-show="v.active" class="inline-block bg-green-100 text-green-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Running</span>
                 <span x-show="!v.active" class="inline-block bg-red-100 text-red-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Stopped</span>
               </td>
-              <td class="px-6 py-4">
+              <td class="px-4 py-3">
                 <div class="flex items-center justify-end" x-data x-show="!v.active || v.location == '{{ .location }}'" x-cloak>
                   <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5 cursor-pointer">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">

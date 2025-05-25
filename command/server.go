@@ -58,9 +58,12 @@ func init() {
 	serverCmd.Flags().StringP("tunnel-domain", "", "", "The domain to use for tunnel connections.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN environment variable if set.")
 	serverCmd.Flags().Int("audit-retention", 90, "The number of days to keep audit logs (default \"90\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION environment variable if set.")
 	serverCmd.Flags().BoolP("disable-space-create", "", false, "Disable the ability to create spaces.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE environment variable if set.")
+	serverCmd.Flags().BoolP("auth-ip-rate-limiting", "", true, "Enable IP rate limiting of authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUTH_IP_RATE_LIMITING environment variable if set.")
+
+	// UI
 	serverCmd.Flags().BoolP("hide-support-links", "", false, "Hide the support links in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS environment variable if set.")
 	serverCmd.Flags().BoolP("hide-api-tokens", "", false, "Hide the API tokens menu item in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_API_TOKENS environment variable if set.")
-	serverCmd.Flags().BoolP("auth-ip-rate-limiting", "", true, "Enable IP rate limiting of authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUTH_IP_RATE_LIMITING environment variable if set.")
+	serverCmd.Flags().BoolP("enable-gravatar", "", true, "Enable Gravatar support in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_GRAVATAR environment variable if set.")
 
 	// Cluster
 	serverCmd.Flags().StringP("cluster-key", "", "", "The shared cluster key.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_KEY environment variable if set.")
@@ -185,14 +188,6 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.agent_endpoint", config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT")
 		viper.SetDefault("server.agent_endpoint", "")
 
-		viper.BindPFlag("server.ui.hide_support_links", cmd.Flags().Lookup("hide-support-links"))
-		viper.BindEnv("server.ui.hide_support_links", config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS")
-		viper.SetDefault("server.ui.hide_support_links", false)
-
-		viper.BindPFlag("server.ui.hide_api_tokens", cmd.Flags().Lookup("hide-api-tokens"))
-		viper.BindEnv("server.ui.hide_api_tokens", config.CONFIG_ENV_PREFIX+"_HIDE_API_TOKENS")
-		viper.SetDefault("server.ui.hide_api_tokens", false)
-
 		// Get the hostname
 		hostname := os.Getenv("NOMAD_DC")
 		if hostname == "" {
@@ -245,6 +240,19 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.cluster.allow_leaf_nodes", cmd.Flags().Lookup("allow-leaf-nodes"))
 		viper.BindEnv("server.cluster.allow_leaf_nodes", config.CONFIG_ENV_PREFIX+"_ALLOW_LEAF_NODES")
 		viper.SetDefault("server.cluster.allow_leaf_nodes", true)
+
+		// UI
+		viper.BindPFlag("server.ui.hide_support_links", cmd.Flags().Lookup("hide-support-links"))
+		viper.BindEnv("server.ui.hide_support_links", config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS")
+		viper.SetDefault("server.ui.hide_support_links", false)
+
+		viper.BindPFlag("server.ui.hide_api_tokens", cmd.Flags().Lookup("hide-api-tokens"))
+		viper.BindEnv("server.ui.hide_api_tokens", config.CONFIG_ENV_PREFIX+"_HIDE_API_TOKENS")
+		viper.SetDefault("server.ui.hide_api_tokens", false)
+
+		viper.BindPFlag("server.ui.enable_gravatar", cmd.Flags().Lookup("enable-gravatar"))
+		viper.BindEnv("server.ui.enable_gravatar", config.CONFIG_ENV_PREFIX+"_ENABLE_GRAVATAR")
+		viper.SetDefault("server.ui.enable_gravatar", true)
 
 		// Origin / Leaf servers
 		viper.BindPFlag("server.origin.server", cmd.Flags().Lookup("origin-server"))

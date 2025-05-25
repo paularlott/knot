@@ -23,6 +23,7 @@ window.userForm = function(isEdit, userId, isProfile) {
       groups: [],
       totp_secret: "",
     },
+    last_login_at: "",
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create ' + entity,
     stayOnPage: true,
@@ -87,6 +88,14 @@ window.userForm = function(isEdit, userId, isProfile) {
           this.formData.timezone = user.timezone;
           this.formData.service_password = user.service_password;
           this.formData.totp_secret = user.totp_secret;
+
+          // Make last_login_at human readable data time in the browser's timezone
+          if (user.last_login_at) {
+            const date = new Date(user.last_login_at);
+            this.last_login_at = date.toLocaleString();
+          } else {
+            this.last_login_at = 'Never';
+          }
         }
       } else {
         this.formData.preferred_shell = 'bash';

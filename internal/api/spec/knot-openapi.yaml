@@ -3040,6 +3040,10 @@ components:
           type: integer
           format: uint32
           description: The number of storage units the user has used.
+        used_tunnels:
+          type: integer
+          format: uint32
+          description: The number of tunnels the user has active.
 
     UserQuota:
       type: object

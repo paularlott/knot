@@ -75,6 +75,7 @@ type UserInfo struct {
 	NumberSpacesDeployedInLocation int        `json:"number_spaces_deployed_in_location"`
 	UsedComputeUnits               uint32     `json:"used_compute_units"`
 	UsedStorageUnits               uint32     `json:"used_storage_units"`
+	UsedTunnels                    uint32     `json:"used_tunnels"`
 }
 type UserInfoList struct {
 	Count int        `json:"count"`

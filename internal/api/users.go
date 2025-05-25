@@ -300,6 +300,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			data.NumberSpacesDeployedInLocation = usage.NumberSpacesDeployedInLocation
 			data.UsedComputeUnits = usage.ComputeUnits
 			data.UsedStorageUnits = usage.StorageUnits
+			data.UsedTunnels = tunnel_server.CountUserTunnels(user.Id)
 
 			userData.Users = append(userData.Users, data)
 			userData.Count++

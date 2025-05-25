@@ -35,15 +35,15 @@
         <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-6 py-3">Name</th>
-              <th scope="col" class="px-6 py-3">&nbsp;</th>
+              <th scope="col" class="px-4 py-3">Name</th>
+              <th scope="col" class="px-4 py-3">&nbsp;</th>
             </tr>
             </thead>
             <tbody>
             <template x-for="r in roles" :key="r.role_id">
               <tr x-show="!r.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                <td x-text="r.name" class="px-6 py-4"></td>
-                <td class="px-6 py-4">
+                <td x-text="r.name" class="px-4 py-3"></td>
+                <td class="px-4 py-3">
                   <div x-cloak x-show="r.role_id != '00000000-0000-0000-0000-000000000000'" class="flex items-center justify-end" x-data>
                     <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5 cursor-pointer">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">

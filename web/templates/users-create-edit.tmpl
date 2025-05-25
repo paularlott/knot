@@ -148,6 +148,11 @@
         </div>
         {{ end }}
 
+        <div x-show="isEdit" x-cloak>
+          <label class="form-label">Last Login At</label>
+          <input type="text" class="form-field" name="last_login_at" x-model="last_login_at" readonly disabled>
+        </div>
+
         <div class="sm:flex justify-between">
           <div class="flex">
             <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" x-on:click="stayOnPage=true"></button>
