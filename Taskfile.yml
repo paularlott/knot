@@ -269,12 +269,12 @@ tasks:
     desc: Run a leaf server for development
     deps: [agents]
     cmds:
-      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf1.yml
+      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf1.toml
     ignore_error: true
 
   run-leaf2:
     desc: Run a leaf server for development
     deps: [agents]
     cmds:
-      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf2.yml
+      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf2.toml
     ignore_error: true

@@ -142,12 +142,12 @@ run-server: agents
 .PHONY: run-leaf
 ## Run a leaf server for development
 run-leaf:
-	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf1.yml
+	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf1.toml
 
 .PHONY: run-leaf2
 ## Run a leaf server for development
 run-leaf2:
-	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf2.yml
+	go run . server --log-level=debug --download-path=./bin --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf2.toml
 
 .PHONY: help
 ## This help screen
