@@ -143,6 +143,11 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               }
               // Else update the sharing information
               else {
+                // If is_deployed changing state then treat as added
+                if(existing.is_deployed != space.is_deployed) {
+                  spacesAdded = true;
+                }
+
                 existing.shared_user_id = space.shared_user_id;
                 existing.shared_username = space.shared_username;
                 existing.name = space.name;
@@ -171,7 +176,12 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
              // If spaces added then sort them by name
             if(spacesAdded) {
-              this.spaces.sort((a, b) => (a.name > b.name) ? 1 : -1);
+              this.spaces.sort((a, b) => {
+                if (a.is_deployed === b.is_deployed) {
+                  return a.name.localeCompare(b.name);
+                }
+                return a.is_deployed ? -1 : 1;
+              });
             }
 
             // Look through the list of spaces and remove any that are not in the spacesList
