@@ -328,23 +328,32 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	maxSpaces := user.MaxSpaces
+	maxStorage := user.StorageUnits
 	for _, groupId := range user.Groups {
 		group, ok := groupMap[groupId]
 		if ok {
 			maxSpaces += group.MaxSpaces
+			maxStorage += group.StorageUnits
 		}
 	}
 
-	// Get the number of spaces for the user
-	if maxSpaces > 0 {
-		spaces, err := db.GetSpacesForUser(user.Id)
+	if maxSpaces > 0 || maxSpaces > 0 {
+		usage, err := database.GetUserUsage(user.Id, "")
 		if err != nil {
+			log.Error().Msgf("HandleCreateSpace: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		if uint32(len(spaces)) >= maxSpaces {
+		// Get the number of spaces for the user
+		if maxSpaces > 0 && uint32(usage.NumberSpaces) > maxSpaces {
 			rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "space quota exceeded"})
+			return
+		}
+
+		// Check the storage quota
+		if maxStorage > 0 && uint32(usage.StorageUnits+template.StorageUnits) > maxStorage {
+			rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage unit quota exceeded"})
 			return
 		}
 	}

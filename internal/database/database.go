@@ -236,10 +236,7 @@ func GetUserUsage(userId string, inLocation string) (*model.Usage, error) {
 				usage.ComputeUnits += template.ComputeUnits
 			}
 
-			// If there's volumes then the space has been deployed and has storage
-			if len(space.VolumeData) > 0 {
-				usage.StorageUnits += template.StorageUnits
-			}
+			usage.StorageUnits += template.StorageUnits
 		}
 	}
 
