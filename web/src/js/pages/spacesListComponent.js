@@ -170,6 +170,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.is_local = space.location == '' || location == space.location;
                 existing.has_state = space.has_state;
                 existing.started_at = space.started_at;
+                existing.template_name = space.template_name;
                 existing.uptime = this.formatTimeDiff(space.started_at);
               }
             });
