@@ -82,7 +82,7 @@ type Space struct {
 	UpdatedAt        time.Time     `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
-func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string) *Space {
+func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string, location string) *Space {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -112,7 +112,7 @@ func NewSpace(name string, description string, userId string, templateId string,
 		StartedAt:        now,
 		CreatedAt:        now,
 		UpdatedAt:        now,
-		Location:         "",
+		Location:         location,
 		SSHHostSigner:    ed25519,
 		SharedWithUserId: "",
 	}

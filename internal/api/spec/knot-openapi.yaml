@@ -2368,9 +2368,6 @@ components:
           type: string
           format: uuid
           description: The ID of the template to create the space from.
-        location:
-          type: string
-          description: The location of the space.
         shell:
           type: string
           enum: [bash, zsh, fish, sh]

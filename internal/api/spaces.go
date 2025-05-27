@@ -293,7 +293,6 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create the space
 	if request.UserId != "" {
 		user, err = db.GetUser(request.UserId)
 		if err != nil {
@@ -301,64 +300,40 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames)
-
-	// Lock the space to the location of the server creating it
-	if request.Location == "" {
-		space.Location = config.Location
-	} else {
-		space.Location = request.Location
-	}
 
 	// If space create is disabled then fail
-	if viper.GetBool("server.disable_space_create") && space.Location == config.Location {
+	if viper.GetBool("server.disable_space_create") {
 		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Space creation is disabled"})
 		return
 	}
 
-	// Get the groups and build a map
-	groups, err := db.GetGroups()
-	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-	groupMap := make(map[string]*model.Group)
-	for _, group := range groups {
-		groupMap[group.Id] = group
-	}
-
-	maxSpaces := user.MaxSpaces
-	maxStorage := user.StorageUnits
-	for _, groupId := range user.Groups {
-		group, ok := groupMap[groupId]
-		if ok {
-			maxSpaces += group.MaxSpaces
-			maxStorage += group.StorageUnits
-		}
-	}
-
-	if maxSpaces > 0 || maxSpaces > 0 {
+	// We don't check quotas on leaf nodes as they are controlled by the user
+	if !config.LeafNode {
 		usage, err := database.GetUserUsage(user.Id, "")
 		if err != nil {
-			log.Error().Msgf("HandleCreateSpace: %s", err.Error())
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
-		// Get the number of spaces for the user
-		if maxSpaces > 0 && uint32(usage.NumberSpaces) > maxSpaces {
+		userQuota, err := database.GetUserQuota(user)
+		if err != nil {
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		if userQuota.MaxSpaces > 0 && uint32(usage.NumberSpaces+1) > userQuota.MaxSpaces {
 			rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "space quota exceeded"})
 			return
 		}
 
-		// Check the storage quota
-		if maxStorage > 0 && uint32(usage.StorageUnits+template.StorageUnits) > maxStorage {
+		if userQuota.StorageUnits > 0 && uint32(usage.StorageUnits+template.StorageUnits) > userQuota.StorageUnits {
 			rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage unit quota exceeded"})
 			return
 		}
 	}
 
 	// Create the space
+	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, config.Location)
 	err = db.SaveSpace(space, nil)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -428,46 +403,6 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var quota *apiclient.UserQuota
-
-	usage, err := database.GetUserUsage(user.Id, "")
-	if err != nil {
-		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	quota = &apiclient.UserQuota{
-		MaxSpaces:            user.MaxSpaces,
-		ComputeUnits:         user.ComputeUnits,
-		StorageUnits:         user.StorageUnits,
-		NumberSpaces:         usage.NumberSpaces,
-		NumberSpacesDeployed: usage.NumberSpacesDeployed,
-		UsedComputeUnits:     usage.ComputeUnits,
-		UsedStorageUnits:     usage.StorageUnits,
-	}
-
-	// Get the groups and build a map
-	groups, err := db.GetGroups()
-	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-	groupMap := make(map[string]*model.Group)
-	for _, group := range groups {
-		groupMap[group.Id] = group
-	}
-
-	// Sum the compute and storage units from groups
-	for _, groupId := range user.Groups {
-		group, ok := groupMap[groupId]
-		if ok {
-			quota.MaxSpaces += group.MaxSpaces
-			quota.ComputeUnits += group.ComputeUnits
-			quota.StorageUnits += group.StorageUnits
-		}
-	}
-
 	// If the space is already running or changing state then fail
 	if space.IsDeployed || space.IsPending || space.IsDeleting {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be started"})
@@ -488,16 +423,27 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Leaf nodes are the users machines so we don't need to worry about quotas
 	if !config.LeafNode {
-		// If the user has a compute limit then check it
-		if quota.ComputeUnits > 0 && quota.UsedComputeUnits+template.ComputeUnits > quota.ComputeUnits {
+		usage, err := database.GetUserUsage(user.Id, "")
+		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		userQuota, err := database.GetUserQuota(user)
+		if err != nil {
+			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		if userQuota.ComputeUnits > 0 && usage.ComputeUnits+template.ComputeUnits > userQuota.ComputeUnits {
 			rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "compute unit quota exceeded"})
 			return
 		}
 
-		// If the user has a storage limit then check it
-		if quota.StorageUnits > 0 && quota.UsedStorageUnits+template.StorageUnits > quota.StorageUnits {
+		if userQuota.StorageUnits > 0 && usage.StorageUnits > userQuota.StorageUnits {
 			rest.SendJSON(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage unit quota exceeded"})
 			return
 		}
@@ -685,6 +631,11 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 
 	if user != nil && space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	if space.Location != "" && space.Location != config.Location {
+		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
 

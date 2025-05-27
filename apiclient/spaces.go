@@ -13,7 +13,6 @@ type SpaceRequest struct {
 	Shell       string   `json:"shell"`
 	UserId      string   `json:"user_id"`
 	AltNames    []string `json:"alt_names"`
-	Location    string   `json:"location"`
 }
 type CreateSpaceRequest = SpaceRequest
 type UpdateSpaceRequest = SpaceRequest
@@ -127,7 +126,6 @@ func (c *ApiClient) UpdateSpace(space *model.Space) (int, error) {
 		Name:       space.Name,
 		AltNames:   space.AltNames,
 		Shell:      space.Shell,
-		Location:   space.Location,
 	}
 
 	code, err := c.httpClient.Put("/api/spaces/"+space.Id, request, nil, 200)
@@ -145,7 +143,6 @@ func (c *ApiClient) CreateSpace(space *model.Space) (int, error) {
 		Name:       space.Name,
 		AltNames:   space.AltNames,
 		Shell:      space.Shell,
-		Location:   space.Location,
 	}
 
 	response := &CreateSpaceResponse{}
