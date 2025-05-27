@@ -197,7 +197,7 @@
                   <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 lg:hidden">Uptime: <span class="text-gray-700 dark:text-gray-300" x-text="s.is_deployed ? s.uptime : '-'"></span></div>
 
                   <!-- Services (mobile only) -->
-                  <div x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}')" class="flex flex-wrap items-center gap-1 md:hidden">
+                  <div x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}')" class="flex flex-wrap items-center gap-1 md:hidden" x-data>
                     <!-- VNC -->
                     <div x-data x-show="s.has_http_vnc" x-cloak>
                       <button @click="openWindowForVNC(s.username, s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
@@ -283,7 +283,7 @@
 
                 <!-- Services (desktop only) -->
                 <td class="px-4 py-3 hidden md:table-cell">
-                  <div x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}')" class="flex flex-nowrap items-center gap-1">
+                  <div x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}')" class="flex flex-nowrap items-center gap-1" x-data>
                     <!-- VNC -->
                     <div x-data x-show="s.has_http_vnc" x-cloak>
                       <button @click="openWindowForVNC(s.username, s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
