@@ -1,3 +1,6 @@
+import Alpine from 'alpinejs';
+import { popup } from '../popup.js';
+
 window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, location, canTransferSpaces, canShareSpaces) {
 
   document.addEventListener('keydown', (e) => {
@@ -47,9 +50,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     },
 
     showingSpecificUser: userId !== forUserId,
-    forUserId: userId == forUserId && canManageSpaces ? Alpine.$persist(forUserId).as('forUserId').using(sessionStorage) : forUserId,
-    canManageSpaces: canManageSpaces,
-    canTransferSpaces: canTransferSpaces,
+    forUserId: userId === forUserId && canManageSpaces ? Alpine.$persist(forUserId).as('forUserId').using(sessionStorage) : forUserId,
+    canManageSpaces,
+    canTransferSpaces,
+    canShareSpaces,
     users: [],
     forUsersList: [],
     shareUsers: [],
@@ -99,22 +103,22 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
       // Start a timer to look for new spaces periodically
       setInterval(async () => {
-        this.getSpaces();
+        await this.getSpaces();
       }, 1000);
     },
-    async userSearchReset() {
+    userSearchReset() {
       this.forUserId = userId;
       this.forUsername = '[My Spaces]';
       this.$dispatch('refresh-user-autocompleter');
       this.userChanged();
     },
-    async userChanged() {
+    userChanged() {
       this.loading = true;
 
-      if(this.forUserId.length == 0) {
+      if(this.forUserId.length === 0) {
         this.forUsername = "";
       } else {
-        const user = this.users.find(user => user.user_id === this.forUserId);
+        const user = this.users.find(u => u.user_id === this.forUserId);
         this.forUsername = user.username;
       }
 
@@ -122,20 +126,20 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       this.getSpaces();
     },
     async getSpaces() {
-      await fetch('/api/spaces?user_id=' + this.forUserId, {
+      await fetch(`/api/spaces?user_id=${this.forUserId}`, {
         headers: {
           'Content-Type': 'application/json'
         }
       }).then((response) => {
         if(response.status === 200) {
-          var spacesAdded = false;
+          let spacesAdded = false;
 
           response.json().then((spacesList) => {
-            spacesList.spaces.forEach(async space => {
+            spacesList.spaces.forEach(space => {
               // If this space isn't in this.spaces then add it
               const existing = this.spaces.find(s => s.space_id === space.space_id);
               if(!existing) {
-                space.is_local = space.location == '' || location == space.location;
+                space.is_local = space.location === '' || location === space.location;
                 space.uptime = this.formatTimeDiff(space.started_at);
 
                 this.spaces.push(space);
@@ -144,7 +148,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               // Else update the sharing information
               else {
                 // If is_deployed changing state then treat as added
-                if(existing.is_deployed != space.is_deployed) {
+                if(existing.is_deployed !== space.is_deployed) {
                   spacesAdded = true;
                 }
 
@@ -166,8 +170,8 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.has_http_vnc = space.has_http_vnc;
                 existing.has_vscode_tunnel = space.has_vscode_tunnel;
                 existing.vscode_tunnel_name = space.vscode_tunnel_name;
-                existing.sshCmd = "ssh -o ProxyCommand='knot forward ssh " + space.name + "' -o StrictHostKeyChecking=no " + username + "@knot." + space.name;
-                existing.is_local = space.location == '' || location == space.location;
+                existing.sshCmd = `ssh -o ProxyCommand='knot forward ssh ${space.name}' -o StrictHostKeyChecking=no ${username}@knot.${space.name}`;
+                existing.is_local = space.location === '' || location === space.location;
                 existing.has_state = space.has_state;
                 existing.started_at = space.started_at;
                 existing.template_name = space.template_name;
@@ -201,12 +205,12 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         } else if (response.status === 401) {
           window.location.href = '/logout';
         }
-      }).catch((error) => {
+      }).catch(() => {
         window.location.href = '/logout';
       });
     },
     async startSpace(spaceId) {
-      var self = this;
+      const self = this;
       await fetch(`/api/spaces/${spaceId}/start`, {
         method: 'POST',
         headers: {
@@ -217,24 +221,24 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           self.$dispatch('show-alert', { msg: "Space starting", type: 'success' });
         } else if(response.status === 503) {
           response.json().then((data) => {
-            if(data.error == 'outside of schedule') {
+            if(data.error === 'outside of schedule') {
               self.badScheduleShow = true;
             } else {
-              self.$dispatch('show-alert', { msg: "Space could not be started: " + data.error, type: 'error' });
+              self.$dispatch('show-alert', { msg: `Space could not be started: ${data.error}`, type: 'error' });
             }
           });
         } else if(response.status === 507) {
           response.json().then((data) => {
             // If compute units exceeded then show the dialog
-            if(data.error == 'compute unit quota exceeded') {
+            if(data.error === 'compute unit quota exceeded') {
               const space = self.spaces.find(s => s.space_id === spaceId);
 
-              self.quotaComputeLimit.isShared = space.shared_user_id != '' && space.shared_user_id == this.forUserId;
+              self.quotaComputeLimit.isShared = space.shared_user_id !== '' && space.shared_user_id === this.forUserId;
               self.quotaComputeLimit.show = true;
-            } else if(data.error == 'storage unit quota exceeded') {
+            } else if(data.error === 'storage unit quota exceeded') {
               const space = self.spaces.find(s => s.space_id === spaceId);
 
-              self.quotaStorageLimit.isShared = space.shared_user_id != '' && space.shared_user_id == this.forUserId;
+              self.quotaStorageLimit.isShared = space.shared_user_id !== '' && space.shared_user_id === this.forUserId;
               self.quotaStorageLimit.show = true;
             } else {
               self.$dispatch('show-alert', { msg: "Space could not be as it has exceeded quota limits.", type: 'error' });
@@ -242,17 +246,17 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           });
         } else {
           response.json().then((data) => {
-            self.$dispatch('show-alert', { msg: "Space could not be started: " + data.error, type: 'error' });
+            self.$dispatch('show-alert', { msg: `Space could not be started: ${data.error}`, type: 'error' });
           });
         }
       }).catch((error) => {
-        self.$dispatch('show-alert', { msg: "Space could not be started: " + error, type: 'error' });
+        self.$dispatch('show-alert', { msg: `Space could not be started: ${error}`, type: 'error' });
       }).finally(() => {
         self.getSpaces();
       });
     },
     async stopSpace(spaceId) {
-      var self = this;
+      const self = this;
       await fetch(`/api/spaces/${spaceId}/stop`, {
         method: 'POST',
         headers: {
@@ -265,13 +269,13 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           self.$dispatch('show-alert', { msg: "Space could not be stopped", type: 'error' });
         }
       }).catch((error) => {
-        self.$dispatch('show-alert', { msg: "Space could not be stopped: " + error, type: 'error' });
+        self.$dispatch('show-alert', { msg: `Space could not be stopped: ${error}`, type: 'error' });
       }).finally(() => {
         self.getSpaces();
       });
     },
     async deleteSpace(spaceId) {
-      let self = this;
+      const self = this;
       await fetch(`/api/spaces/${spaceId}`, {
         method: 'DELETE',
         headers: {
@@ -284,11 +288,11 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           self.$dispatch('show-alert', { msg: "Space could not be deleted", type: 'error' });
         }
       }).catch((error) => {
-        self.$dispatch('show-alert', { msg: "Space could not be deleted: " + error, type: 'error' });
+        self.$dispatch('show-alert', { msg: `Space could not be deleted: ${error}`, type: 'error' });
       });
     },
     async ceaseSharing(spaceId) {
-      let self = this;
+      const self = this;
       await fetch(`/api/spaces/${spaceId}/share`, {
         method: 'DELETE',
         headers: {
@@ -301,30 +305,45 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           self.$dispatch('show-alert', { msg: "Could not stop sharing of space", type: 'error' });
         }
       }).catch((error) => {
-        self.$dispatch('show-alert', { msg: "Could not stop sharing of space: " + error, type: 'error' });
+        self.$dispatch('show-alert', { msg: `Could not stop sharing of space: ${error}`, type: 'error' });
       });
     },
     editSpace(spaceId) {
       window.location.href = `/spaces/edit/${spaceId}`;
     },
-    async openWindowForPort(spaceUsername, spaceId, spaceName, port) {
-      openPortWindow(spaceId, wildcardDomain, spaceUsername == '' ? username : spaceUsername, spaceName, port);
+    openWindowForPort(spaceUsername, spaceId, spaceName, port) {
+      popup.openPortWindow(spaceId, wildcardDomain, spaceUsername === '' ? username : spaceUsername, spaceName, port);
     },
-    async openWindowForVNC(spaceUsername, spaceId, spaceName) {
-      openVNC(spaceId, wildcardDomain, spaceUsername == '' ? username : spaceUsername, spaceName);
+    openWindowForVNC(spaceUsername, spaceId, spaceName) {
+      popup.openVNC(spaceId, wildcardDomain, spaceUsername === '' ? username : spaceUsername, spaceName);
     },
-    async searchChanged() {
-      let term = this.searchTerm.toLowerCase();
+    openCodeServer(spaceId) {
+      popup.openCodeServer(spaceId, wildcardDomain);
+    },
+    openTerminalTunnel(spaceId) {
+      popup.openTerminalTunnel(spaceId);
+    },
+    openVSCodeDev(tunnelName) {
+      popup.openVSCodeDev(tunnelName);
+    },
+    openTerminal(spaceId) {
+      popup.openTerminal(spaceId);
+    },
+    openLogWindow(spaceId) {
+      popup.openLogWindow(spaceId);
+    },
+    searchChanged() {
+      const term = this.searchTerm.toLowerCase();
 
       // For all spaces if name or template name contains the term show; else hide
       this.visibleSpaces = 0;
       this.spaces.forEach(space => {
-        if(term.length == 0) {
+        if(term.length === 0) {
           space.searchHide =
             (this.showLocalOnly && !space.is_local) ||
             (this.showRunningOnly && !space.is_deployed) ||
-            (this.showSharedOnly && (space.shared_user_id == "" || space.shared_user_id == this.forUserId)) ||
-            (this.showSharedWithMeOnly && (space.shared_user_id == "" || space.shared_user_id != this.forUserId));
+            (this.showSharedOnly && (space.shared_user_id === "" || space.shared_user_id === this.forUserId)) ||
+            (this.showSharedWithMeOnly && (space.shared_user_id === "" || space.shared_user_id !== this.forUserId));
         } else {
           space.searchHide = !(
             space.name.toLowerCase().includes(term) ||
@@ -333,8 +352,8 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           ) ||
           (this.showLocalOnly && !space.is_local) ||
           (this.showRunningOnly && !space.is_deployed) ||
-          (this.showSharedOnly && (space.shared_user_id == "" || space.shared_user_id == this.forUserId)) ||
-          (this.showSharedWithMeOnly && (space.shared_user_id == "" || space.shared_user_id != this.forUserId));
+          (this.showSharedOnly && (space.shared_user_id === "" || space.shared_user_id === this.forUserId)) ||
+          (this.showSharedWithMeOnly && (space.shared_user_id === "" || space.shared_user_id !== this.forUserId));
         }
 
         if(!space.searchHide) {
@@ -347,9 +366,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       this.$dispatch('show-alert', { msg: "Copied to clipboard", type: 'success' });
     },
     async transferSpaceTo() {
-      let self = this;
+      const self = this;
 
-      if(this.chooseUser.toUserId == '') {
+      if(this.chooseUser.toUserId === '') {
         this.chooseUser.invalidUser = true;
         return;
       }
@@ -402,19 +421,19 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         } else {
           response.json().then((data) => {
             if(self.chooseUser.isShare) {
-              self.$dispatch('show-alert', { msg: "Space could not be shared: " + data.error, type: 'error' });
+              self.$dispatch('show-alert', { msg: `Space could not be shared: ${data.error}`, type: 'error' });
             }
             else {
-              self.$dispatch('show-alert', { msg: "Space could not be transferred: " + data.error, type: 'error' });
+              self.$dispatch('show-alert', { msg: `Space could not be transferred: ${data.error}`, type: 'error' });
             }
           });
         }
       }).catch((error) => {
         if(self.chooseUser.isShare) {
-          self.$dispatch('show-alert', { msg: "Space could not be shared: " + error, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Space could not be shared: ${error}`, type: 'error' });
         }
         else {
-          self.$dispatch('show-alert', { msg: "Space could not be transferred: " + error, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Space could not be transferred: ${error}`, type: 'error' });
         }
       });
     },

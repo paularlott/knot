@@ -1,3 +1,5 @@
+import Alpine from 'alpinejs';
+
 window.templateVarListComponent = function() {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -20,11 +22,11 @@ window.templateVarListComponent = function() {
     searchTerm: Alpine.$persist('').as('var-search-term').using(sessionStorage),
 
     async init() {
-      this.getTemplateVars();
+      await this.getTemplateVars();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getTemplateVars();
+        await this.getTemplateVars();
       }, 3000);
     },
 
@@ -34,7 +36,7 @@ window.templateVarListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      variableList = await response.json();
+      const variableList = await response.json();
       this.variables = variableList.variables;
 
       this.variables.forEach(variable => {
@@ -50,7 +52,7 @@ window.templateVarListComponent = function() {
       window.location.href = `/variables/edit/${templateVarId}`;
     },
     async deleteTemplateVar(templateVarId) {
-      var self = this;
+      const self = this;
       await fetch(`/api/templatevars/${templateVarId}`, {
         method: 'DELETE',
         headers: {
@@ -65,12 +67,12 @@ window.templateVarListComponent = function() {
       });
       this.getTemplateVars();
     },
-    async searchChanged() {
-      let term = this.searchTerm.toLowerCase();
+    searchChanged() {
+      const term = this.searchTerm.toLowerCase();
 
       // For all variabkes if name contains the term show; else hide
       this.variables.forEach(v => {
-        if(term.length == 0) {
+        if(term.length === 0) {
           v.searchHide = false;
         } else {
           v.searchHide = !v.name.toLowerCase().includes(term);

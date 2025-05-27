@@ -1,5 +1,17 @@
+import { validate } from '../validators.js';
+import { focus } from '../focus.js';
+
+/// wysiwyg editor
+import ace from 'ace-builds/src-noconflict/ace';
+import 'ace-builds/src-noconflict/mode-terraform';
+import 'ace-builds/src-noconflict/mode-yaml';
+import 'ace-builds/src-noconflict/mode-text';
+import 'ace-builds/src-noconflict/theme-github';
+import 'ace-builds/src-noconflict/theme-github_dark';
+import 'ace-builds/src-noconflict/ext-searchbox';
+
 window.templateForm = function(isEdit, templateId) {
-  focusElement('input[name="name"]');
+  focus.Element('input[name="name"]');
 
   return {
     formData: {
@@ -60,7 +72,7 @@ window.templateForm = function(isEdit, templateId) {
       ],
     },
     loading: true,
-    isEdit: isEdit,
+    isEdit,
     stayOnPage: true,
     buttonLabel: isEdit ? 'Update' : 'Create Template',
     nameValid: true,
@@ -75,12 +87,11 @@ window.templateForm = function(isEdit, templateId) {
     locationValid: [],
 
     async initData() {
-
       for (let hour = 0; hour < 24; hour++) {
         for (let minute = 0; minute < 60; minute += 15) {
-          let period = hour < 12 || hour === 24 ? 'am' : 'pm';
-          let displayHour = hour % 12 === 0 ? 12 : hour % 12;
-          let displayMinute = minute === 0 ? '00' : minute;
+          const period = hour < 12 || hour === 24 ? 'am' : 'pm';
+          const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+          const displayMinute = minute === 0 ? '00' : minute;
           this.fromHours.push(`${displayHour}:${displayMinute}${period}`);
           this.toHours.push(`${displayHour}:${displayMinute}${period}`);
         }
@@ -92,11 +103,11 @@ window.templateForm = function(isEdit, templateId) {
           'Content-Type': 'application/json'
         }
       });
-      groupsList = await groupsResponse.json();
+      const groupsList = await groupsResponse.json();
       this.groups = groupsList.groups;
 
       if(isEdit) {
-        const templateResponse = await fetch('/api/templates/' + templateId, {
+        const templateResponse = await fetch(`/api/templates/${templateId}`, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -136,7 +147,7 @@ window.templateForm = function(isEdit, templateId) {
 
         // If this is edit and duplicate then change to add
         if (window.location.hash === '#duplicate') {
-          this.formData.name = 'Copy of ' + this.formData.name;
+          this.formData.name = `Copy of ${this.formData.name}`;
           this.isEdit = isEdit = false;
           this.buttonLabel = 'Create Template';
         }
@@ -147,7 +158,7 @@ window.templateForm = function(isEdit, templateId) {
         darkMode = true;
 
       // Create the job editor
-      let editor = ace.edit('job');
+      const editor = ace.edit('job');
       editor.session.setValue(this.formData.job);
       editor.session.on('change', () => {
         this.formData.job = editor.getValue();
@@ -164,7 +175,7 @@ window.templateForm = function(isEdit, templateId) {
       });
 
       // Create the volume editor
-      let editorVol = ace.edit('vol');
+      const editorVol = ace.edit('vol');
       editorVol.session.setValue(this.formData.volumes);
       editorVol.session.on('change', () => {
         this.formData.volumes = editorVol.getValue();
@@ -182,7 +193,7 @@ window.templateForm = function(isEdit, templateId) {
       });
 
       // Create the description editor
-      let editorDesc = ace.edit('description');
+      const editorDesc = ace.edit('description');
       editorDesc.session.setValue(this.formData.description);
       editorDesc.session.on('change', () => {
         this.formData.description = editorDesc.getValue();
@@ -200,7 +211,7 @@ window.templateForm = function(isEdit, templateId) {
       });
 
       // Listen for the theme_change event on the body & change the editor theme
-      window.addEventListener('theme-change', function (e) {
+      window.addEventListener('theme-change', (e) => {
         if (e.detail.dark_theme) {
           editor.setTheme("ace/theme/github_dark");
           editorVol.setTheme("ace/theme/github_dark");
@@ -256,28 +267,33 @@ window.templateForm = function(isEdit, templateId) {
       this.formData.schedule[day].enabled = !this.formData.schedule[day].enabled;
     },
     checkName() {
-      return this.nameValid = validate.templateName(this.formData.name);
+      this.nameValid = validate.templateName(this.formData.name);
+      return this.nameValid;
     },
     checkJob() {
-      return this.jobValid = this.formData.is_manual || validate.required(this.formData.job);
+      this.jobValid = this.formData.is_manual || validate.required(this.formData.job);
+      return this.jobValid;
     },
     checkComputeUnits() {
-      return this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);
+      this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);
+      return this.computeUnitsValid;
     },
     checkStorageUnits() {
-      return this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
+      this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
+      return this.storageUnitsValid;
     },
     checkUptime() {
       if(this.formData.max_uptime_unit === 'disabled') {
-        return this.uptimeValid = true;
+        this.uptimeValid = true;
       } else {
-        return this.uptimeValid = validate.isNumber(this.formData.max_uptime, 0, Infinity) && validate.isOneOf(this.formData.max_uptime_unit, ['minute', 'hour', 'day']);
+        this.uptimeValid = validate.isNumber(this.formData.max_uptime, 0, Infinity) && validate.isOneOf(this.formData.max_uptime_unit, ['minute', 'hour', 'day']);
       }
+      return this.uptimeValid;
     },
 
     async submitData() {
-      let err = false,
-          self = this;
+      let err = false;
+      const self = this;
       err = !this.checkName() || err;
       err = !this.checkJob() || err;
       if(err) {
@@ -289,7 +305,7 @@ window.templateForm = function(isEdit, templateId) {
       }
       this.loading = true;
 
-      let data = {
+      const data = {
         name: this.formData.name,
         description: this.formData.description,
         job: this.formData.is_manual ? "" : this.formData.job,
@@ -307,14 +323,11 @@ window.templateForm = function(isEdit, templateId) {
         active: this.formData.active,
         max_uptime: parseInt(this.formData.max_uptime),
         max_uptime_unit: this.formData.max_uptime_unit,
+        local_container: this.formData.local_container,
+        is_manual: this.formData.is_manual,
       };
 
-      if(!isEdit) {
-        data.local_container = this.formData.local_container;
-        data.is_manual = this.formData.is_manual;
-      }
-
-      fetch(isEdit ? '/api/templates/' + templateId : '/api/templates', {
+      await fetch(isEdit ? `/api/templates/${templateId}` : '/api/templates', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -334,13 +347,13 @@ window.templateForm = function(isEdit, templateId) {
             self.$dispatch('show-alert', { msg: "Template created", type: 'success' });
             window.location.href = '/templates';
           } else {
-            response.json().then((data) => {
-              self.$dispatch('show-alert', { msg: "Failed to update the template, " + data.error, type: 'error' });
+            response.json().then((d) => {
+              self.$dispatch('show-alert', { msg: `Failed to update the template, ${d.error}`, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = this.isEdit ? 'Update' : 'Create Template';
@@ -350,11 +363,11 @@ window.templateForm = function(isEdit, templateId) {
     getDayOfWeek(day) {
       return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day];
     },
-    async addLocation() {
+    addLocation() {
       this.locationValid.push(true);
       this.formData.locations.push('');
     },
-    async removeLocation(index) {
+    removeLocation(index) {
       this.formData.locations.splice(index, 1);
       this.locationValid.splice(index, 1);
     },
@@ -372,7 +385,8 @@ window.templateForm = function(isEdit, templateId) {
           }
         }
 
-        return this.locationValid[index] = isValid;
+        this.locationValid[index] = isValid;
+        return isValid;
       } else {
         return false;
       }

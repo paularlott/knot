@@ -1,3 +1,5 @@
+import Alpine from 'alpinejs';
+
 window.groupListComponent = function() {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -20,11 +22,11 @@ window.groupListComponent = function() {
     searchTerm: Alpine.$persist('').as('group-search-term').using(sessionStorage),
 
     async init() {
-      this.getGroups();
+      await this.getGroups();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getGroups();
+        await this.getGroups();
       }, 3000);
     },
 
@@ -34,7 +36,7 @@ window.groupListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      groupList = await response.json();
+      const groupList = await response.json();
       this.groups = groupList.groups;
 
       // Apply search filter
@@ -49,7 +51,7 @@ window.groupListComponent = function() {
       window.location.href = `/groups/edit/${groupId}`;
     },
     async deleteGroup(groupId) {
-      var self = this;
+      const self = this;
       await fetch(`/api/groups/${groupId}`, {
         method: 'DELETE',
         headers: {
@@ -64,12 +66,12 @@ window.groupListComponent = function() {
       });
       this.getGroups();
     },
-    async searchChanged() {
-      let term = this.searchTerm.toLowerCase();
+    searchChanged() {
+      const term = this.searchTerm.toLowerCase();
 
       // For all groups if name contains the term show; else hide
       this.groups.forEach(g => {
-        if(term.length == 0) {
+        if(term.length === 0) {
           g.searchHide = false;
         } else {
           g.searchHide = !g.name.toLowerCase().includes(term);

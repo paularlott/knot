@@ -2,7 +2,7 @@ import Chart from 'chart.js/auto';
 
 function initSpacesChart(ident, textColor) {
   // Create the space usage chart
-  let chartConfig = {
+  const chartConfig = {
     type: 'doughnut',
     data: {
       labels: ['Running', 'Stopped', 'Available'],
@@ -43,7 +43,7 @@ function initSpacesChart(ident, textColor) {
           font: { size: 16, weight: 'normal', },
         },
         tooltip: {
-          filter: function(tooltipItem) {
+          filter(tooltipItem) {
             // Only show tooltips for the main dataset (index 0)
             return tooltipItem.datasetIndex === 0;
           }
@@ -52,7 +52,7 @@ function initSpacesChart(ident, textColor) {
     },
   };
 
-  chart = new Chart(
+  const chart = new Chart(
     document.getElementById(ident),
     chartConfig
   );
@@ -62,7 +62,7 @@ function initSpacesChart(ident, textColor) {
 
 function initTunnelChart(ident, textColor) {
   // Create the tunnel usage chart
-  let chartConfig = {
+  const chartConfig = {
     type: 'doughnut',
     data: {
       labels: ['Used', 'Available'],
@@ -102,7 +102,7 @@ function initTunnelChart(ident, textColor) {
           font: { size: 16, weight: 'normal', },
         },
         tooltip: {
-          filter: function(tooltipItem) {
+          filter(tooltipItem) {
             // Only show tooltips for the main dataset (index 0)
             return tooltipItem.datasetIndex === 0;
           }
@@ -111,7 +111,7 @@ function initTunnelChart(ident, textColor) {
     },
   };
 
-  chart = new Chart(
+  const chart = new Chart(
     document.getElementById(ident),
     chartConfig
   );
@@ -121,7 +121,7 @@ function initTunnelChart(ident, textColor) {
 
 function initComputeChart(ident, textColor) {
   // Create the compute usage chart
-  let chartConfig = {
+  const chartConfig = {
     type: 'doughnut',
     data: {
       labels: ['Used', 'Available'],
@@ -161,7 +161,7 @@ function initComputeChart(ident, textColor) {
           font: { size: 16, weight: 'normal', },
         },
         tooltip: {
-          filter: function(tooltipItem) {
+          filter(tooltipItem) {
             // Only show tooltips for the main dataset (index 0)
             return tooltipItem.datasetIndex === 0;
           }
@@ -170,7 +170,7 @@ function initComputeChart(ident, textColor) {
     },
   };
 
-  chart = new Chart(
+  const chart = new Chart(
     document.getElementById(ident),
     chartConfig
   );
@@ -180,7 +180,7 @@ function initComputeChart(ident, textColor) {
 
 function initStorageChart(ident, textColor) {
   // Create the storage usage chart
-  let chartConfig = {
+  const chartConfig = {
     type: 'doughnut',
     data: {
       labels: ['Used', 'Available'],
@@ -220,7 +220,7 @@ function initStorageChart(ident, textColor) {
           font: { size: 16, weight: 'normal', },
         },
         tooltip: {
-          filter: function(tooltipItem) {
+          filter(tooltipItem) {
             // Only show tooltips for the main dataset (index 0)
             return tooltipItem.datasetIndex === 0;
           }
@@ -229,7 +229,7 @@ function initStorageChart(ident, textColor) {
     },
   };
 
-  chart = new Chart(
+  const chart = new Chart(
     document.getElementById(ident),
     chartConfig
   );
@@ -259,7 +259,7 @@ window.usageComponent = function(userId) {
 
     async init() {
       // Initialize the graphs
-      let textColor = this.darkMode ? '#9ca3af' : '#6b7280'; // dark:text-gray-400 : text-gray-500
+      const textColor = this.darkMode ? '#9ca3af' : '#6b7280'; // dark:text-gray-400 : text-gray-500
 
       spacesChart = initSpacesChart('spaceUsage', textColor);
       tunnelsChart = initTunnelChart('tunnelUsage', textColor);
@@ -267,38 +267,37 @@ window.usageComponent = function(userId) {
       storageChart = initStorageChart('storageUsage', textColor);
 
       // Track the theme and adjust the label colors
-      self = this;
-      window.addEventListener('theme-change', function (e) {
-        const textColor = e.detail.dark_theme ? '#9ca3af' : '#6b7280'; // dark:text-gray-400 : text-gray-500
+      window.addEventListener('theme-change', (e) => {
+        const col = e.detail.dark_theme ? '#9ca3af' : '#6b7280'; // dark:text-gray-400 : text-gray-500
 
-        spacesChart.options.plugins.legend.labels.color = textColor;
-        spacesChart.options.plugins.title.color = textColor;
+        spacesChart.options.plugins.legend.labels.color = col;
+        spacesChart.options.plugins.title.color = col;
         spacesChart.update();
 
-        tunnelsChart.options.plugins.legend.labels.color = textColor;
-        tunnelsChart.options.plugins.title.color = textColor;
+        tunnelsChart.options.plugins.legend.labels.color = col;
+        tunnelsChart.options.plugins.title.color = col;
         tunnelsChart.update();
 
-        computeChart.options.plugins.legend.labels.color = textColor;
-        computeChart.options.plugins.title.color = textColor;
+        computeChart.options.plugins.legend.labels.color = col;
+        computeChart.options.plugins.title.color = col;
         computeChart.update();
 
-        storageChart.options.plugins.legend.labels.color = textColor;
-        storageChart.options.plugins.title.color = textColor;
+        storageChart.options.plugins.legend.labels.color = col;
+        storageChart.options.plugins.title.color = col;
         storageChart.update();
       });
 
-      this.getUsage();
+      await this.getUsage();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getUsage();
+        await this.getUsage();
       }, 3000);
     },
 
     async getUsage() {
-      let self = this;
-      const quotaResponse = await fetch('/api/users/' + userId + '/quota', {
+      const self = this;
+      const quotaResponse = await fetch(`/api/users/${userId}/quota`, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -312,7 +311,7 @@ window.usageComponent = function(userId) {
           self.quota.number_spaces - self.quota.number_spaces_deployed,
           self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : 0
         ];
-        spacesChart.data.labels = ['Running ' + self.quota.number_spaces_deployed, 'Stopped ' + (self.quota.number_spaces - self.quota.number_spaces_deployed), 'Available ' + (self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : '-')];
+        spacesChart.data.labels = [`Running ${self.quota.number_spaces_deployed}`, `Stopped ${self.quota.number_spaces - self.quota.number_spaces_deployed}`, `Available ${self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : '-'}`];
         spacesChart.update();
       }
 
@@ -321,7 +320,7 @@ window.usageComponent = function(userId) {
           self.quota.used_tunnels,
           self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : 0
         ];
-        tunnelsChart.data.labels = ['Used ' + self.quota.used_tunnels, 'Available ' + (self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : '-')];
+        tunnelsChart.data.labels = [`Used ${self.quota.used_tunnels}`, `Available ${self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : '-'}`];
         tunnelsChart.update();
       }
 
@@ -330,7 +329,7 @@ window.usageComponent = function(userId) {
           self.quota.used_compute_units,
           self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : 0
         ];
-        computeChart.data.labels = ['Used ' + self.quota.used_compute_units, 'Available ' + (self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : '-')];
+        computeChart.data.labels = [`Used ${self.quota.used_compute_units}`, `Available ${self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : '-'}`];
         computeChart.update();
       }
 
@@ -339,7 +338,7 @@ window.usageComponent = function(userId) {
           self.quota.used_storage_units,
           self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : 0
         ];
-        storageChart.data.labels = ['Used ' + self.quota.used_storage_units, 'Available ' + (self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : '-')];
+        storageChart.data.labels = [`Used ${self.quota.used_storage_units}`, `Available ${self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : '-'}`];
         storageChart.update();
       }
     },

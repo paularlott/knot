@@ -1,3 +1,6 @@
+import { validate } from '../validators.js';
+import { focus } from '../focus.js';
+
 window.loginUserForm = function(redirect) {
   sessionStorage.clear();
 
@@ -13,19 +16,21 @@ window.loginUserForm = function(redirect) {
     passwordValid: true,
     showTOTP: false,
     totpSecret: "",
-    redirect: redirect,
+    redirect,
     init() {
-      focusElement('input[name="email"]');
+      focus.Element('input[name="email"]');
     },
     checkEmail() {
-      return this.emailValid = validate.email(this.formData.email);
+      this.emailValid = validate.email(this.formData.email);
+      return this.emailValid;
     },
     checkPassword() {
-      return this.passwordValid = this.formData.password.length > 0;
+      this.passwordValid = this.formData.password.length > 0;
+      return this.passwordValid;
     },
     submitData() {
-      var err = false,
-          self = this;
+      let err = false;
+      const self = this;
       err = !this.checkEmail() || err;
       err = !this.checkPassword() || err;
       if(err) {
@@ -35,7 +40,7 @@ window.loginUserForm = function(redirect) {
       this.buttonLabel = 'Signing In...'
       this.loading = true;
 
-      var data = {
+      const data = {
         email: this.formData.email,
         password: this.formData.password,
         totp_code: this.formData.totp_code,
@@ -51,24 +56,26 @@ window.loginUserForm = function(redirect) {
         .then((response) => {
           if (response.status === 200) {
 
-            return response.json().then((data) => {
+            return response.json().then((d) => {
               // If need to show the TOTP code then show it otherwise redirect
-              if(data.totp_secret.length > 0) {
+              if(d.totp_secret.length > 0) {
                 self.showTOTP = true;
-                self.totpSecret = data.totp_secret;
+                self.totpSecret = d.totp_secret;
               }
               else {
                 window.location.href = self.redirect;
               }
             });
-          } else if (response.status == 429) {
+          } else if (response.status === 429) {
             self.$dispatch('show-alert', { msg: "Too many login attempts, please try again later", type: 'error' });
           } else {
             self.$dispatch('show-alert', { msg: "Invalid email, password or TOTP code", type: 'error' });
           }
+
+          return null;
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = 'Sign In';

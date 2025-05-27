@@ -1,5 +1,8 @@
+import { validate } from '../validators.js';
+import { focus } from '../focus.js';
+
 window.userForm = function(isEdit, userId, isProfile) {
-  var entity = isProfile ? 'Profile' : 'User';
+  const entity = isProfile ? 'Profile' : 'User';
 
   return {
     roles: [],
@@ -25,9 +28,9 @@ window.userForm = function(isEdit, userId, isProfile) {
     },
     last_login_at: "",
     loading: true,
-    buttonLabel: isEdit ? 'Update' : 'Create ' + entity,
+    buttonLabel: isEdit ? 'Update' : `Create ${entity}`,
     stayOnPage: true,
-    isEdit: isEdit,
+    isEdit,
     usernameValid: true,
     emailValid: true,
     passwordValid: true,
@@ -44,14 +47,14 @@ window.userForm = function(isEdit, userId, isProfile) {
     resetConfirmShow: false,
 
     async initUsers() {
-      focusElement('input[name="username"]');
+      focus.Element('input[name="username"]');
 
       const rolesResponse = await fetch('/api/roles', {
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      let roleList = await rolesResponse.json();
+      const roleList = await rolesResponse.json();
       this.roles = roleList.roles;
 
       const groupsResponse = await fetch('/api/groups', {
@@ -59,11 +62,11 @@ window.userForm = function(isEdit, userId, isProfile) {
           'Content-Type': 'application/json'
         }
       });
-      groupsList = await groupsResponse.json();
+      const groupsList = await groupsResponse.json();
       this.groups = groupsList.groups;
 
       if(isEdit) {
-        const userResponse = await fetch('/api/users/' + userId, {
+        const userResponse = await fetch(`/api/users/${userId}`, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -123,44 +126,56 @@ window.userForm = function(isEdit, userId, isProfile) {
       }
     },
     checkUsername() {
-      return this.usernameValid = validate.name(this.formData.username);
+      this.usernameValid = validate.name(this.formData.username);
+      return this.usernameValid;
     },
     checkEmail() {
-      return this.emailValid = validate.email(this.formData.email);
+      this.emailValid = validate.email(this.formData.email);
+      return this.emailValid;
     },
     checkPassword() {
-      return this.passwordValid = validate.password(this.formData.password);
+      this.passwordValid = validate.password(this.formData.password);
+      return this.passwordValid;
     },
     checkConfirmPassword() {
-      return this.confirmPasswordValid = this.formData.password == this.formData.password_confirm;
+      this.confirmPasswordValid = this.formData.password === this.formData.password_confirm;
+      return this.confirmPasswordValid;
     },
     checkShell() {
-      return this.shellValid = validate.isOneOf(this.formData.preferred_shell, ['bash', 'zsh', 'fish', 'sh']);
+      this.shellValid = validate.isOneOf(this.formData.preferred_shell, ['bash', 'zsh', 'fish', 'sh']);
+      return this.shellValid;
     },
     checkTz() {
-      return this.tzValid = validate.isOneOf(this.formData.timezone, window.Timezones);
+      this.tzValid = validate.isOneOf(this.formData.timezone, window.Timezones);
+      return this.tzValid;
     },
     checkMaxSpaces() {
-      return this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 10000);
+      this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 10000);
+      return this.maxSpacesValid;
     },
     checkComputeUnits() {
-      return this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);
+      this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);
+      return this.computeUnitsValid;
     },
     checkStorageUnits() {
-      return this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
+      this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
+      return this.storageUnitsValid;
     },
     checkMaxTunnels() {
-      return this.maxTunnelsValid = validate.isNumber(this.formData.max_tunnels, 0, 100);
+      this.maxTunnelsValid = validate.isNumber(this.formData.max_tunnels, 0, 100);
+      return this.maxTunnelsValid;
     },
     checkServicePassword() {
-      return this.servicePasswordValid = this.formData.service_password.length <= 255;
+      this.servicePasswordValid = this.formData.service_password.length <= 255;
+      return this.servicePasswordValid;
     },
     checkGithubUsername() {
-      return this.githubUsernameValid = this.formData.github_username.length <= 255;
+      this.githubUsernameValid = this.formData.github_username.length <= 255;
+      return this.githubUsernameValid;
     },
     submitData() {
-      var err = false,
-          self = this;
+      let err = false;
+      const self = this;
       err = !this.checkUsername() || err;
       err = !this.checkEmail() || err;
       if(!isEdit || this.formData.password.length > 0 || this.formData.password_confirm.length > 0) {
@@ -180,10 +195,10 @@ window.userForm = function(isEdit, userId, isProfile) {
       }
 
       if(this.stayOnPage) {
-        this.buttonLabel = (isEdit ? 'Updating ' : 'Creating ') + entity + '...';
+        this.buttonLabel = `${isEdit ? 'Updating' : 'Creating'} ${entity}...`;
       }
 
-      data = {
+      const data = {
         username: this.formData.username,
         email: this.formData.email,
         password: this.formData.password,
@@ -201,7 +216,7 @@ window.userForm = function(isEdit, userId, isProfile) {
         timezone: this.formData.timezone,
       };
 
-      fetch(isEdit ? '/api/users/' + userId : '/api/users', {
+      fetch(isEdit ? `/api/users/${userId}` : '/api/users', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -211,23 +226,23 @@ window.userForm = function(isEdit, userId, isProfile) {
         .then((response) => {
           if (response.status === 200) {
             if(this.stayOnPage) {
-              self.$dispatch('show-alert', { msg: entity + " updated", type: 'success' });
+              self.$dispatch('show-alert', { msg: `${entity} updated`, type: 'success' });
             } else {
               window.location.href = isProfile ? '/' : '/users';
             }
           } else if (response.status === 201) {
             window.location.href = '/users';
           } else {
-            response.json().then((data) => {
-              self.$dispatch('show-alert', { msg: (isEdit ? "Failed to update user, " : "Failed to create user, ") + data.error, type: 'error' });
+            response.json().then((d) => {
+              self.$dispatch('show-alert', { msg: `${isEdit ? "Failed to update user, " : "Failed to create user, "} ${d.error}`, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update' : 'Create ' + entity;
+          this.buttonLabel = isEdit ? 'Update' : `Create ${entity}`;
         })
     },
     resetTOTP() {

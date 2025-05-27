@@ -1,3 +1,5 @@
+import Alpine from 'alpinejs';
+
 window.templateListComponent = function(canManageSpaces, location) {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -11,7 +13,7 @@ window.templateListComponent = function(canManageSpaces, location) {
     loading: true,
     showAll: Alpine.$persist(false).as('templates-show-all').using(sessionStorage),
     showInactive: Alpine.$persist(false).as('templates-show-inactive').using(sessionStorage),
-    location: location,
+    location,
     deleteConfirm: {
       show: false,
       template: {
@@ -31,16 +33,16 @@ window.templateListComponent = function(canManageSpaces, location) {
     },
     templates: [],
     groups: [],
-    canManageSpaces: canManageSpaces,
+    canManageSpaces,
     users: [],
     searchTerm: Alpine.$persist('').as('template-search-term').using(sessionStorage),
 
     async init() {
-      this.getTemplates();
+      await this.getTemplates();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getTemplates();
+        await this.getTemplates();
       }, 3000);
     },
 
@@ -51,7 +53,7 @@ window.templateListComponent = function(canManageSpaces, location) {
             'Content-Type': 'application/json'
           }
         });
-        let usersList = await usersResponse.json();
+        const usersList = await usersResponse.json();
         this.users = usersList.users;
       }
 
@@ -60,7 +62,7 @@ window.templateListComponent = function(canManageSpaces, location) {
           'Content-Type': 'application/json'
         }
       });
-      groupsList = await groupsResponse.json();
+      const groupsList = await groupsResponse.json();
       this.groups = groupsList.groups;
 
       const response = await fetch('/api/templates', {
@@ -68,7 +70,7 @@ window.templateListComponent = function(canManageSpaces, location) {
           'Content-Type': 'application/json'
         }
       });
-      templateList = await response.json();
+      const templateList = await response.json();
       this.templates = templateList.templates;
 
       this.templates.forEach(template => {
@@ -100,7 +102,7 @@ window.templateListComponent = function(canManageSpaces, location) {
       window.location.href = `/spaces/create/${templateId}`;
     },
     async deleteTemplate(templateId) {
-      let self = this;
+      const self = this;
       await fetch(`/api/templates/${templateId}`, {
         method: 'DELETE',
         headers: {
@@ -116,7 +118,7 @@ window.templateListComponent = function(canManageSpaces, location) {
       this.getTemplates();
     },
     async createSpaceAs() {
-      if(this.chooseUser.forUserId == '') {
+      if(this.chooseUser.forUserId === '') {
         this.chooseUser.invalidUser = true;
         return;
       }
@@ -124,7 +126,7 @@ window.templateListComponent = function(canManageSpaces, location) {
       this.chooseUser.invalidUser = this.chooseUser.invalidTemplate = false;
 
       // Get the list of templates
-      await fetch('/api/templates?user_id=' + this.chooseUser.forUserId, {
+      await fetch(`/api/templates?user_id=${this.chooseUser.forUserId}`, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -133,24 +135,23 @@ window.templateListComponent = function(canManageSpaces, location) {
           response.json().then((templates) => {
 
             // If the selected template is in the list then created
-            let template = templates.templates.find(template => template.template_id === this.chooseUser.template.template_id);
+            const template = templates.templates.find(t => t.template_id === this.chooseUser.template.template_id);
             if(template) {
               this.chooseUser.show = false;
               window.location.href = `/spaces/create/${this.chooseUser.template.template_id}/${this.chooseUser.forUserId}`;
             } else {
               this.chooseUser.invalidTemplate = true;
-              return;
             }
           });
         }
       });
     },
-    async searchChanged() {
-      let term = this.searchTerm.toLowerCase();
+    searchChanged() {
+      const term = this.searchTerm.toLowerCase();
 
       // For all templates if name or description contains the term show; else hide
       this.templates.forEach(template => {
-        if(term.length == 0) {
+        if(term.length === 0) {
           template.searchHide = !(template.active || this.showInactive);
         } else {
           template.searchHide = !(
@@ -170,12 +171,12 @@ window.templateListComponent = function(canManageSpaces, location) {
     },
     getMaxUptime(maxUptime, maxUptimeUnit) {
       let maxUptimeString = '';
-      if(maxUptimeUnit == 'minute') {
-        maxUptimeString = maxUptime + ' minute' + (maxUptime > 1 ? 's' : '');
-      } else if(maxUptimeUnit == 'hour') {
-        maxUptimeString = maxUptime + ' hour' + (maxUptime > 1 ? 's' : '');
-      } else if(maxUptimeUnit == 'day') {
-        maxUptimeString = maxUptime + ' day' + (maxUptime > 1 ? 's' : '');
+      if(maxUptimeUnit === 'minute') {
+        maxUptimeString = `${maxUptime} minute${maxUptime > 1 ? 's' : ''}`;
+      } else if(maxUptimeUnit === 'hour') {
+        maxUptimeString = `${maxUptime} hour${maxUptime > 1 ? 's' : ''}`;
+      } else if(maxUptimeUnit === 'day') {
+        maxUptimeString = `${maxUptime} day${maxUptime > 1 ? 's' : ''}`;
       }
       return maxUptimeString;
     }

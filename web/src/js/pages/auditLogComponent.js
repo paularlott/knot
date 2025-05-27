@@ -6,16 +6,16 @@ window.auditLogComponent = function() {
     totalPages: 0,
 
     async init() {
-      this.getAuditLogs();
+      await this.getAuditLogs();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getAuditLogs();
+        await this.getAuditLogs();
       }, 3000);
     },
 
     async getAuditLogs() {
-      const response = await fetch('/api/audit-logs?start=' + (this.currentPage * 10), {
+      const response = await fetch(`/api/audit-logs?start=${this.currentPage * 10}`, {
         headers: {
           'Content-Type': 'application/json'
         }

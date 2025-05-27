@@ -1,3 +1,5 @@
+import Alpine from 'alpinejs';
+
 window.userListComponent = function() {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -29,11 +31,11 @@ window.userListComponent = function() {
     searchTerm: Alpine.$persist('').as('user-search-term').using(sessionStorage),
 
     async init() {
-      this.getUsers();
+      await this.getUsers();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getUsers();
+        await this.getUsers();
       }, 3000);
     },
 
@@ -43,7 +45,7 @@ window.userListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      let roleList = await rolesResponse.json();
+      const roleList = await rolesResponse.json();
       this.roles = roleList.roles;
 
       const groupsResponse = await fetch('/api/groups', {
@@ -51,7 +53,7 @@ window.userListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      groupList = await groupsResponse.json();
+      const groupList = await groupsResponse.json();
       this.groups = groupList.groups;
 
       const response = await fetch('/api/users', {
@@ -59,7 +61,7 @@ window.userListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      usersList = await response.json();
+      const usersList = await response.json();
       this.users = usersList.users;
 
       this.loading = false;
@@ -104,7 +106,7 @@ window.userListComponent = function() {
       window.location.href = `/spaces/${userId}`;
     },
     async deleteUser(userId) {
-      var self = this;
+      const self = this;
       await fetch(`/api/users/${userId}`, {
         method: 'DELETE',
         headers: {
@@ -122,7 +124,7 @@ window.userListComponent = function() {
       this.deleteConfirm.show = false
     },
     async stopSpaces(userId) {
-      var self = this;
+      const self = this;
       await fetch(`/api/spaces/${userId}/stop-for-user`, {
         method: 'POST',
         headers: {
@@ -139,12 +141,12 @@ window.userListComponent = function() {
       this.getUsers();
       this.stopConfirm.show = false
     },
-    async searchChanged() {
-      let term = this.searchTerm.toLowerCase();
+    searchChanged() {
+      const term = this.searchTerm.toLowerCase();
 
       // For all users if name or email address contains the term show; else hide
       this.users.forEach(u => {
-        if(term.length == 0) {
+        if(term.length === 0) {
           u.searchHide = false;
         } else {
           u.searchHide = !(

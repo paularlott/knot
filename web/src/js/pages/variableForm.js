@@ -1,3 +1,15 @@
+import { validate } from '../validators.js';
+import { focus } from '../focus.js';
+
+/// wysiwyg editor
+import ace from 'ace-builds/src-noconflict/ace';
+import 'ace-builds/src-noconflict/mode-terraform';
+import 'ace-builds/src-noconflict/mode-yaml';
+import 'ace-builds/src-noconflict/mode-text';
+import 'ace-builds/src-noconflict/theme-github';
+import 'ace-builds/src-noconflict/theme-github_dark';
+import 'ace-builds/src-noconflict/ext-searchbox';
+
 window.variableForm = function(isEdit, templateVarId, isLeafServer) {
   return {
     formData: {
@@ -10,17 +22,17 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
     },
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create Variable',
-    isEdit: isEdit,
+    isEdit,
     stayOnPage: true,
     nameValid: true,
     valueValid: true,
     locationValid: true,
 
     async initData() {
-      focusElement('input[name="name"]');
+      focus.Element('input[name="name"]');
 
       if(isEdit) {
-        const response = await fetch('/api/templatevars/' + templateVarId, {
+        const response = await fetch(`/api/templatevars/${templateVarId}`, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -29,14 +41,14 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
         if (response.status !== 200) {
           window.location.href = '/spaces';
         } else {
-          const v = await response.json();
+          const varData = await response.json();
 
-          this.formData.name = v.name;
-          this.formData.location = v.location;
-          this.formData.local = v.local;
-          this.formData.restricted = v.restricted;
-          this.formData.value = v.value;
-          this.formData.protected = v.protected;
+          this.formData.name = varData.name;
+          this.formData.location = varData.location;
+          this.formData.local = varData.local;
+          this.formData.restricted = varData.restricted;
+          this.formData.value = varData.value;
+          this.formData.protected = varData.protected;
         }
       }
 
@@ -45,7 +57,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
         darkMode = true;
 
       // Create the job editor
-      let editor = ace.edit('value');
+      const editor = ace.edit('value');
       editor.session.setValue(this.formData.value);
       editor.session.on('change', () => {
           this.formData.value = editor.getValue();
@@ -62,7 +74,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
       });
 
       // Listen for the theme_change event on the body & change the editor theme
-      window.addEventListener('theme-change', function (e) {
+      window.addEventListener('theme-change', (e) => {
         if (e.detail.dark_theme) {
           editor.setTheme("ace/theme/github_dark");
         } else {
@@ -73,18 +85,21 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
       this.loading = false;
     },
     checkName() {
-      return this.nameValid = validate.varName(this.formData.name);
+      this.nameValid = validate.varName(this.formData.name);
+      return this.nameValid;
     },
     checkValue() {
-      return this.valueValid = validate.maxLength(this.formData.value, 10 * 1024 * 1024);
+      this.valueValid = validate.maxLength(this.formData.value, 10 * 1024 * 1024);
+      return this.valueValid;
     },
     checkLocation() {
-      return this.locationValid = this.formData.local || validate.maxLength(this.formData.location, 64);
+      this.locationValid = this.formData.local || validate.maxLength(this.formData.location, 64);
+      return this.locationValid;
     },
 
     async submitData() {
-      var err = false,
-          self = this;
+      let err = false;
+      const self = this;
       err = !this.checkName() || err;
       err = !this.checkValue() || err;
       err = !this.checkLocation() || err;
@@ -97,7 +112,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
       }
       this.loading = true;
 
-      fetch(isEdit ? '/api/templatevars/' + templateVarId : '/api/templatevars', {
+      await fetch(isEdit ? `/api/templatevars/${templateVarId}` : '/api/templatevars', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -115,13 +130,13 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
             self.$dispatch('show-alert', { msg: "Variable created", type: 'success' });
             window.location.href = '/variables';
           } else {
-            response.json().then((data) => {
-              self.$dispatch('show-alert', { msg: "Failed to update the variable, " + data.error, type: 'error' });
+            response.json().then((d) => {
+              self.$dispatch('show-alert', { msg: `Failed to update the variable, ${d.error}`, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = isEdit ? 'Update' : 'Create Variable';

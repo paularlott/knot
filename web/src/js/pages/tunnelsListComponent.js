@@ -4,11 +4,11 @@ window.tunnelsListComponent = function() {
     tunnels: [],
 
     async init() {
-      this.getTunnels();
+      await this.getTunnels();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getTunnels();
+        await this.getTunnels();
       }, 3000);
     },
 
@@ -25,7 +25,7 @@ window.tunnelsListComponent = function() {
     async terminateTunnel(tunnel) {
       let self = this;
 
-      fetch(`/api/tunnels/${tunnel}`, {
+      await fetch(`/api/tunnels/${tunnel}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

@@ -4,11 +4,11 @@ window.clusterInfoComponent = function() {
     nodes: [],
 
     async init() {
-      this.getClusterInfo();
+      await this.getClusterInfo();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getClusterInfo();
+        await this.getClusterInfo();
       }, 2000);
     },
 
@@ -19,16 +19,6 @@ window.clusterInfoComponent = function() {
         }
       });
       this.nodes = await response.json();
-/*      this.logs.items.forEach(item => {
-        const date = new Date(item.when);
-        item.when = date.toLocaleString();
-      });
-
-      this.totalPages = Math.ceil(this.logs.count / 10)
-      if (this.currentPage >= this.totalPages) {
-        this.currentPage = this.totalPages - 1;
-      }*/
-
       this.loading = false;
     }
   };

@@ -1,3 +1,15 @@
+import { validate } from '../validators.js';
+import { focus } from '../focus.js';
+
+/// wysiwyg editor
+import ace from 'ace-builds/src-noconflict/ace';
+import 'ace-builds/src-noconflict/mode-terraform';
+import 'ace-builds/src-noconflict/mode-yaml';
+import 'ace-builds/src-noconflict/mode-text';
+import 'ace-builds/src-noconflict/theme-github';
+import 'ace-builds/src-noconflict/theme-github_dark';
+import 'ace-builds/src-noconflict/ext-searchbox';
+
 window.volumeForm = function(isEdit, volumeId) {
   return {
     formData: {
@@ -9,14 +21,14 @@ window.volumeForm = function(isEdit, volumeId) {
     buttonLabel: isEdit ? 'Update' : 'Create Volume',
     nameValid: true,
     volValid: true,
-    isEdit: isEdit,
+    isEdit,
     stayOnPage: true,
 
     async initData() {
-      focusElement('input[name="name"]');
+      focus.Element('input[name="name"]');
 
       if(isEdit) {
-        const volumeResponse = await fetch('/api/volumes/' + volumeId, {
+        const volumeResponse = await fetch(`/api/volumes/${volumeId}`, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -38,7 +50,7 @@ window.volumeForm = function(isEdit, volumeId) {
         darkMode = true;
 
       // Create the volume editor
-      let editorVol = ace.edit('vol');
+      const editorVol = ace.edit('vol');
       editorVol.session.setValue(this.formData.definition);
       editorVol.session.on('change', () => {
           this.formData.definition = editorVol.getValue();
@@ -56,7 +68,7 @@ window.volumeForm = function(isEdit, volumeId) {
       });
 
       // Listen for the theme_change event on the body & change the editor theme
-      window.addEventListener('theme-change', function (e) {
+      window.addEventListener('theme-change', (e) => {
         if (e.detail.dark_theme) {
           editorVol.setTheme("ace/theme/github_dark");
         } else {
@@ -67,18 +79,20 @@ window.volumeForm = function(isEdit, volumeId) {
       this.loading = false;
     },
     checkName() {
-      return this.nameValid = validate.name(this.formData.name);
+      this.nameValid = validate.name(this.formData.name);
+      return this.nameValid;
     },
     checkVol() {
-      return this.volValid = validate.required(this.formData.definition);
+      this.volValid = validate.required(this.formData.definition);
+      return this.volValid;
     },
     toggleLocalContainer() {
       this.formData.local_container = !this.formData.local_container;
     },
 
     async submitData() {
-      var err = false,
-          self = this;
+      let err = false;
+      const self = this;
       err = !this.checkName() || err;
       err = !this.checkVol() || err;
       if(err) {
@@ -90,16 +104,13 @@ window.volumeForm = function(isEdit, volumeId) {
       }
       this.loading = true;
 
-      var data = {
+      const data = {
         name: this.formData.name,
         definition: this.formData.definition,
+        local_container: this.formData.local_container,
       }
 
-      if(!isEdit) {
-        data.local_container = this.formData.local_container;
-      }
-
-      fetch(isEdit ? '/api/volumes/' + volumeId : '/api/volumes', {
+      await fetch(isEdit ? `/api/volumes/${volumeId}` : '/api/volumes', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -117,13 +128,13 @@ window.volumeForm = function(isEdit, volumeId) {
             self.$dispatch('show-alert', { msg: "Volume created", type: 'success' });
             window.location.href = '/volumes';
           } else {
-            response.json().then((data) => {
-              self.$dispatch('show-alert', { msg: "Failed to update the volume, " + data.error, type: 'error' });
+            response.json().then((d) => {
+              self.$dispatch('show-alert', { msg: `Failed to update the volume, ${d.error}`, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = isEdit ? 'Update' : 'Create Volume';
