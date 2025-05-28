@@ -9,7 +9,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { AttachAddon } from '@xterm/addon-attach';
 
 window.initializeTerminal = function(options) {
-  let terminal = new Terminal({
+  const terminal = new Terminal({
     allowProposedApi: true,
     screenKeys: true,
     useStyle: true,
@@ -23,18 +23,18 @@ window.initializeTerminal = function(options) {
     disableStdin: options.logView
   });
 
-  if (options.renderer == "webgl") {
+  if (options.renderer === "webgl") {
     terminal.loadAddon(new WebglAddon());
   } else {
     terminal.loadAddon(new CanvasAddon());
   }
 
-  let protocol = (location.protocol === "https:") ? "wss://" : "ws://";
-  let url = protocol + location.host + (options.logView ? "/logs/" + options.spaceId + "/stream" : "/proxy/spaces/" + options.spaceId + "/terminal/" + options.shell);
-  let ws = new WebSocket(url);
+  const protocol = (location.protocol === "https:") ? "wss://" : "ws://";
+  const url = protocol + location.host + (options.logView ? `/logs/${options.spaceId}/stream` : `/proxy/spaces/${options.spaceId}/terminal/${options.shell}`);
+  const ws = new WebSocket(url);
 
-  let attachAddon = new AttachAddon(ws);
-  let fitAddon = new FitAddon();
+  const attachAddon = new AttachAddon(ws);
+  const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(new WebLinksAddon());
   terminal.loadAddon(new Unicode11Addon());
@@ -45,26 +45,26 @@ window.initializeTerminal = function(options) {
 
   fitAddon.fit();
 
-  ws.onclose = function(event) {
+  ws.onclose = () => {
     terminal.write('\r\n\nconnection terminated, refresh to restart\n')
   };
 
-  ws.onopen = function() {
+  ws.onopen = () => {
     terminal.loadAddon(attachAddon);
     terminal._initialized = true;
     terminal.focus();
 
     // Do an initial resize or the terminal won't wrap correctly
-    setTimeout(function() {
+    setTimeout(() => {
       fitAddon.fit();
 
-      send = new TextEncoder().encode("\x01" + JSON.stringify({cols: terminal.cols, rows: terminal.rows}));
+      const send = new TextEncoder().encode(`\x01${JSON.stringify({cols: terminal.cols, rows: terminal.rows})}`);
       ws.send(send);
     }, 1);
 
     terminal.onResize((event) => {
-      let size = JSON.stringify({cols: event.cols, rows: event.rows});
-      let send = new TextEncoder().encode("\x01" + size);
+      const size = JSON.stringify({cols: event.cols, rows: event.rows});
+      const send = new TextEncoder().encode(`\x01${size}`);
 
       ws.send(send);
     });
@@ -73,7 +73,7 @@ window.initializeTerminal = function(options) {
       document.title = title;
     });
 
-    window.onresize = function() {
+    window.onresize = () => {
       fitAddon.fit();
     };
   };

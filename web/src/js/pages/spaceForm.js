@@ -28,6 +28,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     descValid: true,
     startOnCreate: true,
     saving: false,
+    quotaStorageLimitShow: false,
 
     async initData() {
       focus.Element('input[name="name"]');
@@ -197,7 +198,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
               window.location.href = '/spaces';
             }
           } else if (response.status === 507) {
-            self.$dispatch('show-alert', { msg: "Failed to create space, limit reached", type: 'error' });
+            self.quotaStorageLimitShow = true;
           } else {
             response.json().then((data) => {
               self.$dispatch('show-alert', { msg: (isEdit ? "Failed to update space, " : "Failed to create space, ") + data.error, type: 'error' });

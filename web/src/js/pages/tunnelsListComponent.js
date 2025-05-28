@@ -23,7 +23,7 @@ window.tunnelsListComponent = function() {
     },
 
     async terminateTunnel(tunnel) {
-      let self = this;
+      const self = this;
 
       await fetch(`/api/tunnels/${tunnel}`, {
         method: 'DELETE',
