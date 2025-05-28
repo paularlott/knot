@@ -5,7 +5,6 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/internal/database/model"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -62,15 +61,16 @@ var createCmd = &cobra.Command{
 		}
 
 		// Create the template
-		space := &model.Space{
-			UserId:     "",
-			TemplateId: templateId,
-			Name:       args[0],
-			AltNames:   []string{},
-			Shell:      shell,
+		space := &apiclient.CreateSpaceRequest{
+			Name:        args[0],
+			Description: "",
+			TemplateId:  templateId,
+			Shell:       shell,
+			UserId:      "",
+			AltNames:    []string{},
 		}
 
-		_, err = client.CreateSpace(space)
+		_, _, err = client.CreateSpace(space)
 		if err != nil {
 			fmt.Println("Error creating space: ", err)
 			return

@@ -4,8 +4,6 @@ import (
 	"errors"
 	"net/url"
 	"time"
-
-	"github.com/paularlott/knot/internal/database/model"
 )
 
 type UserResponse struct {
@@ -105,7 +103,7 @@ func (c *ApiClient) CreateUser(request *CreateUserRequest) (string, int, error) 
 	return response.UserId, code, nil
 }
 
-func (c *ApiClient) GetUser(userId string) (*model.User, error) {
+func (c *ApiClient) GetUser(userId string) (*UserResponse, error) {
 	response := UserResponse{}
 
 	code, err := c.httpClient.Get("/api/users/"+userId, &response)
@@ -117,32 +115,10 @@ func (c *ApiClient) GetUser(userId string) (*model.User, error) {
 		}
 	}
 
-	user := &model.User{
-		Id:              response.Id,
-		Username:        response.Username,
-		Email:           response.Email,
-		ServicePassword: response.ServicePassword,
-		SSHPublicKey:    response.SSHPublicKey,
-		GitHubUsername:  response.GitHubUsername,
-		Roles:           response.Roles,
-		Groups:          response.Groups,
-		Active:          response.Active,
-		MaxSpaces:       response.MaxSpaces,
-		ComputeUnits:    response.ComputeUnits,
-		StorageUnits:    response.StorageUnits,
-		MaxTunnels:      response.MaxTunnels,
-		PreferredShell:  response.PreferredShell,
-		Timezone:        response.Timezone,
-		LastLoginAt:     response.LastLoginAt,
-		CreatedAt:       response.CreatedAt,
-		UpdatedAt:       response.UpdatedAt,
-		TOTPSecret:      response.TOTPSecret,
-	}
-
-	return user, nil
+	return &response, nil
 }
 
-func (c *ApiClient) WhoAmI() (*model.User, error) {
+func (c *ApiClient) WhoAmI() (*UserResponse, error) {
 	response := UserResponse{}
 
 	_, err := c.httpClient.Get("/api/users/whoami", &response)
@@ -150,28 +126,7 @@ func (c *ApiClient) WhoAmI() (*model.User, error) {
 		return nil, err
 	}
 
-	user := &model.User{
-		Id:              response.Id,
-		Username:        response.Username,
-		Email:           response.Email,
-		ServicePassword: response.ServicePassword,
-		SSHPublicKey:    response.SSHPublicKey,
-		GitHubUsername:  response.GitHubUsername,
-		Roles:           response.Roles,
-		Groups:          response.Groups,
-		Active:          response.Active,
-		MaxSpaces:       response.MaxSpaces,
-		ComputeUnits:    response.ComputeUnits,
-		StorageUnits:    response.StorageUnits,
-		MaxTunnels:      response.MaxTunnels,
-		PreferredShell:  response.PreferredShell,
-		Timezone:        response.Timezone,
-		LastLoginAt:     response.LastLoginAt,
-		CreatedAt:       response.CreatedAt,
-		UpdatedAt:       response.UpdatedAt,
-	}
-
-	return user, nil
+	return &response, nil
 }
 
 func (c *ApiClient) GetUsers(state string, location string) (*UserInfoList, error) {

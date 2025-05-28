@@ -88,7 +88,7 @@ func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) GetSpace(spaceId string) (*model.Space, int, error) {
+func (c *ApiClient) GetSpace(spaceId string) (*SpaceDefinition, int, error) {
 	response := &SpaceDefinition{}
 
 	code, err := c.httpClient.Get("/api/spaces/"+spaceId, &response)
@@ -96,39 +96,11 @@ func (c *ApiClient) GetSpace(spaceId string) (*model.Space, int, error) {
 		return nil, code, err
 	}
 
-	now := time.Now().UTC()
-
-	space := &model.Space{
-		Id:           spaceId,
-		UserId:       response.UserId,
-		TemplateId:   response.TemplateId,
-		Name:         response.Name,
-		Description:  response.Description,
-		AltNames:     response.AltNames,
-		Shell:        response.Shell,
-		TemplateHash: "",
-		IsDeployed:   response.IsDeployed,
-		IsPending:    response.IsPending,
-		IsDeleting:   response.IsDeleting,
-		VolumeData:   response.VolumeData,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-		Location:     response.Location,
-	}
-
-	return space, code, nil
+	return response, code, nil
 }
 
-func (c *ApiClient) UpdateSpace(space *model.Space) (int, error) {
-	request := &UpdateSpaceRequest{
-		UserId:     space.UserId,
-		TemplateId: space.TemplateId,
-		Name:       space.Name,
-		AltNames:   space.AltNames,
-		Shell:      space.Shell,
-	}
-
-	code, err := c.httpClient.Put("/api/spaces/"+space.Id, request, nil, 200)
+func (c *ApiClient) UpdateSpace(spaceId string, space *UpdateSpaceRequest) (int, error) {
+	code, err := c.httpClient.Put("/api/spaces/"+spaceId, space, nil, 200)
 	if err != nil {
 		return code, err
 	}
@@ -136,26 +108,15 @@ func (c *ApiClient) UpdateSpace(space *model.Space) (int, error) {
 	return code, nil
 }
 
-func (c *ApiClient) CreateSpace(space *model.Space) (int, error) {
-	request := &CreateSpaceRequest{
-		UserId:     space.UserId,
-		TemplateId: space.TemplateId,
-		Name:       space.Name,
-		AltNames:   space.AltNames,
-		Shell:      space.Shell,
-	}
-
+func (c *ApiClient) CreateSpace(space *CreateSpaceRequest) (string, int, error) {
 	response := &CreateSpaceResponse{}
 
-	code, err := c.httpClient.Post("/api/spaces", request, response, 201)
+	code, err := c.httpClient.Post("/api/spaces", space, response, 201)
 	if err != nil {
-		return code, err
+		return "", code, err
 	}
 
-	// Match ID to core server
-	space.Id = response.SpaceID
-
-	return code, nil
+	return response.SpaceID, code, nil
 }
 
 func (c *ApiClient) DeleteSpace(spaceId string) (int, error) {
