@@ -309,7 +309,7 @@ window.usageComponent = function(userId) {
         spacesChart.data.datasets[0].data = [
           self.quota.number_spaces_deployed,
           self.quota.number_spaces - self.quota.number_spaces_deployed,
-          self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : 0
+          Math.max(0, self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : 0)
         ];
         spacesChart.data.labels = [`Running ${self.quota.number_spaces_deployed}`, `Stopped ${self.quota.number_spaces - self.quota.number_spaces_deployed}`, `Available ${self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : '-'}`];
         spacesChart.update();
@@ -318,7 +318,7 @@ window.usageComponent = function(userId) {
       if (tunnelsChart) {
         tunnelsChart.data.datasets[0].data = [
           self.quota.used_tunnels,
-          self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : 0
+          Math.max(0, self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : 0)
         ];
         tunnelsChart.data.labels = [`Used ${self.quota.used_tunnels}`, `Available ${self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : '-'}`];
         tunnelsChart.update();
@@ -327,7 +327,7 @@ window.usageComponent = function(userId) {
       if (computeChart) {
         computeChart.data.datasets[0].data = [
           self.quota.used_compute_units,
-          self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : 0
+          Math.max(0, self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : 0)
         ];
         computeChart.data.labels = [`Used ${self.quota.used_compute_units}`, `Available ${self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : '-'}`];
         computeChart.update();
@@ -336,7 +336,7 @@ window.usageComponent = function(userId) {
       if (storageChart) {
         storageChart.data.datasets[0].data = [
           self.quota.used_storage_units,
-          self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : 0
+          Math.max(0, self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : 0)
         ];
         storageChart.data.labels = [`Used ${self.quota.used_storage_units}`, `Available ${self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : '-'}`];
         storageChart.update();
