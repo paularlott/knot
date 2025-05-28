@@ -75,6 +75,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.ComputeUnits = template.ComputeUnits
 		templateData.StorageUnits = template.StorageUnits
 		templateData.ScheduleEnabled = template.ScheduleEnabled
+		templateData.AutoStart = template.AutoStart
 		templateData.Locations = template.Locations
 		templateData.Active = template.Active
 		templateData.MaxUptime = template.MaxUptime
@@ -218,6 +219,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.ComputeUnits = request.ComputeUnits
 	template.StorageUnits = request.StorageUnits
 	template.ScheduleEnabled = request.ScheduleEnabled
+	template.AutoStart = request.AutoStart
 	template.Schedule = make([]model.TemplateScheduleDays, 7)
 	template.Locations = request.Locations
 	template.UpdatedAt = time.Now().UTC()
@@ -335,7 +337,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &scheduleDays, request.Locations)
+	template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &scheduleDays, request.Locations, request.AutoStart)
 	template.Active = request.Active
 	template.MaxUptime = request.MaxUptime
 	template.MaxUptimeUnit = request.MaxUptimeUnit
@@ -484,6 +486,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		WithCodeServer:   template.WithCodeServer,
 		WithSSH:          template.WithSSH,
 		ScheduleEnabled:  template.ScheduleEnabled,
+		AutoStart:        template.AutoStart,
 		Schedule:         make([]apiclient.TemplateDetailsDay, 7),
 		ComputeUnits:     template.ComputeUnits,
 		StorageUnits:     template.StorageUnits,

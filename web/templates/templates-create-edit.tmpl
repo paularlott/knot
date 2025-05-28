@@ -78,12 +78,20 @@
 
         <div>
           <label class="flex items-center cursor-pointer mb-2">
-            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.schedule_enabled" @change="toggleSchduleEnabled()">
+            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.schedule_enabled" x-model="formData.schedule_enabled">
             <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Schedule</span>
           </label>
         </div>
         <div x-show="formData.schedule_enabled" x-clock>
+          <div class="mb-4">
+            <label class="flex items-center cursor-pointer mb-2">
+              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.auto_start" x-model="formData.auto_start">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Auto Start</span>
+            </label>
+          </div>
+
           <template x-for="index in 7" :key="index">
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-2 sm:gap-4 w-full max-w-xl">
               <div class="col-span-2 sm:col-span-1 mb-0 sm:mb-2">
@@ -159,22 +167,22 @@
           <div class="col-span-1">
             <label class="form-label">Features</label>
             <label class="flex items-center cursor-pointer mb-2">
-              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_terminal" @change="toggleWithTerminal()">
+              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_terminal" x-model="formData.with_terminal">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Web Terminal</span>
             </label>
             <label class="flex items-center cursor-pointer mb-2">
-              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_ssh" @change="toggleWithSSH()">
+              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_ssh" x-model="formData.with_ssh">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">SSH</span>
             </label>
             <label class="flex items-center cursor-pointer mb-2">
-              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_code_server" @change="toggleWithCodeServer()">
+              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_code_server" x-model="formData.with_code_server">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Code Server</span>
             </label>
             <label class="flex items-center cursor-pointer mb-2">
-              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_vscode_tunnel" @change="toggleWithVSCodeTunnel()">
+              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_vscode_tunnel" x-model="formData.with_vscode_tunnel">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">VSCode Tunnel</span>
             </label>
@@ -195,7 +203,7 @@
 
         <div x-show="!formData.is_manual" x-cloak>
           <label class="flex items-center cursor-pointer mb-2">
-            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.active" @change="toggleActive()">
+            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.active" x-model="formData.active">
             <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
           </label>

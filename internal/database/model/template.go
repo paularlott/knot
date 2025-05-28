@@ -32,6 +32,7 @@ type Template struct {
 	ComputeUnits     uint32                 `json:"compute_units" db:"compute_units"`
 	StorageUnits     uint32                 `json:"storage_units" db:"storage_units"`
 	ScheduleEnabled  bool                   `json:"schedule_enabled" db:"schedule_enabled"`
+	AutoStart        bool                   `json:"auto_start" db:"auto_start"`
 	IsDeleted        bool                   `json:"is_deleted" db:"is_deleted"`
 	IsManaged        bool                   `json:"is_managed" db:"is_managed"`
 	Schedule         []TemplateScheduleDays `json:"schedule" db:"schedule,json"`
@@ -50,7 +51,7 @@ type TemplateScheduleDays struct {
 	To      string `json:"to"`
 }
 
-func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool, isManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateScheduleDays, locations []string) *Template {
+func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool, isManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateScheduleDays, locations []string, autoStart bool) *Template {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -85,6 +86,7 @@ func NewTemplate(name string, description string, job string, volumes string, us
 	} else {
 		template.ScheduleEnabled = true
 		template.Schedule = *schedule
+		template.AutoStart = autoStart
 	}
 
 	return template

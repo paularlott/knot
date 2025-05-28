@@ -2493,6 +2493,9 @@ components:
         schedule_enabled:
           type: boolean
           description: If the template has a schedule enabled.
+        auto_start:
+          type: boolean
+          description: If the template has auto start enabled.
         schedule:
           type: array
           description: The schedule for the template.
@@ -2585,6 +2588,9 @@ components:
         schedule_enabled:
           type: boolean
           description: If the template has a schedule enabled.
+        auto_start:
+          type: boolean
+          description: If the template has auto start enabled.
         schedule:
           type: array
           description: The schedule for the template.
@@ -2656,6 +2662,9 @@ components:
         schedule_enabled:
           type: boolean
           description: If the template has a schedule enabled.
+        auto_start:
+          type: boolean
+          description: If the template has auto start enabled.
         schedule:
           type: array
           description: The schedule for the template.
@@ -2743,6 +2752,9 @@ components:
         schedule_enabled:
           type: boolean
           description: If the template has a schedule enabled.
+        auto_start:
+          type: boolean
+          description: If the template has auto start enabled.
         schedule:
           type: array
           description: The schedule for the template.

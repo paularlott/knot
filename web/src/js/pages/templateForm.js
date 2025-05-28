@@ -33,6 +33,7 @@ window.templateForm = function(isEdit, templateId) {
       max_uptime: 0,
       max_uptime_unit: 'disabled',
       schedule_enabled: false,
+      auto_start: false,
       schedule: [
         {
           enabled: false,
@@ -133,6 +134,7 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.storage_units = template.storage_units;
           this.formData.active = template.active;
           this.formData.schedule_enabled = template.schedule_enabled;
+          this.formData.auto_start = template.auto_start;
           this.formData.schedule = template.schedule;
           this.formData.max_uptime = template.max_uptime;
           this.formData.max_uptime_unit = template.max_uptime_unit;
@@ -245,24 +247,6 @@ window.templateForm = function(isEdit, templateId) {
         this.formData.local_container = false;
       }
     },
-    toggleActive() {
-      this.formData.active = !this.formData.active;
-    },
-    toggleWithTerminal() {
-      this.formData.with_terminal = !this.formData.with_terminal;
-    },
-    toggleWithVSCodeTunnel() {
-      this.formData.with_vscode_tunnel = !this.formData.with_vscode_tunnel;
-    },
-    toggleWithCodeServer() {
-      this.formData.with_code_server = !this.formData.with_code_server;
-    },
-    toggleWithSSH() {
-      this.formData.with_ssh = !this.formData.with_ssh;
-    },
-    toggleSchduleEnabled() {
-      this.formData.schedule_enabled = !this.formData.schedule_enabled;
-    },
     toggleDaySchedule(day) {
       this.formData.schedule[day].enabled = !this.formData.schedule[day].enabled;
     },
@@ -318,6 +302,7 @@ window.templateForm = function(isEdit, templateId) {
         compute_units: parseInt(this.formData.compute_units),
         storage_units: parseInt(this.formData.storage_units),
         schedule_enabled: this.formData.schedule_enabled,
+        auto_start: this.formData.auto_start,
         schedule: this.formData.schedule,
         locations: this.formData.locations,
         active: this.formData.active,

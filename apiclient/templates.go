@@ -14,6 +14,7 @@ type TemplateCreateRequest struct {
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
+	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
@@ -34,6 +35,7 @@ type TemplateUpdateRequest struct {
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
+	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
@@ -59,6 +61,7 @@ type TemplateInfo struct {
 	IsManual        bool                 `json:"is_manual"`
 	IsManaged       bool                 `json:"is_managed"`
 	ScheduleEnabled bool                 `json:"schedule_enabled"`
+	AutoStart       bool                 `json:"auto_start"`
 	ComputeUnits    uint32               `json:"compute_units"`
 	StorageUnits    uint32               `json:"storage_units"`
 	Schedule        []TemplateDetailsDay `json:"schedule"`
@@ -98,6 +101,7 @@ type TemplateDetails struct {
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
+	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
 	Locations        []string             `json:"locations"`
 	MaxUptime        uint32               `json:"max_uptime"`
@@ -115,7 +119,7 @@ func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string) (int, error) {
+func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string, autoStart bool) (int, error) {
 	request := TemplateUpdateRequest{
 		Name:             name,
 		Job:              job,
@@ -131,6 +135,7 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 		Locations:        locations,
 		MaxUptime:        0,
 		MaxUptimeUnit:    "disabled",
+		AutoStart:        autoStart,
 	}
 
 	if schedule == nil || !scheduleEnabled {
@@ -144,7 +149,7 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 	return c.httpClient.Put("/api/templates/"+templateId, &request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string) (string, int, error) {
+func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string, autoStart bool) (string, int, error) {
 	request := TemplateCreateRequest{
 		Name:             name,
 		Job:              job,
@@ -160,6 +165,7 @@ func (c *ApiClient) CreateTemplate(name string, job string, description string, 
 		ComputeUnits:     computeUnits,
 		StorageUnits:     storageUnits,
 		Locations:        locations,
+		AutoStart:        autoStart,
 	}
 
 	if schedule == nil || !scheduleEnabled {

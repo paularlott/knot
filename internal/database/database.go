@@ -232,7 +232,7 @@ func GetUserUsage(userId string, inLocation string) (*model.Usage, error) {
 		// Get the template
 		template, err := db.GetTemplate(space.TemplateId)
 		if err == nil {
-			if space.IsDeployed {
+			if space.IsDeployed || space.IsPending {
 				usage.ComputeUnits += template.ComputeUnits
 			}
 
