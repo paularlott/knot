@@ -612,7 +612,7 @@
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Compute Unit Quota Exceeded</h3>
+            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Compute Quota Exceeded</h3>
             <button @click="quotaComputeLimit.show = false" aria-label="close modal" class="cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -623,14 +623,14 @@
           <div class="px-4 py-4 text-center">
             <template x-if="!quotaComputeLimit.isShared">
               <div>
-                <p>Starting this space would exceed your compute unit quota.</p>
-                <p>You can stop another space to reduce your compute unit usage or contact your administrator to increase your quota.</p>
+                <p>Starting this space would exceed your compute quota.</p>
+                <p>You can stop another space to reduce your compute usage or contact your administrator to increase your quota.</p>
               </div>
             </template>
             <template x-if="quotaComputeLimit.isShared">
               <div>
-                <p>Starting this space would exceed the owners compute unit quota.</p>
-                <p>The owner can stop another space to reduce their compute unit usage or contact the administrator to increase their quota.</p>
+                <p>Starting this space would exceed the owners compute quota.</p>
+                <p>The owner can stop another space to reduce their compute usage or contact the administrator to increase their quota.</p>
               </div>
             </template>
           </div>
@@ -651,7 +651,7 @@
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Storage Unit Quota Exceeded</h3>
+            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Storage Quota Exceeded</h3>
             <button @click="quotaStorageLimit.show = false" aria-label="close modal" class="cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -662,14 +662,14 @@
           <div class="px-4 py-4 text-center">
             <template x-if="!quotaStorageLimit.isShared">
               <div>
-                <p>Starting this space would exceed your storage unit quota.</p>
-                <p>You can stop and delete another space to reduce your storage unit usage or contact your administrator to increase your quota.</p>
+                <p>Starting this space would exceed your storage quota.</p>
+                <p>You can stop and delete another space to reduce your storage usage or contact your administrator to increase your quota.</p>
               </div>
             </template>
             <template x-if="quotaStorageLimit.isShared">
               <div>
-                <p>Starting this space would exceed the owners storage unit quota.</p>
-                <p>The owner can stop and delete another space to reduce their storage unit usage or contact the administrator to increase their quota.</p>
+                <p>Starting this space would exceed the owners storage quota.</p>
+                <p>The owner can stop and delete another space to reduce their storage usage or contact the administrator to increase their quota.</p>
               </div>
             </template>
           </div>
