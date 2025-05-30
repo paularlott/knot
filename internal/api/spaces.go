@@ -9,9 +9,6 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/internal/container"
-	"github.com/paularlott/knot/internal/container/docker"
-	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -221,7 +218,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipSpace(space)
 
 	// Delete the space in the background
-	RealDeleteSpace(space)
+	service.GetContainerService().DeleteSpace(space)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -455,66 +452,12 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Mark the space as pending and save it
-	space.IsPending = true
-	space.UpdatedAt = time.Now().UTC()
-	if err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
-		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	service.GetTransport().GossipSpace(space)
-
-	// Revert the pending status if the deploy fails
-	var deployFailed = true
-	defer func() {
-		if deployFailed {
-			// If the deploy failed then revert the space to not pending
-			space.IsPending = false
-			space.UpdatedAt = time.Now().UTC()
-			db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
-			service.GetTransport().GossipSpace(space)
-		}
-	}()
-
-	// Get the variables
-	variables, err := db.GetTemplateVars()
-	if err != nil {
-		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	vars := model.FilterVars(variables)
-
-	var containerClient container.ContainerManager
-	if template.LocalContainer {
-		containerClient = docker.NewClient()
-	} else {
-		containerClient = nomad.NewClient()
-	}
-
-	// Create volumes
-	err = containerClient.CreateSpaceVolumes(user, template, space, &vars)
-	if err != nil {
-		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	// Start the job
-	err = containerClient.CreateSpaceJob(user, template, space, &vars)
-	if err != nil {
-		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+	if err := service.GetContainerService().StartSpace(space, template, user); err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-
-	// Don't revert the space on success
-	deployFailed = false
 }
 
 func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
@@ -556,7 +499,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = deleteSpaceJob(space)
+	err = service.GetContainerService().StopSpace(space)
 	if err != nil {
 		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -564,47 +507,6 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-}
-
-func deleteSpaceJob(space *model.Space) error {
-	db := database.GetInstance()
-
-	// Get the template
-	template, err := db.GetTemplate(space.TemplateId)
-	if err != nil {
-		log.Error().Msgf("DeleteSpaceJob: failed to get template %s", err.Error())
-		return err
-	}
-
-	// Mark the space as pending and save it
-	space.IsPending = true
-	space.UpdatedAt = time.Now().UTC()
-	if err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
-		log.Error().Msgf("DeleteSpaceJob: failed to save space %s", err.Error())
-		return err
-	}
-	service.GetTransport().GossipSpace(space)
-
-	var containerClient container.ContainerManager
-	if template.LocalContainer {
-		containerClient = docker.NewClient()
-	} else {
-		containerClient = nomad.NewClient()
-	}
-
-	// Stop the job
-	err = containerClient.DeleteSpaceJob(space)
-	if err != nil {
-		space.IsPending = false
-		space.UpdatedAt = time.Now().UTC()
-		db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
-		service.GetTransport().GossipSpace(space)
-
-		log.Error().Msgf("DeleteSpaceJob: failed to delete space %s", err.Error())
-		return err
-	}
-
-	return nil
 }
 
 func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
@@ -736,13 +638,8 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db := database.GetInstance()
-
-	// Get the nomad & container clients
-	nomadClient := nomad.NewClient()
-	containerClient := docker.NewClient()
-
 	// Stop all spaces
+	db := database.GetInstance()
 	spaces, err := db.GetSpacesForUser(userId)
 	if err != nil {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
@@ -752,38 +649,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	for _, space := range spaces {
 		// We skip spaces that have been shared with the user
 		if space.UserId == userId && space.IsDeployed && (space.Location == "" || space.Location == config.Location) {
-
-			// Load the template for the space
-			template, err := db.GetTemplate(space.TemplateId)
-			if err != nil {
-				log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
-				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-				return
-			}
-
-			// Mark the space as pending and save it
-			space.IsPending = true
-			space.UpdatedAt = time.Now().UTC()
-			if err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
-				log.Error().Msgf("HandleSpaceStart: %s", err.Error())
-				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-				return
-			}
-
-			service.GetTransport().GossipSpace(space)
-
-			if template.LocalContainer {
-				err = containerClient.DeleteSpaceJob(space)
-			} else {
-				err = nomadClient.DeleteSpaceJob(space)
-			}
-			if err != nil {
-				space.IsPending = false
-				space.UpdatedAt = time.Now().UTC()
-				db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
-				service.GetTransport().GossipSpace(space)
-
-				log.Error().Msgf("HandleSpaceStopUsersSpaces: %s", err.Error())
+			if err := service.GetContainerService().StopSpace(space); err != nil {
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
@@ -836,61 +702,6 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, &response)
-}
-
-func RealDeleteSpace(space *model.Space) {
-	go func() {
-		log.Info().Msgf("api: RealDeleteSpace: deleting %s", space.Id)
-
-		db := database.GetInstance()
-
-		template, err := db.GetTemplate(space.TemplateId)
-		if err != nil {
-			log.Error().Msgf("api: RealDeleteSpace load template %s", err.Error())
-
-			space.IsDeleting = false
-			space.UpdatedAt = time.Now().UTC()
-			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-			service.GetTransport().GossipSpace(space)
-			return
-		}
-
-		var containerClient container.ContainerManager
-		if template.LocalContainer {
-			containerClient = docker.NewClient()
-		} else {
-			containerClient = nomad.NewClient()
-		}
-
-		// Delete volumes on failure we log the error and revert the space to not deleting
-		err = containerClient.DeleteSpaceVolumes(space)
-		if err != nil {
-			log.Error().Msgf("api: RealDeleteSpace %s", err.Error())
-
-			space.IsDeleting = false
-			space.UpdatedAt = time.Now().UTC()
-			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-			service.GetTransport().GossipSpace(space)
-			return
-		}
-
-		// Delete the space
-		space.IsDeleted = true
-		space.Name = space.Id
-		space.UpdatedAt = time.Now().UTC()
-		err = db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt", "Name"})
-		if err != nil {
-			log.Error().Msgf("api: RealDeleteSpace %s", err.Error())
-			return
-		}
-
-		service.GetTransport().GossipSpace(space)
-
-		// Delete the agent state if present
-		agent_server.RemoveSession(space.Id)
-
-		log.Info().Msgf("api: RealDeleteSpace: deleted %s", space.Id)
-	}()
 }
 
 func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {

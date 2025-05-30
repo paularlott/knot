@@ -59,6 +59,7 @@ func init() {
 	serverCmd.Flags().Int("audit-retention", 90, "The number of days to keep audit logs (default \"90\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION environment variable if set.")
 	serverCmd.Flags().BoolP("disable-space-create", "", false, "Disable the ability to create spaces.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE environment variable if set.")
 	serverCmd.Flags().BoolP("auth-ip-rate-limiting", "", true, "Enable IP rate limiting of authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUTH_IP_RATE_LIMITING environment variable if set.")
+	serverCmd.Flags().StringP("files-path", "", "", "The path to the files directory to serve files from.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_FILES_PATH environment variable if set.")
 
 	// UI
 	serverCmd.Flags().BoolP("hide-support-links", "", false, "Hide the support links in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS environment variable if set.")
@@ -179,6 +180,10 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.agent_path", cmd.Flags().Lookup("agent-path"))
 		viper.BindEnv("server.agent_path", config.CONFIG_ENV_PREFIX+"_AGENT_PATH")
 		viper.SetDefault("server.agent_path", "")
+
+		viper.BindPFlag("server.files_path", cmd.Flags().Lookup("files-path"))
+		viper.BindEnv("server.files_path", config.CONFIG_ENV_PREFIX+"_FILES_PATH")
+		viper.SetDefault("server.files_path", "")
 
 		viper.BindPFlag("server.encrypt", cmd.Flags().Lookup("encrypt"))
 		viper.BindEnv("server.encrypt", config.CONFIG_ENV_PREFIX+"_ENCRYPT")
@@ -659,7 +664,7 @@ func startupCheckPendingSpaces() {
 			// If deleting then delete it
 			if space.IsDeleting && (space.Location == "" || space.Location == config.Location) {
 				log.Info().Msgf("server: found deleting space %s", space.Name)
-				api.RealDeleteSpace(space)
+				service.GetContainerService().DeleteSpace(space)
 			}
 		}
 	}

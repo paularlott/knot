@@ -7,9 +7,6 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/internal/container"
-	"github.com/paularlott/knot/internal/container/docker"
-	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -27,6 +24,11 @@ var (
 	createTokenMutex = sync.Mutex{}
 )
 
+type stopListItem struct {
+	space   *model.Space
+	session *Session
+}
+
 // Periodically check to see if the space has a schedule which requires it be stopped
 func checkSchedules() {
 	log.Info().Msg("agent: starting schedule checker")
@@ -42,6 +44,7 @@ func checkSchedules() {
 
 				db := database.GetInstance()
 
+				sessionStopList := make([]*stopListItem, 0)
 				sessionMutex.RLock()
 				for _, session := range sessions {
 					space, err := db.GetSpace(session.Id)
@@ -55,39 +58,20 @@ func checkSchedules() {
 					}
 
 					if !template.AllowedBySchedule() || space.MaxUptimeReached(template) {
-						log.Info().Msgf("agent: stopping space %s due to schedule", space.Id)
-
-						// Mark the space as pending and save it
-						space.IsPending = true
-						space.UpdatedAt = time.Now().UTC()
-						if err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
-							log.Error().Msgf("agent: failed to save space %s", err.Error())
-							continue
-						}
-
-						service.GetTransport().GossipSpace(space)
-
-						var containerClient container.ContainerManager
-						if template.LocalContainer {
-							containerClient = docker.NewClient()
-						} else {
-							containerClient = nomad.NewClient()
-						}
-
-						// Stop the job
-						err = containerClient.DeleteSpaceJob(space)
-						if err != nil {
-							space.IsPending = false
-							space.UpdatedAt = time.Now().UTC()
-							db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
-							service.GetTransport().GossipSpace(space)
-
-							log.Error().Msgf("agent: failed to delete space %s", err.Error())
-							continue
-						}
+						sessionStopList = append(sessionStopList, &stopListItem{
+							space:   space,
+							session: session,
+						})
 					}
 				}
 				sessionMutex.RUnlock()
+
+				// Stop sessions that need to be stopped
+				for _, item := range sessionStopList {
+					log.Info().Msgf("agent: stopping session %s due to schedule", item.session.Id)
+					service.GetContainerService().StopSpace(item.space)
+				}
+				sessionStopList = nil
 
 				// Look for spaces that need to be started
 				spaces, err := db.GetSpaces()
@@ -132,61 +116,7 @@ func checkSchedules() {
 								}
 							}
 
-							func() {
-								// Mark the space as pending and save it
-								space.IsPending = true
-								space.UpdatedAt = time.Now().UTC()
-								if err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
-									log.Error().Msgf("agent: failed to save space %s", err.Error())
-									return
-								}
-
-								service.GetTransport().GossipSpace(space)
-
-								// Revert the pending status if the deploy fails
-								var deployFailed = true
-								defer func() {
-									if deployFailed {
-										// If the deploy failed then revert the space to not pending
-										space.IsPending = false
-										space.UpdatedAt = time.Now().UTC()
-										db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
-										service.GetTransport().GossipSpace(space)
-									}
-								}()
-
-								var containerClient container.ContainerManager
-								if template.LocalContainer {
-									containerClient = docker.NewClient()
-								} else {
-									containerClient = nomad.NewClient()
-								}
-
-								// Get the variables
-								variables, err := db.GetTemplateVars()
-								if err != nil {
-									log.Error().Err(err).Msgf("agent: GetTemplateVars")
-									return
-								}
-
-								vars := model.FilterVars(variables)
-
-								// Create volumes
-								err = containerClient.CreateSpaceVolumes(user, template, space, &vars)
-								if err != nil {
-									log.Error().Err(err).Msgf("agent: CreateSpaceVolumes")
-									return
-								}
-
-								// Start the job
-								err = containerClient.CreateSpaceJob(user, template, space, &vars)
-								if err != nil {
-									log.Error().Err(err).Msgf("agent: CreateSpaceJob")
-									return
-								}
-
-								deployFailed = false
-							}()
+							service.GetContainerService().StartSpace(space, template, user)
 						}
 					}
 				}

@@ -4,6 +4,7 @@
 /web/agents/*
 !/web/agents/.gitignore
 /node_modules
+/files-test
 .knot.yml
 .knot-leaf1.yml
 .knot-leaf2.yml
