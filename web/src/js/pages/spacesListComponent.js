@@ -82,7 +82,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         let usersList = await usersResponse.json();
         this.users = usersList.users;
 
-        this.forUsersList = [{ user_id: '', username: '[All Users]' }, { user_id: userId, username: '[My Spaces]' }, ...usersList.users];
+        this.forUsersList = [{ user_id: '', username: '[All Users]' }, { user_id: userId, username: '[My Spaces]', email: '' }, ...usersList.users];
 
         setTimeout(async () => {
           usersResponse = await fetch('/api/users?state=active&local=true', {
