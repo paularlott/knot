@@ -75,6 +75,7 @@ window.templateListComponent = function(canManageSpaces, location) {
 
       this.templates.forEach(template => {
         template.showIdPopup = false;
+        template.icon_url_exists = this.imageExists(template.icon_url);
 
         // Convert group IDs to names
         template.group_names = [];
@@ -91,6 +92,18 @@ window.templateListComponent = function(canManageSpaces, location) {
       this.searchChanged();
 
       this.loading = false;
+    },
+    async imageExists(url) {
+      if (!url.length) {
+        return false;
+      }
+
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok;
+      } catch {
+        return false;
+      }
     },
     editTemplate(templateId) {
       window.location.href = `/templates/edit/${templateId}`;

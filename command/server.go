@@ -59,7 +59,8 @@ func init() {
 	serverCmd.Flags().Int("audit-retention", 90, "The number of days to keep audit logs (default \"90\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION environment variable if set.")
 	serverCmd.Flags().BoolP("disable-space-create", "", false, "Disable the ability to create spaces.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE environment variable if set.")
 	serverCmd.Flags().BoolP("auth-ip-rate-limiting", "", true, "Enable IP rate limiting of authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUTH_IP_RATE_LIMITING environment variable if set.")
-	serverCmd.Flags().StringP("files-path", "", "", "The path to the files directory to serve files from.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_FILES_PATH environment variable if set.")
+	serverCmd.Flags().StringP("public-files-path", "", "", "The path to the a directory to serve as /public-files.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_PUBLIC_FILES_PATH environment variable if set.")
+	serverCmd.Flags().StringP("private-files-path", "", "", "The path to the a directory to serve as /private-files.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_PRIVATE_FILES_PATH environment variable if set.")
 
 	// UI
 	serverCmd.Flags().BoolP("hide-support-links", "", false, "Hide the support links in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS environment variable if set.")
@@ -182,9 +183,13 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.agent_path", config.CONFIG_ENV_PREFIX+"_AGENT_PATH")
 		viper.SetDefault("server.agent_path", "")
 
-		viper.BindPFlag("server.files_path", cmd.Flags().Lookup("files-path"))
-		viper.BindEnv("server.files_path", config.CONFIG_ENV_PREFIX+"_FILES_PATH")
-		viper.SetDefault("server.files_path", "")
+		viper.BindPFlag("server.public_files_path", cmd.Flags().Lookup("public-files-path"))
+		viper.BindEnv("server.public_files_path", config.CONFIG_ENV_PREFIX+"_PUBLIC_FILES_PATH")
+		viper.SetDefault("server.public_files_path", "")
+
+		viper.BindPFlag("server.private_files_path", cmd.Flags().Lookup("private-files-path"))
+		viper.BindEnv("server.private_files_path", config.CONFIG_ENV_PREFIX+"_PRIVATE_FILES_PATH")
+		viper.SetDefault("server.private_files_path", "")
 
 		viper.BindPFlag("server.encrypt", cmd.Flags().Lookup("encrypt"))
 		viper.BindEnv("server.encrypt", config.CONFIG_ENV_PREFIX+"_ENCRYPT")

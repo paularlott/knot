@@ -115,44 +115,18 @@ func Routes(router *http.ServeMux) {
 	})
 
 	// If serving user files then add the handler
-	filesPath := viper.GetString("server.files_path")
-	if filesPath != "" {
-		router.HandleFunc("GET /files/", middleware.WebAuth(func(w http.ResponseWriter, r *http.Request) {
-			// Serve index.html if path is empty
-			fileName := strings.TrimPrefix(r.URL.Path, "/files/")
-			if strings.HasSuffix(fileName, "/") || fileName == "" {
-				fileName = fileName + "index.html"
-			}
-
-			if strings.Contains(fileName, "..") {
-				http.Error(w, "Invalid file name", http.StatusBadRequest)
-				return
-			}
-
-			// Add headers to allow caching for 4 hours
-			w.Header().Set("Cache-Control", "public, max-age=14400")
-
-			// If the file does exist then return a 404
-			info, err := os.Stat(filepath.Join(filesPath, fileName))
-			if os.IsNotExist(err) || info.IsDir() {
-				showPageNotFound(w, r)
-				return
-			}
-
-			// Calculate the ETag and set it
-			etag := fmt.Sprintf("%x", info.ModTime().Unix())
-			w.Header().Set("ETag", etag)
-
-			// Check if the ETag matches and return 304 if it does
-			if match := r.Header.Get("If-None-Match"); match == etag {
-				w.WriteHeader(http.StatusNotModified)
-				return
-			}
-
-			// Serve the file
-			fs := http.StripPrefix("/files", http.FileServer(http.Dir(filesPath)))
-			fs.ServeHTTP(w, r)
+	privateFilesPath := viper.GetString("server.private_files_path")
+	if privateFilesPath != "" {
+		router.HandleFunc("GET /private-files/", middleware.WebAuth(func(w http.ResponseWriter, r *http.Request) {
+			serveFiles(w, r, "/private-files/", privateFilesPath)
 		}))
+	}
+
+	publicFilesPath := viper.GetString("server.public_files_path")
+	if publicFilesPath != "" {
+		router.HandleFunc("GET /public-files/", func(w http.ResponseWriter, r *http.Request) {
+			serveFiles(w, r, "/public-files/", publicFilesPath)
+		})
 	}
 
 	// Serve agent files
@@ -276,6 +250,43 @@ func Routes(router *http.ServeMux) {
 	if viper.GetBool("server.totp.enabled") {
 		router.HandleFunc("GET /qrcode/{code}", middleware.WebAuth(HandleCreateQRCode))
 	}
+}
+
+func serveFiles(w http.ResponseWriter, r *http.Request, urlBase string, filesPath string) {
+	// Serve index.html if path is empty
+	fileName := strings.TrimPrefix(r.URL.Path, urlBase)
+	if strings.HasSuffix(fileName, "/") || fileName == "" {
+		fileName = fileName + "index.html"
+	}
+
+	if strings.Contains(fileName, "..") {
+		http.Error(w, "Invalid file name", http.StatusBadRequest)
+		return
+	}
+
+	// Add headers to allow caching for 4 hours
+	w.Header().Set("Cache-Control", "public, max-age=14400")
+
+	// If the file does exist then return a 404
+	info, err := os.Stat(filepath.Join(filesPath, fileName))
+	if os.IsNotExist(err) || info.IsDir() {
+		showPageNotFound(w, r)
+		return
+	}
+
+	// Calculate the ETag and set it
+	etag := fmt.Sprintf("%x", info.ModTime().Unix())
+	w.Header().Set("ETag", etag)
+
+	// Check if the ETag matches and return 304 if it does
+	if match := r.Header.Get("If-None-Match"); match == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	// Serve the file
+	fs := http.StripPrefix(urlBase, http.FileServer(http.Dir(filesPath)))
+	fs.ServeHTTP(w, r)
 }
 
 func showPageNotFound(w http.ResponseWriter, r *http.Request) {

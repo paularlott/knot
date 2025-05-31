@@ -141,6 +141,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               if(!existing) {
                 space.is_local = space.location === '' || location === space.location;
                 space.uptime = this.formatTimeDiff(space.started_at);
+                space.icon_url_exists = this.imageExists(space.icon_url);
 
                 this.spaces.push(space);
                 spacesAdded = true;
@@ -176,6 +177,11 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.started_at = space.started_at;
                 existing.template_name = space.template_name;
                 existing.uptime = this.formatTimeDiff(space.started_at);
+
+                if (existing.icon_url !== space.icon_url) {
+                  existing.icon_url = space.icon_url;
+                  existing.icon_url_exists = this.imageExists(space.icon_url);
+                }
               }
             });
 
@@ -208,6 +214,18 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       }).catch(() => {
         window.location.href = '/logout';
       });
+    },
+    async imageExists(url) {
+      if (!url.length) {
+        return false;
+      }
+
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok;
+      } catch {
+        return false;
+      }
     },
     async startSpace(spaceId) {
       const self = this;
