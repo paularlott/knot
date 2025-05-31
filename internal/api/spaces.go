@@ -92,6 +92,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.IsRemote = space.Location != "" && space.Location != config.Location
 		s.LocalContainer = localContainer
 		s.IsManual = isManual
+		s.IconURL = space.IconURL
 
 		// Get the user
 		u, err := db.GetUser(space.UserId)
@@ -330,7 +331,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the space
-	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, config.Location)
+	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, config.Location, request.IconURL)
 	err = db.SaveSpace(space, nil)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -581,6 +582,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.Shell = request.Shell
 	space.AltNames = request.AltNames
 	space.UpdatedAt = time.Now().UTC()
+	space.IconURL = request.IconURL
 
 	// Lookup the template
 	template, err := db.GetTemplate(request.TemplateId)
@@ -603,7 +605,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	err = db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "Shell", "AltNames", "UpdatedAt"})
+	err = db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "Shell", "AltNames", "UpdatedAt", "IconURL"})
 	if err != nil {
 		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -699,6 +701,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		IsDeleting:  space.IsDeleting,
 		VolumeData:  space.VolumeData,
 		StartedAt:   space.StartedAt.UTC(),
+		IconURL:     space.IconURL,
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, &response)

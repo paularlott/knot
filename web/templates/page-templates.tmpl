@@ -82,11 +82,11 @@
                 <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <!-- Name & Description -->
                   <td class="px-4 py-3">
-                    <div class="flex items-center gap-2">
-                      <img x-show="t.icon_url" :src="t.icon_url" alt="" class="hidden lg:block size-8 mr-2" />
+                    <div class="flex items-center gap-4">
+                      <img x-show="t.icon_url" :src="t.icon_url" alt="Icon" class="hidden lg:block size-8" />
 
                       <div>
-                        <div class="font-semibold text-gray-900 dark:text-white" x-text="t.name"></div>
+                        <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="t.name"></div>
                         <div class="text-xs text-gray-500 dark:text-gray-400" x-text="t.description"></div>
 
                         <!-- Mobile-only resource info -->

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/paularlott/knot/internal/config"
@@ -78,9 +79,17 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	iconListJSON, err := json.Marshal(loadIcons())
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	user, data := getCommonTemplateData(r)
 	data["preferredShell"] = user.PreferredShell
 	data["isEdit"] = false
+	data["iconList"] = string(iconListJSON)
 
 	userId := r.PathValue("user_id")
 	if userId != "" && !validate.UUID(userId) {
@@ -184,6 +193,14 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 		showPageForbidden(w, r)
 		return
 	}
+
+	iconListJSON, err := json.Marshal(loadIcons())
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	data["iconList"] = string(iconListJSON)
 
 	data["isEdit"] = true
 	data["preferredShell"] = ""

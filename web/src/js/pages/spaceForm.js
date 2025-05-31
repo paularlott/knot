@@ -6,6 +6,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     formData: {
       name: "",
       description: "",
+      icon_url: "",
       template_id: "",
       shell: preferredShell,
       user_id: forUserId,
@@ -58,6 +59,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.formData.description = space.description;
           this.formData.template_id = this.template_id = space.template_id;
           this.formData.shell = space.shell;
+          this.formData.icon_url = space.icon_url;
 
           if(space.user_id !== userId) {
             this.formData.user_id = space.user_id;
@@ -86,6 +88,10 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       const selectedTemplate = this.templates.find(t => t.template_id === this.formData.template_id);
       this.isManual = selectedTemplate ? selectedTemplate.is_manual : false;
       this.startOnCreate = !this.isManual;
+
+      if(!isEdit) {
+        this.formData.icon_url = selectedTemplate.icon_url;
+      }
 
       this.loading = false;
     },

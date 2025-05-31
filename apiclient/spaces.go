@@ -13,6 +13,7 @@ type SpaceRequest struct {
 	Shell       string   `json:"shell"`
 	UserId      string   `json:"user_id"`
 	AltNames    []string `json:"alt_names"`
+	IconURL     string   `json:"icon_url"`
 }
 type CreateSpaceRequest = SpaceRequest
 type UpdateSpaceRequest = SpaceRequest
@@ -55,6 +56,7 @@ type SpaceInfo struct {
 	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
 	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
 	StartedAt       time.Time         `json:"started_at"`
+	IconURL         string            `json:"icon_url"`
 }
 
 type SpaceInfoList struct {
@@ -75,6 +77,7 @@ type SpaceDefinition struct {
 	IsDeleting  bool                         `json:"is_deleting"`
 	VolumeData  map[string]model.SpaceVolume `json:"volume_data"`
 	StartedAt   time.Time                    `json:"started_at"`
+	IconURL     string                       `json:"icon_url"`
 }
 
 func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {

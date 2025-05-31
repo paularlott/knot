@@ -2340,6 +2340,9 @@ components:
           type: string
           format: date-time
           description: The time when the space was started, UTC.
+        icon_url:
+          type: string
+          description: The icon URL for the space or an empty string if there's no icon.
 
     SpaceInfoList:
       type: object
@@ -2381,6 +2384,9 @@ components:
           items:
             type: string
           description: The alternative names for the space.
+        icon_url:
+          type: string
+          description: The icon URL for the space or an empty string if there's no icon.
 
     SpaceVolume:
       type: object
@@ -2443,6 +2449,9 @@ components:
           type: string
           format: date-time
           description: The time when the space was started, UTC.
+        icon_url:
+          type: string
+          description: The icon URL for the space or an empty string if there's no icon.
 
     TemplateInfo:
       type: object
