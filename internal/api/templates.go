@@ -80,6 +80,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.Active = template.Active
 		templateData.MaxUptime = template.MaxUptime
 		templateData.MaxUptimeUnit = template.MaxUptimeUnit
+		templateData.IconURL = template.IconURL
 
 		// If schedule is enabled then return the schedule
 		if template.ScheduleEnabled {
@@ -227,6 +228,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.Active = request.Active
 	template.MaxUptime = request.MaxUptime
 	template.MaxUptimeUnit = request.MaxUptimeUnit
+	template.IconURL = request.IconURL
 
 	for i, day := range request.Schedule {
 		template.Schedule[i] = model.TemplateScheduleDays{
@@ -341,6 +343,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.Active = request.Active
 	template.MaxUptime = request.MaxUptime
 	template.MaxUptimeUnit = request.MaxUptimeUnit
+	template.IconURL = request.IconURL
 
 	err = database.GetInstance().SaveTemplate(template, nil)
 	if err != nil {
@@ -493,6 +496,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		Active:           template.Active,
 		MaxUptime:        template.MaxUptime,
 		MaxUptimeUnit:    template.MaxUptimeUnit,
+		IconURL:          template.IconURL,
 	}
 
 	if len(template.Schedule) != 7 {

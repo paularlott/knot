@@ -2519,6 +2519,10 @@ components:
           items:
             type: string
           description: The list of locations the template is valid for.
+        icon_url:
+          type: string
+          format: uri
+          description: The URL of the icon for the template, empty string if there's no icon.
 
     TemplateList:
       type: object
@@ -2611,6 +2615,10 @@ components:
           items:
             type: string
           description: The list of locations the template is valid for.
+        icon_url:
+          type: string
+          format: uri
+          description: The URL of the icon for the template, empty string if there's no icon.
 
     TemplateUpdateRequest:
       type: object
@@ -2685,6 +2693,10 @@ components:
           items:
             type: string
           description: The list of locations the template is valid for.
+        icon_url:
+          type: string
+          format: uri
+          description: The URL of the icon for the template, empty string if there's no icon.
 
     TemplateDetails:
       type: object
@@ -2775,6 +2787,10 @@ components:
           items:
             type: string
           description: The list of locations the template is valid for.
+        icon_url:
+          type: string
+          format: uri
+          description: The URL of the icon for the template, empty string if there's no icon.
 
     TemplateDetailsDay:
       type: object

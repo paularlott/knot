@@ -65,6 +65,7 @@ func init() {
 	serverCmd.Flags().BoolP("hide-support-links", "", false, "Hide the support links in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS environment variable if set.")
 	serverCmd.Flags().BoolP("hide-api-tokens", "", false, "Hide the API tokens menu item in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_API_TOKENS environment variable if set.")
 	serverCmd.Flags().BoolP("enable-gravatar", "", true, "Enable Gravatar support in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_GRAVATAR environment variable if set.")
+	serverCmd.Flags().StringSliceP("icons", "", []string{}, "File defining icons for use with templates and spaces, can be given multiple times (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ICONS environment variable if set.")
 
 	// Cluster
 	serverCmd.Flags().StringP("cluster-key", "", "", "The shared cluster key.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_KEY environment variable if set.")
@@ -258,6 +259,10 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.ui.enable_gravatar", cmd.Flags().Lookup("enable-gravatar"))
 		viper.BindEnv("server.ui.enable_gravatar", config.CONFIG_ENV_PREFIX+"_ENABLE_GRAVATAR")
 		viper.SetDefault("server.ui.enable_gravatar", true)
+
+		viper.BindPFlag("server.ui.icons", cmd.Flags().Lookup("icons"))
+		viper.BindEnv("server.ui.icons", config.CONFIG_ENV_PREFIX+"_ICONS")
+		viper.SetDefault("server.ui.icons", []string{})
 
 		// Origin / Leaf servers
 		viper.BindPFlag("server.origin.server", cmd.Flags().Lookup("origin-server"))

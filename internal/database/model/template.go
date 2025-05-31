@@ -19,6 +19,7 @@ type Template struct {
 	Name             string                 `json:"name" db:"name"`
 	Description      string                 `json:"description" db:"description"`
 	Hash             string                 `json:"hash" db:"hash"`
+	IconURL          string                 `json:"icon_url" db:"icon_url"`
 	Job              string                 `json:"job" db:"job"`
 	Volumes          string                 `json:"volumes" db:"volumes"`
 	Groups           []string               `json:"groups" db:"groups,json"`
@@ -77,6 +78,7 @@ func NewTemplate(name string, description string, job string, volumes string, us
 		CreatedAt:        time.Now().UTC(),
 		UpdatedUserId:    userId,
 		UpdatedAt:        time.Now().UTC(),
+		IconURL:          "",
 	}
 	template.UpdateHash()
 

@@ -5,6 +5,7 @@
 !/web/agents/.gitignore
 /node_modules
 /files-test
+/icons.toml
 .knot.yml
 .knot-leaf1.yml
 .knot-leaf2.yml

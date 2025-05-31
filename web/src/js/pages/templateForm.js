@@ -34,6 +34,7 @@ window.templateForm = function(isEdit, templateId) {
       max_uptime_unit: 'disabled',
       schedule_enabled: false,
       auto_start: false,
+      icon_url: '',
       schedule: [
         {
           enabled: false,
@@ -138,6 +139,7 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.schedule = template.schedule;
           this.formData.max_uptime = template.max_uptime;
           this.formData.max_uptime_unit = template.max_uptime_unit;
+          this.formData.icon_url = template.icon_url;
 
           // Set the locations and mark all as valid
           this.formData.locations =template.locations ? template.locations : [];
@@ -310,6 +312,7 @@ window.templateForm = function(isEdit, templateId) {
         max_uptime_unit: this.formData.max_uptime_unit,
         local_container: this.formData.local_container,
         is_manual: this.formData.is_manual,
+        icon_url: this.formData.icon_url,
       };
 
       await fetch(isEdit ? `/api/templates/${templateId}` : '/api/templates', {

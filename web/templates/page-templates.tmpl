@@ -82,92 +82,98 @@
                 <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <!-- Name & Description -->
                   <td class="px-4 py-3">
-                    <div class="font-semibold text-gray-900 dark:text-white" x-text="t.name"></div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400" x-text="t.description"></div>
+                    <div class="flex items-center gap-2">
+                      <img x-show="t.icon_url" :src="t.icon_url" alt="" class="hidden lg:block size-8 mr-2" />
 
-                    <!-- Mobile-only resource info -->
-                    <div class="md:hidden flex flex-col gap-1 mt-2">
-                      <div class="flex flex-col gap-1">
-                        <span x-show="t.local_container && !t.is_manual" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Local Container</span>
-                        <span x-show="!t.local_container && !t.is_manual" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 whitespace-nowrap">Nomad Job</span>
-                        <span x-show="t.is_manual" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
-                        {{ if .isLeafNode }}
-                        <span x-show="t.is_managed" class="inline-block mt-1 w-fit bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-400 border border-gray-500">Managed</span>
+                      <div>
+                        <div class="font-semibold text-gray-900 dark:text-white" x-text="t.name"></div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400" x-text="t.description"></div>
+
+                        <!-- Mobile-only resource info -->
+                        <div class="md:hidden flex flex-col gap-1 mt-2">
+                          <div class="flex flex-col gap-1">
+                            <span x-show="t.local_container && !t.is_manual" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Local Container</span>
+                            <span x-show="!t.local_container && !t.is_manual" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 whitespace-nowrap">Nomad Job</span>
+                            <span x-show="t.is_manual" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
+                            {{ if .isLeafNode }}
+                            <span x-show="t.is_managed" class="inline-block mt-1 w-fit bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-400 border border-gray-500">Managed</span>
+                            {{ end }}
+                          </div>
+
+                          <span x-show="t.active" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
+                          <span x-show="!t.active" class="inline-block w-fit bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
+
+                          <div class="text-xs text-gray-500 dark:text-gray-400">
+                            <span class="font-medium">Compute:</span> <span x-text="t.compute_units"></span>
+                          </div>
+                          <div class="text-xs text-gray-500 dark:text-gray-400">
+                            <span class="font-medium">Storage:</span> <span x-text="t.storage_units"></span>
+                          </div>
+
+                          <!-- Mobile-only schedule indicators -->
+                          <template x-if="t.schedule_enabled">
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                              <span class="font-medium">Schedule:</span>
+                              <div class="flex flex-wrap gap-1 mt-1">
+                                <template x-for="index in 7" :key="index">
+                                  <div x-show="t.schedule[index % 7].enabled" class="inline" x-data>
+                                    <span @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400" x-text="getDayOfWeek(index % 7).substring(0,3)"></span>
+                                    <div x-ref="panel" x-float.teleport.placement.bottom-start.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+                                      <span x-text="t.schedule[index % 7].from"></span> - <span x-text="t.schedule[index % 7].to"></span>
+                                    </div>
+                                  </div>
+                                </template>
+                              </div>
+                            </div>
+                          </template>
+
+                          <!-- Mobile-only max uptime -->
+                          <template x-if="t.max_uptime_unit != 'disabled'">
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                              <span class="font-medium">Max Uptime:</span> <span x-text="getMaxUptime(t.max_uptime, t.max_uptime_unit)"></span>
+                            </div>
+                          </template>
+                        </div>
+
+                        <!-- Mobile-only location/groups -->
+                        {{ if and .permissionManageTemplates (not .isLeafNode) }}
+                        <div class="md:hidden mt-2">
+                          <template x-if="t.group_names && t.group_names.length > 0">
+                            <div class="text-xs text-gray-500 dark:text-gray-400">
+                              <span class="font-medium">Groups:</span>
+                              <div class="flex flex-wrap gap-1 mt-1">
+                                <template x-for="group in t.group_names">
+                                  <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="group"></span>
+                                </template>
+                              </div>
+                            </div>
+                          </template>
+                          <template x-if="t.locations && t.locations.length > 0">
+                            <div class="text-xs text-gray-500 dark:text-gray-400" :class="t.group_names.length ? 'mt-1' : ''">
+                              <span class="font-medium">Locations:</span>
+                              <div class="flex flex-wrap gap-1 mt-1">
+                                <template x-for="l in t.locations">
+                                  <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="l"></span>
+                                </template>
+                              </div>
+                            </div>
+                          </template>
+                        </div>
+                        {{ end }}
+
+                        <!-- Usage & Deployed (mobile only) -->
+                        {{ if .permissionManageTemplates }}
+                        <div class="md:hidden mt-2 flex gap-4">
+                          <div class="text-xs text-gray-500 dark:text-gray-400">
+                            <span class="font-medium">Usage:</span> <span x-text="t.usage"></span>
+                          </div>
+                          <div class="text-xs text-gray-500 dark:text-gray-400">
+                            <span class="font-medium">Deployed:</span> <span x-text="t.deployed"></span>
+                          </div>
+                        </div>
                         {{ end }}
                       </div>
-
-                      <span x-show="t.active" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
-                      <span x-show="!t.active" class="inline-block w-fit bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
-
-                      <div class="text-xs text-gray-500 dark:text-gray-400">
-                        <span class="font-medium">Compute:</span> <span x-text="t.compute_units"></span>
-                      </div>
-                      <div class="text-xs text-gray-500 dark:text-gray-400">
-                        <span class="font-medium">Storage:</span> <span x-text="t.storage_units"></span>
-                      </div>
-
-                      <!-- Mobile-only schedule indicators -->
-                      <template x-if="t.schedule_enabled">
-                        <div class="text-xs text-gray-500 dark:text-gray-400">
-                          <span class="font-medium">Schedule:</span>
-                          <div class="flex flex-wrap gap-1 mt-1">
-                            <template x-for="index in 7" :key="index">
-                              <div x-show="t.schedule[index % 7].enabled" class="inline" x-data>
-                                <span @click="$refs.panel.toggle" class="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-1 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-400 border border-blue-400" x-text="getDayOfWeek(index % 7).substring(0,3)"></span>
-                                <div x-ref="panel" x-float.teleport.placement.bottom-start.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 p-2 bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
-                                  <span x-text="t.schedule[index % 7].from"></span> - <span x-text="t.schedule[index % 7].to"></span>
-                                </div>
-                              </div>
-                            </template>
-                          </div>
-                        </div>
-                      </template>
-
-                      <!-- Mobile-only max uptime -->
-                      <template x-if="t.max_uptime_unit != 'disabled'">
-                        <div class="text-xs text-gray-500 dark:text-gray-400">
-                          <span class="font-medium">Max Uptime:</span> <span x-text="getMaxUptime(t.max_uptime, t.max_uptime_unit)"></span>
-                        </div>
-                      </template>
                     </div>
-
-                    <!-- Mobile-only location/groups -->
-                    {{ if and .permissionManageTemplates (not .isLeafNode) }}
-                    <div class="md:hidden mt-2">
-                      <template x-if="t.group_names && t.group_names.length > 0">
-                        <div class="text-xs text-gray-500 dark:text-gray-400">
-                          <span class="font-medium">Groups:</span>
-                          <div class="flex flex-wrap gap-1 mt-1">
-                            <template x-for="group in t.group_names">
-                              <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="group"></span>
-                            </template>
-                          </div>
-                        </div>
-                      </template>
-                      <template x-if="t.locations && t.locations.length > 0">
-                        <div class="text-xs text-gray-500 dark:text-gray-400" :class="t.group_names.length ? 'mt-1' : ''">
-                          <span class="font-medium">Locations:</span>
-                          <div class="flex flex-wrap gap-1 mt-1">
-                            <template x-for="l in t.locations">
-                              <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="l"></span>
-                            </template>
-                          </div>
-                        </div>
-                      </template>
-                    </div>
-                    {{ end }}
-
-                    <!-- Usage & Deployed (mobile only) -->
-                    {{ if .permissionManageTemplates }}
-                    <div class="md:hidden mt-2 flex gap-4">
-                      <div class="text-xs text-gray-500 dark:text-gray-400">
-                        <span class="font-medium">Usage:</span> <span x-text="t.usage"></span>
-                      </div>
-                      <div class="text-xs text-gray-500 dark:text-gray-400">
-                        <span class="font-medium">Deployed:</span> <span x-text="t.deployed"></span>
-                      </div>
-                    </div>
-                    {{ end }}
                   </td>
 
                   <!-- Type (desktop only) -->

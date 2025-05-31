@@ -94,6 +94,7 @@ INDEX idx_is_deleted (is_deleted)
 template_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
 hash VARCHAR(32) DEFAUlT '',
+icon_url VARCHAR(255) NOT NULL DEFAULT '',
 description TEXT DEFAULT '',
 job MEDIUMTEXT,
 volumes MEDIUMTEXT,

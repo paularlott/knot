@@ -57,11 +57,11 @@ window.autocompleterUser = function() {
       this.parentVariableUsername = this.$el.getAttribute('data-parent-variable-username');
 
       if(this.parentVarGroup === '') {
-        let selectedUser = this[this.dataSource].find(user => user.user_id === this[this.parentVariable]);
+        const selectedUser = this[this.dataSource].find(user => user.user_id === this[this.parentVariable]);
         this.search = selectedUser ? selectedUser.username : '';
       }
       else if(this[this.parentVarGroup]) {
-        let selectedUser = this[this.dataSource].find(user => user.user_id === this[this.parentVarGroup][this.parentVariable]);
+        const selectedUser = this[this.dataSource].find(user => user.user_id === this[this.parentVarGroup][this.parentVariable]);
         this.search = selectedUser ? selectedUser.username : '';
       } else {
         this.search = '';
@@ -89,6 +89,45 @@ window.autocompleterUser = function() {
         return [];
       }
       return this[this.dataSource].filter(option => option.username.toLowerCase().includes(this.search.toLowerCase()));
+    },
+    refresh() {
+      this.loadOptions();
+    }
+  }
+}
+
+window.autocompleterIcon = function(dataSource) {
+  return {
+    search: '',
+    showList: false,
+    parentVariable: '',
+    parentVarGroup: '',
+    dataSource,
+
+    init() {
+      this.parentVarGroup = this.$el.getAttribute('data-parent-var-group');
+      this.parentVariable = this.$el.getAttribute('data-parent-variable');
+
+      this.loadOptions();
+    },
+    loadOptions() {
+      const selectedIcon = this.dataSource.find(itm => itm.url === this[this.parentVarGroup][this.parentVariable]);
+      this.search = selectedIcon ? selectedIcon.description : '';
+    },
+    selectOption(option) {
+      this.search = option.description;
+      this[this.parentVarGroup][this.parentVariable] = option.url;
+    },
+    get filteredOptions() {
+      return this.dataSource
+      .filter(option =>
+        option.description.toLowerCase().includes(this.search.toLowerCase())
+      )
+      .slice(0, 50);
+    },
+    clear() {
+      this.search = '';
+      this[this.parentVarGroup][this.parentVariable] = '';
     },
     refresh() {
       this.loadOptions();
