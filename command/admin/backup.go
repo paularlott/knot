@@ -6,8 +6,9 @@ import (
 	"os"
 	"slices"
 
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/spf13/cobra"
 )
@@ -27,8 +28,6 @@ type backupData struct {
 	Users        []backupUser
 }
 
-// TODO encrypt the outuput file by default
-
 func init() {
 	backupCmd.Flags().BoolP("templates", "t", false, "Backup templates")
 	backupCmd.Flags().BoolP("template-vars", "v", false, "Backup template variables")
@@ -41,6 +40,7 @@ func init() {
 	backupCmd.Flags().BoolP("all", "a", true, "Backup everything")
 	backupCmd.Flags().StringP("limit-user", "", "", "Limit the backup to a specific user by username.")
 	backupCmd.Flags().StringP("limit-template", "", "", "Limit the backup to a specific template by name.")
+	backupCmd.Flags().StringP("encrypt-key", "e", "", "Encrypt the backup file with the given key. The key must be 32 bytes long.")
 }
 
 var backupCmd = &cobra.Command{
@@ -79,6 +79,12 @@ var backupCmd = &cobra.Command{
 
 		limitUser, _ := cmd.Flags().GetString("limit-user")
 		limitTemplate, _ := cmd.Flags().GetString("limit-template")
+
+		key, _ := cmd.Flags().GetString("encrypt-key")
+		if key != "" && len(key) != 32 {
+			fmt.Println("Error: Encrypt key must be 32 bytes long.")
+			os.Exit(1)
+		}
 
 		db := database.GetInstance()
 
@@ -216,6 +222,11 @@ var backupCmd = &cobra.Command{
 		if err != nil {
 			fmt.Println("Error marshalling backup data: ", err)
 			os.Exit(1)
+		}
+
+		// If have an encryption key then encrypt the data
+		if key != "" {
+			data = []byte(crypt.Encrypt(key, string(data)))
 		}
 
 		// Write the backup data to the output file

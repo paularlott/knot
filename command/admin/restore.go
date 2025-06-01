@@ -4,11 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
-	"github.com/paularlott/knot/database"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/spf13/cobra"
 )
+
+func init() {
+	restoreCmd.Flags().StringP("encrypt-key", "e", "", "Encrypt the backup file with the given key. The key must be 32 bytes long.")
+}
 
 var restoreCmd = &cobra.Command{
 	Use:   "restore <backupfile> [flags]",
@@ -17,6 +23,13 @@ var restoreCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		inputFile := args[0]
+
+		key, _ := cmd.Flags().GetString("encrypt-key")
+		if key != "" && len(key) != 32 {
+			fmt.Println("Error: Encrypt key must be 32 bytes long.")
+			os.Exit(1)
+		}
+
 		fmt.Println("Restoring database from file: ", inputFile)
 
 		db := database.GetInstance()
@@ -29,6 +42,12 @@ var restoreCmd = &cobra.Command{
 			fmt.Println("Error loading backup file: ", err)
 			os.Exit(1)
 		}
+
+		if key != "" {
+			// Decrypt the backup file
+			data = []byte(crypt.Decrypt(key, string(data)))
+		}
+
 		err = json.Unmarshal(data, &backupData)
 		if err != nil {
 			fmt.Println("Error unmarshalling backup file: ", err)
@@ -105,8 +124,13 @@ var restoreCmd = &cobra.Command{
 				fmt.Println("Restored token for user: ", user.User.Username, token.Name)
 			}
 
-			fmt.Println("Restored spaces for user: ", user.User.Username)
+			fmt.Println("Restoring spaces for user: ", user.User.Username)
 			for _, space := range user.Spaces {
+				// If started at isn't set then use now
+				if space.StartedAt.IsZero() {
+					space.StartedAt = time.Now().UTC()
+				}
+
 				err := db.SaveSpace(space, nil)
 				if err != nil {
 					fmt.Println("Error restoring space: ", space.Name, err)
