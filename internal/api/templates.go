@@ -339,11 +339,30 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	template := model.NewTemplate(request.Name, request.Description, request.Job, request.Volumes, user.Id, request.Groups, request.LocalContainer, request.IsManual, request.WithTerminal, request.WithVSCodeTunnel, request.WithCodeServer, request.WithSSH, request.ComputeUnits, request.StorageUnits, request.ScheduleEnabled, &scheduleDays, request.Locations, request.AutoStart)
-	template.Active = request.Active
-	template.MaxUptime = request.MaxUptime
-	template.MaxUptimeUnit = request.MaxUptimeUnit
-	template.IconURL = request.IconURL
+	template := model.NewTemplate(
+		request.Name,
+		request.Description,
+		request.Job,
+		request.Volumes,
+		user.Id,
+		request.Groups,
+		request.LocalContainer,
+		request.IsManual,
+		request.WithTerminal,
+		request.WithVSCodeTunnel,
+		request.WithCodeServer,
+		request.WithSSH,
+		request.ComputeUnits,
+		request.StorageUnits,
+		request.ScheduleEnabled,
+		&scheduleDays,
+		request.Locations,
+		request.AutoStart,
+		request.Active,
+		request.MaxUptime,
+		request.MaxUptimeUnit,
+		request.IconURL,
+	)
 
 	err = database.GetInstance().SaveTemplate(template, nil)
 	if err != nil {

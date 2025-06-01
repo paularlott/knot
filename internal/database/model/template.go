@@ -52,7 +52,30 @@ type TemplateScheduleDays struct {
 	To      string `json:"to"`
 }
 
-func NewTemplate(name string, description string, job string, volumes string, userId string, groups []string, localContainer bool, isManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateScheduleDays, locations []string, autoStart bool) *Template {
+func NewTemplate(
+	name string,
+	description string,
+	job string,
+	volumes string,
+	userId string,
+	groups []string,
+	localContainer bool,
+	isManual bool,
+	withTerminal bool,
+	withVSCodeTunnel bool,
+	withCodeServer bool,
+	withSSH bool,
+	computeUnits uint32,
+	storageUnits uint32,
+	scheduleEnabled bool,
+	schedule *[]TemplateScheduleDays,
+	locations []string,
+	autoStart bool,
+	active bool,
+	maxUptime uint32,
+	maxUptimeUnit string,
+	iconURL string,
+) *Template {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -78,7 +101,10 @@ func NewTemplate(name string, description string, job string, volumes string, us
 		CreatedAt:        time.Now().UTC(),
 		UpdatedUserId:    userId,
 		UpdatedAt:        time.Now().UTC(),
-		IconURL:          "",
+		IconURL:          iconURL,
+		Active:           active,
+		MaxUptime:        maxUptime,
+		MaxUptimeUnit:    maxUptimeUnit,
 	}
 	template.UpdateHash()
 
