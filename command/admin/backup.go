@@ -26,6 +26,7 @@ type backupData struct {
 	Groups       []*model.Group
 	Roles        []*model.Role
 	Users        []backupUser
+	CfgValues    []*model.CfgValue
 }
 
 func init() {
@@ -37,6 +38,7 @@ func init() {
 	backupCmd.Flags().BoolP("spaces", "s", false, "Backup user spaces")
 	backupCmd.Flags().BoolP("users", "u", false, "Backup users")
 	backupCmd.Flags().BoolP("tokens", "k", false, "Backup user tokens")
+	backupCmd.Flags().BoolP("cfg-values", "o", false, "Backup configuration values")
 	backupCmd.Flags().BoolP("all", "a", true, "Backup everything")
 	backupCmd.Flags().StringP("limit-user", "", "", "Limit the backup to a specific user by username.")
 	backupCmd.Flags().StringP("limit-template", "", "", "Limit the backup to a specific template by name.")
@@ -60,9 +62,10 @@ var backupCmd = &cobra.Command{
 		backupUsers, _ := cmd.Flags().GetBool("users")
 		backupSpaces, _ := cmd.Flags().GetBool("spaces")
 		backupTokens, _ := cmd.Flags().GetBool("tokens")
+		backupCfgValues, _ := cmd.Flags().GetBool("cfg-values")
 		backupAll, _ := cmd.Flags().GetBool("all")
 
-		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens {
+		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupCfgValues {
 			backupAll = false // If any specific backup flags are set, do not use the "all" flag
 		}
 
@@ -75,6 +78,7 @@ var backupCmd = &cobra.Command{
 			backupUsers = true
 			backupSpaces = true
 			backupTokens = true
+			backupCfgValues = true
 		}
 
 		limitUser, _ := cmd.Flags().GetString("limit-user")
@@ -89,6 +93,19 @@ var backupCmd = &cobra.Command{
 		db := database.GetInstance()
 
 		backupData := backupData{}
+
+		if backupCfgValues {
+			fmt.Println("Backing up configuration values...")
+
+			// Get the list of configuration values
+			cfgValues, err := db.GetCfgValues()
+			if err != nil {
+				fmt.Println("Error getting configuration values: ", err)
+				os.Exit(1)
+			}
+			backupData.CfgValues = make([]*model.CfgValue, len(cfgValues))
+			copy(backupData.CfgValues, cfgValues)
+		}
 
 		if backupTemplates {
 			fmt.Println("Backing up templates...")

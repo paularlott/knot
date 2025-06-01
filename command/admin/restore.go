@@ -54,6 +54,16 @@ var restoreCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		fmt.Println("Resotring configuration values...")
+		for _, cfgValue := range backupData.CfgValues {
+			err := db.SaveCfgValue(cfgValue)
+			if err != nil {
+				fmt.Println("Error restoring configuration value: ", cfgValue.Name, err)
+				os.Exit(1)
+			}
+			fmt.Println("Restored configuration value: ", cfgValue.Name)
+		}
+
 		fmt.Println("Restoring templates...")
 		for _, template := range backupData.Templates {
 			err := db.SaveTemplate(template, nil)

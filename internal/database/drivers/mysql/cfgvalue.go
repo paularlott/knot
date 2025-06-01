@@ -50,3 +50,14 @@ func (db *MySQLDriver) SaveCfgValue(cfgValue *model.CfgValue) error {
 
 	return nil
 }
+
+func (db *MySQLDriver) GetCfgValues() ([]*model.CfgValue, error) {
+	var cfgValues []*model.CfgValue
+
+	err := db.read("configs", &cfgValues, nil, "1=1")
+	if err != nil {
+		return nil, err
+	}
+
+	return cfgValues, nil
+}

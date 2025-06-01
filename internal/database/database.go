@@ -87,6 +87,7 @@ type DbDriver interface {
 	GetAuditLogs(offset int, limit int) ([]*model.AuditLogEntry, error)
 
 	// Config Values
+	GetCfgValues() ([]*model.CfgValue, error)
 	GetCfgValue(name string) (*model.CfgValue, error)
 	SaveCfgValue(cfgValue *model.CfgValue) error
 }

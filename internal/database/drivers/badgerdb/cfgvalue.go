@@ -45,3 +45,36 @@ func (db *BadgerDbDriver) SaveCfgValue(cfgValue *model.CfgValue) error {
 
 	return err
 }
+
+func (db *BadgerDbDriver) GetCfgValues() ([]*model.CfgValue, error) {
+	var cfgValues []*model.CfgValue
+
+	err := db.connection.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = []byte("Configs:")
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			name := string(item.Key()[len("Configs:"):])
+			value, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+
+			cfgValues = append(cfgValues, &model.CfgValue{
+				Name:  name,
+				Value: string(value),
+			})
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cfgValues, nil
+}
