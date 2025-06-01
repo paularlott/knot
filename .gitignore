@@ -7,6 +7,11 @@
 .knot.yml
 .knot-leaf1.yml
 .knot-leaf2.yml
+.knot.toml
+.knot-leaf1.toml
+.knot-leaf2.toml
+/icons.toml
+/files-test
 /.parcel-cache
 /.task
 /knot-server.nomad
