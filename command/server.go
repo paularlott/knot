@@ -67,6 +67,8 @@ func init() {
 	serverCmd.Flags().BoolP("hide-api-tokens", "", false, "Hide the API tokens menu item in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_API_TOKENS environment variable if set.")
 	serverCmd.Flags().BoolP("enable-gravatar", "", true, "Enable Gravatar support in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_GRAVATAR environment variable if set.")
 	serverCmd.Flags().StringSliceP("icons", "", []string{}, "File defining icons for use with templates and spaces, can be given multiple times (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ICONS environment variable if set.")
+	serverCmd.Flags().StringP("logo-url", "", "", "The URL to the logo to use in the UI (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOGO_URL environment variable if set.")
+	serverCmd.Flags().BoolP("logo-invert", "", false, "Invert the logo colors in the UI for dark mode.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOGO_INVERT environment variable if set.")
 
 	// Cluster
 	serverCmd.Flags().StringP("cluster-key", "", "", "The shared cluster key.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_KEY environment variable if set.")
@@ -268,6 +270,14 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.ui.icons", cmd.Flags().Lookup("icons"))
 		viper.BindEnv("server.ui.icons", config.CONFIG_ENV_PREFIX+"_ICONS")
 		viper.SetDefault("server.ui.icons", []string{})
+
+		viper.BindPFlag("server.ui.logo_url", cmd.Flags().Lookup("logo-url"))
+		viper.BindEnv("server.ui.logo_url", config.CONFIG_ENV_PREFIX+"_LOGO_URL")
+		viper.SetDefault("server.ui.logo_url", "")
+
+		viper.BindPFlag("server.ui.logo_invert", cmd.Flags().Lookup("logo-invert"))
+		viper.BindEnv("server.ui.logo_invert", config.CONFIG_ENV_PREFIX+"_LOGO_INVERT")
+		viper.SetDefault("server.ui.logo_invert", false)
 
 		// Origin / Leaf servers
 		viper.BindPFlag("server.origin.server", cmd.Flags().Lookup("origin-server"))

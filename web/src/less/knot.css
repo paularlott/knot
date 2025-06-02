@@ -83,3 +83,7 @@
     src: url(fonts/jetbrainsmono.woff2) format('woff2');
   }
 }
+
+@utility login-body {
+  background: linear-gradient(135deg, #3b82f6, #9333ea);
+}

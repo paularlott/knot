@@ -1,22 +1,25 @@
-{{ template "layout-center.tmpl" . }}
+{{ template "layout-login.tmpl" . }}
 
-{{ define "pageTitle" }}Login{{ end }}
+{{ define "pageTitle" }}Sign In{{ end }}
 
 {{ define "mainContent" }}
-<div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
-  <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> knot
-</div>
-
 <div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-xl dark:bg-gray-800" x-data="loginUserForm('{{ .redirect }}')">
-  <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Sign in to knot</h2>
-  <form class="mt-8 space-y-6" action="#" action="" method="POST" @submit.prevent="submitData">
+  <div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
+    {{ if .logoURL }}
+    <img src="{{ .logoURL }}" class="mr-4 h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="Logo">
+    {{ else }}
+    <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> Sign in to Knot
+    {{ end }}
+  </div>
+
+  <form class="mt-8 mb-0 space-y-6" action="#" action="" method="POST" @submit.prevent="submitData">
     <div>
-      <label for="email" class="form-label">Your email</label>
+      <label for="email" class="form-label">Email</label>
       <input type="email" name="email" class="form-field" placeholder="name@company.com" required="" x-on:keyup.debounce.500ms="checkEmail()" x-model="formData.email" :class="{'form-field-error': !emailValid}">
       <div class="error-message" x-show="!emailValid" x-cloak>Enter a valid email address.</div>
     </div>
     <div>
-      <label for="password" class="form-label">Your password</label>
+      <label for="password" class="form-label">Password</label>
       <input type="password" name="password" id="password" placeholder="your password" class="form-field" required="" x-on:keyup.debounce.500ms="checkPassword()" x-model="formData.password" :class="{'form-field-error': !passwordValid}">
       <div class="error-message" x-show="!passwordValid" x-cloak>Enter your password.</div>
     </div>
@@ -57,6 +60,13 @@
       </div>
     </div>
   </div>
+
+  {{ if .logoURL }}
+  <div class="flex justify-end items-center mt-4">
+    <span class="text-xs text-gray-700 dark:text-gray-200 mr-2">Powered by Knot</span>
+    <img src="images/logo.svg" alt="Knot logo" class="h-6 opacity-80">
+  </div>
+  {{ end }}
 
 </div>
 

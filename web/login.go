@@ -48,6 +48,8 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 			"redirect":    redirect,
 			"version":     build.Version,
 			"totpEnabled": viper.GetBool("server.totp.enabled"),
+			"logoURL":     viper.GetString("server.ui.logo_url"),
+			"logoInvert":  viper.GetBool("server.ui.logo_invert"),
 		}
 
 		err = tmpl.Execute(w, data)

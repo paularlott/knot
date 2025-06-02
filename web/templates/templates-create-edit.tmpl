@@ -3,8 +3,8 @@
 {{ define "pageTitle" }}{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
-  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="templateForm({{ .isEdit }}, '{{ .templateId }}')" x-init="initData">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8">
+  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4" x-data="templateForm({{ .isEdit }}, '{{ .templateId }}')" x-init="initData">
 
     <div class="mb-4 col-span-full xl:mb-2">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}</h1>

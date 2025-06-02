@@ -435,5 +435,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"totpEnabled":               viper.GetBool("server.totp.enabled"),
 		"clusterMode":               viper.GetString("server.cluster.advertise_addr") != "",
 		"isLeafNode":                config.LeafNode,
+		"logoURL":                   viper.GetString("server.ui.logo_url"),
+		"logoInvert":                viper.GetBool("server.ui.logo_invert"),
 	}
 }

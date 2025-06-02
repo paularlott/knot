@@ -4,7 +4,7 @@
     {{ template "head-meta" . }}
   </head>
   <body class="bg-gray-50 dark:bg-gray-900 font-nunito" x-data="{ sidebarOpen: false }">
-    <div class="dark:bg-gray-900 h-screen">
+    <div class="h-screen">
 
       <!-- Top Nav -->
       <nav class="fixed z-30 w-full bg-white border-b border-grey-200 dark:bg-gray-800 dark:border-gray-700">
@@ -18,8 +18,12 @@
               </button>
 
               <a href="/" class="flex ml-2 md:mr-24">
+                {{ if .logoURL }}
+                <img src="{{ .logoURL }}" class="mr-4 h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="Logo">
+                {{ else }}
                 <img src="images/logo.svg" class="h-8 mr-3" alt="knot Logo">
                 <span class="self-center text-xl font-semibold sm:text-2xl whitespace-nowrap dark:text-white">knot</span>
+                {{ end }}
               </a>
             </div>
             <div class="flex items-center">
