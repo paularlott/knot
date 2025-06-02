@@ -71,6 +71,9 @@ func (db *BadgerDbDriver) Connect() error {
 		for range intervalTimer.C {
 			log.Debug().Msg("db: running garbage collector")
 
+			// Clear old audit logs
+			db.deleteAuditLogs()
+
 			before := time.Now().UTC()
 			before = before.Add(-garbageMaxAge)
 

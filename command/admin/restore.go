@@ -54,6 +54,16 @@ var restoreCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		fmt.Println("Restoring audit logs...")
+		for _, auditLog := range backupData.AuditLogs {
+			err := db.SaveAuditLog(auditLog)
+			if err != nil {
+				fmt.Println("Error restoring audit log: ", auditLog.Event, err)
+				os.Exit(1)
+			}
+			fmt.Println("Restored audit log: ", auditLog.Event)
+		}
+
 		fmt.Println("Resotring configuration values...")
 		for _, cfgValue := range backupData.CfgValues {
 			err := db.SaveCfgValue(cfgValue)

@@ -41,6 +41,10 @@ func HandleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		Items: make([]apiclient.AuditLogEntry, len(logs)),
 	}
 	for i, log := range logs {
+		if log.Id == 0 {
+			log.Id = log.When.UnixMicro()
+		}
+
 		auditLogs.Items[i] = apiclient.AuditLogEntry{
 			Id:         log.Id,
 			Location:   log.Location,

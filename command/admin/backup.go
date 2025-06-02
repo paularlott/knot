@@ -27,6 +27,7 @@ type backupData struct {
 	Roles        []*model.Role
 	Users        []backupUser
 	CfgValues    []*model.CfgValue
+	AuditLogs    []*model.AuditLogEntry
 }
 
 func init() {
@@ -39,6 +40,7 @@ func init() {
 	backupCmd.Flags().BoolP("users", "u", false, "Backup users")
 	backupCmd.Flags().BoolP("tokens", "k", false, "Backup user tokens")
 	backupCmd.Flags().BoolP("cfg-values", "o", false, "Backup configuration values")
+	backupCmd.Flags().BoolP("audit-logs", "", false, "Backup audit logs")
 	backupCmd.Flags().BoolP("all", "a", true, "Backup everything")
 	backupCmd.Flags().StringP("limit-user", "", "", "Limit the backup to a specific user by username.")
 	backupCmd.Flags().StringP("limit-template", "", "", "Limit the backup to a specific template by name.")
@@ -63,9 +65,10 @@ var backupCmd = &cobra.Command{
 		backupSpaces, _ := cmd.Flags().GetBool("spaces")
 		backupTokens, _ := cmd.Flags().GetBool("tokens")
 		backupCfgValues, _ := cmd.Flags().GetBool("cfg-values")
+		backupAuditLogs, _ := cmd.Flags().GetBool("audit-logs")
 		backupAll, _ := cmd.Flags().GetBool("all")
 
-		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupCfgValues {
+		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupCfgValues || backupAuditLogs {
 			backupAll = false // If any specific backup flags are set, do not use the "all" flag
 		}
 
@@ -79,6 +82,7 @@ var backupCmd = &cobra.Command{
 			backupSpaces = true
 			backupTokens = true
 			backupCfgValues = true
+			backupAuditLogs = true
 		}
 
 		limitUser, _ := cmd.Flags().GetString("limit-user")
@@ -93,6 +97,18 @@ var backupCmd = &cobra.Command{
 		db := database.GetInstance()
 
 		backupData := backupData{}
+
+		if backupAuditLogs {
+			fmt.Println("Backing up audit logs...")
+
+			auditLogs, err := db.GetAuditLogs(0, 0)
+			if err != nil {
+				fmt.Println("Error getting audit logs: ", err)
+				os.Exit(1)
+			}
+			backupData.AuditLogs = make([]*model.AuditLogEntry, len(auditLogs))
+			copy(backupData.AuditLogs, auditLogs)
+		}
 
 		if backupCfgValues {
 			fmt.Println("Backing up configuration values...")

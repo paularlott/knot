@@ -47,10 +47,16 @@ func (db *MySQLDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
 
 func (db *MySQLDriver) GetAuditLogs(offset int, limit int) ([]*model.AuditLogEntry, error) {
 	var auditLogs []*model.AuditLogEntry
+	var where string
 
-	err := db.read("audit_logs", &auditLogs, nil, fmt.Sprintf("1 ORDER BY created_at DESC LIMIT %d OFFSET %d", limit, offset))
+	if limit > 0 {
+		where = fmt.Sprintf("1 ORDER BY created_at DESC LIMIT %d OFFSET %d", limit, offset)
+	} else {
+		where = fmt.Sprintf("1 ORDER BY created_at DESC OFFSET %d", offset)
+	}
+
+	err := db.read("audit_logs", &auditLogs, nil, where)
 	if err != nil {
-		fmt.Println("Error reading audit logs:", err)
 		return nil, err
 	}
 
