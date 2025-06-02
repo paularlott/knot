@@ -1,13 +1,13 @@
-{{ template "layout-center.tmpl" . }}
+{{ template "layout-login.tmpl" . }}
 
 {{ define "pageTitle" }}Initialize System{{ end }}
 
 {{ define "mainContent" }}
-<div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
-  <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> knot
-</div>
-
 <div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-xl dark:bg-gray-800" x-data="createInitialUserForm()">
+  <div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
+    <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> knot
+  </div>
+
   <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Create Admin User</h2>
 
   <form action="" method="POST" @submit.prevent="submitData" class="mt-8 space-y-6">
@@ -36,87 +36,4 @@
   </form>
 
 </div>
-
-<script>
-function createInitialUserForm() {
-  return {
-    formData: {
-      username: "",
-      email: "",
-      password: "",
-      password_confirm: "",
-    },
-    loading: false,
-    buttonLabel: 'Create User',
-    usernameValid: true,
-    emailValid: true,
-    passwordValid: true,
-    confirmPasswordValid: true,
-    checkUsername() {
-      return this.usernameValid = validate.name(this.formData.username);
-    },
-    checkEmail() {
-      return this.emailValid = validate.email(this.formData.email);
-    },
-    checkPassword() {
-      return this.passwordValid = validate.password(this.formData.password);
-    },
-    checkConfirmPassword() {
-      return this.confirmPasswordValid = this.formData.password == this.formData.password_confirm;
-    },
-    submitData() {
-      var err = false,
-          self = this;
-      err = !this.checkUsername() || err;
-      err = !this.checkEmail() || err;
-      err = !this.checkPassword() || err;
-      err = !this.checkConfirmPassword() || err;
-      if(err) {
-        return;
-      }
-
-      this.buttonLabel = 'Initializing system...'
-      this.loading = true;
-
-      var data = {
-        username: this.formData.username,
-        email: this.formData.email,
-        password: this.formData.password,
-        service_password: "",
-        roles: ['00000000-0000-0000-0000-000000000000'],
-        groups: [],
-        active: true,
-        ssh_public_key: "",
-        github_username: "",
-        preferred_shell: "bash",
-        timezone: "UTC",
-      }
-
-      fetch('/api/users', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(data)
-        })
-        .then((response) => {
-          if (response.status === 201) {
-            window.location.href = '/';
-          } else {
-            response.json().then(function(data) {
-              self.$dispatch('show-alert', { msg: data.error, type: 'error' });
-            });
-          }
-        })
-        .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
-        })
-        .finally(() => {
-          this.buttonLabel = 'Create User';
-          this.loading = false;
-        })
-    },
-  }
-}
-</script>
 {{ end }}
