@@ -54,3 +54,16 @@ TOTP should be enabled if the web interface is exposed to the internet. The TOTP
 ## Documentation
 
 Documentation and [Getting Started](https://getknot.dev/docs/getting-started/)
+
+## Icons
+
+Icons are sourced from:
+
+- https://heroicons.com/outline
+- https://flowbite.com/icons/
+- https://github.com/homarr-labs/dashboard-icons
+- https://github.com/devicons/devicon
+
+### Legal
+
+**Disclaimer**: All product names, trademarks, and registered trademarks are the property of their respective owners. Icons are used for identification purposes only and do not imply endorsement.
