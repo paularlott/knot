@@ -47,7 +47,19 @@ func (db *BadgerDbDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
 		return err
 	}
 
-	err = binary.Write(keyTimeBuffer, binary.BigEndian, auditLog.When.UnixMicro())
+	err = binary.Write(keyTimeBuffer, binary.BigEndian, struct {
+		Year                             int16
+		Month, Day, Hour, Minute, Second int8
+		Nanosecond                       int64
+	}{
+		int16(auditLog.When.Year()),
+		int8(auditLog.When.Month()),
+		int8(auditLog.When.Day()),
+		int8(auditLog.When.Hour()),
+		int8(auditLog.When.Minute()),
+		int8(auditLog.When.Second()),
+		auditLog.When.UnixMicro(),
+	})
 	if err != nil {
 		return err
 	}
@@ -132,7 +144,7 @@ func (db *BadgerDbDriver) deleteAuditLogs() error {
 			item := it.Item()
 			key := item.Key()
 
-			timestamp := int64(binary.BigEndian.Uint64(key[len(prefix):]))
+			timestamp := int64(binary.BigEndian.Uint64(key[len(key)-8:]))
 			if timestamp < beforeUnixMicro {
 				if err := txn.Delete(item.Key()); err != nil {
 					return fmt.Errorf("failed to delete audit log entry: %w", err)
