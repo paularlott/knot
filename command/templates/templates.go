@@ -16,7 +16,6 @@ func init() {
 
 	command.RootCmd.AddCommand(templatesCmd)
 	templatesCmd.AddCommand(listCmd)
-	templatesCmd.AddCommand(deleteCmd)
 }
 
 var templatesCmd = &cobra.Command{

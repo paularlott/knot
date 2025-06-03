@@ -1,6 +1,7 @@
 package apiclient
 
 import (
+	"context"
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
@@ -80,10 +81,10 @@ type SpaceDefinition struct {
 	IconURL     string                       `json:"icon_url"`
 }
 
-func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
+func (c *ApiClient) GetSpaces(ctx context.Context, userId string) (*SpaceInfoList, int, error) {
 	response := &SpaceInfoList{}
 
-	code, err := c.httpClient.Get("/api/spaces?user_id="+userId, &response)
+	code, err := c.httpClient.Get(ctx, "/api/spaces?user_id="+userId, &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -91,10 +92,10 @@ func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) GetSpace(spaceId string) (*SpaceDefinition, int, error) {
+func (c *ApiClient) GetSpace(ctx context.Context, spaceId string) (*SpaceDefinition, int, error) {
 	response := &SpaceDefinition{}
 
-	code, err := c.httpClient.Get("/api/spaces/"+spaceId, &response)
+	code, err := c.httpClient.Get(ctx, "/api/spaces/"+spaceId, &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -102,8 +103,8 @@ func (c *ApiClient) GetSpace(spaceId string) (*SpaceDefinition, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateSpace(spaceId string, space *UpdateSpaceRequest) (int, error) {
-	code, err := c.httpClient.Put("/api/spaces/"+spaceId, space, nil, 200)
+func (c *ApiClient) UpdateSpace(ctx context.Context, spaceId string, space *UpdateSpaceRequest) (int, error) {
+	code, err := c.httpClient.Put(ctx, "/api/spaces/"+spaceId, space, nil, 200)
 	if err != nil {
 		return code, err
 	}
@@ -111,10 +112,10 @@ func (c *ApiClient) UpdateSpace(spaceId string, space *UpdateSpaceRequest) (int,
 	return code, nil
 }
 
-func (c *ApiClient) CreateSpace(space *CreateSpaceRequest) (string, int, error) {
+func (c *ApiClient) CreateSpace(ctx context.Context, space *CreateSpaceRequest) (string, int, error) {
 	response := &CreateSpaceResponse{}
 
-	code, err := c.httpClient.Post("/api/spaces", space, response, 201)
+	code, err := c.httpClient.Post(ctx, "/api/spaces", space, response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -122,22 +123,22 @@ func (c *ApiClient) CreateSpace(space *CreateSpaceRequest) (string, int, error) 
 	return response.SpaceID, code, nil
 }
 
-func (c *ApiClient) DeleteSpace(spaceId string) (int, error) {
-	return c.httpClient.Delete("/api/spaces/"+spaceId, nil, nil, 200)
+func (c *ApiClient) DeleteSpace(ctx context.Context, spaceId string) (int, error) {
+	return c.httpClient.Delete(ctx, "/api/spaces/"+spaceId, nil, nil, 200)
 }
 
-func (c *ApiClient) StartSpace(spaceId string) (int, error) {
-	return c.httpClient.Post("/api/spaces/"+spaceId+"/start", nil, nil, 200)
+func (c *ApiClient) StartSpace(ctx context.Context, spaceId string) (int, error) {
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/start", nil, nil, 200)
 }
 
-func (c *ApiClient) StopSpace(spaceId string) (int, error) {
-	return c.httpClient.Post("/api/spaces/"+spaceId+"/stop", nil, nil, 200)
+func (c *ApiClient) StopSpace(ctx context.Context, spaceId string) (int, error) {
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/stop", nil, nil, 200)
 }
 
-func (c *ApiClient) TransferSpace(spaceId string, userId string) (int, error) {
+func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId string) (int, error) {
 	request := &SpaceTransferRequest{
 		UserId: userId,
 	}
 
-	return c.httpClient.Post("/api/spaces/"+spaceId+"/transfer", request, nil, 200)
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/transfer", request, nil, 200)
 }

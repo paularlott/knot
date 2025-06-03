@@ -15,14 +15,20 @@ type ApiClient struct {
 	httpClient *rest.RESTClient
 }
 
-func NewClient(baseURL string, token string, insecureSkipVerify bool) *ApiClient {
+func NewClient(baseURL string, token string, insecureSkipVerify bool) (*ApiClient, error) {
+
+	client, err := rest.NewClient(baseURL, token, insecureSkipVerify)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &ApiClient{
-		httpClient: rest.NewClient(baseURL, token, insecureSkipVerify),
+		httpClient: client,
 	}
 
 	c.httpClient.SetContentType(rest.ContentTypeMsgPack)
 
-	return c
+	return c, nil
 }
 
 func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {

@@ -1,7 +1,9 @@
 package command_spaces
 
 import (
+	"context"
 	"fmt"
+	"os"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
@@ -20,17 +22,21 @@ var stopCmd = &cobra.Command{
 
 		alias, _ := cmd.Flags().GetString("alias")
 		cfg := config.GetServerAddr(alias)
-		client := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
+		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
+		if err != nil {
+			fmt.Println("Failed to create API client:", err)
+			os.Exit(1)
+		}
 
 		// Get the current user
-		user, err := client.WhoAmI()
+		user, err := client.WhoAmI(context.Background())
 		if err != nil {
 			fmt.Println("Error getting user: ", err)
 			return
 		}
 
 		// Get a list of available spaces
-		spaces, _, err := client.GetSpaces(user.Id)
+		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
 		if err != nil {
 			fmt.Println("Error getting spaces: ", err)
 			return
@@ -51,7 +57,7 @@ var stopCmd = &cobra.Command{
 		}
 
 		// Stop the space
-		_, err = client.StopSpace(spaceId)
+		_, err = client.StopSpace(context.Background(), spaceId)
 		if err != nil {
 			fmt.Println("Error stopping space: ", err)
 			return

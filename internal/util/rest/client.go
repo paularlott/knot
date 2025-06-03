@@ -2,13 +2,14 @@ package rest
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"net/url"
 	"time"
 
 	"github.com/paularlott/knot/build"
@@ -23,7 +24,7 @@ const (
 )
 
 type RESTClient struct {
-	baseURL          string
+	baseURL          *url.URL
 	token            string
 	tokenKey         string
 	tokenValue       string
@@ -33,9 +34,14 @@ type RESTClient struct {
 	HTTPClient       *http.Client
 }
 
-func NewClient(baseURL string, token string, insecureSkipVerify bool) *RESTClient {
+func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClient, error) {
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base URL: %s, error: %v", baseURL, err)
+	}
+
 	restClient := &RESTClient{
-		baseURL:          strings.TrimSuffix(baseURL, "/"),
+		baseURL:          parsed,
 		token:            token,
 		tokenKey:         "Authorization",
 		tokenValue:       "Bearer %s",
@@ -56,7 +62,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) *RESTClien
 		DisableCompression:  true,
 	}
 
-	return restClient
+	return restClient, nil
 }
 
 func (c *RESTClient) SetContentType(contentType string) *RESTClient {
@@ -69,9 +75,15 @@ func (c *RESTClient) SetUserAgent(userAgent string) *RESTClient {
 	return c
 }
 
-func (c *RESTClient) SetBaseUrl(baseURL string) *RESTClient {
-	c.baseURL = strings.TrimSuffix(baseURL, "/")
-	return c
+func (c *RESTClient) SetBaseUrl(baseURL string) (*RESTClient, error) {
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base URL: %s, error: %v", baseURL, err)
+	}
+
+	c.baseURL = parsedURL
+
+	return c, nil
 }
 
 func (c *RESTClient) UseSessionCookie(useCookie bool) *RESTClient {
@@ -123,8 +135,15 @@ func (c *RESTClient) setHeaders(req *http.Request) {
 	}
 }
 
-func (c *RESTClient) Get(path string, response interface{}) (int, error) {
-	req, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
+func (c *RESTClient) Get(ctx context.Context, path string, response interface{}) (int, error) {
+	rel, err := url.Parse(path)
+	if err != nil {
+		return 0, fmt.Errorf("invalid path: %s, error: %v", path, err)
+	}
+
+	u := c.baseURL.ResolveReference(rel)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return 0, err
 	}
@@ -149,9 +168,16 @@ func (c *RESTClient) Get(path string, response interface{}) (int, error) {
 	return resp.StatusCode, err
 }
 
-func (c *RESTClient) SendData(method string, path string, request interface{}, response interface{}, successCode int) (int, error) {
+func (c *RESTClient) SendData(ctx context.Context, method string, path string, request interface{}, response interface{}, successCode int) (int, error) {
 	var data []byte
 	var err error
+
+	rel, err := url.Parse(path)
+	if err != nil {
+		return 0, fmt.Errorf("invalid path: %s, error: %v", path, err)
+	}
+
+	u := c.baseURL.ResolveReference(rel)
 
 	if c.contentType == ContentTypeMsgPack {
 		data, err = msgpack.Marshal(request)
@@ -162,7 +188,7 @@ func (c *RESTClient) SendData(method string, path string, request interface{}, r
 		return 0, err
 	}
 
-	req, err := http.NewRequest(method, c.baseURL+path, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), bytes.NewReader(data))
 	if err != nil {
 		return 0, err
 	}
@@ -198,14 +224,14 @@ func (c *RESTClient) SendData(method string, path string, request interface{}, r
 	}
 }
 
-func (c *RESTClient) Post(path string, request interface{}, response interface{}, successCode int) (int, error) {
-	return c.SendData(http.MethodPost, path, request, response, successCode)
+func (c *RESTClient) Post(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
+	return c.SendData(ctx, http.MethodPost, path, request, response, successCode)
 }
 
-func (c *RESTClient) Put(path string, request interface{}, response interface{}, successCode int) (int, error) {
-	return c.SendData(http.MethodPut, path, request, response, successCode)
+func (c *RESTClient) Put(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
+	return c.SendData(ctx, http.MethodPut, path, request, response, successCode)
 }
 
-func (c *RESTClient) Delete(path string, request interface{}, response interface{}, successCode int) (int, error) {
-	return c.SendData(http.MethodDelete, path, request, response, successCode)
+func (c *RESTClient) Delete(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
+	return c.SendData(ctx, http.MethodDelete, path, request, response, successCode)
 }

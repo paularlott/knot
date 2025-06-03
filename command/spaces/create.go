@@ -1,7 +1,9 @@
 package command_spaces
 
 import (
+	"context"
 	"fmt"
+	"os"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
@@ -37,10 +39,14 @@ var createCmd = &cobra.Command{
 
 		alias, _ := cmd.Flags().GetString("alias")
 		cfg := config.GetServerAddr(alias)
-		client := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
+		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
+		if err != nil {
+			fmt.Println("Failed to create API client:", err)
+			os.Exit(1)
+		}
 
 		// Get a list of available templates
-		templates, _, err := client.GetTemplates()
+		templates, _, err := client.GetTemplates(context.Background())
 		if err != nil {
 			fmt.Println("Error getting templates: ", err)
 			return
@@ -70,7 +76,7 @@ var createCmd = &cobra.Command{
 			AltNames:    []string{},
 		}
 
-		_, _, err = client.CreateSpace(space)
+		_, _, err = client.CreateSpace(context.Background(), space)
 		if err != nil {
 			fmt.Println("Error creating space: ", err)
 			return

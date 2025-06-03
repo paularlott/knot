@@ -16,8 +16,6 @@ import (
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
-
-	"github.com/spf13/viper"
 )
 
 func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -460,12 +458,6 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Update the user's spaces, ssh keys or stop spaces
 	go service.GetUserService().UpdateUserSpaces(user)
-
-	// If leaf node then attempt to update the information on the origin server
-	if config.LeafNode {
-		client := apiclient.NewClient(viper.GetString("server.origin.server"), viper.GetString("server.origin.token"), viper.GetBool("tls_skip_verify"))
-		client.UpdateUser(user.Id, &request)
-	}
 
 	w.WriteHeader(http.StatusOK)
 }

@@ -1,6 +1,7 @@
 package tunnel_server
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -21,17 +22,21 @@ import (
 
 func ConnectAndForward(wsUrl string, serverUrl string, token string, protocol string, port uint16, tunnelName string, hostname string) {
 
-	client := apiclient.NewClient(serverUrl, token, viper.GetBool("tls_skip_verify"))
+	client, err := apiclient.NewClient(serverUrl, token, viper.GetBool("tls_skip_verify"))
+	if err != nil {
+		fmt.Println("Failed to create API client:", err)
+		os.Exit(1)
+	}
 
 	// Get the current user
-	user, err := client.WhoAmI()
+	user, err := client.WhoAmI(context.Background())
 	if err != nil {
 		fmt.Println("Error getting user: ", err)
 		os.Exit(1)
 	}
 
 	// Get the tunnel domain
-	tunnelDomain, _, err := client.GetTunnelDomain()
+	tunnelDomain, _, err := client.GetTunnelDomain(context.Background())
 	if err != nil {
 		fmt.Println("Error getting tunnel domain: ", err)
 		os.Exit(1)

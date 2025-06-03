@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -34,9 +35,13 @@ var pingCmd = &cobra.Command{
 		cfg := config.GetServerAddr(alias)
 		fmt.Println("Pinging server: ", cfg.HttpServer)
 
-		client := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
+		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
+		if err != nil {
+			fmt.Println("Failed to create API client:", err)
+			os.Exit(1)
+		}
 
-		version, err := client.Ping()
+		version, err := client.Ping(context.Background())
 		if err != nil {
 			fmt.Println("Failed to ping server")
 			os.Exit(1)

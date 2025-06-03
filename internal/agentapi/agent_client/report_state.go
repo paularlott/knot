@@ -1,6 +1,7 @@
 package agent_client
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -84,10 +85,14 @@ func ReportState() {
 			if withCodeServer && codeServerPort > 0 {
 				// Check health of code-server
 				address := fmt.Sprintf("http://127.0.0.1:%d", codeServerPort)
-				client := rest.NewClient(address, "", viper.GetBool("tls_skip_verify"))
-				statusCode, _ := client.Get("/healthz", nil)
-				if statusCode == http.StatusOK {
-					codeServerAlive = true
+				client, err := rest.NewClient(address, "", viper.GetBool("tls_skip_verify"))
+				if err != nil {
+					log.Error().Err(err).Msg("agent: failed to create rest client for code-server")
+				} else {
+					statusCode, _ := client.Get(context.Background(), "/healthz", nil)
+					if statusCode == http.StatusOK {
+						codeServerAlive = true
+					}
 				}
 			}
 

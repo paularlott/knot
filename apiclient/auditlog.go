@@ -1,6 +1,7 @@
 package apiclient
 
 import (
+	"context"
 	"fmt"
 	"time"
 )
@@ -21,10 +22,10 @@ type AuditLogs struct {
 	Items []AuditLogEntry `json:"items"`
 }
 
-func (c *ApiClient) GetAuditLogs(start int, maxItems int) (*AuditLogs, int, error) {
+func (c *ApiClient) GetAuditLogs(ctx context.Context, start int, maxItems int) (*AuditLogs, int, error) {
 	response := &AuditLogs{}
 
-	code, err := c.httpClient.Get(fmt.Sprintf("/api/audit-logs?start=%d&max-items=%d", start, maxItems), response)
+	code, err := c.httpClient.Get(ctx, fmt.Sprintf("/api/audit-logs?start=%d&max-items=%d", start, maxItems), response)
 	if err != nil {
 		return nil, code, err
 	}

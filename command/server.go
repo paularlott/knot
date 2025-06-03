@@ -672,7 +672,10 @@ func startupCheckPendingSpaces() {
 	if err != nil {
 		log.Fatal().Msgf("server: failed to get spaces: %s", err.Error())
 	} else {
-		nomadClient := nomad.NewClient()
+		nomadClient, err := nomad.NewClient()
+		if err != nil {
+			log.Fatal().Msgf("server: failed to create nomad client: %s", err.Error())
+		}
 
 		for _, space := range spaces {
 			// If space on this server and pending then monitor it

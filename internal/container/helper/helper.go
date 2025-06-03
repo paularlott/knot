@@ -41,7 +41,12 @@ func (h *Helper) CreateVolume(volume *model.Volume) error {
 	if volume.LocalContainer {
 		containerClient = docker.NewClient()
 	} else {
-		containerClient = nomad.NewClient()
+		var err error
+		containerClient, err = nomad.NewClient()
+		if err != nil {
+			log.Error().Err(err).Msg("CreateVolume: failed to create nomad client")
+			return err
+		}
 	}
 
 	// Create volumes
@@ -71,7 +76,12 @@ func (h *Helper) DeleteVolume(volume *model.Volume) error {
 	if volume.LocalContainer {
 		containerClient = docker.NewClient()
 	} else {
-		containerClient = nomad.NewClient()
+		var err error
+		containerClient, err = nomad.NewClient()
+		if err != nil {
+			log.Error().Err(err).Msg("DeleteVolume: failed to create nomad client")
+			return err
+		}
 	}
 
 	// Delete the volume
@@ -121,7 +131,12 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 	if template.LocalContainer {
 		containerClient = docker.NewClient()
 	} else {
-		containerClient = nomad.NewClient()
+		var err error
+		containerClient, err = nomad.NewClient()
+		if err != nil {
+			log.Error().Err(err).Msg("StartSpace: failed to create nomad client")
+			return err
+		}
 	}
 
 	// Create volumes
@@ -167,7 +182,12 @@ func (h *Helper) StopSpace(space *model.Space) error {
 	if template.LocalContainer {
 		containerClient = docker.NewClient()
 	} else {
-		containerClient = nomad.NewClient()
+		var err error
+		containerClient, err = nomad.NewClient()
+		if err != nil {
+			log.Error().Msgf("StopSpace: failed to create nomad client %s", err.Error())
+			return err
+		}
 	}
 
 	// Stop the job
@@ -206,7 +226,17 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 		if template.LocalContainer {
 			containerClient = docker.NewClient()
 		} else {
-			containerClient = nomad.NewClient()
+			var err error
+			containerClient, err = nomad.NewClient()
+			if err != nil {
+				log.Error().Err(err).Msg("DeleteSpace: failed to create nomad client")
+
+				space.IsDeleting = false
+				space.UpdatedAt = time.Now().UTC()
+				db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
+				service.GetTransport().GossipSpace(space)
+				return
+			}
 		}
 
 		// If the space is deployed, stop the job

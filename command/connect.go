@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -61,10 +62,14 @@ var ConnectCmd = &cobra.Command{
 
 		hostname = "knot client " + hostname
 
-		client := apiclient.NewClient(server, "", cmd.Flags().Lookup("tls-skip-verify").Value.String() == "true")
+		client, err := apiclient.NewClient(server, "", cmd.Flags().Lookup("tls-skip-verify").Value.String() == "true")
+		if err != nil {
+			fmt.Println("Failed to create API client:", err)
+			os.Exit(1)
+		}
 
 		// Query if the server is using TOTP
-		totp, _, err := client.UsingTOTP()
+		totp, _, err := client.UsingTOTP(context.Background())
 		if err != nil {
 			fmt.Println("Failed to query server for TOTP")
 			os.Exit(1)
@@ -123,7 +128,7 @@ var ConnectCmd = &cobra.Command{
 			}
 
 			// Open an API connection to the server
-			sessionToken, _, _, _ := client.Login(username, string(password), "")
+			sessionToken, _, _, _ := client.Login(context.Background(), username, string(password), "")
 			if sessionToken == "" {
 				fmt.Println("Failed to login")
 				os.Exit(1)
@@ -133,7 +138,7 @@ var ConnectCmd = &cobra.Command{
 			client.UseSessionCookie(true).SetAuthToken(sessionToken)
 
 			// Create an API token
-			token, _, err = client.CreateToken(hostname)
+			token, _, err = client.CreateToken(context.Background(), hostname)
 			if err != nil || token == "" {
 				fmt.Println("Failed to create token")
 				os.Exit(1)

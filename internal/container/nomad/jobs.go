@@ -1,6 +1,7 @@
 package nomad
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 )
@@ -9,6 +10,7 @@ func (client *NomadClient) ParseJobHCL(hcl string) (map[string]interface{}, erro
 	var response = make(map[string]interface{})
 
 	_, err := client.httpClient.Post(
+		context.Background(),
 		"/v1/jobs/parse",
 		map[string]interface{}{
 			"JobHCL":       hcl,
@@ -31,6 +33,7 @@ func (client *NomadClient) CreateJob(jobJSON *map[string]interface{}) (map[strin
 	}
 
 	_, err := client.httpClient.Post(
+		context.Background(),
 		"/v1/jobs",
 		job,
 		&response,
@@ -47,6 +50,7 @@ func (client *NomadClient) DeleteJob(jobId string, namespace string) (map[string
 	var response = make(map[string]interface{})
 
 	_, err := client.httpClient.Delete(
+		context.Background(),
 		fmt.Sprintf("/v1/job/%s?purge=false&namespace=%s", jobId, namespace),
 		nil,
 		&response,
@@ -63,6 +67,7 @@ func (client *NomadClient) ReadJob(jobId string, namespace string) (int, map[str
 	var response = make(map[string]interface{})
 
 	code, err := client.httpClient.Get(
+		context.Background(),
 		fmt.Sprintf("/v1/job/%s?namespace=%s", jobId, namespace),
 		&response,
 	)

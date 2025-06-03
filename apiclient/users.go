@@ -1,6 +1,7 @@
 package apiclient
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"time"
@@ -92,10 +93,10 @@ type UserQuota struct {
 	UsedTunnels          uint32 `json:"used_tunnels"`
 }
 
-func (c *ApiClient) CreateUser(request *CreateUserRequest) (string, int, error) {
+func (c *ApiClient) CreateUser(ctx context.Context, request *CreateUserRequest) (string, int, error) {
 	response := CreateUserResponse{}
 
-	code, err := c.httpClient.Post("/api/users", request, &response, 201)
+	code, err := c.httpClient.Post(ctx, "/api/users", request, &response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -103,10 +104,10 @@ func (c *ApiClient) CreateUser(request *CreateUserRequest) (string, int, error) 
 	return response.UserId, code, nil
 }
 
-func (c *ApiClient) GetUser(userId string) (*UserResponse, error) {
+func (c *ApiClient) GetUser(ctx context.Context, userId string) (*UserResponse, error) {
 	response := UserResponse{}
 
-	code, err := c.httpClient.Get("/api/users/"+userId, &response)
+	code, err := c.httpClient.Get(ctx, "/api/users/"+userId, &response)
 	if err != nil {
 		if code == 404 {
 			return nil, errors.New("user not found")
@@ -118,10 +119,10 @@ func (c *ApiClient) GetUser(userId string) (*UserResponse, error) {
 	return &response, nil
 }
 
-func (c *ApiClient) WhoAmI() (*UserResponse, error) {
+func (c *ApiClient) WhoAmI(ctx context.Context) (*UserResponse, error) {
 	response := UserResponse{}
 
-	_, err := c.httpClient.Get("/api/users/whoami", &response)
+	_, err := c.httpClient.Get(ctx, "/api/users/whoami", &response)
 	if err != nil {
 		return nil, err
 	}
@@ -129,13 +130,13 @@ func (c *ApiClient) WhoAmI() (*UserResponse, error) {
 	return &response, nil
 }
 
-func (c *ApiClient) GetUsers(state string, location string) (*UserInfoList, error) {
+func (c *ApiClient) GetUsers(ctx context.Context, state string, location string) (*UserInfoList, error) {
 	response := UserInfoList{}
 
 	stateEncoded := url.QueryEscape(state)
 	locationEncoded := url.QueryEscape(location)
 
-	_, err := c.httpClient.Get("/api/users?state="+stateEncoded+"&location="+locationEncoded, &response)
+	_, err := c.httpClient.Get(ctx, "/api/users?state="+stateEncoded+"&location="+locationEncoded, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -143,8 +144,8 @@ func (c *ApiClient) GetUsers(state string, location string) (*UserInfoList, erro
 	return &response, nil
 }
 
-func (c *ApiClient) UpdateUser(userId string, user *UpdateUserRequest) error {
-	_, err := c.httpClient.Put("/api/users/"+userId, &user, nil, 200)
+func (c *ApiClient) UpdateUser(ctx context.Context, userId string, user *UpdateUserRequest) error {
+	_, err := c.httpClient.Put(ctx, "/api/users/"+userId, &user, nil, 200)
 	if err != nil {
 		return err
 	}
@@ -152,15 +153,15 @@ func (c *ApiClient) UpdateUser(userId string, user *UpdateUserRequest) error {
 	return nil
 }
 
-func (c *ApiClient) DeleteUser(userId string) error {
-	_, err := c.httpClient.Delete("/api/users/"+userId, nil, nil, 200)
+func (c *ApiClient) DeleteUser(ctx context.Context, userId string) error {
+	_, err := c.httpClient.Delete(ctx, "/api/users/"+userId, nil, nil, 200)
 	return err
 }
 
-func (c *ApiClient) GetUserQuota(userId string) (*UserQuota, error) {
+func (c *ApiClient) GetUserQuota(ctx context.Context, userId string) (*UserQuota, error) {
 	response := UserQuota{}
 
-	code, err := c.httpClient.Get("/api/users/"+userId+"/quota", &response)
+	code, err := c.httpClient.Get(ctx, "/api/users/"+userId+"/quota", &response)
 	if err != nil {
 		if code == 404 {
 			return nil, errors.New("user not found")

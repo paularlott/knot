@@ -1,14 +1,16 @@
 package apiclient
 
+import "context"
+
 type TunnelInfo struct {
 	Name    string `json:"name"`
 	Address string `json:"address"`
 }
 
-func (c *ApiClient) GetTunnels() ([]TunnelInfo, int, error) {
+func (c *ApiClient) GetTunnels(ctx context.Context) ([]TunnelInfo, int, error) {
 	response := []TunnelInfo{}
 
-	code, err := c.httpClient.Get("/api/tunnels", &response)
+	code, err := c.httpClient.Get(ctx, "/api/tunnels", &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -16,10 +18,10 @@ func (c *ApiClient) GetTunnels() ([]TunnelInfo, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) GetTunnelDomain() (string, int, error) {
+func (c *ApiClient) GetTunnelDomain(ctx context.Context) (string, int, error) {
 	response := ""
 
-	code, err := c.httpClient.Get("/api/tunnels/domain", &response)
+	code, err := c.httpClient.Get(ctx, "/api/tunnels/domain", &response)
 	if err != nil {
 		return "", code, err
 	}

@@ -1,6 +1,8 @@
 package apiclient
 
-import "github.com/paularlott/knot/internal/database/model"
+import (
+	"context"
+)
 
 type VolumeInfo struct {
 	Id             string `json:"volume_id"`
@@ -59,10 +61,10 @@ type StartVolumeResponse struct {
 	Location string `json:"location"`
 }
 
-func (c *ApiClient) GetVolumes() (*VolumeInfoList, int, error) {
+func (c *ApiClient) GetVolumes(ctx context.Context) (*VolumeInfoList, int, error) {
 	response := &VolumeInfoList{}
 
-	code, err := c.httpClient.Get("/api/volumes", response)
+	code, err := c.httpClient.Get(ctx, "/api/volumes", response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -70,7 +72,7 @@ func (c *ApiClient) GetVolumes() (*VolumeInfoList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) CreateVolume(name string, definition string, localContainer bool) (*VolumeCreateResponse, int, error) {
+func (c *ApiClient) CreateVolume(ctx context.Context, name string, definition string, localContainer bool) (*VolumeCreateResponse, int, error) {
 	request := VolumeCreateRequest{
 		Name:           name,
 		Definition:     definition,
@@ -79,7 +81,7 @@ func (c *ApiClient) CreateVolume(name string, definition string, localContainer 
 
 	response := &VolumeCreateResponse{}
 
-	code, err := c.httpClient.Post("/api/volumes", request, response, 201)
+	code, err := c.httpClient.Post(ctx, "/api/volumes", request, response, 201)
 	if err != nil {
 		return nil, code, err
 	}
@@ -87,23 +89,23 @@ func (c *ApiClient) CreateVolume(name string, definition string, localContainer 
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateVolume(volumeId string, name string, definition string) (int, error) {
+func (c *ApiClient) UpdateVolume(ctx context.Context, volumeId string, name string, definition string) (int, error) {
 	request := VolumeUpdateRequest{
 		Name:       name,
 		Definition: definition,
 	}
 
-	return c.httpClient.Put("/api/volumes/"+volumeId, request, nil, 200)
+	return c.httpClient.Put(ctx, "/api/volumes/"+volumeId, request, nil, 200)
 }
 
-func (c *ApiClient) DeleteVolume(volumeId string) (int, error) {
-	return c.httpClient.Delete("/api/volumes/"+volumeId, nil, nil, 200)
+func (c *ApiClient) DeleteVolume(ctx context.Context, volumeId string) (int, error) {
+	return c.httpClient.Delete(ctx, "/api/volumes/"+volumeId, nil, nil, 200)
 }
 
-func (c *ApiClient) GetVolume(volumeId string) (*VolumeDefinition, int, error) {
+func (c *ApiClient) GetVolume(ctx context.Context, volumeId string) (*VolumeDefinition, int, error) {
 	response := VolumeDefinition{}
 
-	code, err := c.httpClient.Get("/api/volumes/"+volumeId, &response)
+	code, err := c.httpClient.Get(ctx, "/api/volumes/"+volumeId, &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -111,28 +113,10 @@ func (c *ApiClient) GetVolume(volumeId string) (*VolumeDefinition, int, error) {
 	return &response, code, nil
 }
 
-func (c *ApiClient) GetVolumeObject(volumeId string) (*model.Volume, int, error) {
-	response, code, err := c.GetVolume(volumeId)
-	if err != nil {
-		return nil, code, err
-	}
-
-	volume := &model.Volume{
-		Id:             volumeId,
-		Name:           response.Name,
-		Definition:     response.Definition,
-		Location:       response.Location,
-		Active:         response.Active,
-		LocalContainer: response.LocalContainer,
-	}
-
-	return volume, code, nil
-}
-
-func (c *ApiClient) StartVolume(volumeId string) (*StartVolumeResponse, int, error) {
+func (c *ApiClient) StartVolume(ctx context.Context, volumeId string) (*StartVolumeResponse, int, error) {
 	response := StartVolumeResponse{}
 
-	code, err := c.httpClient.Post("/api/volumes/"+volumeId+"/start", nil, &response, 200)
+	code, err := c.httpClient.Post(ctx, "/api/volumes/"+volumeId+"/start", nil, &response, 200)
 	if err != nil {
 		return nil, code, err
 	}
@@ -140,6 +124,6 @@ func (c *ApiClient) StartVolume(volumeId string) (*StartVolumeResponse, int, err
 	return &response, code, nil
 }
 
-func (c *ApiClient) StopVolume(volumeId string) (int, error) {
-	return c.httpClient.Post("/api/volumes/"+volumeId+"/stop", nil, nil, 200)
+func (c *ApiClient) StopVolume(ctx context.Context, volumeId string) (int, error) {
+	return c.httpClient.Post(ctx, "/api/volumes/"+volumeId+"/stop", nil, nil, 200)
 }

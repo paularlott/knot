@@ -1,5 +1,7 @@
 package apiclient
 
+import "context"
+
 type PermissionInfo struct {
 	Id   int    `json:"id"`
 	Name string `json:"name"`
@@ -10,10 +12,10 @@ type PermissionInfoList struct {
 	Permissions []PermissionInfo `json:"permissions"`
 }
 
-func (c *ApiClient) GetPermissions() (*PermissionInfoList, int, error) {
+func (c *ApiClient) GetPermissions(ctx context.Context) (*PermissionInfoList, int, error) {
 	response := &PermissionInfoList{}
 
-	code, err := c.httpClient.Get("/api/permissions", response)
+	code, err := c.httpClient.Get(ctx, "/api/permissions", response)
 	if err != nil {
 		return nil, code, err
 	}

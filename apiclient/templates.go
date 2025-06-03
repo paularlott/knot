@@ -1,5 +1,7 @@
 package apiclient
 
+import "context"
+
 type TemplateCreateRequest struct {
 	Name             string               `json:"name"`
 	Job              string               `json:"job"`
@@ -112,10 +114,10 @@ type TemplateDetails struct {
 	IconURL          string               `json:"icon_url"`
 }
 
-func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
+func (c *ApiClient) GetTemplates(ctx context.Context) (*TemplateList, int, error) {
 	response := &TemplateList{}
 
-	code, err := c.httpClient.Get("/api/templates", response)
+	code, err := c.httpClient.Get(ctx, "/api/templates", response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -123,7 +125,7 @@ func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string, autoStart bool, iconURL string) (int, error) {
+func (c *ApiClient) UpdateTemplate(ctx context.Context, templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string, autoStart bool, iconURL string) (int, error) {
 	request := TemplateUpdateRequest{
 		Name:             name,
 		Job:              job,
@@ -151,10 +153,10 @@ func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, d
 		request.Schedule = *schedule
 	}
 
-	return c.httpClient.Put("/api/templates/"+templateId, &request, nil, 200)
+	return c.httpClient.Put(ctx, "/api/templates/"+templateId, &request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string, autoStart bool, iconURL string) (string, int, error) {
+func (c *ApiClient) CreateTemplate(ctx context.Context, name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string, autoStart bool, iconURL string) (string, int, error) {
 	request := TemplateCreateRequest{
 		Name:             name,
 		Job:              job,
@@ -184,7 +186,7 @@ func (c *ApiClient) CreateTemplate(name string, job string, description string, 
 
 	response := &TemplateCreateResponse{}
 
-	code, err := c.httpClient.Post("/api/templates", &request, &response, 201)
+	code, err := c.httpClient.Post(ctx, "/api/templates", &request, &response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -192,14 +194,14 @@ func (c *ApiClient) CreateTemplate(name string, job string, description string, 
 	return response.Id, code, nil
 }
 
-func (c *ApiClient) DeleteTemplate(templateId string) (int, error) {
-	return c.httpClient.Delete("/api/templates/"+templateId, nil, nil, 200)
+func (c *ApiClient) DeleteTemplate(ctx context.Context, templateId string) (int, error) {
+	return c.httpClient.Delete(ctx, "/api/templates/"+templateId, nil, nil, 200)
 }
 
-func (c *ApiClient) GetTemplate(templateId string) (*TemplateDetails, int, error) {
+func (c *ApiClient) GetTemplate(ctx context.Context, templateId string) (*TemplateDetails, int, error) {
 	response := &TemplateDetails{}
 
-	code, err := c.httpClient.Get("/api/templates/"+templateId, response)
+	code, err := c.httpClient.Get(ctx, "/api/templates/"+templateId, response)
 	if err != nil {
 		return nil, code, err
 	}

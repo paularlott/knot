@@ -1,5 +1,7 @@
 package apiclient
 
+import "context"
+
 type AuthLoginRequest struct {
 	Password string `json:"password"`
 	Email    string `json:"email"`
@@ -20,7 +22,7 @@ type UsingTOTPResponse struct {
 	UsingTOTP bool `json:"using_totp"`
 }
 
-func (c *ApiClient) Login(email string, password string, totpCode string) (string, string, int, error) {
+func (c *ApiClient) Login(ctx context.Context, email string, password string, totpCode string) (string, string, int, error) {
 	request := AuthLoginRequest{
 		Email:    email,
 		Password: password,
@@ -28,7 +30,7 @@ func (c *ApiClient) Login(email string, password string, totpCode string) (strin
 	}
 	response := AuthLoginResponse{}
 
-	code, err := c.httpClient.Post("/api/auth", &request, &response, 200)
+	code, err := c.httpClient.Post(ctx, "/api/auth", &request, &response, 200)
 	if err != nil {
 		return "", "", code, err
 	}
@@ -36,10 +38,10 @@ func (c *ApiClient) Login(email string, password string, totpCode string) (strin
 	return response.Token, response.TOTPSecret, code, nil
 }
 
-func (c *ApiClient) Logout() error {
+func (c *ApiClient) Logout(ctx context.Context) error {
 	response := AuthLogoutResponse{}
 
-	_, err := c.httpClient.Post("/api/auth/logout", nil, &response, 200)
+	_, err := c.httpClient.Post(ctx, "/api/auth/logout", nil, &response, 200)
 	if err != nil {
 		return err
 	}
@@ -48,10 +50,10 @@ func (c *ApiClient) Logout() error {
 }
 
 // Login to the server using a user ID and token
-func (c *ApiClient) LoginUserToken(userId string, token string) error {
+func (c *ApiClient) LoginUserToken(ctx context.Context, userId string, token string) error {
 	response := AuthLoginResponse{}
 
-	_, err := c.httpClient.Post("/api/auth/user", nil, &response, 200)
+	_, err := c.httpClient.Post(ctx, "/api/auth/user", nil, &response, 200)
 	if err != nil {
 		return err
 	}
@@ -59,10 +61,10 @@ func (c *ApiClient) LoginUserToken(userId string, token string) error {
 	return nil
 }
 
-func (c *ApiClient) UsingTOTP() (bool, int, error) {
+func (c *ApiClient) UsingTOTP(ctx context.Context) (bool, int, error) {
 	response := UsingTOTPResponse{}
 
-	code, err := c.httpClient.Get("/api/auth/using-totp", &response)
+	code, err := c.httpClient.Get(ctx, "/api/auth/using-totp", &response)
 	if err != nil {
 		return false, code, err
 	}
