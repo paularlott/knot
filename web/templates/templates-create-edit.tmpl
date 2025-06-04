@@ -41,7 +41,7 @@
                   <template x-for="(option, index) in filteredOptions" :key="index">
                   <li @click="selectOption(option)" class="my-1 cursor-pointer nav-item text-sm">
                     <img x-show="option.url.length" :src="option.url" alt="Icon" class="size-10 mr-2">
-                    <div x-text="option.description"></div>
+                    <div x-text="option.description + ' (' + option.source + ')'"></div>
                   </li>
                   </template>
                 </ul>

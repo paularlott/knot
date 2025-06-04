@@ -1,4 +1,7 @@
 openapi: 3.0.3
+servers:
+  - url: https://127.0.0.1
+    description: Local server.
 info:
   version: 1.0.0
   title: Knot API
@@ -51,6 +54,7 @@ paths:
                   using_totp:
                     type: boolean
                     description: True if TOTP is enabled.
+      security: []
 
   /api/audit-logs:
     get:
@@ -88,6 +92,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
 
   /api/clister-info:
     get:
@@ -109,8 +114,9 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
 
-  /api/tunnels/{tunnel_id}:
+  /api/tunnels/{tunnel_name}:
     delete:
       tags:
         - Tunnels
@@ -133,8 +139,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/tunnels:
     get:
@@ -156,6 +161,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
 
   /api/tunnels/domain:
     get:
@@ -175,6 +181,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
 
   /api/users:
     post:
@@ -214,8 +221,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     get:
       tags:
@@ -270,8 +276,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/users/{user_id}:
     get:
@@ -302,8 +307,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '404':
           $ref: '#/components/responses/not-found'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     put:
       tags:
@@ -336,8 +340,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '404':
           $ref: '#/components/responses/not-found'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     delete:
       summary: Delete User
@@ -364,8 +367,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/users/{user_id}/quota:
     get:
@@ -396,8 +398,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '404':
           $ref: '#/components/responses/not-found'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/users/whoami:
     get:
@@ -416,8 +417,7 @@ paths:
           $ref: '#/components/responses/bad-request'
         '401':
           $ref: '#/components/responses/unauthorized'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/permissions:
     get:
@@ -437,8 +437,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/groups:
     get:
@@ -458,8 +457,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     post:
       summary: Create a Group
@@ -486,8 +484,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/groups/{group_id}:
     put:
@@ -523,8 +520,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     delete:
       summary: Delete Group
@@ -553,8 +549,7 @@ paths:
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     get:
       summary: Get a Group
@@ -583,8 +578,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '404':
           $ref: '#/components/responses/not-found'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/roles:
     get:
@@ -610,16 +604,14 @@ paths:
                       type: string
         '401':
           $ref: '#/components/responses/unauthorized'
-      security:
-        - BearerAuth: []
-
+      security: [BearerAuth: []]
 
     post:
-      summary: Create a Group
-      description: Create a new group.
-      operationId: createGroup
+      summary: Create a role
+      description: Create a new role.
+      operationId: createRole
       tags:
-        - Groups
+        - Roles
       requestBody:
         required: true
         content:
@@ -639,8 +631,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/roles/{role_id}:
     put:
@@ -676,8 +667,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     delete:
       summary: Delete Role
@@ -706,8 +696,7 @@ paths:
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     get:
       summary: Get a Role
@@ -717,7 +706,7 @@ paths:
         - Roles
       parameters:
         - in: path
-          name: grole_id
+          name: role_id
           schema:
             type: string
             format: uuid
@@ -736,8 +725,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '404':
           $ref: '#/components/responses/not-found'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/sessions:
     get:
@@ -759,8 +747,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/sessions/{session_id}:
     delete:
@@ -785,8 +772,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/auth:
     post:
@@ -817,6 +803,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
+      security: []
 
   /api/auth/web:
     post:
@@ -847,6 +834,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
+      security: []
 
   /api/auth/logout:
     post:
@@ -867,6 +855,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
 
   /api/tokens:
     get:
@@ -886,8 +875,7 @@ paths:
                   $ref: '#/components/schemas/TokenInfo'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     post:
       summary: Create Token
@@ -912,8 +900,7 @@ paths:
           $ref: '#/components/responses/bad-request'
         '401':
           $ref: '#/components/responses/unauthorized'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/tokens/{token_id}:
     delete:
@@ -938,8 +925,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/spaces:
     get:
@@ -967,8 +953,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     post:
       summary: Create a Space
@@ -1007,8 +992,7 @@ paths:
           $ref: '#/components/responses/internal-server-error'
         '507':
           $ref: '#/components/responses/insufficient-storage'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/spaces/{space_id}:
     delete:
@@ -1036,8 +1020,7 @@ paths:
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     put:
       summary: Update a Space
@@ -1070,8 +1053,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     get:
       summary: Get a Space
@@ -1102,8 +1084,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/spaces/{space_id}/transfer:
     post:
@@ -1144,8 +1125,7 @@ paths:
           $ref: '#/components/responses/service-unavailable'
         '507':
           $ref: '#/components/responses/insufficient-storage'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/spaces/{space_id}/share:
     post:
@@ -1185,8 +1165,7 @@ paths:
           $ref: '#/components/responses/service-unavailable'
         '507':
           $ref: '#/components/responses/insufficient-storage'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     delete:
       summary: Remove Space Share
@@ -1219,8 +1198,7 @@ paths:
           $ref: '#/components/responses/service-unavailable'
         '507':
           $ref: '#/components/responses/insufficient-storage'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/spaces/{space_id}/start:
     post:
@@ -1254,8 +1232,7 @@ paths:
           $ref: '#/components/responses/service-unavailable'
         '507':
           $ref: '#/components/responses/insufficient-storage'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/spaces/{space_id}/stop:
     post:
@@ -1283,8 +1260,7 @@ paths:
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/spaces/{user_id}/stop-for-user:
     post:
@@ -1309,8 +1285,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/templates:
     get:
@@ -1341,8 +1316,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     post:
       summary: Create a Template
@@ -1379,8 +1353,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/templates/{template_id}:
     put:
@@ -1416,8 +1389,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     delete:
       summary: Delete Template
@@ -1448,8 +1420,7 @@ paths:
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     get:
       summary: Get Template
@@ -1479,8 +1450,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/templatevars:
     get:
@@ -1502,8 +1472,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     post:
       summary: Create a Template Variable
@@ -1538,8 +1507,7 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/templatevars/{templatevar_id}:
     put:
@@ -1575,8 +1543,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     delete:
       summary: Delete Template Variable
@@ -1601,12 +1568,20 @@ paths:
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
+
     get:
       summary: Get Template Variable
       description: Get a Template Variable.
       operationId: getTemplateVar
+      parameters:
+        - in: path
+          name: templatevar_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the template variable to get.
       tags:
         - TemplateVars
       responses:
@@ -1624,8 +1599,7 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/volumes:
     get:
@@ -1655,8 +1629,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     post:
       summary: Create a Volume
@@ -1693,8 +1666,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/volumes/{volume_id}:
     put:
@@ -1726,8 +1698,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     delete:
       summary: Delete Volume
@@ -1754,8 +1725,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
     get:
       summary: Get Volume
@@ -1784,8 +1754,7 @@ paths:
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/volumes/{volume_id}/start:
     post:
@@ -1826,8 +1795,7 @@ paths:
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/volumes/{volume_id}/stop:
     post:
@@ -1857,8 +1825,7 @@ paths:
           $ref: '#/components/responses/locked'
         '500':
           $ref: '#/components/responses/internal-server-error'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /proxy/port/{host}/{port}:
     get:
@@ -1885,8 +1852,7 @@ paths:
           description: Connected.
         '401':
           $ref: '#/components/responses/unauthorized'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/lookup/{service}:
     get:
@@ -1910,8 +1876,7 @@ paths:
                 $ref: '#/components/schemas/LookupResponse'
         '401':
           $ref: '#/components/responses/unauthorized'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
   /api/ping:
     get:
@@ -1928,8 +1893,7 @@ paths:
                 $ref: '#/components/schemas/PingResponse'
         '401':
           $ref: '#/components/responses/unauthorized'
-      security:
-        - BearerAuth: []
+      security: [BearerAuth: []]
 
 components:
   securitySchemes:
@@ -2806,7 +2770,7 @@ components:
       properties:
         enabled:
           type: boolean
-          description: If the schedule is enabed for the day.
+          description: If the schedule is enabled for the day.
         from:
           type: string
           description: The start time of the schedule.
