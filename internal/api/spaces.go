@@ -237,7 +237,7 @@ func removeBlankAndDuplicates(names []string, primary string) []string {
 }
 
 func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
-	request := apiclient.CreateSpaceRequest{}
+	request := apiclient.SpaceRequest{}
 	user := r.Context().Value("user").(*model.User)
 
 	err := rest.BindJSON(w, r, &request)
@@ -542,7 +542,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request := apiclient.UpdateSpaceRequest{}
+	request := apiclient.SpaceRequest{}
 	err = rest.BindJSON(w, r, &request)
 	if err != nil {
 		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())

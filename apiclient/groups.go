@@ -16,7 +16,7 @@ type GroupInfoList struct {
 	Groups []GroupInfo `json:"groups"`
 }
 
-type UserGroupRequest struct {
+type GroupRequest struct {
 	Name         string `json:"name"`
 	MaxSpaces    uint32 `json:"max_spaces"`
 	ComputeUnits uint32 `json:"compute_units"`
@@ -40,15 +40,7 @@ func (c *ApiClient) GetGroups(ctx context.Context) (*GroupInfoList, int, error) 
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateGroup(ctx context.Context, groupId string, groupName string, maxSpaces uint32, computeUnits uint32, storageUnits uint32, maxTunnels uint32) (int, error) {
-	request := UserGroupRequest{
-		Name:         groupName,
-		MaxSpaces:    maxSpaces,
-		ComputeUnits: computeUnits,
-		StorageUnits: storageUnits,
-		MaxTunnels:   maxTunnels,
-	}
-
+func (c *ApiClient) UpdateGroup(ctx context.Context, groupId string, request *GroupRequest) (int, error) {
 	code, err := c.httpClient.Put(ctx, "/api/groups/"+groupId, request, nil, 200)
 	if err != nil {
 		return code, err
@@ -57,15 +49,7 @@ func (c *ApiClient) UpdateGroup(ctx context.Context, groupId string, groupName s
 	return code, nil
 }
 
-func (c *ApiClient) CreateGroup(ctx context.Context, groupName string, maxSpaces uint32, computeUnits uint32, storageUnits uint32, maxTunnels uint32) (string, int, error) {
-	request := UserGroupRequest{
-		Name:         groupName,
-		MaxSpaces:    maxSpaces,
-		ComputeUnits: computeUnits,
-		StorageUnits: storageUnits,
-		MaxTunnels:   maxTunnels,
-	}
-
+func (c *ApiClient) CreateGroup(ctx context.Context, request *GroupRequest) (string, int, error) {
 	response := &GroupResponse{}
 
 	code, err := c.httpClient.Post(ctx, "/api/groups", request, response, 201)

@@ -128,14 +128,14 @@ var ConnectCmd = &cobra.Command{
 			}
 
 			// Open an API connection to the server
-			sessionToken, _, _, _ := client.Login(context.Background(), username, string(password), "")
-			if sessionToken == "" {
+			response, _, _ := client.Login(context.Background(), username, string(password), "")
+			if response == nil || response.Token == "" {
 				fmt.Println("Failed to login")
 				os.Exit(1)
 			}
 
 			// Use the session token for future requests
-			client.UseSessionCookie(true).SetAuthToken(sessionToken)
+			client.UseSessionCookie(true).SetAuthToken(response.Token)
 
 			// Create an API token
 			token, _, err = client.CreateToken(context.Background(), hostname)

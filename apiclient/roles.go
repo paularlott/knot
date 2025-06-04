@@ -18,7 +18,7 @@ type RoleInfoList struct {
 	Roles []RoleInfo `json:"roles"`
 }
 
-type UserRoleRequest struct {
+type RoleRequest struct {
 	Name        string   `json:"name"`
 	Permissions []uint16 `json:"permissions"`
 }
@@ -39,12 +39,7 @@ func (c *ApiClient) GetRoles(ctx context.Context) (*RoleInfoList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateRole(ctx context.Context, roleId string, roleName string, permissions []uint16) (int, error) {
-	request := UserRoleRequest{
-		Name:        roleName,
-		Permissions: permissions,
-	}
-
+func (c *ApiClient) UpdateRole(ctx context.Context, roleId string, request *RoleRequest) (int, error) {
 	code, err := c.httpClient.Put(ctx, "/api/roles/"+roleId, request, nil, 200)
 	if err != nil {
 		return code, err
@@ -53,12 +48,7 @@ func (c *ApiClient) UpdateRole(ctx context.Context, roleId string, roleName stri
 	return code, nil
 }
 
-func (c *ApiClient) CreateRole(ctx context.Context, roleName string, permissions []uint16) (string, int, error) {
-	request := UserRoleRequest{
-		Name:        roleName,
-		Permissions: permissions,
-	}
-
+func (c *ApiClient) CreateRole(ctx context.Context, request *RoleRequest) (string, int, error) {
 	response := &RoleResponse{}
 
 	code, err := c.httpClient.Post(ctx, "/api/roles", request, response, 201)

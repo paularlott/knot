@@ -56,7 +56,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request := apiclient.UserGroupRequest{}
+	request := apiclient.GroupRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -130,7 +130,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
-	request := apiclient.UserGroupRequest{}
+	request := apiclient.GroupRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})

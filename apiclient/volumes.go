@@ -72,13 +72,7 @@ func (c *ApiClient) GetVolumes(ctx context.Context) (*VolumeInfoList, int, error
 	return response, code, nil
 }
 
-func (c *ApiClient) CreateVolume(ctx context.Context, name string, definition string, localContainer bool) (*VolumeCreateResponse, int, error) {
-	request := VolumeCreateRequest{
-		Name:           name,
-		Definition:     definition,
-		LocalContainer: localContainer,
-	}
-
+func (c *ApiClient) CreateVolume(ctx context.Context, request *VolumeCreateRequest) (*VolumeCreateResponse, int, error) {
 	response := &VolumeCreateResponse{}
 
 	code, err := c.httpClient.Post(ctx, "/api/volumes", request, response, 201)
@@ -89,12 +83,7 @@ func (c *ApiClient) CreateVolume(ctx context.Context, name string, definition st
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateVolume(ctx context.Context, volumeId string, name string, definition string) (int, error) {
-	request := VolumeUpdateRequest{
-		Name:       name,
-		Definition: definition,
-	}
-
+func (c *ApiClient) UpdateVolume(ctx context.Context, volumeId string, request *VolumeUpdateRequest) (int, error) {
 	return c.httpClient.Put(ctx, "/api/volumes/"+volumeId, request, nil, 200)
 }
 

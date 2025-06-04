@@ -125,65 +125,11 @@ func (c *ApiClient) GetTemplates(ctx context.Context) (*TemplateList, int, error
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateTemplate(ctx context.Context, templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string, autoStart bool, iconURL string) (int, error) {
-	request := TemplateUpdateRequest{
-		Name:             name,
-		Job:              job,
-		Description:      description,
-		Volumes:          volumes,
-		Groups:           groups,
-		WithTerminal:     withTerminal,
-		WithVSCodeTunnel: withVSCodeTunnel,
-		WithCodeServer:   withCodeServer,
-		WithSSH:          withSSH,
-		ComputeUnits:     computeUnits,
-		StorageUnits:     storageUnits,
-		Locations:        locations,
-		MaxUptime:        0,
-		MaxUptimeUnit:    "disabled",
-		AutoStart:        autoStart,
-		IconURL:          iconURL,
-	}
-
-	if schedule == nil || !scheduleEnabled {
-		request.ScheduleEnabled = false
-		request.Schedule = nil
-	} else {
-		request.ScheduleEnabled = true
-		request.Schedule = *schedule
-	}
-
+func (c *ApiClient) UpdateTemplate(ctx context.Context, templateId string, request *TemplateUpdateRequest) (int, error) {
 	return c.httpClient.Put(ctx, "/api/templates/"+templateId, &request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplate(ctx context.Context, name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string, autoStart bool, iconURL string) (string, int, error) {
-	request := TemplateCreateRequest{
-		Name:             name,
-		Job:              job,
-		Description:      description,
-		Volumes:          volumes,
-		Groups:           groups,
-		LocalContainer:   localContainer,
-		IsManual:         IsManual,
-		WithTerminal:     withTerminal,
-		WithVSCodeTunnel: withVSCodeTunnel,
-		WithCodeServer:   withCodeServer,
-		WithSSH:          withSSH,
-		ComputeUnits:     computeUnits,
-		StorageUnits:     storageUnits,
-		Locations:        locations,
-		AutoStart:        autoStart,
-		IconURL:          iconURL,
-	}
-
-	if schedule == nil || !scheduleEnabled {
-		request.ScheduleEnabled = false
-		request.Schedule = nil
-	} else {
-		request.ScheduleEnabled = true
-		request.Schedule = *schedule
-	}
-
+func (c *ApiClient) CreateTemplate(ctx context.Context, request *TemplateCreateRequest) (string, int, error) {
 	response := &TemplateCreateResponse{}
 
 	code, err := c.httpClient.Post(ctx, "/api/templates", &request, &response, 201)

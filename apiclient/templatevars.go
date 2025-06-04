@@ -43,29 +43,11 @@ func (c *ApiClient) GetTemplateVars(ctx context.Context) (*TemplateVarList, int,
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateTemplateVar(ctx context.Context, templateVarId string, name string, location string, local bool, value string, protected bool, restricted bool) (int, error) {
-	request := TemplateVarValue{
-		Name:       name,
-		Location:   location,
-		Local:      local,
-		Value:      value,
-		Protected:  protected,
-		Restricted: restricted,
-	}
-
+func (c *ApiClient) UpdateTemplateVar(ctx context.Context, templateVarId string, request *TemplateVarValue) (int, error) {
 	return c.httpClient.Put(ctx, "/api/templatevars/"+templateVarId, request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplateVar(ctx context.Context, name string, location string, local bool, value string, protected bool, restricted bool) (string, int, error) {
-	request := TemplateVarValue{
-		Name:       name,
-		Location:   location,
-		Local:      local,
-		Value:      value,
-		Protected:  protected,
-		Restricted: restricted,
-	}
-
+func (c *ApiClient) CreateTemplateVar(ctx context.Context, request *TemplateVarValue) (string, int, error) {
 	response := &TemplateVarCreateResponse{}
 
 	code, err := c.httpClient.Post(ctx, "/api/templatevars", request, response, 201)

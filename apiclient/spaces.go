@@ -16,8 +16,6 @@ type SpaceRequest struct {
 	AltNames    []string `json:"alt_names"`
 	IconURL     string   `json:"icon_url"`
 }
-type CreateSpaceRequest = SpaceRequest
-type UpdateSpaceRequest = SpaceRequest
 
 type CreateSpaceResponse struct {
 	Status  bool   `json:"status"`
@@ -103,7 +101,7 @@ func (c *ApiClient) GetSpace(ctx context.Context, spaceId string) (*SpaceDefinit
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateSpace(ctx context.Context, spaceId string, space *UpdateSpaceRequest) (int, error) {
+func (c *ApiClient) UpdateSpace(ctx context.Context, spaceId string, space *SpaceRequest) (int, error) {
 	code, err := c.httpClient.Put(ctx, "/api/spaces/"+spaceId, space, nil, 200)
 	if err != nil {
 		return code, err
@@ -112,7 +110,7 @@ func (c *ApiClient) UpdateSpace(ctx context.Context, spaceId string, space *Upda
 	return code, nil
 }
 
-func (c *ApiClient) CreateSpace(ctx context.Context, space *CreateSpaceRequest) (string, int, error) {
+func (c *ApiClient) CreateSpace(ctx context.Context, space *SpaceRequest) (string, int, error) {
 	response := &CreateSpaceResponse{}
 
 	code, err := c.httpClient.Post(ctx, "/api/spaces", space, response, 201)

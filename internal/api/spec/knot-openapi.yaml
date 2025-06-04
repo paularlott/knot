@@ -470,7 +470,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserGroupRequest'
+              $ref: '#/components/schemas/GroupRequest'
       responses:
         '201':
           description: Group created successfully.
@@ -506,7 +506,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserGroupRequest'
+              $ref: '#/components/schemas/GroupRequest'
       responses:
         '200':
           description: Successful operation
@@ -617,7 +617,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserRoleRequest'
+              $ref: '#/components/schemas/RoleRequest'
       responses:
         '201':
           description: Group created successfully.
@@ -653,7 +653,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserRoleRequest'
+              $ref: '#/components/schemas/RoleRequest'
       responses:
         '200':
           description: Successful operation
@@ -2002,7 +2002,7 @@ components:
           items:
             $ref: '#/components/schemas/GroupInfo'
 
-    UserGroupRequest:
+    GroupRequest:
       type: object
       properties:
         name:
@@ -2065,7 +2065,7 @@ components:
           type: string
           description: The name of the role.
 
-    UserRoleRequest:
+    RoleRequest:
       type: object
       properties:
         name:
@@ -2117,7 +2117,7 @@ components:
           example: 1.0.0
           description: The server version string.
 
-    AuditLogsEntry:
+    AuditLogEntry:
       type: object
       properties:
         Id:
@@ -2157,7 +2157,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/AuditLogsEntry'
+            $ref: '#/components/schemas/AuditLogEntry'
 
     ClusterNodeInfo:
       type: object

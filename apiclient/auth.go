@@ -22,7 +22,7 @@ type UsingTOTPResponse struct {
 	UsingTOTP bool `json:"using_totp"`
 }
 
-func (c *ApiClient) Login(ctx context.Context, email string, password string, totpCode string) (string, string, int, error) {
+func (c *ApiClient) Login(ctx context.Context, email string, password string, totpCode string) (*AuthLoginResponse, int, error) {
 	request := AuthLoginRequest{
 		Email:    email,
 		Password: password,
@@ -32,10 +32,10 @@ func (c *ApiClient) Login(ctx context.Context, email string, password string, to
 
 	code, err := c.httpClient.Post(ctx, "/api/auth", &request, &response, 200)
 	if err != nil {
-		return "", "", code, err
+		return nil, code, err
 	}
 
-	return response.Token, response.TOTPSecret, code, nil
+	return &response, code, nil
 }
 
 func (c *ApiClient) Logout(ctx context.Context) error {

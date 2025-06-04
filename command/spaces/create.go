@@ -67,7 +67,7 @@ var createCmd = &cobra.Command{
 		}
 
 		// Create the template
-		space := &apiclient.CreateSpaceRequest{
+		space := &apiclient.SpaceRequest{
 			Name:        args[0],
 			Description: "",
 			TemplateId:  templateId,

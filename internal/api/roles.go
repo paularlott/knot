@@ -49,7 +49,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 
 	var role *model.Role
 
-	request := apiclient.UserRoleRequest{}
+	request := apiclient.RoleRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -108,7 +108,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
-	request := apiclient.UserRoleRequest{}
+	request := apiclient.RoleRequest{}
 	err := rest.BindJSON(w, r, &request)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})

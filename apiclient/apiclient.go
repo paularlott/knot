@@ -4,13 +4,6 @@ import (
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
-// Enum for authorization methods
-const (
-	AuthToken = iota
-	AuthSessionCookie
-	AuthRemoteServerToken
-)
-
 type ApiClient struct {
 	httpClient *rest.RESTClient
 }
