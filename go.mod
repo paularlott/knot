@@ -1,6 +1,6 @@
 module github.com/paularlott/knot
 
-go 1.24.3
+go 1.24.4
 
 replace github.com/paularlott/gossip => ../gossip/
 
@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.66
-	github.com/paularlott/gossip v0.0.0-20250531153259-98af24ad53c9
+	github.com/paularlott/gossip v0.0.0-20250604162041-871923c38c29
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.9.0
@@ -25,11 +25,11 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
-	golang.org/x/crypto v0.38.0
-	golang.org/x/exp v0.0.0-20250531010427-b6e5de432a8b
-	golang.org/x/net v0.40.0
+	golang.org/x/crypto v0.39.0
+	golang.org/x/exp v0.0.0-20250606033433-dcc06ee1d476
+	golang.org/x/net v0.41.0
 	golang.org/x/term v0.32.0
-	golang.org/x/time v0.11.0
+	golang.org/x/time v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -85,12 +85,12 @@ require (
 	go.opentelemetry.io/otel/metric v1.36.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/image v0.27.0 // indirect
-	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/image v0.28.0 // indirect
+	golang.org/x/mod v0.25.0 // indirect
+	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
-	golang.org/x/tools v0.33.0 // indirect
+	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/tools v0.34.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )

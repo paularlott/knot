@@ -42,6 +42,7 @@ var (
 		{Description: "C#", Source: "built-in", Url: "/icons/csharp.svg"},
 		{Description: "CSS3", Source: "built-in", Url: "/icons/css3.svg"},
 		{Description: "Debian Linux", Source: "built-in", Url: "/icons/debian-linux.svg"},
+		{Description: "Desktop", Source: "built-in", Url: "/icons/desktop.svg"},
 		{Description: "Docker", Source: "built-in", Url: "/icons/docker.svg"},
 		{Description: "Elastic", Source: "built-in", Url: "/icons/elastic.svg"},
 		{Description: "Electron", Source: "built-in", Url: "/icons/electron.svg"},
@@ -102,7 +103,6 @@ var (
 		{Description: "WebHook", Source: "built-in", Url: "/icons/webhook.svg"},
 		{Description: "WordPress", Source: "built-in", Url: "/icons/wordpress.svg"},
 		{Description: "WWW", Source: "built-in", Url: "/icons/www.svg"},
-		{Description: "X", Source: "built-in", Url: "/icons/x.svg"},
 		{Description: "XCP-ng", Source: "built-in", Url: "/icons/xcp-ng.svg"},
 		{Description: "Zig", Source: "built-in", Url: "/icons/zig.svg"},
 	}
