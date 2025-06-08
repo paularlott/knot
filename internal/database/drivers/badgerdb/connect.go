@@ -167,6 +167,21 @@ func (db *BadgerDbDriver) Connect() error {
 				}
 			}
 
+			// Remove old tokens
+			tokens, err := db.GetTokens()
+			if err != nil {
+				log.Error().Err(err).Msg("db: failed to get tokens")
+			} else {
+				for _, token := range tokens {
+					if token.IsDeleted && token.UpdatedAt.Before(before) {
+						err := db.DeleteToken(token)
+						if err != nil {
+							log.Error().Err(err).Str("token_id", token.Id).Msg("db: failed to delete token")
+						}
+					}
+				}
+			}
+
 			// Remove old volumes
 			volumes, err := db.GetVolumes()
 			if err != nil {

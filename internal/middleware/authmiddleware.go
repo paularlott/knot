@@ -3,10 +3,12 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 
@@ -76,7 +78,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				}
 
 				token, _ := db.GetToken(bearer)
-				if token == nil {
+				if token == nil || token.IsDeleted {
 					returnUnauthorized(w, r)
 					return
 				}
@@ -84,14 +86,18 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				userId = token.UserId
 
 				// Save the token to extend its life
+				expiresAfter := time.Now().Add(model.MaxTokenAge)
+				token.ExpiresAfter = expiresAfter.UTC()
+				token.UpdatedAt = time.Now().UTC()
 				db.SaveToken(token)
+				service.GetTransport().GossipToken(token)
 
 				// Add the token to the context
 				ctx = context.WithValue(r.Context(), "access_token", token)
 			} else {
 				// Get the session
 				session := GetSessionFromCookie(r)
-				if session == nil {
+				if session == nil || session.ExpiresAfter.Before(time.Now().UTC()) {
 					returnUnauthorized(w, r)
 					return
 				}
@@ -99,7 +105,10 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				userId = session.UserId
 
 				// Save the session to extend its life
+				session.UpdatedAt = time.Now().UTC()
+				session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
 				store.SaveSession(session)
+				service.GetTransport().GossipSession(session)
 
 				// Add the session to the context
 				ctx = context.WithValue(r.Context(), "session", session)
@@ -267,7 +276,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		// If no session then redirect to login
 		session := GetSessionFromCookie(r)
-		if session == nil {
+		if session == nil || session.ExpiresAfter.Before(time.Now().UTC()) {
 			http.Redirect(w, r, "/login?redirect="+r.URL.EscapedPath(), http.StatusSeeOther)
 			return
 		}
@@ -283,7 +292,10 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Save the session to update its life
+		session.UpdatedAt = time.Now().UTC()
+		session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
 		database.GetSessionStorage().SaveSession(session)
+		service.GetTransport().GossipSession(session)
 
 		ctx := context.WithValue(r.Context(), "user", user)
 		ctx = context.WithValue(ctx, "session", session)

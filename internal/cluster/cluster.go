@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/gossip/codec"
 	"github.com/paularlott/gossip/compression"
@@ -20,7 +19,9 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/middleware"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -32,11 +33,23 @@ type Cluster struct {
 	config         *gossip.Config
 	leafSessionMux sync.RWMutex
 	leafSessions   map[uuid.UUID]*leafSession
+	agentEndpoints []string
+	sessionGossip  bool
 }
 
-func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes *http.ServeMux, compress bool, allowLeaf bool) *Cluster {
+func NewCluster(
+	clusterKey string,
+	advertiseAddr string,
+	bindAddr string,
+	routes *http.ServeMux,
+	compress bool,
+	allowLeaf bool,
+	agentEndpoints []string,
+) *Cluster {
 	cluster := &Cluster{
-		leafSessions: make(map[uuid.UUID]*leafSession),
+		leafSessions:   make(map[uuid.UUID]*leafSession),
+		agentEndpoints: agentEndpoints,
+		sessionGossip:  !database.IsSessionDriverShared(),
 	}
 
 	config := gossip.DefaultConfig()
@@ -44,7 +57,6 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 	cluster.config = config
 
 	if advertiseAddr != "" {
-
 		log.Info().Msgf("cluster: enabling cluster mode on %s", advertiseAddr)
 
 		db := database.GetInstance()
@@ -115,9 +127,31 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 		cluster.gossipCluster.HandleFunc(TemplateVarGossipMsg, cluster.handleTemplateVarGossip)
 		cluster.gossipCluster.HandleFuncWithReply(UserFullSyncMsg, cluster.handleUserFullSync)
 		cluster.gossipCluster.HandleFunc(UserGossipMsg, cluster.handleUserGossip)
+		cluster.gossipCluster.HandleFuncWithReply(TokenFullSyncMsg, cluster.handleTokenFullSync)
+		cluster.gossipCluster.HandleFunc(TokenGossipMsg, cluster.handleTokenGossip)
 		cluster.gossipCluster.HandleFuncWithReply(VolumeFullSyncMsg, cluster.handleVolumeFullSync)
 		cluster.gossipCluster.HandleFunc(VolumeGossipMsg, cluster.handleVolumeGossip)
 		cluster.gossipCluster.HandleFunc(AuditLogGossipMsg, cluster.handleAuditLogGossip)
+
+		if cluster.sessionGossip {
+			cluster.gossipCluster.HandleFuncWithReply(SessionFullSyncMsg, cluster.handleSessionFullSync)
+			cluster.gossipCluster.HandleFunc(SessionGossipMsg, cluster.handleSessionGossip)
+		}
+
+		// Capture server state changes and maintain a list of nodes in our location
+		// We only dynamically track nodes if the endpoint list hans't been set.
+		if len(agentEndpoints) == 0 {
+			cluster.gossipCluster.HandleNodeStateChangeFunc(func(node *gossip.Node, prevState gossip.NodeState) {
+				nodes := cluster.gossipCluster.AliveNodes()
+				endPoints := []string{}
+				for _, n := range nodes {
+					if n.Metadata.GetString("location") == cfg.Location {
+						endPoints = append(endPoints, n.Metadata.GetString("agent_endpoint"))
+					}
+				}
+				cluster.agentEndpoints = endPoints
+			})
+		}
 
 		// Periodically gossip the status of the objects
 		cluster.gossipCluster.HandleGossipFunc(func() {
@@ -127,14 +161,20 @@ func NewCluster(clusterKey string, advertiseAddr string, bindAddr string, routes
 			cluster.gossipTemplates()
 			cluster.gossipTemplateVars()
 			cluster.gossipUsers()
+			cluster.gossipTokens()
 			cluster.gossipVolumes()
+			if cluster.sessionGossip {
+				cluster.gossipSessions()
+			}
 		})
 
-		cluster.gossipCluster.LocalMetadata().SetString("location", cfg.Location)
+		metadata := cluster.gossipCluster.LocalMetadata()
+		metadata.SetString("location", cfg.Location)
+		metadata.SetString("agent_endpoint", viper.GetString("server.agent_endpoint"))
 	}
 
 	if allowLeaf {
-		log.Info().Msg("cluster: enabling support for leaf ndoes")
+		log.Info().Msg("cluster: enabling support for leaf nodes")
 
 		// Setup routes for leaf nodes
 		routes.HandleFunc("GET /cluster/leaf", middleware.ApiAuth(cluster.HandleLeafServer))
@@ -199,8 +239,18 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 						log.Error().Msgf("cluster: failed to sync users with node %s: %s", node.ID, err.Error())
 					}
 
+					if err := c.DoTokenFullSync(node); err != nil {
+						log.Error().Msgf("cluster: failed to sync tokens with node %s: %s", node.ID, err.Error())
+					}
+
 					if err := c.DoVolumeFullSync(node); err != nil {
 						log.Error().Msgf("cluster: failed to sync volumes with node %s: %s", node.ID, err.Error())
+					}
+
+					if c.sessionGossip {
+						if err := c.DoSessionFullSync(node); err != nil {
+							log.Error().Msgf("cluster: failed to sync sessions with node %s: %s", node.ID, err.Error())
+						}
 					}
 				}
 
@@ -251,4 +301,8 @@ func (c *Cluster) getBatchSize(totalNodes int) int {
 		return totalNodes
 	}
 	return size
+}
+
+func (c *Cluster) GetAgentEndpoints() []string {
+	return c.agentEndpoints
 }

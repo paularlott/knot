@@ -3,7 +3,6 @@ package agent_service_api
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/util/rest"
 
@@ -44,7 +43,7 @@ func handleLoki(w http.ResponseWriter, r *http.Request) {
 
 		// Process each log message
 		for _, values := range stream.Values {
-			agent_client.SendLogMessage(service, msg.LogLevelInfo, values[1])
+			agentClient.SendLogMessage(service, msg.LogLevelInfo, values[1])
 		}
 	}
 

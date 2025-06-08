@@ -40,6 +40,7 @@ type DbDriver interface {
 	DeleteToken(token *model.Token) error
 	GetToken(id string) (*model.Token, error)
 	GetTokensForUser(userId string) ([]*model.Token, error)
+	GetTokens() ([]*model.Token, error)
 
 	// Space
 	SaveSpace(space *model.Space, updateFields []string) error
@@ -195,6 +196,15 @@ func GetInstance() DbDriver {
 func GetSessionStorage() SessionStorage {
 	initDrivers()
 	return dbSessionInstance
+}
+
+// IsSessionDriverShared returns true if the session driver uses shared storage e.g. Redis
+func IsSessionDriverShared() bool {
+	initDrivers()
+	if _, ok := dbSessionInstance.(*driver_redis.RedisDbDriver); ok {
+		return true
+	}
+	return false
 }
 
 func GetUserUsage(userId string, inLocation string) (*model.Usage, error) {

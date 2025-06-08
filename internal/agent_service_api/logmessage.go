@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/util/rest"
 
@@ -47,7 +46,7 @@ func handleLogMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send the log message to the server
-	agent_client.SendLogMessage(logMessage.Service, level, logMessage.Message)
+	agentClient.SendLogMessage(logMessage.Service, level, logMessage.Message)
 
 	// Write 202 Accepted response
 	w.WriteHeader(http.StatusAccepted)

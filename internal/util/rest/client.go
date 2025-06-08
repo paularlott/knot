@@ -120,7 +120,7 @@ func (c *RESTClient) setHeaders(req *http.Request) {
 		// If set the session cookie if using session cookies; else set the token header
 		if c.useSessionCookie {
 			cookie := &http.Cookie{
-				Name:     model.WEBUI_SESSION_COOKIE,
+				Name:     model.WebSessionCookie,
 				Value:    c.token,
 				Path:     "/",
 				HttpOnly: true,

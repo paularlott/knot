@@ -5,6 +5,8 @@ import (
 	"net"
 	"os"
 
+	"github.com/paularlott/knot/internal/agentapi/agent_client"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -16,9 +18,12 @@ const (
 var (
 	cancelContext context.Context
 	cancelFunc    context.CancelFunc
+	agentClient   *agent_client.AgentClient
 )
 
-func StartCommandSocket() {
+func StartCommandSocket(agentClientObj *agent_client.AgentClient) {
+	agentClient = agentClientObj
+
 	log.Info().Msg("agent: Starting command socket")
 
 	// Create the folder for the socket in the user's home directory

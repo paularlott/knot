@@ -4,27 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
 )
 
 func (db *RedisDbDriver) SaveSession(session *model.Session) error {
-	// Calculate the expiration time as now + 2 hours
-	now := time.Now().UTC()
-	session.ExpiresAfter = now.Add(time.Hour * 2)
-
 	data, err := json.Marshal(session)
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, session.Id), data, time.Hour*2).Err()
+	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSessions:%s", db.prefix, session.Id), data, model.SessionExpiryDuration).Err()
 	if err != nil {
 		return err
 	}
 
-	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSessionsByUserId:%s:%s", db.prefix, session.UserId, session.Id), session.Id, time.Hour*2).Err()
+	err = db.connection.Set(context.Background(), fmt.Sprintf("%sSessionsByUserId:%s:%s", db.prefix, session.UserId, session.Id), session.Id, model.SessionExpiryDuration).Err()
 	if err != nil {
 		return err
 	}

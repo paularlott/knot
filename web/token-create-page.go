@@ -6,6 +6,7 @@ import (
 
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/rs/zerolog/log"
@@ -42,6 +43,8 @@ func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	service.GetTransport().GossipToken(token)
 
 	data["TokenName"] = token.Name
 	data["TokenId"] = token.Id

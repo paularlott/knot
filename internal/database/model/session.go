@@ -10,7 +10,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const WEBUI_SESSION_COOKIE = "__KNOT_WEBUI_SESSION"
+const (
+	WebSessionCookie      = "__KNOT_WEBUI_SESSION"
+	SessionExpiryDuration = 2 * time.Hour
+)
 
 // Session object
 type Session struct {
@@ -19,6 +22,7 @@ type Session struct {
 	UserId       string    `json:"user_id" db:"user_id"`
 	UserAgent    string    `json:"user_agent" db:"user_agent"`
 	ExpiresAfter time.Time `json:"expires_after" db:"expires_after"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
 
 func NewSession(r *http.Request, userId string) *Session {
@@ -43,11 +47,16 @@ func NewSession(r *http.Request, userId string) *Session {
 		log.Fatal().Msg(err.Error())
 	}
 
+	now := time.Now()
+	expires := now.Add(SessionExpiryDuration)
+
 	session := &Session{
-		Id:        id,
-		Ip:        ip,
-		UserId:    userId,
-		UserAgent: r.UserAgent(),
+		Id:           id,
+		Ip:           ip,
+		UserId:       userId,
+		UserAgent:    r.UserAgent(),
+		ExpiresAfter: expires.UTC(),
+		UpdatedAt:    now.UTC(),
 	}
 
 	return session

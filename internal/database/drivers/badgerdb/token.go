@@ -3,7 +3,6 @@ package driver_badgerdb
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
 
@@ -12,21 +11,17 @@ import (
 
 func (db *BadgerDbDriver) SaveToken(token *model.Token) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
-		// Calculate the expiration time as now + 1 week
-		now := time.Now().UTC()
-		token.ExpiresAfter = now.Add(time.Hour * 168)
-
 		data, err := json.Marshal(token)
 		if err != nil {
 			return err
 		}
 
-		e := badger.NewEntry([]byte(fmt.Sprintf("Tokens:%s", token.Id)), data).WithTTL(time.Hour * 168)
+		e := badger.NewEntry([]byte(fmt.Sprintf("Tokens:%s", token.Id)), data).WithTTL(model.MaxTokenAge)
 		if err = txn.SetEntry(e); err != nil {
 			return err
 		}
 
-		e = badger.NewEntry([]byte(fmt.Sprintf("TokensByUserId:%s:%s", token.UserId, token.Id)), []byte(token.Id)).WithTTL(time.Hour * 168)
+		e = badger.NewEntry([]byte(fmt.Sprintf("TokensByUserId:%s:%s", token.UserId, token.Id)), []byte(token.Id)).WithTTL(model.MaxTokenAge)
 		if err = txn.SetEntry(e); err != nil {
 			return err
 		}
@@ -97,6 +92,35 @@ func (db *BadgerDbDriver) GetTokensForUser(userId string) ([]*model.Token, error
 			}
 
 			token, err := db.GetToken(tokenId)
+			if err != nil {
+				return err
+			}
+
+			tokens = append(tokens, token)
+		}
+
+		return nil
+	})
+
+	return tokens, err
+}
+
+func (db *BadgerDbDriver) GetTokens() ([]*model.Token, error) {
+	var tokens []*model.Token
+
+	err := db.connection.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+
+		prefix := []byte("Tokens:")
+
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			var token = &model.Token{}
+
+			err := item.Value(func(val []byte) error {
+				return json.Unmarshal(val, token)
+			})
 			if err != nil {
 				return err
 			}

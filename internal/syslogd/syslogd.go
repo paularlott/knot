@@ -12,14 +12,14 @@ import (
 )
 
 // Very simple syslogd server to collect logs and pass them to the server
-func StartSyslogd() {
+func StartSyslogd(agentClient *agent_client.AgentClient) {
 	addr := net.UDPAddr{
 		Port: viper.GetInt("agent.syslog_port"),
 		IP:   net.ParseIP("127.0.0.1"),
 	}
 	conn, err := net.ListenUDP("udp", &addr)
 	if err != nil {
-		log.Info().Msgf("syslogd: failed to set up UDP server: %v", err)
+		log.Fatal().Msgf("syslogd: failed to set up UDP server: %v", err)
 	}
 	defer conn.Close()
 
@@ -64,6 +64,6 @@ func StartSyslogd() {
 		}
 
 		// Forward the message to the server
-		agent_client.SendLogMessage("syslog", logLevel, message)
+		agentClient.SendLogMessage("syslog", logLevel, message)
 	}
 }

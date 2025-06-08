@@ -239,11 +239,12 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	service.GetTransport().GossipSession(session)
 
 	// Only create the cookie for web auth
 	if r.URL.Path == "/api/auth/web" {
 		cookie := &http.Cookie{
-			Name:     model.WEBUI_SESSION_COOKIE,
+			Name:     model.WebSessionCookie,
 			Value:    session.Id,
 			Path:     "/",
 			HttpOnly: true,

@@ -2,7 +2,6 @@ package driver_mysql
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
 
@@ -16,10 +15,6 @@ func (db *MySQLDriver) SaveToken(token *model.Token) error {
 		return err
 	}
 
-	// Calculate the expiration time as now + 1 week
-	now := time.Now().UTC()
-	token.ExpiresAfter = now.Add(time.Hour * 168)
-
 	// Test if the PK exists in the database
 	var doUpdate bool
 	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM tokens WHERE token_id=?)", token.Id).Scan(&doUpdate)
@@ -30,7 +25,7 @@ func (db *MySQLDriver) SaveToken(token *model.Token) error {
 
 	// Update
 	if doUpdate {
-		err = db.update("tokens", token, []string{"ExpiresAfter", "Name", "SessionId"})
+		err = db.update("tokens", token, nil)
 	} else {
 		err = db.create("tokens", token)
 	}
@@ -67,6 +62,17 @@ func (db *MySQLDriver) GetTokensForUser(userId string) ([]*model.Token, error) {
 	var tokens []*model.Token
 
 	err := db.read("tokens", &tokens, nil, "user_id = ?", userId)
+	if err != nil {
+		return nil, err
+	}
+
+	return tokens, nil
+}
+
+func (db *MySQLDriver) GetTokens() ([]*model.Token, error) {
+	var tokens []*model.Token
+
+	err := db.read("tokens", &tokens, nil, "1")
 	if err != nil {
 		return nil, err
 	}

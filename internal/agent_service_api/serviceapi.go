@@ -5,11 +5,17 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/paularlott/knot/internal/agentapi/agent_client"
+
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
-func ListenAndServe() {
+var agentClient *agent_client.AgentClient
+
+func ListenAndServe(agent *agent_client.AgentClient) {
+	agentClient = agent
+
 	log.Debug().Msgf("service_api: starting agent service api on port %d", viper.GetInt("agent.api_port"))
 
 	go func() {

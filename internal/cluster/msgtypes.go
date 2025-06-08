@@ -15,6 +15,10 @@ const (
 	TemplateVarGossipMsg
 	UserFullSyncMsg
 	UserGossipMsg
+	TokenFullSyncMsg
+	TokenGossipMsg
+	SessionFullSyncMsg
+	SessionGossipMsg
 	VolumeFullSyncMsg
 	VolumeGossipMsg
 	AuditLogGossipMsg

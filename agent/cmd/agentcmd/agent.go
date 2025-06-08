@@ -157,21 +157,21 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		}
 
 		// Open agent connection to the server
-		agent_client.ConnectAndServe(serverAddr, spaceId)
-		go agent_client.ReportState()
+		agentClient := agent_client.NewAgentClient(serverAddr, spaceId)
+		agentClient.ConnectAndServe()
 
 		// Start the syslog server if enabled
 		if viper.GetInt("agent.syslog_port") > 0 {
-			go syslogd.StartSyslogd()
+			go syslogd.StartSyslogd(agentClient)
 		}
 
 		// Start the http rest and log sink if enabled
 		if viper.GetInt("agent.api_port") > 0 {
-			go agent_service_api.ListenAndServe()
+			go agent_service_api.ListenAndServe(agentClient)
 		}
 
 		// Start the command socket
-		agentlink.StartCommandSocket()
+		agentlink.StartCommandSocket(agentClient)
 
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -180,7 +180,7 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		<-c
 
 		agentlink.StopCommandSocket()
-		agent_client.Shutdown()
+		agentClient.Shutdown()
 		fmt.Println("\r")
 		log.Info().Msg("agent: shutdown")
 		os.Exit(0)

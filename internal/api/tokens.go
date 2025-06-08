@@ -3,10 +3,12 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 )
@@ -21,12 +23,18 @@ func HandleGetTokens(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build a json array of token data to return to the client
-	tokenData := make([]apiclient.TokenInfo, len(tokens))
+	tokenData := []apiclient.TokenInfo{}
 
-	for i, token := range tokens {
-		tokenData[i].Id = token.Id
-		tokenData[i].Name = token.Name
-		tokenData[i].ExpiresAfter = token.ExpiresAfter
+	for _, token := range tokens {
+		if token.IsDeleted {
+			continue
+		}
+
+		tokenData = append(tokenData, apiclient.TokenInfo{
+			Id:           token.Id,
+			Name:         token.Name,
+			ExpiresAfter: token.ExpiresAfter,
+		})
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, tokenData)
@@ -50,11 +58,15 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the token
-	err = db.DeleteToken(token)
+	token.IsDeleted = true
+	token.UpdatedAt = time.Now().UTC()
+	err = db.SaveToken(token)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	service.GetTransport().GossipToken(token)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -79,12 +91,13 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 
 	// Create the token
 	token = model.NewToken(request.Name, user.Id)
-
 	err = database.GetInstance().SaveToken(token)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	service.GetTransport().GossipToken(token)
 
 	// Return the Token ID
 	rest.SendJSON(http.StatusCreated, w, r, apiclient.CreateTokenResponse{

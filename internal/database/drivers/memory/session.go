@@ -2,16 +2,11 @@ package driver_memory
 
 import (
 	"errors"
-	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
 )
 
 func (db *MemoryDbDriver) SaveSession(session *model.Session) error {
-	// Calculate the expiration time as now + 2 hours
-	now := time.Now().UTC()
-	session.ExpiresAfter = now.Add(time.Hour * 2)
-
 	db.sessionMutex.Lock()
 	defer db.sessionMutex.Unlock()
 

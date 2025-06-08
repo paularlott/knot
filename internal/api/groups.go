@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -212,11 +211,7 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	group.UpdatedUserId = user.Id
 	err = db.SaveGroup(group)
 	if err != nil {
-		if errors.Is(err, database.ErrTemplateInUse) {
-			rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
-		} else {
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		}
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 

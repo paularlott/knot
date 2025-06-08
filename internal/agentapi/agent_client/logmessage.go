@@ -1,7 +1,6 @@
 package agent_client
 
 import (
-	"net"
 	"strings"
 	"time"
 
@@ -10,67 +9,66 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var logChannel chan *msg.LogMessage
-
-func initLogMessages() {
+func (c *AgentClient) initLogMessages() {
 	log.Debug().Msg("agent: initializing log message transport")
 
-	logChannel = make(chan *msg.LogMessage, 100)
+	var err error
 
-	go func() {
-		var conn net.Conn
-		var err error
-		var tempBuffer []*msg.LogMessage
+	for {
+		logMsg := <-c.logChannel
+		if logMsg == nil {
+			continue
+		}
 
-		for {
-			if muxSession == nil {
-				continue
-			}
+		c.serverListMutex.RLock()
+		for _, server := range c.serverList {
+			if server.muxSession != nil && !server.muxSession.IsClosed() {
+				if server.logConn == nil {
+					log.Debug().Msgf("agent: opening logging connection to %s", server.address)
 
-			// connect
-			conn, err = muxSession.Open()
-			if err != nil {
-				time.Sleep(2 * time.Second)
-				continue
-			}
+					server.logConn, err = server.muxSession.Open()
+					if err != nil {
+						log.Error().Err(err).Msgf("agent: failed to open mux session for server %s", server.address)
+						continue
+					}
 
-			// Send any buffered messages
-			for len(tempBuffer) > 0 {
-				err := msg.SendLogMessage(conn, tempBuffer[0])
-				if err != nil {
-					conn.Close()
-					conn = nil
-					break
-				}
-
-				// Remove the message from the buffer
-				tempBuffer = tempBuffer[1:]
-			}
-
-			if conn != nil {
-				for {
-					logMsg := <-logChannel
-					if logMsg != nil {
-						err := msg.SendLogMessage(conn, logMsg)
+					// Send any buffered messages
+					for len(server.agentClient.logTempBuffer) > 0 {
+						err := msg.SendLogMessage(server.logConn, server.agentClient.logTempBuffer[0])
 						if err != nil {
-							tempBuffer = append(tempBuffer, logMsg)
-							conn.Close()
+							server.logConn.Close()
+							server.logConn = nil
 							break
 						}
+
+						// Remove the message from the buffer
+						server.agentClient.logTempBuffer = server.agentClient.logTempBuffer[1:]
 					}
 				}
 			}
 
-			time.Sleep(1 * time.Second)
+			if server.logConn != nil {
+				err := msg.SendLogMessage(server.logConn, logMsg)
+				if err != nil {
+					log.Error().Err(err).Msgf("agent: failed to send log message to server %s", server.address)
+					server.agentClient.logTempBuffer = append(server.agentClient.logTempBuffer, logMsg)
+					server.logConn.Close()
+					server.logConn = nil
+					break
+				}
+			} else {
+				server.agentClient.logTempBuffer = append(server.agentClient.logTempBuffer, logMsg)
+			}
 		}
-	}()
+		c.serverListMutex.RUnlock()
+	}
 }
 
-func SendLogMessage(service string, level msg.LogLevel, message string) error {
+func (c *AgentClient) SendLogMessage(service string, level msg.LogLevel, message string) error {
 
-	// If there are 100 messages in the channel, discard the oldest one
-	if len(logChannel) >= 100 {
-		<-logChannel
+	// If there are too many messages in the channel, discard the oldest one
+	if len(c.logChannel) >= logChannelBufferSize {
+		<-c.logChannel
 	}
 
 	// replace all \n without a \r with \r\n
@@ -79,7 +77,7 @@ func SendLogMessage(service string, level msg.LogLevel, message string) error {
 	// Strip any trailing \r\n
 	message = strings.TrimRight(message, "\r\n")
 
-	logChannel <- &msg.LogMessage{
+	c.logChannel <- &msg.LogMessage{
 		Service: service,
 		Level:   level,
 		Message: message,

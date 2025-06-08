@@ -156,6 +156,8 @@ func handleAgentConnection(conn net.Conn) {
 		}
 	}
 
+	log.Debug().Str("space_name", space.Name).Msg("agent: session created...")
+
 	// Loop forever waiting for connections on the mux session
 	for {
 		// Accept a new connection
@@ -210,6 +212,15 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel
 				session.VSCodeTunnelName = state.VSCodeTunnelName
 				session.AgentIp = state.AgentIp
+			}
+
+			// Return the list of agent server endpoints
+			reply := msg.AgentStateReply{
+				Endpoints: service.GetTransport().GetAgentEndpoints(),
+			}
+			if err := msg.WriteMessage(stream, &reply); err != nil {
+				log.Error().Msgf("agent: writing agent state reply: %v", err)
+				return
 			}
 
 		case byte(msg.CmdLogMessage):
@@ -298,7 +309,7 @@ func handleCreateToken(stream net.Conn, session *Session) {
 	// Look for a token with the name AGENT_TOKEN_DESCRIPTION, if not found we create one
 	var token *model.Token
 	for _, t := range tokens {
-		if t.Name == AGENT_TOKEN_DESCRIPTION {
+		if t.Name == AGENT_TOKEN_DESCRIPTION && !t.IsDeleted {
 			token = t
 			break
 		}
@@ -311,6 +322,7 @@ func handleCreateToken(stream net.Conn, session *Session) {
 			log.Error().Msgf("agent: saving token: %v", err)
 			return
 		}
+		service.GetTransport().GossipToken(token)
 	}
 
 	response := msg.CreateTokenResponse{

@@ -3,7 +3,6 @@ package agent_service_api
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/util/rest"
 
@@ -63,7 +62,7 @@ func handleGelf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send the log message to the server
-	agent_client.SendLogMessage(service, level, message)
+	agentClient.SendLogMessage(service, level, message)
 
 	// Write 202 Accepted response
 	w.WriteHeader(http.StatusAccepted)

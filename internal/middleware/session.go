@@ -13,7 +13,7 @@ func GetSessionFromCookie(r *http.Request) *model.Session {
 	var session *model.Session = nil
 
 	// Get the cookie value
-	cookie, err := r.Cookie(model.WEBUI_SESSION_COOKIE)
+	cookie, err := r.Cookie(model.WebSessionCookie)
 	if err == nil {
 
 		// Load the session from the database
@@ -26,7 +26,7 @@ func GetSessionFromCookie(r *http.Request) *model.Session {
 
 func DeleteSessionCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     model.WEBUI_SESSION_COOKIE,
+		Name:     model.WebSessionCookie,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,

@@ -44,11 +44,13 @@ INDEX idx_is_deleted (is_deleted)
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS tokens (
 token_id CHAR(64) PRIMARY KEY,
 user_id CHAR(36),
-session_id CHAR(64),
 name VARCHAR(255),
 expires_after TIMESTAMP(6),
+updated_at TIMESTAMP(6),
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 INDEX expires_after (expires_after),
-INDEX user_id (user_id)
+INDEX user_id (user_id),
+INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
 		return err
@@ -235,7 +237,7 @@ value MEDIUMTEXT
 	// Add a task to clean up expired data
 	log.Debug().Msg("db: starting database GC")
 	go func() {
-		ticker := time.NewTicker(15 * time.Minute)
+		ticker := time.NewTicker(10 * time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
 		again:

@@ -12,8 +12,11 @@ type Transport interface {
 	GossipTemplate(template *model.Template)
 	GossipTemplateVar(templateVar *model.TemplateVar)
 	GossipUser(user *model.User)
+	GossipToken(token *model.Token)
 	GossipVolume(volume *model.Volume)
 	GossipAuditLog(entry *model.AuditLogEntry)
+	GossipSession(session *model.Session)
+	GetAgentEndpoints() []string
 
 	Nodes() []*gossip.Node
 }

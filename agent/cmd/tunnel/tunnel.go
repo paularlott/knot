@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -80,7 +79,6 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 		// Block until we receive our signal.
 		<-c
 
-		agent_client.Shutdown()
 		fmt.Println("\r")
 		log.Info().Msg("Tunnel shutdown")
 		os.Exit(0)

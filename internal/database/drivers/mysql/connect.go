@@ -151,6 +151,12 @@ func (db *MySQLDriver) Connect() error {
 				log.Error().Err(err).Msg("db: failed to delete old users")
 			}
 
+			// Remove old tokens
+			_, err = db.connection.Exec("DELETE FROM tokens WHERE is_deleted > 0 AND updated_at < ?", before)
+			if err != nil {
+				log.Error().Err(err).Msg("db: failed to delete old tokens")
+			}
+
 			// Remove old volumes
 			_, err = db.connection.Exec("DELETE FROM volumes WHERE is_deleted > 0 AND updated_at < ?", before)
 			if err != nil {
