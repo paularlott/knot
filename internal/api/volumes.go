@@ -256,6 +256,14 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	transport := service.GetTransport()
+	unlockToken := transport.LockResource(volumeId)
+	if unlockToken == "" {
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to lock volume"})
+		return
+	}
+	defer transport.UnlockResource(volumeId, unlockToken)
+
 	volume, err = db.GetVolume(volumeId)
 	if err != nil {
 		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
@@ -304,6 +312,14 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
 		return
 	}
+
+	transport := service.GetTransport()
+	unlockToken := transport.LockResource(volumeId)
+	if unlockToken == "" {
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to lock volume"})
+		return
+	}
+	defer transport.UnlockResource(volumeId, unlockToken)
 
 	volume, err = db.GetVolume(volumeId)
 	if err != nil {

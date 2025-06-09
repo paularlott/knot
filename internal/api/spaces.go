@@ -375,6 +375,15 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	transport := service.GetTransport()
+	unlockToken := transport.LockResource(spaceId)
+	if unlockToken == "" {
+		log.Error().Msg("HandleSpaceStart: failed to lock space")
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to lock space"})
+		return
+	}
+	defer transport.UnlockResource(spaceId, unlockToken)
+
 	user := r.Context().Value("user").(*model.User)
 	db := database.GetInstance()
 

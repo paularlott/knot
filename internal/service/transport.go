@@ -18,6 +18,9 @@ type Transport interface {
 	GossipSession(session *model.Session)
 	GetAgentEndpoints() []string
 
+	LockResource(resourceId string) string
+	UnlockResource(resourceId, unlockToken string)
+
 	Nodes() []*gossip.Node
 }
 

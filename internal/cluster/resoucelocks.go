@@ -1,0 +1,184 @@
+package cluster
+
+import (
+	"math/rand"
+	"time"
+
+	"github.com/paularlott/gossip"
+	"github.com/paularlott/knot/internal/config"
+
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	ResourceLockTTL        = 3 * time.Minute
+	ResourceLockGCInterval = 30 * time.Second
+)
+
+type ResourceLockRequestMsg struct {
+	ResourceId string
+}
+
+type ResourceLockResponseMsg struct {
+	UnlockToken string
+}
+
+type ResourceUnlockRequestMsg struct {
+	ResourceId  string
+	UnlockToken string
+}
+
+type ResourceLock struct {
+	Id           string
+	UnlockToken  string
+	ExpiresAfter time.Time
+	UpdatedAt    time.Time
+}
+
+func (c *Cluster) handleResourceLockFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+	log.Debug().Msg("cluster: Received resource lock full sync request")
+
+	// If the sender doesn't match our location then ignore the request
+	if sender.Metadata.GetString("location") != config.Location {
+		log.Debug().Msg("cluster: Ignoring resource lock full sync request from a different location")
+		return ResourceLockFullSyncMsg, []*ResourceLock{}, nil
+	}
+
+	resourceLocks := []*ResourceLock{}
+	if err := packet.Unmarshal(&resourceLocks); err != nil {
+		log.Error().Err(err).Msg("cluster: Failed to unmarshal resource lock full sync request")
+		return gossip.NilMsg, nil, err
+	}
+
+	// Get the list of locks in the system
+	c.resourceLocksMux.RLock()
+	existingLocks := []*ResourceLock{}
+	for _, lock := range c.resourceLocks {
+		existingLocks = append(existingLocks, lock)
+	}
+	c.resourceLocksMux.RUnlock()
+
+	// Merge the locks in the background
+	go c.mergeResourceLocks(resourceLocks)
+
+	// Return the full dataset directly as response
+	return ResourceLockFullSyncMsg, existingLocks, nil
+}
+
+func (c *Cluster) handleResourceLockGossip(sender *gossip.Node, packet *gossip.Packet) error {
+	log.Debug().Msg("cluster: Received resource lock gossip request")
+
+	// If the sender doesn't match our location then ignore the request
+	if sender.Metadata.GetString("location") != config.Location {
+		log.Debug().Msg("cluster: Ignoring resource lock gossip request from a different location")
+		return nil
+	}
+
+	resourceLocks := []*ResourceLock{}
+	if err := packet.Unmarshal(&resourceLocks); err != nil {
+		log.Error().Err(err).Msg("cluster: Failed to unmarshal resource lock gossip request")
+		return err
+	}
+
+	// Merge the resource locks with the local resource locks
+	if err := c.mergeResourceLocks(resourceLocks); err != nil {
+		log.Error().Err(err).Msg("cluster: Failed to merge resource locks")
+		return err
+	}
+
+	return nil
+}
+
+func (c *Cluster) GossipResourceLock(resourceLock *ResourceLock) {
+	if c.sessionGossip && c.gossipCluster != nil {
+		resourceLocks := []*ResourceLock{resourceLock}
+		c.gossipInLocation(ResourceLockGossipMsg, &resourceLocks)
+	}
+}
+
+func (c *Cluster) DoResourceLockFullSync(node *gossip.Node) error {
+	if c.sessionGossip && c.gossipCluster != nil {
+
+		// If the node doesn't match our location then ignore the request
+		if node.Metadata.GetString("location") != config.Location {
+			log.Debug().Msg("cluster: Ignoring resource lock full sync with node from a different location")
+			return nil
+		}
+
+		// Get the list of resource locks in the system
+		c.resourceLocksMux.RLock()
+		resourceLocks := []*ResourceLock{}
+		for _, lock := range c.resourceLocks {
+			resourceLocks = append(resourceLocks, lock)
+		}
+		c.resourceLocksMux.RUnlock()
+
+		// Exchange the resource lock list with the remote node
+		if err := c.gossipCluster.SendToWithResponse(node, ResourceLockFullSyncMsg, &resourceLocks, ResourceLockFullSyncMsg, &resourceLocks); err != nil {
+			return err
+		}
+
+		// Merge the resource locks with the local resource locks
+		if err := c.mergeResourceLocks(resourceLocks); err != nil {
+			log.Error().Err(err).Msg("cluster: Failed to merge resource locks")
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Merges the resource locks from a cluster member with the local resource locks
+func (c *Cluster) mergeResourceLocks(resourceLocks []*ResourceLock) error {
+	log.Debug().Int("number_resource_locks", len(resourceLocks)).Msg("cluster: Merging resource locks")
+
+	c.resourceLocksMux.Lock()
+	defer c.resourceLocksMux.Unlock()
+
+	// Merge the locks
+	for _, lock := range resourceLocks {
+		if localLock, ok := c.resourceLocks[lock.Id]; ok {
+			// If the remote session is newer than the local session then use it's data
+			if lock.UpdatedAt.After(localLock.UpdatedAt) {
+				if lock.ExpiresAfter.Before(time.Now().UTC()) {
+					// If the remote lock is expired, delete it locally
+					delete(c.resourceLocks, lock.Id)
+				} else {
+					c.resourceLocks[lock.Id].UpdatedAt = lock.UpdatedAt
+					c.resourceLocks[lock.Id].ExpiresAfter = lock.ExpiresAfter
+				}
+			}
+		} else if !lock.ExpiresAfter.Before(time.Now().UTC()) {
+			// If the lock doesn't exist, create it unless it's deleted on the remote node
+			c.resourceLocks[lock.Id] = lock
+		}
+	}
+
+	return nil
+}
+
+// Gossips a subset of the resource locks to the cluster
+func (c *Cluster) gossipResourceLocks() {
+	if !c.sessionGossip || c.gossipCluster == nil || len(c.resourceLocks) == 0 {
+		return
+	}
+
+	// Get the list of locks in the system
+	locks := []*ResourceLock{}
+	c.resourceLocksMux.RLock()
+	for _, lock := range c.resourceLocks {
+		locks = append(locks, lock)
+	}
+	c.resourceLocksMux.RUnlock()
+
+	// Shuffle the locks
+	rand.Shuffle(len(locks), func(i, j int) {
+		locks[i], locks[j] = locks[j], locks[i]
+	})
+
+	batchSize := c.gossipCluster.GetBatchSize(len(locks))
+	if batchSize > 0 {
+		locks = locks[:batchSize]
+		c.gossipInLocation(ResourceLockGossipMsg, &locks)
+	}
+}

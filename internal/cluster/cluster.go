@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"errors"
 	"math"
 	"net/http"
 	"net/url"
@@ -13,11 +14,14 @@ import (
 	"github.com/paularlott/gossip/compression"
 	"github.com/paularlott/gossip/encryption"
 	"github.com/paularlott/gossip/examples/common"
+	"github.com/paularlott/gossip/leader"
 	"github.com/paularlott/gossip/websocket"
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/internal/config"
 	cfg "github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -29,12 +33,15 @@ const (
 )
 
 type Cluster struct {
-	gossipCluster  *gossip.Cluster
-	config         *gossip.Config
-	leafSessionMux sync.RWMutex
-	leafSessions   map[uuid.UUID]*leafSession
-	agentEndpoints []string
-	sessionGossip  bool
+	gossipCluster    *gossip.Cluster
+	config           *gossip.Config
+	leafSessionMux   sync.RWMutex
+	leafSessions     map[uuid.UUID]*leafSession
+	agentEndpoints   []string
+	sessionGossip    bool
+	election         *leader.LeaderElection
+	resourceLocksMux sync.RWMutex
+	resourceLocks    map[string]*ResourceLock
 }
 
 func NewCluster(
@@ -50,6 +57,7 @@ func NewCluster(
 		leafSessions:   make(map[uuid.UUID]*leafSession),
 		agentEndpoints: agentEndpoints,
 		sessionGossip:  !database.IsSessionDriverShared(),
+		resourceLocks:  make(map[string]*ResourceLock),
 	}
 
 	config := gossip.DefaultConfig()
@@ -132,11 +140,16 @@ func NewCluster(
 		cluster.gossipCluster.HandleFuncWithReply(VolumeFullSyncMsg, cluster.handleVolumeFullSync)
 		cluster.gossipCluster.HandleFunc(VolumeGossipMsg, cluster.handleVolumeGossip)
 		cluster.gossipCluster.HandleFunc(AuditLogGossipMsg, cluster.handleAuditLogGossip)
+		cluster.gossipCluster.HandleFuncWithReply(ResourceLockFullSyncMsg, cluster.handleResourceLockFullSync)
+		cluster.gossipCluster.HandleFunc(ResourceLockGossipMsg, cluster.handleResourceLockGossip)
 
 		if cluster.sessionGossip {
 			cluster.gossipCluster.HandleFuncWithReply(SessionFullSyncMsg, cluster.handleSessionFullSync)
 			cluster.gossipCluster.HandleFunc(SessionGossipMsg, cluster.handleSessionGossip)
 		}
+
+		cluster.gossipCluster.HandleFuncWithReply(ResourceLockMsg, cluster.handleResourceLock)
+		cluster.gossipCluster.HandleFunc(ResourceUnlockMsg, cluster.handleResourceUnlock)
 
 		// Capture server state changes and maintain a list of nodes in our location
 		// We only dynamically track nodes if the endpoint list hans't been set.
@@ -163,6 +176,7 @@ func NewCluster(
 			cluster.gossipUsers()
 			cluster.gossipTokens()
 			cluster.gossipVolumes()
+			cluster.gossipResourceLocks()
 			if cluster.sessionGossip {
 				cluster.gossipSessions()
 			}
@@ -171,6 +185,11 @@ func NewCluster(
 		metadata := cluster.gossipCluster.LocalMetadata()
 		metadata.SetString("location", cfg.Location)
 		metadata.SetString("agent_endpoint", viper.GetString("server.agent_endpoint"))
+
+		// Set up leader elections within the locality
+		electionCfg := leader.DefaultConfig()
+		electionCfg.MetadataFilterKey = "location"
+		cluster.election = leader.NewLeaderElection(cluster.gossipCluster, electionCfg)
 	}
 
 	if allowLeaf {
@@ -179,6 +198,24 @@ func NewCluster(
 		// Setup routes for leaf nodes
 		routes.HandleFunc("GET /cluster/leaf", middleware.ApiAuth(cluster.HandleLeafServer))
 	}
+
+	// Go routine to periodically clean up the resource locks
+	go func() {
+		interval := time.NewTicker(ResourceLockGCInterval)
+		defer interval.Stop()
+
+		for range interval.C {
+			log.Debug().Msg("cluster: cleaning up resource locks")
+			cluster.resourceLocksMux.Lock()
+			for id, lock := range cluster.resourceLocks {
+				if lock.ExpiresAfter.Before(time.Now().UTC()) {
+					log.Debug().Msgf("cluster: removing expired resource lock %s", id)
+					delete(cluster.resourceLocks, id)
+				}
+			}
+			cluster.resourceLocksMux.Unlock()
+		}
+	}()
 
 	return cluster
 }
@@ -247,6 +284,10 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 						log.Error().Msgf("cluster: failed to sync volumes with node %s: %s", node.ID, err.Error())
 					}
 
+					if err := c.DoResourceLockFullSync(node); err != nil {
+						log.Error().Msgf("cluster: failed to sync resource locks with node %s: %s", node.ID, err.Error())
+					}
+
 					if c.sessionGossip {
 						if err := c.DoSessionFullSync(node); err != nil {
 							log.Error().Msgf("cluster: failed to sync sessions with node %s: %s", node.ID, err.Error())
@@ -257,6 +298,9 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 				log.Info().Msg("cluster: full state sync complete")
 			}()
 		}
+
+		// Start the leader election process
+		c.election.Start()
 	} else if originServer != "" && originToken != "" {
 		c.runLeafClient(originServer, originToken)
 
@@ -279,6 +323,7 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 func (c *Cluster) Stop() {
 	if c.gossipCluster != nil {
 		log.Info().Msg("cluster: stopping gossip cluster")
+		c.election.Stop()
 		c.gossipCluster.Stop()
 	}
 }
@@ -305,4 +350,124 @@ func (c *Cluster) getBatchSize(totalNodes int) int {
 
 func (c *Cluster) GetAgentEndpoints() []string {
 	return c.agentEndpoints
+}
+
+func (c *Cluster) LockResource(resourceId string) string {
+	// If in cluster mode and not the leader then we have to ask the leader to lock the resource
+	if c.election != nil && !c.election.IsLeader() {
+		log.Debug().Msg("cluster: Asking leader to lock resource")
+
+		leaderNode := c.election.GetLeader()
+		if leaderNode != nil {
+			request := &ResourceLockRequestMsg{
+				ResourceId: resourceId,
+			}
+			response := &ResourceLockResponseMsg{}
+			if err := c.gossipCluster.SendToWithResponse(leaderNode, ResourceLockMsg, request, ResourceLockMsg, response); err != nil {
+				log.Error().Msgf("cluster: Failed to request resource lock from leader %s: %s", leaderNode.ID, err.Error())
+				return ""
+			}
+
+			return response.UnlockToken
+		}
+	}
+
+	return c.lockResourceLocally(resourceId)
+}
+
+func (c *Cluster) lockResourceLocally(resourceId string) string {
+	c.resourceLocksMux.Lock()
+	defer c.resourceLocksMux.Unlock()
+
+	if lock, exists := c.resourceLocks[resourceId]; exists {
+		if lock.ExpiresAfter.After(time.Now().UTC()) {
+			return ""
+		}
+	}
+
+	lock := &ResourceLock{
+		Id:           resourceId,
+		UnlockToken:  crypt.CreateKey(),
+		UpdatedAt:    time.Now().UTC(),
+		ExpiresAfter: time.Now().UTC().Add(ResourceLockTTL),
+	}
+	c.resourceLocks[resourceId] = lock
+	c.GossipResourceLock(lock)
+
+	return lock.UnlockToken
+}
+
+func (c *Cluster) UnlockResource(resourceId, unlockToken string) {
+	// If in cluster mode and not the leader then we have to ask the leader to unlock the resource
+	if c.election != nil && !c.election.IsLeader() {
+		log.Debug().Msg("cluster: Asking leader to unlock resource")
+
+		leaderNode := c.election.GetLeader()
+		if leaderNode != nil {
+			request := &ResourceUnlockRequestMsg{
+				ResourceId:  resourceId,
+				UnlockToken: unlockToken,
+			}
+			if err := c.gossipCluster.SendTo(leaderNode, ResourceUnlockMsg, request); err != nil {
+				log.Error().Msgf("cluster: Failed to request resource unlock from leader %s: %s", leaderNode.ID, err.Error())
+			}
+
+			return
+		}
+	}
+
+	c.unlockResourceLocally(resourceId, unlockToken)
+}
+
+func (c *Cluster) unlockResourceLocally(resourceId, unlockToken string) {
+	c.resourceLocksMux.Lock()
+	defer c.resourceLocksMux.Unlock()
+
+	if lock, exists := c.resourceLocks[resourceId]; exists {
+		if lock.UnlockToken == unlockToken {
+			delete(c.resourceLocks, resourceId)
+			lock.UpdatedAt = time.Now().UTC()
+			lock.ExpiresAfter = time.Now().UTC().Add(-ResourceLockTTL)
+			c.GossipResourceLock(lock)
+		}
+	}
+}
+
+func (c *Cluster) handleResourceLock(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+	// If the sender doesn't match our location then ignore the request
+	if sender.Metadata.GetString("location") != config.Location {
+		log.Debug().Msg("cluster: Ignoring resource lock request from a different location")
+		return gossip.NilMsg, nil, errors.New("resource lock request from different location")
+	}
+
+	request := ResourceLockRequestMsg{}
+	if err := packet.Unmarshal(&request); err != nil {
+		log.Error().Err(err).Msg("cluster: Failed to unmarshal resource lock request")
+		return gossip.NilMsg, nil, err
+	}
+
+	response := &ResourceLockResponseMsg{
+		UnlockToken: c.lockResourceLocally(request.ResourceId),
+	}
+
+	// Return the full dataset directly as response
+	return ResourceLockMsg, response, nil
+}
+
+func (c *Cluster) handleResourceUnlock(sender *gossip.Node, packet *gossip.Packet) error {
+	// If the sender doesn't match our location then ignore the request
+	if sender.Metadata.GetString("location") != config.Location {
+		log.Debug().Msg("cluster: Ignoring resource unlock request from a different location")
+		return errors.New("resource unlock request from different location")
+	}
+
+	request := ResourceUnlockRequestMsg{}
+	if err := packet.Unmarshal(&request); err != nil {
+		log.Error().Err(err).Msg("cluster: Failed to unmarshal resource lock request")
+		return err
+	}
+
+	c.unlockResourceLocally(request.ResourceId, request.UnlockToken)
+
+	return nil
 }

@@ -116,7 +116,14 @@ func checkSchedules() {
 								}
 							}
 
+							transport := service.GetTransport()
+							unlockToken := transport.LockResource(space.Id)
+							if unlockToken == "" {
+								log.Error().Msg("checkSchedules: failed to lock space")
+								continue
+							}
 							service.GetContainerService().StartSpace(space, template, user)
+							transport.UnlockResource(space.Id, unlockToken)
 						}
 					}
 				}
