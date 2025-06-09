@@ -27,10 +27,10 @@
           <div x-show="!valueValid" class="error-message" x-cloak>Value must be less than 10MB.</div>
         </div>
         <div>
-          <label for="location" class="form-label">Location</label>
-          <input type="text" class="form-field disabled:opacity-40" name="location" x-on:keyup.debounce.500ms="checkLocation()" :class="{'form-field-error': !locationValid}" placeholder="Optional Location Restriction" x-model="formData.location" :disabled="formData.local">
-          <div x-show="!locationValid" class="error-message">Location is limited to 64 characters.</div>
-          <div class="description">Location is an optional field that can be used to restrict the use of this variable to a specific location. If set, the variable will only be available in the specified location.</div>
+          <label for="zone" class="form-label">Zone</label>
+          <input type="text" class="form-field disabled:opacity-40" name="zone" x-on:keyup.debounce.500ms="checkZone()" :class="{'form-field-error': !zoneValid}" placeholder="Optional Zone Restriction" x-model="formData.zone" :disabled="formData.local">
+          <div x-show="!zoneValid" class="error-message">Zone is limited to 64 characters.</div>
+          <div class="description">Zone is an optional field that can be used to restrict the use of this variable to a specific zone. If set, the variable will only be available in the specified zone.</div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 md:gap-4">
           <div class="col-span-1">

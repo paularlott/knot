@@ -241,9 +241,9 @@ paths:
               - inactive
               - all
             default: all
-        - name: location
+        - name: zone
           in: query
-          description: If given tracks the number of spaces the user has deployed in the given location.
+          description: If given tracks the number of spaces the user has deployed in the given zone.
           required: false
           schema:
             type: string
@@ -1782,9 +1782,9 @@ paths:
                   status:
                     type: boolean
                     description: True if the volume was started.
-                  location:
+                  zone:
                     type: string
-                    description: The location of the volume.
+                    description: The zone of the volume.
         '401':
           $ref: '#/components/responses/unauthorized'
         '403':
@@ -2124,9 +2124,9 @@ components:
           type: integer
           format: int64
           description: The ID of the audit log entry.
-        location:
+        zone:
           type: string
-          description: The server location of the audit log entry.
+          description: The server zone of the audit log entry.
         Actor:
           type: string
           description: The actor who performed the action.
@@ -2231,9 +2231,9 @@ components:
           type: string
           format: uuid
           description: The ID of the template the space was created from.
-        location:
+        zone:
           type: string
-          description: The location of the space.
+          description: The zone of the space.
         username:
           type: string
           description: The username of the user the space belongs to.
@@ -2385,9 +2385,9 @@ components:
           type: string
           enum: [bash, zsh, fish, sh]
           description: The shell to use in the space.
-        location:
+        zone:
           type: string
-          description: The location of the space.
+          description: The zone of the space.
         is_deployed:
           type: boolean
           description: Flags if the space is deployed.
@@ -2487,11 +2487,11 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
-        locations:
+        zones:
           type: array
           items:
             type: string
-          description: The list of locations the template is valid for.
+          description: The list of zones the template is valid for.
         icon_url:
           type: string
           format: uri
@@ -2583,11 +2583,11 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
-        locations:
+        zones:
           type: array
           items:
             type: string
-          description: The list of locations the template is valid for.
+          description: The list of zones the template is valid for.
         icon_url:
           type: string
           format: uri
@@ -2661,11 +2661,11 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
-        locations:
+        zones:
           type: array
           items:
             type: string
-          description: The list of locations the template is valid for.
+          description: The list of zones the template is valid for.
         icon_url:
           type: string
           format: uri
@@ -2755,11 +2755,11 @@ components:
           type: string
           enum: [disabled, minute, hour, day]
           description: The unit of the maximum uptime.
-        locations:
+        zones:
           type: array
           items:
             type: string
-          description: The list of locations the template is valid for.
+          description: The list of zones the template is valid for.
         icon_url:
           type: string
           format: uri
@@ -2791,10 +2791,10 @@ components:
           type: string
           maxLength: 64
           description: The name of the template variable.
-        location:
+        zone:
           type: string
           maxLength: 64
-          description: The location the template variable can be used in.
+          description: The zone the template variable can be used in.
         protected:
           type: boolean
           description: Whether the template variable is protected with encryption.
@@ -2833,10 +2833,10 @@ components:
         value:
           type: string
           description: The value of the template variable, for protected variables this is always returned as blank.
-        location:
+        zone:
           type: string
           maxLength: 64
-          description: The location the template variable can be used in.
+          description: The zone the template variable can be used in.
         protected:
           type: boolean
           description: Whether the template variable is protected with encryption.
@@ -3027,9 +3027,9 @@ components:
         number_spaces_deployed:
           type: integer
           description: The number of spaces the user has deployed currently
-        number_spaces_deployed_in_location:
+        number_spaces_deployed_in_zone:
           type: integer
-          description: The number of spaces the user has deployed currently within the location.
+          description: The number of spaces the user has deployed currently within the zone.
         used_compute_units:
           type: integer
           format: uint32
@@ -3173,10 +3173,10 @@ components:
         active:
           type: boolean
           description: Whether the volume is active.
-        location:
+        zone:
           type: string
           maxLength: 64
-          description: The location of the volume.
+          description: The zone of the volume.
         local_container:
           type: boolean
           description: If the volume is a local container volume, docker or podman.
@@ -3214,10 +3214,10 @@ components:
         definition:
           type: string
           description: A YAML formatted string describing the volumes to be created
-        location:
+        zone:
           type: string
           maxLength: 64
-          description: The location of the volume.
+          description: The zone of the volume.
         active:
           type: boolean
           description: Whether the volume is active.

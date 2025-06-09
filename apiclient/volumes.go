@@ -8,7 +8,7 @@ type VolumeInfo struct {
 	Id             string `json:"volume_id"`
 	Name           string `json:"name"`
 	Active         bool   `json:"active"`
-	Location       string `json:"location"`
+	Zone           string `json:"zone"`
 	LocalContainer bool   `json:"local_container"`
 }
 
@@ -20,7 +20,7 @@ type VolumeInfoList struct {
 type VolumeDefinition struct {
 	Name           string `json:"name"`
 	Definition     string `json:"definition"`
-	Location       string `json:"location"`
+	Zone           string `json:"zone"`
 	Active         bool   `json:"active"`
 	LocalContainer bool   `json:"local_container"`
 }
@@ -42,7 +42,7 @@ type VolumeCreateResponse struct {
 }
 
 type VolumeStartStopRequest struct {
-	Location string `json:"location"`
+	Zone string `json:"zone"`
 }
 type VolumeStartRequest = VolumeStartStopRequest
 type VolumeStopRequest = VolumeStartStopRequest
@@ -50,15 +50,15 @@ type VolumeStopRequest = VolumeStartStopRequest
 type VolumeStartStopResponse struct {
 	Name       string                 `json:"name"`
 	Definition string                 `json:"definition"`
-	Location   string                 `json:"location"`
+	Zone       string                 `json:"zone"`
 	Variables  map[string]interface{} `json:"variables"`
 }
 type VolumeStartResponse = VolumeStartStopResponse
 type VolumeStopResponse = VolumeStartStopResponse
 
 type StartVolumeResponse struct {
-	Status   bool   `json:"status"`
-	Location string `json:"location"`
+	Status bool   `json:"status"`
+	Zone   string `json:"zone"`
 }
 
 func (c *ApiClient) GetVolumes(ctx context.Context) (*VolumeInfoList, int, error) {

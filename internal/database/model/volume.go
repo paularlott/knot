@@ -11,7 +11,7 @@ import (
 type Volume struct {
 	Id             string    `json:"volume_id" db:"volume_id,pk"`
 	Name           string    `json:"name" db:"name"`
-	Location       string    `json:"location" db:"location"`
+	Zone           string    `json:"zone" db:"zone"`
 	Definition     string    `json:"definition" db:"definition"`
 	Active         bool      `json:"active" db:"active"`
 	LocalContainer bool      `json:"local_container" db:"local_container"`
@@ -38,7 +38,7 @@ func NewVolume(name string, definition string, userId string, localContainer boo
 		CreatedAt:      time.Now().UTC(),
 		UpdatedUserId:  userId,
 		UpdatedAt:      time.Now().UTC(),
-		Location:       "",
+		Zone:           "",
 	}
 
 	return volume

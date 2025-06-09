@@ -224,15 +224,15 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
 	requiredState := r.URL.Query().Get("state")
-	inLocation := r.URL.Query().Get("location")
+	inZone := r.URL.Query().Get("zone")
 
 	if requiredState == "" {
 		requiredState = "all"
 	}
 
-	// If no location given then use the servers
-	if inLocation == "" {
-		inLocation = config.Location
+	// If no zone given then use the servers
+	if inZone == "" {
+		inZone = config.Zone
 	}
 
 	var userData = &apiclient.UserInfoList{
@@ -287,7 +287,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Get the users usage
-			usage, err := database.GetUserUsage(user.Id, inLocation)
+			usage, err := database.GetUserUsage(user.Id, inZone)
 			if err != nil {
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
@@ -295,7 +295,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 			data.NumberSpaces = usage.NumberSpaces
 			data.NumberSpacesDeployed = usage.NumberSpacesDeployed
-			data.NumberSpacesDeployedInLocation = usage.NumberSpacesDeployedInLocation
+			data.NumberSpacesDeployedInZone = usage.NumberSpacesDeployedInZone
 			data.UsedComputeUnits = usage.ComputeUnits
 			data.UsedStorageUnits = usage.StorageUnits
 			data.UsedTunnels = tunnel_server.CountUserTunnels(user.Id)

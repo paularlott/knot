@@ -35,11 +35,11 @@ type User struct {
 }
 
 type Usage struct {
-	ComputeUnits                   uint32
-	StorageUnits                   uint32
-	NumberSpaces                   int
-	NumberSpacesDeployed           int
-	NumberSpacesDeployedInLocation int
+	ComputeUnits               uint32
+	StorageUnits               uint32
+	NumberSpaces               int
+	NumberSpacesDeployed       int
+	NumberSpacesDeployedInZone int
 }
 
 type Quota struct {

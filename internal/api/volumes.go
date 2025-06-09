@@ -38,7 +38,7 @@ func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 			Id:             volume.Id,
 			Name:           volume.Name,
 			Active:         volume.Active,
-			Location:       volume.Location,
+			Zone:           volume.Zone,
 			LocalContainer: volume.LocalContainer,
 		}
 		volumeData.Volumes = append(volumeData.Volumes, v)
@@ -236,7 +236,7 @@ func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 		Name:           volume.Name,
 		Definition:     volume.Definition,
 		Active:         volume.Active,
-		Location:       volume.Location,
+		Zone:           volume.Zone,
 		LocalContainer: volume.LocalContainer,
 	}
 
@@ -276,8 +276,8 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the volume has a location and it is not this server then fail
-	if volume.Location != "" && volume.Location != config.Location {
+	// If the volume has a zone and it is not this server then fail
+	if volume.Zone != "" && volume.Zone != config.Zone {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "volume is used by another server"})
 		return
 	}
@@ -288,16 +288,16 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	volume.Location = config.Location
+	volume.Zone = config.Zone
 	volume.Active = true
 	volume.UpdatedAt = time.Now().UTC()
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
-	db.SaveVolume(volume, []string{"Active", "Location", "UpdatedAt", "UpdatedUserId"})
+	db.SaveVolume(volume, []string{"Active", "Zone", "UpdatedAt", "UpdatedUserId"})
 	service.GetTransport().GossipVolume(volume)
 
 	rest.SendJSON(http.StatusOK, w, r, &apiclient.StartVolumeResponse{
-		Status:   true,
-		Location: volume.Location,
+		Status: true,
+		Zone:   volume.Zone,
 	})
 }
 
@@ -328,7 +328,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the volume is not running or not this server then fail
-	if !volume.Active || volume.Location != config.Location {
+	if !volume.Active || volume.Zone != config.Zone {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "volume not running"})
 		return
 	}
@@ -339,11 +339,11 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	volume.Location = ""
+	volume.Zone = ""
 	volume.Active = false
 	volume.UpdatedAt = time.Now().UTC()
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
-	db.SaveVolume(volume, []string{"Active", "Location", "UpdatedAt", "UpdatedUserId"})
+	db.SaveVolume(volume, []string{"Active", "Zone", "UpdatedAt", "UpdatedUserId"})
 	service.GetTransport().GossipVolume(volume)
 
 	w.WriteHeader(http.StatusOK)

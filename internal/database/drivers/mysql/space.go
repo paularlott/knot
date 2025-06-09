@@ -122,8 +122,8 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 				if altName == name {
 					found = true
 
-					// Update the location
-					_, err = tx.Exec("UPDATE spaces SET location=?,updated_at=? WHERE parent_space_id = ? AND name = ?", now, space.Location, space.Id, name)
+					// Update the zone
+					_, err = tx.Exec("UPDATE spaces SET zone=?,updated_at=? WHERE parent_space_id = ? AND name = ?", now, space.Zone, space.Id, name)
 					if err != nil {
 						tx.Rollback()
 						return err
@@ -139,7 +139,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 					return err
 				}
 
-				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, location, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name, space.Location, now, now)
+				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, zone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name, space.Zone, now, now)
 				if err != nil {
 					tx.Rollback()
 					return err

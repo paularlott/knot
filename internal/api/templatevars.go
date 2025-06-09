@@ -35,7 +35,7 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 		v := apiclient.TemplateVar{
 			Id:         variable.Id,
 			Name:       variable.Name,
-			Location:   variable.Location,
+			Zone:       variable.Zone,
 			Local:      variable.Local,
 			Protected:  variable.Protected,
 			Restricted: variable.Restricted,
@@ -71,8 +71,8 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Value must be less than 10MB"})
 		return
 	}
-	if !validate.MaxLength(request.Location, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Location must be less than 64 characters"})
+	if !validate.MaxLength(request.Zone, 64) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Zone must be less than 64 characters"})
 		return
 	}
 
@@ -86,7 +86,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	templateVar.Name = request.Name
-	templateVar.Location = request.Location
+	templateVar.Zone = request.Zone
 	templateVar.Local = request.Local
 	templateVar.Value = request.Value
 	templateVar.Protected = request.Protected
@@ -140,12 +140,12 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Value must be less than 10MB"})
 		return
 	}
-	if !validate.MaxLength(request.Location, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Location must be less than 64 characters"})
+	if !validate.MaxLength(request.Zone, 64) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Zone must be less than 64 characters"})
 		return
 	}
 
-	templateVar := model.NewTemplateVar(request.Name, request.Location, request.Local, request.Value, request.Protected, request.Restricted, user.Id)
+	templateVar := model.NewTemplateVar(request.Name, request.Zone, request.Local, request.Value, request.Protected, request.Restricted, user.Id)
 
 	err = db.SaveTemplateVar(templateVar)
 	if err != nil {
@@ -254,7 +254,7 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 	data := &apiclient.TemplateVarValue{
 		Name:       templateVar.Name,
 		Value:      val,
-		Location:   templateVar.Location,
+		Zone:       templateVar.Zone,
 		Local:      templateVar.Local,
 		Protected:  templateVar.Protected,
 		Restricted: templateVar.Restricted,

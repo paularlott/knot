@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Templates{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="templateListComponent({{ .permissionManageSpaces }}, '{{ .location }}')">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="templateListComponent({{ .permissionManageSpaces }}, '{{ .zone }}')">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="mb-4 col-span-full xl:mb-2">
@@ -32,7 +32,7 @@
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" value="1" :checked="showAll" x-model="showAll">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All Locations</span>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All Zones</span>
             </label>
           </div>
           <div class="mb-2">
@@ -78,7 +78,7 @@
           </thead>
           <tbody>
             <template x-for="t in templates" :key="t.template_id">
-              <template x-if="!t.searchHide && (showAll || location === '' || !t.locations || !t.locations.length || t.locations.includes(location))">
+              <template x-if="!t.searchHide && (showAll || zone === '' || !t.zones || !t.zones.length || t.zones.includes(zone))">
                 <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <!-- Name & Description -->
                   <td class="px-4 py-3">
@@ -135,7 +135,7 @@
                           </template>
                         </div>
 
-                        <!-- Mobile-only location/groups -->
+                        <!-- Mobile-only zone/groups -->
                         {{ if and .permissionManageTemplates (not .isLeafNode) }}
                         <div class="md:hidden mt-2">
                           <template x-if="t.group_names && t.group_names.length > 0">
@@ -148,11 +148,11 @@
                               </div>
                             </div>
                           </template>
-                          <template x-if="t.locations && t.locations.length > 0">
+                          <template x-if="t.zones && t.zones.length > 0">
                             <div class="text-xs text-gray-500 dark:text-gray-400" :class="t.group_names.length ? 'mt-1' : ''">
-                              <span class="font-medium">Locations:</span>
+                              <span class="font-medium">Zones:</span>
                               <div class="flex flex-wrap gap-1 mt-1">
-                                <template x-for="l in t.locations">
+                                <template x-for="l in t.zones">
                                   <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="l"></span>
                                 </template>
                               </div>
@@ -256,17 +256,17 @@
                         </div>
                       </div>
                     </template>
-                    <template x-if="t.locations.length">
+                    <template x-if="t.zones.length">
                       <div :class="t.group_names.length ? 'mt-2' : ''">
-                        <div class="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Locations:</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 font-medium mb-1">Zones:</div>
                         <div class="flex flex-wrap gap-1">
-                          <template x-for="l in t.locations">
+                          <template x-for="l in t.zones">
                           <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-1.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="l"></span>
                           </template>
                         </div>
                       </div>
                     </template>
-                    <template x-if="!t.group_names.length && !t.locations.length">
+                    <template x-if="!t.group_names.length && !t.zones.length">
                       <span class="text-xs text-gray-500 dark:text-gray-400">-</span>
                     </template>
                   </td>

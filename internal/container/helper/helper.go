@@ -34,7 +34,7 @@ func (h *Helper) CreateVolume(volume *model.Volume) error {
 	vars := model.FilterVars(variables)
 
 	// Mark volume as started
-	volume.Location = config.Location
+	volume.Zone = config.Zone
 	volume.Active = true
 
 	var containerClient container.ContainerManager
@@ -69,7 +69,7 @@ func (h *Helper) DeleteVolume(volume *model.Volume) error {
 	vars := model.FilterVars(variables)
 
 	// Record the volume as not deployed
-	volume.Location = ""
+	volume.Zone = ""
 	volume.Active = false
 
 	var containerClient container.ContainerManager

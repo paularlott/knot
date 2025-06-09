@@ -1,7 +1,7 @@
 import Alpine from 'alpinejs';
 import { popup } from '../popup.js';
 
-window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, location, canTransferSpaces, canShareSpaces) {
+window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, zone, canTransferSpaces, canShareSpaces) {
 
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -139,7 +139,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               // If this space isn't in this.spaces then add it
               const existing = this.spaces.find(s => s.space_id === space.space_id);
               if(!existing) {
-                space.is_local = space.location === '' || location === space.location;
+                space.is_local = space.zone === '' || zone === space.zone;
                 space.uptime = this.formatTimeDiff(space.started_at);
                 space.icon_url_exists = this.imageExists(space.icon_url);
 
@@ -158,7 +158,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.name = space.name;
                 existing.description = space.description;
                 existing.note = space.note;
-                existing.location = space.location;
+                existing.zone = space.zone;
                 existing.has_code_server = space.has_code_server;
                 existing.has_ssh = space.has_ssh;
                 existing.has_terminal = space.has_terminal;
@@ -172,7 +172,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.has_vscode_tunnel = space.has_vscode_tunnel;
                 existing.vscode_tunnel_name = space.vscode_tunnel_name;
                 existing.sshCmd = `ssh -o ProxyCommand='knot forward ssh ${space.name}' -o StrictHostKeyChecking=no ${username}@knot.${space.name}`;
-                existing.is_local = space.location === '' || location === space.location;
+                existing.is_local = space.zone === '' || zone === space.zone;
                 existing.has_state = space.has_state;
                 existing.started_at = space.started_at;
                 existing.template_name = space.template_name;
@@ -366,7 +366,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           space.searchHide = !(
             space.name.toLowerCase().includes(term) ||
             space.template_name.toLowerCase().includes(term) ||
-            space.location.toLowerCase().includes(term)
+            space.zone.toLowerCase().includes(term)
           ) ||
           (this.showLocalOnly && !space.is_local) ||
           (this.showRunningOnly && !space.is_deployed) ||

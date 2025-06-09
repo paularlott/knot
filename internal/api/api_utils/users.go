@@ -36,7 +36,7 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		log.Debug().Msgf("delete user: Deleting space %s", space.Id)
 
 		// Skip spaces shared with the user but not owned by the user
-		if space.UserId == toDelete.Id && space.Location == config.Location {
+		if space.UserId == toDelete.Id && space.Zone == config.Zone {
 			log.Debug().Msgf("delete user: Deleting space %s from nomad", space.Id)
 
 			// Load the space template
@@ -139,7 +139,7 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 		agentState := agent_server.GetSession(space.Id)
 		if agentState == nil {
 			// Silently ignore if space is on a different server
-			if space.Location == "" || space.Location == config.Location {
+			if space.Zone == "" || space.Zone == config.Zone {
 				log.Debug().Msgf("Update SSH Keys: Agent state not found for space %s", space.Id)
 			}
 
@@ -199,7 +199,7 @@ func (auu *ApiUtilsUsers) UpdateUserSpaces(user *model.User) {
 
 		for _, space := range spaces {
 			// Skip over spaces shared with the user but not owned by them
-			if space.UserId == user.Id && space.IsDeployed && (space.Location == "" || space.Location == config.Location) {
+			if space.UserId == user.Id && space.IsDeployed && (space.Zone == "" || space.Zone == config.Zone) {
 				service.GetContainerService().StopSpace(space)
 			}
 		}

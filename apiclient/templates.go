@@ -20,7 +20,7 @@ type TemplateCreateRequest struct {
 	Schedule         []TemplateDetailsDay `json:"schedule"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
-	Locations        []string             `json:"locations"`
+	Zones            []string             `json:"zones"`
 	MaxUptime        uint32               `json:"max_uptime"`
 	MaxUptimeUnit    string               `json:"max_uptime_unit"`
 	IconURL          string               `json:"icon_url"`
@@ -42,7 +42,7 @@ type TemplateUpdateRequest struct {
 	Schedule         []TemplateDetailsDay `json:"schedule"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
-	Locations        []string             `json:"locations"`
+	Zones            []string             `json:"zones"`
 	MaxUptime        uint32               `json:"max_uptime"`
 	MaxUptimeUnit    string               `json:"max_uptime_unit"`
 	IconURL          string               `json:"icon_url"`
@@ -69,7 +69,7 @@ type TemplateInfo struct {
 	ComputeUnits    uint32               `json:"compute_units"`
 	StorageUnits    uint32               `json:"storage_units"`
 	Schedule        []TemplateDetailsDay `json:"schedule"`
-	Locations       []string             `json:"locations"`
+	Zones           []string             `json:"zones"`
 	MaxUptime       uint32               `json:"max_uptime"`
 	MaxUptimeUnit   string               `json:"max_uptime_unit"`
 	IconURL         string               `json:"icon_url"`
@@ -108,7 +108,7 @@ type TemplateDetails struct {
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
 	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
-	Locations        []string             `json:"locations"`
+	Zones            []string             `json:"zones"`
 	MaxUptime        uint32               `json:"max_uptime"`
 	MaxUptimeUnit    string               `json:"max_uptime_unit"`
 	IconURL          string               `json:"icon_url"`

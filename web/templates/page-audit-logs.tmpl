@@ -19,7 +19,7 @@
             <tr>
               <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Time</th>
               <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Event</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Location</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Zone</th>
               <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">User</th>
               <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Details</th>
               <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Properties</th>
@@ -31,7 +31,7 @@
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-600/10">
                   <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200 text-sm" x-text="log.when"></td>
                   <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="log.event"></td>
-                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="log.location"></td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="log.zone"></td>
                   <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200">
                     <span x-text="log.actor"></span>
                     <template x-if="log.actor_type.toLowerCase() != 'user'">

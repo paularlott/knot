@@ -50,7 +50,7 @@ func init() {
 	serverCmd.Flags().StringP("wildcard-domain", "", "", "The wildcard domain to use for proxying to spaces.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN environment variable if set.")
 	serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENCRYPT environment variable if set.")
 	serverCmd.Flags().StringP("agent-endpoint", "", "", "The address agents should use to talk to the server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT environment variable if set.")
-	serverCmd.Flags().StringP("location", "", "", "The location of the server (defaults to NOMAD_DC or hostname).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOCATION environment variable if set.")
+	serverCmd.Flags().StringP("zone", "", "", "The zone of the server (defaults to NOMAD_DC or hostname).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ZONE environment variable if set.")
 	serverCmd.Flags().StringP("html-path", "", "", "The optional path to the html files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HTML_PATH environment variable if set.")
 	serverCmd.Flags().StringP("template-path", "", "", "The optional path to the template files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TEMPLATE_PATH environment variable if set.")
 	serverCmd.Flags().StringP("agent-path", "", "", "The optional path to the agent files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_PATH environment variable if set.")
@@ -215,9 +215,9 @@ var serverCmd = &cobra.Command{
 			hostname = strings.Split(hostname, ".")[0]
 		}
 
-		viper.BindPFlag("server.location", cmd.Flags().Lookup("location"))
-		viper.BindEnv("server.location", config.CONFIG_ENV_PREFIX+"_LOCATION")
-		viper.SetDefault("server.location", hostname)
+		viper.BindPFlag("server.zone", cmd.Flags().Lookup("zone"))
+		viper.BindEnv("server.zone", config.CONFIG_ENV_PREFIX+"_ZONE")
+		viper.SetDefault("server.zone", hostname)
 
 		viper.BindPFlag("server.tunnel_domain", cmd.Flags().Lookup("tunnel-domain"))
 		viper.BindEnv("server.tunnel_domain", config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN")
@@ -451,8 +451,8 @@ var serverCmd = &cobra.Command{
 			viper.Set("server.tunnel_domain", tunnelDomain)
 		}
 
-		// set the server location and timezone
-		config.Location = viper.GetString("server.location")
+		// set the server zone and timezone
+		config.Zone = viper.GetString("server.zone")
 		config.Timezone = viper.GetString("server.timezone")
 		config.LeafNode = viper.GetString("server.origin.server") != "" && viper.GetString("server.origin.token") != ""
 
@@ -690,13 +690,13 @@ func startupCheckPendingSpaces() {
 
 		for _, space := range spaces {
 			// If space on this server and pending then monitor it
-			if space.Location == config.Location && space.IsPending {
+			if space.Zone == config.Zone && space.IsPending {
 				log.Info().Msgf("server: found pending space %s", space.Name)
 				nomadClient.MonitorJobState(space)
 			}
 
 			// If deleting then delete it
-			if space.IsDeleting && (space.Location == "" || space.Location == config.Location) {
+			if space.IsDeleting && (space.Zone == "" || space.Zone == config.Zone) {
 				log.Info().Msgf("server: found deleting space %s", space.Name)
 				service.GetContainerService().DeleteSpace(space)
 			}

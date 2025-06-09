@@ -57,24 +57,24 @@ type CreateUserResponse struct {
 }
 
 type UserInfo struct {
-	Id                             string     `json:"user_id"`
-	Username                       string     `json:"username"`
-	Email                          string     `json:"email"`
-	Roles                          []string   `json:"roles"`
-	Groups                         []string   `json:"groups"`
-	Active                         bool       `json:"active"`
-	MaxSpaces                      uint32     `json:"max_spaces"`
-	ComputeUnits                   uint32     `json:"compute_units"`
-	StorageUnits                   uint32     `json:"storage_units"`
-	MaxTunnels                     uint32     `json:"max_tunnels"`
-	Current                        bool       `json:"current"`
-	LastLoginAt                    *time.Time `json:"last_login_at"`
-	NumberSpaces                   int        `json:"number_spaces"`
-	NumberSpacesDeployed           int        `json:"number_spaces_deployed"`
-	NumberSpacesDeployedInLocation int        `json:"number_spaces_deployed_in_location"`
-	UsedComputeUnits               uint32     `json:"used_compute_units"`
-	UsedStorageUnits               uint32     `json:"used_storage_units"`
-	UsedTunnels                    uint32     `json:"used_tunnels"`
+	Id                         string     `json:"user_id"`
+	Username                   string     `json:"username"`
+	Email                      string     `json:"email"`
+	Roles                      []string   `json:"roles"`
+	Groups                     []string   `json:"groups"`
+	Active                     bool       `json:"active"`
+	MaxSpaces                  uint32     `json:"max_spaces"`
+	ComputeUnits               uint32     `json:"compute_units"`
+	StorageUnits               uint32     `json:"storage_units"`
+	MaxTunnels                 uint32     `json:"max_tunnels"`
+	Current                    bool       `json:"current"`
+	LastLoginAt                *time.Time `json:"last_login_at"`
+	NumberSpaces               int        `json:"number_spaces"`
+	NumberSpacesDeployed       int        `json:"number_spaces_deployed"`
+	NumberSpacesDeployedInZone int        `json:"number_spaces_deployed_in_zone"`
+	UsedComputeUnits           uint32     `json:"used_compute_units"`
+	UsedStorageUnits           uint32     `json:"used_storage_units"`
+	UsedTunnels                uint32     `json:"used_tunnels"`
 }
 type UserInfoList struct {
 	Count int        `json:"count"`
@@ -130,13 +130,13 @@ func (c *ApiClient) WhoAmI(ctx context.Context) (*UserResponse, error) {
 	return &response, nil
 }
 
-func (c *ApiClient) GetUsers(ctx context.Context, state string, location string) (*UserInfoList, error) {
+func (c *ApiClient) GetUsers(ctx context.Context, state string, zone string) (*UserInfoList, error) {
 	response := UserInfoList{}
 
 	stateEncoded := url.QueryEscape(state)
-	locationEncoded := url.QueryEscape(location)
+	zoneEncoded := url.QueryEscape(zone)
 
-	_, err := c.httpClient.Get(ctx, "/api/users?state="+stateEncoded+"&location="+locationEncoded, &response)
+	_, err := c.httpClient.Get(ctx, "/api/users?state="+stateEncoded+"&zone="+zoneEncoded, &response)
 	if err != nil {
 		return nil, err
 	}

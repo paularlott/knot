@@ -14,9 +14,9 @@ import (
 func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
 	log.Debug().Msg("cluster: Received token full sync request")
 
-	// If the sender doesn't match our location then ignore the request
-	if sender.Metadata.GetString("location") != config.Location {
-		log.Debug().Msg("cluster: Ignoring token full sync request from a different location")
+	// If the sender doesn't match our zone then ignore the request
+	if sender.Metadata.GetString("zone") != config.Zone {
+		log.Debug().Msg("cluster: Ignoring token full sync request from a different zone")
 		return TokenFullSyncMsg, []*model.Token{}, nil
 	}
 
@@ -43,9 +43,9 @@ func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet
 func (c *Cluster) handleTokenGossip(sender *gossip.Node, packet *gossip.Packet) error {
 	log.Debug().Msg("cluster: Received token gossip request")
 
-	// If the sender doesn't match our location then ignore the request
-	if sender.Metadata.GetString("location") != config.Location {
-		log.Debug().Msg("cluster: Ignoring token gossip request from a different location")
+	// If the sender doesn't match our zone then ignore the request
+	if sender.Metadata.GetString("zone") != config.Zone {
+		log.Debug().Msg("cluster: Ignoring token gossip request from a different zone")
 		return nil
 	}
 
@@ -67,16 +67,16 @@ func (c *Cluster) handleTokenGossip(sender *gossip.Node, packet *gossip.Packet) 
 func (c *Cluster) GossipToken(token *model.Token) {
 	if c.gossipCluster != nil {
 		tokens := []*model.Token{token}
-		c.gossipInLocation(TokenGossipMsg, &tokens)
+		c.gossipInZone(TokenGossipMsg, &tokens)
 	}
 }
 
 func (c *Cluster) DoTokenFullSync(node *gossip.Node) error {
 	if c.gossipCluster != nil {
 
-		// If the node doesn't match our location then ignore the request
-		if node.Metadata.GetString("location") != config.Location {
-			log.Debug().Msg("cluster: Ignoring token full sync with node from a different location")
+		// If the node doesn't match our zone then ignore the request
+		if node.Metadata.GetString("zone") != config.Zone {
+			log.Debug().Msg("cluster: Ignoring token full sync with node from a different zone")
 			return nil
 		}
 
@@ -161,32 +161,32 @@ func (c *Cluster) gossipTokens() {
 	batchSize := c.gossipCluster.GetBatchSize(len(tokens))
 	if batchSize > 0 {
 		tokens = tokens[:batchSize]
-		c.gossipInLocation(TokenGossipMsg, &tokens)
+		c.gossipInZone(TokenGossipMsg, &tokens)
 	}
 }
 
-func (c *Cluster) gossipInLocation(msgType gossip.MessageType, data interface{}) {
+func (c *Cluster) gossipInZone(msgType gossip.MessageType, data interface{}) {
 	nodes := c.gossipCluster.AliveNodes()
-	sameLocationNodes := []*gossip.Node{}
+	sameZoneNodes := []*gossip.Node{}
 	localNode := c.gossipCluster.LocalNode()
 	for _, node := range nodes {
-		if node.ID != localNode.ID && node.Metadata.GetString("location") == config.Location {
-			sameLocationNodes = append(sameLocationNodes, node)
+		if node.ID != localNode.ID && node.Metadata.GetString("zone") == config.Zone {
+			sameZoneNodes = append(sameZoneNodes, node)
 		}
 	}
 
-	if len(sameLocationNodes) > 0 {
-		batchSize := c.gossipCluster.GetBatchSize(len(sameLocationNodes))
-		if batchSize < len(sameLocationNodes) {
-			rand.Shuffle(len(sameLocationNodes), func(i, j int) {
-				sameLocationNodes[i], sameLocationNodes[j] = sameLocationNodes[j], sameLocationNodes[i]
+	if len(sameZoneNodes) > 0 {
+		batchSize := c.gossipCluster.GetBatchSize(len(sameZoneNodes))
+		if batchSize < len(sameZoneNodes) {
+			rand.Shuffle(len(sameZoneNodes), func(i, j int) {
+				sameZoneNodes[i], sameZoneNodes[j] = sameZoneNodes[j], sameZoneNodes[i]
 			})
-			sameLocationNodes = sameLocationNodes[:batchSize]
+			sameZoneNodes = sameZoneNodes[:batchSize]
 		}
 
-		for _, node := range sameLocationNodes {
+		for _, node := range sameZoneNodes {
 			if err := c.gossipCluster.SendTo(node, msgType, data); err != nil {
-				log.Error().Err(err).Str("node_id", node.ID.String()).Msg("cluster: Failed to gossip to nodes in location")
+				log.Error().Err(err).Str("node_id", node.ID.String()).Msg("cluster: Failed to gossip to nodes in zone")
 			}
 		}
 	}

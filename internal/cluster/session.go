@@ -21,12 +21,12 @@ type leafSessionMsg struct {
 }
 
 type leafSession struct {
-	Id       uuid.UUID
-	Location string
-	ws       *websocket.Conn
-	ch       chan *leafSessionMsg
-	user     *model.User
-	token    *model.Token
+	Id    uuid.UUID
+	Zone  string
+	ws    *websocket.Conn
+	ch    chan *leafSessionMsg
+	user  *model.User
+	token *model.Token
 }
 
 func (s *leafSession) SendMessage(msgType leafmsg.MessageType, payload interface{}) {
@@ -37,11 +37,11 @@ func (s *leafSession) SendMessage(msgType leafmsg.MessageType, payload interface
 	}:
 
 	default:
-		log.Error().Str("location", s.Location).Msg("failed to send message: queue is full")
+		log.Error().Str("zone", s.Zone).Msg("failed to send message: queue is full")
 	}
 }
 
-func (c *Cluster) registerLeaf(ws *websocket.Conn, user *model.User, token *model.Token, location string) *leafSession {
+func (c *Cluster) registerLeaf(ws *websocket.Conn, user *model.User, token *model.Token, zone string) *leafSession {
 	newSessionId, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msgf("origin: failed to create leaf ID: %s", err)
@@ -51,12 +51,12 @@ func (c *Cluster) registerLeaf(ws *websocket.Conn, user *model.User, token *mode
 	defer c.leafSessionMux.Unlock()
 
 	session := &leafSession{
-		Id:       newSessionId,
-		Location: location,
-		ws:       ws,
-		ch:       make(chan *leafSessionMsg, leafSessionQueueSize),
-		user:     user,
-		token:    token,
+		Id:    newSessionId,
+		Zone:  zone,
+		ws:    ws,
+		ch:    make(chan *leafSessionMsg, leafSessionQueueSize),
+		user:  user,
+		token: token,
 	}
 	c.leafSessions[newSessionId] = session
 
@@ -77,12 +77,12 @@ func (c *Cluster) registerLeaf(ws *websocket.Conn, user *model.User, token *mode
 						break
 					}
 
-					log.Warn().Err(err).Str("location", session.Location).Msgf("attempt %d failed to write message to leaf")
+					log.Warn().Err(err).Str("zone", session.Zone).Msgf("attempt %d failed to write message to leaf")
 
 					time.Sleep(time.Duration(i) * time.Second)
 
 					if i == attempts {
-						log.Error().Str("location", session.Location).Msgf("failed to write message to leaf after %d attempts", attempts)
+						log.Error().Str("zone", session.Zone).Msgf("failed to write message to leaf after %d attempts", attempts)
 					}
 				}
 			}

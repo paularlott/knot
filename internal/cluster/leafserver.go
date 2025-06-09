@@ -76,10 +76,10 @@ func (c *Cluster) HandleLeafServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := c.registerLeaf(ws, user, token, register.Location)
+	session := c.registerLeaf(ws, user, token, register.Zone)
 	defer c.unregisterLeaf(session)
 
-	log.Info().Str("location", session.Location).Msg("cluster: leaf registered")
+	log.Info().Str("zone", session.Zone).Msg("cluster: leaf registered")
 
 	// Enter the message processing loop
 	for {
@@ -88,7 +88,7 @@ func (c *Cluster) HandleLeafServer(w http.ResponseWriter, r *http.Request) {
 			if !strings.Contains(err.Error(), "unexpected EOF") {
 				log.Error().Msgf("cluster: error while reading message from leaf: %s", err)
 			} else {
-				log.Info().Str("location", session.Location).Msg("cluster: leaf disconnected")
+				log.Info().Str("zone", session.Zone).Msg("cluster: leaf disconnected")
 			}
 			return
 		}
@@ -143,11 +143,11 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 
 	// Mask restricted template vars and trigger them to delete
 	for _, templateVar := range templateVars {
-		if templateVar.Restricted || templateVar.Local || templateVar.Location != "" {
+		if templateVar.Restricted || templateVar.Local || templateVar.Zone != "" {
 			templateVar.IsDeleted = true
 			templateVar.Value = ""
 			templateVar.Name = templateVar.Id
-			templateVar.Location = ""
+			templateVar.Zone = ""
 		}
 	}
 	session.SendMessage(leafmsg.MessageGossipTemplateVar, &templateVars)

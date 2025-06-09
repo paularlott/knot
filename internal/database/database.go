@@ -207,7 +207,7 @@ func IsSessionDriverShared() bool {
 	return false
 }
 
-func GetUserUsage(userId string, inLocation string) (*model.Usage, error) {
+func GetUserUsage(userId string, inZone string) (*model.Usage, error) {
 	db := GetInstance()
 
 	// Load the spaces for the user and calculate the quota
@@ -217,11 +217,11 @@ func GetUserUsage(userId string, inLocation string) (*model.Usage, error) {
 	}
 
 	usage := &model.Usage{
-		ComputeUnits:                   0,
-		StorageUnits:                   0,
-		NumberSpaces:                   0,
-		NumberSpacesDeployed:           0,
-		NumberSpacesDeployedInLocation: 0,
+		ComputeUnits:               0,
+		StorageUnits:               0,
+		NumberSpaces:               0,
+		NumberSpacesDeployed:       0,
+		NumberSpacesDeployedInZone: 0,
 	}
 
 	for _, space := range spaces {
@@ -235,8 +235,8 @@ func GetUserUsage(userId string, inLocation string) (*model.Usage, error) {
 		if space.IsDeployed {
 			usage.NumberSpacesDeployed++
 
-			if inLocation != "" && space.Location == inLocation {
-				usage.NumberSpacesDeployedInLocation++
+			if inZone != "" && space.Zone == inZone {
+				usage.NumberSpacesDeployedInZone++
 			}
 		}
 

@@ -63,7 +63,7 @@ const (
 
 type AuditLogEntry struct {
 	Id         int64                  `json:"audit_log_id" db:"audit_log_id,pk"`
-	Location   string                 `json:"location" db:"location"`
+	Zone       string                 `json:"zone" db:"zone"`
 	Actor      string                 `json:"actor" db:"actor"`
 	ActorType  string                 `json:"actor_type" db:"actor_type"`
 	Event      string                 `json:"event" db:"event"`
@@ -74,7 +74,7 @@ type AuditLogEntry struct {
 
 func NewAuditLogEntry(actor, actorType, event, details string, properties *map[string]interface{}) *AuditLogEntry {
 	entry := &AuditLogEntry{
-		Location:  config.Location,
+		Zone:      config.Zone,
 		Actor:     actor,
 		ActorType: actorType,
 		Event:     event,

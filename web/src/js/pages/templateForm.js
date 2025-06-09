@@ -20,7 +20,7 @@ window.templateForm = function(isEdit, templateId) {
       job: "",
       volumes: "",
       groups: [],
-      locations: [],
+      zones: [],
       local_container: false,
       is_manual: false,
       with_terminal: false,
@@ -86,7 +86,7 @@ window.templateForm = function(isEdit, templateId) {
     groups: [],
     fromHours: [],
     toHours: [],
-    locationValid: [],
+    zoneValid: [],
 
     async initData() {
       for (let hour = 0; hour < 24; hour++) {
@@ -141,11 +141,11 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.max_uptime_unit = template.max_uptime_unit;
           this.formData.icon_url = template.icon_url;
 
-          // Set the locations and mark all as valid
-          this.formData.locations =template.locations ? template.locations : [];
-          this.locationValid = [];
-          this.formData.locations.forEach(() => {
-            this.locationValid.push(true);
+          // Set the zones and mark all as valid
+          this.formData.zones =template.zones ? template.zones : [];
+          this.zoneValid = [];
+          this.formData.zones.forEach(() => {
+            this.zoneValid.push(true);
           });
         }
 
@@ -306,7 +306,7 @@ window.templateForm = function(isEdit, templateId) {
         schedule_enabled: this.formData.schedule_enabled,
         auto_start: this.formData.auto_start,
         schedule: this.formData.schedule,
-        locations: this.formData.locations,
+        zones: this.formData.zones,
         active: this.formData.active,
         max_uptime: parseInt(this.formData.max_uptime),
         max_uptime_unit: this.formData.max_uptime_unit,
@@ -351,29 +351,29 @@ window.templateForm = function(isEdit, templateId) {
     getDayOfWeek(day) {
       return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day];
     },
-    addLocation() {
-      this.locationValid.push(true);
-      this.formData.locations.push('');
+    addZone() {
+      this.zoneValid.push(true);
+      this.formData.zones.push('');
     },
-    removeLocation(index) {
-      this.formData.locations.splice(index, 1);
-      this.locationValid.splice(index, 1);
+    removeZone(index) {
+      this.formData.zones.splice(index, 1);
+      this.zoneValid.splice(index, 1);
     },
-    checkLocation(index) {
-      if(index >= 0 && index < this.formData.locations.length) {
-        let isValid = validate.maxLength(this.formData.locations[index], 64);
+    checkZone(index) {
+      if(index >= 0 && index < this.formData.zones.length) {
+        let isValid = validate.maxLength(this.formData.zones[index], 64);
 
         // If valid then check for duplicate extra name
         if(isValid) {
-          for (let i = 0; i < this.formData.locations.length; i++) {
-            if(i !== index && this.formData.locations[i] === this.formData.locations[index]) {
+          for (let i = 0; i < this.formData.zones.length; i++) {
+            if(i !== index && this.formData.zones[i] === this.formData.zones[index]) {
               isValid = false;
               break;
             }
           }
         }
 
-        this.locationValid[index] = isValid;
+        this.zoneValid[index] = isValid;
         return isValid;
       } else {
         return false;

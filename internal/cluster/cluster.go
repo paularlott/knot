@@ -151,14 +151,14 @@ func NewCluster(
 		cluster.gossipCluster.HandleFuncWithReply(ResourceLockMsg, cluster.handleResourceLock)
 		cluster.gossipCluster.HandleFunc(ResourceUnlockMsg, cluster.handleResourceUnlock)
 
-		// Capture server state changes and maintain a list of nodes in our location
+		// Capture server state changes and maintain a list of nodes in our zone
 		// We only dynamically track nodes if the endpoint list hans't been set.
 		if len(agentEndpoints) == 0 {
 			cluster.gossipCluster.HandleNodeStateChangeFunc(func(node *gossip.Node, prevState gossip.NodeState) {
 				nodes := cluster.gossipCluster.AliveNodes()
 				endPoints := []string{}
 				for _, n := range nodes {
-					if n.Metadata.GetString("location") == cfg.Location {
+					if n.Metadata.GetString("zone") == cfg.Zone {
 						endPoints = append(endPoints, n.Metadata.GetString("agent_endpoint"))
 					}
 				}
@@ -183,12 +183,12 @@ func NewCluster(
 		})
 
 		metadata := cluster.gossipCluster.LocalMetadata()
-		metadata.SetString("location", cfg.Location)
+		metadata.SetString("zone", cfg.Zone)
 		metadata.SetString("agent_endpoint", viper.GetString("server.agent_endpoint"))
 
 		// Set up leader elections within the locality
 		electionCfg := leader.DefaultConfig()
-		electionCfg.MetadataFilterKey = "location"
+		electionCfg.MetadataFilterKey = "zone"
 		cluster.election = leader.NewLeaderElection(cluster.gossipCluster, electionCfg)
 	}
 
@@ -434,10 +434,10 @@ func (c *Cluster) unlockResourceLocally(resourceId, unlockToken string) {
 }
 
 func (c *Cluster) handleResourceLock(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
-	// If the sender doesn't match our location then ignore the request
-	if sender.Metadata.GetString("location") != config.Location {
-		log.Debug().Msg("cluster: Ignoring resource lock request from a different location")
-		return gossip.NilMsg, nil, errors.New("resource lock request from different location")
+	// If the sender doesn't match our zone then ignore the request
+	if sender.Metadata.GetString("zone") != config.Zone {
+		log.Debug().Msg("cluster: Ignoring resource lock request from a different zone")
+		return gossip.NilMsg, nil, errors.New("resource lock request from different zone")
 	}
 
 	request := ResourceLockRequestMsg{}
@@ -455,10 +455,10 @@ func (c *Cluster) handleResourceLock(sender *gossip.Node, packet *gossip.Packet)
 }
 
 func (c *Cluster) handleResourceUnlock(sender *gossip.Node, packet *gossip.Packet) error {
-	// If the sender doesn't match our location then ignore the request
-	if sender.Metadata.GetString("location") != config.Location {
-		log.Debug().Msg("cluster: Ignoring resource unlock request from a different location")
-		return errors.New("resource unlock request from different location")
+	// If the sender doesn't match our zone then ignore the request
+	if sender.Metadata.GetString("zone") != config.Zone {
+		log.Debug().Msg("cluster: Ignoring resource unlock request from a different zone")
+		return errors.New("resource unlock request from different zone")
 	}
 
 	request := ResourceUnlockRequestMsg{}

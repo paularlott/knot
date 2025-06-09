@@ -8,7 +8,7 @@ import (
 
 type AuditLogEntry struct {
 	Id         int64                  `json:"audit_log_id"`
-	Location   string                 `json:"location"`
+	Zone       string                 `json:"zone"`
 	Actor      string                 `json:"actor"`
 	ActorType  string                 `json:"actor_type"`
 	Event      string                 `json:"event"`

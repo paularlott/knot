@@ -37,7 +37,7 @@ type Template struct {
 	IsDeleted        bool                   `json:"is_deleted" db:"is_deleted"`
 	IsManaged        bool                   `json:"is_managed" db:"is_managed"`
 	Schedule         []TemplateScheduleDays `json:"schedule" db:"schedule,json"`
-	Locations        []string               `json:"locations" db:"locations,json"`
+	Zones            []string               `json:"zones" db:"zones,json"`
 	MaxUptime        uint32                 `json:"max_uptime" db:"max_uptime"`
 	MaxUptimeUnit    string                 `json:"max_uptime_unit" db:"max_uptime_unit"`
 	CreatedUserId    string                 `json:"created_user_id" db:"created_user_id"`
@@ -69,7 +69,7 @@ func NewTemplate(
 	storageUnits uint32,
 	scheduleEnabled bool,
 	schedule *[]TemplateScheduleDays,
-	locations []string,
+	zones []string,
 	autoStart bool,
 	active bool,
 	maxUptime uint32,
@@ -88,7 +88,7 @@ func NewTemplate(
 		Job:              job,
 		Volumes:          volumes,
 		Groups:           groups,
-		Locations:        locations,
+		Zones:            zones,
 		CreatedUserId:    userId,
 		LocalContainer:   localContainer,
 		IsManual:         isManual,

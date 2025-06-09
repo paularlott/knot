@@ -90,7 +90,7 @@ window.volumeListComponent = function() {
             const volume = self.volumes.find(vol => vol.volume_id === volumeId);
             volume.active = true;
             volume.starting = false;
-            volume.location = v.location;
+            volume.zone = v.zone;
           });
 
           self.$dispatch('show-alert', { msg: "Volume started", type: 'success' });
@@ -107,7 +107,7 @@ window.volumeListComponent = function() {
       const self = this;
       const volume = self.volumes.find(vol => vol.volume_id === volumeId);
       volume.stopping = true;
-      volume.location = "";
+      volume.zone = "";
 
       await fetch(`/api/volumes/${volumeId}/stop`, {
         method: 'POST',
@@ -119,7 +119,7 @@ window.volumeListComponent = function() {
           const stoppedVolume = self.volumes.find(vol => vol.volume_id === volumeId);
           stoppedVolume.active = false;
           stoppedVolume.stopping = false;
-          stoppedVolume.location = "";
+          stoppedVolume.zone = "";
 
           self.$dispatch('show-alert', { msg: "Volume stopped", type: 'success' });
         } else {

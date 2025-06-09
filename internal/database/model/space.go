@@ -65,7 +65,7 @@ type Space struct {
 	Name             string        `json:"name" db:"name" msgpack:"name"`
 	Description      string        `json:"description" db:"description" msgpack:"description"`
 	Note             string        `json:"note" db:"note" msgpack:"note"`
-	Location         string        `json:"location" db:"location" msgpack:"location"`
+	Zone             string        `json:"zone" db:"zone" msgpack:"zone"`
 	Shell            string        `json:"shell" db:"shell" msgpack:"shell"`
 	TemplateHash     string        `json:"template_hash" db:"template_hash" msgpack:"template_hash"`
 	NomadNamespace   string        `json:"nomad_namespace" db:"nomad_namespace" msgpack:"nomad_namespace"`
@@ -83,7 +83,7 @@ type Space struct {
 	UpdatedAt        time.Time     `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
-func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string, location string, iconURL string) *Space {
+func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string, zone string, iconURL string) *Space {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -113,7 +113,7 @@ func NewSpace(name string, description string, userId string, templateId string,
 		StartedAt:        now,
 		CreatedAt:        now,
 		UpdatedAt:        now,
-		Location:         location,
+		Zone:             zone,
 		SSHHostSigner:    ed25519,
 		SharedWithUserId: "",
 		IconURL:          iconURL,

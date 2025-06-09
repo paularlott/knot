@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Spaces{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .location }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }})">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="spacesListComponent('{{ .user_id }}', '{{ .username }}', '{{ .forUserId }}', {{ .permissionManageSpaces }}, '{{ .wildcard_domain }}', '{{ .zone }}', {{ .permissionTransferSpaces }}, {{ .permissionShareSpaces }})">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="mb-4 col-span-full xl:mb-2">
@@ -59,7 +59,7 @@
             <label class="flex items-center cursor-pointer mb-4">
               <input type="checkbox" @change="searchChanged" class="sr-only peer" value="1" :checked="showLocalOnly" x-model="showLocalOnly">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">This Location</span>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">In This Zone</span>
             </label>
           </div>
 
@@ -153,7 +153,7 @@
                       <div class="xl:hidden">
                         <div class="mt-2 flex flex-wrap gap-1 text-xs">
                           <template x-if="!s.is_local">
-                            <span class="inline-block bg-yellow-100 text-yellow-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap">Remote: <span x-text="s.location"></span></span>
+                            <span class="inline-block bg-yellow-100 text-yellow-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap">Remote: <span x-text="s.zone"></span></span>
                           </template>
                           <template x-if="s.is_local && s.is_manual">
                             <span class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Manual</span>
@@ -399,7 +399,7 @@
                 <td class="px-4 py-3 hidden xl:table-cell">
                   <div class="flex flex-wrap gap-1 text-xs">
                     <template x-if="!s.is_local">
-                      <span class="inline-block bg-yellow-100 text-yellow-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap">Remote: <span x-text="s.location"></span></span>
+                      <span class="inline-block bg-yellow-100 text-yellow-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap">Remote: <span x-text="s.zone"></span></span>
                     </template>
                     <template x-if="s.is_local && s.is_manual">
                       <span class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Manual</span>

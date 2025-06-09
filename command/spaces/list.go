@@ -41,7 +41,7 @@ var listCmd = &cobra.Command{
 		}
 
 		data := [][]string{}
-		data = append(data, []string{"Name", "Template", "Location", "Status", "Ports"})
+		data = append(data, []string{"Name", "Template", "Zone", "Status", "Ports"})
 		for _, space := range spaces.Spaces {
 			status := ""
 			ports := make([]string, 0)
@@ -97,7 +97,7 @@ var listCmd = &cobra.Command{
 				}
 			}
 
-			data = append(data, []string{space.Name, space.TemplateName, space.Location, status, portText})
+			data = append(data, []string{space.Name, space.TemplateName, space.Zone, status, portText})
 		}
 
 		util.PrintTable(data)

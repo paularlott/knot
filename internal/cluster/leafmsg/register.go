@@ -2,7 +2,7 @@ package leafmsg
 
 type Register struct {
 	LeafVersion string `json:"leaf_version" msgpack:"leaf_version"`
-	Location    string `json:"location" msgpack:"location"`
+	Zone        string `json:"zone" msgpack:"zone"`
 }
 
 type RegisterResponse struct {

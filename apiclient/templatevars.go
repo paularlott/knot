@@ -4,7 +4,7 @@ import "context"
 
 type TemplateVarValue struct {
 	Name       string `json:"name"`
-	Location   string `json:"location"`
+	Zone       string `json:"zone"`
 	Local      bool   `json:"local"`
 	Value      string `json:"value"`
 	Protected  bool   `json:"protected"`
@@ -15,7 +15,7 @@ type TemplateVarValue struct {
 type TemplateVar struct {
 	Id         string `json:"templatevar_id"`
 	Name       string `json:"name"`
-	Location   string `json:"location"`
+	Zone       string `json:"zone"`
 	Local      bool   `json:"local"`
 	Protected  bool   `json:"protected"`
 	Restricted bool   `json:"restricted"`

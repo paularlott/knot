@@ -1,6 +1,6 @@
 import Alpine from 'alpinejs';
 
-window.templateListComponent = function(canManageSpaces, location) {
+window.templateListComponent = function(canManageSpaces, zone) {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
@@ -13,7 +13,7 @@ window.templateListComponent = function(canManageSpaces, location) {
     loading: true,
     showAll: Alpine.$persist(false).as('templates-show-all').using(sessionStorage),
     showInactive: Alpine.$persist(false).as('templates-show-inactive').using(sessionStorage),
-    location,
+    zone,
     deleteConfirm: {
       show: false,
       template: {

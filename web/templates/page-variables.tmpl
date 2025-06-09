@@ -36,7 +36,7 @@
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
             <tr>
               <th scope="col" class="px-4 py-3">Name</th>
-              <th scope="col" class="px-4 py-3">Location</th>
+              <th scope="col" class="px-4 py-3">Zone</th>
               <th scope="col" class="px-4 py-3">Restricted</th>
               <th scope="col" class="px-4 py-3">Protected</th>
               <th scope="col" class="px-4 py-3">&nbsp;</th>
@@ -47,7 +47,7 @@
             <tr x-show="!v.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
               <td x-text="v.name" class="px-4 py-3"></td>
               <td class="px-4 py-3">
-                <span x-show="!v.local && v.location.length" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300" x-text="v.location"></span>
+                <span x-show="!v.local && v.zone.length" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300" x-text="v.zone"></span>
                 <span x-show="v.local" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Local</span>
               </td>
               <td class="px-4 py-3">

@@ -1,7 +1,7 @@
 package config
 
 var (
-	Location string = ""
+	Zone     string = ""
 	Timezone string = ""
 	LeafNode bool   = false
 )

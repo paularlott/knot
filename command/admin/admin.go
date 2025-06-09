@@ -33,7 +33,7 @@ func init() {
 	adminCmd.PersistentFlags().StringP("redis-key-prefix", "", "", "The prefix to use for all keys in the redis database (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX environment variable if set.")
 
 	command.RootCmd.AddCommand(adminCmd)
-	adminCmd.AddCommand(renameLocationCmd)
+	adminCmd.AddCommand(renameZoneCmd)
 	adminCmd.AddCommand(setPasswordCmd)
 	adminCmd.AddCommand(resetTOTPCmd)
 	adminCmd.AddCommand(backupCmd)

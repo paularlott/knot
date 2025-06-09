@@ -429,7 +429,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionViewClusterInfo": user.HasPermission(model.PermissionClusterInfo) && viper.GetString("server.cluster.advertise_addr") != "",
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
-		"location":                  config.Location,
+		"zone":                      config.Zone,
 		"timezone":                  config.Timezone,
 		"disableSpaceCreate":        viper.GetBool("server.disable_space_create"),
 		"totpEnabled":               viper.GetBool("server.totp.enabled"),

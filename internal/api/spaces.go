@@ -88,8 +88,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.Note = space.Note
 		s.TemplateName = templateName
 		s.TemplateId = space.TemplateId
-		s.Location = space.Location
-		s.IsRemote = space.Location != "" && space.Location != config.Location
+		s.Zone = space.Zone
+		s.IsRemote = space.Zone != "" && space.Zone != config.Zone
 		s.LocalContainer = localContainer
 		s.IsManual = isManual
 		s.IconURL = space.IconURL
@@ -193,7 +193,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the space is running or changing state then fail
-	if space.IsDeployed || space.IsPending || space.IsDeleting || (space.Location != "" && space.Location != config.Location) {
+	if space.IsDeployed || space.IsPending || space.IsDeleting || (space.Zone != "" && space.Zone != config.Zone) {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be deleted"})
 		return
 	}
@@ -331,7 +331,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the space
-	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, config.Location, request.IconURL)
+	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, config.Zone, request.IconURL)
 	err = db.SaveSpace(space, nil)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -416,9 +416,9 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Is the space has a location then it must match the server location
-	if space.Location != "" && space.Location != config.Location {
-		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space location does not match server location"})
+	// Is the space has a zone then it must match the server zone
+	if space.Zone != "" && space.Zone != config.Zone {
+		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space zone does not match server zone"})
 		return
 	}
 
@@ -504,7 +504,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the space isn't on this server then fail
-	if space.Location != "" && space.Location != config.Location {
+	if space.Zone != "" && space.Zone != config.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
@@ -546,7 +546,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if space.Location != "" && space.Location != config.Location {
+	if space.Zone != "" && space.Zone != config.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
@@ -659,7 +659,7 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 
 	for _, space := range spaces {
 		// We skip spaces that have been shared with the user
-		if space.UserId == userId && space.IsDeployed && (space.Location == "" || space.Location == config.Location) {
+		if space.UserId == userId && space.IsDeployed && (space.Zone == "" || space.Zone == config.Zone) {
 			if err := service.GetContainerService().StopSpace(space); err != nil {
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
@@ -703,7 +703,7 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		Name:        space.Name,
 		Description: space.Description,
 		Shell:       space.Shell,
-		Location:    space.Location,
+		Zone:        space.Zone,
 		AltNames:    space.AltNames,
 		IsDeployed:  space.IsDeployed,
 		IsPending:   space.IsPending,
@@ -757,7 +757,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If space isn't on this server then fail
-	if space.Location != "" && space.Location != config.Location {
+	if space.Zone != "" && space.Zone != config.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
@@ -929,7 +929,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If space isn't on this server then fail
-	if space.Location != "" && space.Location != config.Location {
+	if space.Zone != "" && space.Zone != config.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
@@ -1019,7 +1019,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If space isn't on this server then fail
-	if space.Location != "" && space.Location != config.Location {
+	if space.Zone != "" && space.Zone != config.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}

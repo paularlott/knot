@@ -51,7 +51,7 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"url":             strings.TrimSuffix(viper.GetString("server.url"), "/"),
 			"agent_endpoint":  viper.GetString("server.agent_endpoint"),
 			"wildcard_domain": wildcardDomain,
-			"location":        config.Location,
+			"zone":            config.Zone,
 			"timezone":        config.Timezone,
 		},
 		"nomad": map[string]interface{}{
@@ -95,15 +95,15 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 }
 
 func FilterVars(variables []*TemplateVar) map[string]interface{} {
-	// Filter the variables, local takes precedence, then variables with location matching the server, then global
+	// Filter the variables, local takes precedence, then variables with zone matching the server, then global
 	filteredVars := make(map[string]*TemplateVar, len(variables))
 	for _, variable := range variables {
-		if variable.Location == "" || variable.Location == config.Location {
+		if variable.Zone == "" || variable.Zone == config.Zone {
 
 			// Test if variable already in the list
 			existing, ok := filteredVars[variable.Name]
 			if ok {
-				if existing.Local || (existing.Location != "" && !variable.Local) {
+				if existing.Local || (existing.Zone != "" && !variable.Local) {
 					continue
 				}
 			}

@@ -62,7 +62,7 @@ func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
 		templateVar.IsDeleted = true
 		templateVar.Value = ""
 		templateVar.Name = templateVar.Id
-		templateVar.Location = ""
+		templateVar.Zone = ""
 	}
 
 	if c.gossipCluster != nil {
@@ -75,11 +75,11 @@ func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
 	if len(c.leafSessions) > 0 {
 		log.Debug().Msg("cluster: Updating template var on leaf nodes")
 
-		if templateVar.Restricted || templateVar.Local || templateVar.Location != "" {
+		if templateVar.Restricted || templateVar.Local || templateVar.Zone != "" {
 			templateVar.IsDeleted = true
 			templateVar.Value = ""
 			templateVar.Name = templateVar.Id
-			templateVar.Location = ""
+			templateVar.Zone = ""
 		}
 		c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, []*model.TemplateVar{templateVar})
 	}
@@ -100,7 +100,7 @@ func (c *Cluster) DoTemplateVarFullSync(node *gossip.Node) error {
 				templateVar.IsDeleted = true
 				templateVar.Value = ""
 				templateVar.Name = templateVar.Id
-				templateVar.Location = ""
+				templateVar.Zone = ""
 			}
 		}
 
@@ -186,7 +186,7 @@ func (c *Cluster) gossipTemplateVars() {
 					templateVar.IsDeleted = true
 					templateVar.Value = ""
 					templateVar.Name = templateVar.Id
-					templateVar.Location = ""
+					templateVar.Zone = ""
 				}
 			}
 			c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
@@ -199,11 +199,11 @@ func (c *Cluster) gossipTemplateVars() {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Template vars to leaf nodes")
 			templateVars = templateVars[:batchSize]
 			for _, templateVar := range templateVars {
-				if templateVar.Restricted || templateVar.Local || templateVar.Location != "" {
+				if templateVar.Restricted || templateVar.Local || templateVar.Zone != "" {
 					templateVar.IsDeleted = true
 					templateVar.Value = ""
 					templateVar.Name = templateVar.Id
-					templateVar.Location = ""
+					templateVar.Zone = ""
 				}
 			}
 

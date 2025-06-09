@@ -47,7 +47,7 @@ func HandleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 
 		auditLogs.Items[i] = apiclient.AuditLogEntry{
 			Id:         log.Id,
-			Location:   log.Location,
+			Zone:       log.Zone,
 			When:       log.When,
 			Actor:      log.Actor,
 			ActorType:  log.ActorType,

@@ -14,7 +14,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
   return {
     formData: {
       name: "",
-      location: "",
+      zone: "",
       local: isLeafServer ? true : false,
       restricted: isLeafServer ? false : true,
       value: "",
@@ -26,7 +26,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
     stayOnPage: true,
     nameValid: true,
     valueValid: true,
-    locationValid: true,
+    zoneValid: true,
 
     async initData() {
       focus.Element('input[name="name"]');
@@ -44,7 +44,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
           const varData = await response.json();
 
           this.formData.name = varData.name;
-          this.formData.location = varData.location;
+          this.formData.zone = varData.zone;
           this.formData.local = varData.local;
           this.formData.restricted = varData.restricted;
           this.formData.value = varData.value;
@@ -92,9 +92,9 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
       this.valueValid = validate.maxLength(this.formData.value, 10 * 1024 * 1024);
       return this.valueValid;
     },
-    checkLocation() {
-      this.locationValid = this.formData.local || validate.maxLength(this.formData.location, 64);
-      return this.locationValid;
+    checkZone() {
+      this.zoneValid = this.formData.local || validate.maxLength(this.formData.zone, 64);
+      return this.zoneValid;
     },
 
     async submitData() {
@@ -102,7 +102,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
       const self = this;
       err = !this.checkName() || err;
       err = !this.checkValue() || err;
-      err = !this.checkLocation() || err;
+      err = !this.checkZone() || err;
       if(err) {
         return;
       }

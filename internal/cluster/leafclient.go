@@ -140,7 +140,7 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 
 			err = leafmsg.WriteMessage(ws, leafmsg.MessageRegister, &leafmsg.Register{
 				LeafVersion: build.Version,
-				Location:    config.Location,
+				Zone:        config.Zone,
 			})
 			if err != nil {
 				log.Error().Msgf("cluster: error while sending register message: %s", err)

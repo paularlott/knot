@@ -21,8 +21,8 @@ webgl = true
 # Encryption key for protected variables (knot genkey)
 #encrypt = "VF9hmdXZyzNF3rcP6M0P"
 
-# Optional server location, defaults to the hostname
-#location = "myservers"
+# Optional server zone, defaults to the hostname
+#zone = "myservers"
 
 # MySQL storage
 [server.mysql]

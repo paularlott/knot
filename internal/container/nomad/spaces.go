@@ -153,10 +153,10 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	space.IsDeployed = false
 	space.IsDeleting = false
 	space.TemplateHash = template.Hash
-	space.Location = config.Location
+	space.Zone = config.Zone
 	space.StartedAt = now
 	space.UpdatedAt = now
-	err = db.SaveSpace(space, []string{"NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Location", "UpdatedAt", "StartedAt"})
+	err = db.SaveSpace(space, []string{"NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Zone", "UpdatedAt", "StartedAt"})
 	if err != nil {
 		log.Error().Msgf("nomad: creating space job %s error %s", space.Id, err)
 		return err

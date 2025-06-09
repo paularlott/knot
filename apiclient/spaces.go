@@ -33,7 +33,7 @@ type SpaceInfo struct {
 	Note            string            `json:"note"`
 	TemplateName    string            `json:"template_name"`
 	TemplateId      string            `json:"template_id"`
-	Location        string            `json:"location"`
+	Zone            string            `json:"zone"`
 	Username        string            `json:"username"`
 	UserId          string            `json:"user_id"`
 	LocalContainer  bool              `json:"local_container"`
@@ -69,7 +69,7 @@ type SpaceDefinition struct {
 	Name        string                       `json:"name"`
 	Description string                       `json:"description"`
 	Shell       string                       `json:"shell"`
-	Location    string                       `json:"location"`
+	Zone        string                       `json:"zone"`
 	AltNames    []string                     `json:"alt_names"`
 	IsDeployed  bool                         `json:"is_deployed"`
 	IsPending   bool                         `json:"is_pending"`

@@ -76,7 +76,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.StorageUnits = template.StorageUnits
 		templateData.ScheduleEnabled = template.ScheduleEnabled
 		templateData.AutoStart = template.AutoStart
-		templateData.Locations = template.Locations
+		templateData.Zones = template.Zones
 		templateData.Active = template.Active
 		templateData.MaxUptime = template.MaxUptime
 		templateData.MaxUptimeUnit = template.MaxUptimeUnit
@@ -222,7 +222,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.ScheduleEnabled = request.ScheduleEnabled
 	template.AutoStart = request.AutoStart
 	template.Schedule = make([]model.TemplateScheduleDays, 7)
-	template.Locations = request.Locations
+	template.Zones = request.Zones
 	template.UpdatedAt = time.Now().UTC()
 	template.UpdatedUserId = user.Id
 	template.Active = request.Active
@@ -356,7 +356,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.StorageUnits,
 		request.ScheduleEnabled,
 		&scheduleDays,
-		request.Locations,
+		request.Zones,
 		request.AutoStart,
 		request.Active,
 		request.MaxUptime,
@@ -499,7 +499,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		Hash:             template.Hash,
 		Deployed:         deployed,
 		Groups:           template.Groups,
-		Locations:        template.Locations,
+		Zones:            template.Zones,
 		LocalContainer:   template.LocalContainer,
 		IsManual:         template.IsManual,
 		IsManaged:        template.IsManaged,
