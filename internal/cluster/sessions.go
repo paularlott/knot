@@ -12,33 +12,33 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *Cluster) handleSessionFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+func (c *Cluster) handleSessionFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	log.Debug().Msg("cluster: Received session full sync request")
 
 	// If the sender doesn't match our zone then ignore the request
 	if sender.Metadata.GetString("zone") != config.Zone {
 		log.Debug().Msg("cluster: Ignoring session full sync request from a different zone")
-		return SessionFullSyncMsg, []*model.Session{}, nil
+		return []*model.Session{}, nil
 	}
 
 	sessions := []*model.Session{}
 	if err := packet.Unmarshal(&sessions); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal token full sync request")
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Get the list of sessions in the system
 	db := database.GetSessionStorage()
 	existingSessions, err := db.GetSessions()
 	if err != nil {
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Merge the sessions in the background
 	go c.mergeSessions(sessions)
 
 	// Return the full dataset directly as response
-	return SessionFullSyncMsg, existingSessions, nil
+	return existingSessions, nil
 }
 
 func (c *Cluster) handleSessionGossip(sender *gossip.Node, packet *gossip.Packet) error {
@@ -89,7 +89,7 @@ func (c *Cluster) DoSessionFullSync(node *gossip.Node) error {
 		}
 
 		// Exchange the session list with the remote node
-		if err := c.gossipCluster.SendToWithResponse(node, SessionFullSyncMsg, &sessions, SessionFullSyncMsg, &sessions); err != nil {
+		if err := c.gossipCluster.SendToWithResponse(node, SessionFullSyncMsg, &sessions, &sessions); err != nil {
 			return err
 		}
 

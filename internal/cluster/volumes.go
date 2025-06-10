@@ -11,27 +11,27 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *Cluster) handleVolumeFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+func (c *Cluster) handleVolumeFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	log.Debug().Msg("cluster: Received volume full sync request")
 
 	volumes := []*model.Volume{}
 	if err := packet.Unmarshal(&volumes); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal volume full sync request")
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Get the list of volumes in the system
 	db := database.GetInstance()
 	existingVolumes, err := db.GetVolumes()
 	if err != nil {
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Merge the volumes in the background
 	go c.mergeVolumes(volumes)
 
 	// Return the full dataset directly as response
-	return VolumeFullSyncMsg, existingVolumes, nil
+	return existingVolumes, nil
 }
 
 func (c *Cluster) handleVolumeGossip(sender *gossip.Node, packet *gossip.Packet) error {
@@ -71,7 +71,7 @@ func (c *Cluster) DoVolumeFullSync(node *gossip.Node) error {
 		}
 
 		// Exchange the volume list with the remote node
-		if err := c.gossipCluster.SendToWithResponse(node, VolumeFullSyncMsg, &volumes, VolumeFullSyncMsg, &volumes); err != nil {
+		if err := c.gossipCluster.SendToWithResponse(node, VolumeFullSyncMsg, &volumes, &volumes); err != nil {
 			return err
 		}
 

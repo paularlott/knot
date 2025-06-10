@@ -35,19 +35,19 @@ type ResourceLock struct {
 	UpdatedAt    time.Time
 }
 
-func (c *Cluster) handleResourceLockFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+func (c *Cluster) handleResourceLockFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	log.Debug().Msg("cluster: Received resource lock full sync request")
 
 	// If the sender doesn't match our zone then ignore the request
 	if sender.Metadata.GetString("zone") != config.Zone {
 		log.Debug().Msg("cluster: Ignoring resource lock full sync request from a different zone")
-		return ResourceLockFullSyncMsg, []*ResourceLock{}, nil
+		return []*ResourceLock{}, nil
 	}
 
 	resourceLocks := []*ResourceLock{}
 	if err := packet.Unmarshal(&resourceLocks); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal resource lock full sync request")
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Get the list of locks in the system
@@ -62,7 +62,7 @@ func (c *Cluster) handleResourceLockFullSync(sender *gossip.Node, packet *gossip
 	go c.mergeResourceLocks(resourceLocks)
 
 	// Return the full dataset directly as response
-	return ResourceLockFullSyncMsg, existingLocks, nil
+	return existingLocks, nil
 }
 
 func (c *Cluster) handleResourceLockGossip(sender *gossip.Node, packet *gossip.Packet) error {
@@ -114,7 +114,7 @@ func (c *Cluster) DoResourceLockFullSync(node *gossip.Node) error {
 		c.resourceLocksMux.RUnlock()
 
 		// Exchange the resource lock list with the remote node
-		if err := c.gossipCluster.SendToWithResponse(node, ResourceLockFullSyncMsg, &resourceLocks, ResourceLockFullSyncMsg, &resourceLocks); err != nil {
+		if err := c.gossipCluster.SendToWithResponse(node, ResourceLockFullSyncMsg, &resourceLocks, &resourceLocks); err != nil {
 			return err
 		}
 

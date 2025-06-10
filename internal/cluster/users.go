@@ -13,27 +13,27 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *Cluster) handleUserFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+func (c *Cluster) handleUserFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	log.Debug().Msg("cluster: Received user full sync request")
 
 	users := []*model.User{}
 	if err := packet.Unmarshal(&users); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal user full sync request")
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Get the list of users in the system
 	db := database.GetInstance()
 	existingUsers, err := db.GetUsers()
 	if err != nil {
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Merge the users in the background
 	go c.mergeUsers(users)
 
 	// Return the full dataset directly as response
-	return UserFullSyncMsg, existingUsers, nil
+	return existingUsers, nil
 }
 
 func (c *Cluster) handleUserGossip(sender *gossip.Node, packet *gossip.Packet) error {
@@ -97,7 +97,7 @@ func (c *Cluster) DoUserFullSync(node *gossip.Node) error {
 		}
 
 		// Exchange the user list with the remote node
-		if err := c.gossipCluster.SendToWithResponse(node, UserFullSyncMsg, &users, UserFullSyncMsg, &users); err != nil {
+		if err := c.gossipCluster.SendToWithResponse(node, UserFullSyncMsg, &users, &users); err != nil {
 			return err
 		}
 

@@ -11,27 +11,27 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *Cluster) handleGroupFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+func (c *Cluster) handleGroupFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	log.Debug().Msg("cluster: Received group full sync request")
 
 	groups := []*model.Group{}
 	if err := packet.Unmarshal(&groups); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal group full sync request")
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Get the list of groups in the system
 	db := database.GetInstance()
 	existingGroups, err := db.GetGroups()
 	if err != nil {
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Merge the groups in the background
 	go c.mergeGroups(groups)
 
 	// Return the full dataset directly as response
-	return GroupFullSyncMsg, existingGroups, nil
+	return existingGroups, nil
 }
 
 func (c *Cluster) handleGroupGossip(sender *gossip.Node, packet *gossip.Packet) error {
@@ -83,7 +83,7 @@ func (c *Cluster) DoGroupFullSync(node *gossip.Node) error {
 		}
 
 		// Exchange the group list with the remote node
-		if err := c.gossipCluster.SendToWithResponse(node, GroupFullSyncMsg, &groups, GroupFullSyncMsg, &groups); err != nil {
+		if err := c.gossipCluster.SendToWithResponse(node, GroupFullSyncMsg, &groups, &groups); err != nil {
 			return err
 		}
 

@@ -11,27 +11,27 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *Cluster) handleRoleFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+func (c *Cluster) handleRoleFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	log.Debug().Msg("cluster: Received role full sync request")
 
 	roles := []*model.Role{}
 	if err := packet.Unmarshal(&roles); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal role full sync request")
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Get the list of roles in the system
 	db := database.GetInstance()
 	existingRoles, err := db.GetRoles()
 	if err != nil {
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Merge the roles in the background
 	go c.mergeRoles(roles)
 
 	// Return the full dataset directly as response
-	return RoleFullSyncMsg, existingRoles, nil
+	return existingRoles, nil
 }
 
 func (c *Cluster) handleRoleGossip(sender *gossip.Node, packet *gossip.Packet) error {
@@ -83,7 +83,7 @@ func (c *Cluster) DoRoleFullSync(node *gossip.Node) error {
 		}
 
 		// Exchange the role list with the remote node
-		if err := c.gossipCluster.SendToWithResponse(node, RoleFullSyncMsg, &roles, RoleFullSyncMsg, &roles); err != nil {
+		if err := c.gossipCluster.SendToWithResponse(node, RoleFullSyncMsg, &roles, &roles); err != nil {
 			return err
 		}
 

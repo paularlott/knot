@@ -11,27 +11,27 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *Cluster) handleSpaceFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+func (c *Cluster) handleSpaceFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	log.Debug().Msg("cluster: Received space full sync request")
 
 	spaces := []*model.Space{}
 	if err := packet.Unmarshal(&spaces); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal space full sync request")
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Get the list of spaces in the system
 	db := database.GetInstance()
 	existingSpaces, err := db.GetSpaces()
 	if err != nil {
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Merge the spaces in the background
 	go c.mergeSpaces(spaces)
 
 	// Return the full dataset directly as response
-	return SpaceFullSyncMsg, existingSpaces, nil
+	return existingSpaces, nil
 }
 
 func (c *Cluster) handleSpaceGossip(sender *gossip.Node, packet *gossip.Packet) error {
@@ -71,7 +71,7 @@ func (c *Cluster) DoSpaceFullSync(node *gossip.Node) error {
 		}
 
 		// Exchange the space list with the remote node
-		if err := c.gossipCluster.SendToWithResponse(node, SpaceFullSyncMsg, &spaces, SpaceFullSyncMsg, &spaces); err != nil {
+		if err := c.gossipCluster.SendToWithResponse(node, SpaceFullSyncMsg, &spaces, &spaces); err != nil {
 			return err
 		}
 

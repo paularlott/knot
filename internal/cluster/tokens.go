@@ -11,33 +11,33 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	log.Debug().Msg("cluster: Received token full sync request")
 
 	// If the sender doesn't match our zone then ignore the request
 	if sender.Metadata.GetString("zone") != config.Zone {
 		log.Debug().Msg("cluster: Ignoring token full sync request from a different zone")
-		return TokenFullSyncMsg, []*model.Token{}, nil
+		return []*model.Token{}, nil
 	}
 
 	tokens := []*model.Token{}
 	if err := packet.Unmarshal(&tokens); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal token full sync request")
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Get the list of tokens in the system
 	db := database.GetInstance()
 	existingTokens, err := db.GetTokens()
 	if err != nil {
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Merge the tokens in the background
 	go c.mergeTokens(tokens)
 
 	// Return the full dataset directly as response
-	return TokenFullSyncMsg, existingTokens, nil
+	return existingTokens, nil
 }
 
 func (c *Cluster) handleTokenGossip(sender *gossip.Node, packet *gossip.Packet) error {
@@ -88,7 +88,7 @@ func (c *Cluster) DoTokenFullSync(node *gossip.Node) error {
 		}
 
 		// Exchange the token list with the remote node
-		if err := c.gossipCluster.SendToWithResponse(node, TokenFullSyncMsg, &tokens, TokenFullSyncMsg, &tokens); err != nil {
+		if err := c.gossipCluster.SendToWithResponse(node, TokenFullSyncMsg, &tokens, &tokens); err != nil {
 			return err
 		}
 

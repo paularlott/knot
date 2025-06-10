@@ -14,27 +14,27 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *Cluster) handleTemplateFullSync(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+func (c *Cluster) handleTemplateFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	log.Debug().Msg("cluster: Received template full sync request")
 
 	templates := []*model.Template{}
 	if err := packet.Unmarshal(&templates); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal template full sync request")
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Get the list of templates in the system
 	db := database.GetInstance()
 	existingTemplates, err := db.GetTemplates()
 	if err != nil {
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	// Merge the templates in the background
 	go c.mergeTemplates(templates)
 
 	// Return the full dataset directly as response
-	return TemplateFullSyncMsg, existingTemplates, nil
+	return existingTemplates, nil
 }
 
 func (c *Cluster) handleTemplateGossip(sender *gossip.Node, packet *gossip.Packet) error {
@@ -86,7 +86,7 @@ func (c *Cluster) DoTemplateFullSync(node *gossip.Node) error {
 		}
 
 		// Exchange the template list with the remote node
-		if err := c.gossipCluster.SendToWithResponse(node, TemplateFullSyncMsg, &templates, TemplateFullSyncMsg, &templates); err != nil {
+		if err := c.gossipCluster.SendToWithResponse(node, TemplateFullSyncMsg, &templates, &templates); err != nil {
 			return err
 		}
 

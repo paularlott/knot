@@ -363,7 +363,7 @@ func (c *Cluster) LockResource(resourceId string) string {
 				ResourceId: resourceId,
 			}
 			response := &ResourceLockResponseMsg{}
-			if err := c.gossipCluster.SendToWithResponse(leaderNode, ResourceLockMsg, request, ResourceLockMsg, response); err != nil {
+			if err := c.gossipCluster.SendToWithResponse(leaderNode, ResourceLockMsg, request, response); err != nil {
 				log.Error().Msgf("cluster: Failed to request resource lock from leader %s: %s", leaderNode.ID, err.Error())
 				return ""
 			}
@@ -433,17 +433,17 @@ func (c *Cluster) unlockResourceLocally(resourceId, unlockToken string) {
 	}
 }
 
-func (c *Cluster) handleResourceLock(sender *gossip.Node, packet *gossip.Packet) (gossip.MessageType, interface{}, error) {
+func (c *Cluster) handleResourceLock(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	// If the sender doesn't match our zone then ignore the request
 	if sender.Metadata.GetString("zone") != config.Zone {
 		log.Debug().Msg("cluster: Ignoring resource lock request from a different zone")
-		return gossip.NilMsg, nil, errors.New("resource lock request from different zone")
+		return nil, errors.New("resource lock request from different zone")
 	}
 
 	request := ResourceLockRequestMsg{}
 	if err := packet.Unmarshal(&request); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal resource lock request")
-		return gossip.NilMsg, nil, err
+		return nil, err
 	}
 
 	response := &ResourceLockResponseMsg{
@@ -451,7 +451,7 @@ func (c *Cluster) handleResourceLock(sender *gossip.Node, packet *gossip.Packet)
 	}
 
 	// Return the full dataset directly as response
-	return ResourceLockMsg, response, nil
+	return response, nil
 }
 
 func (c *Cluster) handleResourceUnlock(sender *gossip.Node, packet *gossip.Packet) error {
