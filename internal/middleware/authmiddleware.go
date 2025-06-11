@@ -97,7 +97,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 			} else {
 				// Get the session
 				session := GetSessionFromCookie(r)
-				if session == nil || session.ExpiresAfter.Before(time.Now().UTC()) {
+				if session == nil || session.ExpiresAfter.Before(time.Now().UTC()) || session.IsDeleted {
 					returnUnauthorized(w, r)
 					return
 				}
@@ -276,7 +276,8 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		// If no session then redirect to login
 		session := GetSessionFromCookie(r)
-		if session == nil || session.ExpiresAfter.Before(time.Now().UTC()) {
+		if session == nil || session.ExpiresAfter.Before(time.Now().UTC()) || session.IsDeleted {
+			DeleteSessionCookie(w)
 			http.Redirect(w, r, "/login?redirect="+r.URL.EscapedPath(), http.StatusSeeOther)
 			return
 		}

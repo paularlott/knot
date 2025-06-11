@@ -286,11 +286,16 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 		// Delete the session
 		if session != nil {
-			err := database.GetSessionStorage().DeleteSession(session)
+			db := database.GetSessionStorage()
+			session.IsDeleted = true
+			session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
+			session.UpdatedAt = time.Now().UTC()
+			err := db.SaveSession(session)
 			if err != nil {
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
+			service.GetTransport().GossipSession(session)
 
 			result = true
 		}

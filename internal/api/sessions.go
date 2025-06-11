@@ -35,7 +35,7 @@ func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
 	currentSession := r.Context().Value("session").(*model.Session)
 
 	for _, session := range sessions {
-		if session.ExpiresAfter.Before(time.Now().UTC()) {
+		if session.ExpiresAfter.Before(time.Now().UTC()) || session.IsDeleted {
 			continue
 		}
 
@@ -70,9 +70,10 @@ func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Expire the session
+	session.IsDeleted = true
+	session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
 	session.UpdatedAt = time.Now().UTC()
-	session.ExpiresAfter = time.Now().UTC().Add(-model.SessionExpiryDuration) // Set to a time in the past to expire it
-	err = store.DeleteSession(session)
+	err = store.SaveSession(session)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return

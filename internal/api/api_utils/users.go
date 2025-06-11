@@ -87,7 +87,11 @@ func (auu *ApiUtilsUsers) RemoveUsersSessions(user *model.User) {
 	sessions, err := store.GetSessionsForUser(user.Id)
 	if err == nil && sessions != nil {
 		for _, session := range sessions {
-			store.DeleteSession(session)
+			session.IsDeleted = true
+			session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
+			session.UpdatedAt = time.Now().UTC()
+			store.SaveSession(session)
+			service.GetTransport().GossipSession(session)
 		}
 	}
 }

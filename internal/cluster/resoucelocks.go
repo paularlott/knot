@@ -31,6 +31,7 @@ type ResourceUnlockRequestMsg struct {
 type ResourceLock struct {
 	Id           string
 	UnlockToken  string
+	IsDeleted    bool
 	ExpiresAfter time.Time
 	UpdatedAt    time.Time
 }
@@ -140,15 +141,12 @@ func (c *Cluster) mergeResourceLocks(resourceLocks []*ResourceLock) error {
 		if localLock, ok := c.resourceLocks[lock.Id]; ok {
 			// If the remote session is newer than the local session then use it's data
 			if lock.UpdatedAt.After(localLock.UpdatedAt) {
-				if lock.ExpiresAfter.Before(time.Now().UTC()) {
-					// If the remote lock is expired, delete it locally
-					delete(c.resourceLocks, lock.Id)
-				} else {
-					c.resourceLocks[lock.Id].UpdatedAt = lock.UpdatedAt
-					c.resourceLocks[lock.Id].ExpiresAfter = lock.ExpiresAfter
-				}
+				c.resourceLocks[lock.Id].UnlockToken = lock.UnlockToken
+				c.resourceLocks[lock.Id].IsDeleted = lock.IsDeleted
+				c.resourceLocks[lock.Id].ExpiresAfter = lock.ExpiresAfter
+				c.resourceLocks[lock.Id].UpdatedAt = lock.UpdatedAt
 			}
-		} else if !lock.ExpiresAfter.Before(time.Now().UTC()) {
+		} else if lock.ExpiresAfter.After(time.Now().UTC()) && !lock.IsDeleted {
 			// If the lock doesn't exist, create it unless it's deleted on the remote node
 			c.resourceLocks[lock.Id] = lock
 		}

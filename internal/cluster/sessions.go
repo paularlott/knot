@@ -125,18 +125,11 @@ func (c *Cluster) mergeSessions(sessions []*model.Session) error {
 		if localSession, ok := localSessionsMap[session.Id]; ok {
 			// If the remote session is newer than the local session then use it's data
 			if session.UpdatedAt.After(localSession.UpdatedAt) {
-				if session.ExpiresAfter.Before(time.Now().UTC()) {
-					// If the remote session is expired, delete it locally
-					if err := db.DeleteSession(session); err != nil {
-						log.Error().Err(err).Str("id", session.Id).Msg("cluster: Failed to delete expired session")
-					}
-				} else {
-					if err := db.SaveSession(session); err != nil {
-						log.Error().Err(err).Str("id", session.Id).Msg("cluster: Failed to update session")
-					}
+				if err := db.SaveSession(session); err != nil {
+					log.Error().Err(err).Str("id", session.Id).Msg("cluster: Failed to update session")
 				}
 			}
-		} else if !session.ExpiresAfter.Before(time.Now().UTC()) {
+		} else if session.ExpiresAfter.After(time.Now().UTC()) && !session.IsDeleted {
 			// If the session doesn't exist, create it unless it's deleted on the remote node
 			if err := db.SaveSession(session); err != nil {
 				return err

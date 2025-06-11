@@ -3,11 +3,13 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/service"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -62,7 +64,11 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
 	session := r.Context().Value("session").(*model.Session)
 	if session != nil {
-		database.GetSessionStorage().DeleteSession(session)
+		session.IsDeleted = true
+		session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
+		session.UpdatedAt = time.Now().UTC()
+		database.GetSessionStorage().SaveSession(session)
+		service.GetTransport().GossipSession(session)
 	}
 
 	middleware.DeleteSessionCookie(w)

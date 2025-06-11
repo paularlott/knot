@@ -380,7 +380,7 @@ func (c *Cluster) lockResourceLocally(resourceId string) string {
 	defer c.resourceLocksMux.Unlock()
 
 	if lock, exists := c.resourceLocks[resourceId]; exists {
-		if lock.ExpiresAfter.After(time.Now().UTC()) {
+		if lock.ExpiresAfter.After(time.Now().UTC()) && !lock.IsDeleted {
 			return ""
 		}
 	}
@@ -425,9 +425,9 @@ func (c *Cluster) unlockResourceLocally(resourceId, unlockToken string) {
 
 	if lock, exists := c.resourceLocks[resourceId]; exists {
 		if lock.UnlockToken == unlockToken {
-			delete(c.resourceLocks, resourceId)
+			lock.IsDeleted = true
+			lock.ExpiresAfter = time.Now().UTC().Add(ResourceLockTTL)
 			lock.UpdatedAt = time.Now().UTC()
-			lock.ExpiresAfter = time.Now().UTC().Add(-ResourceLockTTL)
 			c.GossipResourceLock(lock)
 		}
 	}

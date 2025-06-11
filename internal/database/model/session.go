@@ -23,6 +23,7 @@ type Session struct {
 	UserAgent    string    `json:"user_agent" db:"user_agent"`
 	ExpiresAfter time.Time `json:"expires_after" db:"expires_after"`
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	IsDeleted    bool      `json:"is_deleted" db:"is_deleted"`
 }
 
 func NewSession(r *http.Request, userId string) *Session {
@@ -57,6 +58,7 @@ func NewSession(r *http.Request, userId string) *Session {
 		UserAgent:    r.UserAgent(),
 		ExpiresAfter: expires.UTC(),
 		UpdatedAt:    now.UTC(),
+		IsDeleted:    false,
 	}
 
 	return session
