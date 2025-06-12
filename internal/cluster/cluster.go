@@ -185,6 +185,7 @@ func NewCluster(
 		metadata := cluster.gossipCluster.LocalMetadata()
 		metadata.SetString("zone", cfg.Zone)
 		metadata.SetString("agent_endpoint", viper.GetString("server.agent_endpoint"))
+		cluster.gossipCluster.UpdateMetadata()
 
 		// Set up leader elections within the locality
 		electionCfg := leader.DefaultConfig()
