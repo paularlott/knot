@@ -189,7 +189,9 @@ func NewCluster(
 
 		// Set up leader elections within the locality
 		electionCfg := leader.DefaultConfig()
-		electionCfg.MetadataFilterKey = "zone"
+		electionCfg.MetadataCriteria = map[string]string{
+			"zone": cfg.Zone,
+		}
 		cluster.election = leader.NewLeaderElection(cluster.gossipCluster, electionCfg)
 	}
 
