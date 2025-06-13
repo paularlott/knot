@@ -166,28 +166,14 @@ func (c *Cluster) gossipTokens() {
 }
 
 func (c *Cluster) gossipInZone(msgType gossip.MessageType, data interface{}) {
-	nodes := c.gossipCluster.AliveNodes()
-	sameZoneNodes := []*gossip.Node{}
-	localNode := c.gossipCluster.LocalNode()
-	for _, node := range nodes {
-		if node.ID != localNode.ID && node.Metadata.GetString("zone") == config.Zone {
-			sameZoneNodes = append(sameZoneNodes, node)
-		}
-	}
+	sameZoneNodes := c.election.GetNodeGroup().GetNodes([]gossip.NodeID{c.gossipCluster.LocalNode().ID})
 
-	if len(sameZoneNodes) > 0 {
-		batchSize := c.gossipCluster.GetBatchSize(len(sameZoneNodes))
-		if batchSize < len(sameZoneNodes) {
-			rand.Shuffle(len(sameZoneNodes), func(i, j int) {
-				sameZoneNodes[i], sameZoneNodes[j] = sameZoneNodes[j], sameZoneNodes[i]
-			})
-			sameZoneNodes = sameZoneNodes[:batchSize]
-		}
+	rand.Shuffle(len(sameZoneNodes), func(i, j int) {
+		sameZoneNodes[i], sameZoneNodes[j] = sameZoneNodes[j], sameZoneNodes[i]
+	})
 
-		for _, node := range sameZoneNodes {
-			if err := c.gossipCluster.SendTo(node, msgType, data); err != nil {
-				log.Error().Err(err).Str("node_id", node.ID.String()).Msg("cluster: Failed to gossip to nodes in zone")
-			}
-		}
+	err := c.gossipCluster.SendToPeers(sameZoneNodes, msgType, data)
+	if err != nil {
+		log.Error().Err(err).Msg("cluster: Failed to gossip to nodes in zone")
 	}
 }
