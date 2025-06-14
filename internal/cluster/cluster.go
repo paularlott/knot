@@ -179,7 +179,7 @@ func NewCluster(
 		metadata := cluster.gossipCluster.LocalMetadata()
 		metadata.SetString("zone", cfg.Zone)
 		metadata.SetString("agent_endpoint", viper.GetString("server.agent_endpoint"))
-		metadata.SetString("tunnel_server_url", viper.GetString("server.tunnel_server_url"))
+		metadata.SetString("tunnel_server", viper.GetString("server.tunnel_server"))
 		cluster.gossipCluster.UpdateMetadata()
 
 		// Set up leader elections within the locality
@@ -227,8 +227,8 @@ func (c *Cluster) trackClusterEndpoints() {
 			if n.Metadata.GetString("agent_endpoint") != "" {
 				endPoints = append(endPoints, n.Metadata.GetString("agent_endpoint"))
 			}
-			if n.Metadata.GetString("tunnel_server_url") != "" {
-				tunnelServers = append(tunnelServers, n.Metadata.GetString("tunnel_server_url"))
+			if n.Metadata.GetString("tunnel_server") != "" {
+				tunnelServers = append(tunnelServers, n.Metadata.GetString("tunnel_server"))
 			}
 		}
 	}

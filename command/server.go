@@ -44,7 +44,7 @@ func init() {
 	serverCmd.Flags().StringP("listen-tunnel", "", "", "The address to listen on for tunnel connections (default \"\" disabled).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LISTEN_TUNNEL environment variable if set.")
 	serverCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	serverCmd.Flags().StringP("url", "u", "", "The URL to use for the server (default \"http://127.0.0.1:3000\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_URL environment variable if set.")
-	serverCmd.Flags().StringP("tunnel-server-url", "", "", "The URL to use for the tunnel client to connect to the server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_SERVER_URL environment variable if set.")
+	serverCmd.Flags().StringP("tunnel-server", "", "", "The URL to use for the tunnel client to connect to the server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_SERVER environment variable if set.")
 	serverCmd.Flags().BoolP("enable-proxy", "", false, "Enable the proxy server functionality.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_PROXY environment variable if set.")
 	serverCmd.Flags().BoolP("terminal-webgl", "", true, "Enable WebGL terminal renderer.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_WEBGL environment variable if set.")
 	serverCmd.Flags().StringP("download-path", "", "", "The path to serve download files from if set.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DOWNLOAD_PATH environment variable if set.")
@@ -148,9 +148,9 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.url", config.CONFIG_ENV_PREFIX+"_URL")
 		viper.SetDefault("server.url", "http://127.0.0.1:3000")
 
-		viper.BindPFlag("server.tunnel_server_url", cmd.Flags().Lookup("tunnel-server-url"))
-		viper.BindEnv("server.tunnel_server_url", config.CONFIG_ENV_PREFIX+"_TUNNEL_SERVER_URL")
-		viper.SetDefault("server.tunnel_server_url", "")
+		viper.BindPFlag("server.tunnel_server", cmd.Flags().Lookup("tunnel-server"))
+		viper.BindEnv("server.tunnel_server", config.CONFIG_ENV_PREFIX+"_TUNNEL_SERVER")
+		viper.SetDefault("server.tunnel_server", "")
 
 		viper.BindPFlag("server.listen_agent", cmd.Flags().Lookup("listen-agent"))
 		viper.BindEnv("server.listen_agent", config.CONFIG_ENV_PREFIX+"_LISTEN_AGENT")
@@ -489,8 +489,8 @@ var serverCmd = &cobra.Command{
 		log.Debug().Msgf("Host: %s", u.Host)
 
 		var tunnelServerUrl *url.URL = nil
-		if viper.GetString("server.tunnel_server_url") != "" && viper.GetString("server.listen_tunnel") != "" {
-			tunnelServerUrl, err = url.Parse(viper.GetString("server.tunnel_server_url"))
+		if viper.GetString("server.tunnel_server") != "" && viper.GetString("server.listen_tunnel") != "" {
+			tunnelServerUrl, err = url.Parse(viper.GetString("server.tunnel_server"))
 			if err != nil {
 				log.Fatal().Msgf("Error parsing tunnel server URL: %v", err)
 			}
