@@ -6,6 +6,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util/rest"
 
@@ -30,8 +31,13 @@ func HandleGetTunnels(w http.ResponseWriter, r *http.Request) {
 	rest.SendJSON(http.StatusOK, w, r, tunnelList)
 }
 
-func HandleGetTunnelDomain(w http.ResponseWriter, r *http.Request) {
-	rest.SendJSON(http.StatusOK, w, r, viper.GetString("server.tunnel_domain"))
+func HandleGetTunnelServerInfo(w http.ResponseWriter, r *http.Request) {
+	info := &apiclient.TunnelServerInfo{
+		Domain:        viper.GetString("server.tunnel_domain"),
+		TunnelServers: service.GetTransport().GetTunnelServers(),
+	}
+
+	rest.SendJSON(http.StatusOK, w, r, info)
 }
 
 func HandleDeleteTunnel(w http.ResponseWriter, r *http.Request) {

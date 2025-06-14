@@ -38,6 +38,7 @@ type Cluster struct {
 	leafSessionMux   sync.RWMutex
 	leafSessions     map[uuid.UUID]*leafSession
 	agentEndpoints   []string
+	tunnelServers    []string
 	sessionGossip    bool
 	election         *leader.LeaderElection
 	resourceLocksMux sync.RWMutex
@@ -51,11 +52,11 @@ func NewCluster(
 	routes *http.ServeMux,
 	compress bool,
 	allowLeaf bool,
-	agentEndpoints []string,
 ) *Cluster {
 	cluster := &Cluster{
 		leafSessions:   make(map[uuid.UUID]*leafSession),
-		agentEndpoints: agentEndpoints,
+		agentEndpoints: []string{},
+		tunnelServers:  []string{},
 		sessionGossip:  !database.IsSessionDriverShared(),
 		resourceLocks:  make(map[string]*ResourceLock),
 	}
@@ -152,19 +153,12 @@ func NewCluster(
 		cluster.gossipCluster.HandleFunc(ResourceUnlockMsg, cluster.handleResourceUnlock)
 
 		// Capture server state changes and maintain a list of nodes in our zone
-		// We only dynamically track nodes if the endpoint list hans't been set.
-		if len(agentEndpoints) == 0 {
-			cluster.gossipCluster.HandleNodeStateChangeFunc(func(node *gossip.Node, prevState gossip.NodeState) {
-				nodes := cluster.gossipCluster.AliveNodes()
-				endPoints := []string{}
-				for _, n := range nodes {
-					if n.Metadata.GetString("zone") == cfg.Zone {
-						endPoints = append(endPoints, n.Metadata.GetString("agent_endpoint"))
-					}
-				}
-				cluster.agentEndpoints = endPoints
-			})
-		}
+		cluster.gossipCluster.HandleNodeStateChangeFunc(func(node *gossip.Node, prevState gossip.NodeState) {
+			cluster.trackClusterEndpoints()
+		})
+		cluster.gossipCluster.HandleNodeMetadataChangeFunc(func(node *gossip.Node) {
+			cluster.trackClusterEndpoints()
+		})
 
 		// Periodically gossip the status of the objects
 		cluster.gossipCluster.HandleGossipFunc(func() {
@@ -185,6 +179,7 @@ func NewCluster(
 		metadata := cluster.gossipCluster.LocalMetadata()
 		metadata.SetString("zone", cfg.Zone)
 		metadata.SetString("agent_endpoint", viper.GetString("server.agent_endpoint"))
+		metadata.SetString("tunnel_server_url", viper.GetString("server.tunnel_server_url"))
 		cluster.gossipCluster.UpdateMetadata()
 
 		// Set up leader elections within the locality
@@ -221,6 +216,24 @@ func NewCluster(
 	}()
 
 	return cluster
+}
+
+func (c *Cluster) trackClusterEndpoints() {
+	nodes := c.gossipCluster.AliveNodes()
+	endPoints := []string{}
+	tunnelServers := []string{}
+	for _, n := range nodes {
+		if n.Metadata.GetString("zone") == cfg.Zone {
+			if n.Metadata.GetString("agent_endpoint") != "" {
+				endPoints = append(endPoints, n.Metadata.GetString("agent_endpoint"))
+			}
+			if n.Metadata.GetString("tunnel_server_url") != "" {
+				tunnelServers = append(tunnelServers, n.Metadata.GetString("tunnel_server_url"))
+			}
+		}
+	}
+	c.agentEndpoints = endPoints
+	c.tunnelServers = tunnelServers
 }
 
 func (c *Cluster) Start(peers []string, originServer string, originToken string) {
@@ -353,6 +366,10 @@ func (c *Cluster) getBatchSize(totalNodes int) int {
 
 func (c *Cluster) GetAgentEndpoints() []string {
 	return c.agentEndpoints
+}
+
+func (c *Cluster) GetTunnelServers() []string {
+	return c.tunnelServers
 }
 
 func (c *Cluster) LockResource(resourceId string) string {

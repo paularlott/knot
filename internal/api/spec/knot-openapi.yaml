@@ -163,20 +163,22 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
-  /api/tunnels/domain:
+  /api/tunnels/server-info:
     get:
       tags:
         - Tunnels
-      summary: Get Tunnel Domain
-      description: Retrieve the domain name used for tunnels.
-      operationId: getTunnelDomain
+      summary: Get Tunnel Server Info
+      description: Retrieve the server information used for tunnels.
+      operationId: getTunnelServerInfo
       responses:
         '200':
-          description: The domain name used for tunnels.
+          description: The server information.
           content:
             application/json:
               schema:
-                type: string
+                type: array
+                items:
+                  $ref: '#/components/schemas/TunnelServerInfo'
         '401':
           $ref: '#/components/responses/unauthorized'
         '500':
@@ -3232,6 +3234,22 @@ components:
           type: string
           format: uuid
           description: The ID of the user to transfer the space to.
+
+    TunnelServerInfo:
+      type: object
+      properties:
+        domain:
+          type: string
+          format: address
+          example: tunnel.example.com
+          description: The domain of the tunnel server.
+        tunnel_servers:
+          type: array
+          items:
+            type: string
+            format: address
+          example: ["https://server1.example.com", "https://server2.example.com"]
+          description: A list of tunnel servers. If this list is present then these servers should be used for the tunnel connections.
 
   responses:
     bad-request:

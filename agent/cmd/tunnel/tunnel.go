@@ -21,8 +21,6 @@ func init() {
 	TunnelCmd.PersistentFlags().StringP("token", "t", "", "The token to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOKEN environment variable if set.")
 	TunnelCmd.PersistentFlags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
 	TunnelCmd.Flags().StringP("alias", "a", "default", "The server alias to use.")
-
-	TunnelCmd.Flags().StringP("hostname", "n", "", "The hostname to present when using https protocol.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HOSTNAME environment variable if set.")
 }
 
 var TunnelCmd = &cobra.Command{
@@ -70,14 +68,29 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 
 		alias, _ := cmd.Flags().GetString("alias")
 		cfg := config.GetServerAddr(alias)
-		tunnel_server.ConnectAndForward(cfg.WsServer, cfg.HttpServer, cfg.ApiToken, args[0], uint16(port), args[2], cmd.Flag("hostname").Value.String())
+		client := tunnel_server.NewTunnelClient(
+			cfg.WsServer,
+			cfg.HttpServer,
+			cfg.ApiToken,
+			args[0],
+			uint16(port),
+			args[2],
+		)
+		if err := client.ConnectAndServe(); err != nil {
+			log.Fatal().Err(err).Msg("Failed to create tunnel")
+		}
 
 		// Wait for ctrl-c
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-		// Block until we receive our signal.
-		<-c
+		// Block until we receive ctrl-c or tunnel context is cancelled
+		select {
+		case <-client.GetCtx().Done():
+		case <-c:
+		}
+
+		client.Shutdown()
 
 		fmt.Println("\r")
 		log.Info().Msg("Tunnel shutdown")

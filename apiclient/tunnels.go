@@ -7,6 +7,11 @@ type TunnelInfo struct {
 	Address string `json:"address"`
 }
 
+type TunnelServerInfo struct {
+	Domain        string   `json:"domain"`
+	TunnelServers []string `json:"tunnel_servers"`
+}
+
 func (c *ApiClient) GetTunnels(ctx context.Context) ([]TunnelInfo, int, error) {
 	response := []TunnelInfo{}
 
@@ -18,12 +23,12 @@ func (c *ApiClient) GetTunnels(ctx context.Context) ([]TunnelInfo, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) GetTunnelDomain(ctx context.Context) (string, int, error) {
-	response := ""
+func (c *ApiClient) GetTunnelServerInfo(ctx context.Context) (*TunnelServerInfo, int, error) {
+	response := &TunnelServerInfo{}
 
-	code, err := c.httpClient.Get(ctx, "/api/tunnels/domain", &response)
+	code, err := c.httpClient.Get(ctx, "/api/tunnels/server-info", &response)
 	if err != nil {
-		return "", code, err
+		return nil, code, err
 	}
 
 	return response, code, nil

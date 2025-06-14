@@ -181,10 +181,7 @@ func DeleteTunnel(userId, tunnelName string) error {
 	tunnelMutex.Lock()
 	defer tunnelMutex.Unlock()
 
-	fmt.Println("deleteing tunnel", userId, tunnelName)
-
 	for key, t := range tunnels {
-		fmt.Println("checking tunnel", t.user.Id, t.tunnelName)
 		if t.user.Id == userId && t.tunnelName == tunnelName {
 			// Open a new stream to the tunnel client
 			stream, err := t.muxSession.Open()

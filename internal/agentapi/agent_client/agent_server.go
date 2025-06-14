@@ -20,6 +20,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	connectRetryDelay = 1 * time.Second // Delay before retrying connection
+)
+
 type agentServer struct {
 	agentClient        *AgentClient
 	connectionAttempts int // Number of connection attempts
@@ -79,7 +83,7 @@ func (s *agentServer) ConnectAndServe() {
 				hostIPs, err := util.LookupSRV(s.address[4:])
 				if err != nil || len(*hostIPs) == 0 {
 					log.Error().Msgf("agent: resolving SRV record: %v", err)
-					time.Sleep(3 * time.Second)
+					time.Sleep(connectRetryDelay)
 					s.connectionAttempts++
 					continue
 				}
@@ -109,7 +113,7 @@ func (s *agentServer) ConnectAndServe() {
 			}
 			if err != nil {
 				log.Error().Msgf("agent: connecting to server: %v", err)
-				time.Sleep(3 * time.Second)
+				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
 				continue
 			}
@@ -122,7 +126,7 @@ func (s *agentServer) ConnectAndServe() {
 			if err != nil {
 				log.Error().Msgf("agent: sending register message: %v", err)
 				s.conn.Close()
-				time.Sleep(3 * time.Second)
+				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
 				continue
 			}
@@ -133,7 +137,7 @@ func (s *agentServer) ConnectAndServe() {
 			if err != nil {
 				log.Error().Msgf("agent: decoding register response: %v", err)
 				s.conn.Close()
-				time.Sleep(3 * time.Second)
+				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
 				continue
 			}
@@ -142,7 +146,7 @@ func (s *agentServer) ConnectAndServe() {
 			if !response.Success {
 				log.Error().Msgf("agent: registration rejected")
 				s.conn.Close()
-				time.Sleep(3 * time.Second)
+				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
 				continue
 			}
@@ -220,7 +224,7 @@ func (s *agentServer) ConnectAndServe() {
 				log.Error().Msgf("agent: creating mux session: %v", err)
 				s.conn.Close()
 				s.conn = nil
-				time.Sleep(3 * time.Second)
+				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
 				continue
 			}
@@ -269,7 +273,7 @@ func (s *agentServer) ConnectAndServe() {
 							s.conn = nil
 						}
 
-						time.Sleep(3 * time.Second)
+						time.Sleep(connectRetryDelay)
 						goto StartConnectionLoop
 					}
 

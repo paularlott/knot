@@ -17,6 +17,7 @@ type Transport interface {
 	GossipAuditLog(entry *model.AuditLogEntry)
 	GossipSession(session *model.Session)
 	GetAgentEndpoints() []string
+	GetTunnelServers() []string
 
 	LockResource(resourceId string) string
 	UnlockResource(resourceId, unlockToken string)

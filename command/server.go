@@ -44,6 +44,7 @@ func init() {
 	serverCmd.Flags().StringP("listen-tunnel", "", "", "The address to listen on for tunnel connections (default \"\" disabled).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LISTEN_TUNNEL environment variable if set.")
 	serverCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
 	serverCmd.Flags().StringP("url", "u", "", "The URL to use for the server (default \"http://127.0.0.1:3000\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_URL environment variable if set.")
+	serverCmd.Flags().StringP("tunnel-server-url", "", "", "The URL to use for the tunnel client to connect to the server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_SERVER_URL environment variable if set.")
 	serverCmd.Flags().BoolP("enable-proxy", "", false, "Enable the proxy server functionality.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_PROXY environment variable if set.")
 	serverCmd.Flags().BoolP("terminal-webgl", "", true, "Enable WebGL terminal renderer.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_WEBGL environment variable if set.")
 	serverCmd.Flags().StringP("download-path", "", "", "The path to serve download files from if set.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DOWNLOAD_PATH environment variable if set.")
@@ -77,7 +78,6 @@ func init() {
 	serverCmd.Flags().StringP("cluster-bind-addr", "", "", "The address to bind to for cluster communication (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_BIND_ADDR environment variable if set.")
 	serverCmd.Flags().StringSliceP("cluster-peer", "", []string{}, "The addresses of the other servers in the cluster, can be given multiple times (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_PEERS environment variable if set.")
 	serverCmd.Flags().BoolP("allow-leaf-nodes", "", true, "Allow leaf nodes to connect to the cluster.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ALLOW_LEAF_NODES environment variable if set.")
-	serverCmd.Flags().StringSliceP("cluster-agent-endpoints", "", []string{}, "The addresses of the agent endpoints to advertise when in cluster (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_AGENT_ENDPOINTS environment variable if set.")
 
 	// Origin / Leaf servers
 	serverCmd.Flags().StringP("origin-server", "", "", "The address of the origin server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER environment variable if set.")
@@ -147,6 +147,10 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.url", cmd.Flags().Lookup("url"))
 		viper.BindEnv("server.url", config.CONFIG_ENV_PREFIX+"_URL")
 		viper.SetDefault("server.url", "http://127.0.0.1:3000")
+
+		viper.BindPFlag("server.tunnel_server_url", cmd.Flags().Lookup("tunnel-server-url"))
+		viper.BindEnv("server.tunnel_server_url", config.CONFIG_ENV_PREFIX+"_TUNNEL_SERVER_URL")
+		viper.SetDefault("server.tunnel_server_url", "")
 
 		viper.BindPFlag("server.listen_agent", cmd.Flags().Lookup("listen-agent"))
 		viper.BindEnv("server.listen_agent", config.CONFIG_ENV_PREFIX+"_LISTEN_AGENT")
@@ -255,10 +259,6 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.cluster.allow_leaf_nodes", cmd.Flags().Lookup("allow-leaf-nodes"))
 		viper.BindEnv("server.cluster.allow_leaf_nodes", config.CONFIG_ENV_PREFIX+"_ALLOW_LEAF_NODES")
 		viper.SetDefault("server.cluster.allow_leaf_nodes", true)
-
-		viper.BindPFlag("server.cluster.agent_endpoints", cmd.Flags().Lookup("cluster-agent-endpoints"))
-		viper.BindEnv("server.cluster.agent_endpoints", config.CONFIG_ENV_PREFIX+"_CLUSTER_AGENT_ENDPOINTS")
-		viper.SetDefault("server.cluster.agent_endpoints", []string{})
 
 		// UI
 		viper.BindPFlag("server.ui.hide_support_links", cmd.Flags().Lookup("hide-support-links"))
@@ -488,6 +488,15 @@ var serverCmd = &cobra.Command{
 
 		log.Debug().Msgf("Host: %s", u.Host)
 
+		var tunnelServerUrl *url.URL = nil
+		if viper.GetString("server.tunnel_server_url") != "" && viper.GetString("server.listen_tunnel") != "" {
+			tunnelServerUrl, err = url.Parse(viper.GetString("server.tunnel_server_url"))
+			if err != nil {
+				log.Fatal().Msgf("Error parsing tunnel server URL: %v", err)
+			}
+			log.Debug().Msgf("Tunnel Server URL: %s", tunnelServerUrl.Host)
+		}
+
 		// Create the application routes
 		routes := http.NewServeMux()
 
@@ -514,7 +523,7 @@ var serverCmd = &cobra.Command{
 
 			domainMux := http.NewServeMux()
 			domainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-				if r.Host == u.Host {
+				if r.Host == u.Host || (tunnelServerUrl != nil && r.Host == tunnelServerUrl.Host) {
 					appRoutes.ServeHTTP(w, r)
 				} else if match.MatchString(r.Host) {
 					wildcardRoutes.ServeHTTP(w, r)
@@ -572,6 +581,10 @@ var serverCmd = &cobra.Command{
 					sslDomains = append(sslDomains, "localhost")
 				}
 
+				if tunnelServerUrl != nil {
+					sslDomains = append(sslDomains, tunnelServerUrl.Host)
+				}
+
 				// If wildcard domain given add it
 				wildcardDomain := viper.GetString("server.wildcard_domain")
 				if wildcardDomain != "" {
@@ -602,7 +615,6 @@ var serverCmd = &cobra.Command{
 			routes,
 			viper.GetBool("server.cluster.compression"),
 			viper.GetBool("server.cluster.allow_leaf_nodes"),
-			viper.GetStringSlice("server.cluster.agent_endpoints"),
 		)
 		service.SetTransport(cluster)
 

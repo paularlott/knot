@@ -87,7 +87,7 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Tunnels
 	router.HandleFunc("GET /api/tunnels", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnels)))
-	router.HandleFunc("GET /api/tunnels/domain", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnelDomain)))
+	router.HandleFunc("GET /api/tunnels/server-info", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnelServerInfo)))
 	router.HandleFunc("DELETE /api/tunnels/{tunnel_name}", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleDeleteTunnel)))
 
 	// Audit Logs

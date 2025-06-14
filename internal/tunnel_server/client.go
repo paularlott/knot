@@ -2,136 +2,126 @@ package tunnel_server
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"os"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/internal/agentapi/agent_client"
-	"github.com/paularlott/knot/internal/wsconn"
 
-	"github.com/gorilla/websocket"
-	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
-func ConnectAndForward(wsUrl string, serverUrl string, token string, protocol string, port uint16, tunnelName string, hostname string) {
+const (
+	serverListRefreshRate = 2 * time.Second
+)
 
-	client, err := apiclient.NewClient(serverUrl, token, viper.GetBool("tls_skip_verify"))
+type TunnelClient struct {
+	serverListMutex sync.RWMutex
+	serverList      map[string]*tunnelServer
+	wsServerUrl     string
+	serverUrl       string
+	token           string
+	localProtocol   string
+	localPort       uint16
+	tunnelName      string
+	ctx             context.Context
+	cancel          context.CancelFunc
+}
+
+func NewTunnelClient(wsServerUrl, serverUrl, token, protocol string, port uint16, tunnelName string) *TunnelClient {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return &TunnelClient{
+		serverList:    make(map[string]*tunnelServer),
+		wsServerUrl:   wsServerUrl,
+		serverUrl:     serverUrl,
+		token:         token,
+		localProtocol: protocol,
+		localPort:     port,
+		tunnelName:    tunnelName,
+		ctx:           ctx,
+		cancel:        cancel,
+	}
+}
+
+func (c *TunnelClient) ConnectAndServe() error {
+	client, err := apiclient.NewClient(c.serverUrl, c.token, viper.GetBool("tls_skip_verify"))
 	if err != nil {
-		fmt.Println("Failed to create API client:", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
 	// Get the current user
 	user, err := client.WhoAmI(context.Background())
 	if err != nil {
-		fmt.Println("Error getting user: ", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to get user info: %w", err)
 	}
 
-	// Get the tunnel domain
-	tunnelDomain, _, err := client.GetTunnelDomain(context.Background())
+	// Get the tunnel server info
+	tunnelServerInfo, _, err := client.GetTunnelServerInfo(context.Background())
 	if err != nil {
-		fmt.Println("Error getting tunnel domain: ", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to get tunnel server info: %w", err)
 	}
 
-	log.Info().Msgf("https://%s--%s%s -> %s://localhost:%d", user.Username, tunnelName, tunnelDomain, protocol, port)
+	log.Info().Msgf("https://%s--%s%s -> %s://localhost:%d", user.Username, c.tunnelName, tunnelServerInfo.Domain, c.localProtocol, c.localPort)
 
+	// Add the tunnel servers to the list
+	c.serverListMutex.Lock()
+	for _, server := range tunnelServerInfo.TunnelServers {
+		c.serverList[server] = newTunnelServer(c, server)
+		c.serverList[server].ConnectAndServe()
+	}
+
+	if len(c.serverList) == 0 {
+		c.serverList[c.wsServerUrl] = newTunnelServer(c, c.wsServerUrl)
+		c.serverList[c.wsServerUrl].ConnectAndServe()
+	}
+	c.serverListMutex.Unlock()
+
+	// Start a goroutine to refresh the server list periodically
 	go func() {
+		ticker := time.NewTicker(serverListRefreshRate)
+		defer ticker.Stop()
 		for {
-
-			// Open the websocket
-			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", token)}}
-			dialer := websocket.DefaultDialer
-			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
-			dialer.HandshakeTimeout = 5 * time.Second
-			ws, response, err := dialer.Dial(wsUrl+"/tunnel/server/"+tunnelName, header)
-			if err != nil {
-				if response != nil {
-				}
-				if response.StatusCode == http.StatusUnauthorized {
-					log.Fatal().Msg("Failed to authenticate with server, check permissions")
-				} else if response.StatusCode == http.StatusNotFound {
-					log.Fatal().Msg("Server does not support tunnels")
-				} else if response.StatusCode == http.StatusForbidden {
-					log.Fatal().Msg("Tunnels are not available on your account")
-				} else if response.StatusCode == http.StatusServiceUnavailable {
-					log.Fatal().Msg("Tunnel limit reached")
-				}
-
-				log.Error().Msgf("Error while opening websocket: %s", err)
-				time.Sleep(3 * time.Second)
-				continue
-			}
-
-			// Open the mux session
-			localConn := wsconn.New(ws)
-			muxSession, err := yamux.Client(localConn, &yamux.Config{
-				AcceptBacklog:          256,
-				EnableKeepAlive:        true,
-				KeepAliveInterval:      30 * time.Second,
-				ConnectionWriteTimeout: 2 * time.Second,
-				MaxStreamWindowSize:    256 * 1024,
-				StreamCloseTimeout:     3 * time.Minute,
-				StreamOpenTimeout:      3 * time.Second,
-				LogOutput:              io.Discard,
-				//Logger:                 logger.NewMuxLogger(),
-			})
-			if err != nil {
-				log.Error().Msgf("Creating mux session: %v", err)
-				ws.Close()
-				time.Sleep(3 * time.Second)
-				continue
-			}
-
-			// Loop forever waiting for connections on the mux session
-			for {
-				// Accept a new connection
-				stream, err := muxSession.Accept()
+			select {
+			case <-ticker.C:
+				tunnelServerInfo, _, err := client.GetTunnelServerInfo(context.Background())
 				if err != nil {
-					log.Error().Msgf("Accepting connection: %v", err)
-
-					// In the case of errors, destroy the session and start over
-					muxSession.Close()
-					ws.Close()
-					time.Sleep(3 * time.Second)
-
-					break
+					log.Warn().Err(err).Msg("Failed to refresh tunnel server info")
+					continue
 				}
 
-				go handleTunnelStream(stream, protocol, port, hostname)
+				// Look through the current server list and add any new servers
+				c.serverListMutex.Lock()
+				for _, server := range tunnelServerInfo.TunnelServers {
+					if _, exists := c.serverList[server]; !exists {
+						log.Debug().Msgf("Adding new tunnel server: %s", server)
+						c.serverList[server] = newTunnelServer(c, server)
+						c.serverList[server].ConnectAndServe()
+					}
+				}
+				c.serverListMutex.Unlock()
+			case <-c.ctx.Done():
+				log.Debug().Msg("Stopping tunnel server list refresh")
+				return
 			}
 		}
 	}()
+
+	return nil
 }
 
-func handleTunnelStream(stream net.Conn, protocol string, port uint16, hostname string) {
-	defer stream.Close()
-
-	// Read the 1st byte to determine if this is a new connection or terminate
-	buf := make([]byte, 1)
-	_, err := stream.Read(buf)
-	if err != nil {
-		log.Error().Msgf("Error reading from stream: %v", err)
-		return
+func (c *TunnelClient) Shutdown() {
+	c.serverListMutex.Lock()
+	for _, server := range c.serverList {
+		server.Shutdown()
 	}
+	c.serverList = make(map[string]*tunnelServer) // Clear the server list
+	c.serverListMutex.Unlock()
 
-	// If the byte is 0, then close the stream
-	if buf[0] == 0 {
-		log.Fatal().Msg("Received close signal from server")
-		return
-	}
+	c.cancel()
+}
 
-	if protocol == "http" {
-		agent_client.ProxyTcp(stream, fmt.Sprintf("%d", port))
-	} else if protocol == "https" {
-		agent_client.ProxyTcpTls(stream, fmt.Sprintf("%d", port), hostname)
-	}
+func (c *TunnelClient) GetCtx() context.Context {
+	return c.ctx
 }
