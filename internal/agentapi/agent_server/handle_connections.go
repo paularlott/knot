@@ -146,7 +146,7 @@ func handleAgentConnection(conn net.Conn) {
 	}
 
 	// If manual template then record spaces start time
-	if template.IsManual {
+	if template.IsManual() {
 		now := time.Now().UTC()
 		space.UpdatedAt = now
 		space.StartedAt = now

@@ -69,8 +69,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateData.Name = template.Name
 		templateData.Description = template.Description
 		templateData.Groups = template.Groups
-		templateData.LocalContainer = template.LocalContainer
-		templateData.IsManual = template.IsManual
+		templateData.Platform = template.Platform
 		templateData.IsManaged = template.IsManaged
 		templateData.ComputeUnits = template.ComputeUnits
 		templateData.StorageUnits = template.StorageUnits
@@ -136,12 +135,19 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if request.Platform == model.PlatformManual {
+		request.Job = ""
+		request.Volumes = ""
+		request.ScheduleEnabled = false
+		request.MaxUptimeUnit = "disabled"
+	}
+
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
 		return
 	}
-	if !validate.MaxLength(request.Job, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job must be less than 10MB"})
+	if request.Platform != model.PlatformManual && (!validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024)) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
 		return
 	}
 	if !validate.MaxLength(request.Volumes, 10*1024*1024) {
@@ -158,6 +164,10 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validate.IsPositiveNumber(int(request.MaxUptime)) || !validate.OneOf(request.MaxUptimeUnit, []string{"disabled", "minute", "hour", "dat"}) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Max uptime must be a positive number and unit must be one of disabled, minute, hour, day"})
+		return
+	}
+	if !validate.OneOf(request.Platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformNomad}) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform"})
 		return
 	}
 
@@ -186,16 +196,6 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	if template.IsManaged {
 		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot update managed template"})
 		return
-	}
-
-	if !template.IsManual && !validate.Required(request.Job) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
-		return
-	}
-
-	if template.IsManual {
-		request.Job = ""
-		request.Volumes = ""
 	}
 
 	// Check the groups are present in the system
@@ -229,6 +229,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.MaxUptime = request.MaxUptime
 	template.MaxUptimeUnit = request.MaxUptimeUnit
 	template.IconURL = request.IconURL
+	template.Platform = request.Platform
 
 	for i, day := range request.Schedule {
 		template.Schedule[i] = model.TemplateScheduleDays{
@@ -275,16 +276,18 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if request.IsManual {
+	if request.Platform == model.PlatformManual {
 		request.Job = ""
 		request.Volumes = ""
+		request.ScheduleEnabled = false
+		request.MaxUptimeUnit = "disabled"
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
 		return
 	}
-	if (!request.IsManual && !validate.Required(request.Job)) || !validate.MaxLength(request.Job, 10*1024*1024) {
+	if request.Platform != model.PlatformManual && (!validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024)) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
 		return
 	}
@@ -302,6 +305,10 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validate.IsPositiveNumber(int(request.MaxUptime)) || !validate.OneOf(request.MaxUptimeUnit, []string{"disabled", "minute", "hour", "dat"}) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Max uptime must be a positive number and unit must be one of disabled, minute, hour, day"})
+		return
+	}
+	if !validate.OneOf(request.Platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformNomad}) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform"})
 		return
 	}
 
@@ -346,8 +353,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.Volumes,
 		user.Id,
 		request.Groups,
-		request.LocalContainer,
-		request.IsManual,
+		request.Platform,
 		request.WithTerminal,
 		request.WithVSCodeTunnel,
 		request.WithCodeServer,
@@ -500,8 +506,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		Deployed:         deployed,
 		Groups:           template.Groups,
 		Zones:            template.Zones,
-		LocalContainer:   template.LocalContainer,
-		IsManual:         template.IsManual,
+		Platform:         template.Platform,
 		IsManaged:        template.IsManaged,
 		WithTerminal:     template.WithTerminal,
 		WithVSCodeTunnel: template.WithVSCodeTunnel,

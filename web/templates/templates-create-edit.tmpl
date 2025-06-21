@@ -54,22 +54,32 @@
             </div>
           </div>
         </div>
-        <div x-show="!formData.local_container" x-cloak>
-          <label class="flex items-center cursor-pointer mb-2">
-            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.is_manual" @change="toggleIsManual()" {{ if .isEdit }}disabled="true"{{ end }}>
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Manually Created Space</span>
-          </label>
+        <div class="mb-4">
+          <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Platform</label>
+          <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+            <template x-for="platform in ['Docker', 'Nomad', 'Manual']" :key="platform">
+              <label class="relative">
+                <input
+                  type="radio"
+                  name="platform"
+                  :value="platform.toLowerCase()"
+                  x-model="formData.platform"
+                  class="sr-only peer"
+                >
+                <div class="select-none cursor-pointer px-3 sm:px-4 py-2 rounded-lg text-sm font-medium
+                  peer-checked:bg-blue-600 peer-checked:text-white
+                  peer-focus:ring-2 peer-focus:ring-blue-300
+                  transition-colors duration-200 ease-in-out
+                  text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                  hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
+                <span x-text="platform"></span>
+              </div>
+              </label>
+            </template>
+          </div>
         </div>
-        <div x-show="!formData.is_manual" x-cloak>
-          <label class="flex items-center cursor-pointer mb-2">
-            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.local_container" @change="toggleLocalContainer()" {{ if .isEdit }}disabled="true"{{ end }}>
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Local Container (Docker / Podman)</span>
-          </label>
-        </div>
-        <div x-show="!formData.is_manual" x-cloak>
-          <label for="job" class="form-label"><span x-show="!formData.local_container">Nomad Job (HCL)</span><span x-show="formData.local_container">Container Specification (YAML)</span></label>
+        <div x-show="formData.platform != 'manual'" x-cloak>
+          <label for="job" class="form-label"><span x-show="!isLocalContainer()">Nomad Job (HCL)</span><span x-show="isLocalContainer()">Container Specification (YAML)</span></label>
           <div class="large-editor">
             <div :class="{'form-field-error': !jobValid, 'editor-wrap': true}">
               <textarea name="job" class="form-field" id="job"></textarea>
@@ -78,14 +88,14 @@
           </div>
         </div>
         {{ if not .isLeafNode }}
-        <div x-show="!formData.is_manual" x-clock>
+        <div x-show="formData.platform != 'manual'" x-clock>
           <label for="compute_units" class="form-label">Compute Units</label>
           <input type="number" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
           <p class="description">The number of compute units (CPU, GPU, RAM, etc.) this template uses.<br />Compute units only count against the users limits when a space created from the template is running.</p>
           <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
         </div>
         {{ end }}
-        <div x-show="!formData.is_manual" x-cloak>
+        <div x-show="formData.platform != 'manual'" x-cloak>
           <label for="vol" class="form-label">Volume Definition (YAML)</label>
           <div class="mid-editor">
             <div :class="{'form-field-error': !volValid, 'editor-wrap': true}">
@@ -95,7 +105,7 @@
           </div>
         </div>
         {{ if not .isLeafNode }}
-        <div x-show="!formData.is_manual" x-clock>
+        <div x-show="formData.platform != 'manual'" x-clock>
           <label for="storage_units" class="form-label">Storage Units</label>
           <input type="number" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
           <p class="description">The number of storage units this template uses.<br />Once a space is created and started the storage units are counted against the user.</p>
@@ -103,14 +113,14 @@
         </div>
         {{ end }}
 
-        <div>
+        <div x-show="formData.platform != 'manual'" x-cloak>
           <label class="flex items-center cursor-pointer mb-2">
             <input type="checkbox" class="sr-only peer" value="1" :checked="formData.schedule_enabled" x-model="formData.schedule_enabled">
             <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Schedule</span>
           </label>
         </div>
-        <div x-show="formData.schedule_enabled" x-clock>
+        <div x-show="formData.schedule_enabled && formData.platform != 'manual'" x-clock>
           <div class="mb-4">
             <label class="flex items-center cursor-pointer mb-2">
               <input type="checkbox" class="sr-only peer" value="1" :checked="formData.auto_start" x-model="formData.auto_start">
@@ -147,7 +157,7 @@
           <div class="description text-right max-w-xl">All times are in {{ .timezone }}.</div>
         </div>
 
-        <div>
+        <div x-show="formData.platform != 'manual'" x-cloak>
           <label class="form-label">Maximum Uptime</label>
           <div class="flex grid-cols-2 gap-2">
             <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}">
@@ -228,7 +238,7 @@
           {{ end }}
         </div>
 
-        <div x-show="!formData.is_manual" x-cloak>
+        <div x-show="formData.platform != 'manual'" x-cloak>
           <label class="flex items-center cursor-pointer mb-2">
             <input type="checkbox" class="sr-only peer" value="1" :checked="formData.active" x-model="formData.active">
             <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>

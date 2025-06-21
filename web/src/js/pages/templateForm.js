@@ -21,8 +21,7 @@ window.templateForm = function(isEdit, templateId) {
       volumes: "",
       groups: [],
       zones: [],
-      local_container: false,
-      is_manual: false,
+      platform: "nomad",
       with_terminal: false,
       with_vscode_tunnel: false,
       with_code_server: false,
@@ -125,8 +124,7 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.job = template.job;
           this.formData.volumes = template.volumes;
           this.formData.groups = template.groups;
-          this.formData.local_container = template.local_container;
-          this.formData.is_manual = template.is_manual;
+          this.formData.platform = template.platform;
           this.formData.with_terminal = template.with_terminal;
           this.formData.with_vscode_tunnel = template.with_vscode_tunnel;
           this.formData.with_code_server = template.with_code_server;
@@ -237,27 +235,18 @@ window.templateForm = function(isEdit, templateId) {
         this.formData.groups.push(groupId);
       }
     },
-    toggleLocalContainer() {
-      this.formData.local_container = !this.formData.local_container;
-      if(this.formData.local_container) {
-        this.formData.is_manual = false;
-      }
-    },
-    toggleIsManual() {
-      this.formData.is_manual = !this.formData.is_manual;
-      if(this.formData.is_manual) {
-        this.formData.local_container = false;
-      }
-    },
     toggleDaySchedule(day) {
       this.formData.schedule[day].enabled = !this.formData.schedule[day].enabled;
+    },
+    checkPlatform() {
+      return validate.isOneOf(this.formData.platform, ["manual", "docker", "nomad"])
     },
     checkName() {
       this.nameValid = validate.templateName(this.formData.name);
       return this.nameValid;
     },
     checkJob() {
-      this.jobValid = this.formData.is_manual || validate.required(this.formData.job);
+      this.jobValid = this.formData.platform === 'manual' || validate.required(this.formData.job);
       return this.jobValid;
     },
     checkComputeUnits() {
@@ -282,6 +271,7 @@ window.templateForm = function(isEdit, templateId) {
       const self = this;
       err = !this.checkName() || err;
       err = !this.checkJob() || err;
+      err = !this.checkPlatform() || err;
       if(err) {
         return;
       }
@@ -294,8 +284,8 @@ window.templateForm = function(isEdit, templateId) {
       const data = {
         name: this.formData.name,
         description: this.formData.description,
-        job: this.formData.is_manual ? "" : this.formData.job,
-        volumes: this.formData.is_manual ? "" : this.formData.volumes,
+        job: this.formData.platform === 'manual' ? "" : this.formData.job,
+        volumes: this.formData.platform === 'manual' ? "" : this.formData.volumes,
         groups: this.formData.groups,
         with_terminal: this.formData.with_terminal,
         with_vscode_tunnel: this.formData.with_vscode_tunnel,
@@ -303,15 +293,14 @@ window.templateForm = function(isEdit, templateId) {
         with_ssh: this.formData.with_ssh,
         compute_units: parseInt(this.formData.compute_units),
         storage_units: parseInt(this.formData.storage_units),
-        schedule_enabled: this.formData.schedule_enabled,
+        schedule_enabled: this.formData.schedule_enabled && this.formData.platform !== 'manual',
         auto_start: this.formData.auto_start,
         schedule: this.formData.schedule,
         zones: this.formData.zones,
         active: this.formData.active,
         max_uptime: parseInt(this.formData.max_uptime),
-        max_uptime_unit: this.formData.max_uptime_unit,
-        local_container: this.formData.local_container,
-        is_manual: this.formData.is_manual,
+        max_uptime_unit: this.formData.platform !== 'manual' ? 'disabled' : this.formData.max_uptime_unit,
+        platform: this.formData.platform,
         icon_url: this.formData.icon_url,
       };
 
@@ -379,5 +368,8 @@ window.templateForm = function(isEdit, templateId) {
         return false;
       }
     },
+    isLocalContainer() {
+      return this.formData.platform === 'docker';
+    }
   }
 }

@@ -16,6 +16,7 @@ window.volumeForm = function(isEdit, volumeId) {
       name: "",
       definition: "",
       local_container: false,
+      platform: 'nomad',
     },
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create Volume',

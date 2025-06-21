@@ -13,19 +13,25 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	PlatformManual = "manual"
+	PlatformDocker = "docker"
+	PlatformPodman = "podman"
+	PlatformNomad  = "nomad"
+)
+
 // Template object
 type Template struct {
 	Id               string                 `json:"template_id" db:"template_id,pk"`
 	Name             string                 `json:"name" db:"name"`
 	Description      string                 `json:"description" db:"description"`
 	Hash             string                 `json:"hash" db:"hash"`
+	Platform         string                 `json:"platform" db:"platform"`
 	IconURL          string                 `json:"icon_url" db:"icon_url"`
 	Job              string                 `json:"job" db:"job"`
 	Volumes          string                 `json:"volumes" db:"volumes"`
 	Groups           []string               `json:"groups" db:"groups,json"`
-	LocalContainer   bool                   `json:"local_container" db:"local_container"`
 	Active           bool                   `json:"active" db:"active"`
-	IsManual         bool                   `json:"is_manual" db:"is_manual"`
 	WithTerminal     bool                   `json:"with_terminal" db:"with_terminal"`
 	WithVSCodeTunnel bool                   `json:"with_vscode_tunnel" db:"with_vscode_tunnel"`
 	WithCodeServer   bool                   `json:"with_code_server" db:"with_code_server"`
@@ -59,8 +65,7 @@ func NewTemplate(
 	volumes string,
 	userId string,
 	groups []string,
-	localContainer bool,
-	isManual bool,
+	platform string,
 	withTerminal bool,
 	withVSCodeTunnel bool,
 	withCodeServer bool,
@@ -90,8 +95,7 @@ func NewTemplate(
 		Groups:           groups,
 		Zones:            zones,
 		CreatedUserId:    userId,
-		LocalContainer:   localContainer,
-		IsManual:         isManual,
+		Platform:         platform,
 		WithTerminal:     withTerminal,
 		WithVSCodeTunnel: withVSCodeTunnel,
 		WithCodeServer:   withCodeServer,
@@ -179,4 +183,12 @@ func (template *Template) AllowedBySchedule() bool {
 	}
 
 	return false
+}
+
+func (template *Template) IsManual() bool {
+	return template.Platform == PlatformManual
+}
+
+func (template *Template) IsLocalContainer() bool {
+	return template.Platform == PlatformDocker || template.Platform == PlatformPodman
 }

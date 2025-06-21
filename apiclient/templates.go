@@ -8,9 +8,8 @@ type TemplateCreateRequest struct {
 	Description      string               `json:"description"`
 	Volumes          string               `json:"volumes"`
 	Groups           []string             `json:"groups"`
-	LocalContainer   bool                 `json:"local_container"`
+	Platform         string               `json:"platform"`
 	Active           bool                 `json:"active"`
-	IsManual         bool                 `json:"is_manual"`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`
@@ -33,6 +32,7 @@ type TemplateUpdateRequest struct {
 	Volumes          string               `json:"volumes"`
 	Groups           []string             `json:"groups"`
 	Active           bool                 `json:"active"`
+	Platform         string               `json:platform`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`
@@ -60,9 +60,8 @@ type TemplateInfo struct {
 	Usage           int                  `json:"usage"`
 	Deployed        int                  `json:"deployed"`
 	Groups          []string             `json:"groups"`
-	LocalContainer  bool                 `json:"local_container"`
+	Platform        string               `json:"platform"`
 	Active          bool                 `json:"active"`
-	IsManual        bool                 `json:"is_manual"`
 	IsManaged       bool                 `json:"is_managed"`
 	ScheduleEnabled bool                 `json:"schedule_enabled"`
 	AutoStart       bool                 `json:"auto_start"`
@@ -95,9 +94,8 @@ type TemplateDetails struct {
 	Hash             string               `json:"hash"`
 	Deployed         int                  `json:"deployed"`
 	Groups           []string             `json:"groups"`
-	LocalContainer   bool                 `json:"local_container"`
+	Platform         string               `json:"platform"`
 	Active           bool                 `json:"active"`
-	IsManual         bool                 `json:"is_manual"`
 	IsManaged        bool                 `json:"is_managed"`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`

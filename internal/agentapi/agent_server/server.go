@@ -37,94 +37,91 @@ func checkSchedules() {
 		ticker := time.NewTicker(AGENT_SCHEDULE_INTERVAL)
 		defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				log.Debug().Msg("agent: checking schedules")
+		for range ticker.C {
+			log.Debug().Msg("agent: checking schedules")
 
-				db := database.GetInstance()
+			db := database.GetInstance()
 
-				sessionStopList := make([]*stopListItem, 0)
-				sessionMutex.RLock()
-				for _, session := range sessions {
-					space, err := db.GetSpace(session.Id)
-					if err != nil {
-						continue
-					}
+			sessionStopList := make([]*stopListItem, 0)
+			sessionMutex.RLock()
+			for _, session := range sessions {
+				space, err := db.GetSpace(session.Id)
+				if err != nil {
+					continue
+				}
 
+				template, err := db.GetTemplate(space.TemplateId)
+				if err != nil {
+					continue
+				}
+
+				if !template.AllowedBySchedule() || space.MaxUptimeReached(template) {
+					sessionStopList = append(sessionStopList, &stopListItem{
+						space:   space,
+						session: session,
+					})
+				}
+			}
+			sessionMutex.RUnlock()
+
+			// Stop sessions that need to be stopped
+			for _, item := range sessionStopList {
+				log.Info().Msgf("agent: stopping session %s due to schedule", item.session.Id)
+				service.GetContainerService().StopSpace(item.space)
+			}
+			sessionStopList = nil
+
+			// Look for spaces that need to be started
+			spaces, err := db.GetSpaces()
+			if err != nil {
+				log.Error().Msgf("agent: failed to get spaces: %v", err)
+				continue
+			}
+
+			for _, space := range spaces {
+				if !space.IsDeleted && !space.IsDeployed && !space.IsPending {
 					template, err := db.GetTemplate(space.TemplateId)
 					if err != nil {
 						continue
 					}
 
-					if !template.AllowedBySchedule() || space.MaxUptimeReached(template) {
-						sessionStopList = append(sessionStopList, &stopListItem{
-							space:   space,
-							session: session,
-						})
-					}
-				}
-				sessionMutex.RUnlock()
+					if !template.IsManual() && template.ScheduleEnabled && template.AutoStart && template.AllowedBySchedule() {
+						log.Info().Msgf("agent: starting space %s due to schedule", space.Id)
 
-				// Stop sessions that need to be stopped
-				for _, item := range sessionStopList {
-					log.Info().Msgf("agent: stopping session %s due to schedule", item.session.Id)
-					service.GetContainerService().StopSpace(item.space)
-				}
-				sessionStopList = nil
-
-				// Look for spaces that need to be started
-				spaces, err := db.GetSpaces()
-				if err != nil {
-					log.Error().Msgf("agent: failed to get spaces: %v", err)
-					continue
-				}
-
-				for _, space := range spaces {
-					if !space.IsDeleted && !space.IsDeployed && !space.IsPending {
-						template, err := db.GetTemplate(space.TemplateId)
+						user, err := db.GetUser(space.UserId)
 						if err != nil {
+							log.Error().Err(err).Msgf("agent: GetUser")
 							continue
 						}
 
-						if !template.IsManual && template.ScheduleEnabled && template.AutoStart && template.AllowedBySchedule() {
-							log.Info().Msgf("agent: starting space %s due to schedule", space.Id)
-
-							user, err := db.GetUser(space.UserId)
+						if !config.LeafNode {
+							// Check the users quota has enough compute units
+							usage, err := database.GetUserUsage(user.Id, "")
 							if err != nil {
-								log.Error().Err(err).Msgf("agent: GetUser")
+								log.Error().Err(err).Msgf("agent: GetUserUsage")
 								continue
 							}
 
-							if !config.LeafNode {
-								// Check the users quota has enough compute units
-								usage, err := database.GetUserUsage(user.Id, "")
-								if err != nil {
-									log.Error().Err(err).Msgf("agent: GetUserUsage")
-									continue
-								}
-
-								userQuota, err := database.GetUserQuota(user)
-								if err != nil {
-									log.Error().Err(err).Msgf("agent: GetUserQuota")
-									continue
-								}
-
-								if usage.ComputeUnits+template.ComputeUnits > userQuota.ComputeUnits {
-									log.Warn().Msgf("agent: user %s has insufficient compute units to start space %s", user.Username, space.Name)
-									continue
-								}
-							}
-
-							transport := service.GetTransport()
-							unlockToken := transport.LockResource(space.Id)
-							if unlockToken == "" {
-								log.Error().Msg("checkSchedules: failed to lock space")
+							userQuota, err := database.GetUserQuota(user)
+							if err != nil {
+								log.Error().Err(err).Msgf("agent: GetUserQuota")
 								continue
 							}
-							service.GetContainerService().StartSpace(space, template, user)
-							transport.UnlockResource(space.Id, unlockToken)
+
+							if usage.ComputeUnits+template.ComputeUnits > userQuota.ComputeUnits {
+								log.Warn().Msgf("agent: user %s has insufficient compute units to start space %s", user.Username, space.Name)
+								continue
+							}
 						}
+
+						transport := service.GetTransport()
+						unlockToken := transport.LockResource(space.Id)
+						if unlockToken == "" {
+							log.Error().Msg("checkSchedules: failed to lock space")
+							continue
+						}
+						service.GetContainerService().StartSpace(space, template, user)
+						transport.UnlockResource(space.Id, unlockToken)
 					}
 				}
 			}

@@ -86,7 +86,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
 
       // Get if the template is manual
       const selectedTemplate = this.templates.find(t => t.template_id === this.formData.template_id);
-      this.isManual = selectedTemplate ? selectedTemplate.is_manual : false;
+      this.isManual = selectedTemplate ? selectedTemplate.platform === 'manual' : false;
       this.startOnCreate = !this.isManual;
 
       if(!isEdit) {

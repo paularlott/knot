@@ -127,8 +127,9 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 
 	vars := model.FilterVars(variables)
 
+	// TODO Change this it look at the platform to use
 	var containerClient container.ContainerManager
-	if template.LocalContainer {
+	if template.IsLocalContainer() {
 		containerClient = docker.NewClient()
 	} else {
 		var err error
@@ -178,8 +179,9 @@ func (h *Helper) StopSpace(space *model.Space) error {
 	}
 	service.GetTransport().GossipSpace(space)
 
+	// TODO Change this it look at the platform to use
 	var containerClient container.ContainerManager
-	if template.LocalContainer {
+	if template.IsLocalContainer() {
 		containerClient = docker.NewClient()
 	} else {
 		var err error
@@ -222,8 +224,9 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			return
 		}
 
+		// TODO Change this it look at the platform to use
 		var containerClient container.ContainerManager
-		if template.LocalContainer {
+		if template.IsLocalContainer() {
 			containerClient = docker.NewClient()
 		} else {
 			var err error

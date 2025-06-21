@@ -2243,12 +2243,10 @@ components:
           type: string
           format: uuid
           description: The ID of the user the space belongs to.
-        local_container:
-          type: boolean
-          description: If the space is of a local container, docker or podman.
-        is_manual:
-          type: boolean
-          description: If the space is manually created.
+        platform:
+          type: string
+          description: The container platform to run the template on.
+          enum: [ "manual", "docker", "nomad" ]
         shared_user_id:
           type: string
           format: uuid
@@ -2445,12 +2443,10 @@ components:
             format: uuid
             example: 00000000-0000-0000-0000-000000000000
           description: The IDs of the groups assigned to the template.
-        local_container:
-          type: boolean
-          description: If the template is a local container template, docker or podman.
-        is_manual:
-          type: boolean
-          description: If the template is a manual template.
+        platform:
+          type: string
+          description: The container platform to run the template on.
+          enum: [ "manual", "docker", "nomad" ]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -2535,12 +2531,10 @@ components:
             format: uuid
             example: 00000000-0000-0000-0000-000000000000
           description: The IDs of the groups to assign to the template.
-        local_container:
-          type: boolean
-          description: If the template is a local container template, docker or podman.
-        is_manual:
-          type: boolean
-          description: If the template is a manual template.
+        platform:
+          type: string
+          description: The container platform to run the template on.
+          enum: [ "manual", "docker", "nomad" ]
         active:
           type: boolean
           description: If the template is active.
@@ -2622,6 +2616,10 @@ components:
         active:
           type: boolean
           description: If the template is active.
+        platform:
+          type: string
+          description: The container platform to run the template on.
+          enum: [ "manual", "docker", "nomad" ]
         with_terminal:
           type: boolean
           description: If the space should support a web terminal.
@@ -2704,12 +2702,10 @@ components:
             format: uuid
             example: 00000000-0000-0000-0000-000000000000
           description: The IDs of the groups assigned to the template.
-        local_container:
-          type: boolean
-          description: If the template is a local container template, docker or podman.
-        is_manual:
-          type: boolean
-          description: If the template is a manual template.
+        platform:
+          type: string
+          description: The container platform to run the template on.
+          enum: [ "manual", "docker", "nomad" ]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.

@@ -157,6 +157,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.shared_username = space.shared_username;
                 existing.name = space.name;
                 existing.description = space.description;
+                existing.platform = space.platform;
                 existing.note = space.note;
                 existing.zone = space.zone;
                 existing.has_code_server = space.has_code_server;
@@ -482,6 +483,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         const days = Math.floor(diffSeconds / 86400);
         return `${days}d`;
       }
+    },
+    isLocalContainer(platform) {
+      return platform === 'docker'
     }
   };
 }

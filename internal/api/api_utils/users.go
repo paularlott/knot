@@ -37,19 +37,8 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 
 		// Skip spaces shared with the user but not owned by the user
 		if space.UserId == toDelete.Id && space.Zone == config.Zone {
-			log.Debug().Msgf("delete user: Deleting space %s from nomad", space.Id)
-
-			// Load the space template
-			template, err := db.GetTemplate(space.TemplateId)
-			if err != nil {
-				log.Debug().Msgf("delete user: Failed to get template for space %s: %s", space.Id, err)
-				hasError = true
-				break
-			}
-
-			if template.LocalContainer {
-				service.GetContainerService().DeleteSpace(space)
-			}
+			log.Debug().Msgf("delete user: Deleting space %s", space.Id)
+			service.GetContainerService().DeleteSpace(space)
 		}
 
 		space.IsDeleted = true
@@ -138,7 +127,7 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 		return
 	}
 
-	if space.IsDeployed || template.IsManual {
+	if space.IsDeployed || template.IsManual() {
 		// Get the agent state
 		agentState := agent_server.GetSession(space.Id)
 		if agentState == nil {

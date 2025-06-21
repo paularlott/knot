@@ -61,8 +61,6 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 	// Build a json array of space data to return to the client
 	for _, space := range spaces {
 		var templateName string
-		var localContainer bool
-		var isManual bool
 
 		if space.IsDeleted {
 			continue
@@ -72,12 +70,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		template, err := db.GetTemplate(space.TemplateId)
 		if err != nil {
 			templateName = "Unknown"
-			localContainer = false
-			isManual = false
 		} else {
 			templateName = template.Name
-			localContainer = template.LocalContainer
-			isManual = template.IsManual
 		}
 
 		s := apiclient.SpaceInfo{}
@@ -90,8 +84,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.TemplateId = space.TemplateId
 		s.Zone = space.Zone
 		s.IsRemote = space.Zone != "" && space.Zone != config.Zone
-		s.LocalContainer = localContainer
-		s.IsManual = isManual
+		s.Platform = template.Platform
 		s.IconURL = space.IconURL
 
 		// Get the user
@@ -151,13 +144,13 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.VSCodeTunnel = state.VSCodeTunnelName
 
 			// If template is manual then force IsDeployed to true as agent is live
-			if template.IsManual {
+			if template.IsManual() {
 				s.IsDeployed = true
 			}
 		}
 
 		// Check if the template has been updated
-		if template.IsManual || template.Hash == "" {
+		if template.IsManual() || template.Hash == "" {
 			s.UpdateAvailable = false
 		} else {
 			s.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
@@ -623,7 +616,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipSpace(space)
 
-	if template != nil && (space.IsDeployed || template.IsManual) {
+	if template != nil && (space.IsDeployed || template.IsManual()) {
 		// Get the agent state
 		agentState := agent_server.GetSession(space.Id)
 		if agentState != nil && agentState.SSHPort > 0 {

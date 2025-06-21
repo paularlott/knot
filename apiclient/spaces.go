@@ -36,8 +36,7 @@ type SpaceInfo struct {
 	Zone            string            `json:"zone"`
 	Username        string            `json:"username"`
 	UserId          string            `json:"user_id"`
-	LocalContainer  bool              `json:"local_container"`
-	IsManual        bool              `json:"is_manual"`
+	Platform        string            `json:"platform"`
 	SharedUserId    string            `json:"shared_user_id"`
 	SharedUsername  string            `json:"shared_username"`
 	HasCodeServer   bool              `json:"has_code_server"`
