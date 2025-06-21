@@ -35,11 +35,11 @@ func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 		}
 
 		v := apiclient.VolumeInfo{
-			Id:             volume.Id,
-			Name:           volume.Name,
-			Active:         volume.Active,
-			Zone:           volume.Zone,
-			LocalContainer: volume.LocalContainer,
+			Id:       volume.Id,
+			Name:     volume.Name,
+			Active:   volume.Active,
+			Zone:     volume.Zone,
+			Platform: volume.Platform,
 		}
 		volumeData.Volumes = append(volumeData.Volumes, v)
 		volumeData.Count++
@@ -70,6 +70,10 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volume definition must be less than 10MB"})
 		return
 	}
+	if !validate.OneOf(request.Platform, []string{model.PlatformDocker, model.PlatformNomad}) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform name given"})
+		return
+	}
 
 	db := database.GetInstance()
 	user := r.Context().Value("user").(*model.User)
@@ -89,9 +93,10 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 	volume.Name = request.Name
 	volume.Definition = request.Definition
 	volume.UpdatedUserId = user.Id
+	volume.Platform = request.Platform
 	volume.UpdatedAt = time.Now().UTC()
 
-	err = db.SaveVolume(volume, []string{"Name", "Definition", "UpdatedUserId"})
+	err = db.SaveVolume(volume, []string{"Name", "Definition", "UpdatedUserId", "Platform", "UpdatedAt"})
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -132,11 +137,15 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volume definition must be less than 10MB"})
 		return
 	}
+	if !validate.OneOf(request.Platform, []string{model.PlatformDocker, model.PlatformNomad}) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform name given"})
+		return
+	}
 
 	db := database.GetInstance()
 	user := r.Context().Value("user").(*model.User)
 
-	volume := model.NewVolume(request.Name, request.Definition, user.Id, request.LocalContainer)
+	volume := model.NewVolume(request.Name, request.Definition, user.Id, request.Platform)
 
 	err = db.SaveVolume(volume, nil)
 	if err != nil {
@@ -233,11 +242,11 @@ func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := apiclient.VolumeDefinition{
-		Name:           volume.Name,
-		Definition:     volume.Definition,
-		Active:         volume.Active,
-		Zone:           volume.Zone,
-		LocalContainer: volume.LocalContainer,
+		Name:       volume.Name,
+		Definition: volume.Definition,
+		Active:     volume.Active,
+		Zone:       volume.Zone,
+		Platform:   volume.Platform,
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, &data)

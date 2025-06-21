@@ -37,8 +37,9 @@ func (h *Helper) CreateVolume(volume *model.Volume) error {
 	volume.Zone = config.Zone
 	volume.Active = true
 
+	// TODO Change this it look at the platform to use
 	var containerClient container.ContainerManager
-	if volume.LocalContainer {
+	if volume.Platform == model.PlatformDocker {
 		containerClient = docker.NewClient()
 	} else {
 		var err error
@@ -72,8 +73,9 @@ func (h *Helper) DeleteVolume(volume *model.Volume) error {
 	volume.Zone = ""
 	volume.Active = false
 
+	// TODO Change this it look at the platform to use
 	var containerClient container.ContainerManager
-	if volume.LocalContainer {
+	if volume.Platform == model.PlatformDocker {
 		containerClient = docker.NewClient()
 	} else {
 		var err error

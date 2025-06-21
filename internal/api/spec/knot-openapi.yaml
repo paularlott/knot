@@ -3175,9 +3175,10 @@ components:
           type: string
           maxLength: 64
           description: The zone of the volume.
-        local_container:
-          type: boolean
-          description: If the volume is a local container volume, docker or podman.
+        platform:
+          type: string
+          description: The container platform to run the volume on.
+          enum: [ "docker", "nomad" ]
 
     VolumeCreateRequest:
       type: object
@@ -3188,9 +3189,10 @@ components:
         definition:
           type: string
           description: A YAML formatted string describing the volume to be created.
-        local_container:
-          type: boolean
-          description: If the volume is a local container volume, docker or podman.
+        platform:
+          type: string
+          description: The container platform to run the volume on.
+          enum: [ "docker", "nomad" ]
 
     VolumeUpdateRequest:
       type: object
@@ -3201,6 +3203,10 @@ components:
         definition:
           type: string
           description: A YAML formatted string describing the volume to be created.
+        platform:
+          type: string
+          description: The container platform to run the volume on.
+          enum: [ "docker", "nomad" ]
 
     VolumeDefinition:
       type: object
@@ -3219,9 +3225,10 @@ components:
         active:
           type: boolean
           description: Whether the volume is active.
-        local_container:
-          type: boolean
-          description: If the volume is a local container volume, docker or podman.
+        platform:
+          type: string
+          description: The container platform to run the volume on.
+          enum: [ "docker", "nomad" ]
 
     SpaceTransferRequest:
       type: object

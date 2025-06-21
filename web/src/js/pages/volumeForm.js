@@ -15,7 +15,6 @@ window.volumeForm = function(isEdit, volumeId) {
     formData: {
       name: "",
       definition: "",
-      local_container: false,
       platform: 'nomad',
     },
     loading: true,
@@ -42,7 +41,7 @@ window.volumeForm = function(isEdit, volumeId) {
 
           this.formData.name = volume.name;
           this.formData.definition = volume.definition;
-          this.formData.local_container = volume.local_container;
+          this.formData.platform = volume.platform;
         }
       }
 
@@ -87,9 +86,6 @@ window.volumeForm = function(isEdit, volumeId) {
       this.volValid = validate.required(this.formData.definition);
       return this.volValid;
     },
-    toggleLocalContainer() {
-      this.formData.local_container = !this.formData.local_container;
-    },
 
     async submitData() {
       let err = false;
@@ -108,7 +104,7 @@ window.volumeForm = function(isEdit, volumeId) {
       const data = {
         name: this.formData.name,
         definition: this.formData.definition,
-        local_container: this.formData.local_container,
+        platform: this.formData.platform,
       }
 
       await fetch(isEdit ? `/api/volumes/${volumeId}` : '/api/volumes', {

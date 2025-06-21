@@ -19,12 +19,29 @@
           <input type="text" class="form-field" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Volume name" x-model="formData.name">
           <div x-show="!nameValid" class="error-message" x-cloak>Volume name can be a max 64 characters.</div>
         </div>
-        <div>
-          <label class="flex items-center cursor-pointer mb-2">
-            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.local_container" @change="toggleLocalContainer()" {{ if .isEdit }}disabled="true"{{ end }}>
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Local Container Volume (Docker / Podman)</span>
-          </label>
+        <div class="mb-4">
+          <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Platform</label>
+          <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+            <template x-for="platform in ['Docker', 'Nomad']" :key="platform">
+              <label class="relative">
+                <input
+                  type="radio"
+                  name="platform"
+                  :value="platform.toLowerCase()"
+                  x-model="formData.platform"
+                  class="sr-only peer"
+                >
+                <div class="select-none cursor-pointer px-3 sm:px-4 py-2 rounded-lg text-sm font-medium
+                  peer-checked:bg-blue-600 peer-checked:text-white
+                  peer-focus:ring-2 peer-focus:ring-blue-300
+                  transition-colors duration-200 ease-in-out
+                  text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                  hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
+                <span x-text="platform"></span>
+              </div>
+              </label>
+            </template>
+          </div>
         </div>
         <div>
           <label for="vol" class="form-label">Volume Definition (YAML)</label>

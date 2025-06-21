@@ -5,11 +5,11 @@ import (
 )
 
 type VolumeInfo struct {
-	Id             string `json:"volume_id"`
-	Name           string `json:"name"`
-	Active         bool   `json:"active"`
-	Zone           string `json:"zone"`
-	LocalContainer bool   `json:"local_container"`
+	Id       string `json:"volume_id"`
+	Name     string `json:"name"`
+	Active   bool   `json:"active"`
+	Zone     string `json:"zone"`
+	Platform string `json:"platform"`
 }
 
 type VolumeInfoList struct {
@@ -18,22 +18,23 @@ type VolumeInfoList struct {
 }
 
 type VolumeDefinition struct {
-	Name           string `json:"name"`
-	Definition     string `json:"definition"`
-	Zone           string `json:"zone"`
-	Active         bool   `json:"active"`
-	LocalContainer bool   `json:"local_container"`
+	Name       string `json:"name"`
+	Definition string `json:"definition"`
+	Zone       string `json:"zone"`
+	Active     bool   `json:"active"`
+	Platform   string `json:"platform"`
 }
 
 type VolumeUpdateRequest struct {
 	Name       string `json:"name"`
 	Definition string `json:"definition"`
+	Platform   string `json:"platform"`
 }
 
 type VolumeCreateRequest struct {
-	Name           string `json:"name"`
-	Definition     string `json:"definition"`
-	LocalContainer bool   `json:"local_container"`
+	Name       string `json:"name"`
+	Definition string `json:"definition"`
+	Platform   string `json:"platform"`
 }
 
 type VolumeCreateResponse struct {
