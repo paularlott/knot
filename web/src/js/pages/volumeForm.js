@@ -23,6 +23,7 @@ window.volumeForm = function(isEdit, volumeId) {
     volValid: true,
     isEdit,
     stayOnPage: true,
+    showPlatformWarning: false,
 
     async initData() {
       focus.Element('input[name="name"]');

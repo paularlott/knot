@@ -86,6 +86,7 @@ window.templateForm = function(isEdit, templateId) {
     fromHours: [],
     toHours: [],
     zoneValid: [],
+    showPlatformWarning: false,
 
     async initData() {
       for (let hour = 0; hour < 24; hour++) {

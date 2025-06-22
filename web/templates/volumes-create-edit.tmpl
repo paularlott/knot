@@ -30,6 +30,7 @@
                   :value="platform.toLowerCase()"
                   x-model="formData.platform"
                   class="sr-only peer"
+                  {{ if .isEdit }}@change="showPlatformWarning = true"{{ end }}
                 >
                 <div class="select-none cursor-pointer px-3 sm:px-4 py-2 rounded-lg text-sm font-medium
                   peer-checked:bg-blue-600 peer-checked:text-white
@@ -57,6 +58,36 @@
       </form>
 
     </div>
+
+    <div x-cloak x-show="showPlatformWarning" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showPlatformWarning" @keydown.esc.window="showPlatformWarning = false" @click.self="showPlatformWarning = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+      <!-- Modal Dialog -->
+      <div x-show="showPlatformWarning" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <!-- Dialog Header -->
+        <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
+          <div class="flex items-center justify-center rounded-full bg-yellow-500/20 text-yellow-500 p-1">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Platform Changed</h3>
+          <button @click="showPlatformWarning = false" aria-label="close modal" class="cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <!-- Dialog Body -->
+        <div class="px-4 py-4 text-center">
+          <p>Changing the platform that the volume is using may have unintended consequences including loss of data.</p>
+          <p>Only proceed if you are sure about the changes you are making.</p>
+        </div>
+        <!-- Dialog Footer -->
+        <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
+            <button @click="showPlatformWarning = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Dismiss</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </main>
 {{ end }}
