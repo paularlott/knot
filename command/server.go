@@ -456,6 +456,11 @@ var serverCmd = &cobra.Command{
 		config.Timezone = viper.GetString("server.timezone")
 		config.LeafNode = viper.GetString("server.origin.server") != "" && viper.GetString("server.origin.token") != ""
 
+		// Force the zone for leaf nodes
+		if config.LeafNode {
+			config.Zone = "<leaf-node-zone>"
+		}
+
 		if config.Timezone == "" {
 			config.Timezone, _ = time.Now().Zone()
 		}

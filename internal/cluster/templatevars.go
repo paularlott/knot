@@ -75,7 +75,7 @@ func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
 	if len(c.leafSessions) > 0 {
 		log.Debug().Msg("cluster: Updating template var on leaf nodes")
 
-		if templateVar.Restricted || templateVar.Local || templateVar.Zone != "" {
+		if templateVar.Restricted || templateVar.Local || (templateVar.Zone != "" && templateVar.Zone != "<leaf-node-zone>") {
 			templateVar.IsDeleted = true
 			templateVar.Value = ""
 			templateVar.Name = templateVar.Id
@@ -199,7 +199,7 @@ func (c *Cluster) gossipTemplateVars() {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Template vars to leaf nodes")
 			templateVars = templateVars[:batchSize]
 			for _, templateVar := range templateVars {
-				if templateVar.Restricted || templateVar.Local || templateVar.Zone != "" {
+				if templateVar.Restricted || templateVar.Local || (templateVar.Zone != "" && templateVar.Zone != "<leaf-node-zone>") {
 					templateVar.IsDeleted = true
 					templateVar.Value = ""
 					templateVar.Name = templateVar.Id

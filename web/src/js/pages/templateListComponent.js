@@ -162,21 +162,38 @@ window.templateListComponent = function(canManageSpaces, zone) {
     searchChanged() {
       const term = this.searchTerm.toLowerCase();
 
-      // For all templates if name or description contains the term show; else hide
       this.templates.forEach(template => {
-        if(term.length === 0) {
-          template.searchHide = !(template.active || this.showInactive);
-        } else {
-          template.searchHide = !(
-            (
-              template.name.toLowerCase().includes(term) ||
-              template.description.toLowerCase().includes(term)
-            ) &&
-            (
-              template.active || this.showInactive
-            )
-          );
+        // Default: show if active or showInactive is true
+        let showRow = template.active || this.showInactive;
+
+        // Zone filtering (unless showAll)
+        if (!this.showAll) {
+          const zones = template.zones || [];
+          if (zones.length > 0) {
+            // Hide if any !zone matches the current zone
+            const hasNegation = zones.some(z => z.startsWith('!') && z.substring(1) === this.zone);
+            if (hasNegation) {
+              showRow = false;
+            } else {
+              // If there are any non-negated zones, show only if one matches
+              const positiveZones = zones.filter(z => !z.startsWith('!'));
+              if (positiveZones.length > 0) {
+                const hasZone = positiveZones.includes(this.zone);
+                showRow = showRow && hasZone;
+              }
+            }
+          }
+          // If zones is empty, showRow remains unchanged (no restriction)
         }
+
+        // Search term filtering
+        if (term.length > 0) {
+          const inName = template.name.toLowerCase().includes(term);
+          const inDesc = template.description.toLowerCase().includes(term);
+          showRow = showRow && (inName || inDesc);
+        }
+
+        template.searchHide = !showRow;
       });
     },
     getDayOfWeek(day) {

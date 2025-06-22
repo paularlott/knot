@@ -6,12 +6,7 @@
 /node_modules
 /files-test
 /icons.toml
-.knot.yml
-.knot-leaf1.yml
-.knot-leaf2.yml
-.knot.toml
-.knot-leaf1.toml
-.knot-leaf2.toml
+/.knot*.toml
 /.parcel-cache
 /.task
 /knot-server.nomad
