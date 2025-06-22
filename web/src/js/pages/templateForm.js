@@ -140,7 +140,7 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.icon_url = template.icon_url;
 
           // Set the zones and mark all as valid
-          this.formData.zones =template.zones ? template.zones : [];
+          this.formData.zones = template.zones ? template.zones : [];
           this.zoneValid = [];
           this.formData.zones.forEach(() => {
             this.zoneValid.push(true);
@@ -265,6 +265,13 @@ window.templateForm = function(isEdit, templateId) {
       }
       return this.uptimeValid;
     },
+    checkZonesValid() {
+      let zonesValid = true
+      this.formData.zones.forEach((zone, index) => {
+        zonesValid = zonesValid && this.zoneValid[index];
+      });
+      return zonesValid;
+    },
 
     async submitData() {
       let err = false;
@@ -272,6 +279,7 @@ window.templateForm = function(isEdit, templateId) {
       err = !this.checkName() || err;
       err = !this.checkJob() || err;
       err = !this.checkPlatform() || err;
+      err = !this.checkZonesValid() || err;
       if(err) {
         return;
       }

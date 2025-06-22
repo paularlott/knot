@@ -18,6 +18,8 @@ const (
 	PlatformDocker = "docker"
 	PlatformPodman = "podman"
 	PlatformNomad  = "nomad"
+
+	LeafNodeZone = "<leaf-node>"
 )
 
 // Template object

@@ -3,6 +3,8 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
@@ -35,7 +37,7 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 		v := apiclient.TemplateVar{
 			Id:         variable.Id,
 			Name:       variable.Name,
-			Zone:       variable.Zone,
+			Zones:      variable.Zones,
 			Local:      variable.Local,
 			Protected:  variable.Protected,
 			Restricted: variable.Restricted,
@@ -71,8 +73,10 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Value must be less than 10MB"})
 		return
 	}
-	if !validate.MaxLength(request.Zone, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Zone must be less than 64 characters"})
+
+	request.Zones, err = cleanZones(request.Zones)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -86,7 +90,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	templateVar.Name = request.Name
-	templateVar.Zone = request.Zone
+	templateVar.Zones = request.Zones
 	templateVar.Local = request.Local
 	templateVar.Value = request.Value
 	templateVar.Protected = request.Protected
@@ -119,6 +123,27 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func cleanZones(zones []string) ([]string, error) {
+	// Check the zones (max len 64) and remove duplicates and blanks
+	zoneSet := make(map[string]struct{})
+	cleanZones := make([]string, 0, len(zones))
+	for _, zone := range zones {
+		zone = strings.Trim(zone, " \r\n")
+		if zone == "" {
+			continue
+		}
+		if len(zone) > 64 {
+			return nil, fmt.Errorf("zone '%s' exceeds maximum length of 64", zone)
+		}
+		if _, exists := zoneSet[zone]; !exists {
+			zoneSet[zone] = struct{}{}
+			cleanZones = append(cleanZones, zone)
+		}
+	}
+	cleanZones = slices.Clip(cleanZones)
+	return cleanZones, nil
+}
+
 func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	var id string
 
@@ -140,12 +165,14 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Value must be less than 10MB"})
 		return
 	}
-	if !validate.MaxLength(request.Zone, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Zone must be less than 64 characters"})
+
+	request.Zones, err = cleanZones(request.Zones)
+	if err != nil {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	templateVar := model.NewTemplateVar(request.Name, request.Zone, request.Local, request.Value, request.Protected, request.Restricted, user.Id)
+	templateVar := model.NewTemplateVar(request.Name, request.Zones, request.Local, request.Value, request.Protected, request.Restricted, user.Id)
 
 	err = db.SaveTemplateVar(templateVar)
 	if err != nil {
@@ -254,7 +281,7 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 	data := &apiclient.TemplateVarValue{
 		Name:       templateVar.Name,
 		Value:      val,
-		Zone:       templateVar.Zone,
+		Zones:      templateVar.Zones,
 		Local:      templateVar.Local,
 		Protected:  templateVar.Protected,
 		Restricted: templateVar.Restricted,

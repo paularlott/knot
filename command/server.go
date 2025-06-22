@@ -458,7 +458,7 @@ var serverCmd = &cobra.Command{
 
 		// Force the zone for leaf nodes
 		if config.LeafNode {
-			config.Zone = "<leaf-node-zone>"
+			config.Zone = model.LeafNodeZone
 		}
 
 		if config.Timezone == "" {

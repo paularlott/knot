@@ -143,11 +143,20 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 
 	// Mask restricted template vars and trigger them to delete
 	for _, templateVar := range templateVars {
-		if templateVar.Restricted || templateVar.Local || (templateVar.Zone != "" && templateVar.Zone != "<leaf-node-zone>") {
+		// Only allow vars that have empty zones or explicitly mention leaf node zone
+		allowVar := len(templateVar.Zones) == 0
+		for _, zone := range templateVar.Zones {
+			if zone == model.LeafNodeZone {
+				allowVar = true
+				break
+			}
+		}
+
+		if templateVar.Restricted || templateVar.Local || !allowVar {
 			templateVar.IsDeleted = true
 			templateVar.Value = ""
 			templateVar.Name = templateVar.Id
-			templateVar.Zone = ""
+			templateVar.Zones = []string{}
 		}
 	}
 	session.SendMessage(leafmsg.MessageGossipTemplateVar, &templateVars)

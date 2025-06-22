@@ -3,23 +3,23 @@ package apiclient
 import "context"
 
 type TemplateVarValue struct {
-	Name       string `json:"name"`
-	Zone       string `json:"zone"`
-	Local      bool   `json:"local"`
-	Value      string `json:"value"`
-	Protected  bool   `json:"protected"`
-	Restricted bool   `json:"restricted"`
-	IsManaged  bool   `json:"is_managed"`
+	Name       string   `json:"name"`
+	Zones      []string `json:"zones"`
+	Local      bool     `json:"local"`
+	Value      string   `json:"value"`
+	Protected  bool     `json:"protected"`
+	Restricted bool     `json:"restricted"`
+	IsManaged  bool     `json:"is_managed"`
 }
 
 type TemplateVar struct {
-	Id         string `json:"templatevar_id"`
-	Name       string `json:"name"`
-	Zone       string `json:"zone"`
-	Local      bool   `json:"local"`
-	Protected  bool   `json:"protected"`
-	Restricted bool   `json:"restricted"`
-	IsManaged  bool   `json:"is_managed"`
+	Id         string   `json:"templatevar_id"`
+	Name       string   `json:"name"`
+	Zones      []string `json:"zones"`
+	Local      bool     `json:"local"`
+	Protected  bool     `json:"protected"`
+	Restricted bool     `json:"restricted"`
+	IsManaged  bool     `json:"is_managed"`
 }
 
 type TemplateVarList struct {

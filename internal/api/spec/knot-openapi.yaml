@@ -2789,10 +2789,12 @@ components:
           type: string
           maxLength: 64
           description: The name of the template variable.
-        zone:
-          type: string
-          maxLength: 64
-          description: The zone the template variable can be used in.
+        zones:
+          type: array
+          items:
+            type: string
+            maxLength: 64
+          description: The zones the template variable can be used in.
         protected:
           type: boolean
           description: Whether the template variable is protected with encryption.
@@ -2831,10 +2833,12 @@ components:
         value:
           type: string
           description: The value of the template variable, for protected variables this is always returned as blank.
-        zone:
-          type: string
-          maxLength: 64
-          description: The zone the template variable can be used in.
+        zones:
+          type: array
+          items:
+            type: string
+            maxLength: 64
+          description: The zones the template variable can be used in.
         protected:
           type: boolean
           description: Whether the template variable is protected with encryption.

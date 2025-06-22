@@ -98,18 +98,53 @@ func FilterVars(variables []*TemplateVar) map[string]interface{} {
 	// Filter the variables, local takes precedence, then variables with zone matching the server, then global
 	filteredVars := make(map[string]*TemplateVar, len(variables))
 	for _, variable := range variables {
-		if variable.Zone == "" || variable.Zone == config.Zone {
+		if variable.IsDeleted {
+			continue
+		}
 
-			// Test if variable already in the list
-			existing, ok := filteredVars[variable.Name]
-			if ok {
-				if existing.Local || (existing.Zone != "" && !variable.Local) {
-					continue
+		allowVar := len(variable.Zones) == 0
+		zoneMatch := false
+		if !allowVar {
+			// Allow if any zone matches the local zone
+			for _, zone := range variable.Zones {
+				if zone == config.Zone {
+					allowVar = true
+					break
 				}
 			}
 
-			filteredVars[variable.Name] = variable
+			// Allow if all negated zones do not match
+			if !allowVar {
+				hasNegated := false
+				allNegatedDontMatch := true
+				for _, zone := range variable.Zones {
+					if strings.HasPrefix(zone, "!") {
+						hasNegated = true
+						if zone[1:] == config.Zone {
+							allNegatedDontMatch = false
+							break
+						}
+					}
+				}
+				if hasNegated && allNegatedDontMatch {
+					allowVar = true
+				}
+			}
 		}
+
+		if !allowVar {
+			continue
+		}
+
+		// Test if variable already in the list
+		existing, ok := filteredVars[variable.Name]
+		if ok {
+			if existing.Local || (len(existing.Zones) == 0 && !zoneMatch && !variable.Local) || (len(existing.Zones) != 0 && !variable.Local) {
+				continue
+			}
+		}
+
+		filteredVars[variable.Name] = variable
 	}
 
 	vars := make(map[string]interface{}, len(filteredVars))

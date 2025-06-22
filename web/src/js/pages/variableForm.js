@@ -14,7 +14,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
   return {
     formData: {
       name: "",
-      zone: "",
+      zones: [],
       local: isLeafServer ? true : false,
       restricted: isLeafServer ? false : true,
       value: "",
@@ -26,7 +26,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
     stayOnPage: true,
     nameValid: true,
     valueValid: true,
-    zoneValid: true,
+    zoneValid: [],
 
     async initData() {
       focus.Element('input[name="name"]');
@@ -44,11 +44,16 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
           const varData = await response.json();
 
           this.formData.name = varData.name;
-          this.formData.zone = varData.zone;
+          this.formData.zones = varData.zones;
           this.formData.local = varData.local;
           this.formData.restricted = varData.restricted;
           this.formData.value = varData.value;
           this.formData.protected = varData.protected;
+
+          this.zoneValid = [];
+          this.formData.zones.forEach(() => {
+            this.zoneValid.push(true);
+          });
         }
       }
 
@@ -92,9 +97,40 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
       this.valueValid = validate.maxLength(this.formData.value, 10 * 1024 * 1024);
       return this.valueValid;
     },
-    checkZone() {
-      this.zoneValid = this.formData.local || validate.maxLength(this.formData.zone, 64);
-      return this.zoneValid;
+    checkZonesValid() {
+      let zonesValid = true
+      this.formData.zones.forEach((zone, index) => {
+        zonesValid = zonesValid && this.zoneValid[index];
+      });
+      return zonesValid;
+    },
+    checkZone(index) {
+      if(index >= 0 && index < this.formData.zones.length) {
+        let isValid = validate.maxLength(this.formData.zones[index], 64);
+
+        // If valid then check for duplicate extra name
+        if(isValid) {
+          for (let i = 0; i < this.formData.zones.length; i++) {
+            if(i !== index && this.formData.zones[i] === this.formData.zones[index]) {
+              isValid = false;
+              break;
+            }
+          }
+        }
+
+        this.zoneValid[index] = isValid;
+        return isValid;
+      } else {
+        return false;
+      }
+    },
+    addZone() {
+      this.zoneValid.push(true);
+      this.formData.zones.push('');
+    },
+    removeZone(index) {
+      this.formData.zones.splice(index, 1);
+      this.zoneValid.splice(index, 1);
     },
 
     async submitData() {
@@ -102,7 +138,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
       const self = this;
       err = !this.checkName() || err;
       err = !this.checkValue() || err;
-      err = !this.checkZone() || err;
+      err = !this.checkZonesValid() || err;
       if(err) {
         return;
       }

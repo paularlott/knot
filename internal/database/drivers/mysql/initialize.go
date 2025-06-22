@@ -151,7 +151,7 @@ INDEX idx_is_deleted (is_deleted)
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS templatevars (
 templatevar_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
-zone VARCHAR(64),
+zones JSON NOT NULL DEFAULT '[]',
 value MEDIUMTEXT,
 protected TINYINT(1) NOT NULL DEFAULT 0,
 local TINYINT(1) NOT NULL DEFAULT 0,

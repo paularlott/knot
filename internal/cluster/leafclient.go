@@ -300,7 +300,7 @@ func (c *Cluster) handleLeafGossipTemplateVar(msg *leafmsg.Message) {
 	}
 
 	if err := c.mergeTemplateVars(templateVars); err != nil {
-		log.Error().Msgf("cluster: error while merging template vars from leaf: %s", err)
+		log.Error().Msgf("cluster: error while merging template vars: %s", err)
 		return
 	}
 
