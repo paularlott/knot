@@ -38,7 +38,7 @@ type CSIVolumes struct {
 	Volumes []CSIVolume `yaml:"volumes" json:"Volumes"`
 }
 
-func LoadVolumesFromYaml(yamlData string, t *Template, space *Space, user *User, variables *map[string]interface{}) (*CSIVolumes, error) {
+func LoadVolumesFromYaml(yamlData string, t *Template, space *Space, user *User, variables map[string]interface{}) (*CSIVolumes, error) {
 	var err error
 	volumes := &CSIVolumes{}
 

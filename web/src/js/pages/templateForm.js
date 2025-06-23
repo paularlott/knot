@@ -21,6 +21,7 @@ window.templateForm = function(isEdit, templateId) {
       volumes: "",
       groups: [],
       zones: [],
+      custom_fields: [],
       platform: "nomad",
       with_terminal: false,
       with_vscode_tunnel: false,
@@ -86,6 +87,7 @@ window.templateForm = function(isEdit, templateId) {
     fromHours: [],
     toHours: [],
     zoneValid: [],
+    customFieldValid: [],
     showPlatformWarning: false,
 
     async initData() {
@@ -139,12 +141,17 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.max_uptime = template.max_uptime;
           this.formData.max_uptime_unit = template.max_uptime_unit;
           this.formData.icon_url = template.icon_url;
+          this.formData.custom_fields = template.custom_fields;
 
           // Set the zones and mark all as valid
           this.formData.zones = template.zones ? template.zones : [];
           this.zoneValid = [];
           this.formData.zones.forEach(() => {
             this.zoneValid.push(true);
+          });
+          this.customFieldValid = [];
+           this.formData.custom_fields.forEach(() => {
+            this.customFieldValid.push(true);
           });
         }
 
@@ -273,6 +280,13 @@ window.templateForm = function(isEdit, templateId) {
       });
       return zonesValid;
     },
+    checkCustomFieldsValid() {
+      let fieldsValid = true
+      this.formData.custom_fields.forEach((field, index) => {
+        fieldsValid = fieldsValid && this.customFieldValid[index];
+      });
+      return fieldsValid;
+    },
 
     async submitData() {
       let err = false;
@@ -281,6 +295,7 @@ window.templateForm = function(isEdit, templateId) {
       err = !this.checkJob() || err;
       err = !this.checkPlatform() || err;
       err = !this.checkZonesValid() || err;
+      err = !this.checkCustomFieldsValid() || err;
       if(err) {
         return;
       }
@@ -311,6 +326,7 @@ window.templateForm = function(isEdit, templateId) {
         max_uptime_unit: this.formData.platform !== 'manual' ? 'disabled' : this.formData.max_uptime_unit,
         platform: this.formData.platform,
         icon_url: this.formData.icon_url,
+        custom_fields: this.formData.custom_fields,
       };
 
       await fetch(isEdit ? `/api/templates/${templateId}` : '/api/templates', {
@@ -377,8 +393,38 @@ window.templateForm = function(isEdit, templateId) {
         return false;
       }
     },
+    addField() {
+      this.customFieldValid.push(true);
+      this.formData.custom_fields.push({name: '', description: ''});
+    },
+    removeField(index) {
+      this.formData.custom_fields.splice(index, 1);
+      this.customFieldValid.splice(index, 1);
+    },
+    checkCustomField(index) {
+      if(index >= 0 && index < this.formData.custom_fields.length) {
+        let isValid = validate.maxLength(this.formData.custom_fields[index].name, 24) &&
+                      validate.varName(this.formData.custom_fields[index].name) &&
+                      validate.maxLength(this.formData.custom_fields[index].description, 256);
+
+        // If valid then check for duplicate name
+        if(isValid) {
+          for (let i = 0; i < this.formData.custom_fields.length; i++) {
+            if(i !== index && this.formData.custom_fields[i].name === this.formData.custom_fields[index].name) {
+              isValid = false;
+              break;
+            }
+          }
+        }
+
+        this.customFieldValid[index] = isValid;
+        return isValid;
+      } else {
+        return false;
+      }
+    },
     isLocalContainer() {
-      return this.formData.platform === 'docker';
+      return this.formData.platform === 'docker' || this.formData.platform === 'podman';
     }
   }
 }

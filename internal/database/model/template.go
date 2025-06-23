@@ -46,6 +46,7 @@ type Template struct {
 	IsManaged        bool                   `json:"is_managed" db:"is_managed"`
 	Schedule         []TemplateScheduleDays `json:"schedule" db:"schedule,json"`
 	Zones            []string               `json:"zones" db:"zones,json"`
+	CustomFields     []TemplateCustomField  `json:"custom_fields" db:"custom_fields,json"`
 	MaxUptime        uint32                 `json:"max_uptime" db:"max_uptime"`
 	MaxUptimeUnit    string                 `json:"max_uptime_unit" db:"max_uptime_unit"`
 	CreatedUserId    string                 `json:"created_user_id" db:"created_user_id"`
@@ -58,6 +59,11 @@ type TemplateScheduleDays struct {
 	Enabled bool   `json:"enabled"`
 	From    string `json:"from"`
 	To      string `json:"to"`
+}
+
+type TemplateCustomField struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func NewTemplate(
@@ -82,6 +88,7 @@ func NewTemplate(
 	maxUptime uint32,
 	maxUptimeUnit string,
 	iconURL string,
+	customFields []TemplateCustomField,
 ) *Template {
 	id, err := uuid.NewV7()
 	if err != nil {
@@ -111,6 +118,7 @@ func NewTemplate(
 		Active:           active,
 		MaxUptime:        maxUptime,
 		MaxUptimeUnit:    maxUptimeUnit,
+		CustomFields:     customFields,
 	}
 	template.UpdateHash()
 
@@ -126,12 +134,12 @@ func NewTemplate(
 	return template
 }
 
-func (template *Template) GetVolumes(space *Space, user *User, variables *map[string]interface{}) (*CSIVolumes, error) {
+func (template *Template) GetVolumes(space *Space, user *User, variables map[string]interface{}) (*CSIVolumes, error) {
 	return LoadVolumesFromYaml(template.Volumes, template, space, user, variables)
 }
 
 func (template *Template) UpdateHash() {
-	hash := md5.Sum([]byte(template.Job + template.Volumes + fmt.Sprintf("%t%t%t%t", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH)))
+	hash := md5.Sum([]byte(template.Job + template.Volumes + template.Platform + fmt.Sprintf("%t%t%t%t%v", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.CustomFields)))
 	template.Hash = hex.EncodeToString(hash[:])
 }
 

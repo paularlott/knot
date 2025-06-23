@@ -12,6 +12,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type SpaceCustomField struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 type SpaceVolume struct {
 	Id        string `json:"id"`
 	Namespace string `json:"Namespace"`
@@ -57,33 +62,34 @@ func (v *VolumeDataMap) Scan(value interface{}) error {
 
 // Space object
 type Space struct {
-	Id               string        `json:"space_id" db:"space_id,pk" msgpack:"space_id"`
-	ParentSpaceId    string        `json:"parent_space_id" db:"parent_space_id" msgpack:"parent_space_id"`
-	UserId           string        `json:"user_id" db:"user_id" msgpack:"user_id"`
-	TemplateId       string        `json:"template_id" db:"template_id" msgpack:"template_id"`
-	SharedWithUserId string        `json:"shared_with_user_id" db:"shared_with_user_id" msgpack:"shared_with_user_id"`
-	Name             string        `json:"name" db:"name" msgpack:"name"`
-	Description      string        `json:"description" db:"description" msgpack:"description"`
-	Note             string        `json:"note" db:"note" msgpack:"note"`
-	Zone             string        `json:"zone" db:"zone" msgpack:"zone"`
-	Shell            string        `json:"shell" db:"shell" msgpack:"shell"`
-	TemplateHash     string        `json:"template_hash" db:"template_hash" msgpack:"template_hash"`
-	NomadNamespace   string        `json:"nomad_namespace" db:"nomad_namespace" msgpack:"nomad_namespace"`
-	ContainerId      string        `json:"container_id" db:"container_id" msgpack:"container_id"`
-	IconURL          string        `json:"icon_url" db:"icon_url" msgpack:"icon_url"`
-	VolumeData       VolumeDataMap `json:"volume_data" db:"volume_data" msgpack:"volume_data"`
-	SSHHostSigner    string        `json:"ssh_host_signer" db:"ssh_host_signer" msgpack:"ssh_host_signer"`
-	IsDeployed       bool          `json:"is_deployed" db:"is_deployed" msgpack:"is_deployed"`
-	IsPending        bool          `json:"is_pending" db:"is_pending" msgpack:"is_pending"`    // Flags if the space is pending a state change, starting or stopping
-	IsDeleting       bool          `json:"is_deleting" db:"is_deleting" msgpack:"is_deleting"` // Flags if the space is pending a state change, starting or stopping
-	IsDeleted        bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
-	AltNames         []string      `json:"alt_names" msgpack:"alt_names"`
-	StartedAt        time.Time     `json:"started_at" db:"started_at" msgpack:"started_at"`
-	CreatedAt        time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
-	UpdatedAt        time.Time     `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	Id               string             `json:"space_id" db:"space_id,pk" msgpack:"space_id"`
+	ParentSpaceId    string             `json:"parent_space_id" db:"parent_space_id" msgpack:"parent_space_id"`
+	UserId           string             `json:"user_id" db:"user_id" msgpack:"user_id"`
+	TemplateId       string             `json:"template_id" db:"template_id" msgpack:"template_id"`
+	SharedWithUserId string             `json:"shared_with_user_id" db:"shared_with_user_id" msgpack:"shared_with_user_id"`
+	Name             string             `json:"name" db:"name" msgpack:"name"`
+	Description      string             `json:"description" db:"description" msgpack:"description"`
+	Note             string             `json:"note" db:"note" msgpack:"note"`
+	Zone             string             `json:"zone" db:"zone" msgpack:"zone"`
+	Shell            string             `json:"shell" db:"shell" msgpack:"shell"`
+	TemplateHash     string             `json:"template_hash" db:"template_hash" msgpack:"template_hash"`
+	NomadNamespace   string             `json:"nomad_namespace" db:"nomad_namespace" msgpack:"nomad_namespace"`
+	ContainerId      string             `json:"container_id" db:"container_id" msgpack:"container_id"`
+	IconURL          string             `json:"icon_url" db:"icon_url" msgpack:"icon_url"`
+	VolumeData       VolumeDataMap      `json:"volume_data" db:"volume_data" msgpack:"volume_data"`
+	SSHHostSigner    string             `json:"ssh_host_signer" db:"ssh_host_signer" msgpack:"ssh_host_signer"`
+	IsDeployed       bool               `json:"is_deployed" db:"is_deployed" msgpack:"is_deployed"`
+	IsPending        bool               `json:"is_pending" db:"is_pending" msgpack:"is_pending"`    // Flags if the space is pending a state change, starting or stopping
+	IsDeleting       bool               `json:"is_deleting" db:"is_deleting" msgpack:"is_deleting"` // Flags if the space is pending a state change, starting or stopping
+	IsDeleted        bool               `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	AltNames         []string           `json:"alt_names" msgpack:"alt_names"`
+	CustomFields     []SpaceCustomField `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`
+	StartedAt        time.Time          `json:"started_at" db:"started_at" msgpack:"started_at"`
+	CreatedAt        time.Time          `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedAt        time.Time          `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
-func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string, zone string, iconURL string) *Space {
+func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string, zone string, iconURL string, customFields []SpaceCustomField) *Space {
 	id, err := uuid.NewV7()
 	if err != nil {
 		log.Fatal().Msg(err.Error())
@@ -117,6 +123,7 @@ func NewSpace(name string, description string, userId string, templateId string,
 		SSHHostSigner:    ed25519,
 		SharedWithUserId: "",
 		IconURL:          iconURL,
+		CustomFields:     customFields,
 	}
 
 	return space

@@ -44,6 +44,6 @@ func NewVolume(name string, definition string, userId string, platform string) *
 	return volume
 }
 
-func (volume *Volume) GetVolume(variables *map[string]interface{}) (*CSIVolumes, error) {
+func (volume *Volume) GetVolume(variables map[string]interface{}) (*CSIVolumes, error) {
 	return LoadVolumesFromYaml(volume.Definition, nil, nil, nil, variables)
 }

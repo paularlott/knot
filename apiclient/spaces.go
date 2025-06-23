@@ -8,13 +8,14 @@ import (
 )
 
 type SpaceRequest struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	TemplateId  string   `json:"template_id"`
-	Shell       string   `json:"shell"`
-	UserId      string   `json:"user_id"`
-	AltNames    []string `json:"alt_names"`
-	IconURL     string   `json:"icon_url"`
+	Name         string             `json:"name"`
+	Description  string             `json:"description"`
+	TemplateId   string             `json:"template_id"`
+	Shell        string             `json:"shell"`
+	UserId       string             `json:"user_id"`
+	AltNames     []string           `json:"alt_names"`
+	IconURL      string             `json:"icon_url"`
+	CustomFields []CustomFieldValue `json:"custom_fields"`
 }
 
 type CreateSpaceResponse struct {
@@ -62,20 +63,26 @@ type SpaceInfoList struct {
 	Spaces []SpaceInfo `json:"spaces"`
 }
 
+type CustomFieldValue struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 type SpaceDefinition struct {
-	UserId      string                       `json:"user_id"`
-	TemplateId  string                       `json:"template_id"`
-	Name        string                       `json:"name"`
-	Description string                       `json:"description"`
-	Shell       string                       `json:"shell"`
-	Zone        string                       `json:"zone"`
-	AltNames    []string                     `json:"alt_names"`
-	IsDeployed  bool                         `json:"is_deployed"`
-	IsPending   bool                         `json:"is_pending"`
-	IsDeleting  bool                         `json:"is_deleting"`
-	VolumeData  map[string]model.SpaceVolume `json:"volume_data"`
-	StartedAt   time.Time                    `json:"started_at"`
-	IconURL     string                       `json:"icon_url"`
+	UserId       string                       `json:"user_id"`
+	TemplateId   string                       `json:"template_id"`
+	Name         string                       `json:"name"`
+	Description  string                       `json:"description"`
+	Shell        string                       `json:"shell"`
+	Zone         string                       `json:"zone"`
+	AltNames     []string                     `json:"alt_names"`
+	IsDeployed   bool                         `json:"is_deployed"`
+	IsPending    bool                         `json:"is_pending"`
+	IsDeleting   bool                         `json:"is_deleting"`
+	VolumeData   map[string]model.SpaceVolume `json:"volume_data"`
+	StartedAt    time.Time                    `json:"started_at"`
+	IconURL      string                       `json:"icon_url"`
+	CustomFields []CustomFieldValue           `json:"custom_fields"`
 }
 
 func (c *ApiClient) GetSpaces(ctx context.Context, userId string) (*SpaceInfoList, int, error) {

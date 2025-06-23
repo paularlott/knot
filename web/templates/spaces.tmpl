@@ -198,7 +198,7 @@
                         <span x-show="!s.is_deployed && s.is_pending" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Starting</span>
                         <span x-show="s.is_deployed && s.is_pending" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Stopping</span>
                         <span x-show="s.is_deleting" class="inline-block w-fit bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Deleting</span>
-                        <span x-show="s.is_local && s.update_available && !s.is_pending" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Update Available</span>
+                        <span x-show="s.is_local && s.update_available && !s.is_pending" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Update Available</span>
                       </div>
                       <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 lg:hidden">Uptime: <span class="text-gray-700 dark:text-gray-300" x-text="s.is_deployed ? s.uptime : '-'"></span></div>
 
@@ -383,7 +383,7 @@
                     <span x-show="!s.is_deployed && s.is_pending" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Starting</span>
                     <span x-show="s.is_deployed && s.is_pending" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Stopping</span>
                     <span x-show="s.is_deleting" class="inline-block w-fit bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Deleting</span>
-                    <span x-show="s.is_local && s.update_available && !s.is_pending" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Update Available</span>
+                    <span x-show="s.is_local && s.update_available && !s.is_pending" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Update Available</span>
                   </div>
                   <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Uptime: <span class="text-gray-700 dark:text-gray-300 whitespace-nowrap" x-text="s.is_deployed ? s.uptime : '-'"></span></div>
                 </td>

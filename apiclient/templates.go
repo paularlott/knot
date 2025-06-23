@@ -2,6 +2,11 @@ package apiclient
 
 import "context"
 
+type CustomFieldDef struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 type TemplateCreateRequest struct {
 	Name             string               `json:"name"`
 	Job              string               `json:"job"`
@@ -23,6 +28,7 @@ type TemplateCreateRequest struct {
 	MaxUptime        uint32               `json:"max_uptime"`
 	MaxUptimeUnit    string               `json:"max_uptime_unit"`
 	IconURL          string               `json:"icon_url"`
+	CustomFields     []CustomFieldDef     `json:"custom_fields"`
 }
 
 type TemplateUpdateRequest struct {
@@ -46,6 +52,7 @@ type TemplateUpdateRequest struct {
 	MaxUptime        uint32               `json:"max_uptime"`
 	MaxUptimeUnit    string               `json:"max_uptime_unit"`
 	IconURL          string               `json:"icon_url"`
+	CustomFields     []CustomFieldDef     `json:"custom_fields"`
 }
 
 type TemplateCreateResponse struct {
@@ -110,6 +117,7 @@ type TemplateDetails struct {
 	MaxUptime        uint32               `json:"max_uptime"`
 	MaxUptimeUnit    string               `json:"max_uptime_unit"`
 	IconURL          string               `json:"icon_url"`
+	CustomFields     []CustomFieldDef     `json:"custom_fields"`
 }
 
 func (c *ApiClient) GetTemplates(ctx context.Context) (*TemplateList, int, error) {

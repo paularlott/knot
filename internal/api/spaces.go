@@ -323,8 +323,16 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var customFields = []model.SpaceCustomField{}
+	for _, field := range request.CustomFields {
+		customFields = append(customFields, model.SpaceCustomField{
+			Name:  field.Name,
+			Value: field.Value,
+		})
+	}
+
 	// Create the space
-	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, config.Zone, request.IconURL)
+	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, config.Zone, request.IconURL, customFields)
 	err = db.SaveSpace(space, nil)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -577,6 +585,14 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var customFields = []model.SpaceCustomField{}
+	for _, field := range request.CustomFields {
+		customFields = append(customFields, model.SpaceCustomField{
+			Name:  field.Name,
+			Value: field.Value,
+		})
+	}
+
 	// Update the space
 	space.Name = request.Name
 	space.Description = request.Description
@@ -585,6 +601,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.AltNames = request.AltNames
 	space.UpdatedAt = time.Now().UTC()
 	space.IconURL = request.IconURL
+	space.CustomFields = customFields
 
 	// Lookup the template
 	template, err := db.GetTemplate(request.TemplateId)
@@ -607,7 +624,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	err = db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "Shell", "AltNames", "UpdatedAt", "IconURL"})
+	err = db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "Shell", "AltNames", "UpdatedAt", "IconURL", "CustomFields"})
 	if err != nil {
 		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -691,19 +708,27 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := apiclient.SpaceDefinition{
-		UserId:      space.UserId,
-		TemplateId:  space.TemplateId,
-		Name:        space.Name,
-		Description: space.Description,
-		Shell:       space.Shell,
-		Zone:        space.Zone,
-		AltNames:    space.AltNames,
-		IsDeployed:  space.IsDeployed,
-		IsPending:   space.IsPending,
-		IsDeleting:  space.IsDeleting,
-		VolumeData:  space.VolumeData,
-		StartedAt:   space.StartedAt.UTC(),
-		IconURL:     space.IconURL,
+		UserId:       space.UserId,
+		TemplateId:   space.TemplateId,
+		Name:         space.Name,
+		Description:  space.Description,
+		Shell:        space.Shell,
+		Zone:         space.Zone,
+		AltNames:     space.AltNames,
+		IsDeployed:   space.IsDeployed,
+		IsPending:    space.IsPending,
+		IsDeleting:   space.IsDeleting,
+		VolumeData:   space.VolumeData,
+		StartedAt:    space.StartedAt.UTC(),
+		IconURL:      space.IconURL,
+		CustomFields: make([]apiclient.CustomFieldValue, len(space.CustomFields)),
+	}
+
+	for i, field := range space.CustomFields {
+		response.CustomFields[i] = apiclient.CustomFieldValue{
+			Name:  field.Name,
+			Value: field.Value,
+		}
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, &response)

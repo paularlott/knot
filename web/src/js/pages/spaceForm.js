@@ -7,13 +7,16 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       name: "",
       description: "",
       icon_url: "",
-      template_id: "",
+      template_id: templateId,
       shell: preferredShell,
       user_id: forUserId,
       alt_names: [],
+      custom_fields: []
     },
-    templates: [],
     template_id: templateId,
+    template: {
+      custom_fields: []
+    },
     isManual: false,
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create Space',
@@ -34,15 +37,6 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     async initData() {
       focus.Element('input[name="name"]');
 
-      // Fetch the available templates
-      const templatesResponse = await fetch('/api/templates', {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      const templateList = await templatesResponse.json();
-      this.templates = templateList.templates;
-
       if(isEdit) {
         const spaceResponse = await fetch(`/api/spaces/${spaceId}`, {
           headers: {
@@ -60,6 +54,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.formData.template_id = this.template_id = space.template_id;
           this.formData.shell = space.shell;
           this.formData.icon_url = space.icon_url;
+          this.formData.custom_fields = space.custom_fields;
 
           if(space.user_id !== userId) {
             this.formData.user_id = space.user_id;
@@ -76,22 +71,30 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
             this.altNameValid.push(true);
           }
         }
-      } else {
-        if(templateId === '') {
-          this.formData.template_id = this.template_id = document.querySelector('#template option:first-child').value;
-        } else {
-          this.formData.template_id = this.template_id;
-        }
       }
 
+      const templatesResponse = await fetch('/api/templates/'+(isEdit ? this.formData.template_id : templateId), {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.template = await templatesResponse.json();
+
       // Get if the template is manual
-      const selectedTemplate = this.templates.find(t => t.template_id === this.formData.template_id);
-      this.isManual = selectedTemplate ? selectedTemplate.platform === 'manual' : false;
+      this.isManual = this.template ? this.template.platform === 'manual' : false;
       this.startOnCreate = !this.isManual;
 
       if(!isEdit) {
-        this.formData.icon_url = selectedTemplate.icon_url;
+        this.formData.icon_url = this.template.icon_url;
       }
+
+      // Sort the formData custom fields to match the ordering of the template
+      this.formData.custom_fields = this.template.custom_fields.map(field => {
+        return {
+          name: field.name,
+          value: this.formData.custom_fields.find(f => f.name === field.name)?.value || ''
+        };
+      });
 
       this.loading = false;
     },

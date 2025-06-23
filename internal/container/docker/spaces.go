@@ -59,7 +59,7 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables *map[string]interface{}) error {
+func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
 
 	log.Debug().Msgf(c.DriverName+": creating space job %s", space.Id)
 
@@ -337,7 +337,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 	return nil
 }
 
-func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables *map[string]interface{}) error {
+func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
 
 	// Parse the volume definition to fill out the knot variables
 	volumes, err := model.ResolveVariables(template.Volumes, template, space, user, variables)

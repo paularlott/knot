@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func (c *DockerClient) CreateVolume(vol *model.Volume, variables *map[string]interface{}) error {
+func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
 	log.Debug().Msg(c.DriverName + ": creating volume")
 
 	// Parse the volume definition to fill out the knot variables
@@ -51,7 +51,7 @@ func (c *DockerClient) CreateVolume(vol *model.Volume, variables *map[string]int
 	return nil
 }
 
-func (c *DockerClient) DeleteVolume(vol *model.Volume, variables *map[string]interface{}) error {
+func (c *DockerClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
 	log.Debug().Msg(c.DriverName + ": deleting volume")
 
 	// Parse the volume definition to fill out the knot variables

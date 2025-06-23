@@ -59,7 +59,7 @@ func (h *Helper) CreateVolume(volume *model.Volume) error {
 	}
 
 	// Create volumes
-	err = containerClient.CreateVolume(volume, &vars)
+	err = containerClient.CreateVolume(volume, vars)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (h *Helper) DeleteVolume(volume *model.Volume) error {
 	}
 
 	// Delete the volume
-	err = containerClient.DeleteVolume(volume, &vars)
+	err = containerClient.DeleteVolume(volume, vars)
 	if err != nil && !strings.Contains(err.Error(), "volume not found") {
 		return err
 	}
@@ -137,14 +137,14 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 	}
 
 	// Create volumes
-	err = containerClient.CreateSpaceVolumes(user, template, space, &vars)
+	err = containerClient.CreateSpaceVolumes(user, template, space, vars)
 	if err != nil {
 		log.Error().Err(err).Msg("StartSpace")
 		return err
 	}
 
 	// Start the job
-	err = containerClient.CreateSpaceJob(user, template, space, &vars)
+	err = containerClient.CreateSpaceJob(user, template, space, vars)
 	if err != nil {
 		log.Error().Err(err).Msg("StartSpace")
 		return err

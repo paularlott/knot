@@ -2,6 +2,9 @@ package model
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"text/template"
@@ -12,15 +15,56 @@ import (
 )
 
 // Parse an input string and resolve knot variables
-func ResolveVariables(srcString string, t *Template, space *Space, user *User, variables *map[string]interface{}) (string, error) {
+func ResolveVariables(srcString string, t *Template, space *Space, user *User, variables map[string]interface{}) (string, error) {
 
 	// If no variables are provided then create an empty map
 	if variables == nil {
-		variables = &map[string]interface{}{}
+		variables = map[string]interface{}{}
+	}
+
+	// Build map of custom space variables and any that are in the template and not space add as blanks
+	var custVars = make(map[string]interface{})
+	for _, field := range space.CustomFields {
+		custVars[field.Name] = field.Value
+	}
+	for _, field := range t.CustomFields {
+		if _, ok := custVars[field.Name]; !ok {
+			custVars[field.Name] = ""
+		}
+	}
+
+	// Add a function to the template engine
+	funcs := map[string]any{
+		"map": func(pairs ...any) (map[string]any, error) {
+			if len(pairs)%2 != 0 {
+				return nil, errors.New("map requires key value pairs")
+			}
+
+			m := make(map[string]any, len(pairs)/2)
+
+			for i := 0; i < len(pairs); i += 2 {
+				key, ok := pairs[i].(string)
+
+				if !ok {
+					return nil, fmt.Errorf("type %T is not usable as map key", pairs[i])
+				}
+				m[key] = pairs[i+1]
+			}
+			return m, nil
+		},
+		"quote": func(s string) string {
+			return strings.ReplaceAll(s, `"`, `\"`)
+		},
+		"toUpper": strings.ToUpper,
+		"toLower": strings.ToLower,
+		"json": func(v interface{}) string {
+			b, _ := json.Marshal(v)
+			return string(b)
+		},
 	}
 
 	// Passe the YAML string through the template engine to resolve variables
-	tmpl, err := template.New("tmpl").Delims("${{", "}}").Parse(srcString)
+	tmpl, err := template.New("tmpl").Funcs(funcs).Delims("${{", "}}").Parse(srcString)
 	if err != nil {
 		return srcString, err
 	}
@@ -58,7 +102,8 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"dc":     os.Getenv("NOMAD_DC"),
 			"region": os.Getenv("NOMAD_REGION"),
 		},
-		"var": variables,
+		"var":    variables,
+		"custom": &custVars,
 	}
 
 	if space != nil {

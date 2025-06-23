@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (client *NomadClient) CreateVolume(vol *model.Volume, variables *map[string]interface{}) error {
+func (client *NomadClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
 
 	// Get the volume definitions
 	volumes, err := vol.GetVolume(variables)
@@ -35,7 +35,7 @@ func (client *NomadClient) CreateVolume(vol *model.Volume, variables *map[string
 	return nil
 }
 
-func (client *NomadClient) DeleteVolume(vol *model.Volume, variables *map[string]interface{}) error {
+func (client *NomadClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
 
 	// Get the volume definitions
 	volumes, err := vol.GetVolume(variables)

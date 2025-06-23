@@ -2320,6 +2320,18 @@ components:
           items:
             $ref: '#/components/schemas/SpaceInfo'
 
+    CustomFieldValue:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 64
+          description: Field and variable name.
+        value:
+          type: string
+          maxLength: 256
+          description: The value for the field.
+
     SpaceRequest:
       type: object
       properties:
@@ -2351,6 +2363,11 @@ components:
         icon_url:
           type: string
           description: The icon URL for the space or an empty string if there's no icon.
+        custom_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomFieldValue'
+          description: The values for the custom fields.
 
     SpaceVolume:
       type: object
@@ -2416,6 +2433,11 @@ components:
         icon_url:
           type: string
           description: The icon URL for the space or an empty string if there's no icon.
+        custom_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomFieldValue'
+          description: The values for the custom fields.
 
     TemplateInfo:
       type: object
@@ -2507,6 +2529,18 @@ components:
           items:
             $ref: '#/components/schemas/TemplateInfo'
 
+    CustomFieldDef:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 64
+          description: Field and variable name.
+        description:
+          type: string
+          maxLength: 256
+          description: The optional description for the field.
+
     TemplateCreateRequest:
       type: object
       properties:
@@ -2588,6 +2622,11 @@ components:
           type: string
           format: uri
           description: The URL of the icon for the template, empty string if there's no icon.
+        custom_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomFieldDef'
+          description: The custom fields for the template.
 
     TemplateUpdateRequest:
       type: object
@@ -2670,6 +2709,11 @@ components:
           type: string
           format: uri
           description: The URL of the icon for the template, empty string if there's no icon.
+        custom_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomFieldDef'
+          description: The custom fields for the template.
 
     TemplateDetails:
       type: object
@@ -2762,6 +2806,11 @@ components:
           type: string
           format: uri
           description: The URL of the icon for the template, empty string if there's no icon.
+        custom_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomFieldDef'
+          description: The custom fields for the template.
 
     TemplateDetailsDay:
       type: object

@@ -184,6 +184,17 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	for _, field := range request.CustomFields {
+		if !validate.Required(field.Name) || !validate.VarName(field.Name) {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid custom field name given"})
+			return
+		}
+		if !validate.MaxLength(field.Description, 256) {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Custom field description must be less than 256 characters"})
+			return
+		}
+	}
+
 	db := database.GetInstance()
 	user := r.Context().Value("user").(*model.User)
 
@@ -230,12 +241,20 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.MaxUptimeUnit = request.MaxUptimeUnit
 	template.IconURL = request.IconURL
 	template.Platform = request.Platform
+	template.CustomFields = make([]model.TemplateCustomField, len(request.CustomFields))
 
 	for i, day := range request.Schedule {
 		template.Schedule[i] = model.TemplateScheduleDays{
 			Enabled: day.Enabled,
 			From:    day.From,
 			To:      day.To,
+		}
+	}
+
+	for i, field := range request.CustomFields {
+		template.CustomFields[i] = model.TemplateCustomField{
+			Name:        field.Name,
+			Description: field.Description,
 		}
 	}
 
@@ -325,6 +344,17 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	for _, field := range request.CustomFields {
+		if !validate.Required(field.Name) || !validate.VarName(field.Name) {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid custom field name given"})
+			return
+		}
+		if !validate.MaxLength(field.Description, 256) {
+			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Custom field description must be less than 256 characters"})
+			return
+		}
+	}
+
 	db := database.GetInstance()
 	user := r.Context().Value("user").(*model.User)
 
@@ -343,6 +373,14 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 			Enabled: day.Enabled,
 			From:    day.From,
 			To:      day.To,
+		})
+	}
+
+	var customFields = []model.TemplateCustomField{}
+	for _, field := range request.CustomFields {
+		customFields = append(customFields, model.TemplateCustomField{
+			Name:        field.Name,
+			Description: field.Description,
 		})
 	}
 
@@ -368,6 +406,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.MaxUptime,
 		request.MaxUptimeUnit,
 		request.IconURL,
+		customFields,
 	)
 
 	err = database.GetInstance().SaveTemplate(template, nil)
@@ -521,6 +560,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		MaxUptime:        template.MaxUptime,
 		MaxUptimeUnit:    template.MaxUptimeUnit,
 		IconURL:          template.IconURL,
+		CustomFields:     make([]apiclient.CustomFieldDef, len(template.CustomFields)),
 	}
 
 	if len(template.Schedule) != 7 {
@@ -538,6 +578,13 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 				From:    day.From,
 				To:      day.To,
 			}
+		}
+	}
+
+	for i, field := range template.CustomFields {
+		data.CustomFields[i] = apiclient.CustomFieldDef{
+			Name:        field.Name,
+			Description: field.Description,
 		}
 	}
 

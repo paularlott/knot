@@ -7,7 +7,7 @@
   <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4" x-data="spaceForm({{ .isEdit }}, '{{ .spaceId }}', '{{ .user_id }}', '{{ .preferredShell }}', '{{ .forUserId }}', '{{ .forUserUsername }}', '{{ .templateId }}')" x-init="initData">
 
     <div class="mb-4 col-span-full xl:mb-2">
-      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Space{{ else }}Create Space{{ end }} <span x-show="formData.user_id.length">for <span x-text="forUsername"></span></span></h1>
+      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Space{{ else }}Create Space{{ end }} <span x-text="'(' + template.name + ')'"></span> <span x-show="formData.user_id.length">for <span x-text="forUsername"></span></span></h1>
     </div>
 
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-2 dark:border-gray-700 sm:p-6 dark:bg-gray-800">
@@ -78,14 +78,6 @@
           </template>
         </div>
         <div>
-          <label for="template" class="form-label">Template</label>
-          <select id="template" name="template" x-model="formData.template_id" readonly disabled class="form-field">
-            <template x-for="template in templates" :key="template.template_id">
-              <option :value="template.template_id" x-text="template.name"></option>
-            </template>
-          </select>
-        </div>
-        <div>
           <label for="shell" class="form-label">Terminal Shell</label>
           <select class="form-field" name="shell" x-model="formData.shell">
             <option value="bash">Bash</option>
@@ -95,6 +87,21 @@
           </select>
           <div class="description">The shell that will be used when you open a web terminal in this space.</div>
         </div>
+
+        <div x-show="!isManual && template.custom_fields.length" x-cloak>
+          <fieldset class="rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+            <legend class="text-md font-medium text-gray-900 dark:text-white">Custom Fields</legend>
+            <div class="space-y-6">
+              <template x-for="(field, index) in template.custom_fields" :key="index">
+                <div>
+                  <label class="form-label" x-text="template.custom_fields[index].description + ' (' + template.custom_fields[index].name + ')'"></label>
+                  <input type="text" class="form-field" placeholder="Field value" x-model="formData.custom_fields[index].value">
+                </div>
+              </template>
+            </div>
+          </fieldset>
+        </div>
+
         {{ if not .isEdit }}
         <div x-cloak x-show="!isManual">
           <label class="flex items-center cursor-pointer mb-2">

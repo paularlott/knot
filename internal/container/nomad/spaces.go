@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables *map[string]interface{}) error {
+func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
 	db := database.GetInstance()
 
 	// Get the volume definitions
@@ -114,7 +114,7 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 	return nil
 }
 
-func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables *map[string]interface{}) error {
+func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
 	db := database.GetInstance()
 
 	log.Debug().Msgf("nomad: creating space job %s", space.Id)

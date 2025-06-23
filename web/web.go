@@ -353,6 +353,9 @@ func newTemplate(name string) (*template.Template, error) {
 			}
 			return m, nil
 		},
+		"quote": func(s string) string {
+			return strings.ReplaceAll(s, `"`, `\"`)
+		},
 	}
 
 	// If server.template_path is given then serve the files from that path otherwise serve the embedded files
