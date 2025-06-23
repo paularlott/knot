@@ -7,7 +7,7 @@
 
 </div>
 
-Knot is a powerful tool to manage Cloud Development Environment within a Nomad cluster. It provides a seamless blend of a user-friendly web interface and a command line interface. This dual approach streamlines the deployment process and simplifies access to development environments, making management an effortless endeavor and eliminating the need for each developer to manage their own configurations.
+Knot is a powerful tool to manage Cloud Development Environment within a Nomad cluster or local environments. It provides a seamless blend of a user-friendly web interface and a command line interface. This dual approach streamlines the deployment process and simplifies access to development environments, making management an effortless endeavor and eliminating the need for each developer to manage their own configurations.
 
 ## Features
 
@@ -24,7 +24,7 @@ Knot is a powerful tool to manage Cloud Development Environment within a Nomad c
 - **Quotas:** Limit by resource usage and by number of spaces per user.
 - **Development URL Management:** Automatically generated URLs for development spaces.
 - **Support for VNC:** Support for web based VNC servers such as KasmVNC.
-- **Remote Servers** Maximize performance by deploying environment close to developers but manage templates and users from one central location.
+- **Remote Servers** Maximize performance by deploying environment close to developers but manage templates and users from anywhere, no single point failure.
 - **Custom Roles:** Create custom roles to manage permissions.
 - **Sharing:** Spaces can be shared with other users allowing SSH and terminal access.
 - **Logging:** Syslog compatible interface allows logging and display within a window.
@@ -49,7 +49,7 @@ For complex deployments over many different locations a mesh network may be appr
 
 When tunneling is enabled the tunnel port is separate from the web interface and the agent interface, it is expected that public traffic be directed to the tunnel interface only.
 
-TOTP should be enabled if the web interface is exposed to the internet. The TOTP code works with Google Authenticator, Microsoft Authenticator, and other TOTP apps.
+Time-based one-time passwords (TOTP) should be enabled if the web interface is exposed to the internet. The TOTP code works with Google Authenticator, Microsoft Authenticator, and other TOTP apps.
 
 ## Documentation
 
