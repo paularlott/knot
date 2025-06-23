@@ -14,7 +14,6 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
-	"github.com/spf13/viper"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -62,7 +61,7 @@ func contains(slice []string, item string) bool {
 
 func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables *map[string]interface{}) error {
 
-	log.Debug().Msgf("docker: creating space job %s", space.Id)
+	log.Debug().Msgf(c.DriverName+": creating space job %s", space.Id)
 
 	// Pre-parse the job to fill out the knot variables
 	job, err := model.ResolveVariables(template.Job, template, space, user, variables)
@@ -168,7 +167,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	space.UpdatedAt = now
 	err = db.SaveSpace(space, []string{"IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Zone", "UpdatedAt", "StartedAt"})
 	if err != nil {
-		log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+		log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
 		return err
 	}
 
@@ -182,15 +181,15 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			space.IsPending = false
 			space.UpdatedAt = time.Now().UTC()
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
-				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+				log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
 			}
 			service.GetTransport().GossipSpace(space)
 		}()
 
 		// Create a Docker client
-		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
+		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(c.Host))
 		if err != nil {
-			log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+			log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
 			return
 		}
 
@@ -203,30 +202,30 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			}
 			encodedJSON, err := json.Marshal(authConfig)
 			if err != nil {
-				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+				log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
 				return
 			}
 			authStr = base64.URLEncoding.EncodeToString(encodedJSON)
 		}
 
 		// Pull the container
-		log.Debug().Msgf("docker: pulling image %s", spec.Image)
+		log.Debug().Msgf(c.DriverName+": pulling image %s", spec.Image)
 		reader, err := cli.ImagePull(context.Background(), spec.Image, image.PullOptions{
 			RegistryAuth: authStr,
 		})
 		if err != nil {
-			log.Error().Msgf("docker: pulling image %s, error: %s", spec.Image, err)
+			log.Error().Msgf(c.DriverName+": pulling image %s, error: %s", spec.Image, err)
 			return
 		}
 		defer func() {
 			if err := reader.Close(); err != nil {
-				log.Error().Msgf("docker: pulling image %s, error: %s", spec.Image, err)
+				log.Error().Msgf(c.DriverName+": pulling image %s, error: %s", spec.Image, err)
 			}
 		}()
 		io.Copy(os.Stdout, reader)
 
 		// Create the container
-		log.Debug().Msgf("docker: creating container %s", spec.ContainerName)
+		log.Debug().Msgf(c.DriverName+": creating container %s", spec.ContainerName)
 		resp, err := cli.ContainerCreate(
 			context.Background(),
 			config,
@@ -236,22 +235,22 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			spec.ContainerName,
 		)
 		if err != nil {
-			log.Error().Msgf("docker: creating container %s, error: %s", spec.ContainerName, err)
+			log.Error().Msgf(c.DriverName+": creating container %s, error: %s", spec.ContainerName, err)
 			return
 		}
 
 		// Start the container
-		log.Debug().Msgf("docker: starting container %s, %s", spec.ContainerName, resp.ID)
+		log.Debug().Msgf(c.DriverName+": starting container %s, %s", spec.ContainerName, resp.ID)
 		err = cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{})
 		if err != nil {
 			// Failed to start the container so remove it
 			cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{})
 
-			log.Error().Msgf("docker: starting container %s, %s, error: %s", spec.ContainerName, resp.ID, err)
+			log.Error().Msgf(c.DriverName+": starting container %s, %s, error: %s", spec.ContainerName, resp.ID, err)
 			return
 		}
 
-		log.Debug().Msgf("docker: container running %s, %s", spec.ContainerName, resp.ID)
+		log.Debug().Msgf(c.DriverName+": container running %s, %s", spec.ContainerName, resp.ID)
 
 		// Record the container ID and that the space is running
 		db := database.GetInstance()
@@ -261,7 +260,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		space.UpdatedAt = time.Now().UTC()
 		err = db.SaveSpace(space, []string{"ContainerId", "IsPending", "IsDeployed", "UpdatedAt"})
 		if err != nil {
-			log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+			log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
 			return
 		}
 		service.GetTransport().GossipSpace(space)
@@ -271,7 +270,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 }
 
 func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
-	log.Debug().Msgf("docker: deleting space job %s, %s", space.Id, space.ContainerId)
+	log.Debug().Msgf(c.DriverName+": deleting space job %s, %s", space.Id, space.ContainerId)
 
 	db := database.GetInstance()
 
@@ -291,34 +290,34 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 			space.IsPending = false
 			space.UpdatedAt = time.Now().UTC()
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
-				log.Error().Msgf("docker: creating space job %s error %s", space.Id, err)
+				log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
 			}
 
 			service.GetTransport().GossipSpace(space)
 		}()
 
-		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
+		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(c.Host))
 		if err != nil {
-			log.Error().Msgf("docker: deleting space job %s error %s", space.Id, err)
+			log.Error().Msgf(c.DriverName+": deleting space job %s error %s", space.Id, err)
 			return
 		}
 
 		// Stop the container
-		log.Debug().Msgf("docker: stopping container %s", space.ContainerId)
+		log.Debug().Msgf(c.DriverName+": stopping container %s", space.ContainerId)
 		err = cli.ContainerStop(context.Background(), space.ContainerId, container.StopOptions{})
 		if err != nil {
 			if !strings.Contains(err.Error(), "No such container") {
-				log.Error().Msgf("docker: stopping container %s error %s", space.ContainerId, err)
+				log.Error().Msgf(c.DriverName+": stopping container %s error %s", space.ContainerId, err)
 				return
 			}
 		}
 
 		// Remove the container
-		log.Debug().Msgf("docker: removing container %s", space.ContainerId)
+		log.Debug().Msgf(c.DriverName+": removing container %s", space.ContainerId)
 		err = cli.ContainerRemove(context.Background(), space.ContainerId, container.RemoveOptions{})
 		if err != nil {
 			if !strings.Contains(err.Error(), "No such container") {
-				log.Error().Msgf("docker: removing container %s error %s", space.ContainerId, err)
+				log.Error().Msgf(c.DriverName+": removing container %s error %s", space.ContainerId, err)
 				return
 			}
 		}
@@ -328,7 +327,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 		space.UpdatedAt = time.Now().UTC()
 		err = db.SaveSpace(space, []string{"IsPending", "IsDeployed", "UpdatedAt"})
 		if err != nil {
-			log.Error().Msgf("docker: deleting space job %s error %s", space.Id, err)
+			log.Error().Msgf(c.DriverName+": deleting space job %s error %s", space.Id, err)
 			return
 		}
 
@@ -357,9 +356,9 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 		return nil
 	}
 
-	log.Debug().Msg("docker: checking for required volumes")
+	log.Debug().Msg(c.DriverName + ": checking for required volumes")
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(c.Host))
 	if err != nil {
 		return err
 	}
@@ -374,11 +373,11 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 
 	// Find the volumes that are defined but not yet created in the space and create them
 	for volName, _ := range volInfo.Volumes {
-		log.Debug().Msgf("docker: checking volume %s", volName)
+		log.Debug().Msgf(c.DriverName+": checking volume %s", volName)
 
 		// Check if the volume is already created for the space
 		if _, ok := space.VolumeData[volName]; !ok {
-			log.Debug().Msgf("docker: creating volume %s", volName)
+			log.Debug().Msgf(c.DriverName+": creating volume %s", volName)
 
 			volume, err := cli.VolumeCreate(context.Background(), volume.CreateOptions{Name: volName})
 			if err != nil {
@@ -396,7 +395,7 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 	for volName, _ := range space.VolumeData {
 		// Check if the volume is defined in the template
 		if _, ok := volInfo.Volumes[volName]; !ok {
-			log.Debug().Msgf("docker: deleting volume %s", volName)
+			log.Debug().Msgf(c.DriverName+": deleting volume %s", volName)
 
 			err := cli.VolumeRemove(context.Background(), volName, true)
 			if err != nil {
@@ -407,7 +406,7 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 		}
 	}
 
-	log.Debug().Msg("docker: volumes checked")
+	log.Debug().Msg(c.DriverName + ": volumes checked")
 
 	return nil
 }
@@ -415,14 +414,14 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 	db := database.GetInstance()
 
-	log.Debug().Msg("docker: deleting volumes")
+	log.Debug().Msg(c.DriverName + ": deleting volumes")
 
 	if len(space.VolumeData) == 0 {
 		log.Debug().Msg("nomad: no volumes to delete")
 		return nil
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(c.Host))
 	if err != nil {
 		return err
 	}
@@ -435,7 +434,7 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 
 	// For all volumes in the space delete them
 	for volName, _ := range space.VolumeData {
-		log.Debug().Msgf("docker: deleting volume %s", volName)
+		log.Debug().Msgf(c.DriverName+": deleting volume %s", volName)
 
 		err := cli.VolumeRemove(context.Background(), volName, true)
 		if err != nil {
@@ -445,7 +444,7 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 		delete(space.VolumeData, volName)
 	}
 
-	log.Debug().Msg("docker: volumes deleted")
+	log.Debug().Msg(c.DriverName + ": volumes deleted")
 
 	return nil
 }

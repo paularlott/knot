@@ -9,12 +9,11 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
 func (c *DockerClient) CreateVolume(vol *model.Volume, variables *map[string]interface{}) error {
-	log.Debug().Msg("docker: creating volume")
+	log.Debug().Msg(c.DriverName + ": creating volume")
 
 	// Parse the volume definition to fill out the knot variables
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
@@ -33,13 +32,13 @@ func (c *DockerClient) CreateVolume(vol *model.Volume, variables *map[string]int
 		return fmt.Errorf("volume definition must contain exactly 1 volume")
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(c.Host))
 	if err != nil {
 		return err
 	}
 
 	for volName, _ := range volInfo.Volumes {
-		log.Debug().Msgf("docker: creating volume: %s", volName)
+		log.Debug().Msgf(c.DriverName+": creating volume: %s", volName)
 
 		_, err := cli.VolumeCreate(context.Background(), volume.CreateOptions{Name: volName})
 		if err != nil {
@@ -47,13 +46,13 @@ func (c *DockerClient) CreateVolume(vol *model.Volume, variables *map[string]int
 		}
 	}
 
-	log.Debug().Msg("docker: volume created")
+	log.Debug().Msg(c.DriverName + ": volume created")
 
 	return nil
 }
 
 func (c *DockerClient) DeleteVolume(vol *model.Volume, variables *map[string]interface{}) error {
-	log.Debug().Msg("docker: deleting volume")
+	log.Debug().Msg(c.DriverName + ": deleting volume")
 
 	// Parse the volume definition to fill out the knot variables
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
@@ -67,13 +66,13 @@ func (c *DockerClient) DeleteVolume(vol *model.Volume, variables *map[string]int
 		return err
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(viper.GetString("server.docker.host")))
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(c.Host))
 	if err != nil {
 		return err
 	}
 
 	for volName, _ := range volInfo.Volumes {
-		log.Debug().Msgf("docker: deleting volume: %s", volName)
+		log.Debug().Msgf(c.DriverName+": deleting volume: %s", volName)
 
 		err := cli.VolumeRemove(context.Background(), volName, true)
 		if err != nil {
@@ -81,7 +80,7 @@ func (c *DockerClient) DeleteVolume(vol *model.Volume, variables *map[string]int
 		}
 	}
 
-	log.Debug().Msg("docker: volume deleted")
+	log.Debug().Msg(c.DriverName + ": volume deleted")
 
 	return nil
 }

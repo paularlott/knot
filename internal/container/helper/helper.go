@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
+	"github.com/paularlott/knot/internal/container/podman"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -21,6 +23,19 @@ type Helper struct {
 
 func NewContainerHelper() *Helper {
 	return &Helper{}
+}
+
+func (h *Helper) createClient(platform string) (container.ContainerManager, error) {
+	switch platform {
+	case model.PlatformDocker:
+		return docker.NewClient(), nil
+	case model.PlatformPodman:
+		return podman.NewClient(), nil
+	case model.PlatformNomad:
+		return nomad.NewClient()
+	default:
+		return nil, fmt.Errorf("unsupported platform: %s", platform)
+	}
 }
 
 func (h *Helper) CreateVolume(volume *model.Volume) error {
@@ -37,17 +52,10 @@ func (h *Helper) CreateVolume(volume *model.Volume) error {
 	volume.Zone = config.Zone
 	volume.Active = true
 
-	// TODO Change this it look at the platform to use
-	var containerClient container.ContainerManager
-	if volume.Platform == model.PlatformDocker {
-		containerClient = docker.NewClient()
-	} else {
-		var err error
-		containerClient, err = nomad.NewClient()
-		if err != nil {
-			log.Error().Err(err).Msg("CreateVolume: failed to create nomad client")
-			return err
-		}
+	containerClient, err := h.createClient(volume.Platform)
+	if err != nil {
+		log.Error().Err(err).Msg("CreateVolume: failed to create nomad client")
+		return err
 	}
 
 	// Create volumes
@@ -73,17 +81,10 @@ func (h *Helper) DeleteVolume(volume *model.Volume) error {
 	volume.Zone = ""
 	volume.Active = false
 
-	// TODO Change this it look at the platform to use
-	var containerClient container.ContainerManager
-	if volume.Platform == model.PlatformDocker {
-		containerClient = docker.NewClient()
-	} else {
-		var err error
-		containerClient, err = nomad.NewClient()
-		if err != nil {
-			log.Error().Err(err).Msg("DeleteVolume: failed to create nomad client")
-			return err
-		}
+	containerClient, err := h.createClient(volume.Platform)
+	if err != nil {
+		log.Error().Err(err).Msg("DeleteVolume: failed to create nomad client")
+		return err
 	}
 
 	// Delete the volume
@@ -129,17 +130,10 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 
 	vars := model.FilterVars(variables)
 
-	// TODO Change this it look at the platform to use
-	var containerClient container.ContainerManager
-	if template.IsLocalContainer() {
-		containerClient = docker.NewClient()
-	} else {
-		var err error
-		containerClient, err = nomad.NewClient()
-		if err != nil {
-			log.Error().Err(err).Msg("StartSpace: failed to create nomad client")
-			return err
-		}
+	containerClient, err := h.createClient(template.Platform)
+	if err != nil {
+		log.Error().Err(err).Msg("StartSpace: failed to create nomad client")
+		return err
 	}
 
 	// Create volumes
@@ -181,17 +175,10 @@ func (h *Helper) StopSpace(space *model.Space) error {
 	}
 	service.GetTransport().GossipSpace(space)
 
-	// TODO Change this it look at the platform to use
-	var containerClient container.ContainerManager
-	if template.IsLocalContainer() {
-		containerClient = docker.NewClient()
-	} else {
-		var err error
-		containerClient, err = nomad.NewClient()
-		if err != nil {
-			log.Error().Msgf("StopSpace: failed to create nomad client %s", err.Error())
-			return err
-		}
+	containerClient, err := h.createClient(template.Platform)
+	if err != nil {
+		log.Error().Msgf("StopSpace: failed to create nomad client %s", err.Error())
+		return err
 	}
 
 	// Stop the job
@@ -226,22 +213,15 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			return
 		}
 
-		// TODO Change this it look at the platform to use
-		var containerClient container.ContainerManager
-		if template.IsLocalContainer() {
-			containerClient = docker.NewClient()
-		} else {
-			var err error
-			containerClient, err = nomad.NewClient()
-			if err != nil {
-				log.Error().Err(err).Msg("DeleteSpace: failed to create nomad client")
+		containerClient, err := h.createClient(template.Platform)
+		if err != nil {
+			log.Error().Err(err).Msg("DeleteSpace: failed to create nomad client")
 
-				space.IsDeleting = false
-				space.UpdatedAt = time.Now().UTC()
-				db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-				service.GetTransport().GossipSpace(space)
-				return
-			}
+			space.IsDeleting = false
+			space.UpdatedAt = time.Now().UTC()
+			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
+			service.GetTransport().GossipSpace(space)
+			return
 		}
 
 		// If the space is deployed, stop the job
@@ -286,4 +266,56 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 
 		log.Info().Msgf("DeleteSpace: deleted %s", space.Id)
 	}()
+}
+
+// Clean up spaces in broken states during boot
+func (h *Helper) CleanupOnBoot() {
+	log.Info().Msg("server: cleaning spaces...")
+
+	db := database.GetInstance()
+	spaces, err := db.GetSpaces()
+	if err != nil {
+		log.Fatal().Msgf("server: failed to get spaces: %s", err.Error())
+	} else {
+		for _, space := range spaces {
+			// If space is deleted or not in this zone then ignore it
+			if space.IsDeleted || space.Zone != config.Zone {
+				continue
+			}
+
+			// If the space is deleting then ask it to delete again
+			if space.IsDeleting {
+				log.Info().Msgf("server: found space %s pending delete, restarting delete...", space.Name)
+				h.DeleteSpace(space)
+			} else if space.IsPending {
+				// If starting then ask for start
+				if !space.IsDeployed {
+					log.Info().Msgf("server: found space %s pending start, starting...", space.Name)
+
+					user, err := db.GetUser(space.UserId)
+					if err != nil {
+						log.Error().Err(err).Msgf("server: failed to get user from space, stopping the space...")
+						space.IsDeployed = true
+						h.StopSpace(space)
+						continue
+					}
+
+					template, err := db.GetTemplate(space.TemplateId)
+					if err != nil {
+						log.Error().Err(err).Msgf("server: failed to get template from space, stopping the space...")
+						space.IsDeployed = true
+						h.StopSpace(space)
+						continue
+					}
+
+					h.StartSpace(space, template, user)
+				} else {
+					log.Info().Msgf("server: found space %s pending stop, stopping...", space.Name)
+					h.StopSpace(space)
+				}
+			}
+		}
+	}
+
+	log.Info().Msg("server: finished cleaning spaces...")
 }

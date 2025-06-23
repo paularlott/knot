@@ -240,7 +240,7 @@ window.templateForm = function(isEdit, templateId) {
       this.formData.schedule[day].enabled = !this.formData.schedule[day].enabled;
     },
     checkPlatform() {
-      return validate.isOneOf(this.formData.platform, ["manual", "docker", "nomad"])
+      return validate.isOneOf(this.formData.platform, ["manual", "docker", "podman", "nomad"])
     },
     checkName() {
       this.nameValid = validate.templateName(this.formData.name);

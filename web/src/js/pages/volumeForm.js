@@ -87,12 +87,16 @@ window.volumeForm = function(isEdit, volumeId) {
       this.volValid = validate.required(this.formData.definition);
       return this.volValid;
     },
+    checkPlatform() {
+      return validate.isOneOf(this.formData.platform, ["docker", "podman", "nomad"])
+    },
 
     async submitData() {
       let err = false;
       const self = this;
       err = !this.checkName() || err;
       err = !this.checkVol() || err;
+      err = !this.checkPlatform() || err;
       if(err) {
         return;
       }

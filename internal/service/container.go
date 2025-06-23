@@ -11,6 +11,9 @@ type Container interface {
 	StartSpace(space *model.Space, template *model.Template, user *model.User) error
 	StopSpace(space *model.Space) error
 	DeleteSpace(space *model.Space)
+
+	// Helpers
+	CleanupOnBoot()
 }
 
 var containerService Container

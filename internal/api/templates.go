@@ -166,7 +166,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Max uptime must be a positive number and unit must be one of disabled, minute, hour, day"})
 		return
 	}
-	if !validate.OneOf(request.Platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformNomad}) {
+	if !validate.OneOf(request.Platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformPodman, model.PlatformNomad}) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform"})
 		return
 	}
@@ -307,7 +307,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Max uptime must be a positive number and unit must be one of disabled, minute, hour, day"})
 		return
 	}
-	if !validate.OneOf(request.Platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformNomad}) {
+	if !validate.OneOf(request.Platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformPodman, model.PlatformNomad}) {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform"})
 		return
 	}

@@ -407,8 +407,11 @@
                     <template x-if="s.is_local && s.platform == 'manual'">
                       <span class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Manual</span>
                     </template>
-                    <template x-if="s.is_local && isLocalContainer(s.platform)">
-                      <span class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Local Container</span>
+                    <template x-if="s.is_local && s.platform == 'docker'">
+                      <span class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Docker</span>
+                    </template>
+                    <template x-if="s.is_local && s.platform == 'podman'">
+                      <span class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Podman</span>
                     </template>
                   </div>
                   <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">

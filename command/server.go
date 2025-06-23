@@ -21,7 +21,6 @@ import (
 	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
-	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dnsserver"
@@ -130,6 +129,9 @@ func init() {
 
 	// Docker
 	serverCmd.Flags().StringP("docker-host", "", "unix:///var/run/docker.sock", "The Docker host to connect to (default \"unix:///var/run/docker.sock\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DOCKER_HOST environment variable if set.")
+
+	// Podman
+	serverCmd.Flags().StringP("podman-host", "", "unix:///var/run/podman.sock", "The Podman host to connect to (default \"unix:///var/run/podman.sock\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_PODMAN_HOST environment variable if set.")
 
 	RootCmd.AddCommand(serverCmd)
 }
@@ -423,6 +425,11 @@ var serverCmd = &cobra.Command{
 		viper.BindPFlag("server.docker.host", cmd.Flags().Lookup("docker-host"))
 		viper.BindEnv("server.docker.host", config.CONFIG_ENV_PREFIX+"_DOCKER_HOST")
 		viper.SetDefault("server.docker.host", "unix:///var/run/docker.sock")
+
+		// Podman
+		viper.BindPFlag("server.podman.host", cmd.Flags().Lookup("podman-host"))
+		viper.BindEnv("server.podman.host", config.CONFIG_ENV_PREFIX+"_PODMAN_HOST")
+		viper.SetDefault("server.podman.host", "unix:///var/run/podman.sock")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		listen := util.FixListenAddress(viper.GetString("server.listen"))
@@ -657,7 +664,7 @@ var serverCmd = &cobra.Command{
 		)
 
 		// Check for local spaces that are pending state changes and setup watches
-		startupCheckPendingSpaces()
+		service.GetContainerService().CleanupOnBoot()
 
 		// Start the agent server
 		agent_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
@@ -690,35 +697,4 @@ var serverCmd = &cobra.Command{
 		log.Info().Msg("server: shutdown")
 		os.Exit(0)
 	},
-}
-
-func startupCheckPendingSpaces() {
-	log.Info().Msg("server: checking for pending spaces")
-
-	db := database.GetInstance()
-	spaces, err := db.GetSpaces()
-	if err != nil {
-		log.Fatal().Msgf("server: failed to get spaces: %s", err.Error())
-	} else {
-		nomadClient, err := nomad.NewClient()
-		if err != nil {
-			log.Fatal().Msgf("server: failed to create nomad client: %s", err.Error())
-		}
-
-		for _, space := range spaces {
-			// If space on this server and pending then monitor it
-			if space.Zone == config.Zone && space.IsPending {
-				log.Info().Msgf("server: found pending space %s", space.Name)
-				nomadClient.MonitorJobState(space)
-			}
-
-			// If deleting then delete it
-			if space.IsDeleting && (space.Zone == "" || space.Zone == config.Zone) {
-				log.Info().Msgf("server: found deleting space %s", space.Name)
-				service.GetContainerService().DeleteSpace(space)
-			}
-		}
-	}
-
-	log.Info().Msg("server: finished checking for pending spaces")
 }
