@@ -62,7 +62,8 @@ func (c *Cluster) GossipRole(role *model.Role) {
 		log.Debug().Msg("cluster: Gossipping role")
 
 		roles := []*model.Role{role}
-		c.gossipCluster.Send(RoleGossipMsg, &roles)
+		usedNodes := c.gossipInZone(RoleGossipMsg, &roles)
+		c.gossipCluster.SendExcluding(RoleGossipMsg, &roles, usedNodes)
 	}
 
 	if len(c.leafSessions) > 0 {

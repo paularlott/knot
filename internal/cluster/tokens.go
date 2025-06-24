@@ -165,15 +165,26 @@ func (c *Cluster) gossipTokens() {
 	}
 }
 
-func (c *Cluster) gossipInZone(msgType gossip.MessageType, data interface{}) {
-	sameZoneNodes := c.election.GetNodeGroup().GetNodes([]gossip.NodeID{c.gossipCluster.LocalNode().ID})
+func (c *Cluster) gossipInZone(msgType gossip.MessageType, data interface{}) []gossip.NodeID {
+	if c.election != nil {
+		sameZoneNodes := c.election.GetNodeGroup().GetNodes([]gossip.NodeID{c.gossipCluster.LocalNode().ID})
 
-	rand.Shuffle(len(sameZoneNodes), func(i, j int) {
-		sameZoneNodes[i], sameZoneNodes[j] = sameZoneNodes[j], sameZoneNodes[i]
-	})
+		rand.Shuffle(len(sameZoneNodes), func(i, j int) {
+			sameZoneNodes[i], sameZoneNodes[j] = sameZoneNodes[j], sameZoneNodes[i]
+		})
 
-	err := c.gossipCluster.SendToPeers(sameZoneNodes, msgType, data)
-	if err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to gossip to nodes in zone")
+		err := c.gossipCluster.SendToPeers(sameZoneNodes, msgType, data)
+		if err != nil {
+			log.Error().Err(err).Msg("cluster: Failed to gossip to nodes in zone")
+		}
+
+		// Get the IDs of the nodes we used
+		usedList := make([]gossip.NodeID, len(sameZoneNodes))
+		for i, node := range sameZoneNodes {
+			usedList[i] = node.ID
+		}
+		return usedList
 	}
+
+	return nil
 }

@@ -62,28 +62,20 @@ func (c *Cluster) registerLeaf(ws *websocket.Conn, user *model.User, token *mode
 
 	// Start a go routine to listen for messages on ch and send to the leaf
 	go func() {
-		for {
-			select {
-			case message, ok := <-session.ch:
-				if !ok {
-					// Channel closed, exit
-					return
+		for message := range session.ch {
+			attempts := 3
+			for i := 1; i <= attempts; i++ {
+				err := leafmsg.WriteMessage(ws, message.Type, message.Payload)
+				if err == nil {
+					break
 				}
 
-				attempts := 3
-				for i := 1; i <= attempts; i++ {
-					err := leafmsg.WriteMessage(ws, message.Type, message.Payload)
-					if err == nil {
-						break
-					}
+				log.Warn().Err(err).Str("zone", session.Zone).Msgf("attempt %d failed to write message to leaf", i)
 
-					log.Warn().Err(err).Str("zone", session.Zone).Msgf("attempt %d failed to write message to leaf")
+				time.Sleep(time.Duration(i) * time.Second)
 
-					time.Sleep(time.Duration(i) * time.Second)
-
-					if i == attempts {
-						log.Error().Str("zone", session.Zone).Msgf("failed to write message to leaf after %d attempts", attempts)
-					}
+				if i == attempts {
+					log.Error().Str("zone", session.Zone).Msgf("failed to write message to leaf after %d attempts", attempts)
 				}
 			}
 		}
@@ -96,10 +88,7 @@ func (c *Cluster) unregisterLeaf(session *leafSession) {
 	c.leafSessionMux.Lock()
 	defer c.leafSessionMux.Unlock()
 
-	if _, ok := c.leafSessions[session.Id]; ok {
-		delete(c.leafSessions, session.Id)
-	}
-
+	delete(c.leafSessions, session.Id)
 	close(session.ch)
 }
 

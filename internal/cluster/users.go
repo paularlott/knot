@@ -72,7 +72,8 @@ func (c *Cluster) GossipUser(user *model.User) {
 		log.Debug().Msg("cluster: Gossipping user")
 
 		users := []*model.User{user}
-		c.gossipCluster.Send(UserGossipMsg, &users)
+		usedNodes := c.gossipInZone(UserGossipMsg, &users)
+		c.gossipCluster.SendExcluding(UserGossipMsg, &users, usedNodes)
 	}
 
 	if len(c.leafSessions) > 0 {
