@@ -66,12 +66,20 @@ func (ts *tunnelServer) ConnectAndServe() {
 				return
 			}
 
+			// Set the target URL
+			var url string
+			if ts.client.tunnelType == WebTunnel {
+				url = ts.address + "/tunnel/server/" + ts.client.tunnelName
+			} else {
+				url = fmt.Sprintf("%s/tunnel/spaces/%s/%d", ts.address, ts.client.spaceName, ts.client.spacePort)
+			}
+
 			// Open the websocket
 			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", ts.client.token)}}
 			dialer := websocket.DefaultDialer
 			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
 			dialer.HandshakeTimeout = 5 * time.Second
-			ws, response, err := dialer.Dial(ts.address+"/tunnel/server/"+ts.client.tunnelName, header)
+			ws, response, err := dialer.Dial(url, header)
 			if err != nil {
 				if response != nil {
 					if response.StatusCode == http.StatusUnauthorized {
@@ -163,9 +171,9 @@ func (ts *tunnelServer) handleTunnelStream(stream net.Conn) {
 		return
 	}
 
-	if ts.client.localProtocol == "http" {
+	if ts.client.protocol == "http" || ts.client.protocol == "tcp" {
 		agent_client.ProxyTcp(stream, fmt.Sprintf("%d", ts.client.localPort))
-	} else if ts.client.localProtocol == "https" {
+	} else if ts.client.protocol == "https" {
 		agent_client.ProxyTcpTls(stream, fmt.Sprintf("%d", ts.client.localPort), ts.client.tunnelName)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/tunnel_server"
 
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
@@ -278,6 +279,16 @@ func handleAgentSession(stream net.Conn, session *Session) {
 		case byte(msg.CmdCreateToken):
 			handleCreateToken(stream, session)
 			return // Single shot command so done
+
+		case byte(msg.CmdTunnelPortConnection):
+			var reversePort msg.TcpPort
+			if err := msg.ReadMessage(stream, &reversePort); err != nil {
+				log.Error().Msgf("agent: reading reverse port message: %v", err)
+				return
+			}
+
+			tunnel_server.TunnelAgentPort(session.Id, reversePort.Port, stream)
+			return
 
 		default:
 			log.Error().Msgf("agent: unknown command from agent: %d", cmd)

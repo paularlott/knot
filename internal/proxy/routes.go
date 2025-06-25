@@ -19,6 +19,8 @@ func Routes(router *http.ServeMux) {
 
 	router.HandleFunc("GET /proxy/spaces/{space_name}/port/{port}", middleware.ApiAuth(HandleSpacesPortProxy))
 	router.HandleFunc("GET /proxy/spaces/{space_name}/ssh/", middleware.ApiAuth(HandleSpacesSSHProxy))
+
+	router.HandleFunc("GET /tunnel/spaces/{space_name}/{port}", middleware.ApiAuth(handlePortTunnel))
 }
 
 // Setup proxying of URLs to ports within spaces

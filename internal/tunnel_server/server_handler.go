@@ -20,6 +20,7 @@ import (
 )
 
 type tunnelSession struct {
+	tunnelType TunnelType
 	user       *model.User
 	tunnelName string
 	muxSession *yamux.Session
@@ -93,6 +94,7 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 
 	// Create a new tunnel session
 	session := &tunnelSession{
+		tunnelType: WebTunnel,
 		user:       user,
 		tunnelName: tunnelName,
 		ws:         ws,
