@@ -36,7 +36,6 @@ var (
 		{Description: "CentOS", Source: "built-in", Url: "/icons/centos.svg"},
 		{Description: "Chrome", Source: "built-in", Url: "/icons/chrome.svg"},
 		{Description: "Chromium", Source: "built-in", Url: "/icons/chromium.svg"},
-		{Description: "CoreOS", Source: "built-in", Url: "/icons/coreos.svg"},
 		{Description: "CouchDB", Source: "built-in", Url: "/icons/couchdb.svg"},
 		{Description: "C++", Source: "built-in", Url: "/icons/cpp.svg"},
 		{Description: "C#", Source: "built-in", Url: "/icons/csharp.svg"},

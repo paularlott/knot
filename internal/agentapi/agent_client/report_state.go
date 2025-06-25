@@ -137,7 +137,7 @@ func (c *AgentClient) reportState() {
 			}
 		}
 
-		log.Debug().
+		log.Trace().
 			Int("SSH Port", sshAlivePort).
 			Bool("Code Server Port", codeServerAlive).
 			Int("VNC Http Port", vncAliveHttpPort).
