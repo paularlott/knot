@@ -85,7 +85,11 @@ func (ts *tunnelServer) ConnectAndServe() {
 					if response.StatusCode == http.StatusUnauthorized {
 						log.Fatal().Msg("Failed to authenticate with server, check permissions")
 					} else if response.StatusCode == http.StatusNotFound {
-						log.Fatal().Msg("Server does not support tunnels")
+						if ts.client.tunnelType == WebTunnel {
+							log.Fatal().Msg("Server does not support tunnels")
+						} else {
+							log.Fatal().Msg("Unable to find space")
+						}
 					} else if response.StatusCode == http.StatusForbidden {
 						log.Fatal().Msg("Tunnels are not available on your account")
 					} else if response.StatusCode == http.StatusServiceUnavailable {
@@ -132,13 +136,20 @@ func (ts *tunnelServer) ConnectAndServe() {
 					// Accept a new connection
 					stream, err := muxSession.Accept()
 					if err != nil {
-						log.Error().Msgf("Accepting connection: %v", err)
-
 						// In the case of errors, destroy the session and start over
 						muxSession.Close()
 						ws.Close()
-						time.Sleep(connectRetryDelay)
 
+						if ts.client.tunnelType == PortTunnel && err.Error() == "websocket: close 1006 (abnormal closure): unexpected EOF" {
+							log.Info().Msg("Agent disconnected")
+							ts.client.cancel()
+							return
+						}
+
+						log.Error().Msgf("Accepting connection: %v", err)
+
+						// Wait before trying again
+						time.Sleep(connectRetryDelay)
 						goto StartConnectionLoop
 					}
 

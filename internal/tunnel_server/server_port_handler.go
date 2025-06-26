@@ -1,6 +1,7 @@
 package tunnel_server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -99,8 +100,25 @@ func HandleCreatePortTunnel(w http.ResponseWriter, r *http.Request, muxSession *
 		return err
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		// Reading from stream until EOF or error indicates the stream has closed
+		buf := make([]byte, 1)
+		_, err := stream.Read(buf)
+		if err != nil {
+			log.Debug().Msgf("tunnel: control stream closed: %v", err)
+			session.muxSession.Close()
+			cancel()
+		}
+	}()
+
 	// Wait for the client to disconnect
-	<-session.muxSession.CloseChan()
+	select {
+	case <-session.muxSession.CloseChan():
+	case <-ctx.Done():
+	}
 
 	return nil
 }

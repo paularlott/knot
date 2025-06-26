@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 )
@@ -18,8 +19,20 @@ func ProxyTcp(stream net.Conn, port string) {
 	defer conn.Close()
 
 	// copy data between code server and server
-	go io.Copy(conn, stream)
-	io.Copy(stream, conn)
+	var once sync.Once
+	closeConn := func() {
+		conn.Close()
+	}
+
+	// Copy from client to tunnel
+	go func() {
+		_, _ = io.Copy(conn, stream)
+		once.Do(closeConn)
+	}()
+
+	// Copy from tunnel to client
+	_, _ = io.Copy(stream, conn)
+	once.Do(closeConn)
 }
 
 func ProxyTcpTls(stream net.Conn, port string, serverName string) {
@@ -34,6 +47,18 @@ func ProxyTcpTls(stream net.Conn, port string, serverName string) {
 	defer conn.Close()
 
 	// copy data between code server and server
-	go io.Copy(conn, stream)
-	io.Copy(stream, conn)
+	var once sync.Once
+	closeConn := func() {
+		conn.Close()
+	}
+
+	// Copy from client to tunnel
+	go func() {
+		_, _ = io.Copy(conn, stream)
+		once.Do(closeConn)
+	}()
+
+	// Copy from tunnel to client
+	_, _ = io.Copy(stream, conn)
+	once.Do(closeConn)
 }

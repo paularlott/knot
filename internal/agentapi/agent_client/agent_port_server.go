@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 
@@ -86,14 +87,25 @@ func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
 
 			// Bidirectional copy
 			go func() {
-				defer clientConn.Close()
-				defer tunnelStream.Close()
+				defer log.Info().Msgf("agent: closed tunnel between %s and %d", clientConn.RemoteAddr(), port)
+
+				var once sync.Once
+				closeBoth := func() {
+					clientConn.Close()
+					tunnelStream.Close()
+				}
+
+				log.Info().Msgf("agent: established tunnel between %s and %d", clientConn.RemoteAddr(), port)
 
 				// Copy from client to tunnel
-				go io.Copy(tunnelStream, clientConn)
+				go func() {
+					_, _ = io.Copy(tunnelStream, clientConn)
+					once.Do(closeBoth)
+				}()
 
 				// Copy from tunnel to client
-				io.Copy(clientConn, tunnelStream)
+				_, _ = io.Copy(clientConn, tunnelStream)
+				once.Do(closeBoth)
 			}()
 		}
 	}
