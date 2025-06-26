@@ -1,4 +1,4 @@
-package commands_accept
+package command_spaces
 
 import (
 	"fmt"
@@ -14,20 +14,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var portCmd = &cobra.Command{
-	Use:   "port <listen> <space> <port> [flags]",
-	Short: "Accept a connection to a port",
-	Long: `Accepts a connection from a space to a local port.
+var tunnelPortCmd = &cobra.Command{
+	Use:   "tunnel <space> <listen> <port> [flags]",
+	Short: "Open a tunnel",
+	Long: `Open a tunnel between a port inside a space and a port on the local machine.
 
-  listen    The port to listen on within the space e.g. :80
   space     The name of the space to connect to e.g. test1
+  listen    The port to listen on within the space e.g. 80
   port      The local port to connect to e.g. 8080`,
 	Args: cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		alias, _ := cmd.Flags().GetString("alias")
 		cfg := config.GetServerAddr(alias)
 
-		listenPort, err := strconv.Atoi(args[0])
+		spaceName := args[0]
+
+		listenPort, err := strconv.Atoi(args[1])
 		if err != nil || listenPort < 1 || listenPort > 65535 {
 			cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")
 		}
@@ -45,7 +47,7 @@ var portCmd = &cobra.Command{
 				Type:      tunnel_server.PortTunnel,
 				Protocol:  "tcp",
 				LocalPort: uint16(localPort),
-				SpaceName: args[1],
+				SpaceName: spaceName,
 				SpacePort: uint16(listenPort),
 			},
 		)

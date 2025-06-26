@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/command"
-	_ "github.com/paularlott/knot/command/accept"
 	_ "github.com/paularlott/knot/command/admin"
 	_ "github.com/paularlott/knot/command/direct"
 	_ "github.com/paularlott/knot/command/forward"
