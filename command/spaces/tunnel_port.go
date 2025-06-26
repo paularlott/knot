@@ -31,7 +31,7 @@ var tunnelPortCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("tls", cmd.Flags().Lookup("tls"))
 		viper.BindEnv("tls", config.CONFIG_ENV_PREFIX+"_TUNNEL_TLS")
-		viper.SetDefault("tls", true)
+		viper.SetDefault("tls", false)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		alias, _ := cmd.Flags().GetString("alias")
