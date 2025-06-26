@@ -184,7 +184,7 @@ func (ts *tunnelServer) handleTunnelStream(stream net.Conn) {
 
 	if ts.client.protocol == "http" || ts.client.protocol == "tcp" {
 		agent_client.ProxyTcp(stream, fmt.Sprintf("%d", ts.client.localPort))
-	} else if ts.client.protocol == "https" {
+	} else if ts.client.protocol == "https" || ts.client.protocol == "tls" {
 		agent_client.ProxyTcpTls(stream, fmt.Sprintf("%d", ts.client.localPort), ts.client.tunnelName)
 	}
 }
