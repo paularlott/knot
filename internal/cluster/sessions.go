@@ -68,7 +68,7 @@ func (c *Cluster) handleSessionGossip(sender *gossip.Node, packet *gossip.Packet
 func (c *Cluster) GossipSession(session *model.Session) {
 	if c.sessionGossip && c.gossipCluster != nil {
 		sessions := []*model.Session{session}
-		c.gossipInZone(SessionGossipMsg, &sessions)
+		c.election.GetNodeGroup().SendToPeers(SessionGossipMsg, &sessions)
 	}
 }
 
@@ -162,6 +162,6 @@ func (c *Cluster) gossipSessions() {
 	batchSize := c.gossipCluster.GetBatchSize(len(sessions))
 	if batchSize > 0 {
 		sessions = sessions[:batchSize]
-		c.gossipInZone(SessionGossipMsg, &sessions)
+		c.gossipCluster.Send(SessionGossipMsg, &sessions)
 	}
 }

@@ -93,7 +93,7 @@ func (c *Cluster) handleResourceLockGossip(sender *gossip.Node, packet *gossip.P
 func (c *Cluster) GossipResourceLock(resourceLock *ResourceLock) {
 	if c.sessionGossip && c.gossipCluster != nil {
 		resourceLocks := []*ResourceLock{resourceLock}
-		c.gossipInZone(ResourceLockGossipMsg, &resourceLocks)
+		c.election.GetNodeGroup().SendToPeers(ResourceLockGossipMsg, &resourceLocks)
 	}
 }
 
@@ -177,6 +177,6 @@ func (c *Cluster) gossipResourceLocks() {
 	batchSize := c.gossipCluster.GetBatchSize(len(locks))
 	if batchSize > 0 {
 		locks = locks[:batchSize]
-		c.gossipInZone(ResourceLockGossipMsg, &locks)
+		c.gossipCluster.Send(ResourceLockGossipMsg, &locks)
 	}
 }

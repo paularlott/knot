@@ -67,7 +67,6 @@ var (
 		{Description: "Next.js", Source: "built-in", Url: "/icons/nextjs.svg"},
 		{Description: "Nginx Proxy Manager", Source: "built-in", Url: "/icons/nginx-proxy-manager.svg"},
 		{Description: "Nginx", Source: "built-in", Url: "/icons/nginx.svg"},
-		{Description: "NixOS", Source: "built-in", Url: "/icons/nixos.svg"},
 		{Description: "Node.js", Source: "built-in", Url: "/icons/nodejs.svg"},
 		{Description: "npm", Source: "built-in", Url: "/icons/npm.svg"},
 		{Description: "openSUSE", Source: "built-in", Url: "/icons/opensuse.svg"},

@@ -136,7 +136,7 @@
                         <div class="flex gap-2">
 
                           <!-- Only show info button if there's more than can be displayed -->
-                          <button x-show="((s.description || '').split('\n').concat((s.note || '').split('\n')).filter(Boolean)).length > 2"
+                          <button x-show="((s.description || '').split('\n').concat((s.note || '').split('\n')).filter(Boolean)).length >= 2"
                                   @click="spaceDesc.show = true; spaceDesc.space = s"
                                   class="text-gray-500 dark:text-gray-400 flex-shrink-0 cursor-pointer">
                             <svg xmlns="http://www.w3.org/2000/svg" class="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

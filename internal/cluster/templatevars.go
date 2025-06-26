@@ -69,8 +69,7 @@ func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
 		log.Debug().Msg("cluster: Gossipping template var")
 
 		templateVars := []*model.TemplateVar{templateVar}
-		usedNodes := c.gossipInZone(TemplateVarGossipMsg, &templateVars)
-		c.gossipCluster.SendExcluding(TemplateVarGossipMsg, &templateVars, usedNodes)
+		c.election.GetNodeGroup().SendToPeers(TemplateVarGossipMsg, &templateVars)
 	}
 
 	if len(c.leafSessions) > 0 {

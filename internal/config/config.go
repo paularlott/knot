@@ -47,6 +47,8 @@ func InitConfig(root *cobra.Command) {
 	}
 
 	switch viper.GetString("log.level") {
+	case "trace":
+		zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	case "debug":
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	case "info":

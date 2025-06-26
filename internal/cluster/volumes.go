@@ -57,8 +57,7 @@ func (c *Cluster) GossipVolume(volume *model.Volume) {
 		log.Debug().Msg("cluster: Gossipping volume")
 
 		volumes := []*model.Volume{volume}
-		usedNodes := c.gossipInZone(VolumeGossipMsg, &volumes)
-		c.gossipCluster.SendExcluding(VolumeGossipMsg, &volumes, usedNodes)
+		c.election.GetNodeGroup().SendToPeers(VolumeGossipMsg, &volumes)
 	}
 }
 

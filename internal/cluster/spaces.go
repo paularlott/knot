@@ -57,8 +57,7 @@ func (c *Cluster) GossipSpace(space *model.Space) {
 		log.Debug().Msg("cluster: Gossipping space")
 
 		spaces := []*model.Space{space}
-		usedNodes := c.gossipInZone(SpaceGossipMsg, &spaces)
-		c.gossipCluster.SendExcluding(SpaceGossipMsg, &spaces, usedNodes)
+		c.election.GetNodeGroup().SendToPeers(SpaceGossipMsg, &spaces)
 	}
 }
 
