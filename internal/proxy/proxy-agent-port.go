@@ -1,11 +1,14 @@
 package proxy
 
 import (
+	"io"
 	"net/http"
+	"sync"
 
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/wsconn"
 
 	"github.com/rs/zerolog/log"
 )
@@ -43,6 +46,21 @@ func proxyAgentPort(w http.ResponseWriter, r *http.Request, agentSession *agent_
 		return
 	}
 
-	copier := util.NewCopier(stream, ws)
-	copier.Run()
+	conn := wsconn.New(ws)
+
+	// copy data between code server and server
+	var once sync.Once
+	closeConn := func() {
+		conn.Close()
+	}
+
+	// Copy from client to tunnel
+	go func() {
+		_, _ = io.Copy(conn, stream)
+		once.Do(closeConn)
+	}()
+
+	// Copy from tunnel to client
+	_, _ = io.Copy(stream, conn)
+	once.Do(closeConn)
 }

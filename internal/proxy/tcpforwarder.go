@@ -3,12 +3,14 @@ package proxy
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
-	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/wsconn"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
@@ -64,7 +66,26 @@ func forwardTCP(dialURL string, token string, listen string) {
 			tcpConn.Close()
 			os.Exit(1)
 		}
-		copier := util.NewCopier(tcpConn, wsConn)
-		go copier.Run()
+
+		conn := wsconn.New(wsConn)
+
+		go func() {
+			// copy data between code server and server
+			var once sync.Once
+			closeBoth := func() {
+				conn.Close()
+				tcpConn.Close()
+			}
+
+			// Copy from client to tunnel
+			go func() {
+				_, _ = io.Copy(conn, tcpConn)
+				once.Do(closeBoth)
+			}()
+
+			// Copy from tunnel to client
+			_, _ = io.Copy(tcpConn, conn)
+			once.Do(closeBoth)
+		}()
 	}
 }
