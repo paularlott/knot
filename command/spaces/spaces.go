@@ -21,6 +21,7 @@ func init() {
 	spacesCmd.AddCommand(createCmd)
 	spacesCmd.AddCommand(deleteCmd)
 	spacesCmd.AddCommand(logsCmd)
+	spacesCmd.AddCommand(tunnelPortCmd)
 }
 
 var spacesCmd = &cobra.Command{

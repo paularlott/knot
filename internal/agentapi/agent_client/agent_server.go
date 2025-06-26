@@ -427,6 +427,15 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			log.Error().Msgf("agent: http port %d is not allowed", httpPort.Port)
 		}
 
+	case byte(msg.CmdTunnelPort):
+		var reversePort msg.TcpPort
+		if err := msg.ReadMessage(stream, &reversePort); err != nil {
+			log.Error().Msgf("agent: reading reverse port message: %v", err)
+			return
+		}
+
+		s.agentPortListenAndServe(stream, reversePort.Port)
+
 	default:
 		log.Error().Msgf("agent: unknown command: %d", cmd)
 	}

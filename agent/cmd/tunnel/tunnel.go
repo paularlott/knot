@@ -72,9 +72,12 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 			cfg.WsServer,
 			cfg.HttpServer,
 			cfg.ApiToken,
-			args[0],
-			uint16(port),
-			args[2],
+			&tunnel_server.TunnelOpts{
+				Type:       tunnel_server.WebTunnel,
+				Protocol:   args[0],
+				LocalPort:  uint16(port),
+				TunnelName: args[2],
+			},
 		)
 		if err := client.ConnectAndServe(); err != nil {
 			log.Fatal().Err(err).Msg("Failed to create tunnel")
