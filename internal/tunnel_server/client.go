@@ -33,17 +33,19 @@ type TunnelClient struct {
 	tunnelName      string
 	spaceName       string
 	spacePort       uint16
+	tlsName         string
 	ctx             context.Context
 	cancel          context.CancelFunc
 }
 
 type TunnelOpts struct {
-	Type       TunnelType
-	Protocol   string // http, https or tcp
-	LocalPort  uint16
-	TunnelName string // The name of the tunnel for web tunnels
-	SpaceName  string // The name of the space for space tunnels
-	SpacePort  uint16 // The port within the space being forwarded
+	Type       TunnelType // Type of tunnel
+	Protocol   string     // http, https or tcp
+	LocalPort  uint16     // The local port to forward to
+	TunnelName string     // The name of the tunnel for web tunnels
+	SpaceName  string     // The name of the space for space tunnels
+	SpacePort  uint16     // The port within the space being forwarded
+	TlsName    string     // The name to present to TLS ports
 }
 
 func NewTunnelClient(wsServerUrl, serverUrl, token string, opts *TunnelOpts) *TunnelClient {
@@ -60,6 +62,7 @@ func NewTunnelClient(wsServerUrl, serverUrl, token string, opts *TunnelOpts) *Tu
 		tunnelName:  opts.TunnelName,
 		spaceName:   opts.SpaceName,
 		spacePort:   opts.SpacePort,
+		tlsName:     opts.TlsName,
 		ctx:         ctx,
 		cancel:      cancel,
 	}

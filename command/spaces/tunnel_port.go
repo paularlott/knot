@@ -17,6 +17,7 @@ import (
 
 func init() {
 	tunnelPortCmd.PersistentFlags().BoolP("tls", "", true, "Enable TLS encryption for the tunnel.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_TLS environment variable if set.")
+	tunnelPortCmd.PersistentFlags().StringP("tls-name", "", "", "The name to present to TLS ports.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_NAME environment variable if set.")
 }
 
 var tunnelPortCmd = &cobra.Command{
@@ -32,6 +33,9 @@ var tunnelPortCmd = &cobra.Command{
 		viper.BindPFlag("tls", cmd.Flags().Lookup("tls"))
 		viper.BindEnv("tls", config.CONFIG_ENV_PREFIX+"_TUNNEL_TLS")
 		viper.SetDefault("tls", false)
+
+		viper.BindPFlag("tls_name", cmd.Flags().Lookup("tls-name"))
+		viper.BindEnv("tls_name", config.CONFIG_ENV_PREFIX+"_TLS_NAME")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		alias, _ := cmd.Flags().GetString("alias")
@@ -55,6 +59,7 @@ var tunnelPortCmd = &cobra.Command{
 			LocalPort: uint16(localPort),
 			SpaceName: spaceName,
 			SpacePort: uint16(listenPort),
+			TlsName:   viper.GetString("tls_name"),
 		}
 
 		if viper.GetBool("tls") {

@@ -20,6 +20,7 @@ func init() {
 	TunnelCmd.PersistentFlags().StringP("server", "s", "", "The address of the remote server to create the tunnel on.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
 	TunnelCmd.PersistentFlags().StringP("token", "t", "", "The token to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOKEN environment variable if set.")
 	TunnelCmd.PersistentFlags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
+	TunnelCmd.PersistentFlags().StringP("tls-name", "", "", "The name to present to TLS ports.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_NAME environment variable if set.")
 	TunnelCmd.Flags().StringP("alias", "a", "default", "The server alias to use.")
 }
 
@@ -46,6 +47,9 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 		viper.BindPFlag("tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
 		viper.BindEnv("tls_skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
 		viper.SetDefault("tls_skip_verify", true)
+
+		viper.BindPFlag("tls_name", cmd.Flags().Lookup("tls-name"))
+		viper.BindEnv("tls_name", config.CONFIG_ENV_PREFIX+"_TLS_NAME")
 	},
 	Args: cobra.ExactArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -77,6 +81,7 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 				Protocol:   args[0],
 				LocalPort:  uint16(port),
 				TunnelName: args[2],
+				TlsName:    viper.GetString("tls_name"),
 			},
 		)
 		if err := client.ConnectAndServe(); err != nil {
