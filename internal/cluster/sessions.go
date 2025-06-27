@@ -159,7 +159,7 @@ func (c *Cluster) gossipSessions() {
 		sessions[i], sessions[j] = sessions[j], sessions[i]
 	})
 
-	batchSize := c.gossipCluster.GetBatchSize(len(sessions))
+	batchSize := c.gossipCluster.CalcPayloadSize(len(sessions))
 	if batchSize > 0 {
 		sessions = sessions[:batchSize]
 		c.gossipCluster.Send(SessionGossipMsg, &sessions)

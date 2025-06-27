@@ -179,7 +179,7 @@ func (c *Cluster) gossipUsers() {
 	})
 
 	if c.gossipCluster != nil {
-		batchSize := c.gossipCluster.GetBatchSize(len(users))
+		batchSize := c.gossipCluster.CalcPayloadSize(len(users))
 		if batchSize == 0 {
 			return // No keys to send in this batch
 		}
@@ -192,7 +192,7 @@ func (c *Cluster) gossipUsers() {
 	}
 
 	if len(c.leafSessions) > 0 {
-		batchSize := c.getBatchSize(len(users))
+		batchSize := c.CalcLeafPayloadSize(len(users))
 		if batchSize > 0 {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(users)).Msg("cluster: Users to leaf nodes")
 

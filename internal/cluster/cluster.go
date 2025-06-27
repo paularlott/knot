@@ -351,7 +351,8 @@ func (c *Cluster) Nodes() []*gossip.Node {
 	return nil
 }
 
-func (c *Cluster) getBatchSize(totalNodes int) int {
+// This is a duplicate of the gossip payload size calculation, however when gossip isn't running we still need this for sending to leaf nodes
+func (c *Cluster) CalcLeafPayloadSize(totalNodes int) int {
 	if totalNodes <= 0 {
 		return 0
 	}

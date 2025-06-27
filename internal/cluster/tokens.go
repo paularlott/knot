@@ -158,7 +158,7 @@ func (c *Cluster) gossipTokens() {
 		tokens[i], tokens[j] = tokens[j], tokens[i]
 	})
 
-	batchSize := c.gossipCluster.GetBatchSize(len(tokens))
+	batchSize := c.gossipCluster.CalcPayloadSize(len(tokens))
 	if batchSize > 0 {
 		tokens = tokens[:batchSize]
 		c.gossipCluster.Send(TokenGossipMsg, &tokens)

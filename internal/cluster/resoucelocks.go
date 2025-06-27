@@ -174,7 +174,7 @@ func (c *Cluster) gossipResourceLocks() {
 		locks[i], locks[j] = locks[j], locks[i]
 	})
 
-	batchSize := c.gossipCluster.GetBatchSize(len(locks))
+	batchSize := c.gossipCluster.CalcPayloadSize(len(locks))
 	if batchSize > 0 {
 		locks = locks[:batchSize]
 		c.gossipCluster.Send(ResourceLockGossipMsg, &locks)

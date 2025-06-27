@@ -154,7 +154,7 @@ func (c *Cluster) gossipGroups() {
 	})
 
 	if c.gossipCluster != nil {
-		batchSize := c.gossipCluster.GetBatchSize(len(groups))
+		batchSize := c.gossipCluster.CalcPayloadSize(len(groups))
 		if batchSize > 0 {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(groups)).Msg("cluster: Gossipping groups")
 			groups = groups[:batchSize]
@@ -163,7 +163,7 @@ func (c *Cluster) gossipGroups() {
 	}
 
 	if len(c.leafSessions) > 0 {
-		batchSize := c.getBatchSize(len(groups))
+		batchSize := c.gossipCluster.CalcPayloadSize(len(groups))
 		if batchSize > 0 {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(groups)).Msg("cluster: Groups to leaf nodes")
 			groups = groups[:batchSize]

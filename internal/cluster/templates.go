@@ -199,7 +199,7 @@ func (c *Cluster) gossipTemplates() {
 	})
 
 	if c.gossipCluster != nil {
-		batchSize := c.gossipCluster.GetBatchSize(len(templates))
+		batchSize := c.gossipCluster.CalcPayloadSize(len(templates))
 		if batchSize > 0 {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(templates)).Msg("cluster: Gossipping templates")
 			templates = templates[:batchSize]
@@ -208,7 +208,7 @@ func (c *Cluster) gossipTemplates() {
 	}
 
 	if len(c.leafSessions) > 0 {
-		batchSize := c.getBatchSize(len(templates))
+		batchSize := c.CalcLeafPayloadSize(len(templates))
 		if batchSize > 0 {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(templates)).Msg("cluster: Templates to leaf nodes")
 			templates = templates[:batchSize]

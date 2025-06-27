@@ -142,7 +142,7 @@ func (c *Cluster) gossipSpaces() {
 		return
 	}
 
-	batchSize := c.gossipCluster.GetBatchSize(len(spaces))
+	batchSize := c.gossipCluster.CalcPayloadSize(len(spaces))
 	if batchSize == 0 {
 		return // No keys to send in this batch
 	}

@@ -142,7 +142,7 @@ func (c *Cluster) gossipVolumes() {
 		return
 	}
 
-	batchSize := c.gossipCluster.GetBatchSize(len(volumes))
+	batchSize := c.gossipCluster.CalcPayloadSize(len(volumes))
 	if batchSize == 0 {
 		return // No keys to send in this batch
 	}
