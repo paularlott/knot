@@ -46,6 +46,7 @@ type jobSpec struct {
 	Devices       []string    `yaml:"devices,omitempty"`
 	DNS           []string    `yaml:"dns,omitempty"`
 	AddHost       []string    `yaml:"add_host,omitempty"`
+	DNSSearch     []string    `yaml:"dns_search,omitempty"`
 }
 
 type volInfo struct {
@@ -165,6 +166,11 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	// Add custom hosts if specified
 	if len(spec.AddHost) > 0 {
 		hostConfig.ExtraHosts = spec.AddHost
+	}
+
+	// Add custom DNS search domains if specified
+	if len(spec.DNSSearch) > 0 {
+		hostConfig.DNSSearch = spec.DNSSearch
 	}
 
 	// Record deploying
