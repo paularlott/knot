@@ -11,7 +11,6 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentlink"
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/internal/dnsproxy"
 	"github.com/paularlott/knot/internal/syslogd"
 
 	"github.com/rs/zerolog/log"
@@ -41,10 +40,6 @@ func init() {
 	AgentCmd.Flags().StringP("key-file", "", "", "The file with the PEM encoded key to use for the agent.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_KEY_FILE environment variable if set.")
 	AgentCmd.Flags().BoolP("use-tls", "", true, "Enable TLS.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_USE_TLS environment variable if set.")
 	AgentCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
-
-	// DNS Forwarding
-	AgentCmd.Flags().StringP("dns-listen", "", "", "The address and port to listen on for DNS requests (defaults to disabled).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_LISTEN environment variable if set.")
-	AgentCmd.Flags().Uint16P("dns-refresh-max-age", "", 180, "If a cached entry has been used within this number of seconds of it expiring then auto refresh.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MAX_AGE environment variable if set.")
 
 	AgentCmd.AddCommand(space.SpaceNoteCmd)
 }
@@ -128,13 +123,6 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		// DNS
 		viper.BindPFlag("resolver.nameservers", cmd.Flags().Lookup("nameserver"))
 		viper.BindEnv("resolver.nameservers", config.CONFIG_ENV_PREFIX+"_NAMESERVERS")
-
-		viper.BindPFlag("dns.listen", cmd.Flags().Lookup("dns-listen"))
-		viper.BindEnv("dns.listen", config.CONFIG_ENV_PREFIX+"_DNS_LISTEN")
-
-		viper.BindPFlag("dns.refresh_max_age", cmd.Flags().Lookup("dns-refresh-max-age"))
-		viper.BindEnv("dns.refresh_max_age", config.CONFIG_ENV_PREFIX+"_MAX_AGE")
-		viper.SetDefault("dns.refresh_max_age", 180)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		serverAddr := viper.GetString("agent.endpoint")
@@ -148,12 +136,6 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		// Check the key is given
 		if len(spaceId) != 36 {
 			log.Fatal().Msg("space-id is required and must be a valid space ID")
-		}
-
-		// Start the DNS forwarder if enabled
-		if viper.GetString("dns.listen") != "" {
-			dnsproxy := dnsproxy.NewDNSProxy()
-			go dnsproxy.RunServer()
 		}
 
 		// Open agent connection to the server

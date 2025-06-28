@@ -25,7 +25,7 @@ func init() {
 }
 
 var spacesCmd = &cobra.Command{
-	Use:   "spaces",
+	Use:   "space",
 	Short: "Manage spaces",
 	Long:  "Manage your spaces from the command line.",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {

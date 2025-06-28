@@ -22,7 +22,6 @@ type Session struct {
 	HttpPorts        map[string]string
 	HasVSCodeTunnel  bool
 	VSCodeTunnelName string
-	AgentIp          string
 	MuxSession       *yamux.Session
 
 	// The log history
@@ -45,7 +44,6 @@ func NewSession(spaceId string, version string) *Session {
 		HasTerminal:       false,
 		TcpPorts:          make(map[string]string, 0),
 		HttpPorts:         make(map[string]string, 0),
-		AgentIp:           "",
 		MuxSession:        nil,
 		LogHistoryMutex:   &sync.RWMutex{},
 		LogHistory:        make([]*msg.LogMessage, 0),

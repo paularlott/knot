@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/rs/zerolog/log"
@@ -33,19 +32,6 @@ func (c *AgentClient) reportState() {
 	}
 
 	codeBin := filepath.Join(homeDir, ".local", "bin", "code")
-
-	// Find our IP address
-	agentIp := viper.GetString("agent.advertise_addr")
-	if agentIp == "" {
-		var err error
-		agentIp, err = util.GetLocalIP()
-		if err != nil {
-			log.Fatal().Err(err).Msg("agent: failed to get local IP address")
-			return
-		}
-	}
-
-	log.Info().Msgf("agent: advertising IP address %s", agentIp)
 
 	interval := time.NewTicker(agentStatePingInterval)
 	defer interval.Stop()
@@ -144,7 +130,6 @@ func (c *AgentClient) reportState() {
 			Bool("Has Terminal", c.withTerminal).
 			Bool("Has VSCode Tunnel", hasVSCodeTunnel).
 			Str("VSCode Tunnel Name", vscodeTunnelName).
-			Str("Agent IP", agentIp).
 			Msg("agent: state to server")
 
 		var newServers []string
@@ -163,7 +148,7 @@ func (c *AgentClient) reportState() {
 					}
 				}
 
-				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, agentIp)
+				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName)
 				if err != nil {
 					log.Error().Err(err).Msgf("agent: failed to send state to server %s", server.address)
 				} else {

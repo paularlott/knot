@@ -23,7 +23,6 @@ import (
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/dnsserver"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
@@ -86,12 +85,6 @@ func init() {
 	serverCmd.Flags().BoolP("enable-totp", "", false, "Enable TOTP for users.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_TOTP environment variable if set.")
 	serverCmd.Flags().IntP("totp-window", "", 1, "The number of time steps (30 seconds) to check for TOTP codes (default \"1\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOTP_WINDOW environment variable if set.")
 	serverCmd.Flags().StringP("totp-issuer", "", "Knot", "The issuer to use for TOTP codes (default \"Knot\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOTP_ISSUER environment variable if set.")
-
-	// DNS Server
-	serverCmd.Flags().BoolP("enable-dns", "", false, "Experimental. Enable the DNS server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_DNS environment variable if set.")
-	serverCmd.Flags().StringP("dns-listen", "", ":8600", "The address to listen on for DNS requests (default \":8600\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_LISTEN environment variable if set.")
-	serverCmd.Flags().StringP("dns-domain", "", "knot.internal", "The domain to listen for DNS requests on (default \"knot.internal\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_DOMAIN environment variable if set.")
-	serverCmd.Flags().Int("dns-ttl", 10, "The TTL in seconds to use for DNS responses (default \"10\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DNS_TTL environment variable if set.")
 
 	// TLS
 	serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
@@ -338,23 +331,6 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.totp.issuer", config.CONFIG_ENV_PREFIX+"_TOTP_ISSUER")
 		viper.SetDefault("server.totp.issuer", "Knot")
 
-		// DNS
-		viper.BindPFlag("server.dns.enabled", cmd.Flags().Lookup("enable-dns"))
-		viper.BindEnv("server.dns.enabled", config.CONFIG_ENV_PREFIX+"_ENABLE_DNS")
-		viper.SetDefault("server.dns.enabled", false)
-
-		viper.BindPFlag("server.dns.listen", cmd.Flags().Lookup("dns-listen"))
-		viper.BindEnv("server.dns.listen", config.CONFIG_ENV_PREFIX+"_DNS_LISTEN")
-		viper.SetDefault("server.dns.listen", ":8600")
-
-		viper.BindPFlag("server.dns.domain", cmd.Flags().Lookup("dns-domain"))
-		viper.BindEnv("server.dns.domain", config.CONFIG_ENV_PREFIX+"_DNS_DOMAIN")
-		viper.SetDefault("server.dns.domain", "knot.internal")
-
-		viper.BindPFlag("server.dns.ttl", cmd.Flags().Lookup("dns-ttl"))
-		viper.BindEnv("server.dns.ttl", config.CONFIG_ENV_PREFIX+"_DNS_TTL")
-		viper.SetDefault("server.dns.ttl", 10)
-
 		// Nomad
 		viper.BindPFlag("server.nomad.addr", cmd.Flags().Lookup("nomad-addr"))
 		viper.BindEnv("server.nomad.addr", config.CONFIG_ENV_PREFIX+"_NOMAD_ADDR")
@@ -483,10 +459,7 @@ var serverCmd = &cobra.Command{
 		}
 		model.SetRoleCache(roles)
 
-		// Start the DNS server
-		if viper.GetBool("server.dns.enabled") {
-			dnsserver.ListenAndServe()
-		}
+		// TODO Start the DNS server if enabled
 
 		var router http.Handler
 

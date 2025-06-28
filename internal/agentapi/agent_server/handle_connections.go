@@ -212,7 +212,6 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HttpPorts = state.HttpPorts
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel
 				session.VSCodeTunnelName = state.VSCodeTunnelName
-				session.AgentIp = state.AgentIp
 			}
 
 			// Return the list of agent server endpoints

@@ -19,7 +19,7 @@ func init() {
 }
 
 var templatesCmd = &cobra.Command{
-	Use:   "templates",
+	Use:   "template",
 	Short: "Manage templates",
 	Long:  "Manage templates from the command line.",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
