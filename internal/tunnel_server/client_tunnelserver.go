@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/wsconn"
 
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -44,6 +44,8 @@ func newTunnelServer(client *TunnelClient, address string) *tunnelServer {
 }
 
 func (ts *tunnelServer) ConnectAndServe() {
+	cfg := config.GetServerConfig()
+
 	go func() {
 		log.Debug().Msgf("tunnel: connecting to tunnel server at %s", ts.address)
 		for {
@@ -77,7 +79,7 @@ func (ts *tunnelServer) ConnectAndServe() {
 			// Open the websocket
 			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", ts.client.token)}}
 			dialer := websocket.DefaultDialer
-			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
+			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify}
 			dialer.HandshakeTimeout = 5 * time.Second
 			ws, response, err := dialer.Dial(url, header)
 			if err != nil {

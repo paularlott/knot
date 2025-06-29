@@ -1,6 +1,6 @@
 package docker
 
-import "github.com/spf13/viper"
+import "github.com/paularlott/knot/internal/config"
 
 type DockerClient struct {
 	Host       string
@@ -8,8 +8,10 @@ type DockerClient struct {
 }
 
 func NewClient() *DockerClient {
+	cfg := config.GetServerConfig()
+
 	return &DockerClient{
-		Host:       viper.GetString("server.docker.host"),
+		Host:       cfg.Docker.Host,
 		DriverName: "docker",
 	}
 }

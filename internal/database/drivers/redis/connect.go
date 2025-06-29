@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/util"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -45,7 +45,8 @@ func (db *RedisDbDriver) realConnect() {
 	log.Debug().Msg("db: connecting to Redis")
 
 	// Look through the list of hosts and any that start with srv+ lookup the SRV record
-	hosts := viper.GetStringSlice("server.redis.hosts")
+	cfg := config.GetServerConfig()
+	hosts := cfg.Redis.Hosts
 	for idx, host := range hosts {
 		if host[:4] == "srv+" {
 			for i := 0; i < 10; i++ {
@@ -65,13 +66,13 @@ func (db *RedisDbDriver) realConnect() {
 		}
 	}
 
-	log.Debug().Msgf("db: connecting to redis server: %s, db: %d", hosts, viper.GetInt("server.redis.db"))
+	log.Debug().Msgf("db: connecting to redis server: %s, db: %d", hosts, cfg.Redis.DB)
 
 	db.connection = redis.NewUniversalClient(&redis.UniversalOptions{
 		Addrs:      hosts,
-		Password:   viper.GetString("server.redis.password"),
-		DB:         viper.GetInt("server.redis.db"),
-		MasterName: viper.GetString("server.redis.master_name"),
+		Password:   cfg.Redis.Password,
+		DB:         cfg.Redis.DB,
+		MasterName: cfg.Redis.MasterName,
 	})
 
 	log.Debug().Msg("db: connected to Redis")
@@ -80,7 +81,8 @@ func (db *RedisDbDriver) realConnect() {
 func (db *RedisDbDriver) Connect() error {
 
 	// If prefix doesn't end with : append it
-	db.prefix = viper.GetString("server.redis.key_prefix")
+	cfg := config.GetServerConfig()
+	db.prefix = cfg.Redis.KeyPrefix
 	if db.prefix != "" && db.prefix[len(db.prefix)-1:] != ":" {
 		db.prefix += ":"
 	}

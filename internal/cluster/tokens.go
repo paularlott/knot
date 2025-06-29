@@ -15,7 +15,8 @@ func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet
 	log.Debug().Msg("cluster: Received token full sync request")
 
 	// If the sender doesn't match our zone then ignore the request
-	if sender.Metadata.GetString("zone") != config.Zone {
+	cfg := config.GetServerConfig()
+	if sender.Metadata.GetString("zone") != cfg.Zone {
 		log.Debug().Msg("cluster: Ignoring token full sync request from a different zone")
 		return []*model.Token{}, nil
 	}
@@ -44,7 +45,8 @@ func (c *Cluster) handleTokenGossip(sender *gossip.Node, packet *gossip.Packet) 
 	log.Debug().Msg("cluster: Received token gossip request")
 
 	// If the sender doesn't match our zone then ignore the request
-	if sender.Metadata.GetString("zone") != config.Zone {
+	cfg := config.GetServerConfig()
+	if sender.Metadata.GetString("zone") != cfg.Zone {
 		log.Debug().Msg("cluster: Ignoring token gossip request from a different zone")
 		return nil
 	}
@@ -75,7 +77,8 @@ func (c *Cluster) DoTokenFullSync(node *gossip.Node) error {
 	if c.gossipCluster != nil {
 
 		// If the node doesn't match our zone then ignore the request
-		if node.Metadata.GetString("zone") != config.Zone {
+		cfg := config.GetServerConfig()
+		if node.Metadata.GetString("zone") != cfg.Zone {
 			log.Debug().Msg("cluster: Ignoring token full sync with node from a different zone")
 			return nil
 		}

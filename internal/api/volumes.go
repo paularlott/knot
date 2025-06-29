@@ -286,7 +286,8 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the volume has a zone and it is not this server then fail
-	if volume.Zone != "" && volume.Zone != config.Zone {
+	cfg := config.GetServerConfig()
+	if volume.Zone != "" && volume.Zone != cfg.Zone {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "volume is used by another server"})
 		return
 	}
@@ -297,7 +298,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	volume.Zone = config.Zone
+	volume.Zone = cfg.Zone
 	volume.Active = true
 	volume.UpdatedAt = time.Now().UTC()
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
@@ -337,7 +338,8 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the volume is not running or not this server then fail
-	if !volume.Active || volume.Zone != config.Zone {
+	cfg := config.GetServerConfig()
+	if !volume.Active || volume.Zone != cfg.Zone {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "volume not running"})
 		return
 	}

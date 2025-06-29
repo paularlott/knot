@@ -3,10 +3,9 @@ package middleware
 import (
 	"net/http"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-
-	"github.com/spf13/viper"
 )
 
 func GetSessionFromCookie(r *http.Request) *model.Session {
@@ -25,13 +24,14 @@ func GetSessionFromCookie(r *http.Request) *model.Session {
 }
 
 func DeleteSessionCookie(w http.ResponseWriter) {
+	cfg := config.GetServerConfig()
 	http.SetCookie(w, &http.Cookie{
 		Name:     model.WebSessionCookie,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   viper.GetBool("server.tls.use_tls"),
+		Secure:   cfg.TLS.UseTLS,
 		SameSite: http.SameSiteLaxMode,
 	})
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/sshd"
 	"github.com/paularlott/knot/internal/util"
 
@@ -95,13 +96,14 @@ func (s *agentServer) ConnectAndServe() {
 			var err error
 
 			// Open the connection
-			if viper.GetBool("agent.tls.use_tls") {
+			cfg := config.GetServerConfig()
+			if cfg.TLS.UseTLS {
 				dialer := &tls.Dialer{
 					NetDialer: &net.Dialer{
 						Timeout: 3 * time.Second,
 					},
 					Config: &tls.Config{
-						InsecureSkipVerify: viper.GetBool("tls_skip_verify"),
+						InsecureSkipVerify: cfg.TLS.SkipVerify,
 					},
 				}
 				s.conn, err = dialer.Dial("tcp", serverAddr)

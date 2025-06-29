@@ -8,7 +8,6 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/validate"
-	"github.com/spf13/viper"
 
 	"github.com/rs/zerolog/log"
 )
@@ -36,7 +35,8 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// User doesn't have permission to manage or use spaces so send them to the clients page
-	if !config.LeafNode && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
+	cfg := config.GetServerConfig()
+	if !cfg.LeafNode && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
 		http.Redirect(w, r, "/clients", http.StatusSeeOther)
 		return
 	}
@@ -55,7 +55,7 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 		data["forUserUsername"] = ""
 	}
 
-	data["wildcard_domain"] = viper.GetString("server.wildcard_domain")
+	data["wildcard_domain"] = cfg.WildcardDomain
 
 	err = tmpl.Execute(w, data)
 	if err != nil {

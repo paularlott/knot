@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
-
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/config"
 )
 
 func CreateAgentReverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string, host string) *httputil.ReverseProxy {
@@ -35,8 +34,9 @@ func CreateAgentReverseProxy(targetURL *url.URL, stream net.Conn, accessToken *s
 		}
 	}
 
+	cfg := config.GetServerConfig()
 	proxy.Transport = &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")},
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify},
 		MaxConnsPerHost:     32 * 2,
 		MaxIdleConns:        32 * 2,
 		MaxIdleConnsPerHost: 32,

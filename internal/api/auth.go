@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -16,7 +17,6 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 	"github.com/rs/zerolog/log"
 
-	"github.com/spf13/viper"
 	"golang.org/x/time/rate"
 )
 
@@ -154,7 +154,8 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		clientIP = r.RemoteAddr
 	}
 
-	if viper.GetBool("server.auth_ip_rate_limiting") {
+	cfg := config.GetServerConfig()
+	if cfg.AuthIPRateLimiting {
 		// Apply rate limiting by IP
 		ipLimiter := getIPLimiter(clientIP)
 		if !ipLimiter.Allow() {
@@ -202,10 +203,10 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	saveFields := []string{"LastLoginAt", "UpdatedAt"}
 
 	// If TOTP is enabled
-	if viper.GetBool("server.totp.enabled") {
+	if cfg.TOTP.Enabled {
 		// If the user has a TOTP secret then check the code
 		if user.TOTPSecret != "" {
-			if !totp.VerifyCode(user.TOTPSecret, request.TOTPCode, viper.GetInt("server.totp.window")) {
+			if !totp.VerifyCode(user.TOTPSecret, request.TOTPCode, cfg.TOTP.Window) {
 				rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: "invalid email, password or TOTP code"})
 				return
 			}
@@ -243,12 +244,13 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 
 	// Only create the cookie for web auth
 	if r.URL.Path == "/api/auth/web" {
+		cfg := config.GetServerConfig()
 		cookie := &http.Cookie{
 			Name:     model.WebSessionCookie,
 			Value:    session.Id,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   viper.GetBool("server.tls.use_tls"),
+			Secure:   cfg.TLS.UseTLS,
 			SameSite: http.SameSiteLaxMode,
 		}
 
@@ -310,7 +312,8 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 // Returns if the server is using TOTP or not, the CLI client uses this to work out
 // the authentication flow it should use.
 func HandleUsingTotp(w http.ResponseWriter, r *http.Request) {
+	cfg := config.GetServerConfig()
 	rest.SendJSON(http.StatusOK, w, r, apiclient.UsingTOTPResponse{
-		UsingTOTP: viper.GetBool("server.totp.enabled"),
+		UsingTOTP: cfg.TOTP.Enabled,
 	})
 }

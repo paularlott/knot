@@ -1,9 +1,8 @@
 package podman
 
 import (
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/docker"
-
-	"github.com/spf13/viper"
 )
 
 type PodmanClient struct {
@@ -11,8 +10,10 @@ type PodmanClient struct {
 }
 
 func NewClient() *PodmanClient {
+	cfg := config.GetServerConfig()
+
 	c := &PodmanClient{}
-	c.Host = viper.GetString("server.podman.host")
+	c.Host = cfg.Podman.Host
 	c.DriverName = "podman"
 	return c
 }

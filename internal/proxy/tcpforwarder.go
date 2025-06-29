@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/wsconn"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 func RunTCPForwarderViaProxy(proxyServerURL string, token string, listen string, service string, port int) {
@@ -42,6 +42,7 @@ func forwardTCP(dialURL string, token string, listen string) {
 		header = nil
 	}
 
+	cfg := config.GetServerConfig()
 	for {
 		tcpConn, err := tcpConnection.Accept()
 		if err != nil {
@@ -51,7 +52,7 @@ func forwardTCP(dialURL string, token string, listen string) {
 
 		// Create websocket connection
 		dialer := websocket.DefaultDialer
-		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
+		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify}
 		dialer.HandshakeTimeout = 5 * time.Second
 		wsConn, response, err := dialer.Dial(dialURL, header)
 		if err != nil {

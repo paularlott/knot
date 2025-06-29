@@ -8,7 +8,8 @@ import (
 )
 
 func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
-	if config.LeafNode {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
 		return next
 	}
 
@@ -36,7 +37,8 @@ func checkPermission(next http.HandlerFunc, permission uint16) http.HandlerFunc 
 }
 
 func checkPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
-	if config.LeafNode {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
 		return next
 	}
 
@@ -44,7 +46,8 @@ func checkPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func checkPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
-	if config.LeafNode {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
 		return next
 	}
 
@@ -52,7 +55,8 @@ func checkPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func checkPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
-	if config.LeafNode {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
 		return next
 	}
 

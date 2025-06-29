@@ -10,8 +10,6 @@ import (
 	"text/template"
 
 	"github.com/paularlott/knot/internal/config"
-
-	"github.com/spf13/viper"
 )
 
 // Parse an input string and resolve knot variables
@@ -69,8 +67,10 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 		return srcString, err
 	}
 
+	cfg := config.GetServerConfig()
+
 	// Get the wildcard domain without the *
-	wildcardDomain := viper.GetString("server.wildcard_domain")
+	wildcardDomain := cfg.WildcardDomain
 	if wildcardDomain != "" && wildcardDomain[0] == '*' {
 		wildcardDomain = wildcardDomain[1:]
 	}
@@ -92,11 +92,11 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 			"service_password": "",
 		},
 		"server": map[string]interface{}{
-			"url":             strings.TrimSuffix(viper.GetString("server.url"), "/"),
-			"agent_endpoint":  viper.GetString("server.agent_endpoint"),
+			"url":             strings.TrimSuffix(cfg.URL, "/"),
+			"agent_endpoint":  cfg.AgentEndpoint,
 			"wildcard_domain": wildcardDomain,
-			"zone":            config.Zone,
-			"timezone":        config.Timezone,
+			"zone":            cfg.Zone,
+			"timezone":        cfg.Timezone,
 		},
 		"nomad": map[string]interface{}{
 			"dc":     os.Getenv("NOMAD_DC"),
@@ -140,6 +140,8 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 }
 
 func FilterVars(variables []*TemplateVar) map[string]interface{} {
+	cfg := config.GetServerConfig()
+
 	// Filter the variables, local takes precedence, then variables with zone matching the server, then global
 	filteredVars := make(map[string]*TemplateVar, len(variables))
 	for _, variable := range variables {
@@ -152,7 +154,7 @@ func FilterVars(variables []*TemplateVar) map[string]interface{} {
 		if !allowVar {
 			// Allow if any zone matches the local zone
 			for _, zone := range variable.Zones {
-				if zone == config.Zone {
+				if zone == cfg.Zone {
 					allowVar = true
 					break
 				}
@@ -165,7 +167,7 @@ func FilterVars(variables []*TemplateVar) map[string]interface{} {
 				for _, zone := range variable.Zones {
 					if strings.HasPrefix(zone, "!") {
 						hasNegated = true
-						if zone[1:] == config.Zone {
+						if zone[1:] == cfg.Zone {
 							allNegatedDontMatch = false
 							break
 						}

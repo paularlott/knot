@@ -408,10 +408,12 @@ var serverCmd = &cobra.Command{
 		viper.SetDefault("server.podman.host", "unix:///var/run/podman.sock")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		listen := util.FixListenAddress(viper.GetString("server.listen"))
+		cfg := buildServerConfig()
+
+		listen := util.FixListenAddress(cfg.Listen)
 
 		// If agent address not given then don't start
-		if viper.GetString("server.agent_endpoint") == "" {
+		if cfg.AgentEndpoint == "" {
 			log.Fatal().Msg("server: agent endpoint not given")
 		}
 
@@ -434,21 +436,6 @@ var serverCmd = &cobra.Command{
 			viper.Set("server.tunnel_domain", tunnelDomain)
 		}
 
-		// set the server zone and timezone
-		config.Zone = viper.GetString("server.zone")
-		config.Timezone = viper.GetString("server.timezone")
-		config.LeafNode = viper.GetString("server.origin.server") != "" && viper.GetString("server.origin.token") != ""
-
-		// Force the zone for leaf nodes
-		if config.LeafNode {
-			config.Zone = model.LeafNodeZone
-		}
-
-		if config.Timezone == "" {
-			config.Timezone, _ = time.Now().Zone()
-		}
-		log.Info().Msgf("server: timezone: %s", config.Timezone)
-
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()
 
@@ -464,8 +451,8 @@ var serverCmd = &cobra.Command{
 		var router http.Handler
 
 		// Get the main host domain & wildcard domain
-		wildcardDomain := viper.GetString("server.wildcard_domain")
-		serverURL := viper.GetString("server.url")
+		wildcardDomain := cfg.WildcardDomain
+		serverURL := cfg.URL
 		u, err := url.Parse(serverURL)
 		if err != nil {
 			log.Fatal().Msg(err.Error())
@@ -486,8 +473,8 @@ var serverCmd = &cobra.Command{
 		routes := http.NewServeMux()
 
 		api.ApiRoutes(routes)
-		proxy.Routes(routes)
-		web.Routes(routes)
+		proxy.Routes(routes, cfg)
+		web.Routes(routes, cfg)
 
 		// Add support for page not found
 		appRoutes := web.HandlePageNotFound(routes)
@@ -670,4 +657,112 @@ var serverCmd = &cobra.Command{
 		log.Info().Msg("server: shutdown")
 		os.Exit(0)
 	},
+}
+
+func buildServerConfig() *config.ServerConfig {
+	serverCfg := &config.ServerConfig{
+		Listen:             viper.GetString("server.listen"),
+		URL:                viper.GetString("server.url"),
+		AgentEndpoint:      viper.GetString("server.agent_endpoint"),
+		WildcardDomain:     viper.GetString("server.wildcard_domain"),
+		HTMLPath:           viper.GetString("server.html_path"),
+		TemplatePath:       viper.GetString("server.template_path"),
+		AgentPath:          viper.GetString("server.agent_path"),
+		PrivateFilesPath:   viper.GetString("server.private_files_path"),
+		PublicFilesPath:    viper.GetString("server.public_files_path"),
+		DownloadPath:       viper.GetString("server.download_path"),
+		EnableProxy:        viper.GetBool("server.enable_proxy"),
+		DisableSpaceCreate: viper.GetBool("server.disable_space_create"),
+		ListenTunnel:       viper.GetString("server.listen_tunnel"),
+		TunnelDomain:       viper.GetString("server.tunnel_domain"),
+		TunnelServer:       viper.GetString("server.tunnel_server"),
+		TerminalWebGL:      viper.GetBool("server.terminal.webgl"),
+		EncryptionKey:      viper.GetString("server.encrypt"),
+		Zone:               viper.GetString("server.zone"),
+		Timezone:           viper.GetString("server.timezone"),
+		LeafNode:           viper.GetString("server.origin.server") != "" && viper.GetString("server.origin.token") != "",
+		AuthIPRateLimiting: viper.GetBool("server.auth_ip_rate_limiting"),
+		Origin: config.OriginConfig{
+			Server: viper.GetString("server.origin.server"),
+			Token:  viper.GetString("server.origin.token"),
+		},
+		TOTP: config.TOTPConfig{
+			Enabled: viper.GetBool("server.totp.enabled"),
+			Window:  viper.GetInt("server.totp.window"),
+			Issuer:  viper.GetString("server.totp.issuer"),
+		},
+		UI: config.UIConfig{
+			HideSupportLinks:   viper.GetBool("server.ui.hide_support_links"),
+			HideAPITokens:      viper.GetBool("server.ui.hide_api_tokens"),
+			EnableGravatar:     viper.GetBool("server.ui.enable_gravatar"),
+			LogoURL:            viper.GetString("server.ui.logo_url"),
+			LogoInvert:         viper.GetBool("server.ui.logo_invert"),
+			EnableBuiltinIcons: viper.GetBool("server.ui.enable_builtin_icons"),
+			Icons:              viper.GetStringSlice("server.ui.icons"),
+		},
+		Cluster: config.ClusterConfig{
+			Key:            viper.GetString("server.cluster.key"),
+			AdvertiseAddr:  viper.GetString("server.cluster.advertise_addr"),
+			BindAddr:       viper.GetString("server.cluster.bind_addr"),
+			Peers:          viper.GetStringSlice("server.cluster.peers"),
+			AllowLeafNodes: viper.GetBool("server.cluster.allow_leaf_nodes"),
+		},
+		MySQL: config.MySQLConfig{
+			Enabled:               viper.GetBool("server.mysql.enabled"),
+			Host:                  viper.GetString("server.mysql.host"),
+			Port:                  viper.GetInt("server.mysql.port"),
+			User:                  viper.GetString("server.mysql.user"),
+			Password:              viper.GetString("server.mysql.password"),
+			Database:              viper.GetString("server.mysql.database"),
+			ConnectionMaxIdle:     viper.GetInt("server.mysql.connection_max_idle"),
+			ConnectionMaxOpen:     viper.GetInt("server.mysql.connection_max_open"),
+			ConnectionMaxLifetime: viper.GetInt("server.mysql.connection_max_lifetime"),
+		},
+		BadgerDB: config.BadgerDBConfig{
+			Enabled: viper.GetBool("server.badgerdb.enabled"),
+			Path:    viper.GetString("server.badgerdb.path"),
+		},
+		Redis: config.RedisConfig{
+			Enabled:    viper.GetBool("server.redis.enabled"),
+			Hosts:      viper.GetStringSlice("server.redis.hosts"),
+			Password:   viper.GetString("server.redis.password"),
+			DB:         viper.GetInt("server.redis.db"),
+			MasterName: viper.GetString("server.redis.master_name"),
+			KeyPrefix:  viper.GetString("server.redis.key_prefix"),
+		},
+		Audit: config.AuditConfig{
+			Retention: viper.GetInt("server.audit_retention"),
+		},
+		Docker: config.DockerConfig{
+			Host: viper.GetString("server.docker.host"),
+		},
+		Podman: config.PodmanConfig{
+			Host: viper.GetString("server.podman.host"),
+		},
+		Nomad: config.NomadConfig{
+			Host:  viper.GetString("server.nomad.addr"),
+			Token: viper.GetString("server.nomad.token"),
+		},
+		TLS: config.TLSConfig{
+			CertFile:    viper.GetString("server.tls.cert_file"),
+			KeyFile:     viper.GetString("server.tls.key_file"),
+			UseTLS:      viper.GetBool("server.tls.use_tls"),
+			AgentUseTLS: viper.GetBool("server.tls.agent_use_tls"),
+			SkipVerify:  viper.GetBool("server.tls.tls_skip_verify"),
+		},
+	}
+
+	// Force the zone for leaf nodes
+	if serverCfg.LeafNode {
+		serverCfg.Zone = model.LeafNodeZone
+	}
+
+	if serverCfg.Timezone == "" {
+		serverCfg.Timezone, _ = time.Now().Zone()
+	}
+	log.Info().Msgf("server: timezone: %s", serverCfg.Timezone)
+
+	config.SetServerConfig(serverCfg)
+
+	return serverCfg
 }

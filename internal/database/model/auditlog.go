@@ -73,8 +73,10 @@ type AuditLogEntry struct {
 }
 
 func NewAuditLogEntry(actor, actorType, event, details string, properties *map[string]interface{}) *AuditLogEntry {
+	cfg := config.GetServerConfig()
+
 	entry := &AuditLogEntry{
-		Zone:      config.Zone,
+		Zone:      cfg.Zone,
 		Actor:     actor,
 		ActorType: actorType,
 		Event:     event,

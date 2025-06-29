@@ -6,18 +6,19 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
 
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
+	cfg := config.GetServerConfig()
 
-	if !middleware.HasUsers && viper.GetString("server.origin.server") == "" && viper.GetString("server.origin.token") == "" {
+	if !middleware.HasUsers && cfg.Origin.Server == "" && cfg.Origin.Token == "" {
 		http.Redirect(w, r, "/initial-system-setup", http.StatusSeeOther)
 	} else {
 		session := middleware.GetSessionFromCookie(r)
@@ -49,9 +50,9 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 		data := map[string]interface{}{
 			"redirect":    redirect,
 			"version":     build.Version,
-			"totpEnabled": viper.GetBool("server.totp.enabled"),
-			"logoURL":     viper.GetString("server.ui.logo_url"),
-			"logoInvert":  viper.GetBool("server.ui.logo_invert"),
+			"totpEnabled": cfg.TOTP.Enabled,
+			"logoURL":     cfg.UI.LogoURL,
+			"logoInvert":  cfg.UI.LogoInvert,
 		}
 
 		err = tmpl.Execute(w, data)

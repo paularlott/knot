@@ -118,6 +118,7 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 	}
 
 	// Merge the templates
+	cfg := config.GetServerConfig()
 	for _, template := range templates {
 		if localTemplate, ok := localTemplatesMap[template.Id]; ok {
 			if template.UpdatedAt.After(localTemplate.UpdatedAt) {
@@ -135,7 +136,7 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 					// Count the spaces on this server
 					activeSpaces := 0
 					for _, space := range spaces {
-						if space.Zone == config.Zone && !space.IsDeleted {
+						if space.Zone == cfg.Zone && !space.IsDeleted {
 							activeSpaces++
 						}
 					}
@@ -153,7 +154,7 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 							"cluster",
 							model.AuditActorSystem,
 							model.AuditEventTemplateDelete,
-							fmt.Sprintf("Refuted delete of template as in use on %s (%s)", config.Zone, template.Name),
+							fmt.Sprintf("Refuted delete of template as in use on %s (%s)", cfg.Zone, template.Name),
 							&map[string]interface{}{},
 						)
 					}

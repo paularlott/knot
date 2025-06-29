@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 type TunnelType int
@@ -69,7 +69,8 @@ func NewTunnelClient(wsServerUrl, serverUrl, token string, opts *TunnelOpts) *Tu
 }
 
 func (c *TunnelClient) ConnectAndServe() error {
-	client, err := apiclient.NewClient(c.serverUrl, c.token, viper.GetBool("tls_skip_verify"))
+	cfg := config.GetServerConfig()
+	client, err := apiclient.NewClient(c.serverUrl, c.token, cfg.TLS.SkipVerify)
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}

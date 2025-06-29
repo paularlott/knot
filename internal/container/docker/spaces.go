@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	cfg "github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -100,7 +100,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	}
 
 	// Create the container config
-	config := &container.Config{
+	containerConfig := &container.Config{
 		Image:        spec.Image,
 		Hostname:     spec.Hostname,
 		Env:          spec.Environment,
@@ -147,7 +147,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		}
 
 		// Add the port to the config
-		config.ExposedPorts[nat.Port(ports[1])] = struct{}{}
+		containerConfig.ExposedPorts[nat.Port(ports[1])] = struct{}{}
 
 		// Add the port to the host config
 		hostConfig.PortBindings[nat.Port(ports[1])] = []nat.PortBinding{
@@ -176,6 +176,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	// Record deploying
 	now := time.Now().UTC()
 	db := database.GetInstance()
+	cfg := config.GetServerConfig()
 	space.IsPending = true
 	space.IsDeployed = false
 	space.IsDeleting = false
@@ -246,7 +247,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		log.Debug().Msgf(c.DriverName+": creating container %s", spec.ContainerName)
 		resp, err := cli.ContainerCreate(
 			context.Background(),
-			config,
+			containerConfig,
 			hostConfig,
 			nil,
 			nil,
