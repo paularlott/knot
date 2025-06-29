@@ -12,6 +12,7 @@ import (
 
 type ServerConfig struct {
 	Listen             string
+	ListenAgent        string
 	URL                string
 	AgentEndpoint      string
 	WildcardDomain     string
@@ -73,6 +74,7 @@ type ClusterConfig struct {
 	BindAddr       string
 	Peers          []string
 	AllowLeafNodes bool
+	Compression    bool
 }
 
 type TLSConfig struct {

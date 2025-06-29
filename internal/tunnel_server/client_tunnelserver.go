@@ -79,7 +79,7 @@ func (ts *tunnelServer) ConnectAndServe() {
 			// Open the websocket
 			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", ts.client.token)}}
 			dialer := websocket.DefaultDialer
-			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify}
+			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify} // FIXME This needs to be the client TLS config not the server
 			dialer.HandshakeTimeout = 5 * time.Second
 			ws, response, err := dialer.Dial(url, header)
 			if err != nil {

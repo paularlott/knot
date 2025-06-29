@@ -76,6 +76,7 @@ func init() {
 	serverCmd.Flags().StringP("cluster-bind-addr", "", "", "The address to bind to for cluster communication (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_BIND_ADDR environment variable if set.")
 	serverCmd.Flags().StringSliceP("cluster-peer", "", []string{}, "The addresses of the other servers in the cluster, can be given multiple times (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_PEERS environment variable if set.")
 	serverCmd.Flags().BoolP("allow-leaf-nodes", "", true, "Allow leaf nodes to connect to the cluster.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ALLOW_LEAF_NODES environment variable if set.")
+	serverCmd.Flags().BoolP("cluster-compression", "", true, "Enable compression for cluster communication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_COMPRESSION environment variable if set.")
 
 	// Origin / Leaf servers
 	serverCmd.Flags().StringP("origin-server", "", "", "The address of the origin server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER environment variable if set.")
@@ -255,6 +256,10 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.cluster.allow_leaf_nodes", config.CONFIG_ENV_PREFIX+"_ALLOW_LEAF_NODES")
 		viper.SetDefault("server.cluster.allow_leaf_nodes", true)
 
+		viper.BindPFlag("server.cluster.compression", cmd.Flags().Lookup("cluster-compression"))
+		viper.BindEnv("server.cluster.compression", config.CONFIG_ENV_PREFIX+"_CLUSTER_COMPRESSION")
+		viper.SetDefault("server.cluster.compression", true)
+
 		// UI
 		viper.BindPFlag("server.ui.hide_support_links", cmd.Flags().Lookup("hide-support-links"))
 		viper.BindEnv("server.ui.hide_support_links", config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS")
@@ -310,9 +315,9 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.tls.agent_use_tls", config.CONFIG_ENV_PREFIX+"_AGENT_USE_TLS")
 		viper.SetDefault("server.tls.agent_use_tls", true)
 
-		viper.BindPFlag("tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
-		viper.BindEnv("tls_skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
-		viper.SetDefault("tls_skip_verify", true)
+		viper.BindPFlag("server.tls.tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
+		viper.BindEnv("server.tls.tls_skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
+		viper.SetDefault("server.tls.tls_skip_verify", true)
 
 		viper.BindPFlag("server.timezone", cmd.Flags().Lookup("timezone"))
 		viper.BindEnv("server.timezone", config.CONFIG_ENV_PREFIX+"_TIMEZONE")
@@ -424,18 +429,6 @@ var serverCmd = &cobra.Command{
 		service.SetUserService(api_utils.NewApiUtilsUsers())
 		service.SetContainerService(containerHelper.NewContainerHelper())
 
-		// If server.tunnel-domain doesn't start with a . then prefix it, strip leading * if present
-		tunnelDomain := viper.GetString("server.tunnel_domain")
-		if tunnelDomain != "" {
-			tunnelDomain = strings.TrimPrefix(tunnelDomain, "*")
-
-			if !strings.HasPrefix(tunnelDomain, ".") {
-				tunnelDomain = "." + tunnelDomain
-			}
-
-			viper.Set("server.tunnel_domain", tunnelDomain)
-		}
-
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()
 
@@ -461,8 +454,8 @@ var serverCmd = &cobra.Command{
 		log.Debug().Msgf("Host: %s", u.Host)
 
 		var tunnelServerUrl *url.URL = nil
-		if viper.GetString("server.tunnel_server") != "" && viper.GetString("server.listen_tunnel") != "" {
-			tunnelServerUrl, err = url.Parse(viper.GetString("server.tunnel_server"))
+		if cfg.TunnelServer != "" && cfg.ListenTunnel != "" {
+			tunnelServerUrl, err = url.Parse(cfg.TunnelServer)
 			if err != nil {
 				log.Fatal().Msgf("Error parsing tunnel server URL: %v", err)
 			}
@@ -479,7 +472,7 @@ var serverCmd = &cobra.Command{
 		// Add support for page not found
 		appRoutes := web.HandlePageNotFound(routes)
 
-		if viper.GetString("server.listen_tunnel") != "" {
+		if cfg.ListenTunnel != "" {
 			tunnel_server.Routes(routes)
 		}
 
@@ -517,13 +510,12 @@ var serverCmd = &cobra.Command{
 		var tlsConfig *tls.Config = nil
 
 		// If server should use TLS
-		useTLS := viper.GetBool("server.tls.use_tls")
-		if useTLS {
+		if cfg.TLS.UseTLS {
 			log.Debug().Msg("server: using TLS")
 
 			// If have both a cert and key file, use them
-			certFile := viper.GetString("server.tls.cert_file")
-			keyFile := viper.GetString("server.tls.key_file")
+			certFile := cfg.TLS.CertFile
+			keyFile := cfg.TLS.KeyFile
 			if certFile != "" && keyFile != "" {
 				log.Info().Msgf("server: using cert file: %s", certFile)
 				log.Info().Msgf("server: using key file: %s", keyFile)
@@ -543,7 +535,7 @@ var serverCmd = &cobra.Command{
 				// Build the list of domains to include in the cert
 				var sslDomains []string
 
-				serverURL := viper.GetString("server.url")
+				serverURL := cfg.URL
 				u, err := url.Parse(serverURL)
 				if err != nil {
 					log.Fatal().Msg(err.Error())
@@ -558,7 +550,7 @@ var serverCmd = &cobra.Command{
 				}
 
 				// If wildcard domain given add it
-				wildcardDomain := viper.GetString("server.wildcard_domain")
+				wildcardDomain := cfg.WildcardDomain
 				if wildcardDomain != "" {
 					sslDomains = append(sslDomains, wildcardDomain)
 				}
@@ -581,12 +573,12 @@ var serverCmd = &cobra.Command{
 
 		// Start the gossip server
 		cluster := cluster.NewCluster(
-			viper.GetString("server.cluster.key"),
-			viper.GetString("server.cluster.advertise_addr"),
-			viper.GetString("server.cluster.bind_addr"),
+			cfg.Cluster.Key,
+			cfg.Cluster.AdvertiseAddr,
+			cfg.Cluster.BindAddr,
 			routes,
-			viper.GetBool("server.cluster.compression"),
-			viper.GetBool("server.cluster.allow_leaf_nodes"),
+			cfg.Cluster.Compression,
+			cfg.Cluster.AllowLeafNodes,
 		)
 		service.SetTransport(cluster)
 
@@ -601,7 +593,7 @@ var serverCmd = &cobra.Command{
 
 		go func() {
 			for {
-				if useTLS {
+				if cfg.TLS.UseTLS {
 					if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 						log.Error().Err(err).Msgf("server: web server")
 					}
@@ -618,20 +610,20 @@ var serverCmd = &cobra.Command{
 
 		// Start the cluster and join the peers
 		cluster.Start(
-			viper.GetStringSlice("server.cluster.peers"),
-			viper.GetString("server.origin.server"),
-			viper.GetString("server.origin.token"),
+			cfg.Cluster.Peers,
+			cfg.Origin.Server,
+			cfg.Origin.Token,
 		)
 
 		// Check for local spaces that are pending state changes and setup watches
 		service.GetContainerService().CleanupOnBoot()
 
 		// Start the agent server
-		agent_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
+		agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)
 
 		// Start a tunnel server
-		if viper.GetString("server.listen_tunnel") != "" {
-			tunnel_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_tunnel")), tlsConfig)
+		if cfg.ListenTunnel != "" {
+			tunnel_server.ListenAndServe(util.FixListenAddress(cfg.ListenTunnel), tlsConfig)
 		}
 
 		audit.Log(
@@ -662,6 +654,7 @@ var serverCmd = &cobra.Command{
 func buildServerConfig() *config.ServerConfig {
 	serverCfg := &config.ServerConfig{
 		Listen:             viper.GetString("server.listen"),
+		ListenAgent:        viper.GetString("server.listen_agent"),
 		URL:                viper.GetString("server.url"),
 		AgentEndpoint:      viper.GetString("server.agent_endpoint"),
 		WildcardDomain:     viper.GetString("server.wildcard_domain"),
@@ -706,6 +699,7 @@ func buildServerConfig() *config.ServerConfig {
 			BindAddr:       viper.GetString("server.cluster.bind_addr"),
 			Peers:          viper.GetStringSlice("server.cluster.peers"),
 			AllowLeafNodes: viper.GetBool("server.cluster.allow_leaf_nodes"),
+			Compression:    viper.GetBool("server.cluster.compression"),
 		},
 		MySQL: config.MySQLConfig{
 			Enabled:               viper.GetBool("server.mysql.enabled"),
@@ -750,6 +744,15 @@ func buildServerConfig() *config.ServerConfig {
 			AgentUseTLS: viper.GetBool("server.tls.agent_use_tls"),
 			SkipVerify:  viper.GetBool("server.tls.tls_skip_verify"),
 		},
+	}
+
+	// If tunnel domain doesn't start with a . then prefix it, strip leading * if present
+	if serverCfg.TunnelDomain != "" {
+		serverCfg.TunnelDomain = strings.TrimPrefix(serverCfg.TunnelDomain, "*")
+
+		if !strings.HasPrefix(serverCfg.TunnelDomain, ".") {
+			serverCfg.TunnelDomain = "." + serverCfg.TunnelDomain
+		}
 	}
 
 	// Force the zone for leaf nodes
