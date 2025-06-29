@@ -315,9 +315,9 @@ var serverCmd = &cobra.Command{
 		viper.BindEnv("server.tls.agent_use_tls", config.CONFIG_ENV_PREFIX+"_AGENT_USE_TLS")
 		viper.SetDefault("server.tls.agent_use_tls", true)
 
-		viper.BindPFlag("server.tls.tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
-		viper.BindEnv("server.tls.tls_skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
-		viper.SetDefault("server.tls.tls_skip_verify", true)
+		viper.BindPFlag("server.tls.skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
+		viper.BindEnv("server.tls.skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
+		viper.SetDefault("server.tls.skip_verify", true)
 
 		viper.BindPFlag("server.timezone", cmd.Flags().Lookup("timezone"))
 		viper.BindEnv("server.timezone", config.CONFIG_ENV_PREFIX+"_TIMEZONE")
@@ -742,7 +742,7 @@ func buildServerConfig() *config.ServerConfig {
 			KeyFile:     viper.GetString("server.tls.key_file"),
 			UseTLS:      viper.GetBool("server.tls.use_tls"),
 			AgentUseTLS: viper.GetBool("server.tls.agent_use_tls"),
-			SkipVerify:  viper.GetBool("server.tls.tls_skip_verify"),
+			SkipVerify:  viper.GetBool("server.tls.skip_verify"),
 		},
 	}
 

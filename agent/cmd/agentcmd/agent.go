@@ -116,39 +116,38 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		viper.BindEnv("agent.tls.use_tls", config.CONFIG_ENV_PREFIX+"_USE_TLS")
 		viper.SetDefault("agent.tls.use_tls", true)
 
-		viper.BindPFlag("tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
-		viper.BindEnv("tls_skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
-		viper.SetDefault("tls_skip_verify", true)
+		viper.BindPFlag("agent.tls.skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
+		viper.BindEnv("agent.tls.skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
+		viper.SetDefault("agent.tls.skip_verify", true)
 
 		// DNS
 		viper.BindPFlag("resolver.nameservers", cmd.Flags().Lookup("nameserver"))
 		viper.BindEnv("resolver.nameservers", config.CONFIG_ENV_PREFIX+"_NAMESERVERS")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		serverAddr := viper.GetString("agent.endpoint")
-		spaceId := viper.GetString("agent.space_id")
+		cfg := buildAgentConfig()
 
 		// Check address given and valid URL
-		if serverAddr == "" {
+		if cfg.Endpoint == "" {
 			log.Fatal().Msg("server address is required")
 		}
 
 		// Check the key is given
-		if len(spaceId) != 36 {
+		if len(cfg.SpaceID) != 36 {
 			log.Fatal().Msg("space-id is required and must be a valid space ID")
 		}
 
 		// Open agent connection to the server
-		agentClient := agent_client.NewAgentClient(serverAddr, spaceId)
+		agentClient := agent_client.NewAgentClient(cfg.Endpoint, cfg.SpaceID)
 		agentClient.ConnectAndServe()
 
 		// Start the syslog server if enabled
-		if viper.GetInt("agent.syslog_port") > 0 {
-			go syslogd.StartSyslogd(agentClient)
+		if cfg.SyslogPort > 0 {
+			go syslogd.StartSyslogd(agentClient, cfg.SyslogPort)
 		}
 
 		// Start the http rest and log sink if enabled
-		if viper.GetInt("agent.api_port") > 0 {
+		if cfg.APIPort > 0 {
 			go agent_service_api.ListenAndServe(agentClient)
 		}
 
@@ -167,4 +166,36 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		log.Info().Msg("agent: shutdown")
 		os.Exit(0)
 	},
+}
+
+func buildAgentConfig() *config.AgentConfig {
+	agentCfg := &config.AgentConfig{
+		Endpoint:             viper.GetString("agent.endpoint"),
+		SpaceID:              viper.GetString("agent.space_id"),
+		UpdateAuthorizedKeys: viper.GetBool("agent.update_authorized_keys"),
+		ServicePassword:      viper.GetString("agent.service_password"),
+		VSCodeTunnel:         viper.GetString("agent.vscode_tunnel"),
+		AdvertiseAddr:        viper.GetString("agent.advertise_addr"),
+		SyslogPort:           viper.GetInt("agent.syslog_port"),
+		APIPort:              viper.GetInt("agent.api_port"),
+
+		Port: config.PortConfig{
+			CodeServer: viper.GetInt("agent.port.code_server"),
+			VNCHttp:    viper.GetInt("agent.port.vnc_http"),
+			SSH:        viper.GetInt("agent.port.ssh"),
+			TCPPorts:   viper.GetStringSlice("agent.port.tcp_port"),
+			HTTPPorts:  viper.GetStringSlice("agent.port.http_port"),
+			HTTPSPorts: viper.GetStringSlice("agent.port.https_port"),
+		},
+
+		TLS: config.TLSConfig{
+			CertFile:   viper.GetString("agent.tls.cert_file"),
+			KeyFile:    viper.GetString("agent.tls.key_file"),
+			UseTLS:     viper.GetBool("agent.tls.use_tls"),
+			SkipVerify: viper.GetBool("agent.tls.skip_verify"),
+		},
+	}
+	config.SetAgentConfig(agentCfg)
+
+	return agentCfg
 }

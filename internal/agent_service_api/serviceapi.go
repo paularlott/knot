@@ -6,17 +6,18 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
+	"github.com/paularlott/knot/internal/config"
 
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 var agentClient *agent_client.AgentClient
 
 func ListenAndServe(agent *agent_client.AgentClient) {
+	cfg := config.GetAgentConfig()
 	agentClient = agent
 
-	log.Debug().Msgf("service_api: starting agent service api on port %d", viper.GetInt("agent.api_port"))
+	log.Debug().Msgf("service_api: starting agent service api on port %d", cfg.APIPort)
 
 	go func() {
 
@@ -27,7 +28,7 @@ func ListenAndServe(agent *agent_client.AgentClient) {
 
 		// Run the http server
 		server := &http.Server{
-			Addr:         fmt.Sprintf(":%d", viper.GetInt("agent.api_port")),
+			Addr:         fmt.Sprintf(":%d", cfg.APIPort),
 			Handler:      router,
 			ReadTimeout:  10 * time.Second,
 			WriteTimeout: 10 * time.Second,

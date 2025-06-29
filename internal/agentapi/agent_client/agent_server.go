@@ -18,7 +18,6 @@ import (
 
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -96,7 +95,7 @@ func (s *agentServer) ConnectAndServe() {
 			var err error
 
 			// Open the connection
-			cfg := config.GetServerConfig()
+			cfg := config.GetAgentConfig()
 			if cfg.TLS.UseTLS {
 				dialer := &tls.Dialer{
 					NetDialer: &net.Dialer{
@@ -162,8 +161,8 @@ func (s *agentServer) ConnectAndServe() {
 
 				// Remember the feature flags
 				s.agentClient.withTerminal = response.WithTerminal
-				s.agentClient.withVSCodeTunnel = response.WithVSCodeTunnel && viper.GetString("agent.vscode_tunnel") != ""
-				s.agentClient.withCodeServer = response.WithCodeServer && viper.GetInt("agent.port.code_server") > 0
+				s.agentClient.withVSCodeTunnel = response.WithVSCodeTunnel && cfg.VSCodeTunnel != ""
+				s.agentClient.withCodeServer = response.WithCodeServer && cfg.Port.CodeServer > 0
 				s.agentClient.withSSH = response.WithSSH && s.agentClient.sshPort > 0
 
 				// If ssh port given then test if to start the ssh server
@@ -184,12 +183,12 @@ func (s *agentServer) ConnectAndServe() {
 
 				// Fetch and start code server
 				if s.agentClient.withCodeServer {
-					go startCodeServer(viper.GetInt("agent.port.code_server"))
+					go startCodeServer(cfg.Port.CodeServer)
 				}
 
 				// Fetch and start vscode tunnel
 				if s.agentClient.withVSCodeTunnel {
-					go startVSCodeTunnel(viper.GetString("agent.vscode_tunnel"))
+					go startVSCodeTunnel(cfg.VSCodeTunnel)
 				}
 			}
 			s.agentClient.firstRegistrationMutex.Unlock()
@@ -204,7 +203,7 @@ func (s *agentServer) ConnectAndServe() {
 					log.Error().Msgf("agent: updating internal SSH server keys: %v", err)
 				}
 				sshd.SetShell(response.Shell)
-			} else if viper.GetBool("agent.update_authorized_keys") && s.agentClient.withSSH {
+			} else if cfg.UpdateAuthorizedKeys && s.agentClient.withSSH {
 				if err := util.UpdateAuthorizedKeys(response.SSHKeys, response.GitHubUsernames); err != nil {
 					log.Error().Msgf("agent: updating authorized keys: %v", err)
 				}
@@ -318,6 +317,8 @@ func (s *agentServer) Shutdown() {
 func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 	defer stream.Close()
 
+	cfg := config.GetAgentConfig()
+
 	// Read the command
 	cmd, err := msg.ReadCommand(stream)
 	if err != nil {
@@ -351,7 +352,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 				if err := sshd.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
 					log.Error().Msgf("agent: updating internal SSH server keys: %v", err)
 				}
-			} else if viper.GetBool("agent.update_authorized_keys") && s.agentClient.withSSH {
+			} else if cfg.UpdateAuthorizedKeys && s.agentClient.withSSH {
 				if err := util.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
 					log.Error().Msgf("agent: updating authorized keys: %v", err)
 				}
@@ -388,7 +389,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 
 	case byte(msg.CmdCodeServer):
 		if s.agentClient.withCodeServer {
-			ProxyTcp(stream, fmt.Sprintf("%d", viper.GetInt("agent.port.code_server")))
+			ProxyTcp(stream, fmt.Sprintf("%d", cfg.Port.CodeServer))
 		}
 
 	case byte(msg.CmdProxyTCPPort):
@@ -409,8 +410,8 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		ProxyTcp(stream, fmt.Sprintf("%d", tcpPort.Port))
 
 	case byte(msg.CmdProxyVNC):
-		if viper.GetUint16("agent.port.vnc_http") > 0 {
-			ProxyTcpTls(stream, viper.GetString("agent.port.vnc_http"), "127.0.0.1")
+		if cfg.Port.VNCHttp > 0 {
+			ProxyTcpTls(stream, fmt.Sprintf("%d", cfg.Port.VNCHttp), "127.0.0.1")
 		}
 
 	case byte(msg.CmdProxyHTTP):
