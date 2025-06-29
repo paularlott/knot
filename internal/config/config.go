@@ -4,6 +4,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/paularlott/knot/internal/util"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -60,4 +61,25 @@ func InitConfig(root *cobra.Command) {
 	default:
 		zerolog.SetGlobalLevel(zerolog.WarnLevel)
 	}
+
+	// Convert map[string]any to map[string][]string for DomainServers
+	rawDomainServers := viper.GetStringMap("resolver.domains")
+	domainServers := make(map[string][]string)
+	for k, v := range rawDomainServers {
+		switch vv := v.(type) {
+		case []any:
+			strSlice := make([]string, len(vv))
+			for i, val := range vv {
+				strSlice[i] = strings.TrimSpace(val.(string))
+			}
+			domainServers[k] = strSlice
+		case string:
+			domainServers[k] = []string{strings.TrimSpace(vv)}
+		}
+	}
+
+	util.UpdateResolverConfig(&util.ResolverConfig{
+		DefaultServers: viper.GetStringSlice("resolver.nameservers"),
+		DomainServers:  domainServers,
+	})
 }

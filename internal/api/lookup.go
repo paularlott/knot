@@ -36,11 +36,11 @@ func HandleLookup(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			response.Status = false
 		} else {
-			response.Host = (*ips)[0]
+			response.Host = ips[0]
 		}
 	} else {
-		response.Host = (*hostPort)[0].Host
-		response.Port = (*hostPort)[0].Port
+		response.Host = hostPort[0].Host
+		response.Port = hostPort[0].Port
 	}
 
 	rest.SendJSON(http.StatusOK, w, r, response)

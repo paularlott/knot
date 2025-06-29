@@ -42,8 +42,8 @@ func HandleWSProxyServer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		host = (*hostPorts)[0].Host
-		port = (*hostPorts)[0].Port
+		host = hostPorts[0].Host
+		port = hostPorts[0].Port
 	}
 
 	log.Info().Msgf("ws: proxying to %s:%s", host, port)

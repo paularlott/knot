@@ -44,15 +44,15 @@ If <port> is not given then the remote port is found via a DNS SRV lookup agains
 				cobra.CheckErr("Failed to find service")
 			}
 
-			host = (*ips)[0]
+			host = ips[0]
 		} else {
 			hostPorts, err := util.LookupSRV(service)
 			if err != nil {
 				cobra.CheckErr("Failed to find service")
 			}
 
-			host = (*hostPorts)[0].Host
-			port = (*hostPorts)[0].Port
+			host = hostPorts[0].Host
+			port = hostPorts[0].Port
 		}
 
 		log.Info().Msgf("port: listening on %s", listen)

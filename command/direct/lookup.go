@@ -24,7 +24,7 @@ var lookupCmd = &cobra.Command{
 		}
 
 		fmt.Println("\nservice: ", service)
-		for _, hp := range *hostPorts {
+		for _, hp := range hostPorts {
 			fmt.Println("  ", hp.Host, hp.Port)
 		}
 	},

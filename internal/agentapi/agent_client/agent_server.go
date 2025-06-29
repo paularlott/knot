@@ -81,14 +81,14 @@ func (s *agentServer) ConnectAndServe() {
 			serverAddr := s.address
 			if strings.HasPrefix(s.address, "srv+") {
 				hostIPs, err := util.LookupSRV(s.address[4:])
-				if err != nil || len(*hostIPs) == 0 {
+				if err != nil || len(hostIPs) == 0 {
 					log.Error().Msgf("agent: resolving SRV record: %v", err)
 					time.Sleep(connectRetryDelay)
 					s.connectionAttempts++
 					continue
 				}
 
-				serverAddr = (*hostIPs)[0].Host + ":" + (*hostIPs)[0].Port
+				serverAddr = hostIPs[0].Host + ":" + hostIPs[0].Port
 			}
 			log.Info().Msgf("agent: connecting to server: %s", serverAddr)
 

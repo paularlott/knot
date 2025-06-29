@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 type HostPort struct {
@@ -19,261 +18,349 @@ type HostPort struct {
 	Port string
 }
 
-var (
-	configLoaded   = false
-	defaultServers = []string{}
-	domainServers  = map[string][]string{}
-)
+type ResolverConfig struct {
+	DefaultServers []string
+	DomainServers  map[string][]string
+	Timeout        time.Duration
+}
 
-func getResolvers(record string) *[]string {
-	// If load loaded then load the nameserver config
-	if !configLoaded {
-		configLoaded = true
+type DNSResolver struct {
+	config ResolverConfig
+	mu     sync.RWMutex
+}
 
-		// Load the default nameservers
-		for _, s := range viper.GetStringSlice("resolver.nameservers") {
-			// If the nameserver doesn't have a port, add the default port 53
-			if _, _, err := net.SplitHostPort(s); err != nil {
-				defaultServers = append(defaultServers, net.JoinHostPort(s, "53"))
-			} else {
-				defaultServers = append(defaultServers, s)
-			}
-		}
+// NewDNSResolver creates a new DNS resolver with the given configuration
+func NewDNSResolver(config *ResolverConfig) *DNSResolver {
+	resolver := &DNSResolver{
+		config: ResolverConfig{
+			DefaultServers: make([]string, 0, len(config.DefaultServers)),
+			DomainServers:  make(map[string][]string),
+			Timeout:        config.Timeout,
+		},
+	}
 
-		log.Debug().Msgf("dns: default servers: %+v", defaultServers)
+	resolver.UpdateConfig(config)
 
-		// Load the domain specific nameservers
-		domains := viper.GetStringMap("resolver.domains")
-		for domain, servers := range domains {
-			// Append a . to the domain if it doesn't have one
-			if !strings.HasSuffix(domain, ".") {
-				domain = domain + "."
-			}
+	return resolver
+}
 
-			log.Debug().Msgf("dns: domain: %s, servers: %+v", domain, servers)
+// Add this method to DNSResolver
+func (r *DNSResolver) UpdateConfig(config *ResolverConfig) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-			domainServers[domain] = make([]string, len(servers.([]interface{})))
-			for _, s := range servers.([]interface{}) {
-				// If the nameserver doesn't have a port, add the default port 53
-				if _, _, err := net.SplitHostPort(s.(string)); err != nil {
-					domainServers[domain] = append(domainServers[domain], net.JoinHostPort(s.(string), "53"))
-				} else {
-					domainServers[domain] = append(domainServers[domain], s.(string))
-				}
-			}
+	// Clear existing configuration
+	r.config.DefaultServers = make([]string, 0, len(config.DefaultServers))
+	r.config.DomainServers = make(map[string][]string)
+	r.config.Timeout = config.Timeout
+
+	// Set default timeout if not provided
+	if r.config.Timeout == 0 {
+		r.config.Timeout = 2 * time.Second
+	}
+
+	// Process default servers
+	for _, s := range config.DefaultServers {
+		if _, _, err := net.SplitHostPort(s); err != nil {
+			r.config.DefaultServers = append(r.config.DefaultServers, net.JoinHostPort(s, "53"))
+		} else {
+			r.config.DefaultServers = append(r.config.DefaultServers, s)
 		}
 	}
+
+	// Process domain-specific servers
+	for domain, servers := range config.DomainServers {
+		if !strings.HasSuffix(domain, ".") {
+			domain = domain + "."
+		}
+
+		processedServers := make([]string, 0, len(servers))
+		for _, s := range servers {
+			if _, _, err := net.SplitHostPort(s); err != nil {
+				processedServers = append(processedServers, net.JoinHostPort(s, "53"))
+			} else {
+				processedServers = append(processedServers, s)
+			}
+		}
+		r.config.DomainServers[domain] = processedServers
+	}
+
+	log.Trace().Msgf("dns: updated default servers: %+v", r.config.DefaultServers)
+	log.Trace().Msgf("dns: updated domain servers: %+v", r.config.DomainServers)
+}
+
+func (r *DNSResolver) getResolvers(record string) []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	if !strings.HasSuffix(record, ".") {
 		record = record + "."
 	}
 
-	var servers *[]string = nil
-
-	// Look through the domains map to see if we have a specific servers for this domain
-	for domain, ns := range domainServers {
+	// Look through the domains map to see if we have specific servers for this domain
+	for domain, ns := range r.config.DomainServers {
 		if strings.HasSuffix(record, domain) {
-			log.Debug().Msgf("Using Servers for %s: %+v", domain, ns)
-			servers = &ns
-			break
+			log.Trace().Msgf("Using Servers for %s: %+v", domain, ns)
+			return ns
 		}
 	}
 
 	// If no specific servers are found, use the default servers
-	if servers == nil {
-		if len(defaultServers) == 0 {
-			log.Debug().Msg("Using system default nameservers")
-			return nil
-		} else {
-			log.Debug().Msgf("Using Default Servers: %+v", defaultServers)
-			servers = &defaultServers
-		}
+	if len(r.config.DefaultServers) == 0 {
+		log.Trace().Msg("Using system default nameservers")
+		return nil
+	} else {
+		log.Trace().Msgf("Using Default Servers: %+v", r.config.DefaultServers)
+		return r.config.DefaultServers
+	}
+}
+
+// Generic parallel DNS lookup function
+func (r *DNSResolver) parallelLookup(servers []string, lookupFunc func(ctx context.Context, resolver *net.Resolver) (interface{}, error)) (interface{}, error) {
+	if len(servers) == 0 {
+		return nil, errors.New("no servers provided")
 	}
 
-	return servers
+	result := make(chan interface{}, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(len(servers))
+
+	for _, server := range servers {
+		go func(srv string) {
+			defer wg.Done()
+
+			resolver := &net.Resolver{
+				PreferGo: true,
+				Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+					dialer := &net.Dialer{
+						Timeout: r.config.Timeout,
+					}
+					return dialer.DialContext(ctx, "udp", srv)
+				},
+			}
+
+			res, err := lookupFunc(ctx, resolver)
+			if err == nil && res != nil {
+				select {
+				case result <- res:
+					cancel() // Cancel context to stop other goroutines
+				case <-ctx.Done():
+					// Context cancelled, another goroutine succeeded or timeout
+				}
+			}
+		}(server)
+	}
+
+	// Close result channel when all goroutines complete
+	go func() {
+		wg.Wait()
+		close(result)
+	}()
+
+	select {
+	case res, ok := <-result:
+		if !ok {
+			return nil, errors.New("no successful DNS lookup")
+		}
+		return res, nil
+	case <-ctx.Done():
+		return nil, errors.New("DNS lookup timeout")
+	}
 }
 
 // Run a parallel SRV query against a list of servers and return the first successful result
-func lookupSRV(service string, servers []string) ([]*net.SRV, error) {
-	result := make(chan []*net.SRV, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func (r *DNSResolver) lookupSRV(service string, servers []string) ([]*net.SRV, error) {
+	res, err := r.parallelLookup(servers, func(ctx context.Context, resolver *net.Resolver) (interface{}, error) {
+		_, addrs, err := resolver.LookupSRV(ctx, "", "", service)
+		if err != nil || len(addrs) == 0 {
+			return nil, err
+		}
+		return addrs, nil
+	})
 
-	var wg sync.WaitGroup
-	wg.Add(len(servers))
-
-	for _, server := range servers {
-		go func() {
-			defer wg.Done()
-
-			resolver := &net.Resolver{
-				PreferGo: true,
-				Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-					dialer := &net.Dialer{
-						Timeout: 5 * time.Second,
-					}
-					return dialer.DialContext(ctx, "udp", server)
-				},
-			}
-
-			_, addrs, err := resolver.LookupSRV(ctx, "", "", service)
-			if err == nil && len(addrs) > 0 {
-				select {
-				case result <- addrs:
-					cancel()
-				default:
-				}
-			}
-		}()
+	if err != nil {
+		return nil, err
 	}
-
-	go func() {
-		wg.Wait()
-		close(result)
-	}()
-
-	r, ok := <-result
-	if !ok {
-		return nil, errors.New("no successful SRV lookup")
-	}
-	return r, nil
+	return res.([]*net.SRV), nil
 }
 
-// Run a parallel IP against a list of servers and return the first successful result
-func lookupIP(host string, servers []string) (*[]net.IP, error) {
-	result := make(chan *[]net.IP, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+// Run a parallel IP lookup against a list of servers and return the first successful result
+func (r *DNSResolver) lookupIP(host string, servers []string) ([]net.IP, error) {
+	res, err := r.parallelLookup(servers, func(ctx context.Context, resolver *net.Resolver) (interface{}, error) {
+		ips, err := resolver.LookupIP(ctx, "ip", host)
+		if err != nil || len(ips) == 0 {
+			return nil, err
+		}
+		return ips, nil
+	})
 
-	var wg sync.WaitGroup
-	wg.Add(len(servers))
-
-	for _, server := range servers {
-		go func() {
-			defer wg.Done()
-
-			resolver := &net.Resolver{
-				PreferGo: true,
-				Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-					dialer := &net.Dialer{
-						Timeout: 5 * time.Second,
-					}
-					return dialer.DialContext(ctx, "udp", server)
-				},
-			}
-
-			ips, err := resolver.LookupIP(ctx, "ip", host)
-			if err == nil && len(ips) > 0 {
-				select {
-				case result <- &ips:
-					cancel()
-				default:
-				}
-			}
-		}()
+	if err != nil {
+		return nil, err
 	}
-
-	go func() {
-		wg.Wait()
-		close(result)
-	}()
-
-	r, ok := <-result
-	if !ok {
-		return nil, errors.New("no successful SRV lookup")
-	}
-	return r, nil
+	return res.([]net.IP), nil
 }
 
-// Look up the address of a service via a DNS SRV lookup against either consul servers or nameservers
-func LookupSRV(service string) (*[]HostPort, error) {
-	var hostPorts []HostPort = make([]HostPort, 0)
+// Helper function to perform DNS lookup with fallback to system resolver
+func (r *DNSResolver) performLookup(host string, customLookup func([]string) (interface{}, error), systemLookup func(context.Context, *net.Resolver) (interface{}, error)) (interface{}, error) {
+	servers := r.getResolvers(host)
 
-	ns := getResolvers(service)
-	if ns == nil {
-		// Not using custom nameservers then use the default
+	if servers == nil {
+		// Use system default resolver
 		resolver := net.DefaultResolver
-		_, srvAddrs, err := resolver.LookupSRV(context.Background(), "", "", service)
-		if err == nil && len(srvAddrs) > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), r.config.Timeout)
+		defer cancel()
+
+		return systemLookup(ctx, resolver)
+	}
+
+	// Use custom servers
+	return customLookup(servers)
+}
+
+func (r *DNSResolver) LookupSRV(service string) ([]HostPort, error) {
+	result, err := r.performLookup(service,
+		// Custom lookup function
+		func(servers []string) (interface{}, error) {
+			srvAddrs, err := r.lookupSRV(service, servers)
+			if err != nil {
+				return nil, err
+			}
+
+			var hostPorts []HostPort
 			for _, srvAddr := range srvAddrs {
-				ips, err := resolver.LookupIP(context.Background(), "ip", srvAddr.Target)
+				ips, err := r.lookupIP(srvAddr.Target, servers)
 				if err == nil && len(ips) > 0 {
 					for _, ip := range ips {
-						hostPorts = append(hostPorts, HostPort{Host: ip.String(), Port: strconv.Itoa(int(srvAddr.Port))})
+						hostPorts = append(hostPorts, HostPort{
+							Host: ip.String(),
+							Port: strconv.Itoa(int(srvAddr.Port)),
+						})
 					}
 				}
 			}
-		}
-	} else {
-		srvAddrs, err := lookupSRV(service, *ns)
-		if err == nil && len(srvAddrs) > 0 {
+			return hostPorts, nil
+		},
+		// System lookup function
+		func(ctx context.Context, resolver *net.Resolver) (interface{}, error) {
+			_, srvAddrs, err := resolver.LookupSRV(ctx, "", "", service)
+			if err != nil {
+				return nil, err
+			}
+
+			var hostPorts []HostPort
 			for _, srvAddr := range srvAddrs {
-				ips, err := lookupIP(srvAddr.Target, *ns)
-				if err == nil && len(*ips) > 0 {
-					for _, ip := range *ips {
-						hostPorts = append(hostPorts, HostPort{Host: ip.String(), Port: strconv.Itoa(int(srvAddr.Port))})
+				ips, err := resolver.LookupIP(ctx, "ip", srvAddr.Target)
+				if err == nil && len(ips) > 0 {
+					for _, ip := range ips {
+						hostPorts = append(hostPorts, HostPort{
+							Host: ip.String(),
+							Port: strconv.Itoa(int(srvAddr.Port)),
+						})
 					}
 				}
 			}
-		}
+			return hostPorts, nil
+		},
+	)
+
+	if err != nil {
+		return nil, err
 	}
 
+	hostPorts := result.([]HostPort)
 	if len(hostPorts) == 0 {
 		return nil, errors.New("no such host")
-	} else {
-		return &hostPorts, nil
 	}
+
+	return hostPorts, nil
 }
 
-func LookupIP(host string) (*[]string, error) {
-	var hosts []string = make([]string, 0)
+func (r *DNSResolver) LookupIP(host string) ([]string, error) {
+	result, err := r.performLookup(host,
+		// Custom lookup function
+		func(servers []string) (interface{}, error) {
+			ips, err := r.lookupIP(host, servers)
+			if err != nil {
+				return nil, err
+			}
 
-	ns := getResolvers(host)
-	if ns == nil {
-		// Not using custom nameservers then use the default
-		resolver := net.DefaultResolver
-		ips, err := resolver.LookupIP(context.Background(), "ip", host)
-		if err == nil && len(ips) > 0 {
+			var hosts []string
 			for _, ip := range ips {
 				hosts = append(hosts, ip.String())
 			}
-		}
-	} else {
-		ips, err := lookupIP(host, *ns)
-		if err == nil && len(*ips) > 0 {
-			for _, ip := range *ips {
+			return hosts, nil
+		},
+		// System lookup function
+		func(ctx context.Context, resolver *net.Resolver) (interface{}, error) {
+			ips, err := resolver.LookupIP(ctx, "ip", host)
+			if err != nil {
+				return nil, err
+			}
+
+			var hosts []string
+			for _, ip := range ips {
 				hosts = append(hosts, ip.String())
 			}
-		}
+			return hosts, nil
+		},
+	)
+
+	if err != nil {
+		return nil, err
 	}
 
+	hosts := result.([]string)
 	if len(hosts) == 0 {
 		return nil, errors.New("no such host")
-	} else {
-		return &hosts, nil
 	}
+
+	return hosts, nil
 }
 
-func ResolveSRVHttp(uri string) string {
+func (r *DNSResolver) ResolveSRVHttp(uri string) string {
 	// If url starts with srv+ then remove it and resolve the actual url
-	if len(uri) > 4 && uri[0:4] == "srv+" {
-
+	if strings.HasPrefix(uri, "srv+") {
 		// Parse the url excluding the srv+ prefix
 		u, err := url.Parse(uri[4:])
 		if err != nil {
 			return uri[4:]
 		}
 
-		hostPorts, err := LookupSRV(u.Host)
-		if err != nil {
+		hostPorts, err := r.LookupSRV(u.Host)
+		if err != nil || len(hostPorts) == 0 {
 			return uri[4:]
 		}
 
-		u.Host = (*hostPorts)[0].Host + ":" + (*hostPorts)[0].Port
-		uri = u.String()
-	} else if !strings.HasPrefix(uri, "http://") && !strings.HasPrefix(uri, "https://") {
-		uri = "https://" + uri
+		u.Host = hostPorts[0].Host + ":" + hostPorts[0].Port
+		return u.String()
+	}
+
+	if !strings.HasPrefix(uri, "http://") && !strings.HasPrefix(uri, "https://") {
+		return "https://" + uri
 	}
 
 	return uri
+}
+
+// Default global resolver instance
+var DefaultResolver = NewDNSResolver(&ResolverConfig{})
+
+// Global convenience functions that use the default resolver
+func UpdateResolverConfig(config *ResolverConfig) {
+	DefaultResolver.UpdateConfig(config)
+}
+
+func LookupSRV(service string) ([]HostPort, error) {
+	return DefaultResolver.LookupSRV(service)
+}
+
+func LookupIP(host string) ([]string, error) {
+	return DefaultResolver.LookupIP(host)
+}
+
+func ResolveSRVHttp(uri string) string {
+	return DefaultResolver.ResolveSRVHttp(uri)
 }
