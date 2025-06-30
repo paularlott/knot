@@ -87,7 +87,7 @@ func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
 
 			// Bidirectional copy
 			go func() {
-				defer log.Info().Msgf("agent: closed tunnel between %s and %d", clientConn.RemoteAddr(), port)
+				defer log.Debug().Msgf("agent: closed tunnel between %s and %d", clientConn.RemoteAddr(), port)
 
 				var once sync.Once
 				closeBoth := func() {
@@ -95,7 +95,7 @@ func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
 					tunnelStream.Close()
 				}
 
-				log.Info().Msgf("agent: established tunnel between %s and %d", clientConn.RemoteAddr(), port)
+				log.Debug().Msgf("agent: established tunnel between %s and %d", clientConn.RemoteAddr(), port)
 
 				// Copy from client to tunnel
 				go func() {

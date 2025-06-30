@@ -25,9 +25,6 @@ tags:
   - name: Core
     description: |
       Core API endpoints.
-  - name: Proxy
-    description: |
-      Endpoints for providing proxy services.
   - name: Spaces
     description: |
       Endpoints for working with spaces.

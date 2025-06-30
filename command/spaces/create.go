@@ -44,7 +44,7 @@ var CreateCmd = &cli.Command{
 			return fmt.Errorf("Invalid shell: %s", shell)
 		}
 
-		fmt.Println("Creating space: ", cmd.GetString("space"), " from template: ", cmd.GetString("template"))
+		fmt.Println("Creating space: ", cmd.GetStringArg("space"), " from template: ", cmd.GetStringArg("template"))
 
 		alias := cmd.GetString("alias")
 		cfg := config.GetServerAddr(alias, cmd)
@@ -62,19 +62,19 @@ var CreateCmd = &cli.Command{
 		// Find the ID of the template from the name
 		var templateId string = ""
 		for _, template := range templates.Templates {
-			if template.Name == cmd.GetString("template") {
+			if template.Name == cmd.GetStringArg("template") {
 				templateId = template.Id
 				break
 			}
 		}
 
 		if templateId == "" {
-			return fmt.Errorf("Template not found: %s", cmd.GetString("template"))
+			return fmt.Errorf("Template not found: %s", cmd.GetStringArg("template"))
 		}
 
 		// Create the template
 		space := &apiclient.SpaceRequest{
-			Name:        cmd.GetString("space"),
+			Name:        cmd.GetStringArg("space"),
 			Description: "",
 			TemplateId:  templateId,
 			Shell:       shell,
@@ -87,7 +87,7 @@ var CreateCmd = &cli.Command{
 			return fmt.Errorf("Error creating space: %w", err)
 		}
 
-		fmt.Println("Space created: ", cmd.GetString("space"))
+		fmt.Println("Space created: ", cmd.GetStringArg("space"))
 		return nil
 	},
 }

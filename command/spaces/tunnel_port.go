@@ -45,10 +45,15 @@ var TunnelPortCmd = &cli.Command{
 			DefaultValue: false,
 		},
 		&cli.StringFlag{
-			Name:       "tls-name",
-			Usage:      "The name to present to TLS ports.",
-			ConfigPath: []string{"tls_name"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_TLS_NAME"},
+			Name:    "port-tls-name",
+			Usage:   "The name to present to local port when using.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_TLS_NAME"},
+		},
+		&cli.BoolFlag{
+			Name:         "port-tls-skip-verify",
+			Usage:        "Skip TLS verification when talking to local port via https, this allows self signed certificates.",
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PORT_TLS_SKIP_VERIFY"},
+			DefaultValue: true,
 		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
@@ -73,8 +78,8 @@ var TunnelPortCmd = &cli.Command{
 			LocalPort:     uint16(localPort),
 			SpaceName:     spaceName,
 			SpacePort:     uint16(listenPort),
-			TlsName:       cmd.GetString("tls-name"),
-			TlsSkipVerify: true, // FIXME this needs defining see tunnel.go
+			TlsName:       cmd.GetString("port-tls-name"),
+			TlsSkipVerify: cmd.GetBool("port-tls-skip-verify"),
 		}
 
 		if cmd.GetBool("tls") {
@@ -85,7 +90,7 @@ var TunnelPortCmd = &cli.Command{
 			cfg.WsServer,
 			cfg.HttpServer,
 			cfg.ApiToken,
-			cmd.GetBool("tls-skip-verify"), // FIXME this needs defining see tunnel.go
+			cmd.GetBool("tls-skip-verify"),
 			&opts,
 		)
 		if err := client.ConnectAndServe(); err != nil {
