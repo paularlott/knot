@@ -23,6 +23,7 @@ import (
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/dns"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
@@ -517,6 +518,42 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PODMAN_HOST"},
 			DefaultValue: "unix:///var/run/podman.sock",
 		},
+
+		// DNS flags
+		&cli.BoolFlag{
+			Name:         "dns-enabled",
+			Usage:        "Enable DNS server.",
+			ConfigPath:   []string{"server.dns.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DNS_ENABLED"},
+			DefaultValue: false,
+		},
+		&cli.StringFlag{
+			Name:         "dns-listen",
+			Usage:        "The address and port to listen on for DNS queries.",
+			ConfigPath:   []string{"server.dns.listen"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DNS_LISTEN"},
+			DefaultValue: ":3053",
+		},
+		&cli.StringSliceFlag{
+			Name:       "dns-records",
+			Usage:      "The DNS records to add, can be specified multiple times.",
+			ConfigPath: []string{"server.dns.records"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_DNS_RECORDS"},
+		},
+		&cli.IntFlag{
+			Name:         "dns-default-ttl",
+			Usage:        "Default TTL for records if a TTL isn't explicitly set.",
+			ConfigPath:   []string{"server.dns.default_ttl"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DNS_DEFAULT_TTL"},
+			DefaultValue: 300,
+		},
+		&cli.IntFlag{
+			Name:         "dns-cache-ttl",
+			Usage:        "Time in seconds to cache upstream DNS responses.",
+			ConfigPath:   []string{"server.dns.cache_ttl"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DNS_CACHE_TTL"},
+			DefaultValue: 60,
+		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		cfg := buildServerConfig(cmd)
@@ -545,7 +582,24 @@ var ServerCmd = &cli.Command{
 		}
 		model.SetRoleCache(roles)
 
-		// TODO Start the DNS server if enabled
+		// Start the DNS server if enabled
+		if cmd.GetBool("dns-enabled") {
+			dnsServer, err := dns.NewDNSServer(dns.DNSServerConfig{
+				ListenAddr: cmd.GetString("dns-listen"),
+				Records:    cmd.GetStringSlice("dns-records"),
+				DefaultTTL: cmd.GetInt("dns-default-ttl"),
+				CacheTTL:   cmd.GetInt("dns-cache-ttl"),
+				Resolver:   dns.GetDefaultResolver(),
+			})
+			if err != nil {
+				log.Fatal().Err(err).Msg("Failed to create DNS server")
+			}
+
+			if err = dnsServer.Start(); err != nil {
+				log.Fatal().Err(err).Msg("Failed to start DNS server")
+			}
+			defer dnsServer.Stop()
+		}
 
 		var router http.Handler
 
