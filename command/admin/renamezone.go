@@ -1,37 +1,49 @@
 package commands_admin
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/paularlott/knot/internal/database"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 )
 
-var renameZoneCmd = &cobra.Command{
-	Use:   "rename-zone <old> <new> [flags]",
-	Short: "Rename a zone",
-	Long: `Rename a zone.
+var RenameZoneCmd = &cli.Command{
+	Name:  "rename-zone",
+	Usage: "Rename a Zone",
+	Description: `Rename a zone.
 
-The zone name is updated within the database however spaces and volumes are not moved.
-
-  old   The old zone name
-  new   The new zone name`,
-	Args: cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+The zone name is updated within the database however spaces and volumes are not moved.`,
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "old",
+			Usage:    "The old zone name",
+			Required: true,
+		},
+		&cli.StringArg{
+			Name:     "new",
+			Usage:    "The new zone name",
+			Required: true,
+		},
+	},
+	MaxArgs: cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		oldZone := cmd.GetStringArg("old")
+		newZone := cmd.GetStringArg("new")
 
 		// Display what is going to happen and warning
-		fmt.Println("Renaming zone ", args[0], "to", args[1])
+		fmt.Println("Renaming zone", oldZone, "to", newZone)
 		fmt.Print("This command will not move any spaces or volumes between zones.\n\n")
 
 		// Prompt the user to confirm the deletion
 		var confirm string
-		fmt.Printf("Are you sure you want to rename zone %s (yes/no): ", args[0])
+		fmt.Printf("Are you sure you want to rename zone %s (yes/no): ", oldZone)
 		fmt.Scanln(&confirm)
 		if confirm != "yes" {
 			fmt.Println("Rename cancelled.")
-			return
+			return nil
 		}
 
 		// Connect to the database
@@ -42,20 +54,19 @@ The zone name is updated within the database however spaces and volumes are not 
 		volumes, err := db.GetVolumes()
 		if err != nil {
 			fmt.Println("Error getting volumes: ", err)
-			return
+			return nil
 		}
 
 		for _, volume := range volumes {
 			fmt.Print("Checking Volume: ", volume.Name)
-			if volume.Zone == args[0] {
-				volume.Zone = args[1]
+			if volume.Zone == oldZone {
+				volume.Zone = newZone
 				volume.UpdatedAt = time.Now().UTC()
 				err := db.SaveVolume(volume, []string{"Zone", "UpdatedAt"})
 				if err != nil {
 					fmt.Println("Error updating volume: ", err)
-					return
+					return nil
 				}
-
 				fmt.Print(" - Updated\n")
 			} else {
 				fmt.Print(" - Skipping\n")
@@ -67,20 +78,19 @@ The zone name is updated within the database however spaces and volumes are not 
 		spaces, err := db.GetSpaces()
 		if err != nil {
 			fmt.Println("Error getting spaces: ", err)
-			return
+			return nil
 		}
 
 		for _, space := range spaces {
 			fmt.Print("Checking Space: ", space.Name)
-			if space.Zone == args[0] {
-				space.Zone = args[1]
+			if space.Zone == oldZone {
+				space.Zone = newZone
 				space.UpdatedAt = time.Now().UTC()
 				err := db.SaveSpace(space, []string{"Zone", "UpdatedAt"})
 				if err != nil {
 					fmt.Println("Error updating space: ", err)
-					return
+					return nil
 				}
-
 				fmt.Print(" - Updated\n")
 			} else {
 				fmt.Print(" - Skipping\n")
@@ -88,5 +98,6 @@ The zone name is updated within the database however spaces and volumes are not 
 		}
 
 		fmt.Print("\nZone renamed\n")
+		return nil
 	},
 }

@@ -13,16 +13,18 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 func (c *AgentClient) reportState() {
-	var codeServerPort int = viper.GetInt("agent.port.code_server")
-	var vncHttpPort int = viper.GetInt("agent.port.vnc_http")
-	var vscodeTunnelScreen string = viper.GetString("agent.vscode_tunnel")
+	cfg := config.GetAgentConfig()
+
+	var codeServerPort int = cfg.Port.CodeServer
+	var vncHttpPort int = cfg.Port.VNCHttp
+	var vscodeTunnelScreen string = cfg.VSCodeTunnel
 	var err error
 
 	// Path to vscode binary
@@ -59,7 +61,7 @@ func (c *AgentClient) reportState() {
 		if c.withCodeServer && codeServerPort > 0 {
 			// Check health of code-server
 			address := fmt.Sprintf("http://127.0.0.1:%d", codeServerPort)
-			client, err := rest.NewClient(address, "", viper.GetBool("tls_skip_verify"))
+			client, err := rest.NewClient(address, "", cfg.TLS.SkipVerify)
 			if err != nil {
 				log.Error().Err(err).Msg("agent: failed to create rest client for code-server")
 			} else {

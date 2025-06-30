@@ -231,8 +231,9 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If no zone given then use the servers
+	cfg := config.GetServerConfig()
 	if inZone == "" {
-		inZone = config.Zone
+		inZone = cfg.Zone
 	}
 
 	var userData = &apiclient.UserInfoList{

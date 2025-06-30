@@ -23,6 +23,7 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 	var hasError = false
 
 	db := database.GetInstance()
+	cfg := config.GetServerConfig()
 
 	log.Debug().Msgf("delete user: Deleting user %s", toDelete.Id)
 
@@ -36,7 +37,7 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		log.Debug().Msgf("delete user: Deleting space %s", space.Id)
 
 		// Skip spaces shared with the user but not owned by the user
-		if space.UserId == toDelete.Id && space.Zone == config.Zone {
+		if space.UserId == toDelete.Id && space.Zone == cfg.Zone {
 			log.Debug().Msgf("delete user: Deleting space %s", space.Id)
 			service.GetContainerService().DeleteSpace(space)
 		}
@@ -120,6 +121,7 @@ func (auu *ApiUtilsUsers) UpdateSpacesSSHKey(user *model.User) {
 
 func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.User) {
 	db := database.GetInstance()
+	cfg := config.GetServerConfig()
 
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil || template == nil {
@@ -132,7 +134,7 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 		agentState := agent_server.GetSession(space.Id)
 		if agentState == nil {
 			// Silently ignore if space is on a different server
-			if space.Zone == "" || space.Zone == config.Zone {
+			if space.Zone == "" || space.Zone == cfg.Zone {
 				log.Debug().Msgf("Update SSH Keys: Agent state not found for space %s", space.Id)
 			}
 
@@ -183,6 +185,8 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 
 // For disabled users ensure all spaces are stopped, for enabled users update the SSH key on the agents
 func (auu *ApiUtilsUsers) UpdateUserSpaces(user *model.User) {
+	cfg := config.GetServerConfig()
+
 	// If the user is disabled then stop all spaces
 	if !user.Active {
 		spaces, err := database.GetInstance().GetSpacesForUser(user.Id)
@@ -192,7 +196,7 @@ func (auu *ApiUtilsUsers) UpdateUserSpaces(user *model.User) {
 
 		for _, space := range spaces {
 			// Skip over spaces shared with the user but not owned by them
-			if space.UserId == user.Id && space.IsDeployed && (space.Zone == "" || space.Zone == config.Zone) {
+			if space.UserId == user.Id && space.IsDeployed && (space.Zone == "" || space.Zone == cfg.Zone) {
 				service.GetContainerService().StopSpace(space)
 			}
 		}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/paularlott/knot/internal/config"
 	driver_badgerdb "github.com/paularlott/knot/internal/database/drivers/badgerdb"
 	driver_memory "github.com/paularlott/knot/internal/database/drivers/memory"
 	driver_mysql "github.com/paularlott/knot/internal/database/drivers/mysql"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -104,21 +104,22 @@ type SessionStorage interface {
 // Initialize the database drivers
 func initDrivers() {
 	once.Do(func() {
+		cfg := config.GetServerConfig()
 
 		// Initialize the main driver
-		if viper.GetBool("server.mysql.enabled") {
+		if cfg.MySQL.Enabled {
 			// Connect to and use MySQL
 			log.Debug().Msg("db: MySQL enabled")
 
 			dbInstance = &driver_mysql.MySQLDriver{}
 
-		} else if viper.GetBool("server.badgerdb.enabled") {
+		} else if cfg.BadgerDB.Enabled {
 			// Connect to and use BadgerDB
 			log.Debug().Msg("db: BadgerDB enabled")
 
 			dbInstance = &driver_badgerdb.BadgerDbDriver{}
 
-		} else if viper.GetBool("server.redis.enabled") {
+		} else if cfg.Redis.Enabled {
 			// Connect to and use Redis
 			log.Debug().Msg("db: Redis enabled")
 
@@ -142,7 +143,7 @@ func initDrivers() {
 			dbSessionInstance = dbInstance
 		} else {
 			// If redis is enabled then use it for session storage
-			if viper.GetBool("server.redis.enabled") {
+			if cfg.Redis.Enabled {
 				// Connect to and use Redis
 				driver := &driver_redis.RedisDbDriver{}
 				err := driver.Connect()

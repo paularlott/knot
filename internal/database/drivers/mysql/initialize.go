@@ -3,9 +3,10 @@ package driver_mysql
 import (
 	"time"
 
+	"github.com/paularlott/knot/internal/config"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 func (db *MySQLDriver) initialize() error {
@@ -237,6 +238,7 @@ value MEDIUMTEXT
 
 	// Add a task to clean up expired data
 	log.Debug().Msg("db: starting database GC")
+	cfg := config.GetServerConfig()
 	go func() {
 		ticker := time.NewTicker(10 * time.Minute)
 		defer ticker.Stop()
@@ -251,8 +253,8 @@ value MEDIUMTEXT
 			}
 
 			// Remove old audit logs
-			if viper.GetInt("server.audit_retention") > 0 {
-				_, err = db.connection.Exec("DELETE FROM audit_logs WHERE created_at < ?", now.Add(-time.Duration(24*viper.GetInt("server.audit_retention"))*time.Hour).UTC())
+			if cfg.Audit.Retention > 0 {
+				_, err = db.connection.Exec("DELETE FROM audit_logs WHERE created_at < ?", now.Add(-time.Duration(24*cfg.Audit.Retention)*time.Hour).UTC())
 				if err != nil {
 					goto again
 				}

@@ -149,7 +149,8 @@ func (template *Template) AllowedBySchedule() bool {
 	}
 
 	// Get the timezone
-	loc, err := time.LoadLocation(config.Timezone)
+	cfg := config.GetServerConfig()
+	loc, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
 		log.Error().Msgf("Error loading timezone: %s", err)
 		return false

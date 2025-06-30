@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/config"
 )
 
 const (
@@ -59,10 +59,11 @@ func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
 }
 
 func (c *AgentClient) ConnectAndServe() {
-	c.sshPort = viper.GetInt("agent.port.ssh")
+	cfg := config.GetAgentConfig()
+	c.sshPort = cfg.Port.SSH
 
 	// Build a map of available http ports
-	ports := viper.GetStringSlice("agent.port.http_port")
+	ports := cfg.Port.HTTPPorts
 	c.httpPortMap = make(map[string]string, len(ports))
 	for _, port := range ports {
 		var name string
@@ -78,7 +79,7 @@ func (c *AgentClient) ConnectAndServe() {
 	}
 
 	// Build a map of available https ports
-	ports = viper.GetStringSlice("agent.port.https_port")
+	ports = cfg.Port.HTTPSPorts
 	c.httpsPortMap = make(map[string]string, len(ports))
 	for _, port := range ports {
 		var name string
@@ -94,7 +95,7 @@ func (c *AgentClient) ConnectAndServe() {
 	}
 
 	// Build a map of the available tcp ports
-	ports = viper.GetStringSlice("agent.port.tcp_port")
+	ports = cfg.Port.TCPPorts
 	c.tcpPortMap = make(map[string]string, len(ports))
 	for _, port := range ports {
 		var name string

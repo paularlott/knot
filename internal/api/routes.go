@@ -10,7 +10,6 @@ import (
 func ApiRoutes(router *http.ServeMux) {
 
 	// Core
-	router.HandleFunc("GET /api/lookup/{service}", middleware.ApiAuth(HandleLookup))
 	router.HandleFunc("GET /api/ping", middleware.ApiAuth(HandlePing))
 	router.HandleFunc("POST /api/auth/logout", middleware.ApiAuth(HandleLogout))
 

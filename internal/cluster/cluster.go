@@ -18,14 +18,12 @@ import (
 	"github.com/paularlott/gossip/websocket"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
-	cfg "github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -61,9 +59,9 @@ func NewCluster(
 		resourceLocks:  make(map[string]*ResourceLock),
 	}
 
-	config := gossip.DefaultConfig()
-	config.GossipInterval = GossipInterval
-	cluster.config = config
+	gossipConfig := gossip.DefaultConfig()
+	gossipConfig.GossipInterval = GossipInterval
+	cluster.config = gossipConfig
 
 	if advertiseAddr != "" {
 		log.Info().Msgf("cluster: enabling cluster mode on %s", advertiseAddr)
@@ -74,37 +72,37 @@ func NewCluster(
 			log.Fatal().Msg("server: node_id not set")
 		}
 
-		config.NodeID = nodeId.Value
-		config.BindAddr = bindAddr
-		config.AdvertiseAddr = advertiseAddr
+		gossipConfig.NodeID = nodeId.Value
+		gossipConfig.BindAddr = bindAddr
+		gossipConfig.AdvertiseAddr = advertiseAddr
 
-		if !strings.HasPrefix(config.AdvertiseAddr, "wss://") && !strings.HasPrefix(config.AdvertiseAddr, "https://") {
-			config.EncryptionKey = []byte(clusterKey)
-			config.Cipher = encryption.NewAESEncryptor()
-			config.SocketTransportEnabled = true
+		if !strings.HasPrefix(gossipConfig.AdvertiseAddr, "wss://") && !strings.HasPrefix(gossipConfig.AdvertiseAddr, "https://") {
+			gossipConfig.EncryptionKey = []byte(clusterKey)
+			gossipConfig.Cipher = encryption.NewAESEncryptor()
+			gossipConfig.SocketTransportEnabled = true
 
 			if compress {
-				config.Compressor = compression.NewSnappyCompressor()
+				gossipConfig.Compressor = compression.NewSnappyCompressor()
 			}
 		} else {
-			config.WebsocketProvider = websocket.NewGorillaProvider(5*time.Second, true, clusterKey)
-			config.SocketTransportEnabled = false
-			config.BearerToken = clusterKey
+			gossipConfig.WebsocketProvider = websocket.NewGorillaProvider(5*time.Second, true, clusterKey)
+			gossipConfig.SocketTransportEnabled = false
+			gossipConfig.BearerToken = clusterKey
 
-			url, err := url.Parse(config.AdvertiseAddr)
+			url, err := url.Parse(gossipConfig.AdvertiseAddr)
 			if err != nil {
-				log.Fatal().Msgf("cluster: failed to parse advertise URL %s: %s", config.AdvertiseAddr, err.Error())
+				log.Fatal().Msgf("cluster: failed to parse advertise URL %s: %s", gossipConfig.AdvertiseAddr, err.Error())
 			}
 
 			url.Path = "/cluster"
-			config.AdvertiseAddr = url.String()
+			gossipConfig.AdvertiseAddr = url.String()
 		}
 
-		config.Logger = common.NewZerologLogger(log.Logger)
-		config.MsgCodec = codec.NewVmihailencoMsgpackCodec()
+		gossipConfig.Logger = common.NewZerologLogger(log.Logger)
+		gossipConfig.MsgCodec = codec.NewVmihailencoMsgpackCodec()
 
-		config.ApplicationVersion = build.Version
-		config.ApplicationVersionCheck = func(version string) bool {
+		gossipConfig.ApplicationVersion = build.Version
+		gossipConfig.ApplicationVersionCheck = func(version string) bool {
 			ourParts := strings.Split(build.Version, ".")
 			versionParts := strings.Split(version, ".")
 			if len(ourParts) < 2 || len(versionParts) < 2 || ourParts[0] != versionParts[0] || ourParts[1] != versionParts[1] {
@@ -113,13 +111,13 @@ func NewCluster(
 			return true
 		}
 
-		cluster.gossipCluster, err = gossip.NewCluster(config)
+		cluster.gossipCluster, err = gossip.NewCluster(gossipConfig)
 		if err != nil {
 			log.Fatal().Msgf("cluster: failed to create gossip cluster: %s", err.Error())
 		}
 
 		// If using websockets then add the handler
-		if config.WebsocketProvider != nil {
+		if gossipConfig.WebsocketProvider != nil {
 			routes.HandleFunc("GET /cluster", cluster.gossipCluster.WebsocketHandler)
 		}
 
@@ -176,10 +174,11 @@ func NewCluster(
 			}
 		})
 
+		cfg := config.GetServerConfig()
 		metadata := cluster.gossipCluster.LocalMetadata()
 		metadata.SetString("zone", cfg.Zone)
-		metadata.SetString("agent_endpoint", viper.GetString("server.agent_endpoint"))
-		metadata.SetString("tunnel_server", viper.GetString("server.tunnel_server"))
+		metadata.SetString("agent_endpoint", cfg.AgentEndpoint)
+		metadata.SetString("tunnel_server", cfg.TunnelServer)
 		cluster.gossipCluster.UpdateMetadata()
 
 		// Set up leader elections within the locality
@@ -219,6 +218,7 @@ func NewCluster(
 }
 
 func (c *Cluster) trackClusterEndpoints() {
+	cfg := config.GetServerConfig()
 	nodes := c.gossipCluster.AliveNodes()
 	endPoints := []string{}
 	tunnelServers := []string{}
@@ -456,7 +456,8 @@ func (c *Cluster) unlockResourceLocally(resourceId, unlockToken string) {
 
 func (c *Cluster) handleResourceLock(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	// If the sender doesn't match our zone then ignore the request
-	if sender.Metadata.GetString("zone") != config.Zone {
+	cfg := config.GetServerConfig()
+	if sender.Metadata.GetString("zone") != cfg.Zone {
 		log.Debug().Msg("cluster: Ignoring resource lock request from a different zone")
 		return nil, errors.New("resource lock request from different zone")
 	}
@@ -477,7 +478,8 @@ func (c *Cluster) handleResourceLock(sender *gossip.Node, packet *gossip.Packet)
 
 func (c *Cluster) handleResourceUnlock(sender *gossip.Node, packet *gossip.Packet) error {
 	// If the sender doesn't match our zone then ignore the request
-	if sender.Metadata.GetString("zone") != config.Zone {
+	cfg := config.GetServerConfig()
+	if sender.Metadata.GetString("zone") != cfg.Zone {
 		log.Debug().Msg("cluster: Ignoring resource unlock request from a different zone")
 		return errors.New("resource unlock request from different zone")
 	}

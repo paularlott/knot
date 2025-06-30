@@ -1,23 +1,32 @@
 package commands_forward
 
 import (
+	"context"
+
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/proxy"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 )
 
-var sshCmd = &cobra.Command{
-	Use:   "ssh <space> [flags]",
-	Short: "Forward a SSH connection via the agent",
-	Long: `Forwards a SSH connection to a container running the agent via the proxy server.
+var SshCmd = &cli.Command{
+	Name:        "ssh",
+	Usage:       "Forward SSH to a space",
+	Description: `Forwards a SSH connection to a container running the agent via the proxy server.`,
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "space",
+			Usage:    "The name of the space to connect to",
+			Required: true,
+		},
+	},
+	MaxArgs: cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		space := cmd.GetStringArg("space")
+		alias := cmd.GetString("alias")
+		cfg := config.GetServerAddr(alias, cmd)
 
-  space   The name of the space to connect to e.g. test1`,
-	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		alias, _ := cmd.Flags().GetString("alias")
-		cfg := config.GetServerAddr(alias)
-
-		proxy.RunSSHForwarderViaAgent(cfg.WsServer, args[0], cfg.ApiToken)
+		proxy.RunSSHForwarderViaAgent(cfg.WsServer, space, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+		return nil
 	},
 }

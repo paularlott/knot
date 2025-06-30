@@ -3,17 +3,11 @@ package proxy
 import (
 	"net/http"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/middleware"
-
-	"github.com/spf13/viper"
 )
 
-func Routes(router *http.ServeMux) {
-
-	if viper.GetBool("server.enable_proxy") {
-		router.HandleFunc("GET /proxy/port/{host}/{port}", middleware.ApiAuth(HandleWSProxyServer))
-	}
-
+func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /proxy/spaces/{space_id}/code-server/", middleware.ApiAuth(HandleSpacesCodeServerProxy))
 	router.HandleFunc("GET /proxy/spaces/{space_id}/terminal/{shell}", middleware.ApiAuth(HandleSpacesTerminalProxy))
 

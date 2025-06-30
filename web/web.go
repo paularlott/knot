@@ -19,7 +19,6 @@ import (
 	"github.com/paularlott/knot/internal/middleware"
 
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -45,7 +44,7 @@ func HandlePageNotFound(next *http.ServeMux) http.Handler {
 	})
 }
 
-func Routes(router *http.ServeMux) {
+func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	log.Info().Msg("server: adding routes")
 
 	router.HandleFunc("GET /health", HandleHealthPage)
@@ -67,7 +66,7 @@ func Routes(router *http.ServeMux) {
 		w.Header().Set("Cache-Control", "public, max-age=14400")
 
 		// If server.html_path is given then serve the files from that path otherwise serve the embedded files
-		htmlPath := viper.GetString("server.html_path")
+		htmlPath := cfg.HTMLPath
 		if htmlPath != "" {
 			// If the file does exist then return a 404
 			info, err := os.Stat(filepath.Join(htmlPath, fileName))
@@ -115,14 +114,14 @@ func Routes(router *http.ServeMux) {
 	})
 
 	// If serving user files then add the handler
-	privateFilesPath := viper.GetString("server.private_files_path")
+	privateFilesPath := cfg.PrivateFilesPath
 	if privateFilesPath != "" {
 		router.HandleFunc("GET /private-files/", middleware.WebAuth(func(w http.ResponseWriter, r *http.Request) {
 			serveFiles(w, r, "/private-files/", privateFilesPath)
 		}))
 	}
 
-	publicFilesPath := viper.GetString("server.public_files_path")
+	publicFilesPath := cfg.PublicFilesPath
 	if publicFilesPath != "" {
 		router.HandleFunc("GET /public-files/", func(w http.ResponseWriter, r *http.Request) {
 			serveFiles(w, r, "/public-files/", publicFilesPath)
@@ -138,7 +137,7 @@ func Routes(router *http.ServeMux) {
 			return
 		}
 
-		agentPath := viper.GetString("server.agent_path")
+		agentPath := cfg.AgentPath
 		if agentPath != "" {
 			// If the file does exist then return a 404
 			info, err := os.Stat(filepath.Join(agentPath, fileName))
@@ -213,7 +212,7 @@ func Routes(router *http.ServeMux) {
 
 	router.HandleFunc("GET /logs/{space_id}", middleware.WebAuth(HandleLogsPage))
 
-	if viper.GetString("server.listen_tunnel") != "" {
+	if cfg.ListenTunnel != "" {
 		router.HandleFunc("GET /tunnels", middleware.WebAuth(checkPermissionUseTunnels(HandleSimplePage)))
 	}
 
@@ -225,13 +224,13 @@ func Routes(router *http.ServeMux) {
 	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 
 	// Routes without authentication
-	if !middleware.HasUsers && viper.GetString("server.origin.server") == "" && viper.GetString("server.origin.token") == "" {
+	if !middleware.HasUsers && cfg.Origin.Server == "" && cfg.Origin.Token == "" {
 		router.HandleFunc("GET /initial-system-setup", HandleInitialSystemSetupPage)
 	}
 	router.HandleFunc("GET /login", HandleLoginPage)
 
 	// If download path set then enable serving of the download folder
-	downloadPath := viper.GetString("server.download_path")
+	downloadPath := cfg.DownloadPath
 	if downloadPath != "" {
 		log.Info().Msgf("server: enabling download endpoint, source folder %s", downloadPath)
 
@@ -247,7 +246,7 @@ func Routes(router *http.ServeMux) {
 		})
 	}
 
-	if viper.GetBool("server.totp.enabled") {
+	if cfg.TOTP.Enabled {
 		router.HandleFunc("GET /qrcode/{code}", middleware.WebAuth(HandleCreateQRCode))
 	}
 }
@@ -329,6 +328,7 @@ func showPageForbidden(w http.ResponseWriter, r *http.Request) {
 
 // Initialize a new template
 func newTemplate(name string) (*template.Template, error) {
+	cfg := config.GetServerConfig()
 
 	if strings.Contains(name, "..") {
 		return nil, errors.New("invalid template name")
@@ -359,7 +359,7 @@ func newTemplate(name string) (*template.Template, error) {
 	}
 
 	// If server.template_path is given then serve the files from that path otherwise serve the embedded files
-	templatePath := viper.GetString("server.template_path")
+	templatePath := cfg.TemplatePath
 	if templatePath != "" {
 		// Check if template exists in the given template_path
 		filePath := filepath.Join(templatePath, name)
@@ -401,9 +401,10 @@ func newTemplate(name string) (*template.Template, error) {
 
 func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}) {
 	user := r.Context().Value("user").(*model.User)
+	cfg := config.GetServerConfig()
 
 	withDownloads := false
-	downloadPath := viper.GetString("server.download_path")
+	downloadPath := cfg.DownloadPath
 	if downloadPath != "" {
 		withDownloads = true
 	}
@@ -414,9 +415,9 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"user_email":                user.Email,
 		"user_email_md5":            fmt.Sprintf("%x", md5.Sum([]byte(user.Email))),
 		"withDownloads":             withDownloads,
-		"hideSupportLinks":          viper.GetBool("server.ui.hide_support_links"),
-		"hideAPITokens":             viper.GetBool("server.ui.hide_api_tokens"),
-		"useGravatar":               viper.GetBool("server.ui.enable_gravatar"),
+		"hideSupportLinks":          cfg.UI.HideSupportLinks,
+		"hideAPITokens":             cfg.UI.HideAPITokens,
+		"useGravatar":               cfg.UI.EnableGravatar,
 		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers),
 		"permissionManageGroups":    user.HasPermission(model.PermissionManageGroups),
 		"permissionManageRoles":     user.HasPermission(model.PermissionManageRoles),
@@ -425,20 +426,20 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces),
 		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes),
 		"permissionUseSpaces":       user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces),
-		"permissionUseTunnels":      user.HasPermission(model.PermissionUseTunnels) && viper.GetString("server.listen_tunnel") != "",
+		"permissionUseTunnels":      user.HasPermission(model.PermissionUseTunnels) && cfg.ListenTunnel != "",
 		"permissionViewAuditLogs":   user.HasPermission(model.PermissionViewAuditLogs) && database.GetInstance().HasAuditLog(),
 		"permissionTransferSpaces":  user.HasPermission(model.PermissionTransferSpaces),
 		"permissionShareSpaces":     user.HasPermission(model.PermissionShareSpaces),
-		"permissionViewClusterInfo": user.HasPermission(model.PermissionClusterInfo) && viper.GetString("server.cluster.advertise_addr") != "",
+		"permissionViewClusterInfo": user.HasPermission(model.PermissionClusterInfo) && cfg.Cluster.AdvertiseAddr != "",
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
-		"zone":                      config.Zone,
-		"timezone":                  config.Timezone,
-		"disableSpaceCreate":        viper.GetBool("server.disable_space_create"),
-		"totpEnabled":               viper.GetBool("server.totp.enabled"),
-		"clusterMode":               viper.GetString("server.cluster.advertise_addr") != "",
-		"isLeafNode":                config.LeafNode,
-		"logoURL":                   viper.GetString("server.ui.logo_url"),
-		"logoInvert":                viper.GetBool("server.ui.logo_invert"),
+		"zone":                      cfg.Zone,
+		"timezone":                  cfg.Timezone,
+		"disableSpaceCreate":        cfg.DisableSpaceCreate,
+		"totpEnabled":               cfg.TOTP.Enabled,
+		"clusterMode":               cfg.Cluster.AdvertiseAddr != "",
+		"isLeafNode":                cfg.LeafNode,
+		"logoURL":                   cfg.UI.LogoURL,
+		"logoInvert":                cfg.UI.LogoInvert,
 	}
 }

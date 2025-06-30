@@ -17,7 +17,6 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
@@ -59,6 +58,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build a json array of space data to return to the client
+	cfg := config.GetServerConfig()
 	for _, space := range spaces {
 		var templateName string
 
@@ -83,7 +83,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.TemplateName = templateName
 		s.TemplateId = space.TemplateId
 		s.Zone = space.Zone
-		s.IsRemote = space.Zone != "" && space.Zone != config.Zone
+		s.IsRemote = space.Zone != "" && space.Zone != cfg.Zone
 		s.Platform = template.Platform
 		s.IconURL = space.IconURL
 
@@ -134,7 +134,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.HasState = true
 
 			// If wildcard domain is set then offer the http ports
-			if viper.GetString("server.wildcard_domain") == "" {
+			if cfg.WildcardDomain == "" {
 				s.HttpPorts = make(map[string]string)
 			} else {
 				s.HttpPorts = state.HttpPorts
@@ -186,7 +186,8 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the space is running or changing state then fail
-	if space.IsDeployed || space.IsPending || space.IsDeleting || (space.Zone != "" && space.Zone != config.Zone) {
+	cfg := config.GetServerConfig()
+	if space.IsDeployed || space.IsPending || space.IsDeleting || (space.Zone != "" && space.Zone != cfg.Zone) {
 		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be deleted"})
 		return
 	}
@@ -272,6 +273,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	db := database.GetInstance()
+	cfg := config.GetServerConfig()
 
 	template, err := db.GetTemplate(request.TemplateId)
 	if err != nil {
@@ -293,13 +295,13 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If space create is disabled then fail
-	if viper.GetBool("server.disable_space_create") {
+	if cfg.DisableSpaceCreate {
 		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Space creation is disabled"})
 		return
 	}
 
 	// We don't check quotas on leaf nodes as they are controlled by the user
-	if !config.LeafNode {
+	if !cfg.LeafNode {
 		usage, err := database.GetUserUsage(user.Id, "")
 		if err != nil {
 			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -332,7 +334,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the space
-	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, config.Zone, request.IconURL, customFields)
+	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, cfg.Zone, request.IconURL, customFields)
 	err = db.SaveSpace(space, nil)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -387,6 +389,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 	user := r.Context().Value("user").(*model.User)
 	db := database.GetInstance()
+	cfg := config.GetServerConfig()
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
@@ -418,7 +421,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Is the space has a zone then it must match the server zone
-	if space.Zone != "" && space.Zone != config.Zone {
+	if space.Zone != "" && space.Zone != cfg.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space zone does not match server zone"})
 		return
 	}
@@ -431,7 +434,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !config.LeafNode {
+	if !cfg.LeafNode {
 		usage, err := database.GetUserUsage(user.Id, "")
 		if err != nil {
 			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
@@ -484,6 +487,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	db := database.GetInstance()
+	cfg := config.GetServerConfig()
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
@@ -505,7 +509,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the space isn't on this server then fail
-	if space.Zone != "" && space.Zone != config.Zone {
+	if space.Zone != "" && space.Zone != cfg.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
@@ -530,6 +534,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	db := database.GetInstance()
+	cfg := config.GetServerConfig()
 
 	if r.Context().Value("user") != nil {
 		user = r.Context().Value("user").(*model.User)
@@ -547,7 +552,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if space.Zone != "" && space.Zone != config.Zone {
+	if space.Zone != "" && space.Zone != cfg.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
@@ -667,9 +672,10 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cfg := config.GetServerConfig()
 	for _, space := range spaces {
 		// We skip spaces that have been shared with the user
-		if space.UserId == userId && space.IsDeployed && (space.Zone == "" || space.Zone == config.Zone) {
+		if space.UserId == userId && space.IsDeployed && (space.Zone == "" || space.Zone == cfg.Zone) {
 			if err := service.GetContainerService().StopSpace(space); err != nil {
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
@@ -775,7 +781,8 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If space isn't on this server then fail
-	if space.Zone != "" && space.Zone != config.Zone {
+	cfg := config.GetServerConfig()
+	if space.Zone != "" && space.Zone != cfg.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
@@ -947,7 +954,8 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If space isn't on this server then fail
-	if space.Zone != "" && space.Zone != config.Zone {
+	cfg := config.GetServerConfig()
+	if space.Zone != "" && space.Zone != cfg.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
@@ -1037,7 +1045,8 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If space isn't on this server then fail
-	if space.Zone != "" && space.Zone != config.Zone {
+	cfg := config.GetServerConfig()
+	if space.Zone != "" && space.Zone != cfg.Zone {
 		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}

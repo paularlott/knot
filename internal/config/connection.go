@@ -4,43 +4,38 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/viper"
+	"github.com/paularlott/cli"
+	cli_toml "github.com/paularlott/cli/toml"
 )
 
-func SaveConnection(alias string, server string, token string) error {
-	if viper.ConfigFileUsed() == "" {
+func SaveConnection(alias string, server string, token string, cmd *cli.Command) error {
+	if cmd.ConfigFile.FileUsed() == "" {
 		// No config file so save this to the home folder
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("failed to get user home directory: %w", err)
 		}
 
-		partial := viper.New()
-		partial.Set("client."+alias+".server", server)
-		partial.Set("client."+alias+".token", token)
+		newCfg := cli_toml.NewConfigFile(cli.StrToPtr(home+"/.config/"+CONFIG_DIR+"/"+CONFIG_FILE), nil)
+
+		newCfg.SetValue("client.connection."+alias+".server", server)
+		newCfg.SetValue("client.connection."+alias+".token", token)
 
 		// Create any missing directories
-		err = os.MkdirAll(home+"/.config/"+CONFIG_FILE_NAME, os.ModePerm)
+		err = os.MkdirAll(home+"/.config/"+CONFIG_DIR, os.ModePerm)
 		if err != nil {
 			return fmt.Errorf("failed to create config directory: %w", err)
 		}
 
-		err = partial.WriteConfigAs(home + "/.config/" + CONFIG_FILE_NAME + "/" + CONFIG_FILE_NAME + "." + CONFIG_FILE_TYPE)
+		err = newCfg.Save()
 		if err != nil {
 			return fmt.Errorf("failed to create config file: %w", err)
 		}
 	} else {
-		partial := viper.New()
-		partial.SetConfigFile(viper.ConfigFileUsed())
-		err := partial.ReadInConfig()
-		if err != nil {
-			return fmt.Errorf("failed to read config file: %w", err)
-		}
+		cmd.ConfigFile.SetValue("client.connection."+alias+".server", server)
+		cmd.ConfigFile.SetValue("client.connection."+alias+".token", token)
 
-		partial.Set("client."+alias+".server", server)
-		partial.Set("client."+alias+".token", token)
-
-		err = partial.WriteConfig()
+		err := cmd.ConfigFile.Save()
 		if err != nil {
 			return fmt.Errorf("failed to save config file: %w", err)
 		}

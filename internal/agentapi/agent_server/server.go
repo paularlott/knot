@@ -33,6 +33,7 @@ type stopListItem struct {
 func checkSchedules() {
 	log.Info().Msg("agent: starting schedule checker")
 
+	cfg := config.GetServerConfig()
 	go func() {
 		ticker := time.NewTicker(AGENT_SCHEDULE_INTERVAL)
 		defer ticker.Stop()
@@ -94,7 +95,7 @@ func checkSchedules() {
 							continue
 						}
 
-						if !config.LeafNode {
+						if !cfg.LeafNode {
 							// Check the users quota has enough compute units
 							usage, err := database.GetUserUsage(user.Id, "")
 							if err != nil {

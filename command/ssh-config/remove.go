@@ -1,21 +1,23 @@
 package command_ssh_config
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/paularlott/knot/internal/util"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 )
 
-var sshConfigRemoveCmd = &cobra.Command{
-	Use:   "remove",
-	Short: "Remove the config from .ssh/config",
-	Long:  `Remove any knot space configurations from the .ssh/config file.`,
-	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
-		alias, _ := cmd.Flags().GetString("alias")
+var SshConfigRemoveCmd = &cli.Command{
+	Name:        "remove",
+	Usage:       "Remove all entries from .ssh/config",
+	Description: "Remove any knot space configurations from the .ssh/config file.",
+	MaxArgs:     cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		alias := cmd.GetString("alias")
 		util.UpdateSSHConfig("", alias)
 		fmt.Println(".ssh/config has been updated")
+		return nil
 	},
 }

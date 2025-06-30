@@ -14,20 +14,14 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
-func RunTCPForwarderViaProxy(proxyServerURL string, token string, listen string, service string, port int) {
-	log.Info().Msgf("tcp: listening on %s forwarding to %s via %s", listen, service, proxyServerURL)
-	forwardTCP(fmt.Sprintf("%s/proxy/port/%s/%d", proxyServerURL, service, port), token, listen)
-}
-
-func RunTCPForwarderViaAgent(proxyServerURL string, listen string, space string, port int, token string) {
+func RunTCPForwarderViaAgent(proxyServerURL, listen, space string, port int, token string, skipTLSVerify bool) {
 	log.Info().Msgf("tcp: connecting to agent via server at: %s", proxyServerURL)
-	forwardTCP(fmt.Sprintf("%s/proxy/spaces/%s/port/%d", proxyServerURL, space, port), token, listen)
+	forwardTCP(fmt.Sprintf("%s/proxy/spaces/%s/port/%d", proxyServerURL, space, port), token, listen, skipTLSVerify)
 }
 
-func forwardTCP(dialURL string, token string, listen string) {
+func forwardTCP(dialURL, token, listen string, skipTLSVerify bool) {
 	tcpConnection, err := net.Listen("tcp", listen)
 	if err != nil {
 		log.Fatal().Msgf("tcp: error while opening local port: %s", err.Error())
@@ -51,7 +45,7 @@ func forwardTCP(dialURL string, token string, listen string) {
 
 		// Create websocket connection
 		dialer := websocket.DefaultDialer
-		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
+		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: skipTLSVerify}
 		dialer.HandshakeTimeout = 5 * time.Second
 		wsConn, response, err := dialer.Dial(dialURL, header)
 		if err != nil {

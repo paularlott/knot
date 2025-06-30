@@ -6,10 +6,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 
-	"github.com/pelletier/go-toml/v2"
+	"github.com/BurntSushi/toml"
 )
 
 // Icon represents a single icon entry
@@ -109,12 +109,14 @@ var (
 func loadIcons() []Icon {
 	var iconList []Icon
 
-	if viper.GetBool("server.ui.enable_builtin_icons") {
+	cfg := config.GetServerConfig()
+
+	if cfg.UI.EnableBuiltinIcons {
 		// Load the default icons
 		iconList = append(iconList, defaultIcons...)
 	}
 
-	iconFiles := viper.GetStringSlice("server.ui.icons")
+	iconFiles := cfg.UI.Icons
 	for _, iconFile := range iconFiles {
 		log.Info().Msgf("Loading icons from file: %s", iconFile)
 

@@ -40,6 +40,7 @@ func (h *Helper) createClient(platform string) (container.ContainerManager, erro
 
 func (h *Helper) CreateVolume(volume *model.Volume) error {
 	db := database.GetInstance()
+	cfg := config.GetServerConfig()
 
 	variables, err := db.GetTemplateVars()
 	if err != nil {
@@ -49,7 +50,7 @@ func (h *Helper) CreateVolume(volume *model.Volume) error {
 	vars := model.FilterVars(variables)
 
 	// Mark volume as started
-	volume.Zone = config.Zone
+	volume.Zone = cfg.Zone
 	volume.Active = true
 
 	containerClient, err := h.createClient(volume.Platform)
@@ -273,13 +274,14 @@ func (h *Helper) CleanupOnBoot() {
 	log.Info().Msg("server: cleaning spaces...")
 
 	db := database.GetInstance()
+	cfg := config.GetServerConfig()
 	spaces, err := db.GetSpaces()
 	if err != nil {
 		log.Fatal().Msgf("server: failed to get spaces: %s", err.Error())
 	} else {
 		for _, space := range spaces {
 			// If space is deleted or not in this zone then ignore it
-			if space.IsDeleted || space.Zone != config.Zone {
+			if space.IsDeleted || space.Zone != cfg.Zone {
 				continue
 			}
 

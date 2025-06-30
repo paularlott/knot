@@ -40,7 +40,8 @@ func (c *Cluster) handleResourceLockFullSync(sender *gossip.Node, packet *gossip
 	log.Debug().Msg("cluster: Received resource lock full sync request")
 
 	// If the sender doesn't match our zone then ignore the request
-	if sender.Metadata.GetString("zone") != config.Zone {
+	cfg := config.GetServerConfig()
+	if sender.Metadata.GetString("zone") != cfg.Zone {
 		log.Debug().Msg("cluster: Ignoring resource lock full sync request from a different zone")
 		return []*ResourceLock{}, nil
 	}
@@ -70,7 +71,8 @@ func (c *Cluster) handleResourceLockGossip(sender *gossip.Node, packet *gossip.P
 	log.Debug().Msg("cluster: Received resource lock gossip request")
 
 	// If the sender doesn't match our zone then ignore the request
-	if sender.Metadata.GetString("zone") != config.Zone {
+	cfg := config.GetServerConfig()
+	if sender.Metadata.GetString("zone") != cfg.Zone {
 		log.Debug().Msg("cluster: Ignoring resource lock gossip request from a different zone")
 		return nil
 	}
@@ -101,7 +103,8 @@ func (c *Cluster) DoResourceLockFullSync(node *gossip.Node) error {
 	if c.sessionGossip && c.gossipCluster != nil {
 
 		// If the node doesn't match our zone then ignore the request
-		if node.Metadata.GetString("zone") != config.Zone {
+		cfg := config.GetServerConfig()
+		if node.Metadata.GetString("zone") != cfg.Zone {
 			log.Debug().Msg("cluster: Ignoring resource lock full sync with node from a different zone")
 			return nil
 		}

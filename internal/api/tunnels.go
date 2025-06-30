@@ -5,18 +5,18 @@ import (
 	"sort"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util/rest"
-
-	"github.com/spf13/viper"
 )
 
 func HandleGetTunnels(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
 	tunnels := tunnel_server.GetTunnelsForUser(user.Id)
+	cfg := config.GetServerConfig()
 
 	sort.Strings(tunnels)
 
@@ -24,7 +24,7 @@ func HandleGetTunnels(w http.ResponseWriter, r *http.Request) {
 	for i, tunnel := range tunnels {
 		tunnelList[i] = apiclient.TunnelInfo{
 			Name:    user.Username + "--" + tunnel,
-			Address: "https://" + user.Username + "--" + tunnel + viper.GetString("server.tunnel_domain"),
+			Address: "https://" + user.Username + "--" + tunnel + cfg.TunnelDomain,
 		}
 	}
 
@@ -32,8 +32,9 @@ func HandleGetTunnels(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetTunnelServerInfo(w http.ResponseWriter, r *http.Request) {
+	cfg := config.GetServerConfig()
 	info := &apiclient.TunnelServerInfo{
-		Domain:        viper.GetString("server.tunnel_domain"),
+		Domain:        cfg.TunnelDomain,
 		TunnelServers: service.GetTransport().GetTunnelServers(),
 	}
 

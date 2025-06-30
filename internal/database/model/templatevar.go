@@ -3,11 +3,11 @@ package model
 import (
 	"time"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 // Template Variable object
@@ -51,8 +51,9 @@ func NewTemplateVar(name string, zones []string, local bool, value string, prote
 }
 
 func (templateVar *TemplateVar) DecryptSetValue(text string) {
+	cfg := config.GetServerConfig()
 	if templateVar.Protected {
-		key := viper.GetString("server.encrypt")
+		key := cfg.EncryptionKey
 
 		if key == "" {
 			log.Fatal().Msg("No encryption key set")
@@ -63,8 +64,9 @@ func (templateVar *TemplateVar) DecryptSetValue(text string) {
 }
 
 func (templateVar *TemplateVar) GetValueEncrypted() string {
+	cfg := config.GetServerConfig()
 	if templateVar.Protected {
-		key := viper.GetString("server.encrypt")
+		key := cfg.EncryptionKey
 
 		if key == "" {
 			log.Fatal().Msg("No encryption key set")

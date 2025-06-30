@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/util"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -27,8 +27,9 @@ type MySQLDriver struct {
 func (db *MySQLDriver) realConnect() error {
 	log.Debug().Msg("db: connecting to MySQL")
 
-	host := viper.GetString("server.mysql.host")
-	port := viper.GetInt("server.mysql.port")
+	cfg := config.GetServerConfig()
+	host := cfg.MySQL.Host
+	port := cfg.MySQL.Port
 
 	// If the host starts with srv+ then lookup the SRV record
 	if host[:4] == "srv+" {
@@ -56,16 +57,16 @@ func (db *MySQLDriver) realConnect() error {
 
 	var err error
 	db.connection, err = sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
-		viper.GetString("server.mysql.user"),
-		viper.GetString("server.mysql.password"),
+		cfg.MySQL.User,
+		cfg.MySQL.Password,
 		host,
 		port,
-		viper.GetString("server.mysql.database"),
+		cfg.MySQL.Database,
 	))
 	if err == nil {
-		db.connection.SetConnMaxLifetime(time.Minute * time.Duration(viper.GetInt("server.mysql.connection_max_lifetime")))
-		db.connection.SetMaxOpenConns(viper.GetInt("server.mysql.connection_max_open"))
-		db.connection.SetMaxIdleConns(viper.GetInt("server.mysql.connection_max_idle"))
+		db.connection.SetConnMaxLifetime(time.Minute * time.Duration(cfg.MySQL.ConnectionMaxLifetime))
+		db.connection.SetMaxOpenConns(cfg.MySQL.ConnectionMaxOpen)
+		db.connection.SetMaxIdleConns(cfg.MySQL.ConnectionMaxIdle)
 
 		log.Debug().Msg("db: connected to MySQL")
 	} else {

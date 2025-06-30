@@ -15,7 +15,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -77,7 +76,7 @@ func (ts *tunnelServer) ConnectAndServe() {
 			// Open the websocket
 			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", ts.client.token)}}
 			dialer := websocket.DefaultDialer
-			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
+			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: ts.client.skipTLSVerify}
 			dialer.HandshakeTimeout = 5 * time.Second
 			ws, response, err := dialer.Dial(url, header)
 			if err != nil {
@@ -191,6 +190,6 @@ func (ts *tunnelServer) handleTunnelStream(stream net.Conn) {
 		} else {
 			tlsName = "127.0.0.1"
 		}
-		agent_client.ProxyTcpTls(stream, fmt.Sprintf("%d", ts.client.localPort), tlsName)
+		agent_client.ProxyTcpTls(stream, fmt.Sprintf("%d", ts.client.localPort), tlsName, ts.client.localPortSkipTLSVerify)
 	}
 }

@@ -3,13 +3,13 @@ package driver_mysql
 import (
 	"fmt"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
-
-	"github.com/spf13/viper"
 )
 
 func (db *MySQLDriver) HasAuditLog() bool {
-	return viper.GetInt("server.audit_retention") > 0
+	cfg := config.GetServerConfig()
+	return cfg.Audit.Retention > 0
 }
 
 func (db *MySQLDriver) GetNumberOfAuditLogs() (int, error) {
@@ -25,7 +25,8 @@ func (db *MySQLDriver) GetNumberOfAuditLogs() (int, error) {
 func (db *MySQLDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
 
 	// Don't save if no retention is configured
-	if viper.GetInt("server.audit_retention") < 1 {
+	cfg := config.GetServerConfig()
+	if cfg.Audit.Retention < 1 {
 		return nil
 	}
 
@@ -52,7 +53,7 @@ func (db *MySQLDriver) GetAuditLogs(offset int, limit int) ([]*model.AuditLogEnt
 	if limit > 0 {
 		where = fmt.Sprintf("1 ORDER BY created_at DESC LIMIT %d OFFSET %d", limit, offset)
 	} else {
-		where = fmt.Sprintf("1 ORDER BY created_at DESC OFFSET %d", offset)
+		where = "1"
 	}
 
 	err := db.read("audit_logs", &auditLogs, nil, where)

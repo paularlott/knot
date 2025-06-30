@@ -31,387 +31,500 @@ import (
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/web"
 
+	"github.com/paularlott/cli"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-func init() {
-	serverCmd.Flags().StringP("listen", "l", "", "The address to listen on (default \"127.0.0.1:3000\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LISTEN environment variable if set.")
-	serverCmd.Flags().StringP("listen-agent", "", "", "The address to listen on for agent connections (default \":3010\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LISTEN_AGENT environment variable if set.")
-	serverCmd.Flags().StringP("listen-tunnel", "", "", "The address to listen on for tunnel connections (default \"\" disabled).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LISTEN_TUNNEL environment variable if set.")
-	serverCmd.Flags().StringSliceP("nameserver", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
-	serverCmd.Flags().StringP("url", "u", "", "The URL to use for the server (default \"http://127.0.0.1:3000\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_URL environment variable if set.")
-	serverCmd.Flags().StringP("tunnel-server", "", "", "The URL to use for the tunnel client to connect to the server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_SERVER environment variable if set.")
-	serverCmd.Flags().BoolP("enable-proxy", "", false, "Enable the proxy server functionality.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_PROXY environment variable if set.")
-	serverCmd.Flags().BoolP("terminal-webgl", "", true, "Enable WebGL terminal renderer.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_WEBGL environment variable if set.")
-	serverCmd.Flags().StringP("download-path", "", "", "The path to serve download files from if set.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DOWNLOAD_PATH environment variable if set.")
-	serverCmd.Flags().StringP("wildcard-domain", "", "", "The wildcard domain to use for proxying to spaces.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN environment variable if set.")
-	serverCmd.Flags().StringP("encrypt", "", "", "The encryption key to use for encrypting stored variables.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENCRYPT environment variable if set.")
-	serverCmd.Flags().StringP("agent-endpoint", "", "", "The address agents should use to talk to the server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT environment variable if set.")
-	serverCmd.Flags().StringP("zone", "", "", "The zone of the server (defaults to NOMAD_DC or hostname).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ZONE environment variable if set.")
-	serverCmd.Flags().StringP("html-path", "", "", "The optional path to the html files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HTML_PATH environment variable if set.")
-	serverCmd.Flags().StringP("template-path", "", "", "The optional path to the template files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TEMPLATE_PATH environment variable if set.")
-	serverCmd.Flags().StringP("agent-path", "", "", "The optional path to the agent files to serve, if not given then then internal files are used.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_PATH environment variable if set.")
-	serverCmd.Flags().StringP("timezone", "", "", "The timezone to use for the server (default is system timezone).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TIMEZONE environment variable if set.")
-	serverCmd.Flags().StringP("tunnel-domain", "", "", "The domain to use for tunnel connections.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN environment variable if set.")
-	serverCmd.Flags().Int("audit-retention", 90, "The number of days to keep audit logs (default \"90\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION environment variable if set.")
-	serverCmd.Flags().BoolP("disable-space-create", "", false, "Disable the ability to create spaces.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE environment variable if set.")
-	serverCmd.Flags().BoolP("auth-ip-rate-limiting", "", true, "Enable IP rate limiting of authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AUTH_IP_RATE_LIMITING environment variable if set.")
-	serverCmd.Flags().StringP("public-files-path", "", "", "The path to the a directory to serve as /public-files.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_PUBLIC_FILES_PATH environment variable if set.")
-	serverCmd.Flags().StringP("private-files-path", "", "", "The path to the a directory to serve as /private-files.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_PRIVATE_FILES_PATH environment variable if set.")
-
-	// UI
-	serverCmd.Flags().BoolP("hide-support-links", "", false, "Hide the support links in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS environment variable if set.")
-	serverCmd.Flags().BoolP("hide-api-tokens", "", false, "Hide the API tokens menu item in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HIDE_API_TOKENS environment variable if set.")
-	serverCmd.Flags().BoolP("enable-gravatar", "", true, "Enable Gravatar support in the UI.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_GRAVATAR environment variable if set.")
-	serverCmd.Flags().StringSliceP("icons", "", []string{}, "File defining icons for use with templates and spaces, can be given multiple times (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ICONS environment variable if set.")
-	serverCmd.Flags().BoolP("enable-builtin-icons", "", true, "Enable the use of the built-in icons (default true).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_BUILTIN_ICONS environment variable if set.")
-	serverCmd.Flags().StringP("logo-url", "", "", "The URL to the logo to use in the UI (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOGO_URL environment variable if set.")
-	serverCmd.Flags().BoolP("logo-invert", "", false, "Invert the logo colors in the UI for dark mode.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_LOGO_INVERT environment variable if set.")
-
-	// Cluster
-	serverCmd.Flags().StringP("cluster-key", "", "", "The shared cluster key.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_KEY environment variable if set.")
-	serverCmd.Flags().StringP("cluster-advertise-addr", "", "", "The address to advertise to other servers (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_ADVERTISE_ADDR environment variable if set.")
-	serverCmd.Flags().StringP("cluster-bind-addr", "", "", "The address to bind to for cluster communication (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_BIND_ADDR environment variable if set.")
-	serverCmd.Flags().StringSliceP("cluster-peer", "", []string{}, "The addresses of the other servers in the cluster, can be given multiple times (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CLUSTER_PEERS environment variable if set.")
-	serverCmd.Flags().BoolP("allow-leaf-nodes", "", true, "Allow leaf nodes to connect to the cluster.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ALLOW_LEAF_NODES environment variable if set.")
-
-	// Origin / Leaf servers
-	serverCmd.Flags().StringP("origin-server", "", "", "The address of the origin server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER environment variable if set.")
-	serverCmd.Flags().StringP("origin-token", "", "", "The token to use for the origin server (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ORIGIN_TOKEN environment variable if set.")
-
-	// TOTP
-	serverCmd.Flags().BoolP("enable-totp", "", false, "Enable TOTP for users.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ENABLE_TOTP environment variable if set.")
-	serverCmd.Flags().IntP("totp-window", "", 1, "The number of time steps (30 seconds) to check for TOTP codes (default \"1\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOTP_WINDOW environment variable if set.")
-	serverCmd.Flags().StringP("totp-issuer", "", "Knot", "The issuer to use for TOTP codes (default \"Knot\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOTP_ISSUER environment variable if set.")
-
-	// TLS
-	serverCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
-	serverCmd.Flags().StringP("key-file", "", "", "The file with the PEM encoded key to use for the server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_KEY_FILE environment variable if set.")
-	serverCmd.Flags().BoolP("use-tls", "", true, "Enable TLS.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_USE_TLS environment variable if set.")
-	serverCmd.Flags().BoolP("agent-use-tls", "", true, "Enable TLS when talking to agents.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_USE_TLS environment variable if set.")
-	serverCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to agents.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
-
-	// Nomad
-	serverCmd.Flags().StringP("nomad-addr", "", "http://127.0.0.1:4646", "The address of the Nomad server (default \"http://127.0.0.1:4646\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_NOMAD_ADDR environment variable if set.")
-	serverCmd.Flags().StringP("nomad-token", "", "", "The token to use for Nomad API requests.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_NOMAD_TOKEN environment variable if set.")
-
-	// MySQL
-	serverCmd.Flags().BoolP("mysql-enabled", "", false, "Enable MySQL database backend.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MYSQL_ENABLED environment variable if set.")
-	serverCmd.Flags().StringP("mysql-host", "", "", "The MySQL host to connect to (default \"localhost\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MYSQL_HOST environment variable if set.")
-	serverCmd.Flags().IntP("mysql-port", "", 3306, "The MySQL port to connect to (default \"3306\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MYSQL_PORT environment variable if set.")
-	serverCmd.Flags().StringP("mysql-user", "", "root", "The MySQL user to connect as (default \"root\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MYSQL_USER environment variable if set.")
-	serverCmd.Flags().StringP("mysql-password", "", "", "The MySQL password to use.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MYSQL_PASSWORD environment variable if set.")
-	serverCmd.Flags().StringP("mysql-database", "", "knot", "The MySQL database to use (default \"knot\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MYSQL_DATABASE environment variable if set.")
-	serverCmd.Flags().IntP("mysql-connection-max-idle", "", 2, "The maximum number of idle connections in the connection pool (default \"10\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MYSQL_CONNECTION_MAX_IDLE environment variable if set.")
-	serverCmd.Flags().IntP("mysql-connection-max-open", "", 100, "The maximum number of open connections to the database (default \"100\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MYSQL_CONNECTION_MAX_OPEN environment variable if set.")
-	serverCmd.Flags().IntP("mysql-connection-max-lifetime", "", 5, "The maximum amount of time in minutes a connection may be reused (default \"5\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_MYSQL_CONNECTION_MAX_LIFETIME environment variable if set.")
-
-	// BadgerDB
-	serverCmd.Flags().BoolP("badgerdb-enabled", "", false, "Enable BadgerDB database backend.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_BADGERDB_ENABLED environment variable if set.")
-	serverCmd.Flags().StringP("badgerdb-path", "", "./badger", "The path to the BadgerDB database (default \"./badger\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_BADGERDB_PATH environment variable if set.")
-
-	// Redis
-	serverCmd.Flags().BoolP("redis-enabled", "", false, "Enable Redis database backend.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_ENABLED environment variable if set.")
-	serverCmd.Flags().StringSliceP("redis-hosts", "", []string{"localhost:6379"}, "The redis server(s), can be specified multiple times (default \"localhost:6379\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_HOSTS environment variable if set.")
-	serverCmd.Flags().StringP("redis-password", "", "", "The password to use for the redis server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_PASSWORD environment variable if set.")
-	serverCmd.Flags().IntP("redis-db", "", 0, "The redis database to use (default \"0\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_DB environment variable if set.")
-	serverCmd.Flags().StringP("redis-master-name", "", "", "The name of the master to use for failover clients (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME environment variable if set.")
-	serverCmd.Flags().StringP("redis-key-prefix", "", "", "The prefix to use for all keys in the redis database (default \"\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX environment variable if set.")
-
-	// Docker
-	serverCmd.Flags().StringP("docker-host", "", "unix:///var/run/docker.sock", "The Docker host to connect to (default \"unix:///var/run/docker.sock\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_DOCKER_HOST environment variable if set.")
-
-	// Podman
-	serverCmd.Flags().StringP("podman-host", "", "unix:///var/run/podman.sock", "The Podman host to connect to (default \"unix:///var/run/podman.sock\").\nOverrides the "+config.CONFIG_ENV_PREFIX+"_PODMAN_HOST environment variable if set.")
-
-	RootCmd.AddCommand(serverCmd)
-}
-
-var serverCmd = &cobra.Command{
-	Use:   "server",
-	Short: "Start the knot server",
-	Long:  `Start the knot server and listen for incoming connections.`,
-	Args:  cobra.NoArgs,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("server.listen", cmd.Flags().Lookup("listen"))
-		viper.BindEnv("server.listen", config.CONFIG_ENV_PREFIX+"_LISTEN")
-		viper.SetDefault("server.listen", ":3000")
-
-		viper.BindPFlag("server.url", cmd.Flags().Lookup("url"))
-		viper.BindEnv("server.url", config.CONFIG_ENV_PREFIX+"_URL")
-		viper.SetDefault("server.url", "http://127.0.0.1:3000")
-
-		viper.BindPFlag("server.tunnel_server", cmd.Flags().Lookup("tunnel-server"))
-		viper.BindEnv("server.tunnel_server", config.CONFIG_ENV_PREFIX+"_TUNNEL_SERVER")
-		viper.SetDefault("server.tunnel_server", "")
-
-		viper.BindPFlag("server.listen_agent", cmd.Flags().Lookup("listen-agent"))
-		viper.BindEnv("server.listen_agent", config.CONFIG_ENV_PREFIX+"_LISTEN_AGENT")
-		viper.SetDefault("server.listen_agent", "127.0.0.1:3010")
-
-		viper.BindPFlag("server.listen_tunnel", cmd.Flags().Lookup("listen-tunnel"))
-		viper.BindEnv("server.listen_tunnel", config.CONFIG_ENV_PREFIX+"_LISTEN_TUNNEL")
-		viper.SetDefault("server.listen_tunnel", "")
-
-		viper.BindPFlag("server.wildcard_domain", cmd.Flags().Lookup("wildcard-domain"))
-		viper.BindEnv("server.wildcard_domain", config.CONFIG_ENV_PREFIX+"_WILDCARD_DOMAIN")
-		viper.SetDefault("server.wildcard_domain", "")
-
-		viper.BindPFlag("resolver.nameservers", cmd.Flags().Lookup("nameserver"))
-		viper.BindEnv("resolver.nameservers", config.CONFIG_ENV_PREFIX+"_NAMESERVERS")
-
-		viper.BindPFlag("server.enable_proxy", cmd.Flags().Lookup("enable-proxy"))
-		viper.BindEnv("server.enable_proxy", config.CONFIG_ENV_PREFIX+"_ENABLE_PROXY")
-		viper.SetDefault("server.enable_proxy", false)
-
-		viper.BindPFlag("server.terminal.webgl", cmd.Flags().Lookup("terminal-webgl"))
-		viper.BindEnv("server.terminal.webgl", config.CONFIG_ENV_PREFIX+"_WEBGL")
-		viper.SetDefault("server.terminal.webgl", true)
-
-		viper.BindPFlag("server.download_path", cmd.Flags().Lookup("download-path"))
-		viper.BindEnv("server.download_path", config.CONFIG_ENV_PREFIX+"_DOWNLOAD_PATH")
-		viper.SetDefault("server.download_path", "")
-
-		viper.BindPFlag("server.html_path", cmd.Flags().Lookup("html-path"))
-		viper.BindEnv("server.html_path", config.CONFIG_ENV_PREFIX+"_HTML_PATH")
-		viper.SetDefault("server.html_path", "")
-
-		viper.BindPFlag("server.template_path", cmd.Flags().Lookup("template-path"))
-		viper.BindEnv("server.template_path", config.CONFIG_ENV_PREFIX+"_TEMPLATE_PATH")
-		viper.SetDefault("server.template_path", "")
-
-		viper.BindPFlag("server.agent_path", cmd.Flags().Lookup("agent-path"))
-		viper.BindEnv("server.agent_path", config.CONFIG_ENV_PREFIX+"_AGENT_PATH")
-		viper.SetDefault("server.agent_path", "")
-
-		viper.BindPFlag("server.public_files_path", cmd.Flags().Lookup("public-files-path"))
-		viper.BindEnv("server.public_files_path", config.CONFIG_ENV_PREFIX+"_PUBLIC_FILES_PATH")
-		viper.SetDefault("server.public_files_path", "")
-
-		viper.BindPFlag("server.private_files_path", cmd.Flags().Lookup("private-files-path"))
-		viper.BindEnv("server.private_files_path", config.CONFIG_ENV_PREFIX+"_PRIVATE_FILES_PATH")
-		viper.SetDefault("server.private_files_path", "")
-
-		viper.BindPFlag("server.encrypt", cmd.Flags().Lookup("encrypt"))
-		viper.BindEnv("server.encrypt", config.CONFIG_ENV_PREFIX+"_ENCRYPT")
-		viper.SetDefault("server.encrypt", "")
-
-		viper.BindPFlag("server.agent_endpoint", cmd.Flags().Lookup("agent-endpoint"))
-		viper.BindEnv("server.agent_endpoint", config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT")
-		viper.SetDefault("server.agent_endpoint", "")
-
-		// Get the hostname
-		hostname := os.Getenv("NOMAD_DC")
-		if hostname == "" {
-			var err error
-
-			hostname, err = os.Hostname()
-			if err != nil {
-				log.Fatal().Msgf("Error getting hostname: %v", err)
-			}
-			hostname = strings.Split(hostname, ".")[0]
-		}
-
-		viper.BindPFlag("server.zone", cmd.Flags().Lookup("zone"))
-		viper.BindEnv("server.zone", config.CONFIG_ENV_PREFIX+"_ZONE")
-		viper.SetDefault("server.zone", hostname)
-
-		viper.BindPFlag("server.tunnel_domain", cmd.Flags().Lookup("tunnel-domain"))
-		viper.BindEnv("server.tunnel_domain", config.CONFIG_ENV_PREFIX+"_TUNNEL_DOMAIN")
-		viper.SetDefault("server.tunnel_domain", "")
-
-		viper.BindPFlag("server.audit_retention", cmd.Flags().Lookup("audit-retention"))
-		viper.BindEnv("server.audit_retention", config.CONFIG_ENV_PREFIX+"_AUDIT_RETENTION")
-		viper.SetDefault("server.audit_retention", 90)
-
-		viper.BindPFlag("server.disable_space_create", cmd.Flags().Lookup("disable-space-create"))
-		viper.BindEnv("server.disable_space_create", config.CONFIG_ENV_PREFIX+"_DISABLE_SPACE_CREATE")
-		viper.SetDefault("server.disable_space_create", false)
-
-		viper.BindPFlag("server.auth_ip_rate_limiting", cmd.Flags().Lookup("auth-ip-rate-limiting"))
-		viper.BindEnv("server.auth_ip_rate_limiting", config.CONFIG_ENV_PREFIX+"_AUTH_IP_RATE_LIMITING")
-		viper.SetDefault("server.auth_ip_rate_limiting", true)
-
-		// Cluster
-		viper.BindPFlag("server.cluster.key", cmd.Flags().Lookup("cluster-key"))
-		viper.BindEnv("server.cluster.key", config.CONFIG_ENV_PREFIX+"_CLUSTER_KEY")
-		viper.SetDefault("server.cluster.key", "")
-
-		viper.BindPFlag("server.cluster.advertise_addr", cmd.Flags().Lookup("cluster-advertise-addr"))
-		viper.BindEnv("server.cluster.advertise_addr", config.CONFIG_ENV_PREFIX+"_CLUSTER_ADVERTISE_ADDR")
-		viper.SetDefault("server.cluster.advertise_addr", "")
-
-		viper.BindPFlag("server.cluster.bind_addr", cmd.Flags().Lookup("cluster-bind-addr"))
-		viper.BindEnv("server.cluster.bind_addr", config.CONFIG_ENV_PREFIX+"_CLUSTER_BIND_ADDR")
-		viper.SetDefault("server.cluster.bind_addr", "")
-
-		viper.BindPFlag("server.cluster.peers", cmd.Flags().Lookup("cluster-peer"))
-		viper.BindEnv("server.cluster.peers", config.CONFIG_ENV_PREFIX+"_CLUSTER_PEERS")
-		viper.SetDefault("server.cluster.peers", []string{})
-
-		viper.BindPFlag("server.cluster.allow_leaf_nodes", cmd.Flags().Lookup("allow-leaf-nodes"))
-		viper.BindEnv("server.cluster.allow_leaf_nodes", config.CONFIG_ENV_PREFIX+"_ALLOW_LEAF_NODES")
-		viper.SetDefault("server.cluster.allow_leaf_nodes", true)
-
-		// UI
-		viper.BindPFlag("server.ui.hide_support_links", cmd.Flags().Lookup("hide-support-links"))
-		viper.BindEnv("server.ui.hide_support_links", config.CONFIG_ENV_PREFIX+"_HIDE_SUPPORT_LINKS")
-		viper.SetDefault("server.ui.hide_support_links", false)
-
-		viper.BindPFlag("server.ui.hide_api_tokens", cmd.Flags().Lookup("hide-api-tokens"))
-		viper.BindEnv("server.ui.hide_api_tokens", config.CONFIG_ENV_PREFIX+"_HIDE_API_TOKENS")
-		viper.SetDefault("server.ui.hide_api_tokens", false)
-
-		viper.BindPFlag("server.ui.enable_gravatar", cmd.Flags().Lookup("enable-gravatar"))
-		viper.BindEnv("server.ui.enable_gravatar", config.CONFIG_ENV_PREFIX+"_ENABLE_GRAVATAR")
-		viper.SetDefault("server.ui.enable_gravatar", true)
-
-		viper.BindPFlag("server.ui.icons", cmd.Flags().Lookup("icons"))
-		viper.BindEnv("server.ui.icons", config.CONFIG_ENV_PREFIX+"_ICONS")
-		viper.SetDefault("server.ui.icons", []string{})
-
-		viper.BindPFlag("server.ui.enable_builtin_icons", cmd.Flags().Lookup("enable-builtin-icons"))
-		viper.BindEnv("server.ui.enable_builtin_icons", config.CONFIG_ENV_PREFIX+"_ENABLE_BUILTIN_ICONS")
-		viper.SetDefault("server.ui.enable_builtin_icons", true)
-
-		viper.BindPFlag("server.ui.logo_url", cmd.Flags().Lookup("logo-url"))
-		viper.BindEnv("server.ui.logo_url", config.CONFIG_ENV_PREFIX+"_LOGO_URL")
-		viper.SetDefault("server.ui.logo_url", "")
-
-		viper.BindPFlag("server.ui.logo_invert", cmd.Flags().Lookup("logo-invert"))
-		viper.BindEnv("server.ui.logo_invert", config.CONFIG_ENV_PREFIX+"_LOGO_INVERT")
-		viper.SetDefault("server.ui.logo_invert", false)
-
-		// Origin / Leaf servers
-		viper.BindPFlag("server.origin.server", cmd.Flags().Lookup("origin-server"))
-		viper.BindEnv("server.origin.server", config.CONFIG_ENV_PREFIX+"_ORIGIN_SERVER")
-		viper.SetDefault("server.origin.server", "")
-
-		viper.BindPFlag("server.origin.token", cmd.Flags().Lookup("origin-token"))
-		viper.BindEnv("server.origin.token", config.CONFIG_ENV_PREFIX+"_ORIGIN_TOKEN")
-		viper.SetDefault("server.origin.token", "")
-
-		// TLS
-		viper.BindPFlag("server.tls.cert_file", cmd.Flags().Lookup("cert-file"))
-		viper.BindEnv("server.tls.cert_file", config.CONFIG_ENV_PREFIX+"_CERT_FILE")
-		viper.SetDefault("server.tls.cert_file", "")
-
-		viper.BindPFlag("server.tls.key_file", cmd.Flags().Lookup("key-file"))
-		viper.BindEnv("server.tls.key_file", config.CONFIG_ENV_PREFIX+"_KEY_FILE")
-		viper.SetDefault("server.tls.key_file", "")
-
-		viper.BindPFlag("server.tls.use_tls", cmd.Flags().Lookup("use-tls"))
-		viper.BindEnv("server.tls.use_tls", config.CONFIG_ENV_PREFIX+"_USE_TLS")
-		viper.SetDefault("server.tls.use_tls", true)
-
-		viper.BindPFlag("server.tls.agent_use_tls", cmd.Flags().Lookup("agent-use-tls"))
-		viper.BindEnv("server.tls.agent_use_tls", config.CONFIG_ENV_PREFIX+"_AGENT_USE_TLS")
-		viper.SetDefault("server.tls.agent_use_tls", true)
-
-		viper.BindPFlag("tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
-		viper.BindEnv("tls_skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
-		viper.SetDefault("tls_skip_verify", true)
-
-		viper.BindPFlag("server.timezone", cmd.Flags().Lookup("timezone"))
-		viper.BindEnv("server.timezone", config.CONFIG_ENV_PREFIX+"_TIMEZONE")
-		viper.SetDefault("server.timezone", "")
-
-		// TOTP
-		viper.BindPFlag("server.totp.enabled", cmd.Flags().Lookup("enable-totp"))
-		viper.BindEnv("server.totp.enabled", config.CONFIG_ENV_PREFIX+"_ENABLE_TOTP")
-		viper.SetDefault("server.totp.enabled", false)
-
-		viper.BindPFlag("server.totp.window", cmd.Flags().Lookup("totp-window"))
-		viper.BindEnv("server.totp.window", config.CONFIG_ENV_PREFIX+"_TOTP_WINDOW")
-		viper.SetDefault("server.totp.window", 1)
-
-		viper.BindPFlag("server.totp.issuer", cmd.Flags().Lookup("totp-issuer"))
-		viper.BindEnv("server.totp.issuer", config.CONFIG_ENV_PREFIX+"_TOTP_ISSUER")
-		viper.SetDefault("server.totp.issuer", "Knot")
-
-		// Nomad
-		viper.BindPFlag("server.nomad.addr", cmd.Flags().Lookup("nomad-addr"))
-		viper.BindEnv("server.nomad.addr", config.CONFIG_ENV_PREFIX+"_NOMAD_ADDR")
-		viper.SetDefault("server.nomad.addr", "http://127.0.0.1:4646")
-
-		viper.BindPFlag("server.nomad.token", cmd.Flags().Lookup("nomad-token"))
-		viper.BindEnv("server.nomad.token", config.CONFIG_ENV_PREFIX+"_NOMAD_TOKEN")
-		viper.SetDefault("server.nomad.token", "")
-
-		// MySQL
-		viper.BindPFlag("server.mysql.enabled", cmd.Flags().Lookup("mysql-enabled"))
-		viper.BindEnv("server.mysql.enabled", config.CONFIG_ENV_PREFIX+"_MYSQL_ENABLED")
-		viper.SetDefault("server.mysql.enabled", false)
-		viper.BindPFlag("server.mysql.host", cmd.Flags().Lookup("mysql-host"))
-		viper.BindEnv("server.mysql.host", config.CONFIG_ENV_PREFIX+"_MYSQL_HOST")
-		viper.SetDefault("server.mysql.host", "localhost")
-		viper.BindPFlag("server.mysql.port", cmd.Flags().Lookup("mysql-port"))
-		viper.BindEnv("server.mysql.port", config.CONFIG_ENV_PREFIX+"_MYSQL_PORT")
-		viper.SetDefault("server.mysql.port", 3306)
-		viper.BindPFlag("server.mysql.user", cmd.Flags().Lookup("mysql-user"))
-		viper.BindEnv("server.mysql.user", config.CONFIG_ENV_PREFIX+"_MYSQL_USER")
-		viper.SetDefault("server.mysql.user", "root")
-		viper.BindPFlag("server.mysql.password", cmd.Flags().Lookup("mysql-password"))
-		viper.BindEnv("server.mysql.password", config.CONFIG_ENV_PREFIX+"_MYSQL_PASSWORD")
-		viper.SetDefault("server.mysql.password", "")
-		viper.BindPFlag("server.mysql.database", cmd.Flags().Lookup("mysql-database"))
-		viper.BindEnv("server.mysql.database", config.CONFIG_ENV_PREFIX+"_MYSQL_DATABASE")
-		viper.SetDefault("server.mysql.database", "knot")
-		viper.BindPFlag("server.mysql.connection_max_idle", cmd.Flags().Lookup("mysql-connection-max-idle"))
-		viper.BindEnv("server.mysql.connection_max_idle", config.CONFIG_ENV_PREFIX+"_MYSQL_CONNECTION_MAX_IDLE")
-		viper.SetDefault("server.mysql.connection_max_idle", 10)
-		viper.BindPFlag("server.mysql.connection_max_open", cmd.Flags().Lookup("mysql-connection-max-open"))
-		viper.BindEnv("server.mysql.connection_max_open", config.CONFIG_ENV_PREFIX+"_MYSQL_CONNECTION_MAX_OPEN")
-		viper.SetDefault("server.mysql.connection_max_open", 100)
-		viper.BindPFlag("server.mysql.connection_max_lifetime", cmd.Flags().Lookup("mysql-connection-max-lifetime"))
-		viper.BindEnv("server.mysql.connection_max_lifetime", config.CONFIG_ENV_PREFIX+"_MYSQL_CONNECTION_MAX_LIFETIME")
-		viper.SetDefault("server.mysql.connection_max_lifetime", 5)
-
-		// BadgerDB
-		viper.BindPFlag("server.badgerdb.enabled", cmd.Flags().Lookup("badgerdb-enabled"))
-		viper.BindEnv("server.badgerdb.enabled", config.CONFIG_ENV_PREFIX+"_BADGERDB_ENABLED")
-		viper.SetDefault("server.badgerdb.enabled", false)
-		viper.BindPFlag("server.badgerdb.path", cmd.Flags().Lookup("badgerdb-path"))
-		viper.BindEnv("server.badgerdb.path", config.CONFIG_ENV_PREFIX+"_BADGERDB_PATH")
-		viper.SetDefault("server.badgerdb.path", "./badger")
-
-		// Redis
-		viper.BindPFlag("server.redis.enabled", cmd.Flags().Lookup("redis-enabled"))
-		viper.BindEnv("server.redis.enabled", config.CONFIG_ENV_PREFIX+"_REDIS_ENABLED")
-		viper.SetDefault("server.redis.enabled", false)
-		viper.BindPFlag("server.redis.hosts", cmd.Flags().Lookup("redis-hosts"))
-		viper.BindEnv("server.redis.hosts", config.CONFIG_ENV_PREFIX+"_REDIS_HOSTS")
-		viper.SetDefault("server.redis.hosts", []string{"localhost:6379"})
-		viper.BindPFlag("server.redis.password", cmd.Flags().Lookup("redis-password"))
-		viper.BindEnv("server.redis.password", config.CONFIG_ENV_PREFIX+"_REDIS_PASSWORD")
-		viper.SetDefault("server.redis.password", "")
-		viper.BindPFlag("server.redis.db", cmd.Flags().Lookup("redis-db"))
-		viper.BindEnv("server.redis.db", config.CONFIG_ENV_PREFIX+"_REDIS_DB")
-		viper.SetDefault("server.redis.db", 0)
-		viper.BindPFlag("server.redis.master_name", cmd.Flags().Lookup("redis-master-name"))
-		viper.BindEnv("server.redis.master_name", config.CONFIG_ENV_PREFIX+"_REDIS_MASTER_NAME")
-		viper.SetDefault("server.redis.master_name", "")
-		viper.BindPFlag("server.redis.key_prefix", cmd.Flags().Lookup("redis-key-prefix"))
-		viper.BindEnv("server.redis.key_prefix", config.CONFIG_ENV_PREFIX+"_REDIS_KEY_PREFIX")
-		viper.SetDefault("server.redis.key_prefix", "")
-
-		// Docker
-		viper.BindPFlag("server.docker.host", cmd.Flags().Lookup("docker-host"))
-		viper.BindEnv("server.docker.host", config.CONFIG_ENV_PREFIX+"_DOCKER_HOST")
-		viper.SetDefault("server.docker.host", "unix:///var/run/docker.sock")
-
-		// Podman
-		viper.BindPFlag("server.podman.host", cmd.Flags().Lookup("podman-host"))
-		viper.BindEnv("server.podman.host", config.CONFIG_ENV_PREFIX+"_PODMAN_HOST")
-		viper.SetDefault("server.podman.host", "unix:///var/run/podman.sock")
+var ServerCmd = &cli.Command{
+	Name:        "server",
+	Usage:       "Start the knot server",
+	Description: "Start the knot server and listen for incoming connections.",
+	MaxArgs:     cli.NoArgs,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:         "listen",
+			Aliases:      []string{"l"},
+			Usage:        "The address to listen on.",
+			ConfigPath:   []string{"server.listen"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LISTEN"},
+			DefaultValue: ":3000",
+		},
+		&cli.StringFlag{
+			Name:         "listen-agent",
+			Usage:        "The address to listen on for agent connections.",
+			ConfigPath:   []string{"server.listen_agent"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LISTEN_AGENT"},
+			DefaultValue: "127.0.0.1:3010",
+		},
+		&cli.StringFlag{
+			Name:         "listen-tunnel",
+			Usage:        "The address to listen on for tunnel connections.",
+			ConfigPath:   []string{"server.listen_tunnel"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LISTEN_TUNNEL"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "url",
+			Aliases:      []string{"u"},
+			Usage:        "The URL to use for the server.",
+			ConfigPath:   []string{"server.url"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_URL"},
+			DefaultValue: "http://127.0.0.1:3000",
+		},
+		&cli.StringFlag{
+			Name:         "tunnel-server",
+			Usage:        "The URL to use for the tunnel client to connect to the server.",
+			ConfigPath:   []string{"server.tunnel_server"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TUNNEL_SERVER"},
+			DefaultValue: "",
+		},
+		&cli.BoolFlag{
+			Name:         "terminal-webgl",
+			Usage:        "Enable WebGL terminal renderer.",
+			ConfigPath:   []string{"server.terminal.webgl"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_WEBGL"},
+			DefaultValue: true,
+		},
+		&cli.StringFlag{
+			Name:         "download-path",
+			Usage:        "The path to serve download files from if set.",
+			ConfigPath:   []string{"server.download_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DOWNLOAD_PATH"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "wildcard-domain",
+			Usage:        "The wildcard domain to use for proxying to spaces.",
+			ConfigPath:   []string{"server.wildcard_domain"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_WILDCARD_DOMAIN"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "encrypt",
+			Usage:        "The encryption key to use for encrypting stored variables.",
+			ConfigPath:   []string{"server.encrypt"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ENCRYPT"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "agent-endpoint",
+			Usage:        "The address agents should use to talk to the server.",
+			ConfigPath:   []string{"server.agent_endpoint"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AGENT_ENDPOINT"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:       "zone",
+			Usage:      "The zone of the server.",
+			ConfigPath: []string{"server.zone"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_ZONE"},
+		},
+		&cli.StringFlag{
+			Name:         "html-path",
+			Usage:        "The optional path to the html files to serve.",
+			ConfigPath:   []string{"server.html_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_HTML_PATH"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "template-path",
+			Usage:        "The optional path to the template files to serve.",
+			ConfigPath:   []string{"server.template_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TEMPLATE_PATH"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "agent-path",
+			Usage:        "The optional path to the agent files to serve.",
+			ConfigPath:   []string{"server.agent_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AGENT_PATH"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "timezone",
+			Usage:        "The timezone to use for the server.",
+			ConfigPath:   []string{"server.timezone"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TIMEZONE"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "tunnel-domain",
+			Usage:        "The domain to use for tunnel connections.",
+			ConfigPath:   []string{"server.tunnel_domain"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TUNNEL_DOMAIN"},
+			DefaultValue: "",
+		},
+		&cli.IntFlag{
+			Name:         "audit-retention",
+			Usage:        "The number of days to keep audit logs.",
+			ConfigPath:   []string{"server.audit_retention"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_RETENTION"},
+			DefaultValue: 90,
+		},
+		&cli.BoolFlag{
+			Name:         "disable-space-create",
+			Usage:        "Disable the ability to create spaces.",
+			ConfigPath:   []string{"server.disable_space_create"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DISABLE_SPACE_CREATE"},
+			DefaultValue: false,
+		},
+		&cli.BoolFlag{
+			Name:         "auth-ip-rate-limiting",
+			Usage:        "Enable IP rate limiting of authentication.",
+			ConfigPath:   []string{"server.auth_ip_rate_limiting"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUTH_IP_RATE_LIMITING"},
+			DefaultValue: true,
+		},
+		&cli.StringFlag{
+			Name:         "public-files-path",
+			Usage:        "The path to the a directory to serve as /public-files.",
+			ConfigPath:   []string{"server.public_files_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PUBLIC_FILES_PATH"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "private-files-path",
+			Usage:        "The path to the a directory to serve as /private-files.",
+			ConfigPath:   []string{"server.private_files_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PRIVATE_FILES_PATH"},
+			DefaultValue: "",
+		},
+
+		// UI flags
+		&cli.BoolFlag{
+			Name:         "hide-support-links",
+			Usage:        "Hide the support links in the UI.",
+			ConfigPath:   []string{"server.ui.hide_support_links"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_HIDE_SUPPORT_LINKS"},
+			DefaultValue: false,
+		},
+		&cli.BoolFlag{
+			Name:         "hide-api-tokens",
+			Usage:        "Hide the API tokens menu item in the UI.",
+			ConfigPath:   []string{"server.ui.hide_api_tokens"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_HIDE_API_TOKENS"},
+			DefaultValue: false,
+		},
+		&cli.BoolFlag{
+			Name:         "enable-gravatar",
+			Usage:        "Enable Gravatar support in the UI.",
+			ConfigPath:   []string{"server.ui.enable_gravatar"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ENABLE_GRAVATAR"},
+			DefaultValue: true,
+		},
+		&cli.StringSliceFlag{
+			Name:       "icons",
+			Usage:      "File defining icons for use with templates and spaces, can be given multiple times.",
+			ConfigPath: []string{"server.ui.icons"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_ICONS"},
+		},
+		&cli.BoolFlag{
+			Name:         "enable-builtin-icons",
+			Usage:        "Enable the use of the built-in icons.",
+			ConfigPath:   []string{"server.ui.enable_builtin_icons"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ENABLE_BUILTIN_ICONS"},
+			DefaultValue: true,
+		},
+		&cli.StringFlag{
+			Name:         "logo-url",
+			Usage:        "The URL to the logo to use in the UI.",
+			ConfigPath:   []string{"server.ui.logo_url"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOGO_URL"},
+			DefaultValue: "",
+		},
+		&cli.BoolFlag{
+			Name:         "logo-invert",
+			Usage:        "Invert the logo colors in the UI for dark mode.",
+			ConfigPath:   []string{"server.ui.logo_invert"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOGO_INVERT"},
+			DefaultValue: false,
+		},
+
+		// Cluster flags
+		&cli.StringFlag{
+			Name:         "cluster-key",
+			Usage:        "The shared cluster key.",
+			ConfigPath:   []string{"server.cluster.key"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CLUSTER_KEY"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "cluster-advertise-addr",
+			Usage:        "The address to advertise to other servers.",
+			ConfigPath:   []string{"server.cluster.advertise_addr"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CLUSTER_ADVERTISE_ADDR"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "cluster-bind-addr",
+			Usage:        "The address to bind to for cluster communication.",
+			ConfigPath:   []string{"server.cluster.bind_addr"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CLUSTER_BIND_ADDR"},
+			DefaultValue: "",
+		},
+		&cli.StringSliceFlag{
+			Name:       "cluster-peer",
+			Usage:      "The addresses of the other servers in the cluster, can be given multiple times.",
+			ConfigPath: []string{"server.cluster.peers"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_CLUSTER_PEERS"},
+		},
+		&cli.BoolFlag{
+			Name:         "allow-leaf-nodes",
+			Usage:        "Allow leaf nodes to connect to the cluster.",
+			ConfigPath:   []string{"server.cluster.allow_leaf_nodes"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ALLOW_LEAF_NODES"},
+			DefaultValue: true,
+		},
+		&cli.BoolFlag{
+			Name:         "cluster-compression",
+			Usage:        "Enable compression for cluster communication.",
+			ConfigPath:   []string{"server.cluster.compression"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CLUSTER_COMPRESSION"},
+			DefaultValue: true,
+		},
+
+		// Origin / Leaf server flags
+		&cli.StringFlag{
+			Name:         "origin-server",
+			Usage:        "The address of the origin server.",
+			ConfigPath:   []string{"server.origin.server"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ORIGIN_SERVER"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "origin-token",
+			Usage:        "The token to use for the origin server.",
+			ConfigPath:   []string{"server.origin.token"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ORIGIN_TOKEN"},
+			DefaultValue: "",
+		},
+
+		// TOTP flags
+		&cli.BoolFlag{
+			Name:         "enable-totp",
+			Usage:        "Enable TOTP for users.",
+			ConfigPath:   []string{"server.totp.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ENABLE_TOTP"},
+			DefaultValue: false,
+		},
+		&cli.IntFlag{
+			Name:         "totp-window",
+			Usage:        "The number of time steps (30 seconds) to check for TOTP codes.",
+			ConfigPath:   []string{"server.totp.window"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TOTP_WINDOW"},
+			DefaultValue: 1,
+		},
+		&cli.StringFlag{
+			Name:         "totp-issuer",
+			Usage:        "The issuer to use for TOTP codes.",
+			ConfigPath:   []string{"server.totp.issuer"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TOTP_ISSUER"},
+			DefaultValue: "Knot",
+		},
+
+		// TLS flags
+		&cli.StringFlag{
+			Name:         "cert-file",
+			Usage:        "The file with the PEM encoded certificate to use for the server.",
+			ConfigPath:   []string{"server.tls.cert_file"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CERT_FILE"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "key-file",
+			Usage:        "The file with the PEM encoded key to use for the server.",
+			ConfigPath:   []string{"server.tls.key_file"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_KEY_FILE"},
+			DefaultValue: "",
+		},
+		&cli.BoolFlag{
+			Name:         "use-tls",
+			Usage:        "Enable TLS.",
+			ConfigPath:   []string{"server.tls.use_tls"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_USE_TLS"},
+			DefaultValue: true,
+		},
+		&cli.BoolFlag{
+			Name:         "agent-use-tls",
+			Usage:        "Enable TLS when talking to agents.",
+			ConfigPath:   []string{"server.tls.agent_use_tls"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AGENT_USE_TLS"},
+			DefaultValue: true,
+		},
+		&cli.BoolFlag{
+			Name:         "tls-skip-verify",
+			Usage:        "Skip TLS verification when talking to agents.",
+			ConfigPath:   []string{"tls.skip_verify"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
+			DefaultValue: true,
+		},
+
+		// Nomad flags
+		&cli.StringFlag{
+			Name:         "nomad-addr",
+			Usage:        "The address of the Nomad server.",
+			ConfigPath:   []string{"server.nomad.addr"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_NOMAD_ADDR"},
+			DefaultValue: "http://127.0.0.1:4646",
+		},
+		&cli.StringFlag{
+			Name:         "nomad-token",
+			Usage:        "The token to use for Nomad API requests.",
+			ConfigPath:   []string{"server.nomad.token"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_NOMAD_TOKEN"},
+			DefaultValue: "",
+		},
+
+		// MySQL flags
+		&cli.BoolFlag{
+			Name:         "mysql-enabled",
+			Usage:        "Enable MySQL database backend.",
+			ConfigPath:   []string{"server.mysql.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MYSQL_ENABLED"},
+			DefaultValue: false,
+		},
+		&cli.StringFlag{
+			Name:         "mysql-host",
+			Usage:        "The MySQL host to connect to.",
+			ConfigPath:   []string{"server.mysql.host"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MYSQL_HOST"},
+			DefaultValue: "localhost",
+		},
+		&cli.IntFlag{
+			Name:         "mysql-port",
+			Usage:        "The MySQL port to connect to.",
+			ConfigPath:   []string{"server.mysql.port"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MYSQL_PORT"},
+			DefaultValue: 3306,
+		},
+		&cli.StringFlag{
+			Name:         "mysql-user",
+			Usage:        "The MySQL user to connect as.",
+			ConfigPath:   []string{"server.mysql.user"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MYSQL_USER"},
+			DefaultValue: "root",
+		},
+		&cli.StringFlag{
+			Name:         "mysql-password",
+			Usage:        "The MySQL password to use.",
+			ConfigPath:   []string{"server.mysql.password"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MYSQL_PASSWORD"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "mysql-database",
+			Usage:        "The MySQL database to use.",
+			ConfigPath:   []string{"server.mysql.database"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MYSQL_DATABASE"},
+			DefaultValue: "knot",
+		},
+		&cli.IntFlag{
+			Name:         "mysql-connection-max-idle",
+			Usage:        "The maximum number of idle connections in the connection pool.",
+			ConfigPath:   []string{"server.mysql.connection_max_idle"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MYSQL_CONNECTION_MAX_IDLE"},
+			DefaultValue: 10,
+		},
+		&cli.IntFlag{
+			Name:         "mysql-connection-max-open",
+			Usage:        "The maximum number of open connections to the database.",
+			ConfigPath:   []string{"server.mysql.connection_max_open"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MYSQL_CONNECTION_MAX_OPEN"},
+			DefaultValue: 100,
+		},
+		&cli.IntFlag{
+			Name:         "mysql-connection-max-lifetime",
+			Usage:        "The maximum amount of time in minutes a connection may be reused.",
+			ConfigPath:   []string{"server.mysql.connection_max_lifetime"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MYSQL_CONNECTION_MAX_LIFETIME"},
+			DefaultValue: 5,
+		},
+
+		// BadgerDB flags
+		&cli.BoolFlag{
+			Name:         "badgerdb-enabled",
+			Usage:        "Enable BadgerDB database backend.",
+			ConfigPath:   []string{"server.badgerdb.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_BADGERDB_ENABLED"},
+			DefaultValue: false,
+		},
+		&cli.StringFlag{
+			Name:         "badgerdb-path",
+			Usage:        "The path to the BadgerDB database.",
+			ConfigPath:   []string{"server.badgerdb.path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_BADGERDB_PATH"},
+			DefaultValue: "./badger",
+		},
+
+		// Redis flags
+		&cli.BoolFlag{
+			Name:         "redis-enabled",
+			Usage:        "Enable Redis database backend.",
+			ConfigPath:   []string{"server.redis.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_REDIS_ENABLED"},
+			DefaultValue: false,
+		},
+		&cli.StringSliceFlag{
+			Name:         "redis-hosts",
+			Usage:        "The redis server(s), can be specified multiple times.",
+			ConfigPath:   []string{"server.redis.hosts"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_REDIS_HOSTS"},
+			DefaultValue: []string{"localhost:6379"},
+		},
+		&cli.StringFlag{
+			Name:         "redis-password",
+			Usage:        "The password to use for the redis server.",
+			ConfigPath:   []string{"server.redis.password"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_REDIS_PASSWORD"},
+			DefaultValue: "",
+		},
+		&cli.IntFlag{
+			Name:         "redis-db",
+			Usage:        "The redis database to use.",
+			ConfigPath:   []string{"server.redis.db"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_REDIS_DB"},
+			DefaultValue: 0,
+		},
+		&cli.StringFlag{
+			Name:         "redis-master-name",
+			Usage:        "The name of the master to use for failover clients.",
+			ConfigPath:   []string{"server.redis.master_name"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_REDIS_MASTER_NAME"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "redis-key-prefix",
+			Usage:        "The prefix to use for all keys in the redis database.",
+			ConfigPath:   []string{"server.redis.key_prefix"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_REDIS_KEY_PREFIX"},
+			DefaultValue: "",
+		},
+
+		// Docker flags
+		&cli.StringFlag{
+			Name:         "docker-host",
+			Usage:        "The Docker host to connect to.",
+			ConfigPath:   []string{"server.docker.host"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DOCKER_HOST"},
+			DefaultValue: "unix:///var/run/docker.sock",
+		},
+
+		// Podman flags
+		&cli.StringFlag{
+			Name:         "podman-host",
+			Usage:        "The Podman host to connect to.",
+			ConfigPath:   []string{"server.podman.host"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PODMAN_HOST"},
+			DefaultValue: "unix:///var/run/podman.sock",
+		},
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		listen := util.FixListenAddress(viper.GetString("server.listen"))
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		cfg := buildServerConfig(cmd)
+
+		listen := util.FixListenAddress(cfg.Listen)
 
 		// If agent address not given then don't start
-		if viper.GetString("server.agent_endpoint") == "" {
+		if cfg.AgentEndpoint == "" {
 			log.Fatal().Msg("server: agent endpoint not given")
 		}
 
@@ -421,33 +534,6 @@ var serverCmd = &cobra.Command{
 		// Initialize the API helpers
 		service.SetUserService(api_utils.NewApiUtilsUsers())
 		service.SetContainerService(containerHelper.NewContainerHelper())
-
-		// If server.tunnel-domain doesn't start with a . then prefix it, strip leading * if present
-		tunnelDomain := viper.GetString("server.tunnel_domain")
-		if tunnelDomain != "" {
-			tunnelDomain = strings.TrimPrefix(tunnelDomain, "*")
-
-			if !strings.HasPrefix(tunnelDomain, ".") {
-				tunnelDomain = "." + tunnelDomain
-			}
-
-			viper.Set("server.tunnel_domain", tunnelDomain)
-		}
-
-		// set the server zone and timezone
-		config.Zone = viper.GetString("server.zone")
-		config.Timezone = viper.GetString("server.timezone")
-		config.LeafNode = viper.GetString("server.origin.server") != "" && viper.GetString("server.origin.token") != ""
-
-		// Force the zone for leaf nodes
-		if config.LeafNode {
-			config.Zone = model.LeafNodeZone
-		}
-
-		if config.Timezone == "" {
-			config.Timezone, _ = time.Now().Zone()
-		}
-		log.Info().Msgf("server: timezone: %s", config.Timezone)
 
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()
@@ -464,8 +550,8 @@ var serverCmd = &cobra.Command{
 		var router http.Handler
 
 		// Get the main host domain & wildcard domain
-		wildcardDomain := viper.GetString("server.wildcard_domain")
-		serverURL := viper.GetString("server.url")
+		wildcardDomain := cfg.WildcardDomain
+		serverURL := cfg.URL
 		u, err := url.Parse(serverURL)
 		if err != nil {
 			log.Fatal().Msg(err.Error())
@@ -474,8 +560,8 @@ var serverCmd = &cobra.Command{
 		log.Debug().Msgf("Host: %s", u.Host)
 
 		var tunnelServerUrl *url.URL = nil
-		if viper.GetString("server.tunnel_server") != "" && viper.GetString("server.listen_tunnel") != "" {
-			tunnelServerUrl, err = url.Parse(viper.GetString("server.tunnel_server"))
+		if cfg.TunnelServer != "" && cfg.ListenTunnel != "" {
+			tunnelServerUrl, err = url.Parse(cfg.TunnelServer)
 			if err != nil {
 				log.Fatal().Msgf("Error parsing tunnel server URL: %v", err)
 			}
@@ -486,13 +572,13 @@ var serverCmd = &cobra.Command{
 		routes := http.NewServeMux()
 
 		api.ApiRoutes(routes)
-		proxy.Routes(routes)
-		web.Routes(routes)
+		proxy.Routes(routes, cfg)
+		web.Routes(routes, cfg)
 
 		// Add support for page not found
 		appRoutes := web.HandlePageNotFound(routes)
 
-		if viper.GetString("server.listen_tunnel") != "" {
+		if cfg.ListenTunnel != "" {
 			tunnel_server.Routes(routes)
 		}
 
@@ -530,13 +616,12 @@ var serverCmd = &cobra.Command{
 		var tlsConfig *tls.Config = nil
 
 		// If server should use TLS
-		useTLS := viper.GetBool("server.tls.use_tls")
-		if useTLS {
+		if cfg.TLS.UseTLS {
 			log.Debug().Msg("server: using TLS")
 
 			// If have both a cert and key file, use them
-			certFile := viper.GetString("server.tls.cert_file")
-			keyFile := viper.GetString("server.tls.key_file")
+			certFile := cfg.TLS.CertFile
+			keyFile := cfg.TLS.KeyFile
 			if certFile != "" && keyFile != "" {
 				log.Info().Msgf("server: using cert file: %s", certFile)
 				log.Info().Msgf("server: using key file: %s", keyFile)
@@ -556,7 +641,7 @@ var serverCmd = &cobra.Command{
 				// Build the list of domains to include in the cert
 				var sslDomains []string
 
-				serverURL := viper.GetString("server.url")
+				serverURL := cfg.URL
 				u, err := url.Parse(serverURL)
 				if err != nil {
 					log.Fatal().Msg(err.Error())
@@ -571,7 +656,7 @@ var serverCmd = &cobra.Command{
 				}
 
 				// If wildcard domain given add it
-				wildcardDomain := viper.GetString("server.wildcard_domain")
+				wildcardDomain := cfg.WildcardDomain
 				if wildcardDomain != "" {
 					sslDomains = append(sslDomains, wildcardDomain)
 				}
@@ -594,12 +679,12 @@ var serverCmd = &cobra.Command{
 
 		// Start the gossip server
 		cluster := cluster.NewCluster(
-			viper.GetString("server.cluster.key"),
-			viper.GetString("server.cluster.advertise_addr"),
-			viper.GetString("server.cluster.bind_addr"),
+			cfg.Cluster.Key,
+			cfg.Cluster.AdvertiseAddr,
+			cfg.Cluster.BindAddr,
 			routes,
-			viper.GetBool("server.cluster.compression"),
-			viper.GetBool("server.cluster.allow_leaf_nodes"),
+			cfg.Cluster.Compression,
+			cfg.Cluster.AllowLeafNodes,
 		)
 		service.SetTransport(cluster)
 
@@ -614,7 +699,7 @@ var serverCmd = &cobra.Command{
 
 		go func() {
 			for {
-				if useTLS {
+				if cfg.TLS.UseTLS {
 					if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 						log.Error().Err(err).Msgf("server: web server")
 					}
@@ -631,20 +716,20 @@ var serverCmd = &cobra.Command{
 
 		// Start the cluster and join the peers
 		cluster.Start(
-			viper.GetStringSlice("server.cluster.peers"),
-			viper.GetString("server.origin.server"),
-			viper.GetString("server.origin.token"),
+			cfg.Cluster.Peers,
+			cfg.Origin.Server,
+			cfg.Origin.Token,
 		)
 
 		// Check for local spaces that are pending state changes and setup watches
 		service.GetContainerService().CleanupOnBoot()
 
 		// Start the agent server
-		agent_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_agent")), tlsConfig)
+		agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)
 
 		// Start a tunnel server
-		if viper.GetString("server.listen_tunnel") != "" {
-			tunnel_server.ListenAndServe(util.FixListenAddress(viper.GetString("server.listen_tunnel")), tlsConfig)
+		if cfg.ListenTunnel != "" {
+			tunnel_server.ListenAndServe(util.FixListenAddress(cfg.ListenTunnel), tlsConfig)
 		}
 
 		audit.Log(
@@ -669,5 +754,141 @@ var serverCmd = &cobra.Command{
 		fmt.Print("\r")
 		log.Info().Msg("server: shutdown")
 		os.Exit(0)
+		return nil
 	},
+}
+
+func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
+	// Get the hostname with fallback logic
+	hostname := os.Getenv("NOMAD_DC")
+	if hostname == "" {
+		var err error
+		hostname, err = os.Hostname()
+		if err != nil {
+			log.Fatal().Msgf("Error getting hostname: %v", err)
+		}
+		hostname = strings.Split(hostname, ".")[0]
+	}
+
+	// Use hostname as default for zone if not set
+	zone := cmd.GetString("zone")
+	if zone == "" {
+		zone = hostname
+	}
+
+	serverCfg := &config.ServerConfig{
+		Listen:             cmd.GetString("listen"),
+		ListenAgent:        cmd.GetString("listen-agent"),
+		URL:                cmd.GetString("url"),
+		AgentEndpoint:      cmd.GetString("agent-endpoint"),
+		WildcardDomain:     cmd.GetString("wildcard-domain"),
+		HTMLPath:           cmd.GetString("html-path"),
+		TemplatePath:       cmd.GetString("template-path"),
+		AgentPath:          cmd.GetString("agent-path"),
+		PrivateFilesPath:   cmd.GetString("private-files-path"),
+		PublicFilesPath:    cmd.GetString("public-files-path"),
+		DownloadPath:       cmd.GetString("download-path"),
+		DisableSpaceCreate: cmd.GetBool("disable-space-create"),
+		ListenTunnel:       cmd.GetString("listen-tunnel"),
+		TunnelDomain:       cmd.GetString("tunnel-domain"),
+		TunnelServer:       cmd.GetString("tunnel-server"),
+		TerminalWebGL:      cmd.GetBool("terminal-webgl"),
+		EncryptionKey:      cmd.GetString("encrypt"),
+		Zone:               zone,
+		Timezone:           cmd.GetString("timezone"),
+		LeafNode:           cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
+		AuthIPRateLimiting: cmd.GetBool("auth-ip-rate-limiting"),
+		Origin: config.OriginConfig{
+			Server: cmd.GetString("origin-server"),
+			Token:  cmd.GetString("origin-token"),
+		},
+		TOTP: config.TOTPConfig{
+			Enabled: cmd.GetBool("enable-totp"),
+			Window:  cmd.GetInt("totp-window"),
+			Issuer:  cmd.GetString("totp-issuer"),
+		},
+		UI: config.UIConfig{
+			HideSupportLinks:   cmd.GetBool("hide-support-links"),
+			HideAPITokens:      cmd.GetBool("hide-api-tokens"),
+			EnableGravatar:     cmd.GetBool("enable-gravatar"),
+			LogoURL:            cmd.GetString("logo-url"),
+			LogoInvert:         cmd.GetBool("logo-invert"),
+			EnableBuiltinIcons: cmd.GetBool("enable-builtin-icons"),
+			Icons:              cmd.GetStringSlice("icons"),
+		},
+		Cluster: config.ClusterConfig{
+			Key:            cmd.GetString("cluster-key"),
+			AdvertiseAddr:  cmd.GetString("cluster-advertise-addr"),
+			BindAddr:       cmd.GetString("cluster-bind-addr"),
+			Peers:          cmd.GetStringSlice("cluster-peer"),
+			AllowLeafNodes: cmd.GetBool("allow-leaf-nodes"),
+			Compression:    cmd.GetBool("cluster-compression"),
+		},
+		MySQL: config.MySQLConfig{
+			Enabled:               cmd.GetBool("mysql-enabled"),
+			Host:                  cmd.GetString("mysql-host"),
+			Port:                  cmd.GetInt("mysql-port"),
+			User:                  cmd.GetString("mysql-user"),
+			Password:              cmd.GetString("mysql-password"),
+			Database:              cmd.GetString("mysql-database"),
+			ConnectionMaxIdle:     cmd.GetInt("mysql-connection-max-idle"),
+			ConnectionMaxOpen:     cmd.GetInt("mysql-connection-max-open"),
+			ConnectionMaxLifetime: cmd.GetInt("mysql-connection-max-lifetime"),
+		},
+		BadgerDB: config.BadgerDBConfig{
+			Enabled: cmd.GetBool("badgerdb-enabled"),
+			Path:    cmd.GetString("badgerdb-path"),
+		},
+		Redis: config.RedisConfig{
+			Enabled:    cmd.GetBool("redis-enabled"),
+			Hosts:      cmd.GetStringSlice("redis-hosts"),
+			Password:   cmd.GetString("redis-password"),
+			DB:         cmd.GetInt("redis-db"),
+			MasterName: cmd.GetString("redis-master-name"),
+			KeyPrefix:  cmd.GetString("redis-key-prefix"),
+		},
+		Audit: config.AuditConfig{
+			Retention: cmd.GetInt("audit-retention"),
+		},
+		Docker: config.DockerConfig{
+			Host: cmd.GetString("docker-host"),
+		},
+		Podman: config.PodmanConfig{
+			Host: cmd.GetString("podman-host"),
+		},
+		Nomad: config.NomadConfig{
+			Host:  cmd.GetString("nomad-addr"),
+			Token: cmd.GetString("nomad-token"),
+		},
+		TLS: config.TLSConfig{
+			CertFile:    cmd.GetString("cert-file"),
+			KeyFile:     cmd.GetString("key-file"),
+			UseTLS:      cmd.GetBool("use-tls"),
+			AgentUseTLS: cmd.GetBool("agent-use-tls"),
+			SkipVerify:  cmd.GetBool("tls-skip-verify"),
+		},
+	}
+
+	// If tunnel domain doesn't start with a . then prefix it, strip leading * if present
+	if serverCfg.TunnelDomain != "" {
+		serverCfg.TunnelDomain = strings.TrimPrefix(serverCfg.TunnelDomain, "*")
+
+		if !strings.HasPrefix(serverCfg.TunnelDomain, ".") {
+			serverCfg.TunnelDomain = "." + serverCfg.TunnelDomain
+		}
+	}
+
+	// Force the zone for leaf nodes
+	if serverCfg.LeafNode {
+		serverCfg.Zone = model.LeafNodeZone
+	}
+
+	if serverCfg.Timezone == "" {
+		serverCfg.Timezone, _ = time.Now().Zone()
+	}
+	log.Info().Msgf("server: timezone: %s", serverCfg.Timezone)
+
+	config.SetServerConfig(serverCfg)
+
+	return serverCfg
 }

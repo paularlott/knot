@@ -12,7 +12,6 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 // Start a web server to listen for connections to tunnels, the left most part of the domain is the <username>--<tunnel name>
@@ -112,7 +111,7 @@ func reverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string, host
 	}
 
 	proxy.Transport = &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")},
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		MaxConnsPerHost:     32 * 2,
 		MaxIdleConns:        32 * 2,
 		MaxIdleConnsPerHost: 32,

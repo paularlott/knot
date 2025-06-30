@@ -154,7 +154,8 @@ func checkPermission(next http.HandlerFunc, permission uint16, msg string) http.
 }
 
 func ApiPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
-	if config.LeafNode {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
 		return next
 	}
 
@@ -162,7 +163,8 @@ func ApiPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ApiPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
-	if config.LeafNode {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
 		return next
 	}
 
@@ -178,7 +180,8 @@ func ApiPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ApiPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
-	if config.LeafNode {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
 		return next
 	}
 
@@ -244,7 +247,8 @@ func ApiPermissionManageUsersOrSelf(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ApiPermissionUseSpaces(next http.HandlerFunc) http.HandlerFunc {
-	if config.LeafNode {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
 		return next
 	}
 

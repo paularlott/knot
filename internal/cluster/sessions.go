@@ -16,7 +16,8 @@ func (c *Cluster) handleSessionFullSync(sender *gossip.Node, packet *gossip.Pack
 	log.Debug().Msg("cluster: Received session full sync request")
 
 	// If the sender doesn't match our zone then ignore the request
-	if sender.Metadata.GetString("zone") != config.Zone {
+	cfg := config.GetServerConfig()
+	if sender.Metadata.GetString("zone") != cfg.Zone {
 		log.Debug().Msg("cluster: Ignoring session full sync request from a different zone")
 		return []*model.Session{}, nil
 	}
@@ -45,7 +46,8 @@ func (c *Cluster) handleSessionGossip(sender *gossip.Node, packet *gossip.Packet
 	log.Debug().Msg("cluster: Received session gossip request")
 
 	// If the sender doesn't match our zone then ignore the request
-	if sender.Metadata.GetString("zone") != config.Zone {
+	cfg := config.GetServerConfig()
+	if sender.Metadata.GetString("zone") != cfg.Zone {
 		log.Debug().Msg("cluster: Ignoring session gossip request from a different zone")
 		return nil
 	}
@@ -76,7 +78,8 @@ func (c *Cluster) DoSessionFullSync(node *gossip.Node) error {
 	if c.sessionGossip && c.gossipCluster != nil {
 
 		// If the node doesn't match our zone then ignore the request
-		if node.Metadata.GetString("zone") != config.Zone {
+		cfg := config.GetServerConfig()
+		if node.Metadata.GetString("zone") != cfg.Zone {
 			log.Debug().Msg("cluster: Ignoring session full sync with node from a different zone")
 			return nil
 		}

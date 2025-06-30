@@ -1,9 +1,8 @@
 package nomad
 
 import (
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/util/rest"
-
-	"github.com/spf13/viper"
 )
 
 type NomadClient struct {
@@ -11,10 +10,8 @@ type NomadClient struct {
 }
 
 func NewClient() (*NomadClient, error) {
-	baseURL := viper.GetString("server.nomad.addr")
-	token := viper.GetString("server.nomad.token")
-
-	hc, err := rest.NewClient(baseURL, token, false)
+	cfg := config.GetServerConfig()
+	hc, err := rest.NewClient(cfg.Nomad.Host, cfg.Nomad.Token, false)
 	if err != nil {
 		return nil, err
 	}

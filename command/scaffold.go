@@ -1,49 +1,64 @@
 package command
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/paularlott/knot/internal/scaffold"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 )
 
-func init() {
-	scaffoldCmd.Flags().BoolP("server", "", false, "Generate a server configuration file")
-	scaffoldCmd.Flags().BoolP("client", "", false, "Generate a client configuration file")
-	scaffoldCmd.Flags().BoolP("agent", "", false, "Generate an agent configuration file")
-	scaffoldCmd.Flags().BoolP("nomad", "", false, "Generate a nomad job file")
-
-	RootCmd.AddCommand(scaffoldCmd)
-}
-
-var scaffoldCmd = &cobra.Command{
-	Use:   "scaffold",
-	Short: "Generate configuration files",
-	Long:  `Generates example configuration files for use with knot.`,
-	Args:  cobra.NoArgs,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		RootCmd.PersistentFlags().MarkHidden("config")
+var ScaffoldCmd = &cli.Command{
+	Name:        "scaffold",
+	Usage:       "Generate configuration files",
+	Description: "Generates example configuration files for use with knot.",
+	MaxArgs:     cli.NoArgs,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:       "server",
+			Usage:      "Generate a server configuration file",
+			ConfigPath: []string{"scaffold.server"},
+		},
+		&cli.BoolFlag{
+			Name:       "client",
+			Usage:      "Generate a client configuration file",
+			ConfigPath: []string{"scaffold.client"},
+		},
+		&cli.BoolFlag{
+			Name:       "agent",
+			Usage:      "Generate an agent configuration file",
+			ConfigPath: []string{"scaffold.agent"},
+		},
+		&cli.BoolFlag{
+			Name:       "nomad",
+			Usage:      "Generate a nomad job file",
+			ConfigPath: []string{"scaffold.nomad"},
+		},
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		if cmd.Flag("server").Value.String() == "true" {
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		any := false
+
+		if cmd.GetBool("server") {
 			fmt.Println(scaffold.ServerScaffold)
+			any = true
 		}
-
-		if cmd.Flag("client").Value.String() == "true" {
+		if cmd.GetBool("client") {
 			fmt.Println(scaffold.ClientScaffold)
+			any = true
 		}
-
-		if cmd.Flag("agent").Value.String() == "true" {
+		if cmd.GetBool("agent") {
 			fmt.Println(scaffold.AgentScaffold)
+			any = true
 		}
-
-		if cmd.Flag("nomad").Value.String() == "true" {
+		if cmd.GetBool("nomad") {
 			fmt.Println(scaffold.NomadScaffold)
+			any = true
 		}
 
-		if cmd.Flag("server").Value.String() == "false" && cmd.Flag("client").Value.String() == "false" && cmd.Flag("agent").Value.String() == "false" && cmd.Flag("nomad").Value.String() == "false" {
-			cmd.Help()
+		if !any {
+			cmd.ShowHelp()
 		}
+		return nil
 	},
 }

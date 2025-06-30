@@ -14,31 +14,55 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 	"golang.org/x/term"
 )
 
-func init() {
-
-	ConnectCmd.Flags().BoolP("use-web-auth", "", false, "If given then authorization will be done via the web interface.")
-	ConnectCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
-	ConnectCmd.Flags().StringP("username", "u", "", "Username to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_USERNAME environment variable if set.")
-	ConnectCmd.Flags().StringP("alias", "a", "default", "The server alias to use.")
-
-	RootCmd.AddCommand(ConnectCmd)
-	ConnectCmd.AddCommand(connectcmd.ConnectListCmd)
-	ConnectCmd.AddCommand(connectcmd.ConnectDeleteCmd)
-}
-
-var ConnectCmd = &cobra.Command{
-	Use:   "connect <server>",
-	Short: "Connect to a server",
-	Long:  `Authenticate the client with a remote server and save the server address and access key.`,
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+var ConnectCmd = &cli.Command{
+	Name:        "connect",
+	Usage:       "Connect to server",
+	Description: "Authenticate the client with a remote server and save the server address and access key.",
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "server",
+			Usage:    "The server to connect to",
+			Required: true,
+		},
+	},
+	MaxArgs: cli.NoArgs,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "use-web-auth",
+			Usage: "If given then authorization will be done via the web interface.",
+		},
+		&cli.BoolFlag{
+			Name:         "tls-skip-verify",
+			Usage:        "Skip TLS verification when talking to server.",
+			ConfigPath:   []string{"tls.skip_verify"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
+			DefaultValue: true,
+			Global:       true,
+		},
+		&cli.StringFlag{
+			Name:    "username",
+			Aliases: []string{"u"},
+			Usage:   "Username to use for authentication.",
+		},
+		&cli.StringFlag{
+			Name:         "alias",
+			Aliases:      []string{"a"},
+			Usage:        "The server alias to use to identify the connection.",
+			DefaultValue: "default",
+		},
+	},
+	Commands: []*cli.Command{
+		connectcmd.ConnectListCmd,
+		connectcmd.ConnectDeleteCmd,
+	},
+	Run: func(ctx context.Context, cmd *cli.Command) error {
 		var token string
 
-		server := args[0]
+		server := cmd.GetStringArg("server")
 
 		// If server doesn't start with http or https, assume https
 		if !strings.HasPrefix(server, "http://") && !strings.HasPrefix(server, "https://") {
@@ -62,7 +86,11 @@ var ConnectCmd = &cobra.Command{
 
 		hostname = "knot client " + hostname
 
-		client, err := apiclient.NewClient(server, "", cmd.Flags().Lookup("tls-skip-verify").Value.String() == "true")
+		client, err := apiclient.NewClient(
+			server,
+			"",
+			cmd.GetBool("tls-skip-verify"),
+		)
 		if err != nil {
 			fmt.Println("Failed to create API client:", err)
 			os.Exit(1)
@@ -76,19 +104,13 @@ var ConnectCmd = &cobra.Command{
 		}
 
 		// If using web authentication or server has TOTP enabled then open the server URL in the default browser
-		if totp || cmd.Flags().Lookup("use-web-auth").Value.String() == "true" {
-
-			// Build the registration URL
+		if totp || cmd.GetBool("use-web-auth") {
 			u.Path = "/api-tokens/create/" + url.PathEscape(hostname)
-
-			// Open the server URL in the default browser
 			err = open(u.String())
 			if err != nil {
 				fmt.Println("Failed to open server URL, you will need to generate the API token manually")
 				os.Exit(1)
 			}
-
-			// Accept a string from the user and save it in the variable token
 			fmt.Print("Enter token: ")
 			_, err = fmt.Scanln(&token)
 			if err != nil {
@@ -96,14 +118,10 @@ var ConnectCmd = &cobra.Command{
 				os.Exit(1)
 			}
 		} else {
-			var username string = cmd.Flags().Lookup("username").Value.String()
+			username := cmd.GetString("username")
 			var password []byte
-			var err error
 
-			// If username not given then prompt for it
 			if username == "" {
-
-				// Prompt the user to enter their username
 				fmt.Print("Enter email: ")
 				_, err = fmt.Scanln(&username)
 				if err != nil {
@@ -112,7 +130,6 @@ var ConnectCmd = &cobra.Command{
 				}
 			}
 
-			// Prompt the user to enter their password
 			fmt.Print("Enter password: ")
 			password, err = term.ReadPassword(int(syscall.Stdin))
 			if err != nil {
@@ -121,23 +138,19 @@ var ConnectCmd = &cobra.Command{
 			}
 			fmt.Println()
 
-			// Check username and password given
 			if username == "" || string(password) == "" {
 				fmt.Println("Username and password must be given")
 				os.Exit(1)
 			}
 
-			// Open an API connection to the server
 			response, _, _ := client.Login(context.Background(), username, string(password), "")
 			if response == nil || response.Token == "" {
 				fmt.Println("Failed to login")
 				os.Exit(1)
 			}
 
-			// Use the session token for future requests
 			client.UseSessionCookie(true).SetAuthToken(response.Token)
 
-			// Create an API token
 			token, _, err = client.CreateToken(context.Background(), hostname)
 			if err != nil || token == "" {
 				fmt.Println("Failed to create token")
@@ -145,13 +158,14 @@ var ConnectCmd = &cobra.Command{
 			}
 		}
 
-		alias, _ := cmd.Flags().GetString("alias")
-		if err := config.SaveConnection(alias, server, token); err != nil {
+		alias := cmd.GetString("alias")
+		if err := config.SaveConnection(alias, server, token, cmd); err != nil {
 			fmt.Println("Failed to save connection:", err)
 			os.Exit(1)
 		}
 
 		fmt.Println("Successfully connected to server:", server)
+		return nil
 	},
 }
 

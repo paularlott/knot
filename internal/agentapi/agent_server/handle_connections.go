@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/hashicorp/yamux"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -335,8 +335,9 @@ func handleCreateToken(stream net.Conn, session *Session) {
 		service.GetTransport().GossipToken(token)
 	}
 
+	cfg := config.GetServerConfig()
 	response := msg.CreateTokenResponse{
-		Server: viper.GetString("server.url"),
+		Server: cfg.URL,
 		Token:  token.Id,
 	}
 	if err := msg.WriteMessage(stream, &response); err != nil {

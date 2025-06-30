@@ -3,9 +3,10 @@ package driver_badgerdb
 import (
 	"time"
 
+	"github.com/paularlott/knot/internal/config"
+
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -41,7 +42,8 @@ func (db *BadgerDbDriver) Connect() error {
 	log.Debug().Msg("db: connecting to BadgerDB")
 
 	var err error
-	options := badger.DefaultOptions(viper.GetString("server.badgerdb.path"))
+	cfg := config.GetServerConfig()
+	options := badger.DefaultOptions(cfg.BadgerDB.Path)
 	options.Logger = badgerdbLogger()
 	options.IndexCacheSize = 100 << 20 // 100MB
 

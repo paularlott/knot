@@ -1,16 +1,18 @@
 package commands_admin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"slices"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/crypt"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 )
 
 type backupUser struct {
@@ -30,46 +32,135 @@ type backupData struct {
 	AuditLogs    []*model.AuditLogEntry
 }
 
-func init() {
-	backupCmd.Flags().BoolP("templates", "t", false, "Backup templates")
-	backupCmd.Flags().BoolP("template-vars", "v", false, "Backup template variables")
-	backupCmd.Flags().BoolP("volumes", "l", false, "Backup volumes")
-	backupCmd.Flags().BoolP("groups", "g", false, "Backup groups")
-	backupCmd.Flags().BoolP("roles", "r", false, "Backup roles")
-	backupCmd.Flags().BoolP("spaces", "s", false, "Backup user spaces")
-	backupCmd.Flags().BoolP("users", "u", false, "Backup users")
-	backupCmd.Flags().BoolP("tokens", "k", false, "Backup user tokens")
-	backupCmd.Flags().BoolP("cfg-values", "o", false, "Backup configuration values")
-	backupCmd.Flags().BoolP("audit-logs", "", false, "Backup audit logs")
-	backupCmd.Flags().BoolP("all", "a", true, "Backup everything")
-	backupCmd.Flags().StringP("limit-user", "", "", "Limit the backup to a specific user by username.")
-	backupCmd.Flags().StringP("limit-template", "", "", "Limit the backup to a specific template by name.")
-	backupCmd.Flags().StringP("encrypt-key", "e", "", "Encrypt the backup file with the given key. The key must be 32 bytes long.")
-}
-
-var backupCmd = &cobra.Command{
-	Use:   "backup <backupfile> [flags]",
-	Short: "Backup the database",
-	Long:  `Backup the database a backup file.`,
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		outputFile := args[0]
+var BackupCmd = &cli.Command{
+	Name:        "backup",
+	Usage:       "Backup to File",
+	Description: "Backup the database to a backup file.",
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "backupfile",
+			Usage:    "The name of the backup file",
+			Required: true,
+		},
+	},
+	MaxArgs: cli.NoArgs,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:       "templates",
+			Aliases:    []string{"t"},
+			Usage:      "Backup templates",
+			ConfigPath: []string{"backup.templates"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_TEMPLATES"},
+		},
+		&cli.BoolFlag{
+			Name:       "template-vars",
+			Aliases:    []string{"v"},
+			Usage:      "Backup template variables",
+			ConfigPath: []string{"backup.template_vars"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_TEMPLATE_VARS"},
+		},
+		&cli.BoolFlag{
+			Name:       "volumes",
+			Aliases:    []string{"l"},
+			Usage:      "Backup volumes",
+			ConfigPath: []string{"backup.volumes"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_VOLUMES"},
+		},
+		&cli.BoolFlag{
+			Name:       "groups",
+			Aliases:    []string{"g"},
+			Usage:      "Backup groups",
+			ConfigPath: []string{"backup.groups"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_GROUPS"},
+		},
+		&cli.BoolFlag{
+			Name:       "roles",
+			Aliases:    []string{"r"},
+			Usage:      "Backup roles",
+			ConfigPath: []string{"backup.roles"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ROLES"},
+		},
+		&cli.BoolFlag{
+			Name:       "spaces",
+			Aliases:    []string{"s"},
+			Usage:      "Backup user spaces",
+			ConfigPath: []string{"backup.spaces"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SPACES"},
+		},
+		&cli.BoolFlag{
+			Name:       "users",
+			Aliases:    []string{"u"},
+			Usage:      "Backup users",
+			ConfigPath: []string{"backup.users"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_USERS"},
+		},
+		&cli.BoolFlag{
+			Name:       "tokens",
+			Aliases:    []string{"k"},
+			Usage:      "Backup user tokens",
+			ConfigPath: []string{"backup.tokens"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_TOKENS"},
+		},
+		&cli.BoolFlag{
+			Name:       "cfg-values",
+			Aliases:    []string{"o"},
+			Usage:      "Backup configuration values",
+			ConfigPath: []string{"backup.cfg_values"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_CFG_VALUES"},
+		},
+		&cli.BoolFlag{
+			Name:       "audit-logs",
+			Usage:      "Backup audit logs",
+			ConfigPath: []string{"backup.audit_logs"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_AUDIT_LOGS"},
+		},
+		&cli.BoolFlag{
+			Name:         "all",
+			Aliases:      []string{"a"},
+			Usage:        "Backup everything",
+			ConfigPath:   []string{"backup.all"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ALL"},
+			DefaultValue: true,
+		},
+		&cli.StringFlag{
+			Name:       "limit-user",
+			Usage:      "Limit the backup to a specific user by username.",
+			ConfigPath: []string{"backup.limit_user"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_LIMIT_USER"},
+		},
+		&cli.StringFlag{
+			Name:       "limit-template",
+			Usage:      "Limit the backup to a specific template by name.",
+			ConfigPath: []string{"backup.limit_template"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_LIMIT_TEMPLATE"},
+		},
+		&cli.StringFlag{
+			Name:       "encrypt-key",
+			Aliases:    []string{"e"},
+			Usage:      "Encrypt the backup file with the given key. The key must be 32 bytes long.",
+			ConfigPath: []string{"backup.encrypt_key"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_ENCRYPT_KEY"},
+		},
+	},
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		outputFile := cmd.GetStringArg("backupfile")
 		fmt.Println("Backing up database to file: ", outputFile)
 
-		backupTemplates, _ := cmd.Flags().GetBool("templates")
-		backupVars, _ := cmd.Flags().GetBool("template-vars")
-		backupVolumes, _ := cmd.Flags().GetBool("volumes")
-		backupGroups, _ := cmd.Flags().GetBool("groups")
-		backupRoles, _ := cmd.Flags().GetBool("roles")
-		backupUsers, _ := cmd.Flags().GetBool("users")
-		backupSpaces, _ := cmd.Flags().GetBool("spaces")
-		backupTokens, _ := cmd.Flags().GetBool("tokens")
-		backupCfgValues, _ := cmd.Flags().GetBool("cfg-values")
-		backupAuditLogs, _ := cmd.Flags().GetBool("audit-logs")
-		backupAll, _ := cmd.Flags().GetBool("all")
+		backupTemplates := cmd.GetBool("templates")
+		backupVars := cmd.GetBool("template-vars")
+		backupVolumes := cmd.GetBool("volumes")
+		backupGroups := cmd.GetBool("groups")
+		backupRoles := cmd.GetBool("roles")
+		backupUsers := cmd.GetBool("users")
+		backupSpaces := cmd.GetBool("spaces")
+		backupTokens := cmd.GetBool("tokens")
+		backupCfgValues := cmd.GetBool("cfg-values")
+		backupAuditLogs := cmd.GetBool("audit-logs")
+		backupAll := cmd.GetBool("all")
 
+		// If any specific backup flags are set, do not use the "all" flag
 		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupCfgValues || backupAuditLogs {
-			backupAll = false // If any specific backup flags are set, do not use the "all" flag
+			backupAll = false
 		}
 
 		if backupAll {
@@ -85,26 +176,22 @@ var backupCmd = &cobra.Command{
 			backupAuditLogs = true
 		}
 
-		limitUser, _ := cmd.Flags().GetString("limit-user")
-		limitTemplate, _ := cmd.Flags().GetString("limit-template")
+		limitUser := cmd.GetString("limit-user")
+		limitTemplate := cmd.GetString("limit-template")
 
-		key, _ := cmd.Flags().GetString("encrypt-key")
+		key := cmd.GetString("encrypt-key")
 		if key != "" && len(key) != 32 {
-			fmt.Println("Error: Encrypt key must be 32 bytes long.")
-			os.Exit(1)
+			return fmt.Errorf("Error: Encrypt key must be 32 bytes long.")
 		}
 
 		db := database.GetInstance()
-
 		backupData := backupData{}
 
 		if backupAuditLogs {
 			fmt.Println("Backing up audit logs...")
-
 			auditLogs, err := db.GetAuditLogs(0, 0)
 			if err != nil {
-				fmt.Println("Error getting audit logs: ", err)
-				os.Exit(1)
+				return fmt.Errorf("Error getting audit logs: %w", err)
 			}
 			backupData.AuditLogs = make([]*model.AuditLogEntry, len(auditLogs))
 			copy(backupData.AuditLogs, auditLogs)
@@ -112,12 +199,9 @@ var backupCmd = &cobra.Command{
 
 		if backupCfgValues {
 			fmt.Println("Backing up configuration values...")
-
-			// Get the list of configuration values
 			cfgValues, err := db.GetCfgValues()
 			if err != nil {
-				fmt.Println("Error getting configuration values: ", err)
-				os.Exit(1)
+				return fmt.Errorf("Error getting configuration values: %w", err)
 			}
 			backupData.CfgValues = make([]*model.CfgValue, len(cfgValues))
 			copy(backupData.CfgValues, cfgValues)
@@ -125,12 +209,9 @@ var backupCmd = &cobra.Command{
 
 		if backupTemplates {
 			fmt.Println("Backing up templates...")
-
-			// Get the list of templates
 			templates, err := db.GetTemplates()
 			if err != nil {
-				fmt.Println("Error getting templates: ", err)
-				os.Exit(1)
+				return fmt.Errorf("Error getting templates: %w", err)
 			}
 			backupData.Templates = make([]*model.Template, 0, len(templates))
 			for _, t := range templates {
@@ -143,12 +224,9 @@ var backupCmd = &cobra.Command{
 
 		if backupVars {
 			fmt.Println("Backing up template variables...")
-
-			// Get the list of template variables
 			variables, err := db.GetTemplateVars()
 			if err != nil {
-				fmt.Println("Error getting template variables: ", err)
-				os.Exit(1)
+				return fmt.Errorf("Error getting template variables: %w", err)
 			}
 			backupData.TemplateVars = make([]*model.TemplateVar, len(variables))
 			for i, v := range variables {
@@ -158,12 +236,9 @@ var backupCmd = &cobra.Command{
 
 		if backupVolumes {
 			fmt.Println("Backing up volumes...")
-
-			// Get the list of volumes
 			volumes, err := db.GetVolumes()
 			if err != nil {
-				fmt.Println("Error getting volumes: ", err)
-				os.Exit(1)
+				return fmt.Errorf("Error getting volumes: %w", err)
 			}
 			backupData.Volumes = make([]*model.Volume, len(volumes))
 			copy(backupData.Volumes, volumes)
@@ -171,12 +246,9 @@ var backupCmd = &cobra.Command{
 
 		if backupGroups {
 			fmt.Println("Backing up groups...")
-
-			// Get the list of groups
 			groups, err := db.GetGroups()
 			if err != nil {
-				fmt.Println("Error getting groups: ", err)
-				os.Exit(1)
+				return fmt.Errorf("Error getting groups: %w", err)
 			}
 			backupData.Groups = make([]*model.Group, len(groups))
 			copy(backupData.Groups, groups)
@@ -184,12 +256,9 @@ var backupCmd = &cobra.Command{
 
 		if backupRoles {
 			fmt.Println("Backing up roles...")
-
-			// Get the list of roles
 			roles, err := db.GetRoles()
 			if err != nil {
-				fmt.Println("Error getting roles: ", err)
-				os.Exit(1)
+				return fmt.Errorf("Error getting roles: %w", err)
 			}
 			backupData.Roles = make([]*model.Role, len(roles))
 			copy(backupData.Roles, roles)
@@ -197,78 +266,60 @@ var backupCmd = &cobra.Command{
 
 		if backupUsers {
 			fmt.Println("Backing up users...")
-
-			// Get the list of users and their tokens
 			users, err := db.GetUsers()
 			if err != nil {
-				fmt.Println("Error getting users: ", err)
-				os.Exit(1)
+				return fmt.Errorf("Error getting users: %w", err)
 			}
 			backupData.Users = make([]backupUser, 0, len(users))
 			for _, u := range users {
 				if limitUser != "" && u.Username != limitUser {
-					continue // Skip users that do not match the limit
+					continue
 				}
-
 				bu := backupUser{
 					User: u,
 				}
-
 				if backupTokens {
 					tokens, err := db.GetTokensForUser(u.Id)
 					if err != nil {
-						fmt.Println("Error getting tokens for user: ", err)
-						os.Exit(1)
+						return fmt.Errorf("Error getting tokens for user: %w", err)
 					}
 					bu.Tokens = make([]*model.Token, len(tokens))
 					copy(bu.Tokens, tokens)
 				}
-
 				if backupSpaces {
-					// Get the list of spaces
 					spaces, err := db.GetSpacesForUser(u.Id)
 					if err != nil {
-						fmt.Println("Error getting spaces: ", err)
-						os.Exit(1)
+						return fmt.Errorf("Error getting spaces: %w", err)
 					}
 					bu.Spaces = make([]*model.Space, len(spaces))
 					for j, s := range spaces {
-						// Get the space again so that we get the alt names
 						space, err := db.GetSpace(s.Id)
 						if err != nil {
-							fmt.Println("Error getting space: ", err)
-							os.Exit(1)
+							return fmt.Errorf("Error getting space: %w", err)
 						}
-
 						bu.Spaces[j] = space
 					}
 				}
-
 				backupData.Users = append(backupData.Users, bu)
 			}
-
 			backupData.Users = slices.Clip(backupData.Users)
 		}
 
-		// Marshal the backup data to json format
 		data, err := json.Marshal(backupData)
 		if err != nil {
-			fmt.Println("Error marshalling backup data: ", err)
-			os.Exit(1)
+			return fmt.Errorf("Error marshalling backup data: %w", err)
 		}
 
-		// If have an encryption key then encrypt the data
 		if key != "" {
 			data = []byte(crypt.Encrypt(key, string(data)))
 		}
 
-		// Write the backup data to the output file
 		err = os.WriteFile(outputFile, data, 0644)
 		if err != nil {
-			fmt.Println("Error writing backup file: ", err)
-			os.Exit(1)
+			return fmt.Errorf("Error writing backup file: %w", err)
 		}
 
 		fmt.Println("Database backup completed successfully.")
+		return nil
 	},
 }

@@ -17,7 +17,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -105,6 +104,7 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 	go func() {
 		fullSyncDone := false
 
+		cfg := config.GetServerConfig()
 		for {
 			// Lookup the origin server address and make the endpoint URL
 			wsUrl := strings.TrimSuffix(util.ResolveSRVHttp(originServer), "/")
@@ -120,7 +120,7 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 			// Open the websocket
 			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", originToken)}}
 			dialer := websocket.DefaultDialer
-			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: viper.GetBool("tls_skip_verify")}
+			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify}
 			dialer.HandshakeTimeout = 10 * time.Second
 			dialer.ReadBufferSize = 32768
 			dialer.WriteBufferSize = 32768
@@ -140,7 +140,7 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 
 			err = leafmsg.WriteMessage(ws, leafmsg.MessageRegister, &leafmsg.Register{
 				LeafVersion: build.Version,
-				Zone:        config.Zone,
+				Zone:        cfg.Zone,
 			})
 			if err != nil {
 				log.Error().Msgf("cluster: error while sending register message: %s", err)

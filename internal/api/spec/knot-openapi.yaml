@@ -25,9 +25,6 @@ tags:
   - name: Core
     description: |
       Core API endpoints.
-  - name: Proxy
-    description: |
-      Endpoints for providing proxy services.
   - name: Spaces
     description: |
       Endpoints for working with spaces.
@@ -1829,57 +1826,6 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
-  /proxy/port/{host}/{port}:
-    get:
-      tags:
-        - Proxy
-      summary: Proxy a Connection
-      description: Proxy a connection to a service and optional port.
-      operationId: ProxyPort
-      parameters:
-        - name: host
-          in: path
-          required: true
-          description: The host or service to connect to.
-          schema:
-            type: string
-        - name: port
-          in: path
-          required: true
-          description: The port to connect to or 0 to use a SRV record lookup against the host to find the port.
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Connected.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-      security: [BearerAuth: []]
-
-  /api/lookup/{service}:
-    get:
-      tags:
-        - Core
-      summary: Lookup
-      description: Lookup a service via DNS SRV or A record.
-      parameters:
-        - name: service
-          in: path
-          description: The name of the service to lookup
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Service found successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LookupResponse'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-      security: [BearerAuth: []]
-
   /api/ping:
     get:
       tags:
@@ -2091,22 +2037,6 @@ components:
           type: string
           format: uuid
           description: The ID of the role.
-
-    LookupResponse:
-      type: object
-      properties:
-        status:
-          type: boolean
-          description: True if the service was found.
-        host:
-          type: string
-          example: host.service.consul
-          description: The host of the service.
-        port:
-          type: integer
-          format: int32
-          example: 8080
-          description: The port of the service.
 
     PingResponse:
       type: object

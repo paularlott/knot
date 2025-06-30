@@ -9,19 +9,18 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/util"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/paularlott/cli"
 )
 
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List the available spaces and their status",
-	Long:  `Lists the available spaces for the logged in user and the state of each space.`,
-	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
-		alias, _ := cmd.Flags().GetString("alias")
-		cfg := config.GetServerAddr(alias)
-		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, viper.GetBool("tls_skip_verify"))
+var ListCmd = &cli.Command{
+	Name:        "list",
+	Usage:       "List the available spaces and their status",
+	Description: "Lists the available spaces for the logged in user and the state of each space.",
+	MaxArgs:     cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		alias := cmd.GetString("alias")
+		cfg := config.GetServerAddr(alias, cmd)
+		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
 			fmt.Println("Failed to create API client:", err)
 			os.Exit(1)
@@ -31,17 +30,16 @@ var listCmd = &cobra.Command{
 		user, err := client.WhoAmI(context.Background())
 		if err != nil {
 			fmt.Println("Error getting user: ", err)
-			return
+			return nil
 		}
 
 		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
 		if err != nil {
 			fmt.Println("Error getting spaces: ", err)
-			return
+			return nil
 		}
 
-		data := [][]string{}
-		data = append(data, []string{"Name", "Template", "Zone", "Status", "Ports"})
+		data := [][]string{{"Name", "Template", "Zone", "Status", "Ports"}}
 		for _, space := range spaces.Spaces {
 			status := ""
 			ports := make([]string, 0)
@@ -65,26 +63,22 @@ var listCmd = &cobra.Command{
 			// The list of HTTP ports
 			for port, desc := range space.HttpPorts {
 				var p string
-
 				if port == desc {
 					p = port
 				} else {
 					p = fmt.Sprintf("%s (%s)", desc, port)
 				}
-
 				ports = append(ports, p)
 			}
 
 			// The list of TCP ports
 			for port, desc := range space.TcpPorts {
 				var p string
-
 				if port == desc {
 					p = port
 				} else {
 					p = fmt.Sprintf("%s (%s)", desc, port)
 				}
-
 				ports = append(ports, p)
 			}
 
@@ -101,5 +95,6 @@ var listCmd = &cobra.Command{
 		}
 
 		util.PrintTable(data)
+		return nil
 	},
 }

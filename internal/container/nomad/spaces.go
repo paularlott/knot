@@ -116,6 +116,7 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 
 func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
 	db := database.GetInstance()
+	cfg := config.GetServerConfig()
 
 	log.Debug().Msgf("nomad: creating space job %s", space.Id)
 
@@ -153,7 +154,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	space.IsDeployed = false
 	space.IsDeleting = false
 	space.TemplateHash = template.Hash
-	space.Zone = config.Zone
+	space.Zone = cfg.Zone
 	space.StartedAt = now
 	space.UpdatedAt = now
 	err = db.SaveSpace(space, []string{"NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Zone", "UpdatedAt", "StartedAt"})

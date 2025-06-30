@@ -8,9 +8,8 @@ import (
 	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
-
-	"github.com/spf13/viper"
 )
 
 func (db *BadgerDbDriver) HasAuditLog() bool {
@@ -37,7 +36,8 @@ func (db *BadgerDbDriver) GetNumberOfAuditLogs() (int, error) {
 
 func (db *BadgerDbDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
 	// Don't save if no retention is configured
-	if viper.GetInt("server.audit_retention") < 1 {
+	cfg := config.GetServerConfig()
+	if cfg.Audit.Retention < 1 {
 		return nil
 	}
 
@@ -125,13 +125,14 @@ func (db *BadgerDbDriver) GetAuditLogs(offset, limit int) ([]*model.AuditLogEntr
 
 func (db *BadgerDbDriver) deleteAuditLogs() error {
 	// Don't save if no retention is configured
-	if viper.GetInt("server.audit_retention") < 1 {
+	cfg := config.GetServerConfig()
+	if cfg.Audit.Retention < 1 {
 		return nil
 	}
 
 	// Calculate the cutoff time
 	before := time.Now()
-	before = before.Add(-time.Duration(viper.GetInt("server.audit_retention")) * 24 * time.Hour)
+	before = before.Add(-time.Duration(cfg.Audit.Retention) * 24 * time.Hour)
 	beforeUnixMicro := before.UTC().UnixMicro()
 
 	// Iterate through the audit logs and delete those older than the cutoff time
