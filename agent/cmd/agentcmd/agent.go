@@ -94,12 +94,6 @@ var AgentCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_VSCODE_TUNNEL"},
 			DefaultValue: "vscodetunnel",
 		},
-		&cli.StringFlag{
-			Name:       "advertise-addr",
-			Usage:      "The address to advertise to the server.",
-			ConfigPath: []string{"agent.advertise_addr"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_ADVERTISE_ADDR"},
-		},
 		&cli.IntFlag{
 			Name:         "syslog-port",
 			Usage:        "The port to listen on for syslog messages, syslog is disabled if set to 0.",
@@ -197,7 +191,6 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 		UpdateAuthorizedKeys: cmd.GetBool("update-authorized-keys"),
 		ServicePassword:      cmd.GetString("service-password"),
 		VSCodeTunnel:         cmd.GetString("vscode-tunnel"),
-		AdvertiseAddr:        cmd.GetString("advertise-addr"),
 		SyslogPort:           cmd.GetInt("syslog-port"),
 		APIPort:              cmd.GetInt("api-port"),
 
