@@ -19,19 +19,25 @@ var PingCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:    "server",
 			Aliases: []string{"s"},
-			Usage:   "The address of the remote server to proxy through.",
+			Usage:   "The address of the remote server to ping.",
 			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_SERVER"},
+		},
+		&cli.StringFlag{
+			Name:    "token",
+			Aliases: []string{"t"},
+			Usage:   "The token to use for authentication.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_TOKEN"},
 		},
 		&cli.StringFlag{
 			Name:         "alias",
 			Aliases:      []string{"a"},
 			Usage:        "The server alias to use.",
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ALIAS"},
 			DefaultValue: "default",
 		},
 		&cli.BoolFlag{
 			Name:         "tls-skip-verify",
 			Usage:        "Skip TLS verification when talking to server.",
+			ConfigPath:   []string{"tls.skip_verify"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
 			DefaultValue: true,
 		},

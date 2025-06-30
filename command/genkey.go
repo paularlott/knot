@@ -12,7 +12,7 @@ import (
 var GenkeyCmd = &cli.Command{
 	Name:        "genkey",
 	Usage:       "Generate Encryption Key",
-	Description: "Generate an encryption key for encrypting stored variables.",
+	Description: "Generate an encryption key for encrypting stored variables and cluster communications.",
 	MaxArgs:     cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		key := crypt.CreateKey()

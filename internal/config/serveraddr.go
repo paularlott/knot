@@ -28,8 +28,15 @@ func GetServerAddr(alias string, cmd *cli.Command) *ServerAddr {
 		flags.HttpServer = cmd.GetString("server")
 		flags.ApiToken = cmd.GetString("token")
 	} else {
-		flags.HttpServer = cmd.GetString("client.connection." + alias + ".server")
-		flags.ApiToken = cmd.GetString("client.connection." + alias + ".token")
+		v, exists := cmd.ConfigFile.GetValue("client.connection." + alias + ".server")
+		if exists {
+			flags.HttpServer = v.(string)
+		}
+
+		v, exists = cmd.ConfigFile.GetValue("client.connection." + alias + ".token")
+		if exists {
+			flags.ApiToken = v.(string)
+		}
 	}
 
 	// If flags.server empty then throw and error

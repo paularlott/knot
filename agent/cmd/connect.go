@@ -13,7 +13,7 @@ import (
 
 var ConnectCmd = &cli.Command{
 	Name:        "connect",
-	Usage:       "Generate API key",
+	Usage:       "Connect to the Server",
 	Description: "Asks the running agent to generate a new API key on the server and stores it in the local config.",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
