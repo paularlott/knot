@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/wsconn"
 
 	"github.com/gorilla/websocket"
@@ -44,8 +43,6 @@ func newTunnelServer(client *TunnelClient, address string) *tunnelServer {
 }
 
 func (ts *tunnelServer) ConnectAndServe() {
-	cfg := config.GetServerConfig()
-
 	go func() {
 		log.Debug().Msgf("tunnel: connecting to tunnel server at %s", ts.address)
 		for {
@@ -79,7 +76,7 @@ func (ts *tunnelServer) ConnectAndServe() {
 			// Open the websocket
 			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", ts.client.token)}}
 			dialer := websocket.DefaultDialer
-			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify} // FIXME This needs to be the client TLS config not the server
+			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: ts.client.skipTLSVerify}
 			dialer.HandshakeTimeout = 5 * time.Second
 			ws, response, err := dialer.Dial(url, header)
 			if err != nil {
@@ -193,6 +190,6 @@ func (ts *tunnelServer) handleTunnelStream(stream net.Conn) {
 		} else {
 			tlsName = "127.0.0.1"
 		}
-		agent_client.ProxyTcpTls(stream, fmt.Sprintf("%d", ts.client.localPort), tlsName)
+		agent_client.ProxyTcpTls(stream, fmt.Sprintf("%d", ts.client.localPort), tlsName, ts.client.localPortSkipTLSVerify)
 	}
 }

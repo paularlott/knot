@@ -35,9 +35,9 @@ func ProxyTcp(stream net.Conn, port string) {
 	once.Do(closeConn)
 }
 
-func ProxyTcpTls(stream net.Conn, port string, serverName string) {
+func ProxyTcpTls(stream net.Conn, port, serverName string, skipTLSVerify bool) {
 	conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%s", port), &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: skipTLSVerify,
 		ServerName:         serverName,
 	})
 	if err != nil {

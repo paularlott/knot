@@ -68,12 +68,13 @@ var TunnelPortCmd = &cli.Command{
 		}
 
 		opts := tunnel_server.TunnelOpts{
-			Type:      tunnel_server.PortTunnel,
-			Protocol:  "tcp",
-			LocalPort: uint16(localPort),
-			SpaceName: spaceName,
-			SpacePort: uint16(listenPort),
-			TlsName:   cmd.GetString("tls-name"),
+			Type:          tunnel_server.PortTunnel,
+			Protocol:      "tcp",
+			LocalPort:     uint16(localPort),
+			SpaceName:     spaceName,
+			SpacePort:     uint16(listenPort),
+			TlsName:       cmd.GetString("tls-name"),
+			TlsSkipVerify: true, // FIXME this needs defining see tunnel.go
 		}
 
 		if cmd.GetBool("tls") {
@@ -84,6 +85,7 @@ var TunnelPortCmd = &cli.Command{
 			cfg.WsServer,
 			cfg.HttpServer,
 			cfg.ApiToken,
+			cmd.GetBool("tls-skip-verify"), // FIXME this needs defining see tunnel.go
 			&opts,
 		)
 		if err := client.ConnectAndServe(); err != nil {

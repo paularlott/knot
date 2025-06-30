@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/internal/config"
 
 	"github.com/rs/zerolog/log"
 )
@@ -22,55 +21,59 @@ const (
 )
 
 type TunnelClient struct {
-	serverListMutex sync.RWMutex
-	serverList      map[string]*tunnelServer
-	wsServerUrl     string
-	serverUrl       string
-	token           string
-	tunnelType      TunnelType
-	protocol        string
-	localPort       uint16
-	tunnelName      string
-	spaceName       string
-	spacePort       uint16
-	tlsName         string
-	ctx             context.Context
-	cancel          context.CancelFunc
+	serverListMutex        sync.RWMutex
+	serverList             map[string]*tunnelServer
+	wsServerUrl            string
+	serverUrl              string
+	token                  string
+	skipTLSVerify          bool
+	tunnelType             TunnelType
+	protocol               string
+	localPort              uint16
+	tunnelName             string
+	spaceName              string
+	spacePort              uint16
+	tlsName                string
+	localPortSkipTLSVerify bool
+	ctx                    context.Context
+	cancel                 context.CancelFunc
 }
 
 type TunnelOpts struct {
-	Type       TunnelType // Type of tunnel
-	Protocol   string     // http, https or tcp
-	LocalPort  uint16     // The local port to forward to
-	TunnelName string     // The name of the tunnel for web tunnels
-	SpaceName  string     // The name of the space for space tunnels
-	SpacePort  uint16     // The port within the space being forwarded
-	TlsName    string     // The name to present to TLS ports
+	Type          TunnelType // Type of tunnel
+	Protocol      string     // http, https or tcp
+	LocalPort     uint16     // The local port to forward to
+	TunnelName    string     // The name of the tunnel for web tunnels
+	SpaceName     string     // The name of the space for space tunnels
+	SpacePort     uint16     // The port within the space being forwarded
+	TlsName       string     // The name to present to TLS ports
+	TlsSkipVerify bool       // Don't verify TLS of the local port
 }
 
-func NewTunnelClient(wsServerUrl, serverUrl, token string, opts *TunnelOpts) *TunnelClient {
+func NewTunnelClient(wsServerUrl, serverUrl, token string, skipTLSVerify bool, opts *TunnelOpts) *TunnelClient {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &TunnelClient{
-		serverList:  make(map[string]*tunnelServer),
-		wsServerUrl: wsServerUrl,
-		serverUrl:   serverUrl,
-		token:       token,
-		tunnelType:  opts.Type,
-		protocol:    opts.Protocol,
-		localPort:   opts.LocalPort,
-		tunnelName:  opts.TunnelName,
-		spaceName:   opts.SpaceName,
-		spacePort:   opts.SpacePort,
-		tlsName:     opts.TlsName,
-		ctx:         ctx,
-		cancel:      cancel,
+		serverList:             make(map[string]*tunnelServer),
+		wsServerUrl:            wsServerUrl,
+		serverUrl:              serverUrl,
+		token:                  token,
+		skipTLSVerify:          skipTLSVerify,
+		tunnelType:             opts.Type,
+		protocol:               opts.Protocol,
+		localPort:              opts.LocalPort,
+		tunnelName:             opts.TunnelName,
+		spaceName:              opts.SpaceName,
+		spacePort:              opts.SpacePort,
+		tlsName:                opts.TlsName,
+		localPortSkipTLSVerify: opts.TlsSkipVerify,
+		ctx:                    ctx,
+		cancel:                 cancel,
 	}
 }
 
 func (c *TunnelClient) ConnectAndServe() error {
-	cfg := config.GetServerConfig()
-	client, err := apiclient.NewClient(c.serverUrl, c.token, cfg.TLS.SkipVerify)
+	client, err := apiclient.NewClient(c.serverUrl, c.token, c.skipTLSVerify)
 	if err != nil {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
