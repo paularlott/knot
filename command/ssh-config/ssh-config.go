@@ -15,7 +15,7 @@ var SshConfigCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name:         "tls-skip-verify",
 			Usage:        "Skip TLS verification when talking to server.",
-			ConfigPath:   []string{"tls_skip_verify"},
+			ConfigPath:   []string{"tls.skip_verify"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
 			DefaultValue: true,
 			Global:       true,

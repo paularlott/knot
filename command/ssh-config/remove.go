@@ -11,7 +11,7 @@ import (
 
 var SshConfigRemoveCmd = &cli.Command{
 	Name:        "remove",
-	Usage:       "Remove the config from .ssh/config",
+	Usage:       "Remove all entries from .ssh/config",
 	Description: "Remove any knot space configurations from the .ssh/config file.",
 	MaxArgs:     cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
