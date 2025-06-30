@@ -23,8 +23,8 @@ func GetServerAddr(alias string, cmd *cli.Command) *ServerAddr {
 		log.Fatal().Msg("Alias must be alphanumeric and can contain -, must start with a letter and be 20 characters or less")
 	}
 
-	flags.HttpServer = cmd.GetString("client." + alias + ".server")
-	flags.ApiToken = cmd.GetString("client." + alias + ".token")
+	flags.HttpServer = cmd.GetString("client.connection." + alias + ".server")
+	flags.ApiToken = cmd.GetString("client.connection." + alias + ".token")
 
 	// If flags.server empty then throw and error
 	if flags.HttpServer == "" {

@@ -18,8 +18,8 @@ func SaveConnection(alias string, server string, token string, cmd *cli.Command)
 
 		newCfg := cli_toml.NewConfigFile(cli.StrToPtr(home+"/.config/"+CONFIG_DIR+"/"+CONFIG_FILE), nil)
 
-		newCfg.SetValue("client."+alias+".server", server)
-		newCfg.SetValue("client."+alias+".token", token)
+		newCfg.SetValue("client.connection."+alias+".server", server)
+		newCfg.SetValue("client.connection."+alias+".token", token)
 
 		// Create any missing directories
 		err = os.MkdirAll(home+"/.config/"+CONFIG_DIR, os.ModePerm)
@@ -32,8 +32,8 @@ func SaveConnection(alias string, server string, token string, cmd *cli.Command)
 			return fmt.Errorf("failed to create config file: %w", err)
 		}
 	} else {
-		cmd.ConfigFile.SetValue("client."+alias+".server", server)
-		cmd.ConfigFile.SetValue("client."+alias+".token", token)
+		cmd.ConfigFile.SetValue("client.connection."+alias+".server", server)
+		cmd.ConfigFile.SetValue("client.connection."+alias+".token", token)
 
 		err := cmd.ConfigFile.Save()
 		if err != nil {

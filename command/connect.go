@@ -32,30 +32,26 @@ var ConnectCmd = &cli.Command{
 	MaxArgs: cli.NoArgs,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
-			Name:       "use-web-auth",
-			Usage:      "If given then authorization will be done via the web interface.",
-			ConfigPath: []string{"use_web_auth"},
-			// No EnvVars or DefaultValue in original, add if needed
+			Name:  "use-web-auth",
+			Usage: "If given then authorization will be done via the web interface.",
 		},
 		&cli.BoolFlag{
 			Name:         "tls-skip-verify",
 			Usage:        "Skip TLS verification when talking to server.",
-			ConfigPath:   []string{"tls_skip_verify"},
+			ConfigPath:   []string{"tls.skip_verify"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
 			DefaultValue: true,
+			Global:       true,
 		},
 		&cli.StringFlag{
-			Name:       "username",
-			Aliases:    []string{"u"},
-			Usage:      "Username to use for authentication.",
-			ConfigPath: []string{"username"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_USERNAME"},
+			Name:    "username",
+			Aliases: []string{"u"},
+			Usage:   "Username to use for authentication.",
 		},
 		&cli.StringFlag{
 			Name:         "alias",
 			Aliases:      []string{"a"},
-			Usage:        "The server alias to use.",
-			ConfigPath:   []string{"alias"},
+			Usage:        "The server alias to use to identify the connection.",
 			DefaultValue: "default",
 		},
 	},

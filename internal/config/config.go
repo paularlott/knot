@@ -139,6 +139,7 @@ func GetServerConfig() *ServerConfig {
 	return serverConfig
 }
 
+const CONFIG_ENV_PREFIX = "KNOT"
 const CONFIG_FILE = "knot.toml"
 const CONFIG_DIR = "knot"
 
@@ -169,9 +170,3 @@ func InitCommonConfig(cmd *cli.Command) {
 		DomainServers:  domainServers,
 	})
 }
-
-// TODO REMOVE THE FOLLOWING
-const CONFIG_FILE_NAME = "knot"
-const CONFIG_DOT_FILE_NAME = ".knot"
-const CONFIG_FILE_TYPE = "toml"
-const CONFIG_ENV_PREFIX = "KNOT"

@@ -13,10 +13,10 @@ var ConnectListCmd = &cli.Command{
 	Name:        "list",
 	Usage:       "List the known connections",
 	Description: "Lists all the known connections stored in the local config.",
-	Flags:       []cli.Flag{}, // No flags in the original command
+	MaxArgs:     cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		// Get the connections from the config
-		connections := cmd.ConfigFile.GetKeys("client")
+		connections := cmd.ConfigFile.GetKeys("client.connection")
 		if len(connections) == 0 {
 			fmt.Println("No connections found.")
 			return nil
@@ -26,7 +26,7 @@ var ConnectListCmd = &cli.Command{
 		data = append(data, []string{"Alias", "Server"})
 
 		for _, alias := range connections {
-			server, _ := cmd.ConfigFile.GetValue(fmt.Sprintf("client.%s.server", alias))
+			server, _ := cmd.ConfigFile.GetValue(fmt.Sprintf("client.connection.%s.server", alias))
 			serverStr, _ := server.(string)
 			data = append(data, []string{alias, serverStr})
 		}

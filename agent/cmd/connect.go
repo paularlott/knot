@@ -15,7 +15,16 @@ var ConnectCmd = &cli.Command{
 	Name:        "connect",
 	Usage:       "Generate API key",
 	Description: "Asks the running agent to generate a new API key on the server and stores it in the local config.",
-	Flags:       []cli.Flag{}, // No flags defined in the original command
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:         "tls-skip-verify",
+			Usage:        "Skip TLS verification when talking to server.",
+			ConfigPath:   []string{"tls.skip_verify"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
+			DefaultValue: true,
+			Global:       true,
+		},
+	},
 	Commands: []*cli.Command{
 		connectcmd.ConnectListCmd,
 		connectcmd.ConnectDeleteCmd,
