@@ -19,9 +19,9 @@ type HostPort struct {
 }
 
 type ResolverConfig struct {
-	DefaultServers []string
-	DomainServers  map[string][]string
-	Timeout        time.Duration
+	Nameservers   []string
+	DomainServers map[string][]string
+	Timeout       time.Duration
 }
 
 type DNSResolver struct {
@@ -29,60 +29,74 @@ type DNSResolver struct {
 	mu     sync.RWMutex
 }
 
-// NewDNSResolver creates a new DNS resolver with the given configuration
-func NewDNSResolver(config *ResolverConfig) *DNSResolver {
+// NewDNSResolver creates a new DNS resolver with the given nameservers
+func NewDNSResolver(nameservers []string) *DNSResolver {
 	resolver := &DNSResolver{
 		config: ResolverConfig{
-			DefaultServers: make([]string, 0, len(config.DefaultServers)),
-			DomainServers:  make(map[string][]string),
-			Timeout:        config.Timeout,
+			Nameservers:   make([]string, 0),
+			DomainServers: make(map[string][]string),
+			Timeout:       2 * time.Second,
 		},
 	}
 
-	resolver.UpdateConfig(config)
+	resolver.UpdateConfig(nameservers)
 
 	return resolver
 }
 
-// Add this method to DNSResolver
-func (r *DNSResolver) UpdateConfig(config *ResolverConfig) {
+// UpdateConfig updates the resolver configuration with nameservers
+// Format:
+//
+//	nameserver         -> default nameserver, port 53
+//	nameserver:port    -> default nameserver with custom port
+//	domain/nameserver  -> domain-specific nameserver, port 53
+//	domain/nameserver:port -> domain-specific nameserver with custom port
+func (r *DNSResolver) UpdateConfig(nameservers []string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	// Clear existing configuration
-	r.config.DefaultServers = make([]string, 0, len(config.DefaultServers))
+	r.config.Nameservers = make([]string, 0)
 	r.config.DomainServers = make(map[string][]string)
-	r.config.Timeout = config.Timeout
 
-	// Set default timeout if not provided
-	if r.config.Timeout == 0 {
-		r.config.Timeout = 2 * time.Second
-	}
-
-	// Process default servers
-	for _, s := range config.DefaultServers {
-		if _, _, err := net.SplitHostPort(s); err != nil {
-			r.config.DefaultServers = append(r.config.DefaultServers, net.JoinHostPort(s, "53"))
-		} else {
-			r.config.DefaultServers = append(r.config.DefaultServers, s)
-		}
-	}
-
-	// Process domain-specific servers
-	for domain, servers := range config.DomainServers {
-		if !strings.HasSuffix(domain, ".") {
-			domain = domain + "."
-		}
-
-		processedServers := make([]string, 0, len(servers))
-		for _, s := range servers {
-			if _, _, err := net.SplitHostPort(s); err != nil {
-				processedServers = append(processedServers, net.JoinHostPort(s, "53"))
-			} else {
-				processedServers = append(processedServers, s)
+	// Process nameservers
+	for _, ns := range nameservers {
+		if strings.Contains(ns, "/") {
+			// Domain-specific nameserver
+			parts := strings.SplitN(ns, "/", 2)
+			if len(parts) != 2 {
+				continue // Skip invalid entries
 			}
+
+			domain := parts[0]
+			nameserver := parts[1]
+
+			// Ensure domain ends with dot
+			if !strings.HasSuffix(domain, ".") {
+				domain = domain + "."
+			}
+
+			// Add port if not specified
+			if _, _, err := net.SplitHostPort(nameserver); err != nil {
+				nameserver = net.JoinHostPort(nameserver, "53")
+			}
+
+			// Add to domain servers
+			if _, exists := r.config.DomainServers[domain]; !exists {
+				r.config.DomainServers[domain] = make([]string, 0)
+			}
+			r.config.DomainServers[domain] = append(r.config.DomainServers[domain], nameserver)
+		} else {
+			// Default nameserver
+			nameserver := ns
+
+			// Add port if not specified
+			if _, _, err := net.SplitHostPort(nameserver); err != nil {
+				nameserver = net.JoinHostPort(nameserver, "53")
+			}
+
+			r.config.Nameservers = append(r.config.Nameservers, nameserver)
 		}
-		r.config.DomainServers[domain] = processedServers
 	}
 }
 
@@ -103,12 +117,12 @@ func (r *DNSResolver) getResolvers(record string) []string {
 	}
 
 	// If no specific servers are found, use the default servers
-	if len(r.config.DefaultServers) == 0 {
-		log.Trace().Msg("Using system default nameservers")
+	if len(r.config.Nameservers) == 0 {
+		log.Trace().Msgf("Using system default nameservers")
 		return nil
 	} else {
-		log.Trace().Msgf("Using Default Servers: %+v", r.config.DefaultServers)
-		return r.config.DefaultServers
+		log.Trace().Msgf("Using Default Servers: %+v", r.config.Nameservers)
+		return r.config.Nameservers
 	}
 }
 
@@ -343,21 +357,21 @@ func (r *DNSResolver) ResolveSRVHttp(uri string) string {
 }
 
 // Default global resolver instance
-var DefaultResolver = NewDNSResolver(&ResolverConfig{})
+var defaultResolver = NewDNSResolver([]string{})
 
 // Global convenience functions that use the default resolver
-func UpdateResolverConfig(config *ResolverConfig) {
-	DefaultResolver.UpdateConfig(config)
+func UpdateResolverConfig(nameservers []string) {
+	defaultResolver.UpdateConfig(nameservers)
 }
 
 func LookupSRV(service string) ([]HostPort, error) {
-	return DefaultResolver.LookupSRV(service)
+	return defaultResolver.LookupSRV(service)
 }
 
 func LookupIP(host string) ([]string, error) {
-	return DefaultResolver.LookupIP(host)
+	return defaultResolver.LookupIP(host)
 }
 
 func ResolveSRVHttp(uri string) string {
-	return DefaultResolver.ResolveSRVHttp(uri)
+	return defaultResolver.ResolveSRVHttp(uri)
 }

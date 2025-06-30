@@ -158,14 +158,5 @@ func InitCommonConfig(cmd *cli.Command) {
 		zerolog.SetGlobalLevel(zerolog.WarnLevel)
 	}
 
-	typedCfg := cli.NewTypedConfigFile(cmd.ConfigFile)
-	domainServers := make(map[string][]string)
-	for _, v := range cmd.ConfigFile.GetKeys("resolver.domains") {
-		domainServers[v] = typedCfg.GetStringSlice("resolver.domains." + v)
-	}
-
-	util.UpdateResolverConfig(&util.ResolverConfig{
-		DefaultServers: cmd.GetStringSlice("nameservers"),
-		DomainServers:  domainServers,
-	})
+	util.UpdateResolverConfig(cmd.GetStringSlice("nameservers"))
 }
