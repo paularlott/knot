@@ -8,12 +8,9 @@ type AgentConfig struct {
 	VSCodeTunnel         string
 	SyslogPort           int
 	APIPort              int
-
-	// Port configuration
-	Port PortConfig
-
-	// TLS configuration
-	TLS TLSConfig
+	DisableTerminal      bool
+	Port                 PortConfig
+	TLS                  TLSConfig
 }
 
 type PortConfig struct {

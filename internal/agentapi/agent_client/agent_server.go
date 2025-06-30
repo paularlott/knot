@@ -160,7 +160,7 @@ func (s *agentServer) ConnectAndServe() {
 				s.agentClient.firstRegistration = false
 
 				// Remember the feature flags
-				s.agentClient.withTerminal = response.WithTerminal
+				s.agentClient.withTerminal = response.WithTerminal && !cfg.DisableTerminal
 				s.agentClient.withVSCodeTunnel = response.WithVSCodeTunnel && cfg.VSCodeTunnel != ""
 				s.agentClient.withCodeServer = response.WithCodeServer && cfg.Port.CodeServer > 0
 				s.agentClient.withSSH = response.WithSSH && s.agentClient.sshPort > 0

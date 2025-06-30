@@ -49,6 +49,13 @@ var AgentCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SSH_PORT"},
 			DefaultValue: 22,
 		},
+		&cli.BoolFlag{
+			Name:         "disable-terminal",
+			Usage:        "Disable terminal access.",
+			ConfigPath:   []string{"agent.disable_terminal"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DISABLE_TERMINAL"},
+			DefaultValue: false,
+		},
 		&cli.StringSliceFlag{
 			Name:       "tcp-port",
 			Usage:      "Can be specified multiple times to give the list of TCP ports to be exposed to the client.",
@@ -131,7 +138,7 @@ var AgentCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name:         "tls-skip-verify",
 			Usage:        "Skip TLS verification when talking to server.",
-			ConfigPath:   []string{"agent.tls.skip_verify"},
+			ConfigPath:   []string{"tls.skip_verify"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
 			DefaultValue: true,
 		},
@@ -193,7 +200,7 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 		VSCodeTunnel:         cmd.GetString("vscode-tunnel"),
 		SyslogPort:           cmd.GetInt("syslog-port"),
 		APIPort:              cmd.GetInt("api-port"),
-
+		DisableTerminal:      cmd.GetBool("disable-terminal"),
 		Port: config.PortConfig{
 			CodeServer: cmd.GetInt("code-server-port"),
 			VNCHttp:    cmd.GetInt("vnc-http-port"),
@@ -202,7 +209,6 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 			HTTPPorts:  cmd.GetStringSlice("http-port"),
 			HTTPSPorts: cmd.GetStringSlice("https-port"),
 		},
-
 		TLS: config.TLSConfig{
 			CertFile:   cmd.GetString("cert-file"),
 			KeyFile:    cmd.GetString("key-file"),
