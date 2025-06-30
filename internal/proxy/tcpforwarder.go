@@ -17,11 +17,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func RunTCPForwarderViaProxy(proxyServerURL string, token string, listen string, service string, port int) {
-	log.Info().Msgf("tcp: listening on %s forwarding to %s via %s", listen, service, proxyServerURL)
-	forwardTCP(fmt.Sprintf("%s/proxy/port/%s/%d", proxyServerURL, service, port), token, listen)
-}
-
 func RunTCPForwarderViaAgent(proxyServerURL string, listen string, space string, port int, token string) {
 	log.Info().Msgf("tcp: connecting to agent via server at: %s", proxyServerURL)
 	forwardTCP(fmt.Sprintf("%s/proxy/spaces/%s/port/%d", proxyServerURL, space, port), token, listen)

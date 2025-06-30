@@ -18,7 +18,6 @@ type ServerConfig struct {
 	PrivateFilesPath   string
 	PublicFilesPath    string
 	DownloadPath       string
-	EnableProxy        bool
 	DisableSpaceCreate bool
 	ListenTunnel       string
 	TunnelDomain       string

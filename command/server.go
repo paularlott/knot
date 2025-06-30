@@ -79,13 +79,6 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "",
 		},
 		&cli.BoolFlag{
-			Name:         "enable-proxy",
-			Usage:        "Enable the proxy server functionality.",
-			ConfigPath:   []string{"server.enable_proxy"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ENABLE_PROXY"},
-			DefaultValue: false,
-		},
-		&cli.BoolFlag{
 			Name:         "terminal-webgl",
 			Usage:        "Enable WebGL terminal renderer.",
 			ConfigPath:   []string{"server.terminal.webgl"},
@@ -361,7 +354,7 @@ var ServerCmd = &cli.Command{
 		&cli.BoolFlag{
 			Name:         "tls-skip-verify",
 			Usage:        "Skip TLS verification when talking to agents.",
-			ConfigPath:   []string{"server.tls.skip_verify"},
+			ConfigPath:   []string{"tls.skip_verify"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
 			DefaultValue: true,
 		},
@@ -795,7 +788,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		PrivateFilesPath:   cmd.GetString("private-files-path"),
 		PublicFilesPath:    cmd.GetString("public-files-path"),
 		DownloadPath:       cmd.GetString("download-path"),
-		EnableProxy:        cmd.GetBool("enable-proxy"),
 		DisableSpaceCreate: cmd.GetBool("disable-space-create"),
 		ListenTunnel:       cmd.GetString("listen-tunnel"),
 		TunnelDomain:       cmd.GetString("tunnel-domain"),

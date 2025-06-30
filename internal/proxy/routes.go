@@ -8,11 +8,6 @@ import (
 )
 
 func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
-
-	if cfg.EnableProxy {
-		router.HandleFunc("GET /proxy/port/{host}/{port}", middleware.ApiAuth(HandleWSProxyServer))
-	}
-
 	router.HandleFunc("GET /proxy/spaces/{space_id}/code-server/", middleware.ApiAuth(HandleSpacesCodeServerProxy))
 	router.HandleFunc("GET /proxy/spaces/{space_id}/terminal/{shell}", middleware.ApiAuth(HandleSpacesTerminalProxy))
 

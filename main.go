@@ -13,7 +13,6 @@ import (
 	"github.com/paularlott/knot/command"
 	commands_admin "github.com/paularlott/knot/command/admin"
 	commands_forward "github.com/paularlott/knot/command/forward"
-	command_proxy "github.com/paularlott/knot/command/proxy"
 	command_spaces "github.com/paularlott/knot/command/spaces"
 	command_ssh_config "github.com/paularlott/knot/command/ssh-config"
 	command_templates "github.com/paularlott/knot/command/templates"
@@ -82,7 +81,6 @@ It offers both a user-friendly web interface and a command line interface to str
 			command_spaces.SpacesCmd,
 			command_ssh_config.SshConfigCmd,
 			command_templates.TemplatesCmd,
-			command_proxy.ProxyCmd,
 			agentcmd.AgentCmd,
 			commands_admin.AdminCmd,
 			command_tunnel.TunnelCmd,

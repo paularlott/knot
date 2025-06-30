@@ -14,11 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func RunSSHForwarderViaProxy(proxyServerURL string, token string, service string, port int) {
-	log.Debug().Msgf("ssh: connecting to proxy server at: %s", proxyServerURL)
-	forwardSSH(fmt.Sprintf("%s/proxy/port/%s/%d", proxyServerURL, service, port), token)
-}
-
 func RunSSHForwarderViaAgent(proxyServerURL string, space string, token string) {
 	log.Debug().Msgf("ssh: connecting to agent via server at: %s", proxyServerURL)
 	forwardSSH(fmt.Sprintf("%s/proxy/spaces/%s/ssh/", proxyServerURL, space), token)
