@@ -12,7 +12,6 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/command"
 	commands_admin "github.com/paularlott/knot/command/admin"
-	commands_direct "github.com/paularlott/knot/command/direct"
 	commands_forward "github.com/paularlott/knot/command/forward"
 	command_proxy "github.com/paularlott/knot/command/proxy"
 	command_spaces "github.com/paularlott/knot/command/spaces"
@@ -82,7 +81,6 @@ It offers both a user-friendly web interface and a command line interface to str
 			command_tunnel.TunnelCmd,
 			command.ServerCmd,
 			command.PingCmd,
-			commands_direct.DirectCmd,
 			command.ScaffoldCmd,
 			command.GenkeyCmd,
 			command.LegalCmd,
