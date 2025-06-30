@@ -7,6 +7,7 @@ replace github.com/paularlott/gossip => ../gossip/
 replace github.com/paularlott/cli => ../cli/
 
 require (
+	github.com/BurntSushi/toml v1.5.0
 	github.com/creack/pty v1.1.24
 	github.com/dgraph-io/badger/v4 v4.7.0
 	github.com/docker/docker v28.2.2+incompatible
@@ -18,7 +19,6 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/paularlott/cli v0.0.0-20250627160228-e7c84744c96f
 	github.com/paularlott/gossip v0.0.0-20250623061438-f513599610dd
-	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/rs/zerolog v1.34.0
@@ -35,7 +35,6 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

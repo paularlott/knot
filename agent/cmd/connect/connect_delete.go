@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/BurntSushi/toml"
 	"github.com/paularlott/cli"
-	"github.com/pelletier/go-toml/v2"
 )
 
 var ConnectDeleteCmd = &cli.Command{

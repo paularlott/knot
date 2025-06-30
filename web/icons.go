@@ -9,7 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/rs/zerolog/log"
 
-	"github.com/pelletier/go-toml/v2"
+	"github.com/BurntSushi/toml"
 )
 
 // Icon represents a single icon entry

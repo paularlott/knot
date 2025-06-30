@@ -87,11 +87,6 @@ It offers both a user-friendly web interface and a command line interface to str
 			command.LegalCmd,
 		},
 		PreRun: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
-
-			cmd.ConfigFile.GetValue("test")
-			fmt.Println(cmd.ConfigFile.FileUsed())
-			os.Exit(1)
-
 			config.InitCommonConfig(cmd)
 			return ctx, nil
 		},
