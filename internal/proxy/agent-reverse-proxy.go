@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/internal/config"
 )
 
 func CreateAgentReverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string, host string) *httputil.ReverseProxy {
@@ -34,9 +33,8 @@ func CreateAgentReverseProxy(targetURL *url.URL, stream net.Conn, accessToken *s
 		}
 	}
 
-	cfg := config.GetServerConfig()
 	proxy.Transport = &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify},
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		MaxConnsPerHost:     32 * 2,
 		MaxIdleConns:        32 * 2,
 		MaxIdleConnsPerHost: 32,

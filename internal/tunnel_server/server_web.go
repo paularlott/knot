@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/internal/config"
 	"github.com/rs/zerolog/log"
 )
 
@@ -111,9 +110,8 @@ func reverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string, host
 		}
 	}
 
-	cfg := config.GetServerConfig()
 	proxy.Transport = &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify},
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		MaxConnsPerHost:     32 * 2,
 		MaxIdleConns:        32 * 2,
 		MaxIdleConnsPerHost: 32,
