@@ -62,11 +62,18 @@ It offers both a user-friendly web interface and a command line interface to str
 			},
 			&cli.StringFlag{
 				Name:         "log-level",
-				Usage:        "Log level one of trace, debug, info, warn, error, fatal, panic",
+				Usage:        "Log level one of trace, debug, info, warn, error, fatal, panic.",
 				ConfigPath:   []string{"log.level"},
 				EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOGLEVEL"},
 				DefaultValue: "info",
 				Global:       true,
+			},
+			&cli.StringSliceFlag{
+				Name:       "nameservers",
+				Usage:      "Nameservers to use for DNS resolution, maybe given multiple times.",
+				ConfigPath: []string{"resolver.nameservers"},
+				EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_NAMESERVERS"},
+				Global:     true,
 			},
 		},
 		Commands: []*cli.Command{

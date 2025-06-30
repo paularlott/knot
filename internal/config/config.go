@@ -166,7 +166,7 @@ func InitCommonConfig(cmd *cli.Command) {
 	}
 
 	util.UpdateResolverConfig(&util.ResolverConfig{
-		DefaultServers: cmd.GetStringSlice("resolver.nameservers"),
+		DefaultServers: cmd.GetStringSlice("nameservers"),
 		DomainServers:  domainServers,
 	})
 }

@@ -53,7 +53,7 @@ func (db *MySQLDriver) GetAuditLogs(offset int, limit int) ([]*model.AuditLogEnt
 	if limit > 0 {
 		where = fmt.Sprintf("1 ORDER BY created_at DESC LIMIT %d OFFSET %d", limit, offset)
 	} else {
-		where = fmt.Sprintf("1 ORDER BY created_at DESC OFFSET %d", offset)
+		where = "1"
 	}
 
 	err := db.read("audit_logs", &auditLogs, nil, where)

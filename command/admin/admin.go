@@ -1,6 +1,8 @@
 package commands_admin
 
 import (
+	"context"
+
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/paularlott/cli"
@@ -153,6 +155,14 @@ var AdminCmd = &cli.Command{
 			DefaultValue: "",
 			Global:       true,
 		},
+		&cli.StringFlag{
+			Name:         "encrypt",
+			Usage:        "The encryption key to use for encrypting stored variables.",
+			ConfigPath:   []string{"server.encrypt"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_ENCRYPT"},
+			DefaultValue: "",
+			Global:       true,
+		},
 	},
 	Commands: []*cli.Command{
 		RenameZoneCmd,
@@ -160,5 +170,45 @@ var AdminCmd = &cli.Command{
 		ResetTOTPCmd,
 		BackupCmd,
 		RestoreCmd,
+	},
+	PreRun: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+		var err error
+
+		if ctx, err = cmd.GetRootCmd().PreRun(ctx, cmd); err != nil {
+			return ctx, err
+		}
+
+		serverCfg := &config.ServerConfig{
+			EncryptionKey: cmd.GetString("encrypt"),
+			MySQL: config.MySQLConfig{
+				Enabled:               cmd.GetBool("mysql-enabled"),
+				Host:                  cmd.GetString("mysql-host"),
+				Port:                  cmd.GetInt("mysql-port"),
+				User:                  cmd.GetString("mysql-user"),
+				Password:              cmd.GetString("mysql-password"),
+				Database:              cmd.GetString("mysql-database"),
+				ConnectionMaxIdle:     cmd.GetInt("mysql-connection-max-idle"),
+				ConnectionMaxOpen:     cmd.GetInt("mysql-connection-max-open"),
+				ConnectionMaxLifetime: cmd.GetInt("mysql-connection-max-lifetime"),
+			},
+			BadgerDB: config.BadgerDBConfig{
+				Enabled: cmd.GetBool("badgerdb-enabled"),
+				Path:    cmd.GetString("badgerdb-path"),
+			},
+			Redis: config.RedisConfig{
+				Enabled:    cmd.GetBool("redis-enabled"),
+				Hosts:      cmd.GetStringSlice("redis-hosts"),
+				Password:   cmd.GetString("redis-password"),
+				DB:         cmd.GetInt("redis-db"),
+				MasterName: cmd.GetString("redis-master-name"),
+				KeyPrefix:  cmd.GetString("redis-key-prefix"),
+			},
+			Audit: config.AuditConfig{
+				Retention: cmd.GetInt("audit-retention"),
+			},
+		}
+		config.SetServerConfig(serverCfg)
+
+		return ctx, nil
 	},
 }
