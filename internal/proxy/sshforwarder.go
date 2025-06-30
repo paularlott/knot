@@ -7,19 +7,18 @@ import (
 	"os"
 	"time"
 
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/util"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
 
-func RunSSHForwarderViaAgent(proxyServerURL string, space string, token string) {
+func RunSSHForwarderViaAgent(proxyServerURL, space, token string, skipTLSVerify bool) {
 	log.Debug().Msgf("ssh: connecting to agent via server at: %s", proxyServerURL)
-	forwardSSH(fmt.Sprintf("%s/proxy/spaces/%s/ssh/", proxyServerURL, space), token)
+	forwardSSH(fmt.Sprintf("%s/proxy/spaces/%s/ssh/", proxyServerURL, space), token, skipTLSVerify)
 }
 
-func forwardSSH(dialURL string, token string) {
+func forwardSSH(dialURL, token string, skipTLSVerify bool) {
 	// Include auth header if given
 	var header http.Header
 	if token != "" {
@@ -29,9 +28,8 @@ func forwardSSH(dialURL string, token string) {
 	}
 
 	// Create websocket connection
-	cfg := config.GetServerConfig()
 	dialer := websocket.DefaultDialer
-	dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify}
+	dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: skipTLSVerify}
 	dialer.HandshakeTimeout = 5 * time.Second
 	wsConn, response, err := dialer.Dial(dialURL, header)
 	if err != nil {

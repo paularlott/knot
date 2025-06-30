@@ -26,7 +26,7 @@ var SshCmd = &cli.Command{
 		alias := cmd.GetString("alias")
 		cfg := config.GetServerAddr(alias, cmd)
 
-		proxy.RunSSHForwarderViaAgent(cfg.WsServer, space, cfg.ApiToken)
+		proxy.RunSSHForwarderViaAgent(cfg.WsServer, space, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		return nil
 	},
 }

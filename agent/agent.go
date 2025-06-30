@@ -62,6 +62,13 @@ The agent connects environments to the knot server.`,
 				DefaultValue: "info",
 				Global:       true,
 			},
+			&cli.StringSliceFlag{
+				Name:       "nameservers",
+				Usage:      "Nameservers to use for DNS resolution, maybe given multiple times.",
+				ConfigPath: []string{"resolver.nameservers"},
+				EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_NAMESERVERS"},
+				Global:     true,
+			},
 		},
 		Commands: []*cli.Command{
 			agent_cmd.ConnectCmd,

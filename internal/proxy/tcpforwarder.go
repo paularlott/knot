@@ -10,19 +10,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/wsconn"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
 
-func RunTCPForwarderViaAgent(proxyServerURL string, listen string, space string, port int, token string) {
+func RunTCPForwarderViaAgent(proxyServerURL, listen, space string, port int, token string, skipTLSVerify bool) {
 	log.Info().Msgf("tcp: connecting to agent via server at: %s", proxyServerURL)
-	forwardTCP(fmt.Sprintf("%s/proxy/spaces/%s/port/%d", proxyServerURL, space, port), token, listen)
+	forwardTCP(fmt.Sprintf("%s/proxy/spaces/%s/port/%d", proxyServerURL, space, port), token, listen, skipTLSVerify)
 }
 
-func forwardTCP(dialURL string, token string, listen string) {
+func forwardTCP(dialURL, token, listen string, skipTLSVerify bool) {
 	tcpConnection, err := net.Listen("tcp", listen)
 	if err != nil {
 		log.Fatal().Msgf("tcp: error while opening local port: %s", err.Error())
@@ -37,7 +36,6 @@ func forwardTCP(dialURL string, token string, listen string) {
 		header = nil
 	}
 
-	cfg := config.GetServerConfig()
 	for {
 		tcpConn, err := tcpConnection.Accept()
 		if err != nil {
@@ -47,7 +45,7 @@ func forwardTCP(dialURL string, token string, listen string) {
 
 		// Create websocket connection
 		dialer := websocket.DefaultDialer
-		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cfg.TLS.SkipVerify}
+		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: skipTLSVerify}
 		dialer.HandshakeTimeout = 5 * time.Second
 		wsConn, response, err := dialer.Dial(dialURL, header)
 		if err != nil {
