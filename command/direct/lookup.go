@@ -1,31 +1,38 @@
 package commands_direct
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/paularlott/knot/internal/util"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 )
 
-var lookupCmd = &cobra.Command{
-	Use:   "lookup <service> [flags]",
-	Short: "Look up the IP & port of a service",
-	Long:  `Looks up the IP & port of a service via a DNS SRV lookup against the service name.`,
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		service := args[0]
+var LookupCmd = &cli.Command{
+	Name:        "lookup",
+	Usage:       "Lookup service",
+	Description: "Looks up the IP & port of a service via a DNS SRV lookup against the service name.",
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "service",
+			Usage:    "The name of the service to look up",
+			Required: true,
+		},
+	},
+	MaxArgs: cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		service := cmd.GetStringArg("service")
 
 		hostPorts, err := util.LookupSRV(service)
 		if err != nil {
-			fmt.Println("Failed to find service")
-			fmt.Println(err)
-			return
+			return fmt.Errorf("Failed to find service: %w", err)
 		}
 
 		fmt.Println("\nservice: ", service)
 		for _, hp := range hostPorts {
 			fmt.Println("  ", hp.Host, hp.Port)
 		}
+		return nil
 	},
 }

@@ -1,46 +1,54 @@
 package commands_admin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/util/crypt"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 )
 
-func init() {
-	restoreCmd.Flags().StringP("encrypt-key", "e", "", "Encrypt the backup file with the given key. The key must be 32 bytes long.")
-}
-
-var restoreCmd = &cobra.Command{
-	Use:   "restore <backupfile> [flags]",
-	Short: "Restore the database",
-	Long:  `Restore the database from a backup file.`,
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		inputFile := args[0]
-
-		key, _ := cmd.Flags().GetString("encrypt-key")
+var RestoreCmd = &cli.Command{
+	Name:        "restore",
+	Usage:       "Restore a backup file",
+	Description: "Restore the database from a backup file.",
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "backupfile",
+			Usage:    "The name of the backup file to restore",
+			Required: true,
+		},
+	},
+	MaxArgs: cli.NoArgs,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "encrypt-key",
+			Aliases: []string{"e"},
+			Usage:   "Encrypt the backup file with the given key. The key must be 32 bytes long.",
+			EnvVars: []string{config.CONFIG_ENV_PREFIX + "_RESTORE_ENCRYPT_KEY"},
+		},
+	},
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		inputFile := cmd.GetStringArg("backupfile")
+		key := cmd.GetString("encrypt-key")
 		if key != "" && len(key) != 32 {
-			fmt.Println("Error: Encrypt key must be 32 bytes long.")
-			os.Exit(1)
+			return fmt.Errorf("Error: Encrypt key must be 32 bytes long.")
 		}
 
 		fmt.Println("Restoring database from file: ", inputFile)
-
 		db := database.GetInstance()
-
 		backupData := backupData{}
 
 		// Load the backup file
 		data, err := os.ReadFile(inputFile)
 		if err != nil {
-			fmt.Println("Error loading backup file: ", err)
-			os.Exit(1)
+			return fmt.Errorf("Error loading backup file: %w", err)
 		}
 
 		if key != "" {
@@ -50,26 +58,23 @@ var restoreCmd = &cobra.Command{
 
 		err = json.Unmarshal(data, &backupData)
 		if err != nil {
-			fmt.Println("Error unmarshalling backup file: ", err)
-			os.Exit(1)
+			return fmt.Errorf("Error unmarshalling backup file: %w", err)
 		}
 
 		fmt.Println("Restoring audit logs...")
 		for _, auditLog := range backupData.AuditLogs {
 			err := db.SaveAuditLog(auditLog)
 			if err != nil {
-				fmt.Println("Error restoring audit log: ", auditLog.Event, err)
-				os.Exit(1)
+				return fmt.Errorf("Error restoring audit log: %w", err)
 			}
 			fmt.Println("Restored audit log: ", auditLog.Event)
 		}
 
-		fmt.Println("Resotring configuration values...")
+		fmt.Println("Restoring configuration values...")
 		for _, cfgValue := range backupData.CfgValues {
 			err := db.SaveCfgValue(cfgValue)
 			if err != nil {
-				fmt.Println("Error restoring configuration value: ", cfgValue.Name, err)
-				os.Exit(1)
+				return fmt.Errorf("Error restoring configuration value: %w", err)
 			}
 			fmt.Println("Restored configuration value: ", cfgValue.Name)
 		}
@@ -78,8 +83,7 @@ var restoreCmd = &cobra.Command{
 		for _, template := range backupData.Templates {
 			err := db.SaveTemplate(template, nil)
 			if err != nil {
-				fmt.Println("Error restoring template: ", template.Name, err)
-				os.Exit(1)
+				return fmt.Errorf("Error restoring template: %w", err)
 			}
 			fmt.Println("Restored template: ", template.Name)
 		}
@@ -88,8 +92,7 @@ var restoreCmd = &cobra.Command{
 		for _, variable := range backupData.TemplateVars {
 			err := db.SaveTemplateVar(variable)
 			if err != nil {
-				fmt.Println("Error restoring template variable: ", variable.Name, err)
-				os.Exit(1)
+				return fmt.Errorf("Error restoring template variable: %w", err)
 			}
 			fmt.Println("Restored template variable: ", variable.Name)
 		}
@@ -98,8 +101,7 @@ var restoreCmd = &cobra.Command{
 		for _, volume := range backupData.Volumes {
 			err := db.SaveVolume(volume, nil)
 			if err != nil {
-				fmt.Println("Error restoring volume: ", volume.Name, err)
-				os.Exit(1)
+				return fmt.Errorf("Error restoring volume: %w", err)
 			}
 			fmt.Println("Restored volume: ", volume.Name)
 		}
@@ -108,8 +110,7 @@ var restoreCmd = &cobra.Command{
 		for _, group := range backupData.Groups {
 			err := db.SaveGroup(group)
 			if err != nil {
-				fmt.Println("Error restoring group: ", group.Name, err)
-				os.Exit(1)
+				return fmt.Errorf("Error restoring group: %w", err)
 			}
 			fmt.Println("Restored group: ", group.Name)
 		}
@@ -118,8 +119,7 @@ var restoreCmd = &cobra.Command{
 		for _, role := range backupData.Roles {
 			err := db.SaveRole(role)
 			if err != nil {
-				fmt.Println("Error restoring role: ", role.Name, err)
-				os.Exit(1)
+				return fmt.Errorf("Error restoring role: %w", err)
 			}
 			fmt.Println("Restored role: ", role.Name)
 		}
@@ -128,8 +128,7 @@ var restoreCmd = &cobra.Command{
 		for _, user := range backupData.Users {
 			err := db.SaveUser(user.User, nil)
 			if err != nil {
-				fmt.Println("Error restoring user: ", user.User.Username, err)
-				os.Exit(1)
+				return fmt.Errorf("Error restoring user: %w", err)
 			}
 			fmt.Println("Restored user: ", user.User.Username)
 
@@ -138,8 +137,7 @@ var restoreCmd = &cobra.Command{
 			for _, token := range user.Tokens {
 				err = db.SaveToken(token)
 				if err != nil {
-					fmt.Println("Error restoring token for user: ", user.User.Username, err)
-					os.Exit(1)
+					return fmt.Errorf("Error restoring token for user: %w", err)
 				}
 				fmt.Println("Restored token for user: ", user.User.Username, token.Name)
 			}
@@ -153,13 +151,13 @@ var restoreCmd = &cobra.Command{
 
 				err := db.SaveSpace(space, nil)
 				if err != nil {
-					fmt.Println("Error restoring space: ", space.Name, err)
-					os.Exit(1)
+					return fmt.Errorf("Error restoring space: %w", err)
 				}
 				fmt.Println("Restored space: ", space.Name)
 			}
 		}
 
 		fmt.Println("Database restore completed successfully.")
+		return nil
 	},
 }

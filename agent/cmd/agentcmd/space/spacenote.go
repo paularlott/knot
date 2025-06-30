@@ -1,30 +1,37 @@
 package space
 
 import (
+	"context"
 	"fmt"
-	"os"
 
 	"github.com/paularlott/knot/internal/agentlink"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 )
 
-var SpaceNoteCmd = &cobra.Command{
-	Use:   `set-note <note>`,
-	Short: "Set the runtime note of the space",
-	Long:  `Allows a note to be written for the space which is shown on the dashboard along with the user entered description.`,
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+var SpaceNoteCmd = &cli.Command{
+	Name:        "set-note",
+	Usage:       "Set a Note",
+	Description: "Set the runtime note of the space. Allows a note to be written for the space which is shown on the dashboard along with the user entered description.",
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "note",
+			Usage:    "The note text to set",
+			Required: true,
+		},
+	},
+	MaxArgs: cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
 		noteRequest := agentlink.SpaceNoteRequest{
-			Note: args[0],
+			Note: cmd.GetStringArg("note"),
 		}
 
 		err := agentlink.SendWithResponseMsg(agentlink.CommandSpaceNote, &noteRequest, nil)
 		if err != nil {
-			fmt.Println("Error setting space note: ", err)
-			os.Exit(1)
+			return fmt.Errorf("error setting space note: %w", err)
 		}
 
 		fmt.Println("Space note set.")
+		return nil
 	},
 }

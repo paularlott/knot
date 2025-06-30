@@ -1,56 +1,70 @@
 package command_spaces
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/tunnel_server"
 
+	"github.com/paularlott/cli"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-func init() {
-	tunnelPortCmd.PersistentFlags().BoolP("tls", "", true, "Enable TLS encryption for the tunnel.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TUNNEL_TLS environment variable if set.")
-	tunnelPortCmd.PersistentFlags().StringP("tls-name", "", "", "The name to present to TLS ports.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_NAME environment variable if set.")
-}
-
-var tunnelPortCmd = &cobra.Command{
-	Use:   "tunnel <space> <listen> <port> [flags]",
-	Short: "Open a tunnel",
-	Long: `Open a tunnel between a port inside a space and a port on the local machine.
-
-  space     The name of the space to connect to e.g. test1
-  listen    The port to listen on within the space e.g. 80
-  port      The local port to connect to e.g. 8080`,
-	Args: cobra.ExactArgs(3),
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("tls", cmd.Flags().Lookup("tls"))
-		viper.BindEnv("tls", config.CONFIG_ENV_PREFIX+"_TUNNEL_TLS")
-		viper.SetDefault("tls", false)
-
-		viper.BindPFlag("tls_name", cmd.Flags().Lookup("tls-name"))
-		viper.BindEnv("tls_name", config.CONFIG_ENV_PREFIX+"_TLS_NAME")
+var TunnelPortCmd = &cli.Command{
+	Name:        "tunnel",
+	Usage:       "<space> <listen> <port>",
+	Description: `Open a tunnel between a port inside a space and a port on the local machine.`,
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "space",
+			Usage:    "The name of the space to tunnel from",
+			Required: true,
+		},
+		&cli.IntArg{
+			Name:     "listen",
+			Usage:    "The port to listen on within the space",
+			Required: true,
+		},
+		&cli.IntArg{
+			Name:     "port",
+			Usage:    "The local port to connect to",
+			Required: true,
+		},
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		alias, _ := cmd.Flags().GetString("alias")
-		cfg := config.GetServerAddr(alias)
+	MaxArgs: cli.NoArgs,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:         "tls",
+			Usage:        "Enable TLS encryption for the tunnel.",
+			ConfigPath:   []string{"tls"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TUNNEL_TLS"},
+			DefaultValue: false,
+		},
+		&cli.StringFlag{
+			Name:       "tls-name",
+			Usage:      "The name to present to TLS ports.",
+			ConfigPath: []string{"tls_name"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_TLS_NAME"},
+		},
+	},
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		alias := cmd.GetString("alias")
+		cfg := config.GetServerAddr(alias, cmd)
 
-		spaceName := args[0]
+		spaceName := cmd.GetStringArg("space")
 
-		listenPort, err := strconv.Atoi(args[1])
-		if err != nil || listenPort < 1 || listenPort > 65535 {
-			cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")
+		listenPort := cmd.GetIntArg("listen")
+		if listenPort < 1 || listenPort > 65535 {
+			return fmt.Errorf("Invalid port number, port numbers must be between 1 and 65535", 1)
 		}
 
-		localPort, err := strconv.Atoi(args[2])
-		if err != nil || localPort < 1 || localPort > 65535 {
-			cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")
+		localPort := cmd.GetIntArg("port")
+		if localPort < 1 || localPort > 65535 {
+			return fmt.Errorf("Invalid port number, port numbers must be between 1 and 65535", 1)
 		}
 
 		opts := tunnel_server.TunnelOpts{
@@ -59,10 +73,10 @@ var tunnelPortCmd = &cobra.Command{
 			LocalPort: uint16(localPort),
 			SpaceName: spaceName,
 			SpacePort: uint16(listenPort),
-			TlsName:   viper.GetString("tls_name"),
+			TlsName:   cmd.GetString("tls-name"),
 		}
 
-		if viper.GetBool("tls") {
+		if cmd.GetBool("tls") {
 			opts.Protocol = "tls"
 		}
 
@@ -73,7 +87,7 @@ var tunnelPortCmd = &cobra.Command{
 			&opts,
 		)
 		if err := client.ConnectAndServe(); err != nil {
-			log.Fatal().Err(err).Msg("Failed to create tunnel")
+			return fmt.Errorf("Failed to create tunnel: %w", err)
 		}
 
 		// Wait for ctrl-c
@@ -90,6 +104,7 @@ var tunnelPortCmd = &cobra.Command{
 
 		fmt.Println("\r")
 		log.Info().Msg("Tunnel shutdown")
-		os.Exit(0)
+
+		return nil
 	},
 }

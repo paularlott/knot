@@ -6,7 +6,7 @@ type AgentConfig struct {
 	UpdateAuthorizedKeys bool
 	ServicePassword      string
 	VSCodeTunnel         string
-	AdvertiseAddr        string
+	AdvertiseAddr        string // TODO Remove this?
 	SyslogPort           int
 	APIPort              int
 

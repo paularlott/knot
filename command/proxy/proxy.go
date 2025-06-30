@@ -1,43 +1,51 @@
 package command_proxy
 
 import (
-	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/internal/config"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/paularlott/cli"
 )
 
-func init() {
-	proxyCmd.PersistentFlags().StringP("server", "s", "", "The address of the remote server to proxy through.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SERVER environment variable if set.")
-	proxyCmd.PersistentFlags().StringP("token", "t", "", "The token to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TOKEN environment variable if set.")
-	proxyCmd.PersistentFlags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
-	proxyCmd.PersistentFlags().StringP("alias", "a", "default", "The server alias to use.")
-
-	command.RootCmd.AddCommand(proxyCmd)
-	proxyCmd.AddCommand(sshCmd)
-	proxyCmd.AddCommand(portCmd)
-	proxyCmd.AddCommand(lookupCmd)
-}
-
-var proxyCmd = &cobra.Command{
-	Use:   "proxy",
-	Short: "Proxy a connection",
-	Long:  "Proxy a connection from the local host to a remote destination via the proxy server.",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		alias, _ := cmd.Flags().GetString("alias")
-
-		viper.BindPFlag("client."+alias+".server", cmd.PersistentFlags().Lookup("server"))
-		viper.BindEnv("client."+alias+".server", config.CONFIG_ENV_PREFIX+"_SERVER")
-
-		viper.BindPFlag("client."+alias+".token", cmd.PersistentFlags().Lookup("token"))
-		viper.BindEnv("client."+alias+".token", config.CONFIG_ENV_PREFIX+"_TOKEN")
-
-		viper.BindPFlag("tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
-		viper.BindEnv("tls_skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
-		viper.SetDefault("tls_skip_verify", true)
+var ProxyCmd = &cli.Command{
+	Name:        "proxy",
+	Usage:       "Proxy a connection",
+	Description: "Proxy a connection from the local host to a remote destination via the proxy server.",
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:       "server",
+			Aliases:    []string{"s"},
+			Usage:      "The address of the remote server to proxy through.",
+			ConfigPath: []string{"client.server"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_SERVER"},
+			Global:     true,
+		},
+		&cli.StringFlag{
+			Name:       "token",
+			Aliases:    []string{"t"},
+			Usage:      "The token to use for authentication.",
+			ConfigPath: []string{"client.token"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_TOKEN"},
+			Global:     true,
+		},
+		&cli.BoolFlag{
+			Name:         "tls-skip-verify",
+			Usage:        "Skip TLS verification when talking to server.",
+			ConfigPath:   []string{"tls_skip_verify"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
+			DefaultValue: true,
+			Global:       true,
+		},
+		&cli.StringFlag{
+			Name:         "alias",
+			Aliases:      []string{"a"},
+			Usage:        "The server alias to use.",
+			DefaultValue: "default",
+			Global:       true,
+		},
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+	Commands: []*cli.Command{
+		SshCmd,
+		PortCmd,
+		LookupCmd,
 	},
 }

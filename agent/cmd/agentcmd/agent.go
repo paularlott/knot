@@ -1,6 +1,7 @@
 package agentcmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -13,119 +14,139 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/syslogd"
 
+	"github.com/paularlott/cli"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-func init() {
-	AgentCmd.Flags().StringP("endpoint", "", "", "The address of the server to connect to.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT environment variable if set.")
-	AgentCmd.Flags().StringP("space-id", "", "", "The ID of the space the agent is providing.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SPACEID environment variable if set.")
-	AgentCmd.Flags().StringSliceP("nameservers", "", []string{}, "The address of the nameserver to use for SRV lookups, can be given multiple times (default use system resolver).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_NAMESERVERS environment variable if set.")
-	AgentCmd.Flags().IntP("code-server-port", "", 0xc0de, "The port to run code-server on, set to 0 to disable.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT environment variable if set.")
-	AgentCmd.Flags().IntP("ssh-port", "", 22, "The port sshd is running on, set to 0 to disable ssh access.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SSH_PORT environment variable if set.")
-	AgentCmd.Flags().StringSliceP("tcp-port", "", []string{}, "Can be specified multiple times to give the list of TCP ports to be exposed to the client.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TCP_PORT environment variable if set.")
-	AgentCmd.Flags().StringSliceP("http-port", "", []string{}, "Can be specified multiple times to give the list of http ports to be exposed via the web interface.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HTTP_PORT environment variable if set.")
-	AgentCmd.Flags().StringSliceP("https-port", "", []string{}, "Can be specified multiple times to give the list of https ports to be exposed via the web interface.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_HTTPS_PORT environment variable if set.")
-	AgentCmd.Flags().BoolP("update-authorized-keys", "", true, "If given then the agent will update the authorized_keys file with the SSH public key of the user.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_UPDATE_AUTHORIZED_KEYS environment variable if set.")
-	AgentCmd.Flags().IntP("vnc-http-port", "", 0, "The port to use for VNC over HTTP.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_VNC_HTTP_PORT environment variable if set.")
-	AgentCmd.Flags().StringP("service-password", "", "", "The password to use for the agent.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SERVICE_PASSWORD environment variable if set.")
-	AgentCmd.Flags().StringP("vscode-tunnel", "", "vscodetunnel", "The name of the screen running the Visual Studio Code tunnel, blank to disable.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_VSCODE_TUNNEL environment variable if set.")
-	AgentCmd.Flags().StringP("advertise-addr", "", "", "The address to advertise to the server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_ADVERTISE_ADDR environment variable if set.")
-	AgentCmd.Flags().IntP("syslog-port", "", 514, "The port to listen on for syslog messages, syslog is disabled if set to 0.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SYSLOG_PORT environment variable if set.")
-	AgentCmd.Flags().IntP("api-port", "", 12201, "The port to listen on for API requests and logs, disabled if set to 0.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_API_PORT environment variable if set.")
-
-	// TLS
-	AgentCmd.Flags().StringP("cert-file", "", "", "The file with the PEM encoded certificate to use for the agent.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_CERT_FILE environment variable if set.")
-	AgentCmd.Flags().StringP("key-file", "", "", "The file with the PEM encoded key to use for the agent.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_KEY_FILE environment variable if set.")
-	AgentCmd.Flags().BoolP("use-tls", "", true, "Enable TLS.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_USE_TLS environment variable if set.")
-	AgentCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
-
-	AgentCmd.AddCommand(space.SpaceNoteCmd)
-}
-
-var AgentCmd = &cobra.Command{
-	Use:   "agent",
-	Short: "Start the knot agent",
-	Long: `Start the knot agent and listen for incoming connections.
-
-The agent will listen on the port specified by the --listen flag and proxy requests to the code-server instance running on the host.`,
-	Args: cobra.NoArgs,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("agent.endpoint", cmd.Flags().Lookup("endpoint"))
-		viper.BindEnv("agent.endpoint", config.CONFIG_ENV_PREFIX+"_AGENT_ENDPOINT")
-
-		viper.BindPFlag("agent.space_id", cmd.Flags().Lookup("space-id"))
-		viper.BindEnv("agent.space_id", config.CONFIG_ENV_PREFIX+"_SPACEID")
-
-		viper.BindPFlag("agent.port.code_server", cmd.Flags().Lookup("code-server-port"))
-		viper.BindEnv("agent.port.code_server", config.CONFIG_ENV_PREFIX+"_CODE_SERVER_PORT")
-		viper.SetDefault("agent.port.code_server", 0xc0de)
-
-		viper.BindPFlag("agent.port.vnc_http", cmd.Flags().Lookup("vnc-http-port"))
-		viper.BindEnv("agent.port.vnc_http", config.CONFIG_ENV_PREFIX+"_VNC_HTTP_PORT")
-		viper.SetDefault("agent.port.vnc_http", "0")
-
-		viper.BindPFlag("agent.port.ssh", cmd.Flags().Lookup("ssh-port"))
-		viper.BindEnv("agent.port.ssh", config.CONFIG_ENV_PREFIX+"_SSH_PORT")
-		viper.SetDefault("agent.port.ssh", "22")
-
-		viper.BindPFlag("agent.port.tcp_port", cmd.Flags().Lookup("tcp-port"))
-		viper.BindEnv("agent.port.tcp_port", config.CONFIG_ENV_PREFIX+"_TCP_PORT")
-
-		viper.BindPFlag("agent.port.http_port", cmd.Flags().Lookup("http-port"))
-		viper.BindEnv("agent.port.http_port", config.CONFIG_ENV_PREFIX+"_HTTP_PORT")
-
-		viper.BindPFlag("agent.port.https_port", cmd.Flags().Lookup("https-port"))
-		viper.BindEnv("agent.port.https_port", config.CONFIG_ENV_PREFIX+"_HTTPS_PORT")
-
-		viper.BindPFlag("agent.update_authorized_keys", cmd.Flags().Lookup("update-authorized-keys"))
-		viper.BindEnv("agent.update_authorized_keys", config.CONFIG_ENV_PREFIX+"_UPDATE_AUTHORIZED_KEYS")
-		viper.SetDefault("agent.update_authorized_keys", true)
-
-		viper.BindPFlag("agent.service_password", cmd.Flags().Lookup("service-password"))
-		viper.BindEnv("agent.service_password", config.CONFIG_ENV_PREFIX+"_SERVICE_PASSWORD")
-		viper.SetDefault("agent.service_password", "")
-
-		viper.BindPFlag("agent.vscode_tunnel", cmd.Flags().Lookup("vscode-tunnel"))
-		viper.BindEnv("agent.vscode_tunnel", config.CONFIG_ENV_PREFIX+"_VSCODE_TUNNEL")
-		viper.SetDefault("agent.vscode_tunnel", "vscodetunnel")
-
-		viper.BindPFlag("agent.advertise_addr", cmd.Flags().Lookup("advertise-addr"))
-		viper.BindEnv("agent.advertise_addr", config.CONFIG_ENV_PREFIX+"_ADVERTISE_ADDR")
-		viper.SetDefault("agent.advertise_addr", "")
-
-		viper.BindPFlag("agent.syslog_port", cmd.Flags().Lookup("syslog-port"))
-		viper.BindEnv("agent.syslog_port", config.CONFIG_ENV_PREFIX+"_SYSLOG_PORT")
-		viper.SetDefault("agent.syslog_port", 514)
-
-		viper.BindPFlag("agent.api_port", cmd.Flags().Lookup("api-port"))
-		viper.BindEnv("agent.api_port", config.CONFIG_ENV_PREFIX+"_LOGS_PORT")
-		viper.SetDefault("agent.api_port", 12201)
-
-		// TLS
-		viper.BindPFlag("agent.tls.cert_file", cmd.Flags().Lookup("cert-file"))
-		viper.BindEnv("agent.tls.cert_file", config.CONFIG_ENV_PREFIX+"_CERT_FILE")
-		viper.SetDefault("agent.tls.cert_file", "")
-
-		viper.BindPFlag("agent.tls.key_file", cmd.Flags().Lookup("key-file"))
-		viper.BindEnv("agent.tls.key_file", config.CONFIG_ENV_PREFIX+"_KEY_FILE")
-		viper.SetDefault("agent.tls.key_file", "")
-
-		viper.BindPFlag("agent.tls.use_tls", cmd.Flags().Lookup("use-tls"))
-		viper.BindEnv("agent.tls.use_tls", config.CONFIG_ENV_PREFIX+"_USE_TLS")
-		viper.SetDefault("agent.tls.use_tls", true)
-
-		viper.BindPFlag("agent.tls.skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
-		viper.BindEnv("agent.tls.skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
-		viper.SetDefault("agent.tls.skip_verify", true)
-
-		// DNS
-		viper.BindPFlag("resolver.nameservers", cmd.Flags().Lookup("nameserver"))
-		viper.BindEnv("resolver.nameservers", config.CONFIG_ENV_PREFIX+"_NAMESERVERS")
+var AgentCmd = &cli.Command{
+	Name:        "agent",
+	Usage:       "Start the knot agent",
+	Description: `Start the knot agent and connect to the host server.`,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:       "endpoint",
+			Usage:      "The address of the server to connect to.",
+			ConfigPath: []string{"agent.endpoint"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_AGENT_ENDPOINT"},
+		},
+		&cli.StringFlag{
+			Name:       "space-id",
+			Usage:      "The ID of the space the agent is providing.",
+			ConfigPath: []string{"agent.space_id"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_SPACEID"},
+		},
+		&cli.IntFlag{
+			Name:         "code-server-port",
+			Usage:        "The port to run code-server on, set to 0 to disable.",
+			ConfigPath:   []string{"agent.port.code_server"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CODE_SERVER_PORT"},
+			DefaultValue: 0xc0de,
+		},
+		&cli.IntFlag{
+			Name:         "ssh-port",
+			Usage:        "The port sshd is running on, set to 0 to disable ssh access.",
+			ConfigPath:   []string{"agent.port.ssh"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SSH_PORT"},
+			DefaultValue: 22,
+		},
+		&cli.StringSliceFlag{
+			Name:       "tcp-port",
+			Usage:      "Can be specified multiple times to give the list of TCP ports to be exposed to the client.",
+			ConfigPath: []string{"agent.port.tcp_port"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_TCP_PORT"},
+		},
+		&cli.StringSliceFlag{
+			Name:       "http-port",
+			Usage:      "Can be specified multiple times to give the list of http ports to be exposed via the web interface.",
+			ConfigPath: []string{"agent.port.http_port"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_HTTP_PORT"},
+		},
+		&cli.StringSliceFlag{
+			Name:       "https-port",
+			Usage:      "Can be specified multiple times to give the list of https ports to be exposed via the web interface.",
+			ConfigPath: []string{"agent.port.https_port"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_HTTPS_PORT"},
+		},
+		&cli.BoolFlag{
+			Name:         "update-authorized-keys",
+			Usage:        "If given then the agent will update the authorized_keys file with the SSH public key of the user.",
+			ConfigPath:   []string{"agent.update_authorized_keys"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_UPDATE_AUTHORIZED_KEYS"},
+			DefaultValue: true,
+		},
+		&cli.IntFlag{
+			Name:         "vnc-http-port",
+			Usage:        "The port to use for VNC over HTTP.",
+			ConfigPath:   []string{"agent.port.vnc_http"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_VNC_HTTP_PORT"},
+			DefaultValue: 0,
+		},
+		&cli.StringFlag{
+			Name:       "service-password",
+			Usage:      "The password to use for the agent.",
+			ConfigPath: []string{"agent.service_password"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_SERVICE_PASSWORD"},
+		},
+		&cli.StringFlag{
+			Name:         "vscode-tunnel",
+			Usage:        "The name of the screen running the Visual Studio Code tunnel, blank to disable.",
+			ConfigPath:   []string{"agent.vscode_tunnel"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_VSCODE_TUNNEL"},
+			DefaultValue: "vscodetunnel",
+		},
+		&cli.StringFlag{
+			Name:       "advertise-addr",
+			Usage:      "The address to advertise to the server.",
+			ConfigPath: []string{"agent.advertise_addr"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_ADVERTISE_ADDR"},
+		},
+		&cli.IntFlag{
+			Name:         "syslog-port",
+			Usage:        "The port to listen on for syslog messages, syslog is disabled if set to 0.",
+			ConfigPath:   []string{"agent.syslog_port"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SYSLOG_PORT"},
+			DefaultValue: 514,
+		},
+		&cli.IntFlag{
+			Name:         "api-port",
+			Usage:        "The port to listen on for API requests and logs, disabled if set to 0.",
+			ConfigPath:   []string{"agent.api_port"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_API_PORT"},
+			DefaultValue: 12201,
+		},
+		// TLS flags
+		&cli.StringFlag{
+			Name:       "cert-file",
+			Usage:      "The file with the PEM encoded certificate to use for the agent.",
+			ConfigPath: []string{"agent.tls.cert_file"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_CERT_FILE"},
+		},
+		&cli.StringFlag{
+			Name:       "key-file",
+			Usage:      "The file with the PEM encoded key to use for the agent.",
+			ConfigPath: []string{"agent.tls.key_file"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_KEY_FILE"},
+		},
+		&cli.BoolFlag{
+			Name:         "use-tls",
+			Usage:        "Enable TLS.",
+			ConfigPath:   []string{"agent.tls.use_tls"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_USE_TLS"},
+			DefaultValue: true,
+		},
+		&cli.BoolFlag{
+			Name:         "tls-skip-verify",
+			Usage:        "Skip TLS verification when talking to server.",
+			ConfigPath:   []string{"agent.tls.skip_verify"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
+			DefaultValue: true,
+		},
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		cfg := buildAgentConfig()
+	Commands: []*cli.Command{
+		space.SpaceNoteCmd,
+	},
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		cfg := buildAgentConfig(cmd)
 
 		// Check address given and valid URL
 		if cfg.Endpoint == "" {
@@ -164,35 +185,36 @@ The agent will listen on the port specified by the --listen flag and proxy reque
 		agentClient.Shutdown()
 		fmt.Println("\r")
 		log.Info().Msg("agent: shutdown")
-		os.Exit(0)
+
+		return nil
 	},
 }
 
-func buildAgentConfig() *config.AgentConfig {
+func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 	agentCfg := &config.AgentConfig{
-		Endpoint:             viper.GetString("agent.endpoint"),
-		SpaceID:              viper.GetString("agent.space_id"),
-		UpdateAuthorizedKeys: viper.GetBool("agent.update_authorized_keys"),
-		ServicePassword:      viper.GetString("agent.service_password"),
-		VSCodeTunnel:         viper.GetString("agent.vscode_tunnel"),
-		AdvertiseAddr:        viper.GetString("agent.advertise_addr"),
-		SyslogPort:           viper.GetInt("agent.syslog_port"),
-		APIPort:              viper.GetInt("agent.api_port"),
+		Endpoint:             cmd.GetString("endpoint"),
+		SpaceID:              cmd.GetString("space-id"),
+		UpdateAuthorizedKeys: cmd.GetBool("update-authorized-keys"),
+		ServicePassword:      cmd.GetString("service-password"),
+		VSCodeTunnel:         cmd.GetString("vscode-tunnel"),
+		AdvertiseAddr:        cmd.GetString("advertise-addr"),
+		SyslogPort:           cmd.GetInt("syslog-port"),
+		APIPort:              cmd.GetInt("api-port"),
 
 		Port: config.PortConfig{
-			CodeServer: viper.GetInt("agent.port.code_server"),
-			VNCHttp:    viper.GetInt("agent.port.vnc_http"),
-			SSH:        viper.GetInt("agent.port.ssh"),
-			TCPPorts:   viper.GetStringSlice("agent.port.tcp_port"),
-			HTTPPorts:  viper.GetStringSlice("agent.port.http_port"),
-			HTTPSPorts: viper.GetStringSlice("agent.port.https_port"),
+			CodeServer: cmd.GetInt("code-server-port"),
+			VNCHttp:    cmd.GetInt("vnc-http-port"),
+			SSH:        cmd.GetInt("ssh-port"),
+			TCPPorts:   cmd.GetStringSlice("tcp-port"),
+			HTTPPorts:  cmd.GetStringSlice("http-port"),
+			HTTPSPorts: cmd.GetStringSlice("https-port"),
 		},
 
 		TLS: config.TLSConfig{
-			CertFile:   viper.GetString("agent.tls.cert_file"),
-			KeyFile:    viper.GetString("agent.tls.key_file"),
-			UseTLS:     viper.GetBool("agent.tls.use_tls"),
-			SkipVerify: viper.GetBool("agent.tls.skip_verify"),
+			CertFile:   cmd.GetString("cert-file"),
+			KeyFile:    cmd.GetString("key-file"),
+			UseTLS:     cmd.GetBool("use-tls"),
+			SkipVerify: cmd.GetBool("tls-skip-verify"),
 		},
 	}
 	config.SetAgentConfig(agentCfg)

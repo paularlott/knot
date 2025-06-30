@@ -84,9 +84,6 @@ func (r *DNSResolver) UpdateConfig(config *ResolverConfig) {
 		}
 		r.config.DomainServers[domain] = processedServers
 	}
-
-	log.Trace().Msgf("dns: updated default servers: %+v", r.config.DefaultServers)
-	log.Trace().Msgf("dns: updated domain servers: %+v", r.config.DomainServers)
 }
 
 func (r *DNSResolver) getResolvers(record string) []string {

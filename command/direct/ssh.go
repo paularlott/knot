@@ -1,6 +1,7 @@
 package commands_direct
 
 import (
+	"context"
 	"io"
 	"net"
 	"os"
@@ -8,53 +9,59 @@ import (
 
 	"github.com/paularlott/knot/internal/util"
 
+	"github.com/paularlott/cli"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/cobra"
 )
 
-var sshCmd = &cobra.Command{
-	Use:   "ssh <service> <port> [flags]",
-	Short: "Forward a SSH connection to the service",
-	Long: `Forwards a SSH connection to a remote SSH server via a direct connection.
+var SshCmd = &cli.Command{
+	Name:  "ssh",
+	Usage: "Forward SSH to a service",
+	Description: `Forwards a SSH connection to a remote SSH server via a direct connection.
 
-If <port> is not given then the port is found via a DNS SRV lookup against the service name.
-
-  service   The name of the remote service to connect to e.g. ssh.service.consul
-  port      The optional remote port to connect to e.g. 22`,
-	Args: cobra.RangeArgs(1, 2),
-	Run: func(cmd *cobra.Command, args []string) {
+If [port] is not given then the port is found via a DNS SRV lookup against the service name.`,
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "service",
+			Usage:    "The name of the remote service to connect to",
+			Required: true,
+		},
+		&cli.StringArg{
+			Name:     "port",
+			Usage:    "The remote port to connect to",
+			Required: false,
+		},
+	},
+	MaxArgs: cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
 		var host string
 		var port string
 		var err error
 
-		service := args[0]
+		service := cmd.GetStringArg("service")
 
-		if len(args) == 2 {
+		if cmd.HasArg("port") {
 			var portInt int
-
-			portInt, err = strconv.Atoi(args[1])
+			portInt, err = strconv.Atoi(cmd.GetStringArg("port"))
 			port = strconv.Itoa(portInt)
 			if err != nil || portInt < 1 || portInt > 65535 {
-				cobra.CheckErr("Invalid port number, port numbers must be between 1 and 65535")
+				log.Fatal().Msg("Invalid port number, port numbers must be between 1 and 65535")
 			}
 
 			ips, err := util.LookupIP(service)
-			if err != nil {
-				cobra.CheckErr("Failed to find service")
+			if err != nil || len(ips) == 0 {
+				log.Fatal().Msg("Failed to find service")
 			}
-
 			host = ips[0]
 		} else {
 			hostPorts, err := util.LookupSRV(service)
-			if err != nil {
-				cobra.CheckErr("Failed to find service")
+			if err != nil || len(hostPorts) == 0 {
+				log.Fatal().Msg("Failed to find service")
 			}
-
 			host = hostPorts[0].Host
 			port = hostPorts[0].Port
 		}
 
-		log.Info().Msgf("ssh: forwarding to %s (%s:%s)", args[0], host, port)
+		log.Info().Msgf("ssh: forwarding to %s (%s:%s)", service, host, port)
 
 		for {
 			remoteConn, err := net.Dial("tcp", net.JoinHostPort(host, port))
