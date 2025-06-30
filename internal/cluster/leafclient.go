@@ -12,8 +12,8 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/dns"
 	"github.com/paularlott/knot/internal/middleware"
-	"github.com/paularlott/knot/internal/util"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
@@ -107,7 +107,7 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 		cfg := config.GetServerConfig()
 		for {
 			// Lookup the origin server address and make the endpoint URL
-			wsUrl := strings.TrimSuffix(util.ResolveSRVHttp(originServer), "/")
+			wsUrl := strings.TrimSuffix(dns.ResolveSRVHttp(originServer), "/")
 			if strings.HasPrefix(wsUrl, "http") {
 				wsUrl = "ws" + strings.TrimPrefix(wsUrl, "http")
 			} else {

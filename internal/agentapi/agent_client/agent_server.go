@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/dns"
 	"github.com/paularlott/knot/internal/sshd"
 	"github.com/paularlott/knot/internal/util"
 
@@ -80,7 +81,7 @@ func (s *agentServer) ConnectAndServe() {
 			// If the server address starts srv+ then resolve the SRV record
 			serverAddr := s.address
 			if strings.HasPrefix(s.address, "srv+") {
-				hostIPs, err := util.LookupSRV(s.address[4:])
+				hostIPs, err := dns.LookupSRV(s.address[4:])
 				if err != nil || len(hostIPs) == 0 {
 					log.Error().Msgf("agent: resolving SRV record: %v", err)
 					time.Sleep(connectRetryDelay)

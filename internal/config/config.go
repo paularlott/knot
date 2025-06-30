@@ -2,7 +2,7 @@ package config
 
 import (
 	"github.com/paularlott/cli"
-	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/dns"
 	"github.com/rs/zerolog"
 )
 
@@ -158,5 +158,5 @@ func InitCommonConfig(cmd *cli.Command) {
 		zerolog.SetGlobalLevel(zerolog.WarnLevel)
 	}
 
-	util.UpdateResolverConfig(cmd.GetStringSlice("nameservers"))
+	dns.UpdateResolverConfig(cmd.GetStringSlice("nameservers"))
 }

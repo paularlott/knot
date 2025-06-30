@@ -1,4 +1,4 @@
-package util
+package dns
 
 import (
 	"context"
@@ -61,6 +61,11 @@ func (r *DNSResolver) UpdateConfig(nameservers []string) {
 
 	// Process nameservers
 	for _, ns := range nameservers {
+		ns = strings.TrimSpace(ns)
+		if ns == "" || strings.HasPrefix(ns, "#") {
+			continue // Skip empty lines and comments
+		}
+
 		if strings.Contains(ns, "/") {
 			// Domain-specific nameserver
 			parts := strings.SplitN(ns, "/", 2)
@@ -356,6 +361,12 @@ func (r *DNSResolver) ResolveSRVHttp(uri string) string {
 	return uri
 }
 
+// GetNameservers returns the nameservers to use for a given query
+// Returns nil if system resolver should be used
+func (r *DNSResolver) GetNameservers(name string) []string {
+	return r.getResolvers(name)
+}
+
 // Default global resolver instance
 var defaultResolver = NewDNSResolver([]string{})
 
@@ -374,4 +385,8 @@ func LookupIP(host string) ([]string, error) {
 
 func ResolveSRVHttp(uri string) string {
 	return defaultResolver.ResolveSRVHttp(uri)
+}
+
+func GetDefaultResolver() *DNSResolver {
+	return defaultResolver
 }

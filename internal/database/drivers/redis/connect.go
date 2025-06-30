@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/dns"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog/log"
@@ -50,7 +50,7 @@ func (db *RedisDbDriver) realConnect() {
 	for idx, host := range hosts {
 		if host[:4] == "srv+" {
 			for i := 0; i < 10; i++ {
-				hostPort, err := util.LookupSRV(host[4:])
+				hostPort, err := dns.LookupSRV(host[4:])
 				if err != nil {
 					if i == 9 {
 						log.Fatal().Err(err).Msg("db: failed to lookup SRV record for Redis server aborting after 10 attempts")
