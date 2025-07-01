@@ -524,6 +524,56 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var space *model.Space
+
+	user := r.Context().Value("user").(*model.User)
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
+	db := database.GetInstance()
+	cfg := config.GetServerConfig()
+
+	space, err = db.GetSpace(spaceId)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// If user doesn't have permission to manage spaces and not their space then fail
+	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
+		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		return
+	}
+
+	// If the space is not running or changing state then fail
+	if (!space.IsDeployed && !space.IsPending) || space.IsDeleting {
+		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be restarted"})
+		return
+	}
+
+	// If the space isn't on this server then fail
+	if space.Zone != "" && space.Zone != cfg.Zone {
+		rest.SendJSON(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
+		return
+	}
+
+	err = service.GetContainerService().RestartSpace(space)
+	if err != nil {
+		log.Error().Msgf("HandleSpaceRestart: %s", err.Error())
+		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	var user *model.User = nil
 	spaceId := r.PathValue("space_id")

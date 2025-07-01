@@ -10,6 +10,7 @@ type Container interface {
 	// Spaces
 	StartSpace(space *model.Space, template *model.Template, user *model.User) error
 	StopSpace(space *model.Space) error
+	RestartSpace(space *model.Space) error
 	DeleteSpace(space *model.Space)
 
 	// Helpers

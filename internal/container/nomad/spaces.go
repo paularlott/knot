@@ -164,12 +164,12 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	}
 
 	service.GetTransport().GossipSpace(space)
-	client.MonitorJobState(space)
+	client.MonitorJobState(space, nil)
 
 	return nil
 }
 
-func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
+func (client *NomadClient) DeleteSpaceJob(space *model.Space, onStopped func()) error {
 	log.Debug().Msgf("nomad: deleting space job %s, %s", space.Id, space.ContainerId)
 
 	_, err := client.DeleteJob(space.ContainerId, space.NomadNamespace)
@@ -190,12 +190,12 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space) error {
 	}
 
 	service.GetTransport().GossipSpace(space)
-	client.MonitorJobState(space)
+	client.MonitorJobState(space, onStopped)
 
 	return nil
 }
 
-func (client *NomadClient) MonitorJobState(space *model.Space) {
+func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 	go func() {
 		log.Info().Msgf("nomad: watching job %s status for change", space.ContainerId)
 
@@ -229,7 +229,7 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 			}
 
 			// Sleep for a bit
-			time.Sleep(2 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 		}
 
 		log.Info().Msgf("nomad: update space job %s status", space.ContainerId)
@@ -239,5 +239,9 @@ func (client *NomadClient) MonitorJobState(space *model.Space) {
 			log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
 		}
 		service.GetTransport().GossipSpace(space)
+
+		if onDone != nil {
+			onDone()
+		}
 	}()
 }

@@ -56,6 +56,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("GET /api/spaces/{space_id}", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleGetSpace)))
 	router.HandleFunc("POST /api/spaces/{space_id}/start", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStart)))
 	router.HandleFunc("POST /api/spaces/{space_id}/stop", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStop)))
+	router.HandleFunc("POST /api/spaces/{space_id}/restart", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceRestart)))
 	router.HandleFunc("POST /api/spaces/{user_id}/stop-for-user", middleware.ApiAuth(middleware.ApiPermissionUseSpaces(HandleSpaceStopUsersSpaces)))
 	router.HandleFunc("POST /api/spaces/{space_id}/transfer", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceTransfer)))
 	router.HandleFunc("POST /api/spaces/{space_id}/share", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceAddShare)))

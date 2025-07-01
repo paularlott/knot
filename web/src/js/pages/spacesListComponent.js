@@ -293,6 +293,23 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         self.getSpaces();
       });
     },
+    async restartSpace(spaceId) {
+      const self = this;
+      await fetch(`/api/spaces/${spaceId}/restart`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+          self.$dispatch('show-alert', { msg: "Space restarting", type: 'success' });
+        } else {
+          self.$dispatch('show-alert', { msg: "Space could not be restarted", type: 'error' });
+        }
+      }).catch((error) => {
+        self.$dispatch('show-alert', { msg: `Space could not be restarted: ${error}`, type: 'error' });
+      });
+    },
     async deleteSpace(spaceId) {
       const self = this;
       await fetch(`/api/spaces/${spaceId}`, {

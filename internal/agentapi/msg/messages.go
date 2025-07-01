@@ -27,6 +27,8 @@ const (
 	CmdCreateToken
 	CmdTunnelPort
 	CmdTunnelPortConnection
+	CmdSpaceStop
+	CmdSpaceRestart
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

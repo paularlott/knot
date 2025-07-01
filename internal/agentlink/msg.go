@@ -17,6 +17,8 @@ const (
 	CommandNil CommandType = iota
 	CommandConnect
 	CommandSpaceNote
+	CommandSpaceStop
+	CommandSpaceRestart
 )
 
 type CommandMsg struct {

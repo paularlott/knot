@@ -29,3 +29,25 @@ func SendSpaceNote(conn net.Conn, note string) error {
 
 	return nil
 }
+
+func SendSpaceStop(conn net.Conn) error {
+	// Write the state command
+	err := WriteCommand(conn, CmdSpaceStop)
+	if err != nil {
+		log.Error().Msgf("agent: writing stop command: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func SendSpaceRestart(conn net.Conn) error {
+	// Write the state command
+	err := WriteCommand(conn, CmdSpaceRestart)
+	if err != nil {
+		log.Error().Msgf("agent: writing restart command: %v", err)
+		return err
+	}
+
+	return nil
+}

@@ -145,6 +145,8 @@ var AgentCmd = &cli.Command{
 	},
 	Commands: []*cli.Command{
 		space.SpaceNoteCmd,
+		space.SpaceShutdownCmd,
+		space.SpaceRestartCmd,
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		cfg := buildAgentConfig(cmd)

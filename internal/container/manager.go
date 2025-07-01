@@ -7,7 +7,7 @@ import (
 type ContainerManager interface {
 	// space management
 	CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error
-	DeleteSpaceJob(space *model.Space) error
+	DeleteSpaceJob(space *model.Space, onStopped func()) error
 	CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error
 	DeleteSpaceVolumes(space *model.Space) error
 

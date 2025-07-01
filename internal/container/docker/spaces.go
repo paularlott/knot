@@ -288,7 +288,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	return nil
 }
 
-func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
+func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) error {
 	log.Debug().Msgf(c.DriverName+": deleting space job %s, %s", space.Id, space.ContainerId)
 
 	db := database.GetInstance()
@@ -331,6 +331,28 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 			}
 		}
 
+		// Wait for the container to be stopped (max 30s)
+		timeout := time.Now().Add(30 * time.Second)
+		for {
+			inspect, err := cli.ContainerInspect(context.Background(), space.ContainerId)
+			if err != nil {
+				if strings.Contains(err.Error(), "No such container") {
+					break // container is gone
+				}
+				log.Error().Msgf(c.DriverName+": inspecting container %s error %s", space.ContainerId, err)
+				return
+			}
+			if inspect.State != nil && !inspect.State.Running {
+				break
+			}
+			if time.Now().After(timeout) {
+				log.Error().Msgf(c.DriverName+": timeout waiting for container %s to stop", space.ContainerId)
+				return
+			}
+			log.Debug().Msgf(c.DriverName+": waiting for container %s to stop", space.ContainerId)
+			time.Sleep(500 * time.Millisecond)
+		}
+
 		// Remove the container
 		log.Debug().Msgf(c.DriverName+": removing container %s", space.ContainerId)
 		err = cli.ContainerRemove(context.Background(), space.ContainerId, container.RemoveOptions{})
@@ -351,6 +373,10 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space) error {
 		}
 
 		service.GetTransport().GossipSpace(space)
+
+		if onStopped != nil {
+			onStopped()
+		}
 	}()
 
 	return nil

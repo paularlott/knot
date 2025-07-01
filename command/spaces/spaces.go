@@ -45,6 +45,7 @@ var SpacesCmd = &cli.Command{
 		ListCmd,
 		StartCmd,
 		StopCmd,
+		RestartCmd,
 		CreateCmd,
 		DeleteCmd,
 		LogsCmd,

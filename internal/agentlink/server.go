@@ -93,5 +93,11 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandSpaceNote:
 		handleSpaceNote(conn, msg)
+
+	case CommandSpaceStop:
+		handleSpaceStop(conn, msg)
+
+	case CommandSpaceRestart:
+		handleSpaceRestart(conn, msg)
 	}
 }

@@ -1261,6 +1261,34 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
+  /api/spaces/{space_id}/restart:
+    post:
+      summary: Restart a Space
+      description: Restart the space.
+      operationId: restartSpace
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space to restart.
+      responses:
+        '200':
+          description: Successful operation
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '423':
+          $ref: '#/components/responses/locked'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
   /api/spaces/{user_id}/stop-for-user:
     post:
       summary: Stop Users Spaces

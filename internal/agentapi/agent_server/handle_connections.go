@@ -289,6 +289,34 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			tunnel_server.TunnelAgentPort(session.Id, reversePort.Port, stream)
 			return
 
+		case byte(msg.CmdSpaceStop):
+			// Load the space from the database
+			db := database.GetInstance()
+			space, err := db.GetSpace(session.Id)
+			if err != nil {
+				log.Error().Msgf("agent: unknown space: %s", session.Id)
+				return
+			}
+
+			service.GetContainerService().StopSpace(space)
+
+			// Single shot command so done
+			return
+
+		case byte(msg.CmdSpaceRestart):
+			// Load the space from the database
+			db := database.GetInstance()
+			space, err := db.GetSpace(session.Id)
+			if err != nil {
+				log.Error().Msgf("agent: unknown space: %s", session.Id)
+				return
+			}
+
+			service.GetContainerService().RestartSpace(space)
+
+			// Single shot command so done
+			return
+
 		default:
 			log.Error().Msgf("agent: unknown command from agent: %d", cmd)
 			return

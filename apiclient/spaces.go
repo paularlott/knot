@@ -139,6 +139,10 @@ func (c *ApiClient) StopSpace(ctx context.Context, spaceId string) (int, error) 
 	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/stop", nil, nil, 200)
 }
 
+func (c *ApiClient) RestartSpace(ctx context.Context, spaceId string) (int, error) {
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/restart", nil, nil, 200)
+}
+
 func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId string) (int, error) {
 	request := &SpaceTransferRequest{
 		UserId: userId,
