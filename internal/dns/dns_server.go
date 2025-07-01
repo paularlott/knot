@@ -301,9 +301,18 @@ func (s *DNSServer) addToCache(key string, records []DNSRecord) {
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
 
+	// Determine the minimum TTL among the records and CacheTTL
+	minTTL := s.config.CacheTTL
+	for _, rec := range records {
+		recTTL := rec.TTL
+		if recTTL > 0 && recTTL < minTTL {
+			minTTL = recTTL
+		}
+	}
+
 	s.cache[key] = &CacheEntry{
 		Records:   records,
-		ExpiresAt: time.Now().Add(time.Duration(s.config.CacheTTL) * time.Second),
+		ExpiresAt: time.Now().Add(time.Duration(minTTL) * time.Second),
 	}
 }
 
