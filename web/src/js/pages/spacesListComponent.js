@@ -71,6 +71,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     showLocalOnly:Alpine.$persist(true).as('spaceFilterLocalOnly').using(sessionStorage),
     showSharedOnly:Alpine.$persist(false).as('spaceFilterSharedOnly').using(sessionStorage),
     showSharedWithMeOnly:Alpine.$persist(false).as('spaceFilterSharedWithMeOnly').using(sessionStorage),
+    action: 'stop', // 'stop' or 'restart'
 
     async init() {
       if(this.canManageSpaces || this.canTransferSpaces || this.canShareSpaces) {
@@ -503,6 +504,17 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     },
     isLocalContainer(platform) {
       return platform === 'docker'
+    },
+    doAction(space_id) {
+      if (this.action === 'stop') {
+        this.stopSpace(space_id);
+      } else {
+        this.restartSpace(space_id);
+      }
+      this.is_pending = true;
+    },
+    setAction(act) {
+      this.action = act;
     }
   };
 }
