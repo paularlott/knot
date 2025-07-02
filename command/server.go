@@ -547,12 +547,12 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DNS_DEFAULT_TTL"},
 			DefaultValue: 300,
 		},
-		&cli.IntFlag{
-			Name:         "dns-cache-ttl",
-			Usage:        "Time in seconds to cache upstream DNS responses.",
-			ConfigPath:   []string{"server.dns.cache_ttl"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DNS_CACHE_TTL"},
-			DefaultValue: 60,
+		&cli.BoolFlag{
+			Name:         "dns-enable-upstream",
+			Usage:        "Enable resolution of unknown domains by passing to upstream DNS servers.",
+			ConfigPath:   []string{"server.dns.enable_upstream"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DNS_ENABLE_UPSTREAM"},
+			DefaultValue: false,
 		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
@@ -584,13 +584,24 @@ var ServerCmd = &cli.Command{
 
 		// Start the DNS server if enabled
 		if cmd.GetBool("dns-enabled") {
-			dnsServer, err := dns.NewDNSServer(dns.DNSServerConfig{
+			dnsServerCfg := dns.DNSServerConfig{
 				ListenAddr: cmd.GetString("dns-listen"),
 				Records:    cmd.GetStringSlice("dns-records"),
 				DefaultTTL: cmd.GetInt("dns-default-ttl"),
-				CacheTTL:   cmd.GetInt("dns-cache-ttl"),
-				Resolver:   dns.GetDefaultResolver(),
-			})
+			}
+
+			if cmd.GetBool("dns-enable-upstream") {
+				dnsServerCfg.Resolver = dns.GetDefaultResolver()
+
+				// Enable the resolver cache
+				dnsServerCfg.Resolver.SetConfig(dns.ResolverConfig{
+					QueryTimeout: 2 * time.Second,
+					EnableCache:  true,
+					MaxCacheTTL:  30,
+				})
+			}
+
+			dnsServer, err := dns.NewDNSServer(dnsServerCfg)
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to create DNS server")
 			}

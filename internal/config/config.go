@@ -158,5 +158,5 @@ func InitCommonConfig(cmd *cli.Command) {
 		zerolog.SetGlobalLevel(zerolog.WarnLevel)
 	}
 
-	dns.UpdateResolverConfig(cmd.GetStringSlice("nameservers"))
+	dns.UpdateNameservers(cmd.GetStringSlice("nameservers"))
 }
