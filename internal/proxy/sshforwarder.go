@@ -4,21 +4,18 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/paularlott/knot/internal/util"
 
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
 )
 
-func RunSSHForwarderViaAgent(proxyServerURL, space, token string, skipTLSVerify bool) {
-	log.Debug().Msgf("ssh: connecting to agent via server at: %s", proxyServerURL)
-	forwardSSH(fmt.Sprintf("%s/proxy/spaces/%s/ssh/", proxyServerURL, space), token, skipTLSVerify)
+func RunSSHForwarderViaAgent(proxyServerURL, space, token string, skipTLSVerify bool) error {
+	return forwardSSH(fmt.Sprintf("%s/proxy/spaces/%s/ssh/", proxyServerURL, space), token, skipTLSVerify)
 }
 
-func forwardSSH(dialURL, token string, skipTLSVerify bool) {
+func forwardSSH(dialURL, token string, skipTLSVerify bool) error {
 	// Include auth header if given
 	var header http.Header
 	if token != "" {
@@ -33,16 +30,16 @@ func forwardSSH(dialURL, token string, skipTLSVerify bool) {
 	dialer.HandshakeTimeout = 5 * time.Second
 	wsConn, response, err := dialer.Dial(dialURL, header)
 	if err != nil {
-
-		// If not autorized then tell user
-		if response != nil && response.StatusCode == http.StatusUnauthorized {
-			log.Fatal().Msgf("ssh: %s", response.Status)
-		} else {
-			log.Fatal().Msgf("ssh: error while dialing: %s", err.Error())
+		// If not authorized then tell user
+		if response != nil && (response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden) {
+			return fmt.Errorf("no permission to use SSH")
 		}
-		os.Exit(1)
+
+		return fmt.Errorf("ssh: error while connecting: %s", err.Error())
 	}
 
 	copier := util.NewCopier(nil, wsConn)
 	copier.Run()
+
+	return nil
 }

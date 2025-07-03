@@ -78,7 +78,9 @@ var LogsCmd = &cli.Command{
 		ws, response, err := dialer.Dial(wsUrl, header)
 		if err != nil {
 			if response != nil && response.StatusCode == http.StatusUnauthorized {
-				fmt.Println("failed to authenticate with server, check remote token")
+				return fmt.Errorf("failed to authenticate with server, check remote token")
+			} else if response != nil && response.StatusCode == http.StatusForbidden {
+				return fmt.Errorf("no permission to view logs")
 			}
 			return fmt.Errorf("Error connecting to websocket: %w", err)
 		}

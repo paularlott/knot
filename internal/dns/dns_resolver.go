@@ -480,7 +480,6 @@ func (r *DNSResolver) ClearCache() {
 	r.cacheMu.Lock()
 	defer r.cacheMu.Unlock()
 	r.cache = make(map[string]*CacheEntry)
-	log.Debug().Msg("dns: resolver cache cleared")
 }
 
 // startCacheCleanup starts a ticker to periodically clean expired cache entries
