@@ -21,6 +21,10 @@ func HandleSpacesCodeServerProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := r.Context().Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionUseCodeServer) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 
 	// Load the space
 	db := database.GetInstance()

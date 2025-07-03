@@ -23,6 +23,12 @@ const (
 	PermissionTransferSpaces         // Can Transfer Spaces
 	PermissionShareSpaces            // Can Share Spaces
 	PermissionClusterInfo            // Can View Cluster Info
+	PermissionUseVNC                 // Can use VNC
+	PermissionUseWebTerminal         // Can use the web terminal
+	PermissionUseSSH                 // Can use ssh connections
+	PermissionUseCodeServer          // Can use code-server
+	PermissionUseVSCodeTunnel        // Can use VSCode Tunnel
+	PermissionUseLogs                // Can use the log window
 )
 
 type PermissionName struct {
@@ -40,15 +46,21 @@ var PermissionNames = []PermissionName{
 	{PermissionManageRoles, "User Management", "Manage Roles"},
 	{PermissionManageUsers, "User Management", "Manage Users"},
 
-	{PermissionShareSpaces, "Resource Management", "Can Share Spaces"},
-	{PermissionTransferSpaces, "Resource Management", "Can Transfer Spaces"},
+	{PermissionShareSpaces, "Resource Management", "Share Spaces"},
+	{PermissionTransferSpaces, "Resource Management", "Transfer Spaces"},
 	{PermissionManageSpaces, "Resource Management", "Manage Spaces"},
 	{PermissionManageTemplates, "Resource Management", "Manage Templates"},
 	{PermissionManageVariables, "Resource Management", "Manage Variables"},
 	{PermissionManageVolumes, "Resource Management", "Manage Volumes"},
 
-	{PermissionUseSpaces, "Resource Usage", "Can Use Spaces"},
-	{PermissionUseTunnels, "Resource Usage", "Can Use Tunnels"},
+	{PermissionUseSpaces, "Resource Usage", "Use Spaces"},
+	{PermissionUseTunnels, "Resource Usage", "Use Tunnels"},
+	{PermissionUseCodeServer, "Resource Usage", "Use Code Server"},
+	{PermissionUseLogs, "Resource Usage", "View Logs"},
+	{PermissionUseSSH, "Resource Usage", "Use SSH"},
+	{PermissionUseVNC, "Resource Usage", "Use VNC"},
+	{PermissionUseVSCodeTunnel, "Resource Usage", "Use VSCode Tunnel"},
+	{PermissionUseWebTerminal, "Resource Usage", "Use Web Terminal"},
 }
 
 // Role
@@ -95,6 +107,11 @@ func SetRoleCache(roles []*Role) {
 			PermissionTransferSpaces,
 			PermissionShareSpaces,
 			PermissionClusterInfo,
+			PermissionUseVNC,
+			PermissionUseWebTerminal,
+			PermissionUseSSH,
+			PermissionUseCodeServer,
+			PermissionUseVSCodeTunnel,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: adminTime,

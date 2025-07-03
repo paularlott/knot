@@ -20,6 +20,12 @@ import (
 func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
+	// Check if the user has permission to view logs
+	if !user.HasPermission(model.PermissionUseLogs) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
 	spaceId := r.PathValue("space_id")
 	if !validate.UUID(spaceId) {
 		showPageNotFound(w, r)
@@ -69,6 +75,12 @@ func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 
 func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
+
+	// Check if the user has permission to view logs
+	if !user.HasPermission(model.PermissionUseLogs) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 
 	spaceId := r.PathValue("space_id")
 	if !validate.UUID(spaceId) {

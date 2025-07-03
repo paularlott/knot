@@ -17,6 +17,12 @@ func HandleSpacesSSHProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if the user has permission to use SSH
+	if !user.HasPermission(model.PermissionUseSSH) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
 	// Load the space
 	db := database.GetInstance()
 	space, err := db.GetSpaceByName(user.Id, spaceName)

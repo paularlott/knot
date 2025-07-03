@@ -99,7 +99,7 @@ func HandleSpacesWebPortProxy(w http.ResponseWriter, r *http.Request) {
 
 	// Get the space session
 	agentSession := agent_server.GetSession(space.Id)
-	if agentSession == nil || (domainParts[2] == "vnc" && agentSession.VNCHttpPort == 0) {
+	if agentSession == nil || (domainParts[2] == "vnc" && (agentSession.VNCHttpPort == 0 || !user.HasPermission(model.PermissionUseVNC))) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

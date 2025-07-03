@@ -227,7 +227,7 @@
         </div>
         {{ end }}
 
-        <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 xl:gap-4">
           <div class="col-span-1">
             <label class="form-label">Features</label>
             <label class="flex items-center cursor-pointer mb-2">
@@ -252,7 +252,7 @@
             </label>
           </div>
           {{ if not .isLeafNode }}
-          <div class="col-span-1" x-show="groups.length" x-cloak>
+          <div class="col-span-1 mt-4 lg:mt-0" x-show="groups.length" x-cloak>
             <label class="form-label">Restrict to Groups</label>
             <template x-for="(group, index) in groups" :key="index">
               <label class="flex items-center cursor-pointer mb-2">

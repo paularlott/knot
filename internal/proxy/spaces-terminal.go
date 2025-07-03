@@ -64,6 +64,11 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 	defer stream.Close()
 
 	if shell == "vscode-tunnel" {
+		if !user.HasPermission(model.PermissionUseVSCodeTunnel) {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
 		// Write the terminal command
 		err = msg.WriteCommand(stream, msg.CmdVSCodeTunnelTerminal)
 		if err != nil {
@@ -71,6 +76,11 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
+		if !user.HasPermission(model.PermissionUseWebTerminal) {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
 		// Write the terminal command
 		err = msg.WriteCommand(stream, msg.CmdTerminal)
 		if err != nil {

@@ -207,50 +207,60 @@
 
                       <!-- Services (mobile only) -->
                       <div x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}')" class="flex flex-wrap items-center gap-1 md:hidden" x-data>
+                        {{ if .permissionUseVNC }}
                         <!-- VNC -->
                         <div x-data x-show="s.has_http_vnc" x-cloak>
-                          <button @click="openWindowForVNC(s.username, s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                          <button @click="openWindowForVNC(s.username, s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" /></svg>
                             <span class="sr-only">Desktop</span>
                           </button>
                           <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Desktop</div>
                         </div>
+                        {{ end }}
                         <!-- Code Server -->
+                        {{ if .permissionUseCodeServer }}
                         <div x-data x-show="s.has_code_server" x-cloak>
-                          <button @click="openCodeServer(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                          <button @click="openCodeServer(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
                             <span class="sr-only">Code Server</span>
                           </button>
                           <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Code Server</div>
                         </div>
+                        {{ end }}
                         <!-- VSCode Tunnel Connect -->
+                        {{ if .permissionUseVSCodeTunnel }}
                         <div x-data x-show="s.has_vscode_tunnel && !s.vscode_tunnel_name.length" x-cloak>
-                          <button @click="openTerminalTunnel(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                          <button @click="openTerminalTunnel(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-red-500 dark:text-red-400"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
                             <span class="sr-only">Connect VSCode Tunnel</span>
                           </button>
                           <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Connect VSCode Tunnel</div>
                         </div>
+                        {{ end }}
                         <!-- VSCode Tunnel Open -->
+                        {{ if .permissionUseVSCodeTunnel }}
                         <div x-data x-show="s.has_vscode_tunnel && s.vscode_tunnel_name.length" x-cloak>
-                          <button @click="openVSCodeDev(s.vscode_tunnel_name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                          <button @click="openVSCodeDev(s.vscode_tunnel_name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
                             <span class="sr-only">VSCode</span>
                           </button>
                           <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>VSCode</div>
                         </div>
+                        {{ end }}
                         <!-- Terminal -->
+                        {{ if .permissionUseWebTerminal }}
                         <div x-data x-show="s.has_terminal" x-cloak>
-                          <button @click="openTerminal(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                          <button @click="openTerminal(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
                             <span class="sr-only">Terminal</span>
                           </button>
                           <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Terminal</div>
                         </div>
+                        {{ end }}
                         <!-- Single HTTP Port -->
                         <template x-if="(!s.tcp_ports || !Object.entries(s.tcp_ports).length) && (s.http_ports && Object.entries(s.http_ports).length == 1)">
                           <div x-data>
-                            <button @click="openWindowForPort(s.username, s.space_id, s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                            <button @click="openWindowForPort(s.username, s.space_id, s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" /></svg>
                               <span class="sr-only" x-text="Object.entries(s.http_ports)[0][1]"></span>
                             </button>
@@ -260,7 +270,7 @@
                         <!-- Multiple Ports Dropdown -->
                         <template x-if="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length > 1)">
                           <div x-data x-show="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length)" x-cloak>
-                            <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
+                            <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
                               </svg><span class="sr-only">Ports</span>
@@ -280,13 +290,15 @@
                         </div>
 
                         <!-- Logs -->
+                        {{ if .permissionUseLogs }}
                         <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}') && s.has_state">
-                          <button @click="openLogWindow(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                          <button @click="openLogWindow(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.046.83-1.867 1.866-2.013A24.204 24.204 0 0 1 12 12.75Zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 0 1-1.152 6.06M12 12.75c-2.883 0-5.647.508-8.208 1.44.125 2.104.52 4.136 1.153 6.06M12 12.75a2.25 2.25 0 0 0 2.248-2.354M12 12.75a2.25 2.25 0 0 1-2.248-2.354M12 8.25c.995 0 1.971-.08 2.922-.236.403-.066.74-.358.795-.762a3.778 3.778 0 0 0-.399-2.25M12 8.25c-.995 0-1.97-.08-2.922-.236-.402-.066-.74-.358-.795-.762a3.734 3.734 0 0 1 .4-2.253M12 8.25a2.25 2.25 0 0 0-2.248 2.146M12 8.25a2.25 2.25 0 0 1 2.248 2.146M8.683 5a6.032 6.032 0 0 1-1.155-1.002c.07-.63.27-1.222.574-1.747m.581 2.749A3.75 3.75 0 0 1 15.318 5m0 0c.427-.283.815-.62 1.155-.999a4.471 4.471 0 0 0-.575-1.752M4.921 6a24.048 24.048 0 0 0-.392 3.314c1.668.546 3.416.914 5.223 1.082M19.08 6c.205 1.08.337 2.187.392 3.314a23.882 23.882 0 0 1-5.223 1.082" /></svg>
                             <span class="sr-only">Logs</span>
                           </button>
                           <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Logs</div>
                         </div>
+                        {{ end }}
                       </div>
                     </div>
                   </div>
@@ -296,49 +308,59 @@
                 <td class="px-4 py-3 hidden md:table-cell">
                   <div x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}')" class="flex flex-nowrap items-center gap-1" x-data>
                     <!-- VNC -->
+                    {{ if .permissionUseVNC }}
                     <div x-data x-show="s.has_http_vnc" x-cloak>
-                      <button @click="openWindowForVNC(s.username, s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                      <button @click="openWindowForVNC(s.username, s.space_id, s.name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" /></svg>
                         <span class="sr-only">Desktop</span>
                       </button>
                       <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Desktop</div>
                     </div>
+                    {{ end }}
                     <!-- Code Server -->
+                    {{ if .permissionUseCodeServer }}
                     <div x-data x-show="s.has_code_server" x-cloak>
-                      <button @click="openCodeServer(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                      <button @click="openCodeServer(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
                         <span class="sr-only">Code Server</span>
                       </button>
                       <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Code Server</div>
                     </div>
+                    {{ end }}
                     <!-- VSCode Tunnel Connect -->
+                    {{ if .permissionUseVSCodeTunnel }}
                     <div x-data x-show="s.has_vscode_tunnel && !s.vscode_tunnel_name.length" x-cloak>
-                      <button @click="openTerminalTunnel(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                      <button @click="openTerminalTunnel(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-red-500 dark:text-red-400"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
                         <span class="sr-only">Connect VSCode Tunnel</span>
                       </button>
                       <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Connect VSCode Tunnel</div>
                     </div>
+                    {{ end }}
                     <!-- VSCode Tunnel Open -->
+                    {{ if .permissionUseVSCodeTunnel }}
                     <div x-data x-show="s.has_vscode_tunnel && s.vscode_tunnel_name.length" x-cloak>
-                      <button @click="openVSCodeDev(s.vscode_tunnel_name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                      <button @click="openVSCodeDev(s.vscode_tunnel_name)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" /></svg>
                         <span class="sr-only">VSCode</span>
                       </button>
                       <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>VSCode</div>
                     </div>
+                    {{ end }}
                     <!-- Terminal -->
+                    {{ if .permissionUseWebTerminal }}
                     <div x-data x-show="s.has_terminal" x-cloak>
-                      <button @click="openTerminal(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                      <button @click="openTerminal(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>
                         <span class="sr-only">Terminal</span>
                       </button>
                       <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Terminal</div>
                     </div>
+                    {{ end }}
                     <!-- Single HTTP Port -->
                     <template x-if="(!s.tcp_ports || !Object.entries(s.tcp_ports).length) && (s.http_ports && Object.entries(s.http_ports).length == 1)">
                       <div x-data>
-                        <button @click="openWindowForPort(s.username, s.space_id, s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                        <button @click="openWindowForPort(s.username, s.space_id, s.name, Object.entries(s.http_ports)[0][0])" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" /></svg>
                           <span class="sr-only" x-text="Object.entries(s.http_ports)[0][1]"></span>
                         </button>
@@ -348,7 +370,7 @@
                     <!-- Multiple Ports Dropdown -->
                     <template x-if="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length > 1)">
                       <div x-data x-show="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length)" x-cloak>
-                        <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
+                        <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
                           </svg><span class="sr-only">Ports</span>
@@ -368,13 +390,15 @@
                     </div>
 
                     <!-- Logs -->
+                    {{ if .permissionUseLogs }}
                     <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}') && s.has_state">
-                      <button @click="openLogWindow(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
+                      <button @click="openLogWindow(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.046.83-1.867 1.866-2.013A24.204 24.204 0 0 1 12 12.75Zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 0 1-1.152 6.06M12 12.75c-2.883 0-5.647.508-8.208 1.44.125 2.104.52 4.136 1.153 6.06M12 12.75a2.25 2.25 0 0 0 2.248-2.354M12 12.75a2.25 2.25 0 0 1-2.248-2.354M12 8.25c.995 0 1.971-.08 2.922-.236.403-.066.74-.358.795-.762a3.778 3.778 0 0 0-.399-2.25M12 8.25c-.995 0-1.97-.08-2.922-.236-.402-.066-.74-.358-.795-.762a3.734 3.734 0 0 1 .4-2.253M12 8.25a2.25 2.25 0 0 0-2.248 2.146M12 8.25a2.25 2.25 0 0 1 2.248 2.146M8.683 5a6.032 6.032 0 0 1-1.155-1.002c.07-.63.27-1.222.574-1.747m.581 2.749A3.75 3.75 0 0 1 15.318 5m0 0c.427-.283.815-.62 1.155-.999a4.471 4.471 0 0 0-.575-1.752M4.921 6a24.048 24.048 0 0 0-.392 3.314c1.668.546 3.416.914 5.223 1.082M19.08 6c.205 1.08.337 2.187.392 3.314a23.882 23.882 0 0 1-5.223 1.082" /></svg>
                         <span class="sr-only">Logs</span>
                       </button>
                       <div x-ref="tooltip" x-float.placement.bottom.flip class="absolute z-50 my-1 px-2 py-1 text-xs text-white bg-gray-600 dark:bg-gray-900 rounded shadow-xs" role="tooltip" x-cloak>Logs</div>
                     </div>
+                    {{ end }}
                   </div>
                 </td>
 
@@ -439,11 +463,13 @@
                         </svg> Start
                       </button>
 
+                      {{ if .permissionUseVSCodeTunnel }}
                       <button x-show="s.user_id == forUserId && s.is_local && s.is_deployed && !s.is_pending && s.user_id == '{{ .user_id }}' && s.has_vscode_tunnel && s.vscode_tunnel_name.length" @click="$refs.panel.close; openTerminalTunnel(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                           <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
                         </svg> VSCode Tunnel
                       </button>
+                      {{ end }}
 
                       <button x-show="s.user_id == forUserId && s.is_local && !s.is_pending" @click="$refs.panel.close; editSpace(s.space_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
@@ -451,11 +477,13 @@
                         </svg> Edit
                       </button>
 
+                      {{ if .permissionUseSSH }}
                       <button x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}') && s.has_ssh" @click="$refs.panel2.toggle" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
                           <path fill-rule="evenodd" d="M2.25 6a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V6Zm3.97.97a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 0 1 0-1.06Zm4.28 4.28a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clip-rule="evenodd" />
                         </svg> SSH Info
                       </button>
+                      {{ end }}
 
                       {{ if and .permissionShareSpaces (not .isLeafNode) }}
                       <button x-cloak x-show="s.shared_user_id == '' && s.is_local" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">

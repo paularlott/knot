@@ -108,5 +108,13 @@ window.userRolesForm = function(isEdit, roleId) {
           this.loading = false;
         })
     },
+    toggleSelectAllPermissions(event) {
+      const isChecked = event.target.checked;
+      this.formData.permissions = isChecked
+        ? Object.keys(this.groupedPermissions)
+            .flatMap(group => this.groupedPermissions[group])
+            .map(perm => perm.id) // or perm.name, depending on your backend
+        : [];
+    }
   }
 }
