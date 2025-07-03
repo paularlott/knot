@@ -499,7 +499,7 @@
                       </button>
 
                       <hr x-show="(s.is_deployed || s.is_pending) && s.platform != 'manual'" class="my-2" />
-                      <div x-data x-show="(s.is_deployed || s.is_pending) && s.platform != 'manual'" x-cloak class="relative inline-flex">
+                      <div x-data x-show="(s.is_deployed || s.is_pending) && s.platform != 'manual'" x-cloak class="relative inline-flex w-full">
                         <!-- Main button -->
                         <button
                           @click="$refs.panel.close; doAction(s.space_id)"
@@ -534,7 +534,7 @@
                           :class="action === 'stop'
                             ? 'bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700 border-white'
                             : 'bg-yellow-700 hover:bg-yellow-800 dark:bg-yellow-600 dark:hover:bg-yellow-700'"
-                          class="flex items-center p-2 text-gray-900 dark:text-gray-200 border-none my-1 cursor-pointer text-sm w-full text-white focus:z-10 rounded-r-lg ml-[1px]"
+                            class="shrink-0 grow-0 flex items-center p-2 text-gray-900 dark:text-gray-200 border-none my-1 cursor-pointer text-sm text-white focus:z-10 rounded-r-lg ml-[1px] "
                           type="button"
                           aria-label="More actions"
                         >
