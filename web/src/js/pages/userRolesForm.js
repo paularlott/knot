@@ -13,7 +13,7 @@ window.userRolesForm = function(isEdit, roleId) {
     nameValid: true,
     isEdit,
     stayOnPage: true,
-    permissions: [],
+    groupedPermissions: {},
 
     async initData() {
       focus.Element('input[name="name"]');
@@ -24,7 +24,16 @@ window.userRolesForm = function(isEdit, roleId) {
           'Content-Type': 'application/json'
         }
       });
-      this.permissions = await response.json();
+      const permissionsList = await response.json();
+
+      // Group permissions by 'Group' property
+      this.groupedPermissions = {};
+      permissionsList.permissions.forEach(perm => {
+        if (!this.groupedPermissions[perm.group]) {
+          this.groupedPermissions[perm.group] = [];
+        }
+        this.groupedPermissions[perm.group].push(perm);
+      });
 
       if(isEdit) {
         const roleResponse = await fetch(`/api/roles/${roleId}`, {

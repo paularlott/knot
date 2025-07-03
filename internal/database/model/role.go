@@ -26,24 +26,29 @@ const (
 )
 
 type PermissionName struct {
-	Id   int    `json:"id"`
-	Name string `json:"name"`
+	Id    int    `json:"id"`
+	Group string `json:"group"`
+	Name  string `json:"name"`
 }
 
 var PermissionNames = []PermissionName{
-	{PermissionUseTunnels, "Can Use Tunnels"},
-	{PermissionManageSpaces, "Manage Spaces"},
-	{PermissionUseSpaces, "Can Use Spaces"},
-	{PermissionTransferSpaces, "Can Transfer Spaces"},
-	{PermissionShareSpaces, "Can Share Spaces"},
-	{PermissionManageTemplates, "Manage Templates"},
-	{PermissionManageVariables, "Manage Variables"},
-	{PermissionManageVolumes, "Manage Volumes"},
-	{PermissionManageGroups, "Manage Groups"},
-	{PermissionManageRoles, "Manage Roles"},
-	{PermissionManageUsers, "Manage Users"},
-	{PermissionViewAuditLogs, "View Audit Logs"},
-	{PermissionClusterInfo, "View Cluster Info"},
+	{PermissionViewAuditLogs, "Audit", "View Audit Logs"},
+
+	{PermissionClusterInfo, "System", "View Cluster Info"},
+
+	{PermissionManageGroups, "User Management", "Manage Groups"},
+	{PermissionManageRoles, "User Management", "Manage Roles"},
+	{PermissionManageUsers, "User Management", "Manage Users"},
+
+	{PermissionShareSpaces, "Resource Management", "Can Share Spaces"},
+	{PermissionTransferSpaces, "Resource Management", "Can Transfer Spaces"},
+	{PermissionManageSpaces, "Resource Management", "Manage Spaces"},
+	{PermissionManageTemplates, "Resource Management", "Manage Templates"},
+	{PermissionManageVariables, "Resource Management", "Manage Variables"},
+	{PermissionManageVolumes, "Resource Management", "Manage Volumes"},
+
+	{PermissionUseSpaces, "Resource Usage", "Can Use Spaces"},
+	{PermissionUseTunnels, "Resource Usage", "Can Use Tunnels"},
 }
 
 // Role

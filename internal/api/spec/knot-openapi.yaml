@@ -1926,6 +1926,9 @@ components:
         name:
           type: string
           description: The name of the permission.
+        group:
+          type: string
+          description: The group of the permission.
 
     PermissionInfoList:
       type: object
