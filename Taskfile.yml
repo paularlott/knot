@@ -40,6 +40,37 @@ tasks:
     generates:
       - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}'
 
+  knot-dns:
+    desc: Build the knot-dns binary for all platforms
+    cmds:
+      - task: build-knot-dns-platform
+        vars: { PLATFORM: '{{.ITEM}}' }
+        for:
+          var: 'PLATFORMS'
+    sources:
+      - ./**/*.go
+      - go.mod
+      - go.sum
+      - legal/license.txt
+      - legal/notice.txt
+      - web/**/*
+    generates:
+      - '{{.OUTPUT_DIR}}/knot-dns_{{.PLATFORMS}}'
+
+  build-knot-dns-platform:
+    internal: true
+    label: "Building for {{.PLATFORM}}"
+    vars:
+      GOOS: '{{splitList "/" .PLATFORM | first}}'
+      GOARCH: '{{splitList "/" .PLATFORM | last}}'
+      EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
+      OUTPUT_FILE: '{{.OUTPUT_DIR}}/knot-dns_{{.GOOS}}_{{.GOARCH}}{{.EXT}}'
+    env:
+      GOOS: '{{.GOOS}}'
+      GOARCH: '{{.GOARCH}}'
+    cmds:
+      - go build {{$.BUILD_FLAGS}} -o {{.OUTPUT_FILE}} ./dns-server
+
   all:
     desc: Build the binary for all platforms
     deps: [agents, legal, apidocs, webassets]

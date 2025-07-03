@@ -818,7 +818,6 @@ var ServerCmd = &cli.Command{
 		server.Shutdown(ctx)
 		fmt.Print("\r")
 		log.Info().Msg("server: shutdown")
-		os.Exit(0)
 		return nil
 	},
 }
