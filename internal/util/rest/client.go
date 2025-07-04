@@ -65,6 +65,10 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClie
 	return restClient, nil
 }
 
+func (c *RESTClient) Close() {
+	c.HTTPClient.CloseIdleConnections()
+}
+
 func (c *RESTClient) SetContentType(contentType string) *RESTClient {
 	c.contentType = contentType
 	return c
