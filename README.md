@@ -29,6 +29,7 @@ Knot is a powerful tool to manage Cloud Development Environment within a Nomad c
 - **Sharing:** Spaces can be shared with other users allowing SSH and terminal access.
 - **Logging:** Syslog compatible interface allows logging and display within a window.
 - **Tunneling:** Securely expose development environments to the internet when required.
+- **Local Services** Securely connect to services on your local machine from within a space.
 - **API:** Provides an API for integration with other systems.
 
 ## API Versioning
