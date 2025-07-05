@@ -3,11 +3,11 @@ package commands_admin
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/internal/database"
 
 	"github.com/paularlott/cli"
+	"github.com/paularlott/gossip/hlc"
 )
 
 var ResetTOTPCmd = &cli.Command{
@@ -40,7 +40,7 @@ var ResetTOTPCmd = &cli.Command{
 
 		// Clear TOTP
 		user.TOTPSecret = ""
-		user.UpdatedAt = time.Now().UTC()
+		user.UpdatedAt = hlc.Now()
 
 		// Save the user
 		err = db.SaveUser(user, []string{"TOTPSecret", "UpdatedAt"})

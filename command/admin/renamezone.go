@@ -3,11 +3,11 @@ package commands_admin
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/internal/database"
 
 	"github.com/paularlott/cli"
+	"github.com/paularlott/gossip/hlc"
 )
 
 var RenameZoneCmd = &cli.Command{
@@ -61,7 +61,7 @@ The zone name is updated within the database however spaces and volumes are not 
 			fmt.Print("Checking Volume: ", volume.Name)
 			if volume.Zone == oldZone {
 				volume.Zone = newZone
-				volume.UpdatedAt = time.Now().UTC()
+				volume.UpdatedAt = hlc.Now()
 				err := db.SaveVolume(volume, []string{"Zone", "UpdatedAt"})
 				if err != nil {
 					fmt.Println("Error updating volume: ", err)
@@ -85,7 +85,7 @@ The zone name is updated within the database however spaces and volumes are not 
 			fmt.Print("Checking Space: ", space.Name)
 			if space.Zone == oldZone {
 				space.Zone = newZone
-				space.UpdatedAt = time.Now().UTC()
+				space.UpdatedAt = hlc.Now()
 				err := db.SaveSpace(space, []string{"Zone", "UpdatedAt"})
 				if err != nil {
 					fmt.Println("Error updating space: ", err)

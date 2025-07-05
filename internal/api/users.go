@@ -3,8 +3,8 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
@@ -176,7 +176,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		Current:         activeUser != nil && user.Id == activeUser.Id,
 		LastLoginAt:     nil,
 		CreatedAt:       user.CreatedAt.UTC(),
-		UpdatedAt:       user.UpdatedAt.UTC(),
+		UpdatedAt:       user.UpdatedAt.Time().UTC(),
 	}
 
 	if user.LastLoginAt != nil {
@@ -210,7 +210,7 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		Current:         true,
 		LastLoginAt:     nil,
 		CreatedAt:       user.CreatedAt.UTC(),
-		UpdatedAt:       user.UpdatedAt.UTC(),
+		UpdatedAt:       user.UpdatedAt.Time().UTC(),
 	}
 
 	if user.LastLoginAt != nil {
@@ -410,7 +410,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.MaxTunnels = request.MaxTunnels
 	}
 
-	user.UpdatedAt = time.Now().UTC()
+	user.UpdatedAt = hlc.Now()
 	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
 
 	if request.ServicePassword != "" {
@@ -448,7 +448,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Save
-	user.UpdatedAt = time.Now().UTC()
+	user.UpdatedAt = hlc.Now()
 	err = db.SaveUser(user, saveFields)
 	if err != nil {
 		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})

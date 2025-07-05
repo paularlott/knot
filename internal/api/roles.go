@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -77,7 +77,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	role.Name = request.Name
 	role.Permissions = request.Permissions
 	role.UpdatedUserId = user.Id
-	role.UpdatedAt = time.Now().UTC()
+	role.UpdatedAt = hlc.Now()
 
 	err = db.SaveRole(role)
 	if err != nil {
@@ -175,7 +175,7 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
 	// Delete the role
-	role.UpdatedAt = time.Now().UTC()
+	role.UpdatedAt = hlc.Now()
 	role.UpdatedUserId = user.Id
 	role.IsDeleted = true
 	err = db.SaveRole(role)

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
@@ -208,7 +208,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 
 	// Mark the space as deleting and delete it in the background
 	space.IsDeleting = true
-	space.UpdatedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 	db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 	service.GetTransport().GossipSpace(space)
 
@@ -654,7 +654,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.TemplateId = request.TemplateId
 	space.Shell = request.Shell
 	space.AltNames = request.AltNames
-	space.UpdatedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 	space.IconURL = request.IconURL
 	space.CustomFields = customFields
 
@@ -932,7 +932,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		// Move the space
 		space.Name = name
 		space.UserId = request.UserId
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		err = db.SaveSpace(space, []string{"Name", "UserId", "UpdatedAt"})
 		if err != nil {
 			log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
@@ -1038,7 +1038,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 
 	// Share the space
 	space.SharedWithUserId = newUser.Id
-	space.UpdatedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
 	if err != nil {
 		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
@@ -1108,7 +1108,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 
 	// Unshare the space
 	space.SharedWithUserId = ""
-	space.UpdatedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
 	if err != nil {
 		log.Error().Msgf("HandleSpaceRemoveShare: %s", err.Error())

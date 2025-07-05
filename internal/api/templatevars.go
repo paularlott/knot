@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -96,7 +96,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	templateVar.Protected = request.Protected
 	templateVar.Restricted = request.Restricted
 	templateVar.UpdatedUserId = user.Id
-	templateVar.UpdatedAt = time.Now().UTC()
+	templateVar.UpdatedAt = hlc.Now()
 
 	err = db.SaveTemplateVar(templateVar)
 	if err != nil {
@@ -224,7 +224,7 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the template variable
 	templateVar.IsDeleted = true
-	templateVar.UpdatedAt = time.Now().UTC()
+	templateVar.UpdatedAt = hlc.Now()
 	templateVar.UpdatedUserId = user.Id
 	err = db.SaveTemplateVar(templateVar)
 	if err != nil {

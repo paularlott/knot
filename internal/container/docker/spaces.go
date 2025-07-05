@@ -21,6 +21,7 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/paularlott/gossip/hlc"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
@@ -174,7 +175,6 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	}
 
 	// Record deploying
-	now := time.Now().UTC()
 	db := database.GetInstance()
 	cfg := config.GetServerConfig()
 	space.IsPending = true
@@ -182,8 +182,8 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 	space.IsDeleting = false
 	space.TemplateHash = template.Hash
 	space.Zone = cfg.Zone
-	space.StartedAt = now
-	space.UpdatedAt = now
+	space.StartedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Zone", "UpdatedAt", "StartedAt"})
 	if err != nil {
 		log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
@@ -198,7 +198,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		// Clean up on exit
 		defer func() {
 			space.IsPending = false
-			space.UpdatedAt = time.Now().UTC()
+			space.UpdatedAt = hlc.Now()
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 				log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
 			}
@@ -276,7 +276,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		space.ContainerId = resp.ID
 		space.IsPending = false
 		space.IsDeployed = true
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		err = db.SaveSpace(space, []string{"ContainerId", "IsPending", "IsDeployed", "UpdatedAt"})
 		if err != nil {
 			log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
@@ -294,7 +294,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 	db := database.GetInstance()
 
 	space.IsPending = true
-	space.UpdatedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 	err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
 	if err != nil {
 		return err
@@ -307,7 +307,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 		// Clean up on exit
 		defer func() {
 			space.IsPending = false
-			space.UpdatedAt = time.Now().UTC()
+			space.UpdatedAt = hlc.Now()
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 				log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
 			}
@@ -365,7 +365,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 
 		space.IsPending = false
 		space.IsDeployed = false
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		err = db.SaveSpace(space, []string{"IsPending", "IsDeployed", "UpdatedAt"})
 		if err != nil {
 			log.Error().Msgf(c.DriverName+": deleting space job %s error %s", space.Id, err)
@@ -411,7 +411,7 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 	db := database.GetInstance()
 
 	defer func() {
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
 	}()
@@ -472,7 +472,7 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 	}
 
 	defer func() {
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
 	}()

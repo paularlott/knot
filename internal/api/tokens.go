@@ -3,8 +3,8 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -59,7 +59,7 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the token
 	token.IsDeleted = true
-	token.UpdatedAt = time.Now().UTC()
+	token.UpdatedAt = hlc.Now()
 	err = db.SaveToken(token)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})

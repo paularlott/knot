@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
@@ -94,7 +94,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 	volume.Definition = request.Definition
 	volume.UpdatedUserId = user.Id
 	volume.Platform = request.Platform
-	volume.UpdatedAt = time.Now().UTC()
+	volume.UpdatedAt = hlc.Now()
 
 	err = db.SaveVolume(volume, []string{"Name", "Definition", "UpdatedUserId", "Platform", "UpdatedAt"})
 	if err != nil {
@@ -199,7 +199,7 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the volume
 	volume.IsDeleted = true
-	volume.UpdatedAt = time.Now().UTC()
+	volume.UpdatedAt = hlc.Now()
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
 	err = db.SaveVolume(volume, []string{"IsDeleted", "UpdatedAt", "UpdatedUserId"})
 	if err != nil {
@@ -300,7 +300,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 
 	volume.Zone = cfg.Zone
 	volume.Active = true
-	volume.UpdatedAt = time.Now().UTC()
+	volume.UpdatedAt = hlc.Now()
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
 	db.SaveVolume(volume, []string{"Active", "Zone", "UpdatedAt", "UpdatedUserId"})
 	service.GetTransport().GossipVolume(volume)
@@ -352,7 +352,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 
 	volume.Zone = ""
 	volume.Active = false
-	volume.UpdatedAt = time.Now().UTC()
+	volume.UpdatedAt = hlc.Now()
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
 	db.SaveVolume(volume, []string{"Active", "Zone", "UpdatedAt", "UpdatedUserId"})
 	service.GetTransport().GossipVolume(volume)

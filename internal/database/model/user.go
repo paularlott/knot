@@ -5,33 +5,34 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/paularlott/gossip/hlc"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // User object
 type User struct {
-	Id              string     `json:"user_id" db:"user_id,pk" msgpack:"user_id"`
-	Username        string     `json:"username" db:"username" msgpack:"username"`
-	Email           string     `json:"email" db:"email" msgpack:"email"`
-	Password        string     `json:"password" db:"password" msgpack:"password"`
-	TOTPSecret      string     `json:"totp_secret" db:"totp_secret" msgpack:"totp_secret"`
-	ServicePassword string     `json:"service_password" db:"service_password" msgpack:"service_password"`
-	SSHPublicKey    string     `json:"ssh_public_key" db:"ssh_public_key" msgpack:"ssh_public_key"`
-	GitHubUsername  string     `json:"github_username" db:"github_username" msgpack:"github_username"`
-	Roles           []string   `json:"roles" db:"roles,json" msgpack:"roles"`
-	Groups          []string   `json:"groups" db:"groups,json" msgpack:"groups"`
-	Active          bool       `json:"active" db:"active" msgpack:"active"`
-	IsDeleted       bool       `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
-	MaxSpaces       uint32     `json:"max_spaces" db:"max_spaces" msgpack:"max_spaces"`
-	ComputeUnits    uint32     `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
-	StorageUnits    uint32     `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
-	MaxTunnels      uint32     `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
-	PreferredShell  string     `json:"preferred_shell" db:"preferred_shell" msgpack:"preferred_shell"`
-	Timezone        string     `json:"timezone" db:"timezone" msgpack:"timezone"`
-	LastLoginAt     *time.Time `json:"last_login_at" db:"last_login_at" msgpack:"last_login_at"`
-	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
-	CreatedAt       time.Time  `json:"created_at" db:"created_at" msgpack:"created_at"`
+	Id              string        `json:"user_id" db:"user_id,pk" msgpack:"user_id"`
+	Username        string        `json:"username" db:"username" msgpack:"username"`
+	Email           string        `json:"email" db:"email" msgpack:"email"`
+	Password        string        `json:"password" db:"password" msgpack:"password"`
+	TOTPSecret      string        `json:"totp_secret" db:"totp_secret" msgpack:"totp_secret"`
+	ServicePassword string        `json:"service_password" db:"service_password" msgpack:"service_password"`
+	SSHPublicKey    string        `json:"ssh_public_key" db:"ssh_public_key" msgpack:"ssh_public_key"`
+	GitHubUsername  string        `json:"github_username" db:"github_username" msgpack:"github_username"`
+	Roles           []string      `json:"roles" db:"roles,json" msgpack:"roles"`
+	Groups          []string      `json:"groups" db:"groups,json" msgpack:"groups"`
+	Active          bool          `json:"active" db:"active" msgpack:"active"`
+	IsDeleted       bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	MaxSpaces       uint32        `json:"max_spaces" db:"max_spaces" msgpack:"max_spaces"`
+	ComputeUnits    uint32        `json:"compute_units" db:"compute_units" msgpack:"compute_units"`
+	StorageUnits    uint32        `json:"storage_units" db:"storage_units" msgpack:"storage_units"`
+	MaxTunnels      uint32        `json:"max_tunnels" db:"max_tunnels" msgpack:"max_tunnels"`
+	PreferredShell  string        `json:"preferred_shell" db:"preferred_shell" msgpack:"preferred_shell"`
+	Timezone        string        `json:"timezone" db:"timezone" msgpack:"timezone"`
+	LastLoginAt     *time.Time    `json:"last_login_at" db:"last_login_at" msgpack:"last_login_at"`
+	UpdatedAt       hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	CreatedAt       time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
 }
 
 type Usage struct {
@@ -55,8 +56,6 @@ func NewUser(username string, email string, password string, roles []string, gro
 		log.Fatal().Msg(err.Error())
 	}
 
-	now := time.Now().UTC()
-
 	user := &User{
 		Id:              id.String(),
 		Username:        username,
@@ -73,8 +72,8 @@ func NewUser(username string, email string, password string, roles []string, gro
 		StorageUnits:    storageUnits,
 		MaxTunnels:      maxTunnels,
 		ServicePassword: generateRandomString(16),
-		UpdatedAt:       now,
-		CreatedAt:       now,
+		UpdatedAt:       hlc.Now(),
+		CreatedAt:       time.Now().UTC(),
 	}
 
 	user.SetPassword(password)

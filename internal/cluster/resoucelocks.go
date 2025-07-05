@@ -5,13 +5,14 @@ import (
 	"time"
 
 	"github.com/paularlott/gossip"
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/rs/zerolog/log"
 )
 
 const (
-	ResourceLockTTL        = 3 * time.Minute
+	ResourceLockTTL        = 1 * time.Minute
 	ResourceLockGCInterval = 30 * time.Second
 )
 
@@ -33,7 +34,7 @@ type ResourceLock struct {
 	UnlockToken  string
 	IsDeleted    bool
 	ExpiresAfter time.Time
-	UpdatedAt    time.Time
+	UpdatedAt    hlc.Timestamp
 }
 
 func (c *Cluster) handleResourceLockFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {

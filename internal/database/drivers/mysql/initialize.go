@@ -32,7 +32,7 @@ compute_units INT UNSIGNED NOT NULL DEFAULT 0,
 storage_units INT UNSIGNED NOT NULL DEFAULT 0,
 max_tunnels INT UNSIGNED NOT NULL DEFAULT 0,
 last_login_at TIMESTAMP(6) DEFAULT NULL,
-updated_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
 created_at TIMESTAMP(6),
 INDEX active (active),
 INDEX idx_is_deleted (is_deleted)
@@ -47,7 +47,7 @@ token_id CHAR(64) PRIMARY KEY,
 user_id CHAR(36),
 name VARCHAR(255),
 expires_after TIMESTAMP(6),
-updated_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
 is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 INDEX expires_after (expires_after),
 INDEX user_id (user_id),
@@ -82,7 +82,7 @@ is_deleting TINYINT(1) NOT NULL DEFAULT 0,
 is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 started_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP,
 created_at TIMESTAMP(6),
-updated_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
 INDEX user_id (user_id),
 INDEX template_id (template_id),
 UNIQUE INDEX name (user_id, name),
@@ -124,7 +124,7 @@ max_uptime_unit VARCHAR(16) DEFAULT 'disabled',
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
 INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
@@ -143,7 +143,7 @@ is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
 INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
@@ -164,7 +164,7 @@ is_managed TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
 INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {
@@ -183,7 +183,7 @@ is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
 INDEX zone (zone),
 INDEX idx_is_deleted (is_deleted)
 )`)
@@ -200,7 +200,7 @@ is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
-updated_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
 INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {

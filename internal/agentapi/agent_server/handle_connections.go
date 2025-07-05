@@ -14,6 +14,7 @@ import (
 	"github.com/paularlott/knot/internal/tunnel_server"
 
 	"github.com/hashicorp/yamux"
+	"github.com/paularlott/gossip/hlc"
 	"github.com/rs/zerolog/log"
 )
 
@@ -148,9 +149,8 @@ func handleAgentConnection(conn net.Conn) {
 
 	// If manual template then record spaces start time
 	if template.IsManual() {
-		now := time.Now().UTC()
-		space.UpdatedAt = now
-		space.StartedAt = now
+		space.UpdatedAt = hlc.Now()
+		space.StartedAt = time.Now().UTC()
 		if err := db.SaveSpace(space, []string{"UpdatedAt", "StartedAt"}); err != nil {
 			log.Error().Msgf("agent: updating space start time: %v", err)
 			return
@@ -264,7 +264,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 
 			// Update note and save it
 			space.Note = spaceNote.Note
-			space.UpdatedAt = time.Now().UTC()
+			space.UpdatedAt = hlc.Now()
 			if err := db.SaveSpace(space, []string{"Note", "UpdatedAt"}); err != nil {
 				log.Error().Msgf("agent: updating space note: %v", err)
 				return

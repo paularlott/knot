@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/rs/zerolog/log"
@@ -17,13 +18,13 @@ const (
 
 // Session object
 type Session struct {
-	Id           string    `json:"session_id" db:"session_id,pk"`
-	Ip           string    `json:"ip" db:"ip"`
-	UserId       string    `json:"user_id" db:"user_id"`
-	UserAgent    string    `json:"user_agent" db:"user_agent"`
-	ExpiresAfter time.Time `json:"expires_after" db:"expires_after"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
-	IsDeleted    bool      `json:"is_deleted" db:"is_deleted"`
+	Id           string        `json:"session_id" db:"session_id,pk"`
+	Ip           string        `json:"ip" db:"ip"`
+	UserId       string        `json:"user_id" db:"user_id"`
+	UserAgent    string        `json:"user_agent" db:"user_agent"`
+	ExpiresAfter time.Time     `json:"expires_after" db:"expires_after"`
+	UpdatedAt    hlc.Timestamp `json:"updated_at" db:"updated_at"`
+	IsDeleted    bool          `json:"is_deleted" db:"is_deleted"`
 }
 
 func NewSession(r *http.Request, userId string) *Session {
@@ -57,7 +58,7 @@ func NewSession(r *http.Request, userId string) *Session {
 		UserId:       userId,
 		UserAgent:    r.UserAgent(),
 		ExpiresAfter: expires.UTC(),
-		UpdatedAt:    now.UTC(),
+		UpdatedAt:    hlc.Now(),
 		IsDeleted:    false,
 	}
 

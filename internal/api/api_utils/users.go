@@ -3,6 +3,7 @@ package api_utils
 import (
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
@@ -43,7 +44,7 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		}
 
 		space.IsDeleted = true
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
 	}
@@ -55,7 +56,7 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		toDelete.Active = false
 		toDelete.Username = toDelete.Id
 		toDelete.Email = toDelete.Id
-		toDelete.UpdatedAt = time.Now().UTC()
+		toDelete.UpdatedAt = hlc.Now()
 		err = db.SaveUser(toDelete, []string{"IsDeleted", "Active", "UpdatedAt", "Username", "Email"})
 		if err != nil {
 			return err
@@ -79,7 +80,7 @@ func (auu *ApiUtilsUsers) RemoveUsersSessions(user *model.User) {
 		for _, session := range sessions {
 			session.IsDeleted = true
 			session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
-			session.UpdatedAt = time.Now().UTC()
+			session.UpdatedAt = hlc.Now()
 			store.SaveSession(session)
 			service.GetTransport().GossipSession(session)
 		}

@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"syscall"
-	"time"
 
 	"github.com/paularlott/knot/internal/database"
 
 	"github.com/paularlott/cli"
+	"github.com/paularlott/gossip/hlc"
 	"golang.org/x/term"
 )
 
@@ -49,7 +49,7 @@ var SetPasswordCmd = &cli.Command{
 
 		// Set the new password
 		user.SetPassword(string(password))
-		user.UpdatedAt = time.Now().UTC()
+		user.UpdatedAt = hlc.Now()
 
 		// Save the user
 		err = db.SaveUser(user, []string{"Password", "UpdatedAt"})

@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
@@ -67,7 +68,7 @@ func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
 	if session != nil {
 		session.IsDeleted = true
 		session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
-		session.UpdatedAt = time.Now().UTC()
+		session.UpdatedAt = hlc.Now()
 		database.GetSessionStorage().SaveSession(session)
 		service.GetTransport().GossipSession(session)
 	}

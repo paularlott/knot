@@ -7,6 +7,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/google/uuid"
@@ -52,7 +53,7 @@ type Template struct {
 	CreatedUserId    string                 `json:"created_user_id" db:"created_user_id"`
 	CreatedAt        time.Time              `json:"created_at" db:"created_at"`
 	UpdatedUserId    string                 `json:"updated_user_id" db:"updated_user_id"`
-	UpdatedAt        time.Time              `json:"updated_at" db:"updated_at"`
+	UpdatedAt        hlc.Timestamp          `json:"updated_at" db:"updated_at"`
 }
 
 type TemplateScheduleDays struct {
@@ -113,7 +114,7 @@ func NewTemplate(
 		StorageUnits:     storageUnits,
 		CreatedAt:        time.Now().UTC(),
 		UpdatedUserId:    userId,
-		UpdatedAt:        time.Now().UTC(),
+		UpdatedAt:        hlc.Now(),
 		IconURL:          iconURL,
 		Active:           active,
 		MaxUptime:        maxUptime,

@@ -3,6 +3,7 @@ package nomad
 import (
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -27,7 +28,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 
 	defer func() {
 		// Save the space with the volume data
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		if err := db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"}); err != nil {
 			log.Error().Msgf("nomad: saving space %s error %s", space.Id, err)
 		}
@@ -94,7 +95,7 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 	}
 
 	defer func() {
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
 	}()
@@ -149,14 +150,13 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	}
 
 	// Record deploying
-	now := time.Now().UTC()
 	space.IsPending = true
 	space.IsDeployed = false
 	space.IsDeleting = false
 	space.TemplateHash = template.Hash
 	space.Zone = cfg.Zone
-	space.StartedAt = now
-	space.UpdatedAt = now
+	space.StartedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Zone", "UpdatedAt", "StartedAt"})
 	if err != nil {
 		log.Error().Msgf("nomad: creating space job %s error %s", space.Id, err)
@@ -180,7 +180,7 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space, onStopped func()) 
 
 	// Record stopping
 	space.IsPending = true
-	space.UpdatedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 
 	db := database.GetInstance()
 	err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
@@ -233,7 +233,7 @@ func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 		}
 
 		log.Info().Msgf("nomad: update space job %s status", space.ContainerId)
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		err := database.GetInstance().SaveSpace(space, []string{"IsPending", "IsDeployed", "UpdatedAt"})
 		if err != nil {
 			log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
@@ -222,7 +223,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	// Update the last login time
 	now := time.Now().UTC()
 	user.LastLoginAt = &now
-	user.UpdatedAt = now
+	user.UpdatedAt = hlc.Now()
 	err = db.SaveUser(user, saveFields)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -291,7 +292,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 			db := database.GetSessionStorage()
 			session.IsDeleted = true
 			session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
-			session.UpdatedAt = time.Now().UTC()
+			session.UpdatedAt = hlc.Now()
 			err := db.SaveSession(session)
 			if err != nil {
 				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})

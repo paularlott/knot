@@ -3,6 +3,7 @@ package model
 import (
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/rs/zerolog/log"
@@ -14,12 +15,12 @@ const (
 
 // Session object
 type Token struct {
-	Id           string    `json:"token_id" db:"token_id,pk"`
-	UserId       string    `json:"user_id" db:"user_id"`
-	Name         string    `json:"name" db:"name"`
-	ExpiresAfter time.Time `json:"expires_after" db:"expires_after"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
-	IsDeleted    bool      `json:"is_deleted" db:"is_deleted"`
+	Id           string        `json:"token_id" db:"token_id,pk"`
+	UserId       string        `json:"user_id" db:"user_id"`
+	Name         string        `json:"name" db:"name"`
+	ExpiresAfter time.Time     `json:"expires_after" db:"expires_after"`
+	UpdatedAt    hlc.Timestamp `json:"updated_at" db:"updated_at"`
+	IsDeleted    bool          `json:"is_deleted" db:"is_deleted"`
 }
 
 func NewToken(name string, userId string) *Token {
@@ -35,7 +36,7 @@ func NewToken(name string, userId string) *Token {
 		Id:           id,
 		UserId:       userId,
 		Name:         name,
-		UpdatedAt:    now.UTC(),
+		UpdatedAt:    hlc.Now(),
 		ExpiresAfter: expiresAfter.UTC(),
 		IsDeleted:    false,
 	}

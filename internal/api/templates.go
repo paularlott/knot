@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -234,7 +234,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.AutoStart = request.AutoStart
 	template.Schedule = make([]model.TemplateScheduleDays, 7)
 	template.Zones = request.Zones
-	template.UpdatedAt = time.Now().UTC()
+	template.UpdatedAt = hlc.Now()
 	template.UpdatedUserId = user.Id
 	template.Active = request.Active
 	template.MaxUptime = request.MaxUptime
@@ -475,7 +475,7 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the template
 	template.IsDeleted = true
-	template.UpdatedAt = time.Now().UTC()
+	template.UpdatedAt = hlc.Now()
 	template.UpdatedUserId = r.Context().Value("user").(*model.User).Id
 	err = database.GetInstance().SaveTemplate(template, []string{"IsDeleted", "UpdatedAt", "UpdatedUserId"})
 	if err != nil {

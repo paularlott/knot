@@ -14,6 +14,7 @@ import (
 	"github.com/paularlott/gossip/compression"
 	"github.com/paularlott/gossip/encryption"
 	"github.com/paularlott/gossip/examples/common"
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/gossip/leader"
 	"github.com/paularlott/gossip/websocket"
 	"github.com/paularlott/knot/build"
@@ -409,7 +410,7 @@ func (c *Cluster) lockResourceLocally(resourceId string) string {
 	lock := &ResourceLock{
 		Id:           resourceId,
 		UnlockToken:  crypt.CreateKey(),
-		UpdatedAt:    time.Now().UTC(),
+		UpdatedAt:    hlc.Now(),
 		ExpiresAfter: time.Now().UTC().Add(ResourceLockTTL),
 	}
 	c.resourceLocks[resourceId] = lock
@@ -448,7 +449,7 @@ func (c *Cluster) unlockResourceLocally(resourceId, unlockToken string) {
 		if lock.UnlockToken == unlockToken {
 			lock.IsDeleted = true
 			lock.ExpiresAfter = time.Now().UTC().Add(ResourceLockTTL)
-			lock.UpdatedAt = time.Now().UTC()
+			lock.UpdatedAt = hlc.Now()
 			c.GossipResourceLock(lock)
 		}
 	}

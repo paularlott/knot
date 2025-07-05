@@ -123,7 +123,7 @@ func (db *RedisDbDriver) Connect() error {
 				log.Error().Err(err).Msg("db: failed to get groups")
 			} else {
 				for _, group := range groups {
-					if group.IsDeleted && group.UpdatedAt.Before(before) {
+					if group.IsDeleted && group.UpdatedAt.Time().Before(before) {
 						err := db.DeleteGroup(group)
 						if err != nil {
 							log.Error().Err(err).Str("group_id", group.Id).Msg("db: failed to delete group")
@@ -138,7 +138,7 @@ func (db *RedisDbDriver) Connect() error {
 				log.Error().Err(err).Msg("db: failed to get roles")
 			} else {
 				for _, role := range roles {
-					if role.IsDeleted && role.UpdatedAt.Before(before) {
+					if role.IsDeleted && role.UpdatedAt.Time().Before(before) {
 						err := db.DeleteRole(role)
 						if err != nil {
 							log.Error().Err(err).Str("role_id", role.Id).Msg("db: failed to delete role")
@@ -153,7 +153,7 @@ func (db *RedisDbDriver) Connect() error {
 				log.Error().Err(err).Msg("db: failed to get spaces")
 			} else {
 				for _, space := range spaces {
-					if space.IsDeleted && space.UpdatedAt.Before(before) {
+					if space.IsDeleted && space.UpdatedAt.Time().Before(before) {
 						err := db.DeleteSpace(space)
 						if err != nil {
 							log.Error().Err(err).Str("space_id", space.Id).Msg("db: failed to delete space")
@@ -168,7 +168,7 @@ func (db *RedisDbDriver) Connect() error {
 				log.Error().Err(err).Msg("db: failed to get templates")
 			} else {
 				for _, template := range templates {
-					if template.IsDeleted && template.UpdatedAt.Before(before) {
+					if template.IsDeleted && template.UpdatedAt.Time().Before(before) {
 						err := db.DeleteTemplate(template)
 						if err != nil {
 							log.Error().Err(err).Str("template_id", template.Id).Msg("db: failed to delete template")
@@ -183,7 +183,7 @@ func (db *RedisDbDriver) Connect() error {
 				log.Error().Err(err).Msg("db: failed to get template vars")
 			} else {
 				for _, templateVar := range templateVars {
-					if templateVar.IsDeleted && templateVar.UpdatedAt.Before(before) {
+					if templateVar.IsDeleted && templateVar.UpdatedAt.Time().Before(before) {
 						err := db.DeleteTemplateVar(templateVar)
 						if err != nil {
 							log.Error().Err(err).Str("template_var_id", templateVar.Id).Msg("db: failed to delete template var")
@@ -198,7 +198,7 @@ func (db *RedisDbDriver) Connect() error {
 				log.Error().Err(err).Msg("db: failed to get users")
 			} else {
 				for _, user := range users {
-					if user.IsDeleted && user.UpdatedAt.Before(before) {
+					if user.IsDeleted && user.UpdatedAt.Time().Before(before) {
 						err := db.DeleteUser(user)
 						if err != nil {
 							log.Error().Err(err).Str("user_id", user.Id).Msg("db: failed to delete user")
@@ -213,7 +213,7 @@ func (db *RedisDbDriver) Connect() error {
 				log.Error().Err(err).Msg("db: failed to get tokens")
 			} else {
 				for _, token := range tokens {
-					if token.IsDeleted && token.UpdatedAt.Before(before) {
+					if token.IsDeleted && token.UpdatedAt.Time().Before(before) {
 						err := db.DeleteToken(token)
 						if err != nil {
 							log.Error().Err(err).Str("token_id", token.Id).Msg("db: failed to delete token")
@@ -228,7 +228,7 @@ func (db *RedisDbDriver) Connect() error {
 				log.Error().Err(err).Msg("db: failed to get volumes")
 			} else {
 				for _, volume := range volumes {
-					if volume.IsDeleted && volume.UpdatedAt.Before(before) {
+					if volume.IsDeleted && volume.UpdatedAt.Time().Before(before) {
 						err := db.DeleteVolume(volume)
 						if err != nil {
 							log.Error().Err(err).Str("volume_id", volume.Id).Msg("db: failed to delete volume")

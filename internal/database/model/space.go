@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/sshd"
 
 	"github.com/google/uuid"
@@ -86,7 +87,7 @@ type Space struct {
 	CustomFields     []SpaceCustomField `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`
 	StartedAt        time.Time          `json:"started_at" db:"started_at" msgpack:"started_at"`
 	CreatedAt        time.Time          `json:"created_at" db:"created_at" msgpack:"created_at"`
-	UpdatedAt        time.Time          `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	UpdatedAt        hlc.Timestamp      `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string, zone string, iconURL string, customFields []SpaceCustomField) *Space {
@@ -118,7 +119,7 @@ func NewSpace(name string, description string, userId string, templateId string,
 		VolumeData:       make(map[string]SpaceVolume),
 		StartedAt:        now,
 		CreatedAt:        now,
-		UpdatedAt:        now,
+		UpdatedAt:        hlc.Now(),
 		Zone:             zone,
 		SSHHostSigner:    ed25519,
 		SharedWithUserId: "",

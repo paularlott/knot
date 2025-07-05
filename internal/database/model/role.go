@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/paularlott/gossip/hlc"
 	"github.com/rs/zerolog/log"
 )
 
@@ -65,14 +66,14 @@ var PermissionNames = []PermissionName{
 
 // Role
 type Role struct {
-	Id            string    `json:"role_id" db:"role_id,pk" msgpack:"role_id"`
-	Name          string    `json:"name" db:"name" msgpack:"name"`
-	Permissions   []uint16  `json:"permissions" db:"permissions,json" msgpack:"permissions"`
-	IsDeleted     bool      `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
-	CreatedUserId string    `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at" msgpack:"created_at"`
-	UpdatedUserId string    `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
-	UpdatedAt     time.Time `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
+	Id            string        `json:"role_id" db:"role_id,pk" msgpack:"role_id"`
+	Name          string        `json:"name" db:"name" msgpack:"name"`
+	Permissions   []uint16      `json:"permissions" db:"permissions,json" msgpack:"permissions"`
+	IsDeleted     bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
+	CreatedUserId string        `json:"created_user_id" db:"created_user_id" msgpack:"created_user_id"`
+	CreatedAt     time.Time     `json:"created_at" db:"created_at" msgpack:"created_at"`
+	UpdatedUserId string        `json:"updated_user_id" db:"updated_user_id" msgpack:"updated_user_id"`
+	UpdatedAt     hlc.Timestamp `json:"updated_at" db:"updated_at" msgpack:"updated_at"`
 }
 
 // Roles
@@ -89,7 +90,7 @@ func SetRoleCache(roles []*Role) {
 	log.Info().Msg("server: loading roles to cache")
 
 	// Create the admin role
-	adminTime := time.Date(2025, time.January, 1, 10, 0, 0, 0, time.UTC)
+	adminTime := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
 	roleCache[RoleAdminUUID] = &Role{
 		Id:   RoleAdminUUID,
 		Name: "Admin",
@@ -114,7 +115,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionUseVSCodeTunnel,
 		},
 		CreatedAt: adminTime,
-		UpdatedAt: adminTime,
+		UpdatedAt: hlc.Timestamp(0),
 	}
 
 	roleCacheMutex.Lock()
@@ -157,15 +158,14 @@ func NewRole(name string, permissions []uint16, userId string) *Role {
 		log.Fatal().Msg(err.Error())
 	}
 
-	now := time.Now().UTC()
 	role := &Role{
 		Id:            id.String(),
 		Name:          name,
 		Permissions:   permissions,
 		CreatedUserId: userId,
-		CreatedAt:     now,
+		CreatedAt:     time.Now().UTC(),
 		UpdatedUserId: userId,
-		UpdatedAt:     now,
+		UpdatedAt:     hlc.Now(),
 	}
 
 	return role

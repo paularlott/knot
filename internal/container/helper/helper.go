@@ -3,8 +3,8 @@ package helper
 import (
 	"fmt"
 	"strings"
-	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container"
@@ -102,7 +102,7 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 
 	// Mark the space as pending and save it
 	space.IsPending = true
-	space.UpdatedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 	if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 		log.Error().Err(err).Msg("StartSpace")
 		return err
@@ -116,7 +116,7 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 		if deployFailed {
 			// If the deploy failed then revert the space to not pending
 			space.IsPending = false
-			space.UpdatedAt = time.Now().UTC()
+			space.UpdatedAt = hlc.Now()
 			db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
 			service.GetTransport().GossipSpace(space)
 		}
@@ -169,7 +169,7 @@ func (h *Helper) StopSpace(space *model.Space) error {
 
 	// Mark the space as pending and save it
 	space.IsPending = true
-	space.UpdatedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 	if err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 		log.Error().Msgf("StopSpace: failed to save space %s", err.Error())
 		return err
@@ -186,7 +186,7 @@ func (h *Helper) StopSpace(space *model.Space) error {
 	err = containerClient.DeleteSpaceJob(space, nil)
 	if err != nil {
 		space.IsPending = false
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
 
@@ -209,7 +209,7 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 
 	// Mark the space as pending and save it
 	space.IsPending = true
-	space.UpdatedAt = time.Now().UTC()
+	space.UpdatedAt = hlc.Now()
 	if err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 		log.Error().Msgf("RestartSpace: failed to save space %s", err.Error())
 		return err
@@ -236,7 +236,7 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 	})
 	if err != nil {
 		space.IsPending = false
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
 
@@ -258,7 +258,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			log.Error().Err(err).Msg("DeleteSpace: load template")
 
 			space.IsDeleting = false
-			space.UpdatedAt = time.Now().UTC()
+			space.UpdatedAt = hlc.Now()
 			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 			service.GetTransport().GossipSpace(space)
 			return
@@ -269,7 +269,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			log.Error().Err(err).Msg("DeleteSpace: failed to create container client")
 
 			space.IsDeleting = false
-			space.UpdatedAt = time.Now().UTC()
+			space.UpdatedAt = hlc.Now()
 			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 			service.GetTransport().GossipSpace(space)
 			return
@@ -281,7 +281,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			if err != nil {
 				log.Error().Err(err).Msg("DeleteSpace: delete space job")
 				space.IsDeleting = false
-				space.UpdatedAt = time.Now().UTC()
+				space.UpdatedAt = hlc.Now()
 				db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 				service.GetTransport().GossipSpace(space)
 				return
@@ -294,7 +294,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			log.Error().Err(err).Msgf("DeleteSpace")
 
 			space.IsDeleting = false
-			space.UpdatedAt = time.Now().UTC()
+			space.UpdatedAt = hlc.Now()
 			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 			service.GetTransport().GossipSpace(space)
 			return
@@ -303,7 +303,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 		// Delete the space
 		space.IsDeleted = true
 		space.Name = space.Id
-		space.UpdatedAt = time.Now().UTC()
+		space.UpdatedAt = hlc.Now()
 		err = db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt", "Name"})
 		if err != nil {
 			log.Error().Err(err).Msg("DeleteSpace")

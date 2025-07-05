@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -88,7 +89,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				// Save the token to extend its life
 				expiresAfter := time.Now().Add(model.MaxTokenAge)
 				token.ExpiresAfter = expiresAfter.UTC()
-				token.UpdatedAt = time.Now().UTC()
+				token.UpdatedAt = hlc.Now()
 				db.SaveToken(token)
 				service.GetTransport().GossipToken(token)
 
@@ -105,7 +106,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				userId = session.UserId
 
 				// Save the session to extend its life
-				session.UpdatedAt = time.Now().UTC()
+				session.UpdatedAt = hlc.Now()
 				session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
 				store.SaveSession(session)
 				service.GetTransport().GossipSession(session)
@@ -297,7 +298,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// Save the session to update its life
-		session.UpdatedAt = time.Now().UTC()
+		session.UpdatedAt = hlc.Now()
 		session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
 		database.GetSessionStorage().SaveSession(session)
 		service.GetTransport().GossipSession(session)

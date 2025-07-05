@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -72,7 +73,7 @@ func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 	// Expire the session
 	session.IsDeleted = true
 	session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
-	session.UpdatedAt = time.Now().UTC()
+	session.UpdatedAt = hlc.Now()
 	err = store.SaveSession(session)
 	if err != nil {
 		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})

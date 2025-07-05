@@ -3,8 +3,8 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"time"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -98,7 +98,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	group.ComputeUnits = request.ComputeUnits
 	group.StorageUnits = request.StorageUnits
 	group.MaxTunnels = request.MaxTunnels
-	group.UpdatedAt = time.Now().UTC()
+	group.UpdatedAt = hlc.Now()
 	group.UpdatedUserId = user.Id
 
 	err = db.SaveGroup(group)
@@ -207,7 +207,7 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the group
 	group.IsDeleted = true
-	group.UpdatedAt = time.Now().UTC()
+	group.UpdatedAt = hlc.Now()
 	group.UpdatedUserId = user.Id
 	err = db.SaveGroup(group)
 	if err != nil {
