@@ -9,7 +9,7 @@ import (
 )
 
 func HandlePing(w http.ResponseWriter, r *http.Request) {
-	rest.SendJSON(http.StatusOK, w, r, apiclient.PingResponse{
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.PingResponse{
 		Status:  true,
 		Version: build.Version,
 	})

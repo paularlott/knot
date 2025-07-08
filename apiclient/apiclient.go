@@ -1,6 +1,7 @@
 package apiclient
 
 import (
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
@@ -30,7 +31,7 @@ func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {
 }
 
 func (c *ApiClient) UseSessionCookie(useCookie bool) *ApiClient {
-	c.httpClient.UseSessionCookie(useCookie)
+	c.httpClient.SetTokenKey(model.WebSessionCookie).SetTokenFormat("%s")
 	return c
 }
 

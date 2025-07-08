@@ -37,7 +37,7 @@ func Initialize() {
 }
 
 func returnUnauthorized(w http.ResponseWriter, r *http.Request) {
-	rest.SendJSON(http.StatusUnauthorized, w, r, struct {
+	rest.WriteResponse(http.StatusUnauthorized, w, r, struct {
 		Error string `json:"error"`
 	}{
 		Error: "Authentication token is not valid",
@@ -146,7 +146,7 @@ func checkPermission(next http.HandlerFunc, permission uint16, msg string) http.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(permission) {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: msg})
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: msg})
 			return
 		}
 
@@ -172,7 +172,7 @@ func ApiPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageVolumes) {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage volumes"})
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage volumes"})
 			return
 		}
 
@@ -206,7 +206,7 @@ func ApiPermissionManageUsers(next http.HandlerFunc) http.HandlerFunc {
 		if HasUsers {
 			user := r.Context().Value("user").(*model.User)
 			if HasUsers && !user.HasPermission(model.PermissionManageUsers) {
-				rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
 				return
 			}
 		}
@@ -220,7 +220,7 @@ func ApiPermissionManageUsersOrSpaces(next http.HandlerFunc) http.HandlerFunc {
 		if HasUsers {
 			user := r.Context().Value("user").(*model.User)
 			if HasUsers && !user.HasPermission(model.PermissionManageUsers) && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionTransferSpaces) {
-				rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
 				return
 			}
 		}
@@ -233,13 +233,13 @@ func ApiPermissionManageUsersOrSelf(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId := r.PathValue("user_id")
 		if !validate.UUID(userId) {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
 			return
 		}
 
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageUsers) && user.Id != userId {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage users"})
 			return
 		}
 
@@ -256,7 +256,7 @@ func ApiPermissionUseSpaces(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
 		if !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage or use spaces"})
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage or use spaces"})
 			return
 		}
 

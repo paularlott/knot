@@ -20,8 +20,7 @@ func NewClient() (*NomadClient, error) {
 		httpClient: hc,
 	}
 
-	client.httpClient.SetTokenKey("X-Nomad-Token")
-	client.httpClient.SetTokenValue("%s")
+	client.httpClient.SetTokenKey("X-Nomad-Token").SetTokenFormat("%s")
 
 	return client, nil
 }

@@ -28,7 +28,7 @@ func HandleGetTunnels(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, tunnelList)
+	rest.WriteResponse(http.StatusOK, w, r, tunnelList)
 }
 
 func HandleGetTunnelServerInfo(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +38,7 @@ func HandleGetTunnelServerInfo(w http.ResponseWriter, r *http.Request) {
 		TunnelServers: service.GetTransport().GetTunnelServers(),
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, info)
+	rest.WriteResponse(http.StatusOK, w, r, info)
 }
 
 func HandleDeleteTunnel(w http.ResponseWriter, r *http.Request) {
@@ -46,15 +46,15 @@ func HandleDeleteTunnel(w http.ResponseWriter, r *http.Request) {
 
 	tunnelName := r.PathValue("tunnel_name")
 	if tunnelName == "" {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "tunnel_name parameter is required"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "tunnel_name parameter is required"})
 		return
 	}
 
 	err := tunnel_server.DeleteTunnel(user.Id, tunnelName)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	} else {
-		rest.SendJSON(http.StatusOK, w, r, ErrorResponse{Error: "tunnel deleted"})
+		rest.WriteResponse(http.StatusOK, w, r, ErrorResponse{Error: "tunnel deleted"})
 	}
 }

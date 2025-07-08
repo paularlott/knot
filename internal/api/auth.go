@@ -143,9 +143,9 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	request := apiclient.AuthLoginRequest{}
 
-	err := rest.BindJSON(w, r, &request)
+	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -161,7 +161,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		ipLimiter := getIPLimiter(clientIP)
 		if !ipLimiter.Allow() {
 			log.Warn().Msgf("Rate limit exceeded for IP: %s", clientIP)
-			rest.SendJSON(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
+			rest.WriteResponse(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
 			return
 		}
 	}
@@ -170,13 +170,13 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	emailLimiter := getEmailLimiter(request.Email)
 	if !emailLimiter.Allow() {
 		log.Warn().Msgf("Rate limit exceeded for email: %s", request.Email)
-		rest.SendJSON(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
+		rest.WriteResponse(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
 		return
 	}
 
 	// Validate
 	if !validate.Email(request.Email) || !validate.Password(request.Password) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid credentials"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid credentials"})
 		return
 	}
 
@@ -196,7 +196,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 
-		rest.SendJSON(code, w, r, ErrorResponse{Error: "invalid email, password or TOTP code"})
+		rest.WriteResponse(code, w, r, ErrorResponse{Error: "invalid email, password or TOTP code"})
 
 		return
 	}
@@ -208,7 +208,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		// If the user has a TOTP secret then check the code
 		if user.TOTPSecret != "" {
 			if !totp.VerifyCode(user.TOTPSecret, request.TOTPCode, cfg.TOTP.Window) {
-				rest.SendJSON(http.StatusUnauthorized, w, r, ErrorResponse{Error: "invalid email, password or TOTP code"})
+				rest.WriteResponse(http.StatusUnauthorized, w, r, ErrorResponse{Error: "invalid email, password or TOTP code"})
 				return
 			}
 		} else {
@@ -226,7 +226,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	user.UpdatedAt = hlc.Now()
 	err = db.SaveUser(user, saveFields)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -238,7 +238,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	var session *model.Session = model.NewSession(r, userId)
 	err = database.GetSessionStorage().SaveSession(session)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 	service.GetTransport().GossipSession(session)
@@ -273,7 +273,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	removeRateLimiters(request.Email, clientIP)
 
 	// Return the authentication token
-	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLoginResponse{
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.AuthLoginResponse{
 		Status:     true,
 		Token:      session.Id,
 		TOTPSecret: showTOTPSecret,
@@ -295,7 +295,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 			session.UpdatedAt = hlc.Now()
 			err := db.SaveSession(session)
 			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 			service.GetTransport().GossipSession(session)
@@ -305,7 +305,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the authentication token
-	rest.SendJSON(http.StatusOK, w, r, apiclient.AuthLogoutResponse{
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.AuthLogoutResponse{
 		Status: result,
 	})
 }
@@ -314,7 +314,7 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 // the authentication flow it should use.
 func HandleUsingTotp(w http.ResponseWriter, r *http.Request) {
 	cfg := config.GetServerConfig()
-	rest.SendJSON(http.StatusOK, w, r, apiclient.UsingTOTPResponse{
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.UsingTOTPResponse{
 		UsingTOTP: cfg.TOTP.Enabled,
 	})
 }

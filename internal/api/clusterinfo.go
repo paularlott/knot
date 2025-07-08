@@ -26,5 +26,5 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 		return response[i].Address < response[j].Address
 	})
 
-	rest.SendJSON(http.StatusOK, w, r, response)
+	rest.WriteResponse(http.StatusOK, w, r, response)
 }

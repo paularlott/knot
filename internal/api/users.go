@@ -24,9 +24,9 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	request := apiclient.CreateUserRequest{}
 
-	err := rest.BindJSON(w, r, &request)
+	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -34,39 +34,39 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if !validate.Name(request.Username) ||
 		!validate.Password(request.Password) ||
 		!validate.Email(request.Email) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid username, password, or email given for new user"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid username, password, or email given for new user"})
 		return
 	}
 	if !validate.OneOf(request.PreferredShell, []string{"bash", "zsh", "fish", "sh"}) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid shell"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid shell"})
 		return
 	}
 	if !validate.MaxLength(request.SSHPublicKey, 16*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH public key too long"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH public key too long"})
 		return
 	}
 	if !validate.OneOf(request.Timezone, util.Timezones) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid timezone"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid timezone"})
 		return
 	}
 	if !validate.IsNumber(int(request.MaxSpaces), 0, 10000) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.MaxTunnels)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
 		return
 	}
 	if !validate.MaxLength(request.GitHubUsername, 255) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "GitHub username too long"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "GitHub username too long"})
 		return
 	}
 
@@ -82,7 +82,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	for _, groupId := range request.Groups {
 		_, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
 			return
 		}
 	}
@@ -94,7 +94,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	err = db.SaveUser(userNew, nil)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -125,7 +125,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	middleware.HasUsers = true
 
 	// Return the user ID
-	rest.SendJSON(http.StatusCreated, w, r, &apiclient.CreateUserResponse{
+	rest.WriteResponse(http.StatusCreated, w, r, &apiclient.CreateUserResponse{
 		Status: true,
 		UserId: newUserId,
 	})
@@ -145,13 +145,13 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	userId := r.PathValue("user_id")
 
 	if !validate.UUID(userId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
 		return
 	}
 
 	user, err = db.GetUser(userId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -184,7 +184,7 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		userData.LastLoginAt = &t
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, &userData)
+	rest.WriteResponse(http.StatusOK, w, r, &userData)
 }
 
 func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
@@ -218,7 +218,7 @@ func HandleWhoAmI(w http.ResponseWriter, r *http.Request) {
 		userData.LastLoginAt = &t
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, &userData)
+	rest.WriteResponse(http.StatusOK, w, r, &userData)
 }
 
 func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
@@ -244,7 +244,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	users, err := db.GetUsers()
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -271,7 +271,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			// Get the users quota
 			quota, err := database.GetUserQuota(user)
 			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 
@@ -290,7 +290,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			// Get the users usage
 			usage, err := database.GetUserUsage(user.Id, inZone)
 			if err != nil {
-				rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+				rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 				return
 			}
 
@@ -306,7 +306,7 @@ func HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, userData)
+	rest.WriteResponse(http.StatusOK, w, r, userData)
 }
 
 func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
@@ -314,48 +314,48 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	userId := r.PathValue("user_id")
 
 	if !validate.UUID(userId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
 		return
 	}
 
 	request := apiclient.UpdateUserRequest{}
 	db := database.GetInstance()
 
-	err := rest.BindJSON(w, r, &request)
+	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// Validate
 	if len(request.Password) > 0 && !validate.Password(request.Password) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid password given"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid password given"})
 		return
 	}
 	if !validate.Email(request.Email) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid email"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid email"})
 		return
 	}
 	if !validate.OneOf(request.PreferredShell, []string{"bash", "zsh", "fish", "sh"}) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid shell"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid shell"})
 		return
 	}
 	if !validate.MaxLength(request.SSHPublicKey, 16*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH public key too long"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "SSH public key too long"})
 		return
 	}
 	if !validate.OneOf(request.Timezone, util.Timezones) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid timezone"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid timezone"})
 		return
 	}
 	if !validate.MaxLength(request.GitHubUsername, 255) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "GitHub username too long"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "GitHub username too long"})
 		return
 	}
 
 	user, err := db.GetUser(userId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -372,21 +372,21 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if activeUser.HasPermission(model.PermissionManageUsers) {
 		if !validate.IsNumber(int(request.MaxSpaces), 0, 10000) {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
 			return
 		}
 
 		if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
 			return
 		}
 
 		if !validate.IsPositiveNumber(int(request.StorageUnits)) {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
 			return
 		}
 		if !validate.IsPositiveNumber(int(request.MaxTunnels)) {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
 			return
 		}
 
@@ -427,7 +427,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	for _, groupId := range request.Groups {
 		_, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
 			return
 		}
 	}
@@ -451,7 +451,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	user.UpdatedAt = hlc.Now()
 	err = db.SaveUser(user, saveFields)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -469,26 +469,26 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	userId := r.PathValue("user_id")
 
 	if !validate.UUID(userId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
 		return
 	}
 
 	// If trying to delete self then fail
 	if user.Id == userId {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Cannot delete self"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Cannot delete self"})
 		return
 	}
 
 	// Load the user to delete
 	toDelete, err := db.GetUser(userId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user %s not found", userId)})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user %s not found", userId)})
 		return
 	}
 
 	if toDelete != nil {
 		if err := service.GetUserService().DeleteUser(toDelete); err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 	}
@@ -518,26 +518,26 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 	userId := r.PathValue("user_id")
 
 	if !validate.UUID(userId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
 		return
 	}
 
 	// Load the user, if not found return 404
 	user, err := db.GetUser(userId)
 	if err != nil || user == nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
 		return
 	}
 
 	usage, err := database.GetUserUsage(userId, "")
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	userQuota, err := database.GetUserQuota(user)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -554,5 +554,5 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 		UsedTunnels:          tunnel_server.CountUserTunnels(userId),
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, quota)
+	rest.WriteResponse(http.StatusOK, w, r, quota)
 }

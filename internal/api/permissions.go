@@ -22,5 +22,5 @@ func HandleGetPermissions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, permissionList)
+	rest.WriteResponse(http.StatusOK, w, r, permissionList)
 }

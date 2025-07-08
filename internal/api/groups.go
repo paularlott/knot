@@ -17,7 +17,7 @@ import (
 func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
 	groups, err := database.GetInstance().GetGroups()
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -44,42 +44,42 @@ func HandleGetGroups(w http.ResponseWriter, r *http.Request) {
 		data.Count++
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, data)
+	rest.WriteResponse(http.StatusOK, w, r, data)
 }
 
 func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	groupId := r.PathValue("group_id")
 
 	if !validate.UUID(groupId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid group ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid group ID"})
 		return
 	}
 
 	request := apiclient.GroupRequest{}
-	err := rest.BindJSON(w, r, &request)
+	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user group name"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user group name"})
 		return
 	}
 	if !validate.IsNumber(int(request.MaxSpaces), 0, 10000) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.MaxTunnels)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
 		return
 	}
 
@@ -88,7 +88,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 
 	group, err := db.GetGroup(groupId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -103,7 +103,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 
 	err = db.SaveGroup(group)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -130,30 +130,30 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
 	request := apiclient.GroupRequest{}
-	err := rest.BindJSON(w, r, &request)
+	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user group name"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user group name"})
 		return
 	}
 	if !validate.IsNumber(int(request.MaxSpaces), 0, 10000) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid compute units"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid storage units"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.MaxTunnels)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid tunnel limit"})
 		return
 	}
 
@@ -161,7 +161,7 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	err = database.GetInstance().SaveGroup(group)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -182,7 +182,7 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Return the ID
-	rest.SendJSON(http.StatusCreated, w, r, apiclient.GroupResponse{
+	rest.WriteResponse(http.StatusCreated, w, r, apiclient.GroupResponse{
 		Status: true,
 		Id:     group.Id,
 	})
@@ -192,14 +192,14 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	groupId := r.PathValue("group_id")
 
 	if !validate.UUID(groupId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid group ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid group ID"})
 		return
 	}
 
 	db := database.GetInstance()
 	group, err := db.GetGroup(groupId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -211,7 +211,7 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	group.UpdatedUserId = user.Id
 	err = db.SaveGroup(group)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -238,18 +238,18 @@ func HandleGetGroup(w http.ResponseWriter, r *http.Request) {
 	groupId := r.PathValue("group_id")
 
 	if !validate.UUID(groupId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid group ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid group ID"})
 		return
 	}
 
 	db := database.GetInstance()
 	group, err := db.GetGroup(groupId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 	if group == nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "Group not found"})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Group not found"})
 		return
 	}
 
@@ -262,5 +262,5 @@ func HandleGetGroup(w http.ResponseWriter, r *http.Request) {
 		MaxTunnels:   group.MaxTunnels,
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, data)
+	rest.WriteResponse(http.StatusOK, w, r, data)
 }

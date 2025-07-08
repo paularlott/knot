@@ -26,7 +26,7 @@ func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
 
 	sessions, err := database.GetSessionStorage().GetSessionsForUser(user.Id)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -49,7 +49,7 @@ func HandleGetSessions(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, sessionData)
+	rest.WriteResponse(http.StatusOK, w, r, sessionData)
 }
 
 func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +57,7 @@ func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 	sessionId := r.PathValue("session_id")
 
 	if !validate.Required(sessionId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid session ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid session ID"})
 		return
 	}
 
@@ -66,7 +66,7 @@ func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 	// Load the session if not found or doesn't belong to the user then treat both as not found
 	session, err := store.GetSession(sessionId)
 	if err != nil || session.UserId != user.Id {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("token %s not found", sessionId)})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("token %s not found", sessionId)})
 		return
 	}
 
@@ -76,7 +76,7 @@ func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 	session.UpdatedAt = hlc.Now()
 	err = store.SaveSession(session)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 	service.GetTransport().GossipSession(session)

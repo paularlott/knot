@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -10,10 +11,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/internal/database/model"
 
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -24,14 +25,14 @@ const (
 )
 
 type RESTClient struct {
-	baseURL          *url.URL
-	token            string
-	tokenKey         string
-	tokenValue       string
-	userAgent        string
-	useSessionCookie bool
-	contentType      string
-	HTTPClient       *http.Client
+	baseURL     *url.URL
+	token       string
+	tokenKey    string
+	tokenFormat string
+	userAgent   string
+	contentType string
+	HTTPClient  *http.Client
+	headers     map[string]string
 }
 
 func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClient, error) {
@@ -41,16 +42,16 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClie
 	}
 
 	restClient := &RESTClient{
-		baseURL:          parsed,
-		token:            token,
-		tokenKey:         "Authorization",
-		tokenValue:       "Bearer %s",
-		userAgent:        "knot v" + build.Version,
-		useSessionCookie: false,
-		contentType:      ContentTypeJSON,
+		baseURL:     parsed,
+		token:       token,
+		tokenKey:    "Authorization",
+		tokenFormat: "Bearer %s",
+		userAgent:   "knot v" + build.Version,
+		contentType: ContentTypeJSON,
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		headers: make(map[string]string),
 	}
 
 	restClient.HTTPClient.Transport = &http.Transport{
@@ -90,11 +91,6 @@ func (c *RESTClient) SetBaseUrl(baseURL string) (*RESTClient, error) {
 	return c, nil
 }
 
-func (c *RESTClient) UseSessionCookie(useCookie bool) *RESTClient {
-	c.useSessionCookie = useCookie
-	return c
-}
-
 func (c *RESTClient) AppendUserAgent(userAgent string) *RESTClient {
 	c.userAgent = c.userAgent + " " + userAgent
 	return c
@@ -110,8 +106,23 @@ func (c *RESTClient) SetTokenKey(key string) *RESTClient {
 	return c
 }
 
-func (c *RESTClient) SetTokenValue(value string) *RESTClient {
-	c.tokenValue = value
+func (c *RESTClient) SetTokenFormat(format string) *RESTClient {
+	c.tokenFormat = format
+	return c
+}
+
+func (c *RESTClient) SetHeader(key, value string) *RESTClient {
+	c.headers[key] = value
+	return c
+}
+
+func (c *RESTClient) DeleteHeader(key string) *RESTClient {
+	delete(c.headers, key)
+	return c
+}
+
+func (c *RESTClient) ClearHeaders() *RESTClient {
+	c.headers = make(map[string]string)
 	return c
 }
 
@@ -120,22 +131,12 @@ func (c *RESTClient) setHeaders(req *http.Request) {
 	req.Header.Set("Content-Type", c.contentType)
 	req.Header.Set("User-Agent", c.userAgent)
 	if c.token != "" {
+		req.Header.Set(c.tokenKey, fmt.Sprintf(c.tokenFormat, c.token))
+	}
 
-		// If set the session cookie if using session cookies; else set the token header
-		if c.useSessionCookie {
-			cookie := &http.Cookie{
-				Name:     model.WebSessionCookie,
-				Value:    c.token,
-				Path:     "/",
-				HttpOnly: true,
-				Secure:   false,
-				SameSite: http.SameSiteLaxMode,
-			}
-
-			req.AddCookie(cookie)
-		} else {
-			req.Header.Set(c.tokenKey, fmt.Sprintf(c.tokenValue, c.token))
-		}
+	// Add custom headers
+	for key, value := range c.headers {
+		req.Header.Set(key, value)
 	}
 }
 
@@ -156,10 +157,6 @@ func (c *RESTClient) Get(ctx context.Context, path string, response interface{})
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return 0, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	defer resp.Body.Close()
@@ -204,7 +201,7 @@ func (c *RESTClient) SendData(ctx context.Context, method string, path string, r
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != successCode {
+	if (successCode == 0 && resp.StatusCode >= http.StatusBadRequest) || (successCode > 0 && resp.StatusCode != successCode) {
 
 		// Get the body as a string and wrap in the error message
 		var bodyBytes []byte
@@ -219,7 +216,7 @@ func (c *RESTClient) SendData(ctx context.Context, method string, path string, r
 	if response == nil {
 		return resp.StatusCode, nil
 	} else {
-		if resp.Header.Get("Content-Type") == ContentTypeMsgPack {
+		if strings.Contains(resp.Header.Get("Content-Type"), ContentTypeMsgPack) {
 			err = msgpack.NewDecoder(resp.Body).Decode(response)
 		} else {
 			err = json.NewDecoder(resp.Body).Decode(response)
@@ -238,4 +235,201 @@ func (c *RESTClient) Put(ctx context.Context, path string, request interface{}, 
 
 func (c *RESTClient) Delete(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
 	return c.SendData(ctx, http.MethodDelete, path, request, response, successCode)
+}
+
+type StreamResponseFunc func(chunk interface{}) (isDone bool, err error)
+
+// Core streaming logic - single implementation, no generics, no reflection
+func (c *RESTClient) streamDataCore(
+	ctx context.Context,
+	method string,
+	path string,
+	request interface{},
+	fn StreamResponseFunc,
+	streamType StreamType,
+	createChunk func() interface{}, // Factory function to create typed chunks
+) error {
+	// Marshal request based on content type
+	var data []byte
+	var err error
+
+	if c.contentType == ContentTypeMsgPack {
+		data, err = msgpack.Marshal(request)
+	} else {
+		data, err = json.Marshal(request)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Build URL
+	rel, err := url.Parse(path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %s, error: %v", path, err)
+	}
+	u := c.baseURL.ResolveReference(rel)
+
+	// Create request
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	c.setHeaders(req)
+
+	// Make request
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check status code
+	if resp.StatusCode >= http.StatusBadRequest {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Stream based on type
+	switch streamType {
+	case StreamChunked:
+		return c.streamChunkedCore(ctx, resp, fn, createChunk)
+	case StreamSSE:
+		return c.streamSSECore(ctx, resp, fn, createChunk)
+	default:
+		return fmt.Errorf("unsupported stream type: %d", streamType)
+	}
+}
+
+func (c *RESTClient) streamChunkedCore(
+	ctx context.Context,
+	resp *http.Response,
+	fn StreamResponseFunc,
+	createChunk func() interface{},
+) error {
+	// Create decoder based on content type
+	var decoder interface{ Decode(interface{}) error }
+
+	contentType := resp.Header.Get("Content-Type")
+	if strings.Contains(contentType, ContentTypeMsgPack) {
+		decoder = msgpack.NewDecoder(resp.Body)
+	} else {
+		decoder = json.NewDecoder(resp.Body)
+	}
+
+	// Stream chunks
+	for {
+		// Create new instance using factory function
+		chunk := createChunk()
+
+		err := decoder.Decode(chunk)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("failed to decode chunk: %w", err)
+		}
+
+		// Call handler function
+		isDone, err := fn(chunk)
+		if err != nil {
+			return err
+		}
+
+		// Check if caller indicates we're done
+		if isDone {
+			break
+		}
+
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+	}
+
+	return nil
+}
+
+func (c *RESTClient) streamSSECore(
+	ctx context.Context,
+	resp *http.Response,
+	fn StreamResponseFunc,
+	createChunk func() interface{},
+) error {
+	scanner := bufio.NewScanner(resp.Body)
+
+	for scanner.Scan() {
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		line := scanner.Text()
+
+		// Skip empty lines and non-data lines
+		if line == "" || !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+
+		// Extract data
+		data := strings.TrimPrefix(line, "data: ")
+
+		// Check for end marker
+		if data == "[DONE]" {
+			break
+		}
+
+		// Create new instance using factory function
+		chunk := createChunk()
+
+		// SSE always uses JSON
+		if err := json.Unmarshal([]byte(data), chunk); err != nil {
+			// Skip malformed chunks
+			continue
+		}
+
+		// Call handler function
+		isDone, err := fn(chunk)
+		if err != nil {
+			return err
+		}
+
+		// Check if caller indicates we're done
+		if isDone {
+			break
+		}
+	}
+
+	return scanner.Err()
+}
+
+// Define a constraint for pointer types
+type Pointer[T any] interface {
+	*T
+}
+
+// Thin generic wrapper - only this small function is duplicated per type
+func StreamData[P Pointer[T], T any](
+	c *RESTClient,
+	ctx context.Context,
+	method string,
+	path string,
+	request interface{},
+	fn func(P) (bool, error),
+	streamType StreamType,
+) error {
+	return c.streamDataCore(ctx, method, path, request,
+		func(chunk interface{}) (bool, error) {
+			return fn(chunk.(P))
+		},
+		streamType,
+		func() interface{} {
+			// P is *T, so new(T) gives us *T directly
+			return new(T)
+		})
 }

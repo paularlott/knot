@@ -18,7 +18,7 @@ func HandleGetTokens(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := database.GetInstance().GetTokensForUser(user.Id)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -37,14 +37,14 @@ func HandleGetTokens(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, tokenData)
+	rest.WriteResponse(http.StatusOK, w, r, tokenData)
 }
 
 func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	tokenId := r.PathValue("token_id")
 
 	if !validate.Required(tokenId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid token ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid token ID"})
 		return
 	}
 
@@ -53,7 +53,7 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 
 	token, err := db.GetToken(tokenId)
 	if err != nil || token.UserId != user.Id {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("token %s not found", tokenId)})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("token %s not found", tokenId)})
 		return
 	}
 
@@ -62,7 +62,7 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	token.UpdatedAt = hlc.Now()
 	err = db.SaveToken(token)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -77,15 +77,15 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	request := apiclient.CreateTokenRequest{}
 
-	err := rest.BindJSON(w, r, &request)
+	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// Validate
 	if !validate.TokenName(request.Name) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid token name"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid token name"})
 		return
 	}
 
@@ -93,14 +93,14 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 	token = model.NewToken(request.Name, user.Id)
 	err = database.GetInstance().SaveToken(token)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	service.GetTransport().GossipToken(token)
 
 	// Return the Token ID
-	rest.SendJSON(http.StatusCreated, w, r, apiclient.CreateTokenResponse{
+	rest.WriteResponse(http.StatusCreated, w, r, apiclient.CreateTokenResponse{
 		Status:  true,
 		TokenID: token.Id,
 	})

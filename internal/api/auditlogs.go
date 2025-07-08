@@ -26,13 +26,13 @@ func HandleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	logs, err := db.GetAuditLogs(start, maxItems)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	totalLogs, err := db.GetNumberOfAuditLogs()
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -57,5 +57,5 @@ func HandleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, auditLogs)
+	rest.WriteResponse(http.StatusOK, w, r, auditLogs)
 }

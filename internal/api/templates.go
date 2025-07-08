@@ -25,25 +25,25 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 	userId := r.URL.Query().Get("user_id")
 	if userId != "" {
 		if !user.HasPermission(model.PermissionManageSpaces) {
-			rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Permission denied"})
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "Permission denied"})
 			return
 		}
 
 		var err error
 		user, err = db.GetUser(userId)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 		if user == nil {
-			rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "User not found"})
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "User not found"})
 			return
 		}
 	}
 
 	templates, err := db.GetTemplates()
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -96,7 +96,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		// Find the number of spaces using this template
 		spaces, err := db.GetSpacesByTemplateId(template.Id)
 		if err != nil {
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
@@ -118,20 +118,20 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 		templateResponse.Count++
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, templateResponse)
+	rest.WriteResponse(http.StatusOK, w, r, templateResponse)
 }
 
 func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	templateId := r.PathValue("template_id")
 	if !validate.UUID(templateId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
 		return
 	}
 
 	request := apiclient.TemplateUpdateRequest{}
-	err := rest.BindJSON(w, r, &request)
+	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -143,42 +143,42 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
 		return
 	}
 	if request.Platform != model.PlatformManual && (!validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
 		return
 	}
 	if !validate.MaxLength(request.Volumes, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volumes must be less than 10MB"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volumes must be less than 10MB"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Compute units must be a positive number"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Compute units must be a positive number"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Storage units must be a positive number"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Storage units must be a positive number"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.MaxUptime)) || !validate.OneOf(request.MaxUptimeUnit, []string{"disabled", "minute", "hour", "dat"}) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Max uptime must be a positive number and unit must be one of disabled, minute, hour, day"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Max uptime must be a positive number and unit must be one of disabled, minute, hour, day"})
 		return
 	}
 	if !validate.OneOf(request.Platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformPodman, model.PlatformNomad}) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform"})
 		return
 	}
 
 	if request.ScheduleEnabled {
 		if len(request.Schedule) != 7 {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Schedule must have 7 days"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Schedule must have 7 days"})
 			return
 		}
 		for _, day := range request.Schedule {
 			if !validate.IsTime(day.From) || !validate.IsTime(day.To) {
-				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid time format"})
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid time format"})
 				return
 			}
 		}
@@ -186,11 +186,11 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
 	for _, field := range request.CustomFields {
 		if !validate.Required(field.Name) || !validate.VarName(field.Name) {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid custom field name given"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid custom field name given"})
 			return
 		}
 		if !validate.MaxLength(field.Description, 256) {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Custom field description must be less than 256 characters"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Custom field description must be less than 256 characters"})
 			return
 		}
 	}
@@ -200,12 +200,12 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
 	template, err := db.GetTemplate(templateId)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if template.IsManaged {
-		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot update managed template"})
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot update managed template"})
 		return
 	}
 
@@ -213,7 +213,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	for _, groupId := range request.Groups {
 		_, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
 			return
 		}
 	}
@@ -262,7 +262,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 
 	err = db.SaveTemplate(template, nil)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -289,9 +289,9 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	var templateId string
 
 	request := apiclient.TemplateCreateRequest{}
-	err := rest.BindJSON(w, r, &request)
+	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -303,42 +303,42 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template name given"})
 		return
 	}
 	if request.Platform != model.PlatformManual && (!validate.Required(request.Job) || !validate.MaxLength(request.Job, 10*1024*1024)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Job is required and must be less than 10MB"})
 		return
 	}
 	if !validate.MaxLength(request.Volumes, 10*1024*1024) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volumes must be less than 10MB"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volumes must be less than 10MB"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.ComputeUnits)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Compute units must be a positive number"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Compute units must be a positive number"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.StorageUnits)) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Storage units must be a positive number"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Storage units must be a positive number"})
 		return
 	}
 	if !validate.IsPositiveNumber(int(request.MaxUptime)) || !validate.OneOf(request.MaxUptimeUnit, []string{"disabled", "minute", "hour", "dat"}) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Max uptime must be a positive number and unit must be one of disabled, minute, hour, day"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Max uptime must be a positive number and unit must be one of disabled, minute, hour, day"})
 		return
 	}
 	if !validate.OneOf(request.Platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformPodman, model.PlatformNomad}) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform"})
 		return
 	}
 
 	if request.ScheduleEnabled {
 		if len(request.Schedule) != 7 {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Schedule must have 7 days"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Schedule must have 7 days"})
 			return
 		}
 		for _, day := range request.Schedule {
 			if !validate.IsTime(day.From) || !validate.IsTime(day.To) {
-				rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid time format"})
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid time format"})
 				return
 			}
 		}
@@ -346,11 +346,11 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 	for _, field := range request.CustomFields {
 		if !validate.Required(field.Name) || !validate.VarName(field.Name) {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid custom field name given"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid custom field name given"})
 			return
 		}
 		if !validate.MaxLength(field.Description, 256) {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Custom field description must be less than 256 characters"})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Custom field description must be less than 256 characters"})
 			return
 		}
 	}
@@ -362,7 +362,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	for _, groupId := range request.Groups {
 		_, err := db.GetGroup(groupId)
 		if err != nil {
-			rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: fmt.Sprintf("Group %s does not exist", groupId)})
 			return
 		}
 	}
@@ -411,7 +411,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 	err = database.GetInstance().SaveTemplate(template, nil)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -434,7 +434,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Return the ID
-	rest.SendJSON(http.StatusCreated, w, r, &apiclient.TemplateCreateResponse{
+	rest.WriteResponse(http.StatusCreated, w, r, &apiclient.TemplateCreateResponse{
 		Status: true,
 		Id:     templateId,
 	})
@@ -443,20 +443,20 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	templateId := r.PathValue("template_id")
 	if !validate.UUID(templateId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
 		return
 	}
 
 	template, err := database.GetInstance().GetTemplate(templateId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// Find if any spaces are using this template and deny deletion
 	spaces, err := database.GetInstance().GetSpacesByTemplateId(templateId)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -469,7 +469,7 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if activeSpaces > 0 {
-		rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: "Template is in use by spaces"})
+		rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: "Template is in use by spaces"})
 		return
 	}
 
@@ -480,9 +480,9 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	err = database.GetInstance().SaveTemplate(template, []string{"IsDeleted", "UpdatedAt", "UpdatedUserId"})
 	if err != nil {
 		if errors.Is(err, database.ErrTemplateInUse) {
-			rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
+			rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
 		} else {
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		}
 		return
 	}
@@ -510,21 +510,21 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 	templateId := r.PathValue("template_id")
 	if !validate.UUID(templateId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
 		return
 	}
 
 	db := database.GetInstance()
 	template, err := db.GetTemplate(templateId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// Find the number of spaces using this template
 	spaces, err := db.GetSpacesByTemplateId(templateId)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -588,5 +588,5 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, &data)
+	rest.WriteResponse(http.StatusOK, w, r, &data)
 }

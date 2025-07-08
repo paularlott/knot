@@ -14,10 +14,14 @@ func GetSessionFromCookie(r *http.Request) *model.Session {
 	// Get the cookie value
 	cookie, err := r.Cookie(model.WebSessionCookie)
 	if err == nil {
-
-		// Load the session from the database
 		db := database.GetSessionStorage()
 		session, _ = db.GetSession(cookie.Value)
+	} else {
+		key := r.Header.Get(model.WebSessionCookie)
+		if key != "" {
+			db := database.GetSessionStorage()
+			session, _ = db.GetSession(key)
+		}
 	}
 
 	return session

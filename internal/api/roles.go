@@ -35,7 +35,7 @@ func HandleGetRoles(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, roleInfoList)
+	rest.WriteResponse(http.StatusOK, w, r, roleInfoList)
 }
 
 func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
@@ -43,26 +43,26 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	roleId := r.PathValue("role_id")
 
 	if !validate.UUID(roleId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid role ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid role ID"})
 		return
 	}
 
 	var role *model.Role
 
 	request := apiclient.RoleRequest{}
-	err := rest.BindJSON(w, r, &request)
+	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user role name"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user role name"})
 		return
 	}
 
 	if roleId == model.RoleAdminUUID {
-		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot update the admin role"})
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot update the admin role"})
 		return
 	}
 
@@ -70,7 +70,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 
 	role, err = db.GetRole(roleId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -81,7 +81,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 
 	err = db.SaveRole(role)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -109,14 +109,14 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
 	request := apiclient.RoleRequest{}
-	err := rest.BindJSON(w, r, &request)
+	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	if !validate.Required(request.Name) || !validate.MaxLength(request.Name, 64) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user role name"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user role name"})
 		return
 	}
 
@@ -124,7 +124,7 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 
 	err = database.GetInstance().SaveRole(role)
 	if err != nil {
-		rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -146,7 +146,7 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// Return the ID
-	rest.SendJSON(http.StatusCreated, w, r, apiclient.RoleResponse{
+	rest.WriteResponse(http.StatusCreated, w, r, apiclient.RoleResponse{
 		Status: true,
 		Id:     role.Id,
 	})
@@ -156,19 +156,19 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 	roleId := r.PathValue("role_id")
 
 	if !validate.UUID(roleId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid role ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid role ID"})
 		return
 	}
 
 	if roleId == model.RoleAdminUUID {
-		rest.SendJSON(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot delete the admin role"})
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "Cannot delete the admin role"})
 		return
 	}
 
 	db := database.GetInstance()
 	role, err := db.GetRole(roleId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -181,9 +181,9 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 	err = db.SaveRole(role)
 	if err != nil {
 		if errors.Is(err, database.ErrTemplateInUse) {
-			rest.SendJSON(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
+			rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
 		} else {
-			rest.SendJSON(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		}
 		return
 	}
@@ -212,18 +212,18 @@ func HandleGetRole(w http.ResponseWriter, r *http.Request) {
 	roleId := r.PathValue("role_id")
 
 	if !validate.UUID(roleId) {
-		rest.SendJSON(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid role ID"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid role ID"})
 		return
 	}
 
 	db := database.GetInstance()
 	role, err := db.GetRole(roleId)
 	if err != nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 	if role == nil {
-		rest.SendJSON(http.StatusNotFound, w, r, ErrorResponse{Error: "Role not found"})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Role not found"})
 		return
 	}
 
@@ -233,5 +233,5 @@ func HandleGetRole(w http.ResponseWriter, r *http.Request) {
 		Permissions: role.Permissions,
 	}
 
-	rest.SendJSON(http.StatusOK, w, r, data)
+	rest.WriteResponse(http.StatusOK, w, r, data)
 }
