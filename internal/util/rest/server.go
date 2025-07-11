@@ -97,7 +97,7 @@ func NewChunkedStreamWriter(w http.ResponseWriter, r *http.Request) *ChunkedStre
 	if useMsgPack {
 		w.Header().Set("Content-Type", "application/msgpack")
 	} else {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/x-ndjson")
 	}
 
 	w.Header().Set("Transfer-Encoding", "chunked")
@@ -178,6 +178,7 @@ type SSEStreamWriter struct {
 // NewSSEStreamWriter creates a new SSE stream writer
 func NewSSEStreamWriter(w http.ResponseWriter, r *http.Request) *SSEStreamWriter {
 	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Transfer-Encoding", "chunked")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")

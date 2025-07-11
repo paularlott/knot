@@ -70,6 +70,11 @@ func (c *RESTClient) Close() {
 	c.HTTPClient.CloseIdleConnections()
 }
 
+func (c *RESTClient) SetTimeout(timeout time.Duration) *RESTClient {
+	c.HTTPClient.Timeout = timeout
+	return c
+}
+
 func (c *RESTClient) SetContentType(contentType string) *RESTClient {
 	c.contentType = contentType
 	return c
