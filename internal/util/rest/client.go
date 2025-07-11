@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -97,7 +96,7 @@ func (c *RESTClient) SetBaseUrl(baseURL string) (*RESTClient, error) {
 }
 
 func (c *RESTClient) AppendUserAgent(userAgent string) *RESTClient {
-	c.userAgent = c.userAgent + " " + userAgent
+	c.userAgent = strings.TrimSpace(c.userAgent + " " + userAgent)
 	return c
 }
 
@@ -166,10 +165,13 @@ func (c *RESTClient) Get(ctx context.Context, path string, response interface{})
 
 	defer resp.Body.Close()
 
-	if resp.Header.Get("Content-Type") == ContentTypeMsgPack {
-		err = msgpack.NewDecoder(resp.Body).Decode(response)
-	} else {
-		err = json.NewDecoder(resp.Body).Decode(response)
+	if response != nil {
+		contentType := resp.Header.Get("Content-Type")
+		if strings.Contains(contentType, ContentTypeMsgPack) {
+			err = msgpack.NewDecoder(resp.Body).Decode(response)
+		} else {
+			err = json.NewDecoder(resp.Body).Decode(response)
+		}
 	}
 	return resp.StatusCode, err
 }
@@ -207,27 +209,22 @@ func (c *RESTClient) SendData(ctx context.Context, method string, path string, r
 	defer resp.Body.Close()
 
 	if (successCode == 0 && resp.StatusCode >= http.StatusBadRequest) || (successCode > 0 && resp.StatusCode != successCode) {
-
-		// Get the body as a string and wrap in the error message
-		var bodyBytes []byte
-		if resp.Body != nil {
-			bodyBytes, _ = io.ReadAll(resp.Body)
-		}
-		bodyString := string(bodyBytes)
-
-		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %w", resp.StatusCode, errors.New(bodyString))
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	if response == nil {
-		return resp.StatusCode, nil
-	} else {
-		if strings.Contains(resp.Header.Get("Content-Type"), ContentTypeMsgPack) {
+	if response != nil {
+		contentType := resp.Header.Get("Content-Type")
+		if strings.Contains(contentType, ContentTypeMsgPack) {
 			err = msgpack.NewDecoder(resp.Body).Decode(response)
 		} else {
 			err = json.NewDecoder(resp.Body).Decode(response)
 		}
-		return resp.StatusCode, err
+		if err != nil {
+			return resp.StatusCode, err
+		}
 	}
+	return resp.StatusCode, nil
 }
 
 func (c *RESTClient) Post(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {

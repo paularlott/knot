@@ -17,6 +17,11 @@ var (
 
 // DecodeRequestBody decodes JSON or Msgpack data from the request body into a struct
 func DecodeRequestBody(w http.ResponseWriter, r *http.Request, v interface{}) error {
+	if r == nil || v == nil {
+		http.Error(w, "invalid request or destination", http.StatusBadRequest)
+		return errors.New("invalid request or destination")
+	}
+
 	contentType := r.Header.Get("Content-Type")
 	// Handle possible charset in Content-Type
 	if idx := strings.Index(contentType, ";"); idx != -1 {
@@ -28,15 +33,14 @@ func DecodeRequestBody(w http.ResponseWriter, r *http.Request, v interface{}) er
 		decoder := json.NewDecoder(r.Body)
 		// decoder.DisallowUnknownFields()
 		if err := decoder.Decode(v); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "invalid JSON format", http.StatusBadRequest)
 			return err
 		}
 		return nil
 	case "application/msgpack":
 		decoder := msgpack.NewDecoder(r.Body)
-		// decoder.DisallowUnknownFields(true)
 		if err := decoder.Decode(v); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "invalid msgpack format", http.StatusBadRequest)
 			return err
 		}
 		return nil
@@ -48,6 +52,10 @@ func DecodeRequestBody(w http.ResponseWriter, r *http.Request, v interface{}) er
 
 // WriteResponse encodes and writes a JSON or Msgpack response
 func WriteResponse(status int, w http.ResponseWriter, r *http.Request, v interface{}) error {
+	if w == nil || r == nil {
+		return errors.New("invalid response writer or request")
+	}
+
 	if status < 100 || status > 599 {
 		http.Error(w, errInvalidStatusCode.Error(), http.StatusInternalServerError)
 		return errInvalidStatusCode
@@ -90,6 +98,10 @@ type ChunkedStreamWriter struct {
 
 // NewChunkedStreamWriter creates a new chunked stream writer
 func NewChunkedStreamWriter(w http.ResponseWriter, r *http.Request) *ChunkedStreamWriter {
+	if w == nil || r == nil {
+		return nil
+	}
+
 	// Determine encoding based on Accept header
 	accept := r.Header.Get("Accept")
 	useMsgPack := strings.Contains(accept, "application/msgpack")
@@ -177,6 +189,10 @@ type SSEStreamWriter struct {
 
 // NewSSEStreamWriter creates a new SSE stream writer
 func NewSSEStreamWriter(w http.ResponseWriter, r *http.Request) *SSEStreamWriter {
+	if w == nil || r == nil {
+		return nil
+	}
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Transfer-Encoding", "chunked")
 	w.Header().Set("Cache-Control", "no-cache")
