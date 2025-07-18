@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Sign In{{ end }}
 
 {{ define "mainContent" }}
-<div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-xl dark:bg-gray-800" x-data="loginUserForm('{{ .redirect }}')">
+<div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-2xl dark:bg-gray-800" x-data="loginUserForm('{{ .redirect }}')">
   <div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
     {{ if .logoURL }}
     <img src="{{ .logoURL }}" class="h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="Logo">

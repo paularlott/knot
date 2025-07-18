@@ -9,27 +9,27 @@ replace github.com/paularlott/cli => ../cli/
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/creack/pty v1.1.24
-	github.com/dgraph-io/badger/v4 v4.7.0
-	github.com/docker/docker v28.2.2+incompatible
+	github.com/dgraph-io/badger/v4 v4.8.0
+	github.com/docker/docker v28.3.2+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
-	github.com/miekg/dns v1.1.66
-	github.com/paularlott/cli v0.0.0-20250627160228-e7c84744c96f
-	github.com/paularlott/gossip v0.0.0-20250623061438-f513599610dd
+	github.com/miekg/dns v1.1.67
+	github.com/paularlott/cli v0.0.0-20250705020129-3573e7303269
+	github.com/paularlott/gossip v0.0.0-20250711120747-6898d0d65058
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/rs/zerolog v1.34.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
-	golang.org/x/crypto v0.39.0
-	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
-	golang.org/x/net v0.41.0
-	golang.org/x/term v0.32.0
+	golang.org/x/crypto v0.40.0
+	golang.org/x/exp v0.0.0-20250717185816-542afb5b7346
+	golang.org/x/net v0.42.0
+	golang.org/x/term v0.33.0
 	golang.org/x/time v0.12.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -75,16 +75,16 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
-	go.opentelemetry.io/otel v1.36.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.62.0 // indirect
+	go.opentelemetry.io/otel v1.37.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.33.0 // indirect
-	go.opentelemetry.io/otel/metric v1.36.0 // indirect
-	go.opentelemetry.io/otel/trace v1.36.0 // indirect
-	golang.org/x/image v0.28.0 // indirect
-	golang.org/x/mod v0.25.0 // indirect
-	golang.org/x/sync v0.15.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/tools v0.34.0 // indirect
+	go.opentelemetry.io/otel/metric v1.37.0 // indirect
+	go.opentelemetry.io/otel/trace v1.37.0 // indirect
+	golang.org/x/image v0.29.0 // indirect
+	golang.org/x/mod v0.26.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/tools v0.35.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
 	google.golang.org/grpc v1.71.0 // indirect

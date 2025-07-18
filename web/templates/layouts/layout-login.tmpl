@@ -2,11 +2,16 @@
 <html x-data="{ darkMode: $persist(true) }" :class="{ 'dark': darkMode }">
   <head>
     {{ template "head-meta" . }}
+    <script src="assets/js/meshanimation.js?_v={{ .version }}" defer></script>
   </head>
   <body class="bg-gray-50 dark:bg-gray-900 font-nunito login-body">
 
+  <div class="mesh-container">
+    <canvas class="mesh-canvas" id="heroMesh"></canvas>
+  </div>
+
   <main>
-    <div class="flex flex-col items-center justify-center px-6 pt-8 mx-auto h-screen pt:mt-0">
+    <div class="z-2 relative flex flex-col items-center justify-center px-6 pt-8 mx-auto h-screen pt:mt-0">
 
       {{ block "mainContent" . }}{{ end }}
 
