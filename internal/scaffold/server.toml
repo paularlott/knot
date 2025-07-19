@@ -1,7 +1,8 @@
 # Server configuration
 [server]
+
 # Address and port to listen on
-listen = "http://127.0.0.1:3000"
+listen = "0.0.0.0:3000"
 
 # Address and port to listen on for agents
 listen_agent = "0.0.0.0:3010"
@@ -11,9 +12,6 @@ agent_endpoint = "srv+knot-server-agent.service.consul"
 
 # The wildcard domain to expose the web interface of spaces on
 #wildcard_domain = "*.example.com"
-
-# Disable Proxy functionality
-disable_proxy = false
 
 [server.terminal]
 webgl = true
@@ -51,14 +49,14 @@ db = 0
 addr = "http://127.0.0.1:4646"
 token = ""
 
-[server.cluster]
-advertise_addr = "wss://knot.example.com/"
-key = "VF9hmdXZyzNF3rcP6M0P" # knot genkey
-peers = [
-  "wss://knot.example.com",
-  "wss://knot1.example.com",
-  "wss://knot2.example.com"
-]
+# [server.cluster]
+# advertise_addr = "wss://knot.example.com/"
+# key = "VF9hmdXZyzNF3rcP6M0P" # knot genkey
+# peers = [
+#   "wss://knot.example.com",
+#   "wss://knot1.example.com",
+#   "wss://knot2.example.com"
+# ]
 
 # Optional nameservers to use for SRV lookups
 # [resolver]

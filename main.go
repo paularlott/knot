@@ -46,6 +46,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			}
 
 			paths = append(paths, filepath.Join(home, ".config", config.CONFIG_DIR))
+			paths = append(paths, filepath.Join("/etc", config.CONFIG_DIR))
 
 			return paths
 		}),
