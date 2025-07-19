@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/middleware"
 )
 
@@ -100,6 +101,9 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/auth", HandleAuthorization)
 	router.HandleFunc("POST /api/auth/web", HandleAuthorization)
 	router.HandleFunc("GET /api/auth/using-totp", HandleUsingTotp)
+
+	// MCP
+	router.HandleFunc("POST /mcp", middleware.ApiAuth(mcp.HandleMCP))
 
 	// Start a cleanup job for the rate limiters
 	go cleanupLimiters(context.Background())
