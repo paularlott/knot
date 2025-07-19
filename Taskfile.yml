@@ -28,7 +28,7 @@ tasks:
 
   build:
     desc: Build the binary for the current platform
-    deps: [agents, legal, apidocs, webassets]
+    deps: [agents, apidocs, webassets]
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.OUTPUT_DIR}}/{{.PROJECT_NAME}} .
     sources:
@@ -73,7 +73,7 @@ tasks:
 
   all:
     desc: Build the binary for all platforms
-    deps: [agents, legal, apidocs, webassets]
+    deps: [agents, apidocs, webassets]
     cmds:
       - task: build-platform
         vars: { PLATFORM: '{{.ITEM}}' }
