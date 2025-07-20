@@ -55,7 +55,7 @@ user = ""
 # BadgerDB storage
 [server.badgerdb]
 enabled = false
-path = "/data/badgerdb/"
+path = "/data/"
 
 [server.nomad]
 addr = "http://nomad.service.consul:4646"

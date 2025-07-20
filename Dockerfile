@@ -60,10 +60,6 @@ RUN addgroup -S knot \
   && mkdir -p /data \
   && chown -R knot:knot /data
 
-ENV KNOT_DOWNLOAD_PATH=/srv
-ENV KNOT_BADGERDB_ENABLED=true
-ENV KNOT_BADGERDB_PATH=/data
-
 # Set user and working directory
 USER knot
 WORKDIR /data
