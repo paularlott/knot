@@ -656,12 +656,17 @@ var ServerCmd = &cli.Command{
 
 			// Get the routes for the wildcard domain
 			wildcardRoutes := proxy.PortRoutes()
-
 			domainMux := http.NewServeMux()
 			domainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-				if r.Host == u.Host || (tunnelServerUrl != nil && r.Host == tunnelServerUrl.Host) {
+				// Extract hostname without port if present
+				requestHost := r.Host
+				if host, _, err := net.SplitHostPort(requestHost); err == nil {
+					requestHost = host
+				}
+
+				if requestHost == u.Host || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
 					appRoutes.ServeHTTP(w, r)
-				} else if match.MatchString(r.Host) {
+				} else if match.MatchString(requestHost) {
 					wildcardRoutes.ServeHTTP(w, r)
 				} else {
 					if r.URL.Path == "/health" {
