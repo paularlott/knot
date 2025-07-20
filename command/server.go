@@ -650,6 +650,12 @@ var ServerCmd = &cli.Command{
 		// If have a wildcard domain, build it's routes
 		if wildcardDomain != "" {
 			log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
+			fmt.Println(wildcardDomain)
+
+			// Remove the port form the wildcard domain
+			if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
+				wildcardDomain = host
+			}
 
 			// Create a regex to match the wildcard domain
 			match := regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
@@ -722,8 +728,13 @@ var ServerCmd = &cli.Command{
 				if err != nil {
 					log.Fatal().Msg(err.Error())
 				}
-				sslDomains = append(sslDomains, u.Host)
-				if u.Host != "localhost" {
+				hostname := u.Host
+				if host, _, err := net.SplitHostPort(hostname); err == nil {
+					hostname = host
+				}
+
+				sslDomains = append(sslDomains, hostname)
+				if hostname != "localhost" {
 					sslDomains = append(sslDomains, "localhost")
 				}
 
@@ -734,6 +745,10 @@ var ServerCmd = &cli.Command{
 				// If wildcard domain given add it
 				wildcardDomain := cfg.WildcardDomain
 				if wildcardDomain != "" {
+					if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
+						wildcardDomain = host
+					}
+
 					sslDomains = append(sslDomains, wildcardDomain)
 				}
 
