@@ -654,6 +654,12 @@ var ServerCmd = &cli.Command{
 			// Create a regex to match the wildcard domain
 			match := regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
 
+			// Get our hostname without port if present
+			hostname := u.Host
+			if host, _, err := net.SplitHostPort(hostname); err == nil {
+				hostname = host
+			}
+
 			// Get the routes for the wildcard domain
 			wildcardRoutes := proxy.PortRoutes()
 			domainMux := http.NewServeMux()
@@ -664,7 +670,7 @@ var ServerCmd = &cli.Command{
 					requestHost = host
 				}
 
-				if requestHost == u.Host || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
+				if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
 					appRoutes.ServeHTTP(w, r)
 				} else if match.MatchString(requestHost) {
 					wildcardRoutes.ServeHTTP(w, r)
