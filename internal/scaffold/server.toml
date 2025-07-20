@@ -10,8 +10,11 @@ listen_agent = "0.0.0.0:3010"
 # Address and port for the agents to connect to
 agent_endpoint = "srv+knot-server-agent.service.consul"
 
+# The URL to the Knot server (used for the web interface)
+url = "https://knot.internal"
+
 # The wildcard domain to expose the web interface of spaces on
-#wildcard_domain = "*.example.com"
+#wildcard_domain = "*.knot.internal"
 
 [server.terminal]
 webgl = true
