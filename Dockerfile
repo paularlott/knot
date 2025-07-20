@@ -1,10 +1,13 @@
 ARG DOCKER_HUB
 
-FROM ${DOCKER_HUB}library/golang:1.24.5-alpine AS builder
+FROM --platform=${BUILDPLATFORM} ${DOCKER_HUB}library/golang:1.24.5-alpine AS builder
+
+# Set build arguments
+ARG TARGETPLATFORM=linux/amd64
 
 RUN apk update \
-  && apk add bash unzip zip nodejs npm \
-  && GO_TASK_VERSION=3.43.3 \
+  && apk add --no-cache bash unzip zip nodejs npm \
+  && GO_TASK_VERSION=3.44.0 \
   && ARCH=$(uname -m) \
   && case $ARCH in \
     'x86_64') url="https://github.com/go-task/task/releases/download/v${GO_TASK_VERSION}/task_linux_amd64.tar.gz" ;; \
@@ -28,7 +31,13 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 	go mod download
 
 # Build the clients for all platforms and the application for the current architecture
-RUN task all build
+RUN task build-docker
+# RUN ARCH=$(uname -m) \
+#   && case $ARCH in \
+#     'x86_64') task build-amd64 ;; \
+#     'aarch64') task build-arm64 ;; \
+#     *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+#   esac
 
 FROM ${DOCKER_HUB}library/alpine:3.22
 

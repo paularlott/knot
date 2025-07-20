@@ -39,17 +39,23 @@ level = "info"
 [server]
 listen = "0.0.0.0:3000"
 listen_agent = "0.0.0.0:3010"
-url = "https://knot.example.com"
-wildcard_domain = "*.knot.example.com"
+url = "https://knot.internal"
+wildcard_domain = "*.knot.internal"
 agent_endpoint = "srv+knot-server-agent.service.consul"
-encrypt = "Gnat9SAejFszCla9n1FjCIXQb3py5i0w" # Replace this using knot genkey
+encrypt = "<Replace this using knot genkey>"
 
+# MySQL server
 [server.mysql]
 database = "knot"
-enabled = true
+enabled = false
 host = ""
 password = ""
 user = ""
+
+# BadgerDB storage
+[server.badgerdb]
+enabled = false
+path = "/data/badgerdb/"
 
 [server.nomad]
 addr = "http://nomad.service.consul:4646"
@@ -71,8 +77,8 @@ EOF
 
         # Expose the port on a domain name
         # tags = [
-        #  "urlprefix-knot.example.com proto=https tlsskipverify=true",
-        #  "urlprefix-*.knot.example.com proto=https tlsskipverify=true"
+        #  "urlprefix-knot.internal proto=https tlsskipverify=true",
+        #  "urlprefix-*.knot.internal proto=https tlsskipverify=true"
         # ]
 
         check {

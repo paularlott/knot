@@ -650,7 +650,6 @@ var ServerCmd = &cli.Command{
 		// If have a wildcard domain, build it's routes
 		if wildcardDomain != "" {
 			log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
-			fmt.Println(wildcardDomain)
 
 			// Remove the port form the wildcard domain
 			if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
