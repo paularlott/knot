@@ -117,8 +117,8 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
-github.com/paularlott/cli v0.2.2 h1:uuw3XFaRxQI7bT6bZjNV0VfNxj97/Vx8GdrK3QmaAts=
-github.com/paularlott/cli v0.2.2/go.mod h1:vz7atFOzdL01RWaSzUvyfl704L1Mxbz99HBpBFOTnLc=
+github.com/paularlott/cli v0.2.3 h1:eZEna8B/+evbQlu3wLjE8eEHDxcRwc3R7mTTn2uuANY=
+github.com/paularlott/cli v0.2.3/go.mod h1:vz7atFOzdL01RWaSzUvyfl704L1Mxbz99HBpBFOTnLc=
 github.com/paularlott/gossip v0.1.0 h1:qFz72uvs5Ez2G59KFaG35RPQdUbDNsGSpP5Wxxi4iqQ=
 github.com/paularlott/gossip v0.1.0/go.mod h1:fkks5hev58UiTzTWibEjGu20Af9fn+wW1pPj/kBna4g=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=

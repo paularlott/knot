@@ -18,7 +18,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.67
-	github.com/paularlott/cli v0.2.2
+	github.com/paularlott/cli v0.2.3
 	github.com/paularlott/gossip v0.1.0
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.11.0
