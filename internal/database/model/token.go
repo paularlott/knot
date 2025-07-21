@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	MaxTokenAge = 7 * 24 * time.Hour // 1 week
+	MaxTokenAge = 14 * 24 * time.Hour // 2 weeks
 )
 
 // Session object
