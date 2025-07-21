@@ -74,7 +74,7 @@ var ServerCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:         "tunnel-server",
-			Usage:        "The URL to use for the tunnel client to connect to the server.",
+			Usage:        "The URL for the tunnel client to connect to the individual server.",
 			ConfigPath:   []string{"server.tunnel_server"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TUNNEL_SERVER"},
 			DefaultValue: "",
@@ -965,6 +965,11 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		if !strings.HasPrefix(serverCfg.TunnelDomain, ".") {
 			serverCfg.TunnelDomain = "." + serverCfg.TunnelDomain
 		}
+	}
+
+	// If tunnel server not given then use the instances url as the tunnel server
+	if serverCfg.TunnelServer == "" {
+		serverCfg.TunnelServer = serverCfg.URL
 	}
 
 	// Force the zone for leaf nodes
