@@ -27,7 +27,7 @@
           <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
         </div>
         <div x-data="autocompleterIcon({{ .iconList }})" data-parent-var-group="formData" data-parent-variable="icon_url" @refresh-autocompleter.window="refresh()" class="mt-2">
-          <label for="icon_url" class="form-label">Template Icon</label>
+          <label for="icon_url" class="form-label">Icon</label>
           <div class="flex items-center">
             <img x-show="formData.icon_url.length" :src="formData.icon_url" alt="Icon" class="size-10 mr-2">
             <div class="relative w-full max-w-sm">
