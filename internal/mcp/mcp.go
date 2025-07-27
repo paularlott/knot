@@ -155,6 +155,8 @@ func HandleMCP(w http.ResponseWriter, r *http.Request) {
 		req.ID = ""
 	}
 
+	fmt.Println("MCP Rqequest:", req.Method)
+
 	switch req.Method {
 	case "initialize":
 		handleInitialize(w, r, &req)
@@ -206,6 +208,8 @@ func handleInitialize(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
 		protocolVersion = params.ProtocolVersion
 	}
 
+	fmt.Println("Using Protocol Version:", protocolVersion)
+
 	result := InitializeResult{
 		ProtocolVersion: protocolVersion,
 		Capabilities:    buildCapabilities(protocolVersion),
@@ -228,17 +232,7 @@ func buildCapabilities(protocolVersion string) Capabilities {
 	case "2024-11-05":
 		// Basic capabilities for 2024-11-05
 		capabilities.Tools = map[string]interface{}{}
-	case "2025-03-26":
-		// Enhanced capabilities for 2025-03-26
-		capabilities.Tools = map[string]interface{}{
-			"listChanged": false,
-		}
-	case "2025-06-18":
-		// Latest capabilities for 2025-06-18
-		capabilities.Tools = map[string]interface{}{
-			"listChanged": false,
-		}
-	default:
+	default: // 2025-03-26, 2025-06-18 and use latest if unknown
 		// Default to latest
 		capabilities.Tools = map[string]interface{}{
 			"listChanged": false,
@@ -267,6 +261,11 @@ func handleToolsList(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
 			Name:        "stop_space",
 			Description: "Stop a space by its ID",
 			InputSchema: buildToolSchema("stop_space"),
+		},
+		{
+			Name:        "get_docker_podman_spec",
+			Description: "Get the complete Docker/Podman job specification documentation in markdown format",
+			InputSchema: buildToolSchema("get_docker_podman_spec"),
 		},
 	}
 
@@ -300,6 +299,12 @@ func buildToolSchema(toolName string) map[string]interface{} {
 				},
 			},
 			"required":             []string{"space_id"},
+			"additionalProperties": false,
+		}
+	case "get_docker_podman_spec":
+		return map[string]interface{}{
+			"type":                 "object",
+			"properties":           map[string]interface{}{},
 			"additionalProperties": false,
 		}
 	default:
@@ -336,6 +341,8 @@ func handleToolsCall(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
 		handleStartSpace(w, r, req, user, params.Arguments)
 	case "stop_space":
 		handleStopSpace(w, r, req, user, params.Arguments)
+	case "get_docker_podman_spec":
+		handleGetDockerPodmanSpec(w, r, req, user, params.Arguments)
 	default:
 		sendMCPError(w, req.ID, -32601, "Tool not found", nil)
 	}
@@ -531,4 +538,154 @@ func sendMCPError(w http.ResponseWriter, id interface{}, code int, message strin
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.WriteHeader(http.StatusOK) // Always 200 for JSON-RPC responses
 	json.NewEncoder(w).Encode(response)
+}
+
+func handleGetDockerPodmanSpec(w http.ResponseWriter, r *http.Request, req *MCPRequest, user *model.User, args map[string]interface{}) {
+	result := ToolResult{
+		Content: []ToolContent{
+			{
+				Type: "text",
+				Text: getDockerPodmanJobSpecContent(),
+			},
+		},
+	}
+
+	sendMCPResponse(w, req.ID, result)
+}
+
+func getDockerPodmanJobSpecContent() string {
+	return `# Docker / Podman Job Specification for Knot
+
+Docker/Podman job specification, showcasing all available options:
+
+` + "```yaml" + `
+container_name: <container name>
+hostname: <host name>
+image: "<container image>"
+auth:
+  username: <username>
+  password: <password>
+ports:
+  - <host port>:<container port>/<transport>
+volumes:
+  - <host path>:<container path>
+command: [
+  "<1>",
+  "<2>"
+]
+privileged: <true | false>
+network: <network mode>
+environment:
+  - "<variable>=<value>"
+cap_add:
+  - <cap>
+cap_drop:
+  - <cap>
+devices:
+  - <host path>:<container path>
+dns:
+  - <nameserver ip>
+add_host:
+  - <host name>:<ip>
+dns_search:
+  - <domain name>
+` + "```" + `
+
+---
+
+## Job Specification Details
+
+### **container_name**
+The unique name assigned to the container. Ensure it does not conflict with other containers on the host.
+
+### **hostname**
+The hostname to set inside the container.
+
+### **image**
+The container image to use. This can be pulled from public registries like Docker Hub or private registries.
+
+### **auth**
+Authentication credentials for private registries:
+- **username**: The registry username.
+- **password**: The registry password.
+
+### **ports**
+Defines port mappings between the host and container in the format ` + "`<host port>:<container port>/<transport>`" + `. The transport protocol (` + "`tcp`" + ` or ` + "`udp`" + `) is optional.
+
+### **volumes**
+Specifies volume mappings in the format ` + "`<host path>:<container path>`" + `. This ensures data persists beyond the container's lifecycle.
+
+### **command**
+Overrides the default command specified in the container image. Provide commands as a list of strings.
+
+### **privileged**
+When set to ` + "`true`" + `, grants the container extended privileges on the host. Use cautiously due to potential security risks.
+
+### **network**
+Specifies the network mode for the container. Options include:
+- ` + "`bridge`" + `: Default Docker network.
+- ` + "`host`" + `: Shares the host's network stack.
+- ` + "`none`" + `: Disables networking.
+- ` + "`container:<name|id>`" + `: Shares the network stack of another container.
+
+### **environment**
+Defines environment variables in the format ` + "`<variable>=<value>`" + `.
+
+### **cap_add / cap_drop**
+Adds or removes Linux capabilities for the container, controlling privileged operations.
+
+### **devices**
+Maps devices from the host to the container in the format ` + "`<host path>:<container path>`" + `.
+
+### **dns**
+Specifies custom DNS servers for the container.
+
+### **add_host**
+Adds custom host-to-IP mappings to the container's ` + "`/etc/hosts`" + ` file.
+
+### **dns_search**
+Defines custom DNS search domains for the container.
+
+## Example Job Specification
+
+` + "```yaml" + `
+container_name: "my-dev-environment"
+hostname: "dev-box"
+image: "ubuntu:22.04"
+auth:
+  username: "myuser"
+  password: "mypassword"
+ports:
+  - "8080:80/tcp"
+  - "2222:22/tcp"
+volumes:
+  - "/home/user/projects:/workspace"
+  - "/var/run/docker.sock:/var/run/docker.sock"
+command: [
+  "/bin/bash",
+  "-c",
+  "service ssh start && tail -f /dev/null"
+]
+privileged: false
+network: "bridge"
+environment:
+  - "USER=developer"
+  - "HOME=/workspace"
+  - "TERM=xterm-256color"
+cap_add:
+  - "SYS_PTRACE"
+cap_drop:
+  - "NET_ADMIN"
+devices:
+  - "/dev/fuse:/dev/fuse"
+dns:
+  - "8.8.8.8"
+  - "8.8.4.4"
+add_host:
+  - "myhost:192.168.1.100"
+dns_search:
+  - "example.com"
+` + "```" + `
+
+This example creates a development environment with SSH access, volume mounts for persistent storage, and custom networking configuration.`
 }
