@@ -22,12 +22,15 @@ func ResolveVariables(srcString string, t *Template, space *Space, user *User, v
 
 	// Build map of custom space variables and any that are in the template and not space add as blanks
 	var custVars = make(map[string]interface{})
-	for _, field := range space.CustomFields {
-		custVars[field.Name] = field.Value
-	}
-	for _, field := range t.CustomFields {
-		if _, ok := custVars[field.Name]; !ok {
-			custVars[field.Name] = ""
+
+	if space != nil && space.CustomFields != nil {
+		for _, field := range space.CustomFields {
+			custVars[field.Name] = field.Value
+		}
+		for _, field := range t.CustomFields {
+			if _, ok := custVars[field.Name]; !ok {
+				custVars[field.Name] = ""
+			}
 		}
 	}
 

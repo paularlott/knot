@@ -264,40 +264,43 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			return
 		}
 
-		containerClient, err := h.createClient(template.Platform)
-		if err != nil {
-			log.Error().Err(err).Msg("DeleteSpace: failed to create container client")
-
-			space.IsDeleting = false
-			space.UpdatedAt = hlc.Now()
-			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-			service.GetTransport().GossipSpace(space)
-			return
-		}
-
-		// If the space is deployed, stop the job
-		if space.IsDeployed {
-			err = containerClient.DeleteSpaceJob(space, nil)
+		// If not a manual space then we have to do additional checks and clean up
+		if !template.IsManual() {
+			containerClient, err := h.createClient(template.Platform)
 			if err != nil {
-				log.Error().Err(err).Msg("DeleteSpace: delete space job")
+				log.Error().Err(err).Msg("DeleteSpace: failed to create container client")
+
 				space.IsDeleting = false
 				space.UpdatedAt = hlc.Now()
 				db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 				service.GetTransport().GossipSpace(space)
 				return
 			}
-		}
 
-		// Delete volumes on failure we log the error and revert the space to not deleting
-		err = containerClient.DeleteSpaceVolumes(space)
-		if err != nil {
-			log.Error().Err(err).Msgf("DeleteSpace")
+			// If the space is deployed, stop the job
+			if space.IsDeployed {
+				err = containerClient.DeleteSpaceJob(space, nil)
+				if err != nil {
+					log.Error().Err(err).Msg("DeleteSpace: delete space job")
+					space.IsDeleting = false
+					space.UpdatedAt = hlc.Now()
+					db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
+					service.GetTransport().GossipSpace(space)
+					return
+				}
+			}
 
-			space.IsDeleting = false
-			space.UpdatedAt = hlc.Now()
-			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-			service.GetTransport().GossipSpace(space)
-			return
+			// Delete volumes on failure we log the error and revert the space to not deleting
+			err = containerClient.DeleteSpaceVolumes(space)
+			if err != nil {
+				log.Error().Err(err).Msgf("DeleteSpace")
+
+				space.IsDeleting = false
+				space.UpdatedAt = hlc.Now()
+				db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
+				service.GetTransport().GossipSpace(space)
+				return
+			}
 		}
 
 		// Delete the space

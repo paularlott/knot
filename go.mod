@@ -1,10 +1,10 @@
 module github.com/paularlott/knot
 
-go 1.24.4
+go 1.24.5
 
-replace github.com/paularlott/gossip => ../gossip/
+// replace github.com/paularlott/gossip => ../gossip/
 
-replace github.com/paularlott/cli => ../cli/
+// replace github.com/paularlott/cli => ../cli/
 
 require (
 	github.com/BurntSushi/toml v1.5.0
@@ -18,8 +18,8 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.67
-	github.com/paularlott/cli v0.0.0-20250705020129-3573e7303269
-	github.com/paularlott/gossip v0.0.0-20250711120747-6898d0d65058
+	github.com/paularlott/cli v0.2.3
+	github.com/paularlott/gossip v0.2.0
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/rs/zerolog v1.34.0
@@ -27,7 +27,7 @@ require (
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.40.0
-	golang.org/x/exp v0.0.0-20250717185816-542afb5b7346
+	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792
 	golang.org/x/net v0.42.0
 	golang.org/x/term v0.33.0
 	golang.org/x/time v0.12.0

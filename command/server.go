@@ -74,7 +74,7 @@ var ServerCmd = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:         "tunnel-server",
-			Usage:        "The URL to use for the tunnel client to connect to the server.",
+			Usage:        "The URL for the tunnel client to connect to the individual server.",
 			ConfigPath:   []string{"server.tunnel_server"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TUNNEL_SERVER"},
 			DefaultValue: "",
@@ -651,17 +651,33 @@ var ServerCmd = &cli.Command{
 		if wildcardDomain != "" {
 			log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
 
+			// Remove the port form the wildcard domain
+			if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
+				wildcardDomain = host
+			}
+
 			// Create a regex to match the wildcard domain
 			match := regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
 
+			// Get our hostname without port if present
+			hostname := u.Host
+			if host, _, err := net.SplitHostPort(hostname); err == nil {
+				hostname = host
+			}
+
 			// Get the routes for the wildcard domain
 			wildcardRoutes := proxy.PortRoutes()
-
 			domainMux := http.NewServeMux()
 			domainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-				if r.Host == u.Host || (tunnelServerUrl != nil && r.Host == tunnelServerUrl.Host) {
+				// Extract hostname without port if present
+				requestHost := r.Host
+				if host, _, err := net.SplitHostPort(requestHost); err == nil {
+					requestHost = host
+				}
+
+				if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
 					appRoutes.ServeHTTP(w, r)
-				} else if match.MatchString(r.Host) {
+				} else if match.MatchString(requestHost) {
 					wildcardRoutes.ServeHTTP(w, r)
 				} else {
 					if r.URL.Path == "/health" {
@@ -711,8 +727,13 @@ var ServerCmd = &cli.Command{
 				if err != nil {
 					log.Fatal().Msg(err.Error())
 				}
-				sslDomains = append(sslDomains, u.Host)
-				if u.Host != "localhost" {
+				hostname := u.Host
+				if host, _, err := net.SplitHostPort(hostname); err == nil {
+					hostname = host
+				}
+
+				sslDomains = append(sslDomains, hostname)
+				if hostname != "localhost" {
 					sslDomains = append(sslDomains, "localhost")
 				}
 
@@ -723,6 +744,10 @@ var ServerCmd = &cli.Command{
 				// If wildcard domain given add it
 				wildcardDomain := cfg.WildcardDomain
 				if wildcardDomain != "" {
+					if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
+						wildcardDomain = host
+					}
+
 					sslDomains = append(sslDomains, wildcardDomain)
 				}
 
@@ -940,6 +965,11 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		if !strings.HasPrefix(serverCfg.TunnelDomain, ".") {
 			serverCfg.TunnelDomain = "." + serverCfg.TunnelDomain
 		}
+	}
+
+	// If tunnel server not given then use the instances url as the tunnel server
+	if serverCfg.TunnelServer == "" {
+		serverCfg.TunnelServer = serverCfg.URL
 	}
 
 	// Force the zone for leaf nodes

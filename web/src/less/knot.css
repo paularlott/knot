@@ -32,6 +32,12 @@
   ::file-selector-button {
     border-color: var(--color-gray-200, currentColor);
   }
+
+  /* Enable cursor pointer for buttons */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 @utility form-label {

@@ -113,6 +113,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionUseSSH,
 			PermissionUseCodeServer,
 			PermissionUseVSCodeTunnel,
+			PermissionUseLogs,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

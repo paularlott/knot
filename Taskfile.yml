@@ -28,7 +28,13 @@ tasks:
 
   build:
     desc: Build the binary for the current platform
-    deps: [agents, legal, apidocs, webassets]
+    deps: [agents, apidocs, webassets]
+    vars:
+      GOOS: '{{OS | default "linux"}}'
+      GOARCH: '{{ARCH | default "amd64"}}'
+    env:
+      GOOS: '{{.GOOS}}'
+      GOARCH: '{{.GOARCH}}'
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.OUTPUT_DIR}}/{{.PROJECT_NAME}} .
     sources:
@@ -39,6 +45,59 @@ tasks:
       - legal/notice.txt
     generates:
       - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}'
+
+  build-amd64:
+    desc: Build the binary for the current platform
+    deps: [agents, apidocs, webassets]
+    env:
+      GOOS: 'linux'
+      GOARCH: 'amd64'
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o {{.OUTPUT_DIR}}/{{.PROJECT_NAME}} .
+    sources:
+      - ./**/*.go
+      - go.mod
+      - go.sum
+      - legal/license.txt
+      - legal/notice.txt
+    generates:
+      - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}'
+
+  build-arm64:
+    desc: Build the binary for the current platform
+    deps: [agents, apidocs, webassets]
+    env:
+      GOOS: 'linux'
+      GOARCH: 'arm64'
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o {{.OUTPUT_DIR}}/{{.PROJECT_NAME}} .
+    sources:
+      - ./**/*.go
+      - go.mod
+      - go.sum
+      - legal/license.txt
+      - legal/notice.txt
+    generates:
+      - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}'
+
+  build-docker:
+    desc: Build the binary for Docker with the specified platform
+    cmds:
+      - |
+        PLATFORM="{{.PLATFORM}}"
+        ARCH="${PLATFORM##*/}"  # Extract architecture from linux/amd64 or linux/arm64
+
+        if [ "$ARCH" = "arm64" ]; then
+          task build-arm64
+        elif [ "$ARCH" = "amd64" ]; then
+          task build-amd64
+        else
+          echo "Unsupported architecture: $ARCH"
+          exit 1
+        fi
+    vars:
+      PLATFORM:
+        sh: echo "${TARGETPLATFORM:-linux/amd64}"
 
   knot-dns:
     desc: Build the knot-dns binary for all platforms
@@ -73,7 +132,7 @@ tasks:
 
   all:
     desc: Build the binary for all platforms
-    deps: [agents, legal, apidocs, webassets]
+    deps: [agents, apidocs, webassets]
     cmds:
       - task: build-platform
         vars: { PLATFORM: '{{.ITEM}}' }

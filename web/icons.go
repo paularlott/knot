@@ -74,7 +74,6 @@ var (
 		{Description: "pgAdmin", Source: "built-in", Url: "/icons/pgadmin.svg"},
 		{Description: "PHP", Source: "built-in", Url: "/icons/php.svg"},
 		{Description: "phpMyAdmin", Source: "built-in", Url: "/icons/phpmyadmin.svg"},
-		{Description: "PhpStorm", Source: "built-in", Url: "/icons/phpstorm.svg"},
 		{Description: "Podman", Source: "built-in", Url: "/icons/podman.svg"},
 		{Description: "PostgreSQL", Source: "built-in", Url: "/icons/postgres.svg"},
 		{Description: "Proxmox", Source: "built-in", Url: "/icons/proxmox.svg"},
