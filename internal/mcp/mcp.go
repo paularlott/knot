@@ -11,6 +11,17 @@ import (
 	"github.com/paularlott/knot/internal/service"
 )
 
+const (
+	MCPProtocolVersionLatest = "2025-06-18"
+	MCPProtocolVersionMin    = "2024-11-05"
+)
+
+var supportedProtocolVersions = []string{
+	"2024-11-05",
+	"2025-03-26",
+	"2025-06-18",
+}
+
 // MCP Protocol types
 type MCPRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
@@ -92,6 +103,32 @@ type SpaceInfo struct {
 }
 
 func HandleMCP(w http.ResponseWriter, r *http.Request) {
+	// Handle CORS preflight
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Max-Age", "86400")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST, OPTIONS")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Validate Content-Type
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" && !strings.HasPrefix(contentType, "application/json;") {
+		http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	// Set CORS headers for actual requests
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -99,7 +136,17 @@ func HandleMCP(w http.ResponseWriter, r *http.Request) {
 
 	var req MCPRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendMCPError(w, nil, -32700, "Parse error", nil)
+		sendMCPError(w, nil, -32700, "Parse error", map[string]interface{}{
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Validate JSONRPC version
+	if req.JSONRPC != "2.0" {
+		sendMCPError(w, req.ID, -32600, "Invalid Request", map[string]interface{}{
+			"details": "JSONRPC field must be '2.0'",
+		})
 		return
 	}
 
@@ -116,16 +163,52 @@ func HandleMCP(w http.ResponseWriter, r *http.Request) {
 	case "tools/call":
 		handleToolsCall(w, r, &req)
 	default:
-		sendMCPError(w, req.ID, -32601, "Method not found", nil)
+		sendMCPError(w, req.ID, -32601, "Method not found", map[string]interface{}{
+			"method": req.Method,
+		})
 	}
 }
 
+func isSupportedProtocolVersion(version string) bool {
+	for _, supported := range supportedProtocolVersions {
+		if supported == version {
+			return true
+		}
+	}
+	return false
+}
+
 func handleInitialize(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
+	// Parse initialization parameters
+	var params InitializeParams
+	if req.Params != nil {
+		paramsBytes, err := json.Marshal(req.Params)
+		if err != nil {
+			sendMCPError(w, req.ID, -32602, "Invalid params", nil)
+			return
+		}
+		if err := json.Unmarshal(paramsBytes, &params); err != nil {
+			sendMCPError(w, req.ID, -32602, "Invalid params", nil)
+			return
+		}
+	}
+
+	// Determine which protocol version to use
+	protocolVersion := MCPProtocolVersionLatest
+	if params.ProtocolVersion != "" {
+		if !isSupportedProtocolVersion(params.ProtocolVersion) {
+			sendMCPError(w, req.ID, -32602, "Unsupported protocol version", map[string]interface{}{
+				"requested": params.ProtocolVersion,
+				"supported": supportedProtocolVersions,
+			})
+			return
+		}
+		protocolVersion = params.ProtocolVersion
+	}
+
 	result := InitializeResult{
-		ProtocolVersion: "2024-11-05",
-		Capabilities: Capabilities{
-			Tools: map[string]interface{}{},
-		},
+		ProtocolVersion: protocolVersion,
+		Capabilities:    buildCapabilities(protocolVersion),
 		ServerInfo: ServerInfo{
 			Name:    "knot-mcp-server",
 			Version: "1.0.0",
@@ -135,48 +218,55 @@ func handleInitialize(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
 	sendMCPResponse(w, req.ID, result)
 }
 
+func buildCapabilities(protocolVersion string) Capabilities {
+	capabilities := Capabilities{
+		Tools: map[string]interface{}{},
+	}
+
+	// Add version-specific capabilities
+	switch protocolVersion {
+	case "2024-11-05":
+		// Basic capabilities for 2024-11-05
+		capabilities.Tools = map[string]interface{}{}
+	case "2025-03-26":
+		// Enhanced capabilities for 2025-03-26
+		capabilities.Tools = map[string]interface{}{
+			"listChanged": false,
+		}
+	case "2025-06-18":
+		// Latest capabilities for 2025-06-18
+		capabilities.Tools = map[string]interface{}{
+			"listChanged": false,
+		}
+	default:
+		// Default to latest
+		capabilities.Tools = map[string]interface{}{
+			"listChanged": false,
+		}
+	}
+
+	return capabilities
+}
+
 func handleToolsList(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
+	// You could store the negotiated protocol version in context during initialize
+	// For now, we'll build tools that work across all supported versions
+
 	tools := []Tool{
 		{
 			Name:        "list_spaces",
 			Description: "List all spaces for a user or all users",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"user_id": map[string]interface{}{
-						"type":        "string",
-						"description": "User ID to filter spaces (optional, empty for all users)",
-					},
-				},
-			},
+			InputSchema: buildToolSchema("list_spaces"),
 		},
 		{
 			Name:        "start_space",
 			Description: "Start a space by its ID",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"space_id": map[string]interface{}{
-						"type":        "string",
-						"description": "The ID of the space to start",
-					},
-				},
-				"required": []string{"space_id"},
-			},
+			InputSchema: buildToolSchema("start_space"),
 		},
 		{
 			Name:        "stop_space",
 			Description: "Stop a space by its ID",
-			InputSchema: map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"space_id": map[string]interface{}{
-						"type":        "string",
-						"description": "The ID of the space to stop",
-					},
-				},
-				"required": []string{"space_id"},
-			},
+			InputSchema: buildToolSchema("stop_space"),
 		},
 	}
 
@@ -185,6 +275,38 @@ func handleToolsList(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
 	}
 
 	sendMCPResponse(w, req.ID, result)
+}
+
+func buildToolSchema(toolName string) map[string]interface{} {
+	switch toolName {
+	case "list_spaces":
+		return map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"user_id": map[string]interface{}{
+					"type":        "string",
+					"description": "User ID to filter spaces (optional, empty for all users)",
+				},
+			},
+			"additionalProperties": false,
+		}
+	case "start_space", "stop_space":
+		return map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"space_id": map[string]interface{}{
+					"type":        "string",
+					"description": "The ID of the space to start/stop",
+				},
+			},
+			"required":             []string{"space_id"},
+			"additionalProperties": false,
+		}
+	default:
+		return map[string]interface{}{
+			"type": "object",
+		}
+	}
 }
 
 func handleToolsCall(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
@@ -388,7 +510,9 @@ func sendMCPResponse(w http.ResponseWriter, id interface{}, result interface{}) 
 		Result:  result,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -403,6 +527,8 @@ func sendMCPError(w http.ResponseWriter, id interface{}, code int, message strin
 		},
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.WriteHeader(http.StatusOK) // Always 200 for JSON-RPC responses
 	json.NewEncoder(w).Encode(response)
 }
