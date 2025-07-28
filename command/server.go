@@ -24,6 +24,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
+	"github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
@@ -639,6 +640,10 @@ var ServerCmd = &cli.Command{
 		api.ApiRoutes(routes)
 		proxy.Routes(routes, cfg)
 		web.Routes(routes, cfg)
+
+		// MCP
+		mcpServer := mcp.NewServer("knot-mcp-server", build.Version)
+		routes.HandleFunc("POST /mcp", middleware.ApiAuth(mcpServer.HandleMCP))
 
 		// Add support for page not found
 		appRoutes := web.HandlePageNotFound(routes)
