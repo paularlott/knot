@@ -331,7 +331,13 @@ tasks:
 
   release:
     desc: Tag, build, push container, create GitHub release, checksums, and update Homebrew
-    deps: [tag, all, container, create-release, checksums, homebrew-formula]
+    cmds:
+      - task: tag
+      - task: all
+      - task: container
+      - task: create-release
+      - task: checksums
+      - task: homebrew-formula
 
   tag:
     desc: Tag the current code with the derived version
