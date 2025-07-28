@@ -95,6 +95,8 @@ func (s *Server) HandleMCP(w http.ResponseWriter, r *http.Request) {
 	switch req.Method {
 	case "initialize":
 		s.handleInitialize(w, r, &req)
+	case "ping":
+		s.handlePing(w, r, &req)
 	case "tools/list":
 		s.handleToolsList(w, r, &req)
 	case "tools/call":
@@ -157,6 +159,10 @@ func (s *Server) handleInitialize(w http.ResponseWriter, r *http.Request, req *M
 	s.sendMCPResponse(w, req.ID, result)
 }
 
+func (s *Server) handlePing(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
+	s.sendMCPResponse(w, req.ID, map[string]interface{}{})
+}
+
 func (s *Server) buildCapabilities(protocolVersion string) Capabilities {
 	capabilities := Capabilities{
 		Tools: map[string]interface{}{},
@@ -215,13 +221,8 @@ func (s *Server) buildToolSchema(toolName string) map[string]interface{} {
 	switch toolName {
 	case "list_spaces":
 		return map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"user_id": map[string]interface{}{
-					"type":        "string",
-					"description": "User ID to filter spaces (optional, empty for all users)",
-				},
-			},
+			"type":                 "object",
+			"properties":           map[string]interface{}{},
 			"additionalProperties": false,
 		}
 	case "start_space", "stop_space":
