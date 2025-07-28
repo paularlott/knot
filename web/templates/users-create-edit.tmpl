@@ -9,8 +9,8 @@
 {{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
-  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="userForm({{ .isEdit }}, '{{ .user.id }}', {{ .isProfile }})" x-init="initUsers">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8">
+  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4" x-data="userForm({{ .isEdit }}, '{{ .user.id }}', {{ .isProfile }})" x-init="initUsers">
 
     <div class="mb-4 col-span-full xl:mb-2">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">
@@ -148,6 +148,11 @@
         </div>
         {{ end }}
 
+        <div x-show="isEdit" x-cloak>
+          <label class="form-label">Last Login At</label>
+          <input type="text" class="form-field" name="last_login_at" x-model="last_login_at" readonly disabled>
+        </div>
+
         <div class="sm:flex justify-between">
           <div class="flex">
             <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" x-on:click="stayOnPage=true"></button>
@@ -166,6 +171,23 @@
       </form>
 
     </div>
+
+    {{ if .isEdit }}
+    <div class="p-4 mb-4 col-span-2 hidden lg:block" x-data="usageComponent('{{ .user.id }}')">
+      <div class="h-72">
+        <canvas id="spaceUsage"></canvas>
+      </div>
+      <div class="h-72">
+        <canvas id="tunnelUsage"></canvas>
+      </div>
+      <div class="h-72">
+        <canvas id="computeUsage"></canvas>
+      </div>
+      <div class="h-72">
+        <canvas id="storageUsage"></canvas>
+      </div>
+    </div>
+    {{ end }}
 
     <!-- Modal -->
     <div x-cloak x-show="showTOTP" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showTOTP" @keydown.esc.window="showTOTP = false" @click.self="dshowTOTP = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">

@@ -1,23 +1,20 @@
 package command
 
 import (
+	"context"
+
 	"github.com/paularlott/knot/legal"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 )
 
-func init() {
-  RootCmd.PersistentFlags().MarkHidden("config")
-
-  RootCmd.AddCommand(legalCmd)
-}
-
-var legalCmd = &cobra.Command{
-  Use:   "legal",
-  Short: "Show legal information",
-  Long:  `Output all the legal notices.`,
-  Args: cobra.NoArgs,
-  Run: func(cmd *cobra.Command, args []string) {
-    legal.ShowLicenses()
-  },
+var LegalCmd = &cli.Command{
+	Name:        "legal",
+	Usage:       "Show legal information",
+	Description: "Output all the legal notices.",
+	MaxArgs:     cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		legal.ShowLicenses()
+		return nil
+	},
 }

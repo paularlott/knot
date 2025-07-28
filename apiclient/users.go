@@ -1,11 +1,10 @@
 package apiclient
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"time"
-
-	"github.com/paularlott/knot/database/model"
 )
 
 type UserResponse struct {
@@ -58,23 +57,24 @@ type CreateUserResponse struct {
 }
 
 type UserInfo struct {
-	Id                             string     `json:"user_id"`
-	Username                       string     `json:"username"`
-	Email                          string     `json:"email"`
-	Roles                          []string   `json:"roles"`
-	Groups                         []string   `json:"groups"`
-	Active                         bool       `json:"active"`
-	MaxSpaces                      uint32     `json:"max_spaces"`
-	ComputeUnits                   uint32     `json:"compute_units"`
-	StorageUnits                   uint32     `json:"storage_units"`
-	MaxTunnels                     uint32     `json:"max_tunnels"`
-	Current                        bool       `json:"current"`
-	LastLoginAt                    *time.Time `json:"last_login_at"`
-	NumberSpaces                   int        `json:"number_spaces"`
-	NumberSpacesDeployed           int        `json:"number_spaces_deployed"`
-	NumberSpacesDeployedInLocation int        `json:"number_spaces_deployed_in_location"`
-	UsedComputeUnits               uint32     `json:"used_compute_units"`
-	UsedStorageUnits               uint32     `json:"used_storage_units"`
+	Id                         string     `json:"user_id"`
+	Username                   string     `json:"username"`
+	Email                      string     `json:"email"`
+	Roles                      []string   `json:"roles"`
+	Groups                     []string   `json:"groups"`
+	Active                     bool       `json:"active"`
+	MaxSpaces                  uint32     `json:"max_spaces"`
+	ComputeUnits               uint32     `json:"compute_units"`
+	StorageUnits               uint32     `json:"storage_units"`
+	MaxTunnels                 uint32     `json:"max_tunnels"`
+	Current                    bool       `json:"current"`
+	LastLoginAt                *time.Time `json:"last_login_at"`
+	NumberSpaces               int        `json:"number_spaces"`
+	NumberSpacesDeployed       int        `json:"number_spaces_deployed"`
+	NumberSpacesDeployedInZone int        `json:"number_spaces_deployed_in_zone"`
+	UsedComputeUnits           uint32     `json:"used_compute_units"`
+	UsedStorageUnits           uint32     `json:"used_storage_units"`
+	UsedTunnels                uint32     `json:"used_tunnels"`
 }
 type UserInfoList struct {
 	Count int        `json:"count"`
@@ -93,10 +93,10 @@ type UserQuota struct {
 	UsedTunnels          uint32 `json:"used_tunnels"`
 }
 
-func (c *ApiClient) CreateUser(request *CreateUserRequest) (string, int, error) {
+func (c *ApiClient) CreateUser(ctx context.Context, request *CreateUserRequest) (string, int, error) {
 	response := CreateUserResponse{}
 
-	code, err := c.httpClient.Post("/api/users", request, &response, 201)
+	code, err := c.httpClient.Post(ctx, "/api/users", request, &response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -104,10 +104,10 @@ func (c *ApiClient) CreateUser(request *CreateUserRequest) (string, int, error) 
 	return response.UserId, code, nil
 }
 
-func (c *ApiClient) GetUser(userId string) (*model.User, error) {
+func (c *ApiClient) GetUser(ctx context.Context, userId string) (*UserResponse, error) {
 	response := UserResponse{}
 
-	code, err := c.httpClient.Get("/api/users/"+userId, &response)
+	code, err := c.httpClient.Get(ctx, "/api/users/"+userId, &response)
 	if err != nil {
 		if code == 404 {
 			return nil, errors.New("user not found")
@@ -116,70 +116,13 @@ func (c *ApiClient) GetUser(userId string) (*model.User, error) {
 		}
 	}
 
-	user := &model.User{
-		Id:              response.Id,
-		Username:        response.Username,
-		Email:           response.Email,
-		ServicePassword: response.ServicePassword,
-		SSHPublicKey:    response.SSHPublicKey,
-		GitHubUsername:  response.GitHubUsername,
-		Roles:           response.Roles,
-		Groups:          response.Groups,
-		Active:          response.Active,
-		MaxSpaces:       response.MaxSpaces,
-		ComputeUnits:    response.ComputeUnits,
-		StorageUnits:    response.StorageUnits,
-		MaxTunnels:      response.MaxTunnels,
-		PreferredShell:  response.PreferredShell,
-		Timezone:        response.Timezone,
-		LastLoginAt:     response.LastLoginAt,
-		CreatedAt:       response.CreatedAt,
-		UpdatedAt:       response.UpdatedAt,
-		TOTPSecret:      response.TOTPSecret,
-	}
-
-	return user, nil
+	return &response, nil
 }
 
-func (c *ApiClient) WhoAmI() (*model.User, error) {
+func (c *ApiClient) WhoAmI(ctx context.Context) (*UserResponse, error) {
 	response := UserResponse{}
 
-	_, err := c.httpClient.Get("/api/users/whoami", &response)
-	if err != nil {
-		return nil, err
-	}
-
-	user := &model.User{
-		Id:              response.Id,
-		Username:        response.Username,
-		Email:           response.Email,
-		ServicePassword: response.ServicePassword,
-		SSHPublicKey:    response.SSHPublicKey,
-		GitHubUsername:  response.GitHubUsername,
-		Roles:           response.Roles,
-		Groups:          response.Groups,
-		Active:          response.Active,
-		MaxSpaces:       response.MaxSpaces,
-		ComputeUnits:    response.ComputeUnits,
-		StorageUnits:    response.StorageUnits,
-		MaxTunnels:      response.MaxTunnels,
-		PreferredShell:  response.PreferredShell,
-		Timezone:        response.Timezone,
-		LastLoginAt:     response.LastLoginAt,
-		CreatedAt:       response.CreatedAt,
-		UpdatedAt:       response.UpdatedAt,
-	}
-
-	return user, nil
-}
-
-func (c *ApiClient) GetUsers(state string, location string) (*UserInfoList, error) {
-	response := UserInfoList{}
-
-	stateEncoded := url.QueryEscape(state)
-	locationEncoded := url.QueryEscape(location)
-
-	_, err := c.httpClient.Get("/api/users?state="+stateEncoded+"&location="+locationEncoded, &response)
+	_, err := c.httpClient.Get(ctx, "/api/users/whoami", &response)
 	if err != nil {
 		return nil, err
 	}
@@ -187,27 +130,22 @@ func (c *ApiClient) GetUsers(state string, location string) (*UserInfoList, erro
 	return &response, nil
 }
 
-func (c *ApiClient) UpdateUser(user *model.User) error {
-	request := UpdateUserRequest{
-		Username:        user.Username,
-		Password:        user.Password,
-		Email:           user.Email,
-		ServicePassword: user.ServicePassword,
-		Roles:           user.Roles,
-		Groups:          user.Groups,
-		Active:          user.Active,
-		MaxSpaces:       user.MaxSpaces,
-		ComputeUnits:    user.ComputeUnits,
-		StorageUnits:    user.StorageUnits,
-		MaxTunnels:      user.MaxTunnels,
-		SSHPublicKey:    user.SSHPublicKey,
-		GitHubUsername:  user.GitHubUsername,
-		PreferredShell:  user.PreferredShell,
-		Timezone:        user.Timezone,
-		TOTPSecret:      user.TOTPSecret,
+func (c *ApiClient) GetUsers(ctx context.Context, state string, zone string) (*UserInfoList, error) {
+	response := UserInfoList{}
+
+	stateEncoded := url.QueryEscape(state)
+	zoneEncoded := url.QueryEscape(zone)
+
+	_, err := c.httpClient.Get(ctx, "/api/users?state="+stateEncoded+"&zone="+zoneEncoded, &response)
+	if err != nil {
+		return nil, err
 	}
 
-	_, err := c.httpClient.Put("/api/users/"+user.Id, &request, nil, 200)
+	return &response, nil
+}
+
+func (c *ApiClient) UpdateUser(ctx context.Context, userId string, user *UpdateUserRequest) error {
+	_, err := c.httpClient.Put(ctx, "/api/users/"+userId, &user, nil, 200)
 	if err != nil {
 		return err
 	}
@@ -215,15 +153,15 @@ func (c *ApiClient) UpdateUser(user *model.User) error {
 	return nil
 }
 
-func (c *ApiClient) DeleteUser(userId string) error {
-	_, err := c.httpClient.Delete("/api/users/"+userId, nil, nil, 200)
+func (c *ApiClient) DeleteUser(ctx context.Context, userId string) error {
+	_, err := c.httpClient.Delete(ctx, "/api/users/"+userId, nil, nil, 200)
 	return err
 }
 
-func (c *ApiClient) GetUserQuota(userId string) (*UserQuota, error) {
+func (c *ApiClient) GetUserQuota(ctx context.Context, userId string) (*UserQuota, error) {
 	response := UserQuota{}
 
-	code, err := c.httpClient.Get("/api/users/"+userId+"/quota", &response)
+	code, err := c.httpClient.Get(ctx, "/api/users/"+userId+"/quota", &response)
 	if err != nil {
 		if code == 404 {
 			return nil, errors.New("user not found")

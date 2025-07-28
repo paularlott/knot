@@ -3,14 +3,19 @@ package web
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
+		return next
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
+		if !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
 			showPageForbidden(w, r)
 			return
 		}
@@ -22,7 +27,7 @@ func checkPermissionUseManageSpaces(next http.HandlerFunc) http.HandlerFunc {
 func checkPermission(next http.HandlerFunc, permission uint16) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(*model.User)
-		if !server_info.RestrictedLeaf && !user.HasPermission(permission) {
+		if !user.HasPermission(permission) {
 			showPageForbidden(w, r)
 			return
 		}
@@ -32,50 +37,42 @@ func checkPermission(next http.HandlerFunc, permission uint16) http.HandlerFunc 
 }
 
 func checkPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
+		return next
+	}
+
 	return checkPermission(next, model.PermissionManageTemplates)
 }
 
 func checkPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
+		return next
+	}
+
 	return checkPermission(next, model.PermissionManageVariables)
 }
 
 func checkPermissionManageVolumes(next http.HandlerFunc) http.HandlerFunc {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
+		return next
+	}
+
 	return checkPermission(next, model.PermissionManageVolumes)
 }
 
 func checkPermissionUseTunnels(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionUseTunnels) {
-			showPageForbidden(w, r)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPermission(next, model.PermissionUseTunnels)
 }
-func checkPermissionViewAuditLogs(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if !user.HasPermission(model.PermissionViewAuditLogs) {
-			showPageForbidden(w, r)
-			return
-		}
 
-		next.ServeHTTP(w, r)
-	})
+func checkPermissionViewAuditLogs(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionViewAuditLogs)
 }
 
 func checkPermissionManageUsers(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value("user").(*model.User)
-		if server_info.RestrictedLeaf || !user.HasPermission(model.PermissionManageUsers) {
-			showPageForbidden(w, r)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
+	return checkPermission(next, model.PermissionManageUsers)
 }
 
 func checkPermissionManageGroups(next http.HandlerFunc) http.HandlerFunc {
@@ -84,4 +81,8 @@ func checkPermissionManageGroups(next http.HandlerFunc) http.HandlerFunc {
 
 func checkPermissionManageRoles(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionManageRoles)
+}
+
+func checkPermissionViewClusterInfo(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionClusterInfo)
 }

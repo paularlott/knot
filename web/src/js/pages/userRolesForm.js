@@ -1,3 +1,6 @@
+import { validate } from '../validators.js';
+import { focus } from '../focus.js';
+
 window.userRolesForm = function(isEdit, roleId) {
 
   return {
@@ -8,12 +11,12 @@ window.userRolesForm = function(isEdit, roleId) {
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create Role',
     nameValid: true,
-    isEdit: isEdit,
+    isEdit,
     stayOnPage: true,
-    permissions: [],
+    groupedPermissions: {},
 
     async initData() {
-      focusElement('input[name="name"]');
+      focus.Element('input[name="name"]');
 
       // fetch the permission list
       const response = await fetch('/api/permissions', {
@@ -21,10 +24,19 @@ window.userRolesForm = function(isEdit, roleId) {
           'Content-Type': 'application/json'
         }
       });
-      this.permissions = await response.json();
+      const permissionsList = await response.json();
+
+      // Group permissions by 'Group' property
+      this.groupedPermissions = {};
+      permissionsList.permissions.forEach(perm => {
+        if (!this.groupedPermissions[perm.group]) {
+          this.groupedPermissions[perm.group] = [];
+        }
+        this.groupedPermissions[perm.group].push(perm);
+      });
 
       if(isEdit) {
-        const roleResponse = await fetch('/api/roles/' + roleId, {
+        const roleResponse = await fetch(`/api/roles/${roleId}`, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -42,7 +54,8 @@ window.userRolesForm = function(isEdit, roleId) {
       this.loading = false;
     },
     checkName() {
-      return this.nameValid = validate.maxLength(this.formData.name, 64) && validate.required(this.formData.name);
+      this.nameValid = validate.maxLength(this.formData.name, 64) && validate.required(this.formData.name);
+      return this.nameValid;
     },
     togglePermission(permission) {
       if(this.formData.permissions.includes(permission)) {
@@ -52,8 +65,8 @@ window.userRolesForm = function(isEdit, roleId) {
       }
     },
     async submitData() {
-      let err = false,
-          self = this;
+      let err = false;
+      const self = this;
       err = !this.checkName() || err;
       if(err) {
         return;
@@ -64,7 +77,7 @@ window.userRolesForm = function(isEdit, roleId) {
       }
       this.loading = true;
 
-      fetch(isEdit ? '/api/roles/' + roleId : '/api/roles', {
+      await fetch(isEdit ? `/api/roles/${roleId}` : '/api/roles', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -82,18 +95,26 @@ window.userRolesForm = function(isEdit, roleId) {
             self.$dispatch('show-alert', { msg: "Role Created", type: 'success' });
             window.location.href = '/roles';
           } else {
-            response.json().then((data) => {
-              self.$dispatch('show-alert', { msg: "Failed to update the role, " + data.error, type: 'error' });
+            response.json().then((d) => {
+              self.$dispatch('show-alert', { msg: `Failed to update the role, ${d.error}`, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = isEdit ? 'Update' : 'Create Role';
           this.loading = false;
         })
     },
+    toggleSelectAllPermissions(event) {
+      const isChecked = event.target.checked;
+      this.formData.permissions = isChecked
+        ? Object.keys(this.groupedPermissions)
+            .flatMap(group => this.groupedPermissions[group])
+            .map(perm => perm.id) // or perm.name, depending on your backend
+        : [];
+    }
   }
 }

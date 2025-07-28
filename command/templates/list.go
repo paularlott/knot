@@ -1,39 +1,42 @@
 package command_templates
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/util"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/paularlott/cli"
 )
 
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List the available templates",
-	Long:  `Lists the available templates within the system.`,
-	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
-
-		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
-
-		templates, _, err := client.GetTemplates()
+var ListCmd = &cli.Command{
+	Name:        "list",
+	Usage:       "List the available templates",
+	Description: "Lists the available templates within the system.",
+	MaxArgs:     cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		alias := cmd.GetString("alias")
+		cfg := config.GetServerAddr(alias, cmd)
+		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
 		if err != nil {
-			fmt.Println("Error getting templates: ", err)
-			return
+			return fmt.Errorf("Failed to create API client: %w", err)
 		}
 
-		data := [][]string{}
+		templates, _, err := client.GetTemplates(context.Background())
+		if err != nil {
+			return fmt.Errorf("Error getting templates: %w", err)
+		}
 
-		data = append(data, []string{"Name", "Description"})
+		data := [][]string{{"Name", "Description"}}
 		for _, template := range templates.Templates {
 			desc := strings.ReplaceAll(template.Description, "\n", " ")
 			data = append(data, []string{template.Name, desc})
 		}
 
 		util.PrintTable(data)
+		return nil
 	},
 }

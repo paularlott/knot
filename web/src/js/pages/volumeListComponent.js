@@ -1,3 +1,5 @@
+import Alpine from 'alpinejs';
+
 window.volumeListComponent = function() {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -27,11 +29,11 @@ window.volumeListComponent = function() {
     searchTerm: Alpine.$persist('').as('vol-search-term').using(sessionStorage),
 
     async init() {
-      this.getVolumes();
+      await this.getVolumes();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getVolumes();
+        await this.getVolumes();
       }, 3000);
     },
 
@@ -41,7 +43,7 @@ window.volumeListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      volList = await response.json();
+      const volList = await response.json();
       this.volumes = volList.volumes;
 
       this.volumes.forEach(volume => {
@@ -58,7 +60,8 @@ window.volumeListComponent = function() {
       window.location.href = `/volumes/edit/${volumeId}`;
     },
     async deleteVolume(volumeId) {
-    var self = this;
+      const self = this;
+
       await fetch(`/api/volumes/${volumeId}`, {
         method: 'DELETE',
         headers: {
@@ -74,7 +77,7 @@ window.volumeListComponent = function() {
       this.getVolumes();
     },
     async startVolume(volumeId) {
-      var self = this;
+      const self = this;
 
       await fetch(`/api/volumes/${volumeId}/start`, {
         method: 'POST',
@@ -84,28 +87,27 @@ window.volumeListComponent = function() {
       }).then((response) => {
         if (response.status === 200) {
           response.json().then((v) => {
-            const volume = self.volumes.find(volume => volume.volume_id === volumeId);
+            const volume = self.volumes.find(vol => vol.volume_id === volumeId);
             volume.active = true;
             volume.starting = false;
-            volume.location = v.location;
+            volume.zone = v.zone;
           });
 
           self.$dispatch('show-alert', { msg: "Volume started", type: 'success' });
         } else {
-          response.json().then((data) => {
-            self.$dispatch('show-alert', { msg: "Volume could not be started: " + data.error, type: 'error' });
+          response.json().then((d) => {
+            self.$dispatch('show-alert', { msg: `Volume could not be started: ${d.error}`, type: 'error' });
           });
         }
       }).catch((error) => {
-        self.$dispatch('show-alert', { msg: "Volume could not be started: " + error, type: 'error' });
+        self.$dispatch('show-alert', { msg: `Volume could not be started: ${error}`, type: 'error' });
       });
     },
     async stopVolume(volumeId) {
-      var self = this;
-
-      const volume = self.volumes.find(volume => volume.volume_id === volumeId);
+      const self = this;
+      const volume = self.volumes.find(vol => vol.volume_id === volumeId);
       volume.stopping = true;
-      volume.location = "";
+      volume.zone = "";
 
       await fetch(`/api/volumes/${volumeId}/stop`, {
         method: 'POST',
@@ -114,25 +116,25 @@ window.volumeListComponent = function() {
         }
       }).then((response) => {
         if (response.status === 200) {
-          const volume = self.volumes.find(volume => volume.volume_id === volumeId);
-          volume.active = false;
-          volume.stopping = false;
-          volume.location = "";
+          const stoppedVolume = self.volumes.find(vol => vol.volume_id === volumeId);
+          stoppedVolume.active = false;
+          stoppedVolume.stopping = false;
+          stoppedVolume.zone = "";
 
           self.$dispatch('show-alert', { msg: "Volume stopped", type: 'success' });
         } else {
           self.$dispatch('show-alert', { msg: "Volume could not be stopped", type: 'error' });
         }
       }).catch((error) => {
-        self.$dispatch('show-alert', { msg: "Volume could not be stopped: " + error, type: 'error' });
+        self.$dispatch('show-alert', { msg: `Volume could not be stopped: ${error}`, type: 'error' });
       });
     },
-    async searchChanged() {
-      let term = this.searchTerm.toLowerCase();
+    searchChanged() {
+      const term = this.searchTerm.toLowerCase();
 
       // For all volumes if name contains the term show; else hide
       this.volumes.forEach(v => {
-        if(term.length == 0) {
+        if(term.length === 0) {
           v.searchHide = false;
         } else {
           v.searchHide = !v.name.toLowerCase().includes(term);

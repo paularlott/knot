@@ -3,8 +3,8 @@
 {{ define "pageTitle" }}{{ if .isEdit }}Edit Role{{ else }}Create Role{{ end }}{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
-  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="userRolesForm({{ .isEdit }}, '{{ .roleId }}')" x-init="initData()">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8">
+  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4" x-data="userRolesForm({{ .isEdit }}, '{{ .roleId }}')" x-init="initData()">
 
     <div class="mb-4 col-span-full xl:mb-2">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Role{{ else }}Create Role{{ end }}</h1>
@@ -21,12 +21,22 @@
         </div>
         <div>
           <label class="form-label">Permissions for Role</label>
-          <template x-for="(perm, index) in permissions.permissions" :key="index">
-            <label class="flex items-center cursor-pointer mb-2">
-              <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="permissions[]" :value="perm.id" :checked="formData.permissions.includes(perm.id)" @change="togglePermission(perm.id)">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="perm.name"></span>
-            </label>
+          <label class="flex items-center cursor-pointer mb-4">
+            <input type="checkbox" class="sr-only peer" id="select-all-permissions" @change="toggleSelectAllPermissions($event)">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Select All Permissions</span>
+          </label>
+          <template x-for="(perms, group) in groupedPermissions" :key="group">
+            <div class="mt-8 mb-4">
+              <div class="font-semibold text-gray-700 dark:text-gray-200 mb-2" x-text="group"></div>
+              <template x-for="(perm, index) in perms" :key="perm.id">
+                <label class="flex items-center cursor-pointer mb-2">
+                  <input type="checkbox" class="sr-only peer" :id="'group-' + group + '-' + index" name="permissions[]" :value="perm.id" :checked="formData.permissions.includes(perm.id)" @change="togglePermission(perm.id)">
+                  <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                  <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="perm.name"></span>
+                </label>
+              </template>
+            </div>
           </template>
         </div>
         <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>

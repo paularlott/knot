@@ -2,7 +2,7 @@ package build
 
 var (
 	// Current version of knot
-	Version string = "0.17.3"
+	Version string = "0.18.0"
 
 	// The date the binary was built
 	Date string

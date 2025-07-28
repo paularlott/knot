@@ -3,8 +3,8 @@
 {{ define "pageTitle" }}Audit Logs{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="auditLogComponent()">
-  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="auditLogComponent()">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="mb-4 col-span-full xl:mb-2">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Audit Logs</h1>
@@ -17,27 +17,29 @@
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
           <thead class="bg-gray-100 dark:bg-gray-700">
             <tr>
-              <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Time</th>
-              <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Event</th>
-              <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">User</th>
-              <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Details</th>
-              <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Properties</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Time</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Event</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Zone</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">User</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Details</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Properties</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
             <template x-if="logs?.items?.length > 0">
               <template x-for="log in logs.items" :key="log.audit_log_id">
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-600">
-                  <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-200 text-sm" x-text="log.when"></td>
-                  <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="log.event"></td>
-                  <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-200">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-600/10">
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200 text-sm" x-text="log.when"></td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="log.event"></td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="log.zone"></td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200">
                     <span x-text="log.actor"></span>
                     <template x-if="log.actor_type.toLowerCase() != 'user'">
                       <div class="text-xs text-gray-500 dark:text-gray-400" x-text="log.actor_type"></div>
                     </template>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="log.details"></td>
-                  <td class="px-6 py-4 whitespace-nowrap text-gray-700 dark:text-gray-200">
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="log.details"></td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200">
                     <template x-if="log.properties && Object.keys(log.properties).length > 0">
                       <template x-for="(v, k) in log.properties" :key="k">
                         <div class="text-xs">
@@ -92,5 +94,5 @@
 
     </div>
   </div>
-</div>
+</main>
 {{ end }}

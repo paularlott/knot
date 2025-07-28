@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" 
+	 viewBox="0 0 512 512" xml:space="preserve">
+<path d="M0,346.68v-310c0-5.44,4.72-10,10.48-10H501.6c5.68,0,10.4,4.56,10.4,10v310H0z"/>
+<g>
+	<path style="fill:#999999;" d="M512,346.68v42.64c0,5.92-4.72,10.72-10.48,10.72H10.48C4.72,400.04,0,395.24,0,389.4v-42.64h512
+		V346.68z"/>
+	<polygon style="fill:#999999;" points="330.64,474.68 181.36,474.68 192,400.04 320,400.04 	"/>
+</g>
+<g>
+	<polygon style="fill:#666666;" points="192,400.04 320,400.04 326.64,446.6 189.52,417.4 	"/>
+	<rect x="144" y="474.68" style="fill:#666666;" width="224" height="10.64"/>
+</g>
+<g>
+	<circle style="fill:#FFFFFF;" cx="149.28" cy="69.4" r="10.72"/>
+	<circle style="fill:#FFFFFF;" cx="106.64" cy="69.4" r="10.72"/>
+	<circle style="fill:#FFFFFF;" cx="64" cy="69.4" r="10.72"/>
+</g>
+<rect x="181.28" y="64.04" style="fill:#999999;" width="277.36" height="10.64"/>
+<rect x="74.64" y="293.4" style="fill:#FFFFFF;" width="362.64" height="10.64"/>
+<rect x="74.64" y="122.68" style="fill:#F33052;" width="362.64" height="10.64"/>
+<g>
+	<rect x="74.64" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="96" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="117.36" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="138.64" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="160" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="181.36" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="202.64" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="224" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="245.36" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="266.64" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="288" y="154.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="160" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="181.36" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="202.64" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="224" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="245.36" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="266.64" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="288" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="309.36" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="330.64" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="352" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="373.36" y="186.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="234.64" y="218.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="256" y="218.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="277.36" y="218.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="298.64" y="218.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="320" y="218.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="341.36" y="218.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="362.64" y="218.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="384" y="218.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="405.36" y="218.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+	<rect x="426.64" y="218.68" style="fill:#FFFFFF;" width="10.64" height="10.64"/>
+</g>
+<g>
+	<rect x="341.36" y="250.68" style="fill:#F33052;" width="96" height="21.36"/>
+	<rect x="208" y="250.68" style="fill:#F33052;" width="96" height="21.36"/>
+	<rect x="74.64" y="250.68" style="fill:#F33052;" width="96" height="21.36"/>
+</g>
+<path style="opacity:0.2;fill:#FFFFFF;enable-background:new    ;" d="M460.72,26.68H10.48C4.72,26.68,0,31.24,0,36.68v179.44
+	L460.72,26.68z"/>
+</svg>

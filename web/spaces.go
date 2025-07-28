@@ -1,14 +1,13 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http"
 
-	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
-	"github.com/paularlott/knot/util/validate"
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/rs/zerolog/log"
 )
@@ -36,7 +35,8 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// User doesn't have permission to manage or use spaces so send them to the clients page
-	if !server_info.RestrictedLeaf && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
+	cfg := config.GetServerConfig()
+	if !cfg.LeafNode && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces) {
 		http.Redirect(w, r, "/clients", http.StatusSeeOther)
 		return
 	}
@@ -55,7 +55,7 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 		data["forUserUsername"] = ""
 	}
 
-	data["wildcard_domain"] = viper.GetString("server.wildcard_domain")
+	data["wildcard_domain"] = cfg.WildcardDomain
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
@@ -79,9 +79,17 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	iconListJSON, err := json.Marshal(loadIcons())
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	user, data := getCommonTemplateData(r)
 	data["preferredShell"] = user.PreferredShell
 	data["isEdit"] = false
+	data["iconList"] = string(iconListJSON)
 
 	userId := r.PathValue("user_id")
 	if userId != "" && !validate.UUID(userId) {
@@ -115,39 +123,22 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 		forUser = user
 	}
 
-	// If leaf node then get the groups from the origin
-	if server_info.IsLeaf {
-		session := r.Context().Value("session").(*model.Session)
-		client := apiclient.NewRemoteSession(session.RemoteSessionId)
+	// Get the groups and build a map
+	groups, err := db.GetGroups()
+	if err != nil {
+		log.Error().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	groupMap := make(map[string]*model.Group)
+	for _, group := range groups {
+		groupMap[group.Id] = group
+	}
 
-		groups, _, err := client.GetGroups()
-		if err != nil {
-			log.Error().Msg(err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		for _, group := range groups.Groups {
+	for _, groupId := range forUser.Groups {
+		group, ok := groupMap[groupId]
+		if ok {
 			maxSpaces += group.MaxSpaces
-		}
-	} else {
-		// Get the groups and build a map
-		groups, err := db.GetGroups()
-		if err != nil {
-			log.Error().Msg(err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		groupMap := make(map[string]*model.Group)
-		for _, group := range groups {
-			groupMap[group.Id] = group
-		}
-
-		for _, groupId := range forUser.Groups {
-			group, ok := groupMap[groupId]
-			if ok {
-				maxSpaces += group.MaxSpaces
-			}
 		}
 	}
 
@@ -202,6 +193,14 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 		showPageForbidden(w, r)
 		return
 	}
+
+	iconListJSON, err := json.Marshal(loadIcons())
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	data["iconList"] = string(iconListJSON)
 
 	data["isEdit"] = true
 	data["preferredShell"] = ""

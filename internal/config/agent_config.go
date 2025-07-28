@@ -1,0 +1,38 @@
+package config
+
+type AgentConfig struct {
+	Endpoint             string
+	SpaceID              string
+	UpdateAuthorizedKeys bool
+	ServicePassword      string
+	VSCodeTunnel         string
+	SyslogPort           int
+	APIPort              int
+	DisableTerminal      bool
+	Port                 PortConfig
+	TLS                  TLSConfig
+}
+
+type PortConfig struct {
+	CodeServer int
+	VNCHttp    int
+	SSH        int
+	TCPPorts   []string
+	HTTPPorts  []string
+	HTTPSPorts []string
+}
+
+// Global configuration instance
+var (
+	agentConfig *AgentConfig
+)
+
+// SetAgentConfig sets the global agent configuration
+func SetAgentConfig(config *AgentConfig) {
+	agentConfig = config
+}
+
+// GetAgentConfig returns the global agent configuration
+func GetAgentConfig() *AgentConfig {
+	return agentConfig
+}

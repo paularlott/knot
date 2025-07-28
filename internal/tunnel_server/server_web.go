@@ -1,13 +1,16 @@
 package tunnel_server
 
 import (
+	"context"
 	"crypto/tls"
+	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 
-	"github.com/paularlott/knot/proxy"
-
+	"github.com/paularlott/knot/build"
 	"github.com/rs/zerolog/log"
 )
 
@@ -32,7 +35,7 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 			tunnelMutex.RLock()
 			session, ok := tunnels[domainParts[0]]
 			tunnelMutex.RUnlock()
-			if !ok {
+			if !ok || session.tunnelType != WebTunnel {
 				log.Error().Msgf("tunnel: not found %s", domainParts[0])
 				w.WriteHeader(http.StatusNotFound)
 				return
@@ -59,9 +62,7 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 				return
 			}
 
-			log.Debug().Msgf("tunnel: proxying %s", r.Host)
-
-			httpProxy := proxy.CreateAgentReverseProxy(targetURL, stream, nil, r.Host)
+			httpProxy := reverseProxy(targetURL, stream, nil, r.Host)
 			httpProxy.ServeHTTP(w, r)
 		})
 
@@ -86,4 +87,40 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 			}
 		}
 	}()
+}
+
+func reverseProxy(targetURL *url.URL, stream net.Conn, accessToken *string, host string) *httputil.ReverseProxy {
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.Header.Set("X-Proxy", "knot "+build.Version)
+		req.URL.Scheme = "http" // Force http as the agent will upgrade the connection to https
+
+		// Set the host header
+		if host != "" {
+			req.Host = host
+		} else {
+			req.Host = targetURL.Host // Set the Host header
+		}
+
+		if accessToken != nil {
+			req.Header.Set("Authorization", *accessToken)
+		}
+	}
+
+	proxy.Transport = &http.Transport{
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+		MaxConnsPerHost:     32 * 2,
+		MaxIdleConns:        32 * 2,
+		MaxIdleConnsPerHost: 32,
+		IdleConnTimeout:     30 * time.Second,
+		DisableCompression:  false,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return stream, nil
+		},
+	}
+
+	return proxy
 }

@@ -3,8 +3,8 @@
 {{ define "pageTitle" }}{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900">
-  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900" x-data="templateForm({{ .isEdit }}, '{{ .templateId }}')" x-init="initData">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8">
+  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4" x-data="templateForm({{ .isEdit }}, '{{ .templateId }}')" x-init="initData">
 
     <div class="mb-4 col-span-full xl:mb-2">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}</h1>
@@ -27,22 +27,60 @@
             </div>
           </div>
         </div>
-        <div x-show="!formData.local_container" x-cloak>
-          <label class="flex items-center cursor-pointer mb-2">
-            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.is_manual" @change="toggleIsManual()" {{ if .isEdit }}disabled="true"{{ end }}>
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Manually Created Space</span>
-          </label>
+        <div x-data="autocompleterIcon({{ .iconList }})" data-parent-var-group="formData" data-parent-variable="icon_url" @refresh-autocompleter.window="refresh()" class="mt-2">
+          <label for="icon_url" class="form-label">Template Icon</label>
+          <div class="flex items-center">
+            <img x-show="formData.icon_url.length" :src="formData.icon_url" alt="Icon" class="size-10 mr-2">
+            <div class="relative w-full max-w-sm">
+              <input x-model="search" class="form-field" type="search" placeholder="Search icons..."
+                @focus="showList = true; $refs.searchInput.select()"
+                @blur.debounce.200ms="showList = false"
+                x-ref="searchInput" spellcheck="false" autocomplete="off">
+                <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-120 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+                <ul class="list-none">
+                  <template x-for="(option, index) in filteredOptions" :key="index">
+                  <li @click="selectOption(option)" class="my-1 cursor-pointer nav-item text-sm">
+                    <img x-show="option.url.length" :src="option.url" alt="Icon" class="size-10 mr-2">
+                    <div x-text="option.description + ' (' + option.source + ')'"></div>
+                  </li>
+                  </template>
+                </ul>
+              </div>
+            </div>
+            <div class="cursor-pointer ml-2 text-gray-900 dark:text-white" @click="clear()" x-show="formData.icon_url.length" title="Clear Icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+          </div>
         </div>
-        <div x-show="!formData.is_manual" x-cloak>
-          <label class="flex items-center cursor-pointer mb-2">
-            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.local_container" @change="toggleLocalContainer()" {{ if .isEdit }}disabled="true"{{ end }}>
-            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Local Container (Docker / Podman)</span>
-          </label>
+        <div class="mb-4">
+          <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Platform</label>
+          <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+            <template x-for="platform in ['Docker', 'Podman', 'Nomad', 'Manual']" :key="platform">
+              <label class="relative">
+                <input
+                  type="radio"
+                  name="platform"
+                  :value="platform.toLowerCase()"
+                  x-model="formData.platform"
+                  class="sr-only peer"
+                  {{ if .isEdit }}@change="showPlatformWarning = true"{{ end }}
+                >
+                <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
+                  peer-checked:bg-blue-600 peer-checked:text-white
+                  peer-focus:ring-2 peer-focus:ring-blue-300
+                  transition-colors duration-200 ease-in-out
+                  text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                  hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
+                <span x-text="platform"></span>
+              </div>
+              </label>
+            </template>
+          </div>
         </div>
-        <div x-show="!formData.is_manual" x-cloak>
-          <label for="job" class="form-label"><span x-show="!formData.local_container">Nomad Job (HCL)</span><span x-show="formData.local_container">Container Specification (YAML)</span></label>
+        <div x-show="formData.platform != 'manual'" x-cloak>
+          <label for="job" class="form-label"><span x-show="!isLocalContainer()">Nomad Job (HCL)</span><span x-show="isLocalContainer()">Container Specification (YAML)</span></label>
           <div class="large-editor">
             <div :class="{'form-field-error': !jobValid, 'editor-wrap': true}">
               <textarea name="job" class="form-field" id="job"></textarea>
@@ -50,13 +88,7 @@
             <div x-show="!jobValid" class="error-message" x-cloak>Template is required.</div>
           </div>
         </div>
-        <div x-show="!formData.is_manual" x-clock>
-          <label for="compute_units" class="form-label">Compute Units</label>
-          <input type="number" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
-          <p class="description">The number of compute units (CPU, GPU, RAM, etc.) this template uses.<br />Compute units only count against the users limits when a space created from the template is running.</p>
-          <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
-        </div>
-        <div x-show="!formData.is_manual" x-cloak>
+        <div x-show="formData.platform != 'manual'" x-cloak>
           <label for="vol" class="form-label">Volume Definition (YAML)</label>
           <div class="mid-editor">
             <div :class="{'form-field-error': !volValid, 'editor-wrap': true}">
@@ -65,39 +97,70 @@
             <div x-show="!volValid" class="error-message" x-cloak>Volume definition must be valid YAML.</div>
           </div>
         </div>
-        <div x-show="!formData.is_manual" x-clock>
+        {{ if not .isLeafNode }}
+        <div x-show="formData.platform != 'manual'" x-clock>
+          <label for="compute_units" class="form-label">Compute Units</label>
+          <input type="number" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
+          <p class="description">The number of compute units (CPU, GPU, RAM, etc.) this template uses.<br />Compute units only count against the users limits when a space created from the template is running.</p>
+          <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
+        </div>
+        <div x-show="formData.platform != 'manual'" x-clock>
           <label for="storage_units" class="form-label">Storage Units</label>
           <input type="number" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
           <p class="description">The number of storage units this template uses.<br />Once a space is created and started the storage units are counted against the user.</p>
           <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
         </div>
+        {{ end }}
 
-        <div>
+        <div x-show="formData.platform != 'manual'" x-cloak>
+          <label class="form-label">Maximum Uptime</label>
+          <div class="flex grid-cols-2 gap-2">
+            <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}">
+            <select class="form-field pr-10 w-auto" name="uptime_unit" x-model="formData.max_uptime_unit" x-on:change="checkUptime()" :class="{'form-field-error': !uptimeValid}">
+              <option value="disabled">No Limit</option>
+              <option value="minute">Minutes</option>
+              <option value="hour">Hours</option>
+              <option value="day">Days</option>
+            </select>
+          </div>
+          <p class="description">The maximum amount of time a space created from the template can run for.</p>
+          <div x-show="!uptimeValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
+        </div>
+
+        <div x-show="formData.platform != 'manual'" x-cloak>
           <label class="flex items-center cursor-pointer mb-2">
-            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.schedule_enabled" @change="toggleSchduleEnabled()">
+            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.schedule_enabled" x-model="formData.schedule_enabled">
             <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Schedule</span>
           </label>
         </div>
-        <div x-show="formData.schedule_enabled" x-clock>
+        <div x-show="formData.schedule_enabled && formData.platform != 'manual'" x-clock>
+          <div class="mb-4">
+            <label class="flex items-center cursor-pointer mb-2">
+              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.auto_start" x-model="formData.auto_start">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Auto Start</span>
+            </label>
+          </div>
+
           <template x-for="index in 7" :key="index">
-            <div class="grid grid-cols-3 gap-4 w-full max-w-xl">
-              <div class="col-span-1">
-                <label class="flex items-center cursor-pointer mb-2 py-2.5">
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-2 sm:gap-4 w-full max-w-xl">
+              <div class="col-span-2 sm:col-span-1 mb-0 sm:mb-2">
+                <label class="flex items-center cursor-pointer py-2.5">
                   <input type="checkbox" class="sr-only peer" value="1" :checked="formData.schedule[index % 7].enabled" @change="toggleDaySchedule(index % 7)">
                   <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                   <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="getDayOfWeek(index % 7)"></span>
                 </label>
               </div>
               <div class="col-span-1">
-                <select class="form-field bg-white" :class="{'opacity-40': !formData.schedule[index % 7].enabled}" name="user" x-model="formData.schedule[index % 7].from">
+                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" name="user" x-model="formData.schedule[index % 7].from">
                   <template x-for="hour in fromHours" :key="hour">
                     <option x-text="hour" :value="hour" x-bind:selected="hour == formData.schedule[index % 7].from"></option>
                   </template>
                 </select>
               </div>
               <div class="col-span-1">
-                <select class="form-field bg-white" :class="{'opacity-40': !formData.schedule[index % 7].enabled}" name="user" x-model="formData.schedule[index % 7].to">
+                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" name="user" x-model="formData.schedule[index % 7].to">
                   <template x-for="hour in toHours" :key="hour">
                     <option x-text="hour" :value="hour" x-bind:selected="hour == formData.schedule[index % 7].to"></option>
                   </template>
@@ -108,57 +171,86 @@
           <div class="description text-right max-w-xl">All times are in {{ .timezone }}.</div>
         </div>
 
+        {{ if not .isLeafNode }}
         <div class="max-w-md">
           <div class="flex items-center mb-1">
-            <label class="form-label mb-0 mr-2">Limit to Locations</label>
-            <button type="button" x-on:click="addLocation()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
+            <label class="form-label mb-0 mr-2">Limit to Zones</label>
+            <button type="button" x-on:click="addZone()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               <span class="sr-only">Add</span>
             </button>
           </div>
-          <template x-for="(name, index) in formData.locations" :key="index">
+          <template x-for="(name, index) in formData.zones" :key="index">
             <div class="mb-2">
               <div class="flex items-center">
-                <input type="text" class="form-field mr-2" x-model="formData.locations[index]" x-on:keyup.debounce.500ms="checkLocation(index)" :class="{'form-field-error': !locationValid[index]}" placeholder="Location Name">
-                <button type="button" x-on:click="removeLocation(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
+                <input type="text" class="form-field mr-2" x-model="formData.zones[index]" x-on:keyup.debounce.500ms="checkZone(index)" :class="{'form-field-error': !zoneValid[index]}" placeholder="Zone Name">
+                <button type="button" x-on:click="removeZone(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                   </svg> <span class="sr-only">Remove</span>
                 </button>
               </div>
-              <div x-show="!locationValid[index]" class="error-message">Location is limited to 64 characters and must appear only once.</div>
+              <div x-show="!zoneValid[index]" class="error-message">Zone is limited to 64 characters and must appear only once.</div>
             </div>
           </template>
-          <div class="description">Restrict where a space can be created from this template.</div>
+          <div class="description">Restrict the zones the template shows within.<br />Prefix the zone name with ! to exclude the zone.</div>
+        </div>
+        {{ end }}
+
+        <div x-show="formData.platform != 'manual'" x-cloak>
+          <div class="flex items-center mb-1">
+            <label class="form-label mb-0 mr-2">Custom Fields</label>
+            <button type="button" x-on:click="addField()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              <span class="sr-only">Add</span>
+            </button>
+          </div>
+          <template x-for="(field, index) in formData.custom_fields" :key="index">
+            <div class="mb-2">
+              <div class="flex items-center">
+                <input type="text" class="form-field mr-2 max-w-xs" x-model="formData.custom_fields[index].name" x-on:keyup.debounce.500ms="checkCustomField(index)" :class="{'form-field-error': !customFieldValid[index]}" placeholder="Variable Name">
+                <input type="text" class="form-field mr-2" x-model="formData.custom_fields[index].description" x-on:keyup.debounce.500ms="checkCustomField(index)" :class="{'form-field-error': !customFieldValid[index]}" placeholder="Field Label / Description">
+                <button type="button" x-on:click="removeField(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                  </svg> <span class="sr-only">Remove</span>
+                </button>
+              </div>
+              <div x-show="!customFieldValid[index]" class="error-message">The field name is limited to 64 characters and must start with a letter and only contain a - z, A - Z, 0 - 9 and _. The description is optional and must be less than 256 characters.</div>
+            </div>
+          </template>
         </div>
 
-        <div class="grid grid-cols-1 xl:grid-cols-2 xl:gap-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 xl:gap-4">
           <div class="col-span-1">
             <label class="form-label">Features</label>
             <label class="flex items-center cursor-pointer mb-2">
-              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_terminal" @change="toggleWithTerminal()">
+              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_terminal" x-model="formData.with_terminal">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Web Terminal</span>
             </label>
             <label class="flex items-center cursor-pointer mb-2">
-              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_ssh" @change="toggleWithSSH()">
+              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_ssh" x-model="formData.with_ssh">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">SSH</span>
             </label>
             <label class="flex items-center cursor-pointer mb-2">
-              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_code_server" @change="toggleWithCodeServer()">
+              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_code_server" x-model="formData.with_code_server">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Code Server</span>
             </label>
             <label class="flex items-center cursor-pointer mb-2">
-              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_vscode_tunnel" @change="toggleWithVSCodeTunnel()">
+              <input type="checkbox" class="sr-only peer" value="1" :checked="formData.with_vscode_tunnel" x-model="formData.with_vscode_tunnel">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">VSCode Tunnel</span>
             </label>
           </div>
-          <div class="col-span-1" x-show="groups.length" x-cloak>
+          {{ if not .isLeafNode }}
+          <div class="col-span-1 mt-4 lg:mt-0" x-show="groups.length" x-cloak>
             <label class="form-label">Restrict to Groups</label>
             <template x-for="(group, index) in groups" :key="index">
               <label class="flex items-center cursor-pointer mb-2">
@@ -168,6 +260,15 @@
               </label>
             </template>
           </div>
+          {{ end }}
+        </div>
+
+        <div x-show="formData.platform != 'manual'" x-cloak>
+          <label class="flex items-center cursor-pointer mb-2">
+            <input type="checkbox" class="sr-only peer" value="1" :checked="formData.active" x-model="formData.active">
+            <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
+          </label>
         </div>
 
         <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
@@ -176,6 +277,36 @@
       </form>
 
     </div>
+
+    <div x-cloak x-show="showPlatformWarning" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showPlatformWarning" @keydown.esc.window="showPlatformWarning = false" @click.self="showPlatformWarning = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+      <!-- Modal Dialog -->
+      <div x-show="showPlatformWarning" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <!-- Dialog Header -->
+        <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
+          <div class="flex items-center justify-center rounded-full bg-yellow-500/20 text-yellow-500 p-1">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Platform Changed</h3>
+          <button @click="showPlatformWarning = false" aria-label="close modal" class="cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <!-- Dialog Body -->
+        <div class="px-4 py-4 text-center">
+          <p>Changing the platform that the template is using may have unintended consequences including loss of data.</p>
+          <p>Only proceed if you are sure about the changes you are making.</p>
+        </div>
+        <!-- Dialog Footer -->
+        <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
+            <button @click="showPlatformWarning = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Dismiss</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </main>
 {{ end }}

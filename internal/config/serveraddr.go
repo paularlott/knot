@@ -1,10 +1,11 @@
 package config
 
 import (
+	"regexp"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/paularlott/cli"
+	"github.com/rs/zerolog/log"
 )
 
 type ServerAddr struct {
@@ -14,19 +15,37 @@ type ServerAddr struct {
 }
 
 // Read the server configuration information and generate the websocket address
-func GetServerAddr() *ServerAddr {
+func GetServerAddr(alias string, cmd *cli.Command) *ServerAddr {
 	flags := &ServerAddr{}
 
-	flags.HttpServer = viper.GetString("client.server")
-	flags.ApiToken = viper.GetString("client.token")
+	re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9\-]{1,19}$`)
+	if !re.MatchString(alias) {
+		log.Fatal().Msg("Alias must be alphanumeric and can contain -, must start with a letter and be 20 characters or less")
+	}
+
+	// Use the server and token flags if given, else use the alias
+	if cmd.HasFlag("server") || cmd.HasFlag("token") {
+		flags.HttpServer = cmd.GetString("server")
+		flags.ApiToken = cmd.GetString("token")
+	} else {
+		v, exists := cmd.ConfigFile.GetValue("client.connection." + alias + ".server")
+		if exists {
+			flags.HttpServer = v.(string)
+		}
+
+		v, exists = cmd.ConfigFile.GetValue("client.connection." + alias + ".token")
+		if exists {
+			flags.ApiToken = v.(string)
+		}
+	}
 
 	// If flags.server empty then throw and error
 	if flags.HttpServer == "" {
-		cobra.CheckErr("Missing proxy server address")
+		log.Fatal().Msg("Missing knot server address")
 	}
 
 	if flags.ApiToken == "" {
-		cobra.CheckErr("Missing API token")
+		log.Fatal().Msg("Missing knot API token")
 	}
 
 	if !strings.HasPrefix(flags.HttpServer, "http://") && !strings.HasPrefix(flags.HttpServer, "https://") {

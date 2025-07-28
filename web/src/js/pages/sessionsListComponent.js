@@ -10,11 +10,11 @@ window.sessionsListComponent = function() {
     },
 
     async init() {
-      this.getSessions();
+      await this.getSessions();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getSessions();
+        await this.getSessions();
       }, 3000);
     },
 
@@ -31,7 +31,7 @@ window.sessionsListComponent = function() {
       });
     },
     async deleteSession(sessionId) {
-      var self = this;
+      const self = this;
       await fetch(`/api/sessions/${sessionId}`, {
         method: 'DELETE',
         headers: {

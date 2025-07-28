@@ -3,20 +3,23 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"time"
 
-	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/middleware"
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/service"
 
 	"github.com/rs/zerolog/log"
 )
 
 func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
+	cfg := config.GetServerConfig()
 
-	if !middleware.HasUsers {
+	if !middleware.HasUsers && cfg.Origin.Server == "" && cfg.Origin.Token == "" {
 		http.Redirect(w, r, "/initial-system-setup", http.StatusSeeOther)
 	} else {
 		session := middleware.GetSessionFromCookie(r)
@@ -48,7 +51,9 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 		data := map[string]interface{}{
 			"redirect":    redirect,
 			"version":     build.Version,
-			"totpEnabled": viper.GetBool("server.totp.enabled"),
+			"totpEnabled": cfg.TOTP.Enabled,
+			"logoURL":     cfg.UI.LogoURL,
+			"logoInvert":  cfg.UI.LogoInvert,
 		}
 
 		err = tmpl.Execute(w, data)
@@ -61,17 +66,11 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 func HandleLogoutPage(w http.ResponseWriter, r *http.Request) {
 	session := r.Context().Value("session").(*model.Session)
 	if session != nil {
-
-		// Logout of the core server if this is a remote
-		if session.RemoteSessionId != "" {
-			client := apiclient.NewRemoteSession(session.RemoteSessionId)
-			err := client.Logout()
-			if err != nil {
-				log.Error().Msgf("failed to logout: %s", err.Error())
-			}
-		}
-
-		database.GetSessionStorage().DeleteSession(session)
+		session.IsDeleted = true
+		session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
+		session.UpdatedAt = hlc.Now()
+		database.GetSessionStorage().SaveSession(session)
+		service.GetTransport().GossipSession(session)
 	}
 
 	middleware.DeleteSessionCookie(w)

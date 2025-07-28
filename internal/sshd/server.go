@@ -7,7 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"

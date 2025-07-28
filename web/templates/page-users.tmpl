@@ -3,8 +3,8 @@
 {{ define "pageTitle" }}Users{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="userListComponent()">
-  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="userListComponent()">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="mb-4 col-span-full xl:mb-2">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Users</h1>
@@ -28,114 +28,181 @@
       </div>
     </form>
 
-    <div class="mb-4 col-span-full">
+    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+
       {{ template "loading" . }}
-      <div x-show="!loading" x-cloak class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        <template x-for="u in users" :key="u.user_id">
-          <div x-data x-show="!u.searchHide" class="p-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 dark:bg-gray-800 flex flex-col justify-between">
-            <div>
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="u.username"></h2>
-              <table>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Email:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 break-all" x-text="u.email"></td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Spaces:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="u.number_spaces + (u.max_spaces ? ' / ' + u.max_spaces : '')"></td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 text-nowrap">Compute Units:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="u.used_compute_units + (u.compute_units ? ' / ' + u.compute_units : '')"></td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 text-nowrap">Storage Units:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="u.used_storage_units + (u.storage_units ? ' / ' + u.storage_units : '')"></td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Max Tunnels:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="u.max_tunnels ? u.max_tunnels : '-'"></td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Deployed:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="u.number_spaces_deployed"></td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2">Active:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
-                    <span x-show="u.active" class="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
-                    <span x-show="!u.active" class="inline-block bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 text-nowrap">Last Login:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2" x-text="u.last_login_at"></td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 align-top">Roles:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
-                    <template x-if="u.role_names.length">
-                      <div class="flex flex-wrap gap-2">
-                        <template x-for="role in u.role_names">
-                          <span class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap" x-text="role"></span>
-                        </template>
+      <div x-show="!loading" x-cloak class="mb-4 col-span-full overflow-x-auto">
+        <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+            <tr>
+              <th scope="col" class="px-4 py-3">User</th>
+              <th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Status</th>
+              <th scope="col" class="px-4 py-3 hidden md:table-cell">Spaces</th>
+              <th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Compute</th>
+              <th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Storage</th>
+              <th scope="col" class="px-4 py-3 hidden 2xl:table-cell">Tunnels</th>
+              <th scope="col" class="px-4 py-3 hidden lg:table-cell 2xl:hidden">Resources</th>
+              <th scope="col" class="px-4 py-3 hidden xl:table-cell">Roles</th>
+              <th scope="col" class="px-4 py-3 hidden xl:table-cell">Groups</th>
+              <th scope="col" class="px-4 py-3 hidden xl:table-cell">Last Login</th>
+              <th scope="col" class="px-4 py-3 text-right">&nbsp;</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="u in users" :key="u.user_id">
+              <tr x-show="!u.searchHide" class="group bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
+                <!-- User Info Column - Always Visible -->
+                <td class="px-4 py-3">
+                  <div class="flex flex-col">
+                    <div class="flex flex-row">
+                      {{ if .useGravatar }}
+                      <img :src="`https://www.gravatar.com/avatar/${MD5(u.email)}?s=64&d=mp`" alt="User Avatar" class="size-12 rounded-full mr-4">
+                      {{ end }}
+                      <div>
+                        <div class="flex items-center">
+                          <span class="font-medium text-gray-900 dark:text-white" x-text="u.username"></span>
+                          <span x-show="u.active" class="2xl:hidden inline-block ml-2 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
+                          <span x-show="!u.active" class="2xl:hidden inline-block ml-2 bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
+                        </div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[180px]" x-text="u.email"></div>
                       </div>
-                    </template>
-                    <span x-show="!u.role_names.length" class="text-gray-500 dark:text-gray-400">-</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2 pr-2 align-top">Groups:</td>
-                  <td class="text-sm text-gray-500 dark:text-gray-400 pt-2">
-                    <template x-if="u.group_names.length">
-                      <div class="flex flex-wrap gap-2">
-                        <template x-for="group in u.group_names">
-                          <span class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 text-nowrap" x-text="group"></span>
-                        </template>
+                    </div>
+
+                    <!-- Mobile-only view of key metrics -->
+                    <div class="flex flex-wrap gap-2 mt-2 lg:hidden">
+                      <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-800 dark:bg-gray-700 dark:text-blue-400 md:hidden">
+                        <span class="mr-1 font-medium">Spaces:</span>
+                        <span x-text="u.number_spaces + (u.max_spaces ? '/' + u.max_spaces : '')"></span>
+                        <span x-show="u.number_spaces_deployed > 0" x-cloak class="inline-flex items-center justify-center ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500 text-white ml-2" x-text="u.number_spaces_deployed"></span>
                       </div>
-                    </template>
-                    <span x-show="!u.group_names.length" class="text-gray-500 dark:text-gray-400">-</span>
-                  </td>
-                </tr>
-              </table>
-            </div>
-            <div class="mt-4 flex items-center justify-end" x-data>
-              <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5 cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
-                  <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
-                </svg><span class="sr-only">More</span>
-              </button>
+                      <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-purple-50 text-purple-800 dark:bg-gray-700 dark:text-purple-400">
+                        <span class="mr-1 font-medium">Compute:</span>
+                        <span x-text="u.used_compute_units + (u.compute_units ? '/' + u.compute_units : '')"></span>
+                      </div>
+                      <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 dark:bg-gray-700 dark:text-amber-400">
+                        <span class="mr-1 font-medium">Storage:</span>
+                        <span x-text="u.used_storage_units + (u.storage_units ? '/' + u.storage_units : '')"></span>
+                      </div>
+                      <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-teal-50 text-teal-800 dark:bg-gray-700 dark:text-teal-400">
+                        <span class="mr-1 font-medium">Tunnels:</span>
+                        <span x-text="u.used_tunnels + (u.max_tunnels ? ' / ' + u.max_tunnels : '')"></span>
+                      </div>
+                    </div>
+                  </div>
+                </td>
 
-              <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
-                <button @click="editUser(u.user_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                  </svg> Edit
-                </button>
-                <button x-show="u.number_spaces > 0" @click="userSpaces(u.user_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
-                  <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
-                  </svg> View Spaces
-                </button>
+                <!-- Status Column - Hidden on Mobile -->
+                <td class="px-4 py-3 hidden 2xl:table-cell">
+                  <span x-show="u.active" class="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
+                  <span x-show="!u.active" class="inline-block bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
+                </td>
 
-                <hr x-show="!u.current" class="my-2" />
-                <button x-show="!u.current" @click="deleteConfirm.show = true; deleteConfirm.user = u; $refs.panel.close();" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg> Delete
-                </button>
+                <!-- Spaces Column - Hidden on Mobile -->
+                <td class="px-4 py-3 hidden md:table-cell">
+                  <div class="inline-flex items-center text-xs px-2.5 py-1 text-nowrap">
+                    <span x-text="u.number_spaces + (u.max_spaces ? ' / ' + u.max_spaces : '')"></span>
+                    <span x-show="u.number_spaces_deployed > 0" x-cloak class="inline-flex items-center justify-center ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500 text-white ml-2" x-text="u.number_spaces_deployed"></span>
+                  </div>
+                </td>
 
-                <hr x-show="u.number_spaces_deployed_in_location > 0" class="my-2" />
-                <button x-show="u.number_spaces_deployed_in_location > 0" @click="stopConfirm.show = true; stopConfirm.user = u" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
-                  </svg> Stop Spaces
-                </button>
-              </div>
-            </div>
-          </div>
-        </template>
+                <!-- Compute Column - Hidden on Mobile -->
+                <td class="px-4 py-3 hidden 2xl:table-cell" x-text="u.used_compute_units + (u.compute_units ? ' / ' + u.compute_units : '')"></td>
+
+                <!-- Storage Column - Hidden on Mobile -->
+                <td class="px-4 py-3 hidden 2xl:table-cell" x-text="u.used_storage_units + (u.storage_units ? ' / ' + u.storage_units : '')"></td>
+
+                <!-- Tunnels Column - Hidden on Mobile -->
+                <td class="px-4 py-3 hidden 2xl:table-cell" x-text="u.max_tunnels ? u.max_tunnels : '-'"></td>
+
+                <!-- Resources Column - Hidden on Mobile -->
+                <td class="px-4 py-3 hidden lg:table-cell 2xl:hidden">
+                  <div class="flex flex-col space-y-2">
+                    <div class="inline-flex items-center text-xs py-1 text-nowrap">
+                      <span class="mr-1 font-medium">Compute:</span>
+                      <span x-text="u.used_compute_units + (u.compute_units ? ' / ' + u.compute_units : '')"></span>
+                    </div>
+                    <div class="inline-flex items-center text-xs py-1 text-nowrap">
+                      <span class="mr-1 font-medium">Storage:</span>
+                      <span x-text="u.used_storage_units + (u.storage_units ? ' / ' + u.storage_units : '')"></span>
+                    </div>
+                    <div class="inline-flex items-center text-xs py-1 text-nowrap">
+                      <span class="mr-1 font-medium">Tunnels:</span>
+                      <span x-text="u.used_tunnels + (u.max_tunnels ? ' / ' + u.max_tunnels : '')"></span>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Roles Column - Hidden on Mobile -->
+                <td class="px-4 py-3 hidden xl:table-cell">
+                  <template x-if="u.role_names.length">
+                    <div class="flex flex-col gap-1">
+                      <template x-for="role in u.role_names">
+                        <span class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap" x-text="role"></span>
+                      </template>
+                    </div>
+                  </template>
+                  <span x-show="!u.role_names.length">-</span>
+                </td>
+
+                <!-- Groups Column - Hidden on Mobile -->
+                <td class="px-4 py-3 hidden xl:table-cell">
+                  <template x-if="u.group_names.length">
+                    <div class="flex flex-col gap-2">
+                      <template x-for="group in u.group_names">
+                        <span class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300 whitespace-nowrap" x-text="group"></span>
+                      </template>
+                    </div>
+                  </template>
+                  <span x-show="!u.group_names.length" class="text-gray-500 dark:text-gray-400">-</span>
+                </td>
+
+                <!-- Last Login - Hidden on Small Screens -->
+                <td class="px-4 py-3 hidden xl:table-cell text-nowrap text-xs" x-text="u.last_login_at"></td>
+
+                <!-- Actions Column -->
+                <td class="px-4 py-3 text-right">
+
+                  <div class="inline-flex items-center" x-data>
+                    <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5 cursor-pointer">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5">
+                        <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
+                      </svg><span class="sr-only">More</span>
+                    </button>
+
+                    <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" x-cloak>
+                      <button @click="editUser(u.user_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                        </svg> Edit
+                      </button>
+                      <button x-show="u.number_spaces > 0" @click="userSpaces(u.user_id)" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                        <svg class="size-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+                        </svg> View Spaces
+                      </button>
+
+                      <hr x-show="!u.current" class="my-2" />
+                      <button x-show="!u.current" @click="deleteConfirm.show = true; deleteConfirm.user = u; $refs.panel.close();" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg> Delete
+                      </button>
+
+                      <hr x-show="u.number_spaces_deployed_in_zone > 0" class="my-2" />
+                      <button x-show="u.number_spaces_deployed_in_zone > 0" @click="stopConfirm.show = true; stopConfirm.user = u" class="group nav-item text-sm px-4 w-full text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700" role="menuitem">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 0 1 9 14.437V9.564Z" />
+                        </svg> Stop Spaces
+                      </button>
+                    </div>
+                  </div>
+
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
       </div>
 
       <!-- Modal delete -->
@@ -145,12 +212,12 @@
           <!-- Dialog Header -->
           <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
             <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
               </svg>
             </div>
             <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Confirm Delete</h3>
-            <button @click="deleteConfirm.show = false;" aria-label="close modal">
+            <button @click="deleteConfirm.show = false;" aria-label="close modal" class="cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
@@ -164,7 +231,11 @@
           <!-- Dialog Footer -->
           <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
               <button @click="deleteConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Keep User</button>
-              <button @click="deleteUser(deleteConfirm.user.user_id)" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Delete User</button>
+              <button @click="deleteUser(deleteConfirm.user.user_id)" type="button" class="group flex items-center cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                </svg> Delete User
+              </button>
           </div>
         </div>
       </div>

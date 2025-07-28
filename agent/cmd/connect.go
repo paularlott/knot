@@ -1,192 +1,51 @@
-package agentcmd
+package agent_cmd
 
 import (
+	"context"
 	"fmt"
-	"net/url"
-	"os"
-	"os/exec"
-	"runtime"
-	"strings"
-	"syscall"
 
-	"github.com/paularlott/knot/apiclient"
+	connectcmd "github.com/paularlott/knot/agent/cmd/connect"
+	"github.com/paularlott/knot/internal/agentlink"
 	"github.com/paularlott/knot/internal/config"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"golang.org/x/term"
+	"github.com/paularlott/cli"
 )
 
-func init() {
-
-	ConnectCmd.Flags().BoolP("use-web-auth", "", false, "If given then authorization will be done via the web interface.")
-	ConnectCmd.Flags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
-	ConnectCmd.Flags().StringP("username", "u", "", "Username to use for authentication.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_USERNAME environment variable if set.")
-
-	RootCmd.AddCommand(ConnectCmd)
-}
-
-var ConnectCmd = &cobra.Command{
-	Use:   "connect <server>",
-	Short: "Connect to a server",
-	Long:  `Authenticate the client with a remote server and save the server address and access key.`,
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		var token string
-
-		server := args[0]
-
-		// If server doesn't start with http or https, assume https
-		if !strings.HasPrefix(server, "http://") && !strings.HasPrefix(server, "https://") {
-			server = "https://" + server
-		}
-
-		fmt.Println("Connecting to server: ", server)
-
-		u, err := url.Parse(server)
-		if err != nil {
-			fmt.Println("Failed to parse server URL")
-			os.Exit(1)
-		}
-
-		// Get the host name
-		hostname, err := os.Hostname()
-		if err != nil {
-			fmt.Println("Failed to get hostname")
-			os.Exit(1)
-		}
-
-		hostname = "knot client " + hostname
-
-		client := apiclient.NewClient(server, "", cmd.Flags().Lookup("tls-skip-verify").Value.String() == "true")
-
-		// Query if the server is using TOTP
-		totp, _, err := client.UsingTOTP()
-		if err != nil {
-			fmt.Println("Failed to query server for TOTP")
-			os.Exit(1)
-		}
-
-		// If using web authentication or server has TOTP enabled then open the server URL in the default browser
-		if totp || cmd.Flags().Lookup("use-web-auth").Value.String() == "true" {
-
-			// Build the registration URL
-			u.Path = "/api-tokens/create/" + url.PathEscape(hostname)
-
-			// Open the server URL in the default browser
-			err = open(u.String())
-			if err != nil {
-				fmt.Println("Failed to open server URL, you will need to generate the API token manually")
-				os.Exit(1)
-			}
-
-			// Accept a string from the user and save it in the variable token
-			fmt.Print("Enter token: ")
-			_, err = fmt.Scanln(&token)
-			if err != nil {
-				fmt.Println("Failed to read token, you will need to generate the API token manually")
-				os.Exit(1)
-			}
-		} else {
-			var username string = cmd.Flags().Lookup("username").Value.String()
-			var password []byte
-			var err error
-
-			// If username not given then prompt for it
-			if username == "" {
-
-				// Prompt the user to enter their username
-				fmt.Print("Enter email: ")
-				_, err = fmt.Scanln(&username)
-				if err != nil {
-					fmt.Println("Failed to read email address")
-					os.Exit(1)
-				}
-			}
-
-			// Prompt the user to enter their password
-			fmt.Print("Enter password: ")
-			password, err = term.ReadPassword(int(syscall.Stdin))
-			if err != nil {
-				fmt.Println("Failed to read password")
-				os.Exit(1)
-			}
-			fmt.Println()
-
-			// Check username and password given
-			if username == "" || string(password) == "" {
-				fmt.Println("Username and password must be given")
-				os.Exit(1)
-			}
-
-			// Open an API connection to the server
-			sessionToken, _, _, _ := client.Login(username, string(password), "")
-			if sessionToken == "" {
-				fmt.Println("Failed to login")
-				os.Exit(1)
-			}
-
-			// Use the session token for future requests
-			client.UseSessionCookie(true).SetAuthToken(sessionToken)
-
-			// Create an API token
-			token, _, err = client.CreateToken(hostname)
-			if err != nil || token == "" {
-				fmt.Println("Failed to create token")
-				os.Exit(1)
-			}
-		}
-
-		if viper.ConfigFileUsed() == "" {
-			// No config file so save this to the home folder
-			home, err := os.UserHomeDir()
-			cobra.CheckErr(err)
-
-			partial := viper.New()
-			partial.Set("client.server", server)
-			partial.Set("client.token", token)
-
-			err = partial.WriteConfigAs(home + "/" + config.CONFIG_FILE_NAME + "." + config.CONFIG_FILE_TYPE)
-			if err != nil {
-				fmt.Println("Failed to create config file")
-				os.Exit(1)
-			}
-		} else {
-			partial := viper.New()
-			partial.SetConfigFile(viper.ConfigFileUsed())
-			err = partial.ReadInConfig()
-			if err != nil {
-				fmt.Println("Failed to read config file")
-				os.Exit(1)
-			}
-
-			partial.Set("client.server", server)
-			partial.Set("client.token", token)
-
-			err = partial.WriteConfig()
-			if err != nil {
-				fmt.Println("Failed to save config file")
-				os.Exit(1)
-			}
-		}
+var ConnectCmd = &cli.Command{
+	Name:        "connect",
+	Usage:       "Connect to the Server",
+	Description: "Asks the running agent to generate a new API key on the server and stores it in the local config.",
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:         "tls-skip-verify",
+			Usage:        "Skip TLS verification when talking to server.",
+			ConfigPath:   []string{"tls.skip_verify"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
+			DefaultValue: true,
+			Global:       true,
+		},
 	},
-}
+	Commands: []*cli.Command{
+		connectcmd.ConnectListCmd,
+		connectcmd.ConnectDeleteCmd,
+	},
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		var response agentlink.ConnectResponse
 
-// open opens the specified URL in the default browser of the user.
-// https://stackoverflow.com/questions/39320371/how-start-web-server-to-open-page-in-browser-in-golang
-func open(url string) error {
-	var cmd string
-	var args []string
+		err := agentlink.SendWithResponseMsg(agentlink.CommandConnect, nil, &response)
+		if err != nil {
+			return fmt.Errorf("unable to connect to the agent, please check that the agent is running: %w", err)
+		}
 
-	switch runtime.GOOS {
-	case "windows":
-		cmd = "cmd"
-		args = []string{"/c", "start"}
-	case "darwin":
-		cmd = "open"
-	default: // "linux", "freebsd", "openbsd", "netbsd"
-		cmd = "xdg-open"
-	}
-	args = append(args, url)
-	return exec.Command(cmd, args...).Start()
+		if !response.Success {
+			return fmt.Errorf("failed to create an API token: %w", err)
+		}
+
+		if err := config.SaveConnection("default", response.Server, response.Token, cmd); err != nil {
+			return fmt.Errorf("failed to save connection details: %w", err)
+		}
+
+		fmt.Println("Successfully connected to server:", response.Server)
+		return nil
+	},
 }

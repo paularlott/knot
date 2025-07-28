@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/logger"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/validate"
 	"github.com/paularlott/knot/internal/wsconn"
-	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/validate"
 
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
@@ -20,6 +20,7 @@ import (
 )
 
 type tunnelSession struct {
+	tunnelType TunnelType
 	user       *model.User
 	tunnelName string
 	muxSession *yamux.Session
@@ -93,6 +94,7 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 
 	// Create a new tunnel session
 	session := &tunnelSession{
+		tunnelType: WebTunnel,
 		user:       user,
 		tunnelName: tunnelName,
 		ws:         ws,
@@ -181,10 +183,7 @@ func DeleteTunnel(userId, tunnelName string) error {
 	tunnelMutex.Lock()
 	defer tunnelMutex.Unlock()
 
-	fmt.Println("deleteing tunnel", userId, tunnelName)
-
 	for key, t := range tunnels {
-		fmt.Println("checking tunnel", t.user.Id, t.tunnelName)
 		if t.user.Id == userId && t.tunnelName == tunnelName {
 			// Open a new stream to the tunnel client
 			stream, err := t.muxSession.Open()

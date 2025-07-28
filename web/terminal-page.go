@@ -3,10 +3,10 @@ package web
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
-	"github.com/paularlott/knot/util/validate"
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/rs/zerolog/log"
 )
@@ -42,7 +42,8 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var renderer string
-	if viper.GetBool("server.terminal.webgl") {
+	cfg := config.GetServerConfig()
+	if cfg.TerminalWebGL {
 		renderer = "webgl"
 	} else {
 		renderer = "canvas"

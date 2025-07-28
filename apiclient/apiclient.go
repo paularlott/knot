@@ -1,46 +1,28 @@
 package apiclient
 
 import (
-	"github.com/paularlott/knot/internal/origin_leaf/server_info"
-	"github.com/paularlott/knot/util/rest"
-
-	"github.com/spf13/viper"
-)
-
-// Enum for authorization methods
-const (
-	AuthToken = iota
-	AuthSessionCookie
-	AuthRemoteServerToken
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 type ApiClient struct {
 	httpClient *rest.RESTClient
 }
 
-func NewClient(baseURL string, token string, insecureSkipVerify bool) *ApiClient {
+func NewClient(baseURL string, token string, insecureSkipVerify bool) (*ApiClient, error) {
+
+	client, err := rest.NewClient(baseURL, token, insecureSkipVerify)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &ApiClient{
-		httpClient: rest.NewClient(baseURL, token, insecureSkipVerify),
+		httpClient: client,
 	}
 
 	c.httpClient.SetContentType(rest.ContentTypeMsgPack)
 
-	if server_info.IsLeaf {
-		c.httpClient.AppendUserAgent("Remote (" + server_info.LeafLocation + ")")
-	}
-
-	return c
-}
-
-func NewRemoteToken(token string) *ApiClient {
-	c := NewClient(viper.GetString("server.origin_server"), token, viper.GetBool("tls_skip_verify"))
-	return c
-}
-
-func NewRemoteSession(token string) *ApiClient {
-	c := NewRemoteToken(token)
-	c.httpClient.UseSessionCookie(true)
-	return c
+	return c, nil
 }
 
 func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {
@@ -49,7 +31,7 @@ func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {
 }
 
 func (c *ApiClient) UseSessionCookie(useCookie bool) *ApiClient {
-	c.httpClient.UseSessionCookie(useCookie)
+	c.httpClient.SetTokenKey(model.WebSessionCookie).SetTokenFormat("%s")
 	return c
 }
 

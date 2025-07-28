@@ -1,15 +1,23 @@
+import { validate } from '../validators.js';
+import { focus } from '../focus.js';
+
 window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, forUserUsername, templateId) {
   return {
     formData: {
       name: "",
       description: "",
-      template_id: "",
+      icon_url: "",
+      template_id: templateId,
       shell: preferredShell,
       user_id: forUserId,
       alt_names: [],
+      custom_fields: []
     },
-    templates: [],
     template_id: templateId,
+    template: {
+      custom_fields: []
+    },
+    isManual: false,
     loading: true,
     buttonLabel: isEdit ? 'Update' : 'Create Space',
     buttonLabelWorking: isEdit ? 'Updating...' : 'Creating...',
@@ -18,27 +26,19 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     forUsername: forUserUsername,
     volume_size_valid: {},
     volume_size_label: {},
-    isEdit: isEdit,
+    isEdit,
     stayOnPage: true,
     altNameValid: [],
     descValid: true,
     startOnCreate: true,
     saving: false,
+    quotaStorageLimitShow: false,
 
     async initData() {
-      focusElement('input[name="name"]');
-
-      // Fetch the available templates
-      const templatesResponse = await fetch('/api/templates', {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      let templateList = await templatesResponse.json();
-      this.templates = templateList.templates;
+      focus.Element('input[name="name"]');
 
       if(isEdit) {
-        const spaceResponse = await fetch('/api/spaces/' + spaceId, {
+        const spaceResponse = await fetch(`/api/spaces/${spaceId}`, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -53,8 +53,10 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.formData.description = space.description;
           this.formData.template_id = this.template_id = space.template_id;
           this.formData.shell = space.shell;
+          this.formData.icon_url = space.icon_url;
+          this.formData.custom_fields = space.custom_fields;
 
-          if(space.user_id != userId) {
+          if(space.user_id !== userId) {
             this.formData.user_id = space.user_id;
             this.forUsername = space.username;
           } else {
@@ -65,38 +67,56 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           // Set the alt names and mark all as valid
           this.formData.alt_names = space.alt_names ? space.alt_names : [];
           this.altNameValid = [];
-          for (var i = 0; i < this.formData.alt_names.length; i++) {
+          for (let i = 0; i < this.formData.alt_names.length; i++) {
             this.altNameValid.push(true);
           }
         }
-      } else {
-        if(templateId == '') {
-          this.formData.template_id = this.template_id = document.querySelector('#template option:first-child').value;
-        } else {
-          this.formData.template_id = this.template_id;
-        }
       }
+
+      const templatesResponse = await fetch('/api/templates/'+(isEdit ? this.formData.template_id : templateId), {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      this.template = await templatesResponse.json();
+
+      // Get if the template is manual
+      this.isManual = this.template ? this.template.platform === 'manual' : false;
+      this.startOnCreate = !this.isManual;
+
+      if(!isEdit) {
+        this.formData.icon_url = this.template.icon_url;
+      }
+
+      // Sort the formData custom fields to match the ordering of the template
+      this.formData.custom_fields = this.template.custom_fields.map(field => {
+        return {
+          name: field.name,
+          value: this.formData.custom_fields.find(f => f.name === field.name)?.value || ''
+        };
+      });
 
       this.loading = false;
     },
-    async addAltName() {
+    addAltName() {
       this.altNameValid.push(true);
       this.formData.alt_names.push('');
     },
-    async removeAltName(index) {
+    removeAltName(index) {
       this.formData.alt_names.splice(index, 1);
       this.altNameValid.splice(index, 1);
     },
     checkName() {
-      return this.nameValid = validate.name(this.formData.name);
+      this.nameValid = validate.name(this.formData.name);
+      return this.nameValid;
     },
     checkAltName(index) {
       if(index >= 0 && index < this.formData.alt_names.length) {
-        var isValid = validate.name(this.formData.alt_names[index]) && this.formData.alt_names[index] !== this.formData.name;
+        let isValid = validate.name(this.formData.alt_names[index]) && this.formData.alt_names[index] !== this.formData.name;
 
         // If valid then check for duplicate extra name
         if(isValid) {
-          for (var i = 0; i < this.formData.alt_names.length; i++) {
+          for (let i = 0; i < this.formData.alt_names.length; i++) {
             if(i !== index && this.formData.alt_names[i] === this.formData.alt_names[index]) {
               isValid = false;
               break;
@@ -104,24 +124,26 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           }
         }
 
-        return this.altNameValid[index] = isValid;
+        this.altNameValid[index] = isValid;
+        return isValid;
       } else {
         return false;
       }
     },
     checkDesc() {
-      return this.descValid = this.formData.description.length <= 1024;
+      this.descValid = this.formData.description.length <= 1024;
+      return this.descValid;
     },
     submitData() {
-      var err = false,
-          self = this;
+      let err = false;
+      const self = this;
 
       self.saving = true;
       err = !this.checkName() || err;
       err = !this.checkDesc() || err;
 
       // Remove the blank alt names
-      for (var i = this.formData.alt_names.length - 1; i >= 0; i--) {
+      for (let i = this.formData.alt_names.length - 1; i >= 0; i--) {
         if(this.formData.alt_names[i] === '') {
           this.formData.alt_names.splice(i, 1);
           this.altNameValid.splice(i, 1);
@@ -129,7 +151,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       }
 
       // Check the alt names
-      for (var i = 0; i < this.formData.alt_names.length; i++) {
+      for (let i = 0; i < this.formData.alt_names.length; i++) {
         err = !this.checkAltName(i) || err;
       }
 
@@ -143,7 +165,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       }
       this.loading = true;
 
-      fetch(isEdit ? '/api/spaces/' + spaceId : '/api/spaces', {
+      fetch(isEdit ? `/api/spaces/${spaceId}` : '/api/spaces', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -156,28 +178,27 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
               self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
             } else {
               window.location.href = '/spaces';
-              return;
             }
           } else if (response.status === 201) {
 
             // If start on create
             if (this.startOnCreate) {
               response.json().then((data) => {
-                fetch('/api/spaces/' + data.space_id + '/start', {
+                fetch(`/api/spaces/${data.space_id}/start`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json'
                   }
-                }).then((response) => {
-                  if (response.status === 200) {
+                }).then((response2) => {
+                  if (response2.status === 200) {
                     self.$dispatch('show-alert', { msg: "Space started", type: 'success' });
                   } else {
-                    response.json().then((data) => {
-                      self.$dispatch('show-alert', { msg: "Failed to start space, " + data.error, type: 'error' });
+                    response2.json().then((d) => {
+                      self.$dispatch('show-alert', { msg: `Failed to start space, ${d.error}`, type: 'error' });
                     });
                   }
                 }).catch((error) => {
-                  self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+                  self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
                 }).finally(() => {
                   window.location.href = '/spaces';
                 })
@@ -186,7 +207,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
               window.location.href = '/spaces';
             }
           } else if (response.status === 507) {
-            self.$dispatch('show-alert', { msg: "Failed to create space, limit reached", type: 'error' });
+            self.quotaStorageLimitShow = true;
           } else {
             response.json().then((data) => {
               self.$dispatch('show-alert', { msg: (isEdit ? "Failed to update space, " : "Failed to create space, ") + data.error, type: 'error' });
@@ -194,7 +215,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = isEdit ? 'Update' : 'Create Space';

@@ -1,4 +1,6 @@
-window.templateListComponent = function(canManageSpaces, location) {
+import Alpine from 'alpinejs';
+
+window.templateListComponent = function(canManageSpaces, zone) {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
@@ -10,7 +12,8 @@ window.templateListComponent = function(canManageSpaces, location) {
   return {
     loading: true,
     showAll: Alpine.$persist(false).as('templates-show-all').using(sessionStorage),
-    location: location,
+    showInactive: Alpine.$persist(false).as('templates-show-inactive').using(sessionStorage),
+    zone,
     deleteConfirm: {
       show: false,
       template: {
@@ -30,16 +33,16 @@ window.templateListComponent = function(canManageSpaces, location) {
     },
     templates: [],
     groups: [],
-    canManageSpaces: canManageSpaces,
+    canManageSpaces,
     users: [],
     searchTerm: Alpine.$persist('').as('template-search-term').using(sessionStorage),
 
     async init() {
-      this.getTemplates();
+      await this.getTemplates();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getTemplates();
+        await this.getTemplates();
       }, 3000);
     },
 
@@ -50,7 +53,7 @@ window.templateListComponent = function(canManageSpaces, location) {
             'Content-Type': 'application/json'
           }
         });
-        let usersList = await usersResponse.json();
+        const usersList = await usersResponse.json();
         this.users = usersList.users;
       }
 
@@ -59,7 +62,7 @@ window.templateListComponent = function(canManageSpaces, location) {
           'Content-Type': 'application/json'
         }
       });
-      groupsList = await groupsResponse.json();
+      const groupsList = await groupsResponse.json();
       this.groups = groupsList.groups;
 
       const response = await fetch('/api/templates', {
@@ -67,11 +70,12 @@ window.templateListComponent = function(canManageSpaces, location) {
           'Content-Type': 'application/json'
         }
       });
-      templateList = await response.json();
+      const templateList = await response.json();
       this.templates = templateList.templates;
 
       this.templates.forEach(template => {
         template.showIdPopup = false;
+        template.icon_url_exists = this.imageExists(template.icon_url);
 
         // Convert group IDs to names
         template.group_names = [];
@@ -89,14 +93,29 @@ window.templateListComponent = function(canManageSpaces, location) {
 
       this.loading = false;
     },
+    async imageExists(url) {
+      if (!url.length) {
+        return false;
+      }
+
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok;
+      } catch {
+        return false;
+      }
+    },
     editTemplate(templateId) {
       window.location.href = `/templates/edit/${templateId}`;
+    },
+    duplicateTemplate(templateId) {
+      window.location.href = `/templates/edit/${templateId}#duplicate`;
     },
     createSpaceFromTemplate(templateId) {
       window.location.href = `/spaces/create/${templateId}`;
     },
     async deleteTemplate(templateId) {
-      let self = this;
+      const self = this;
       await fetch(`/api/templates/${templateId}`, {
         method: 'DELETE',
         headers: {
@@ -112,7 +131,7 @@ window.templateListComponent = function(canManageSpaces, location) {
       this.getTemplates();
     },
     async createSpaceAs() {
-      if(this.chooseUser.forUserId == '') {
+      if(this.chooseUser.forUserId === '') {
         this.chooseUser.invalidUser = true;
         return;
       }
@@ -120,7 +139,7 @@ window.templateListComponent = function(canManageSpaces, location) {
       this.chooseUser.invalidUser = this.chooseUser.invalidTemplate = false;
 
       // Get the list of templates
-      await fetch('/api/templates?user_id=' + this.chooseUser.forUserId, {
+      await fetch(`/api/templates?user_id=${this.chooseUser.forUserId}`, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -129,35 +148,67 @@ window.templateListComponent = function(canManageSpaces, location) {
           response.json().then((templates) => {
 
             // If the selected template is in the list then created
-            let template = templates.templates.find(template => template.template_id === this.chooseUser.template.template_id);
+            const template = templates.templates.find(t => t.template_id === this.chooseUser.template.template_id);
             if(template) {
               this.chooseUser.show = false;
               window.location.href = `/spaces/create/${this.chooseUser.template.template_id}/${this.chooseUser.forUserId}`;
             } else {
               this.chooseUser.invalidTemplate = true;
-              return;
             }
           });
         }
       });
     },
-    async searchChanged() {
-      let term = this.searchTerm.toLowerCase();
+    searchChanged() {
+      const term = this.searchTerm.toLowerCase();
 
-      // For all templates if name or description contains the term show; else hide
       this.templates.forEach(template => {
-        if(term.length == 0) {
-          template.searchHide = false;
-        } else {
-          template.searchHide = !(
-            template.name.toLowerCase().includes(term) ||
-            template.description.toLowerCase().includes(term)
-          );
+        // Default: show if active or showInactive is true
+        let showRow = template.active || this.showInactive;
+
+        // Zone filtering (unless showAll)
+        if (!this.showAll) {
+          const zones = template.zones || [];
+          if (zones.length > 0) {
+            // Hide if any !zone matches the current zone
+            const hasNegation = zones.some(z => z.startsWith('!') && z.substring(1) === this.zone);
+            if (hasNegation) {
+              showRow = false;
+            } else {
+              // If there are any non-negated zones, show only if one matches
+              const positiveZones = zones.filter(z => !z.startsWith('!'));
+              if (positiveZones.length > 0) {
+                const hasZone = positiveZones.includes(this.zone);
+                showRow = showRow && hasZone;
+              }
+            }
+          }
+          // If zones is empty, showRow remains unchanged (no restriction)
         }
+
+        // Search term filtering
+        if (term.length > 0) {
+          const inName = template.name.toLowerCase().includes(term);
+          const inDesc = template.description.toLowerCase().includes(term);
+          showRow = showRow && (inName || inDesc);
+        }
+
+        template.searchHide = !showRow;
       });
     },
     getDayOfWeek(day) {
       return ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][day];
+    },
+    getMaxUptime(maxUptime, maxUptimeUnit) {
+      let maxUptimeString = '';
+      if(maxUptimeUnit === 'minute') {
+        maxUptimeString = `${maxUptime} minute${maxUptime > 1 ? 's' : ''}`;
+      } else if(maxUptimeUnit === 'hour') {
+        maxUptimeString = `${maxUptime} hour${maxUptime > 1 ? 's' : ''}`;
+      } else if(maxUptimeUnit === 'day') {
+        maxUptimeString = `${maxUptime} day${maxUptime > 1 ? 's' : ''}`;
+      }
+      return maxUptimeString;
     }
   };
 }

@@ -1,3 +1,5 @@
+import Alpine from 'alpinejs';
+
 window.rolesListComponent = function() {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -20,11 +22,11 @@ window.rolesListComponent = function() {
     searchTerm: Alpine.$persist('').as('role-search-term').using(sessionStorage),
 
     async init() {
-      this.getRoles();
+      await this.getRoles();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getRoles();
+        await this.getRoles();
       }, 3000);
     },
 
@@ -34,7 +36,7 @@ window.rolesListComponent = function() {
           'Content-Type': 'application/json'
         }
       });
-      let roleList = await response.json();
+      const roleList = await response.json();
       roleList.roles.sort((a, b) => (a.name > b.name) ? 1 : -1);
       this.roles = roleList.roles
 
@@ -50,7 +52,7 @@ window.rolesListComponent = function() {
       window.location.href = `/roles/edit/${roleId}`;
     },
     async deleteRole(roleId) {
-      let self = this;
+      const self = this;
       await fetch(`/api/roles/${roleId}`, {
         method: 'DELETE',
         headers: {
@@ -65,12 +67,12 @@ window.rolesListComponent = function() {
       });
       this.getRoles();
     },
-    async searchChanged() {
-      let term = this.searchTerm.toLowerCase();
+    searchChanged() {
+      const term = this.searchTerm.toLowerCase();
 
       // For all groups if name contains the term show; else hide
       this.roles.forEach(r => {
-        if(term.length == 0) {
+        if(term.length === 0) {
           r.searchHide = false;
         } else {
           r.searchHide = !r.name.toLowerCase().includes(term);

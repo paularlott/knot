@@ -3,8 +3,8 @@
 {{ define "pageTitle" }}Usage{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8 bg-gray-50 dark:bg-gray-900" x-data="usageComponent('{{ .user_id }}')">
-  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4 dark:bg-gray-900">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="usageComponent('{{ .user_id }}')">
+  <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="mb-4 col-span-full xl:mb-2">
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Usage</h1>
@@ -13,46 +13,22 @@
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
 
       {{ template "loading" . }}
-      <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
-        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
-            <tr>
-              <th scope="col" class="px-6 py-3">Resource</th>
-              <th scope="col" class="px-6 py-3">Current</th>
-              <th scope="col" class="px-6 py-3">Limit</th>
-            </tr>
-          </thead>
-          <tbody>
-          <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-            <td class="px-6 py-4">Spaces</td>
-            <td class="px-6 py-4" x-text="quota.number_spaces"></td>
-            <td class="px-6 py-4" x-text="quota.max_spaces == 0 ? '-' : quota.max_spaces"></td>
-          </tr>
-          <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-            <td class="px-6 py-4">Running Spaces</td>
-            <td class="px-6 py-4" x-text="quota.number_spaces_deployed"></td>
-            <td class="px-6 py-4">-</td>
-          </tr>
-          <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-            <td class="px-6 py-4">Compute Units</td>
-            <td class="px-6 py-4" x-text="quota.used_compute_units"></td>
-            <td class="px-6 py-4" x-text="quota.compute_units == 0 ? '-' : quota.compute_units"></td>
-          </tr>
-          <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-            <td class="px-6 py-4">Storage Units</td>
-            <td class="px-6 py-4" x-text="quota.used_storage_units"></td>
-            <td class="px-6 py-4" x-text="quota.storage_units == 0 ? '-' : quota.storage_units"></td>
-          </tr>
-          <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-            <td class="px-6 py-4">Tunnels</td>
-            <td class="px-6 py-4" x-text="quota.used_tunnels"></td>
-            <td class="px-6 py-4" x-text="quota.max_tunnels == 0 ? '-' : quota.max_tunnels"></td>
-          </tr>
-          </tbody>
-        </table>
+      <div x-show="!loading" x-cloak class="grid grid-cols-1 gap-4 sm:grid-cols-2 xlg:grid-cols-4">
+        <div class="h-72">
+          <canvas id="spaceUsage"></canvas>
+        </div>
+        <div class="h-72">
+          <canvas id="tunnelUsage"></canvas>
+        </div>
+        <div class="h-72">
+          <canvas id="computeUsage"></canvas>
+        </div>
+        <div class="h-72">
+          <canvas id="storageUsage"></canvas>
+        </div>
       </div>
 
     </div>
   </div>
-</div>
+</main>
 {{ end }}

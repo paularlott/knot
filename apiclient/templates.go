@@ -1,22 +1,34 @@
 package apiclient
 
+import "context"
+
+type CustomFieldDef struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 type TemplateCreateRequest struct {
 	Name             string               `json:"name"`
 	Job              string               `json:"job"`
 	Description      string               `json:"description"`
 	Volumes          string               `json:"volumes"`
 	Groups           []string             `json:"groups"`
-	LocalContainer   bool                 `json:"local_container"`
-	IsManual         bool                 `json:"is_manual"`
+	Platform         string               `json:"platform"`
+	Active           bool                 `json:"active"`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
+	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
-	Locations        []string             `json:"locations"`
+	Zones            []string             `json:"zones"`
+	MaxUptime        uint32               `json:"max_uptime"`
+	MaxUptimeUnit    string               `json:"max_uptime_unit"`
+	IconURL          string               `json:"icon_url"`
+	CustomFields     []CustomFieldDef     `json:"custom_fields"`
 }
 
 type TemplateUpdateRequest struct {
@@ -25,15 +37,22 @@ type TemplateUpdateRequest struct {
 	Description      string               `json:"description"`
 	Volumes          string               `json:"volumes"`
 	Groups           []string             `json:"groups"`
+	Active           bool                 `json:"active"`
+	Platform         string               `json:platform`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
+	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
-	Locations        []string             `json:"locations"`
+	Zones            []string             `json:"zones"`
+	MaxUptime        uint32               `json:"max_uptime"`
+	MaxUptimeUnit    string               `json:"max_uptime_unit"`
+	IconURL          string               `json:"icon_url"`
+	CustomFields     []CustomFieldDef     `json:"custom_fields"`
 }
 
 type TemplateCreateResponse struct {
@@ -48,13 +67,18 @@ type TemplateInfo struct {
 	Usage           int                  `json:"usage"`
 	Deployed        int                  `json:"deployed"`
 	Groups          []string             `json:"groups"`
-	LocalContainer  bool                 `json:"local_container"`
-	IsManual        bool                 `json:"is_manual"`
+	Platform        string               `json:"platform"`
+	Active          bool                 `json:"active"`
+	IsManaged       bool                 `json:"is_managed"`
 	ScheduleEnabled bool                 `json:"schedule_enabled"`
+	AutoStart       bool                 `json:"auto_start"`
 	ComputeUnits    uint32               `json:"compute_units"`
 	StorageUnits    uint32               `json:"storage_units"`
 	Schedule        []TemplateDetailsDay `json:"schedule"`
-	Locations       []string             `json:"locations"`
+	Zones           []string             `json:"zones"`
+	MaxUptime       uint32               `json:"max_uptime"`
+	MaxUptimeUnit   string               `json:"max_uptime_unit"`
+	IconURL         string               `json:"icon_url"`
 }
 
 type TemplateList struct {
@@ -77,8 +101,9 @@ type TemplateDetails struct {
 	Hash             string               `json:"hash"`
 	Deployed         int                  `json:"deployed"`
 	Groups           []string             `json:"groups"`
-	LocalContainer   bool                 `json:"local_container"`
-	IsManual         bool                 `json:"is_manual"`
+	Platform         string               `json:"platform"`
+	Active           bool                 `json:"active"`
+	IsManaged        bool                 `json:"is_managed"`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`
@@ -86,14 +111,19 @@ type TemplateDetails struct {
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
+	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
-	Locations        []string             `json:"locations"`
+	Zones            []string             `json:"zones"`
+	MaxUptime        uint32               `json:"max_uptime"`
+	MaxUptimeUnit    string               `json:"max_uptime_unit"`
+	IconURL          string               `json:"icon_url"`
+	CustomFields     []CustomFieldDef     `json:"custom_fields"`
 }
 
-func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
+func (c *ApiClient) GetTemplates(ctx context.Context) (*TemplateList, int, error) {
 	response := &TemplateList{}
 
-	code, err := c.httpClient.Get("/api/templates", response)
+	code, err := c.httpClient.Get(ctx, "/api/templates", response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -101,62 +131,14 @@ func (c *ApiClient) GetTemplates() (*TemplateList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateTemplate(templateId string, name string, job string, description string, volumes string, groups []string, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string) (int, error) {
-	request := TemplateUpdateRequest{
-		Name:             name,
-		Job:              job,
-		Description:      description,
-		Volumes:          volumes,
-		Groups:           groups,
-		WithTerminal:     withTerminal,
-		WithVSCodeTunnel: withVSCodeTunnel,
-		WithCodeServer:   withCodeServer,
-		WithSSH:          withSSH,
-		ComputeUnits:     computeUnits,
-		StorageUnits:     storageUnits,
-		Locations:        locations,
-	}
-
-	if schedule == nil || !scheduleEnabled {
-		request.ScheduleEnabled = false
-		request.Schedule = nil
-	} else {
-		request.ScheduleEnabled = true
-		request.Schedule = *schedule
-	}
-
-	return c.httpClient.Put("/api/templates/"+templateId, &request, nil, 200)
+func (c *ApiClient) UpdateTemplate(ctx context.Context, templateId string, request *TemplateUpdateRequest) (int, error) {
+	return c.httpClient.Put(ctx, "/api/templates/"+templateId, &request, nil, 200)
 }
 
-func (c *ApiClient) CreateTemplate(name string, job string, description string, volumes string, groups []string, localContainer bool, IsManual bool, withTerminal bool, withVSCodeTunnel bool, withCodeServer bool, withSSH bool, computeUnits uint32, storageUnits uint32, scheduleEnabled bool, schedule *[]TemplateDetailsDay, locations []string) (string, int, error) {
-	request := TemplateCreateRequest{
-		Name:             name,
-		Job:              job,
-		Description:      description,
-		Volumes:          volumes,
-		Groups:           groups,
-		LocalContainer:   localContainer,
-		IsManual:         IsManual,
-		WithTerminal:     withTerminal,
-		WithVSCodeTunnel: withVSCodeTunnel,
-		WithCodeServer:   withCodeServer,
-		WithSSH:          withSSH,
-		ComputeUnits:     computeUnits,
-		StorageUnits:     storageUnits,
-		Locations:        locations,
-	}
-
-	if schedule == nil || !scheduleEnabled {
-		request.ScheduleEnabled = false
-		request.Schedule = nil
-	} else {
-		request.ScheduleEnabled = true
-		request.Schedule = *schedule
-	}
-
+func (c *ApiClient) CreateTemplate(ctx context.Context, request *TemplateCreateRequest) (string, int, error) {
 	response := &TemplateCreateResponse{}
 
-	code, err := c.httpClient.Post("/api/templates", &request, &response, 201)
+	code, err := c.httpClient.Post(ctx, "/api/templates", &request, &response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -164,14 +146,14 @@ func (c *ApiClient) CreateTemplate(name string, job string, description string, 
 	return response.Id, code, nil
 }
 
-func (c *ApiClient) DeleteTemplate(templateId string) (int, error) {
-	return c.httpClient.Delete("/api/templates/"+templateId, nil, nil, 200)
+func (c *ApiClient) DeleteTemplate(ctx context.Context, templateId string) (int, error) {
+	return c.httpClient.Delete(ctx, "/api/templates/"+templateId, nil, nil, 200)
 }
 
-func (c *ApiClient) GetTemplate(templateId string) (*TemplateDetails, int, error) {
+func (c *ApiClient) GetTemplate(ctx context.Context, templateId string) (*TemplateDetails, int, error) {
 	response := &TemplateDetails{}
 
-	code, err := c.httpClient.Get("/api/templates/"+templateId, response)
+	code, err := c.httpClient.Get(ctx, "/api/templates/"+templateId, response)
 	if err != nil {
 		return nil, code, err
 	}

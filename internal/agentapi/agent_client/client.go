@@ -1,52 +1,70 @@
 package agent_client
 
 import (
-	"crypto/tls"
-	"fmt"
-	"io"
-	"net"
-	"reflect"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/internal/sshd"
-	"github.com/paularlott/knot/util"
-
-	"github.com/hashicorp/yamux"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/config"
 )
 
 const (
-	AGENT_STATE_PING_INTERVAL = 2 * time.Second
+	agentStatePingInterval = 2 * time.Second
+	maxConnectionAttempts  = 5   // Maximum number of connection attempts before giving up
+	logChannelBufferSize   = 200 // Size of the log message channel buffer
 )
 
-var (
-	muxSession          *yamux.Session = nil
-	lastPublicSSHKeys   []string       = []string{}
-	lastGitHubUsernames []string       = []string{}
+type AgentClient struct {
+	defaultServerAddress   string // Default server address to connect to
+	spaceId                string // Space ID for the agent client
+	serverListMutex        sync.RWMutex
+	serverList             map[string]*agentServer
+	firstRegistrationMutex sync.Mutex
+	firstRegistration      bool
+	keysMutex              sync.Mutex
+	lastPublicSSHKeys      []string
+	lastGitHubUsernames    []string
+	sshPort                int
+	usingInternalSSH       bool
+	withTerminal           bool
+	withVSCodeTunnel       bool
+	withCodeServer         bool
+	withSSH                bool
+	httpPortMap            map[string]string
+	httpsPortMap           map[string]string
+	tcpPortMap             map[string]string
+	logChannel             chan *msg.LogMessage
+	logTempBuffer          []*msg.LogMessage
+}
 
-	sshPort          int
-	usingInteralSSH  bool = false
-	withTerminal     bool = false
-	withVSCodeTunnel bool = false
-	withCodeServer   bool = false
-	withSSH          bool = false
-	httpPortMap      map[string]string
-	httpsPortMap     map[string]string
-	tcpPortMap       map[string]string
-)
+func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
+	return &AgentClient{
+		defaultServerAddress: defaultServerAddress,
+		spaceId:              spaceId,
+		serverList:           make(map[string]*agentServer),
+		firstRegistration:    true,
+		lastPublicSSHKeys:    []string{},
+		lastGitHubUsernames:  []string{},
+		usingInternalSSH:     false,
+		withTerminal:         false,
+		withVSCodeTunnel:     false,
+		withCodeServer:       false,
+		withSSH:              false,
+		httpPortMap:          make(map[string]string),
+		httpsPortMap:         make(map[string]string),
+		tcpPortMap:           make(map[string]string),
+		logChannel:           make(chan *msg.LogMessage, logChannelBufferSize),
+	}
+}
 
-func ConnectAndServe(server string, spaceId string) {
-	var firstRegistration = true
-
-	sshPort = viper.GetInt("agent.port.ssh")
+func (c *AgentClient) ConnectAndServe() {
+	cfg := config.GetAgentConfig()
+	c.sshPort = cfg.Port.SSH
 
 	// Build a map of available http ports
-	ports := viper.GetStringSlice("agent.port.http_port")
-	httpPortMap = make(map[string]string, len(ports))
+	ports := cfg.Port.HTTPPorts
+	c.httpPortMap = make(map[string]string, len(ports))
 	for _, port := range ports {
 		var name string
 		if strings.Contains(port, "=") {
@@ -57,12 +75,12 @@ func ConnectAndServe(server string, spaceId string) {
 			name = port
 		}
 
-		httpPortMap[port] = name
+		c.httpPortMap[port] = name
 	}
 
 	// Build a map of available https ports
-	ports = viper.GetStringSlice("agent.port.https_port")
-	httpsPortMap = make(map[string]string, len(ports))
+	ports = cfg.Port.HTTPSPorts
+	c.httpsPortMap = make(map[string]string, len(ports))
 	for _, port := range ports {
 		var name string
 		if strings.Contains(port, "=") {
@@ -73,12 +91,12 @@ func ConnectAndServe(server string, spaceId string) {
 			name = port
 		}
 
-		httpsPortMap[port] = name
+		c.httpsPortMap[port] = name
 	}
 
 	// Build a map of the available tcp ports
-	ports = viper.GetStringSlice("agent.port.tcp_port")
-	tcpPortMap = make(map[string]string, len(ports))
+	ports = cfg.Port.TCPPorts
+	c.tcpPortMap = make(map[string]string, len(ports))
 	for _, port := range ports {
 		var name string
 		if strings.Contains(port, "=") {
@@ -89,299 +107,29 @@ func ConnectAndServe(server string, spaceId string) {
 			name = port
 		}
 
-		tcpPortMap[port] = name
+		c.tcpPortMap[port] = name
 	}
+
+	// Connect to the server that started the agent
+	c.serverListMutex.Lock()
+	connection := NewAgentServer(c.defaultServerAddress, c.spaceId, c)
+	c.serverList[connection.address] = connection
+	connection.ConnectAndServe()
+
+	c.serverListMutex.Unlock()
 
 	// Init log message transport
-	initLogMessages()
+	go c.initLogMessages()
 
-	go func() {
-		for {
-
-			// If the server address starts srv+ then resolve the SRV record
-			serverAddr := server
-			if strings.HasPrefix(server, "srv+") {
-				hostIPs, err := util.LookupSRV(server[4:])
-				if err != nil || len(*hostIPs) == 0 {
-					log.Error().Msgf("agent: resolving SRV record: %v", err)
-					time.Sleep(3 * time.Second)
-					continue
-				}
-
-				serverAddr = (*hostIPs)[0].Host + ":" + (*hostIPs)[0].Port
-			}
-			log.Info().Msgf("agent: connecting to server: %s", serverAddr)
-
-			var conn net.Conn
-			var err error
-
-			// Open the connection
-			if viper.GetBool("agent.tls.use_tls") {
-				dialer := &tls.Dialer{
-					NetDialer: &net.Dialer{
-						Timeout: 3 * time.Second,
-					},
-					Config: &tls.Config{
-						InsecureSkipVerify: viper.GetBool("tls_skip_verify"),
-					},
-				}
-				conn, err = dialer.Dial("tcp", serverAddr)
-			} else {
-				dialer := &net.Dialer{
-					Timeout: 3 * time.Second,
-				}
-				conn, err = dialer.Dial("tcp", serverAddr)
-			}
-			if err != nil {
-				log.Error().Msgf("agent: connecting to server: %v", err)
-				time.Sleep(3 * time.Second)
-				continue
-			}
-
-			// Create and send the register message
-			err = msg.WriteMessage(conn, &msg.Register{
-				SpaceId: spaceId,
-				Version: build.Version,
-			})
-			if err != nil {
-				log.Error().Msgf("agent: sending register message: %v", err)
-				conn.Close()
-				time.Sleep(3 * time.Second)
-				continue
-			}
-
-			// Wait for the register response
-			var response msg.RegisterResponse
-			err = msg.ReadMessage(conn, &response)
-			if err != nil {
-				log.Error().Msgf("agent: decoding register response: %v", err)
-				conn.Close()
-				time.Sleep(3 * time.Second)
-				continue
-			}
-
-			// If registration rejected, log and exit
-			if !response.Success {
-				log.Error().Msgf("agent: registration rejected")
-				conn.Close()
-				time.Sleep(3 * time.Second)
-				continue
-			}
-
-			log.Info().Msgf("agent: registered with server: %s (%s)", serverAddr, response.Version)
-
-			// If 1st registration then start the ssh server if required
-			if firstRegistration {
-				firstRegistration = false
-
-				// Remember the feature flags
-				withTerminal = response.WithTerminal
-				withVSCodeTunnel = response.WithVSCodeTunnel && viper.GetString("agent.vscode_tunnel") != ""
-				withCodeServer = response.WithCodeServer && viper.GetInt("agent.port.code_server") > 0
-				withSSH = response.WithSSH && sshPort > 0
-
-				// If ssh port given then test if to start the ssh server
-				if withSSH {
-					// Add the ssh port to the map
-					tcpPortMap[fmt.Sprintf("%d", sshPort)] = "SSH"
-
-					// Test if the ssh port is open
-					conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", sshPort))
-					if err != nil {
-						sshd.ListenAndServe(sshPort, response.SSHHostSigner)
-						usingInteralSSH = true
-					} else {
-						log.Info().Msgf("agent: using external ssh server on port %d", sshPort)
-						conn.Close()
-					}
-				}
-
-				// Fetch and start code server
-				if withCodeServer {
-					go startCodeServer(viper.GetInt("agent.port.code_server"))
-				}
-
-				// Fetch and start vscode tunnel
-				if withVSCodeTunnel {
-					go startVSCodeTunnel(viper.GetString("agent.vscode_tunnel"))
-				}
-			}
-
-			// Save the keys and github usernames
-			lastPublicSSHKeys = response.SSHKeys
-			lastGitHubUsernames = response.GitHubUsernames
-
-			// Update the authorized keys file & shell
-			if usingInteralSSH {
-				if err := sshd.UpdateAuthorizedKeys(response.SSHKeys, response.GitHubUsernames); err != nil {
-					log.Error().Msgf("agent: updating internal SSH server keys: %v", err)
-				}
-				sshd.SetShell(response.Shell)
-			} else if viper.GetBool("agent.update_authorized_keys") && withSSH {
-				if err := util.UpdateAuthorizedKeys(response.SSHKeys, response.GitHubUsernames); err != nil {
-					log.Error().Msgf("agent: updating authorized keys: %v", err)
-				}
-			}
-
-			// Open the mux session
-			muxSession, err = yamux.Client(conn, &yamux.Config{
-				AcceptBacklog:          256,
-				EnableKeepAlive:        true,
-				KeepAliveInterval:      30 * time.Second,
-				ConnectionWriteTimeout: 2 * time.Second,
-				MaxStreamWindowSize:    256 * 1024,
-				StreamCloseTimeout:     3 * time.Minute,
-				StreamOpenTimeout:      3 * time.Second,
-				LogOutput:              io.Discard,
-				//Logger:                 logger.NewMuxLogger(),
-			})
-			if err != nil {
-				log.Error().Msgf("agent: creating mux session: %v", err)
-				conn.Close()
-				time.Sleep(3 * time.Second)
-				continue
-			}
-
-			// Loop forever waiting for connections on the mux session
-			for {
-				// Accept a new connection
-				stream, err := muxSession.Accept()
-				if err != nil {
-					log.Error().Msgf("agent: accepting connection: %v", err)
-
-					// In the case of errors, destroy the session and start over
-					muxSession.Close()
-					conn.Close()
-
-					break
-				}
-
-				// Handle the connection
-				go handleAgentClientStream(stream)
-			}
-		}
-	}()
+	// Start periodic status reporting
+	go c.reportState()
 }
 
-func Shutdown() {
-	if muxSession != nil {
-		muxSession.Close()
+func (c *AgentClient) Shutdown() {
+	c.serverListMutex.Lock()
+	for _, server := range c.serverList {
+		server.Shutdown()
 	}
-}
-
-func handleAgentClientStream(stream net.Conn) {
-	defer stream.Close()
-
-	// Read the command
-	cmd, err := msg.ReadCommand(stream)
-	if err != nil {
-		log.Error().Msgf("agent: reading command: %v", err)
-		return
-	}
-
-	switch cmd {
-	case byte(msg.CmdPing):
-		err := msg.WriteMessage(stream, &msg.Pong{
-			Payload: "pong",
-		})
-		if err != nil {
-			log.Error().Msgf("agent: sending pong: %v", err)
-		}
-
-	case byte(msg.CmdUpdateAuthorizedKeys):
-		var updateAuthorizedKeys msg.UpdateAuthorizedKeys
-		if err := msg.ReadMessage(stream, &updateAuthorizedKeys); err != nil {
-			log.Error().Msgf("agent: reading update authorized keys message: %v", err)
-			return
-		}
-
-		// Test if the keys have changed
-		if !reflect.DeepEqual(updateAuthorizedKeys.SSHKeys, lastPublicSSHKeys) || !reflect.DeepEqual(updateAuthorizedKeys.GitHubUsernames, lastGitHubUsernames) {
-			lastPublicSSHKeys = updateAuthorizedKeys.SSHKeys
-			lastGitHubUsernames = updateAuthorizedKeys.GitHubUsernames
-
-			if usingInteralSSH {
-				if err := sshd.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
-					log.Error().Msgf("agent: updating internal SSH server keys: %v", err)
-				}
-			} else if viper.GetBool("agent.update_authorized_keys") && withSSH {
-				if err := util.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
-					log.Error().Msgf("agent: updating authorized keys: %v", err)
-				}
-			}
-		}
-
-	case byte(msg.CmdUpdateShell):
-		var updateShell msg.UpdateShell
-		if err := msg.ReadMessage(stream, &updateShell); err != nil {
-			log.Error().Msgf("agent: reading update shell message: %v", err)
-			return
-		}
-
-		if usingInteralSSH {
-			sshd.SetShell(updateShell.Shell)
-		}
-
-	case byte(msg.CmdTerminal):
-		var terminal msg.Terminal
-		if err := msg.ReadMessage(stream, &terminal); err != nil {
-			log.Error().Msgf("agent: reading terminal message: %v", err)
-			return
-		}
-
-		if withTerminal {
-			startTerminal(stream, terminal.Shell)
-		}
-
-	case byte(msg.CmdVSCodeTunnelTerminal):
-		if withVSCodeTunnel {
-			startVSCodeTunnelTerminal(stream)
-		}
-
-	case byte(msg.CmdCodeServer):
-		if withCodeServer {
-			ProxyTcp(stream, fmt.Sprintf("%d", viper.GetInt("agent.port.code_server")))
-		}
-
-	case byte(msg.CmdProxyTCPPort):
-		var tcpPort msg.TcpPort
-		if err := msg.ReadMessage(stream, &tcpPort); err != nil {
-			log.Error().Msgf("agent: reading tcp port message: %v", err)
-			return
-		}
-
-		// Check if the port is allowed
-		_, okTcp := tcpPortMap[fmt.Sprintf("%d", tcpPort.Port)]
-		_, okHttp := httpPortMap[fmt.Sprintf("%d", tcpPort.Port)]
-		if !okTcp && !okHttp {
-			log.Error().Msgf("agent: tcp port %d is not allowed", tcpPort.Port)
-			return
-		}
-
-		ProxyTcp(stream, fmt.Sprintf("%d", tcpPort.Port))
-
-	case byte(msg.CmdProxyVNC):
-		if viper.GetUint16("agent.port.vnc_http") > 0 {
-			ProxyTcpTls(stream, viper.GetString("agent.port.vnc_http"), "127.0.0.1")
-		}
-
-	case byte(msg.CmdProxyHTTP):
-		var httpPort msg.HttpPort
-		if err := msg.ReadMessage(stream, &httpPort); err != nil {
-			log.Error().Msgf("agent: reading tcp port message: %v", err)
-			return
-		}
-
-		// Check if the port is allowed in the http map
-		if _, ok := httpPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
-			ProxyTcp(stream, fmt.Sprintf("%d", httpPort.Port))
-		} else if _, ok := httpsPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
-			ProxyTcpTls(stream, fmt.Sprintf("%d", httpPort.Port), httpPort.ServerName)
-		} else {
-			log.Error().Msgf("agent: http port %d is not allowed", httpPort.Port)
-		}
-
-	default:
-		log.Error().Msgf("agent: unknown command: %d", cmd)
-	}
+	c.serverList = make(map[string]*agentServer) // Clear the server list
+	c.serverListMutex.Unlock()
 }

@@ -1,3 +1,5 @@
+import { focus } from '../focus.js';
+
 window.createTokenForm = function() {
   return {
     formData: {
@@ -7,14 +9,15 @@ window.createTokenForm = function() {
     buttonLabel: 'Create Token',
     nameValid: true,
     init() {
-      focusElement('input[name="name"]');
+      focus.Element('input[name="name"]');
     },
     checkName() {
-      return this.nameValid = this.formData.name.length > 0 && this.formData.name.length < 255;
+      this.nameValid = this.formData.name.length > 0 && this.formData.name.length < 255;
+      return this.nameValid;
     },
     submitData() {
-      var err = false,
-          self = this;
+      let err = false;
+      const self = this;
       err = !this.checkName() || err;
       if(err) {
         return;
@@ -23,7 +26,7 @@ window.createTokenForm = function() {
       this.buttonLabel = 'Creating token...'
       this.loading = true;
 
-      var data = {
+      const data = {
         name: this.formData.name,
       }
 
@@ -42,7 +45,7 @@ window.createTokenForm = function() {
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
           this.buttonLabel = 'Create Token';

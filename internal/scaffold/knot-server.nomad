@@ -1,0 +1,113 @@
+job "knot-server" {
+  datacenters = ["dc1"]
+
+  update {
+    max_parallel = 1
+    min_healthy_time = "30s"
+    healthy_deadline = "1m"
+    auto_revert = true
+  }
+
+  group "knot-server" {
+    count = 1
+
+    network {
+      port "knot_port" {
+        to = 3000
+      }
+      port "knot_agent_port" {
+        to = 3010
+      }
+    }
+
+    task "knot-server" {
+      driver = "docker"
+      config {
+        image = "paularlott/knot:latest"
+        ports = ["knot_port", "knot_agent_port"]
+      }
+
+      env {
+        KNOT_CONFIG = "/local/knot.toml"
+      }
+
+      template {
+        data = <<EOF
+[log]
+level = "info"
+
+[server]
+listen = "0.0.0.0:3000"
+listen_agent = "0.0.0.0:3010"
+url = "https://knot.internal"
+wildcard_domain = "*.knot.internal"
+agent_endpoint = "srv+knot-server-agent.service.consul"
+encrypt = "<Replace this using knot genkey>"
+
+# MySQL server
+[server.mysql]
+database = "knot"
+enabled = false
+host = ""
+password = ""
+user = ""
+
+# BadgerDB storage
+[server.badgerdb]
+enabled = false
+path = "/data/"
+
+[server.nomad]
+addr = "http://nomad.service.consul:4646"
+token = ""
+EOF
+        destination = "local/knot.toml"
+      }
+
+      resources {
+        cpu = 256
+        memory = 512
+      }
+
+      # Knot Server Port
+      service {
+        name = "${NOMAD_JOB_NAME}"
+        port = "knot_port"
+        address = "${attr.unique.network.ip-address}"
+
+        # Expose the port on a domain name
+        # tags = [
+        #  "urlprefix-knot.internal proto=https tlsskipverify=true",
+        #  "urlprefix-*.knot.internal proto=https tlsskipverify=true"
+        # ]
+
+        check {
+          name            = "alive"
+          type            = "http"
+          protocol        = "https"
+          tls_skip_verify = true
+          path            = "/health"
+          interval        = "10s"
+          timeout         = "2s"
+        }
+      }
+
+      service {
+        name = "${NOMAD_JOB_NAME}-agent"
+        port = "knot_agent_port"
+        address = "${attr.unique.network.ip-address}"
+
+        check {
+          name            = "alive"
+          port            = "knot_port"
+          type            = "http"
+          protocol        = "https"
+          tls_skip_verify = true
+          path            = "/health"
+          interval        = "10s"
+          timeout         = "2s"
+        }
+      }
+    }
+  }
+}

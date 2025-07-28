@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 )
@@ -18,13 +19,25 @@ func ProxyTcp(stream net.Conn, port string) {
 	defer conn.Close()
 
 	// copy data between code server and server
-	go io.Copy(conn, stream)
-	io.Copy(stream, conn)
+	var once sync.Once
+	closeConn := func() {
+		conn.Close()
+	}
+
+	// Copy from client to tunnel
+	go func() {
+		_, _ = io.Copy(conn, stream)
+		once.Do(closeConn)
+	}()
+
+	// Copy from tunnel to client
+	_, _ = io.Copy(stream, conn)
+	once.Do(closeConn)
 }
 
-func ProxyTcpTls(stream net.Conn, port string, serverName string) {
+func ProxyTcpTls(stream net.Conn, port, serverName string, skipTLSVerify bool) {
 	conn, err := tls.Dial("tcp", fmt.Sprintf("127.0.0.1:%s", port), &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: skipTLSVerify,
 		ServerName:         serverName,
 	})
 	if err != nil {
@@ -34,6 +47,18 @@ func ProxyTcpTls(stream net.Conn, port string, serverName string) {
 	defer conn.Close()
 
 	// copy data between code server and server
-	go io.Copy(conn, stream)
-	io.Copy(stream, conn)
+	var once sync.Once
+	closeConn := func() {
+		conn.Close()
+	}
+
+	// Copy from client to tunnel
+	go func() {
+		_, _ = io.Copy(conn, stream)
+		once.Do(closeConn)
+	}()
+
+	// Copy from tunnel to client
+	_, _ = io.Copy(stream, conn)
+	once.Do(closeConn)
 }

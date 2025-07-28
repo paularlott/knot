@@ -3,9 +3,8 @@ package agent_service_api
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/rs/zerolog/log"
 )
@@ -28,9 +27,9 @@ func handleLoki(w http.ResponseWriter, r *http.Request) {
 
 	// Decode the loki push request
 	var lokiPushRequest lokiPushRequest
-	if err := rest.BindJSON(w, r, &lokiPushRequest); err != nil {
+	if err := rest.DecodeRequestBody(w, r, &lokiPushRequest); err != nil {
 		log.Error().Msgf("service_api: failed to decode loki push request: %v", err)
-		rest.SendJSON(http.StatusBadRequest, w, r, map[string]string{"error": "invalid loki push request"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid loki push request"})
 		return
 	}
 
@@ -44,7 +43,7 @@ func handleLoki(w http.ResponseWriter, r *http.Request) {
 
 		// Process each log message
 		for _, values := range stream.Values {
-			agent_client.SendLogMessage(service, msg.LogLevelInfo, values[1])
+			agentClient.SendLogMessage(service, msg.LogLevelInfo, values[1])
 		}
 	}
 

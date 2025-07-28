@@ -1,60 +1,72 @@
 package command_spaces
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/paularlott/cli"
 )
 
-var deleteCmd = &cobra.Command{
-	Use:   "delete <space> [flags]",
-	Short: "Delete a space",
-	Long:  `Delete a stopped space, all data will be lost.`,
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+var DeleteCmd = &cli.Command{
+	Name:        "delete",
+	Usage:       "Delete a space",
+	Description: "Delete a stopped space, all data will be lost.",
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "space",
+			Usage:    "The name of the new space to create",
+			Required: true,
+		},
+	},
+	MaxArgs: cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		spaceName := cmd.GetStringArg("space")
 
 		// Prompt the user to confirm the deletion
 		var confirm string
-		fmt.Printf("Are you sure you want to delete the space %s and all data? (yes/no): ", args[0])
+		fmt.Printf("Are you sure you want to delete the space %s and all data? (yes/no): ", spaceName)
 		fmt.Scanln(&confirm)
 		if confirm != "yes" {
 			fmt.Println("Deletion cancelled.")
-			return
+			return nil
 		}
 
-		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
+		alias := cmd.GetString("alias")
+		cfg := config.GetServerAddr(alias, cmd)
+		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+		if err != nil {
+			return fmt.Errorf("Failed to create API client: %w", err)
+		}
 
 		// Get a list of available spaces
-		spaces, _, err := client.GetSpaces("")
+		spaces, _, err := client.GetSpaces(context.Background(), "")
 		if err != nil {
-			fmt.Println("Error getting spaces: ", err)
-			return
+			return fmt.Errorf("Error getting spaces: %w", err)
 		}
 
 		// Find the space by name
-		var spaceId string = ""
+		var spaceId string
 		for _, space := range spaces.Spaces {
-			if space.Name == args[0] {
+			if space.Name == spaceName {
 				spaceId = space.Id
 				break
 			}
 		}
 
 		if spaceId == "" {
-			fmt.Println("Space not found: ", args[0])
-			return
+			return fmt.Errorf("Space not found: %s", spaceName)
 		}
 
 		// Delete the space
-		_, err = client.DeleteSpace(spaceId)
+		_, err = client.DeleteSpace(context.Background(), spaceId)
 		if err != nil {
-			fmt.Println("Error deleting space: ", err)
-			return
+			return fmt.Errorf("Error deleting space: %w", err)
 		}
 
-		fmt.Println("Space deleting: ", args[0])
+		fmt.Println("Space deleting: ", spaceName)
+		return nil
 	},
 }

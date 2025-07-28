@@ -1,25 +1,26 @@
 package nomad
 
 import (
-	"github.com/paularlott/knot/util/rest"
-
-	"github.com/spf13/viper"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 type NomadClient struct {
 	httpClient *rest.RESTClient
 }
 
-func NewClient() *NomadClient {
-	baseURL := viper.GetString("server.nomad.addr")
-	token := viper.GetString("server.nomad.token")
-
-	client := &NomadClient{
-		httpClient: rest.NewClient(baseURL, token, false),
+func NewClient() (*NomadClient, error) {
+	cfg := config.GetServerConfig()
+	hc, err := rest.NewClient(cfg.Nomad.Host, cfg.Nomad.Token, false)
+	if err != nil {
+		return nil, err
 	}
 
-	client.httpClient.SetTokenKey("X-Nomad-Token")
-	client.httpClient.SetTokenValue("%s")
+	client := &NomadClient{
+		httpClient: hc,
+	}
 
-	return client
+	client.httpClient.SetTokenKey("X-Nomad-Token").SetTokenFormat("%s")
+
+	return client, nil
 }

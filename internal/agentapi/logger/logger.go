@@ -1,6 +1,11 @@
 package logger
 
-import "github.com/rs/zerolog/log"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/rs/zerolog/log"
+)
 
 type MuxLogger struct {
 }
@@ -14,6 +19,13 @@ func (l *MuxLogger) Print(v ...interface{}) {
 }
 
 func (l *MuxLogger) Printf(format string, v ...interface{}) {
+	// Skip logging expected websocket closure messages
+	if strings.Contains(format, "Failed to read header") &&
+		len(v) > 0 &&
+		strings.Contains(fmt.Sprintf("%v", v[0]), "websocket: close 1006") {
+		return
+	}
+
 	log.Info().Msgf(format, v...)
 }
 

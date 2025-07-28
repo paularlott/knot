@@ -1,5 +1,17 @@
+import { validate } from '../validators.js';
+import { focus } from '../focus.js';
+
+/// wysiwyg editor
+import ace from 'ace-builds/src-noconflict/ace';
+import 'ace-builds/src-noconflict/mode-terraform';
+import 'ace-builds/src-noconflict/mode-yaml';
+import 'ace-builds/src-noconflict/mode-text';
+import 'ace-builds/src-noconflict/theme-github';
+import 'ace-builds/src-noconflict/theme-github_dark';
+import 'ace-builds/src-noconflict/ext-searchbox';
+
 window.templateForm = function(isEdit, templateId) {
-  focusElement('input[name="name"]');
+  focus.Element('input[name="name"]');
 
   return {
     formData: {
@@ -8,16 +20,21 @@ window.templateForm = function(isEdit, templateId) {
       job: "",
       volumes: "",
       groups: [],
-      locations: [],
-      local_container: false,
-      is_manual: false,
+      zones: [],
+      custom_fields: [],
+      platform: "nomad",
       with_terminal: false,
       with_vscode_tunnel: false,
       with_code_server: false,
       with_ssh: false,
       compute_units: 0,
       storage_units: 0,
+      active: true,
+      max_uptime: 0,
+      max_uptime_unit: 'disabled',
       schedule_enabled: false,
+      auto_start: false,
+      icon_url: '',
       schedule: [
         {
           enabled: false,
@@ -57,7 +74,7 @@ window.templateForm = function(isEdit, templateId) {
       ],
     },
     loading: true,
-    isEdit: isEdit,
+    isEdit,
     stayOnPage: true,
     buttonLabel: isEdit ? 'Update' : 'Create Template',
     nameValid: true,
@@ -65,18 +82,20 @@ window.templateForm = function(isEdit, templateId) {
     volValid: true,
     computeUnitsValid: true,
     storageUnitsValid: true,
+    uptimeValid: true,
     groups: [],
     fromHours: [],
     toHours: [],
-    locationValid: [],
+    zoneValid: [],
+    customFieldValid: [],
+    showPlatformWarning: false,
 
     async initData() {
-
       for (let hour = 0; hour < 24; hour++) {
         for (let minute = 0; minute < 60; minute += 15) {
-          let period = hour < 12 || hour === 24 ? 'am' : 'pm';
-          let displayHour = hour % 12 === 0 ? 12 : hour % 12;
-          let displayMinute = minute === 0 ? '00' : minute;
+          const period = hour < 12 || hour === 24 ? 'am' : 'pm';
+          const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+          const displayMinute = minute === 0 ? '00' : minute;
           this.fromHours.push(`${displayHour}:${displayMinute}${period}`);
           this.toHours.push(`${displayHour}:${displayMinute}${period}`);
         }
@@ -88,11 +107,11 @@ window.templateForm = function(isEdit, templateId) {
           'Content-Type': 'application/json'
         }
       });
-      groupsList = await groupsResponse.json();
+      const groupsList = await groupsResponse.json();
       this.groups = groupsList.groups;
 
       if(isEdit) {
-        const templateResponse = await fetch('/api/templates/' + templateId, {
+        const templateResponse = await fetch(`/api/templates/${templateId}`, {
           headers: {
             'Content-Type': 'application/json'
           }
@@ -108,23 +127,39 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.job = template.job;
           this.formData.volumes = template.volumes;
           this.formData.groups = template.groups;
-          this.formData.local_container = template.local_container;
-          this.formData.is_manual = template.is_manual;
+          this.formData.platform = template.platform;
           this.formData.with_terminal = template.with_terminal;
           this.formData.with_vscode_tunnel = template.with_vscode_tunnel;
           this.formData.with_code_server = template.with_code_server;
           this.formData.with_ssh = template.with_ssh;
           this.formData.compute_units = template.compute_units;
           this.formData.storage_units = template.storage_units;
+          this.formData.active = template.active;
           this.formData.schedule_enabled = template.schedule_enabled;
+          this.formData.auto_start = template.auto_start;
           this.formData.schedule = template.schedule;
+          this.formData.max_uptime = template.max_uptime;
+          this.formData.max_uptime_unit = template.max_uptime_unit;
+          this.formData.icon_url = template.icon_url;
+          this.formData.custom_fields = template.custom_fields;
 
-          // Set the locations and mark all as valid
-          this.formData.locations =template.locations ? template.locations : [];
-          this.locationValid = [];
-          this.formData.locations.forEach(() => {
-            this.locationValid.push(true);
+          // Set the zones and mark all as valid
+          this.formData.zones = template.zones ? template.zones : [];
+          this.zoneValid = [];
+          this.formData.zones.forEach(() => {
+            this.zoneValid.push(true);
           });
+          this.customFieldValid = [];
+           this.formData.custom_fields.forEach(() => {
+            this.customFieldValid.push(true);
+          });
+        }
+
+        // If this is edit and duplicate then change to add
+        if (window.location.hash === '#duplicate') {
+          this.formData.name = `Copy of ${this.formData.name}`;
+          this.isEdit = isEdit = false;
+          this.buttonLabel = 'Create Template';
         }
       }
 
@@ -133,7 +168,7 @@ window.templateForm = function(isEdit, templateId) {
         darkMode = true;
 
       // Create the job editor
-      let editor = ace.edit('job');
+      const editor = ace.edit('job');
       editor.session.setValue(this.formData.job);
       editor.session.on('change', () => {
         this.formData.job = editor.getValue();
@@ -150,7 +185,7 @@ window.templateForm = function(isEdit, templateId) {
       });
 
       // Create the volume editor
-      let editorVol = ace.edit('vol');
+      const editorVol = ace.edit('vol');
       editorVol.session.setValue(this.formData.volumes);
       editorVol.session.on('change', () => {
         this.formData.volumes = editorVol.getValue();
@@ -168,7 +203,7 @@ window.templateForm = function(isEdit, templateId) {
       });
 
       // Create the description editor
-      let editorDesc = ace.edit('description');
+      const editorDesc = ace.edit('description');
       editorDesc.session.setValue(this.formData.description);
       editorDesc.session.on('change', () => {
         this.formData.description = editorDesc.getValue();
@@ -186,7 +221,7 @@ window.templateForm = function(isEdit, templateId) {
       });
 
       // Listen for the theme_change event on the body & change the editor theme
-      window.addEventListener('theme-change', function (e) {
+      window.addEventListener('theme-change', (e) => {
         if (e.detail.dark_theme) {
           editor.setTheme("ace/theme/github_dark");
           editorVol.setTheme("ace/theme/github_dark");
@@ -208,68 +243,73 @@ window.templateForm = function(isEdit, templateId) {
         this.formData.groups.push(groupId);
       }
     },
-    toggleLocalContainer() {
-      this.formData.local_container = !this.formData.local_container;
-      if(this.formData.local_container) {
-        this.formData.is_manual = false;
-      }
-    },
-    toggleIsManual() {
-      this.formData.is_manual = !this.formData.is_manual;
-      if(this.formData.is_manual) {
-        this.formData.local_container = false;
-      }
-    },
-    toggleWithTerminal() {
-      this.formData.with_terminal = !this.formData.with_terminal;
-    },
-    toggleWithVSCodeTunnel() {
-      this.formData.with_vscode_tunnel = !this.formData.with_vscode_tunnel;
-    },
-    toggleWithCodeServer() {
-      this.formData.with_code_server = !this.formData.with_code_server;
-    },
-    toggleWithSSH() {
-      this.formData.with_ssh = !this.formData.with_ssh;
-    },
-    toggleSchduleEnabled() {
-      this.formData.schedule_enabled = !this.formData.schedule_enabled;
-    },
     toggleDaySchedule(day) {
       this.formData.schedule[day].enabled = !this.formData.schedule[day].enabled;
     },
+    checkPlatform() {
+      return validate.isOneOf(this.formData.platform, ["manual", "docker", "podman", "nomad"])
+    },
     checkName() {
-      return this.nameValid = validate.name(this.formData.name);
+      this.nameValid = validate.templateName(this.formData.name);
+      return this.nameValid;
     },
     checkJob() {
-      return this.jobValid = this.formData.is_manual || validate.required(this.formData.job);
+      this.jobValid = this.formData.platform === 'manual' || validate.required(this.formData.job);
+      return this.jobValid;
     },
     checkComputeUnits() {
-      return this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);
+      this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);
+      return this.computeUnitsValid;
     },
     checkStorageUnits() {
-      return this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
+      this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
+      return this.storageUnitsValid;
+    },
+    checkUptime() {
+      if(this.formData.max_uptime_unit === 'disabled') {
+        this.uptimeValid = true;
+      } else {
+        this.uptimeValid = validate.isNumber(this.formData.max_uptime, 0, Infinity) && validate.isOneOf(this.formData.max_uptime_unit, ['minute', 'hour', 'day']);
+      }
+      return this.uptimeValid;
+    },
+    checkZonesValid() {
+      let zonesValid = true
+      this.formData.zones.forEach((zone, index) => {
+        zonesValid = zonesValid && this.zoneValid[index];
+      });
+      return zonesValid;
+    },
+    checkCustomFieldsValid() {
+      let fieldsValid = true
+      this.formData.custom_fields.forEach((field, index) => {
+        fieldsValid = fieldsValid && this.customFieldValid[index];
+      });
+      return fieldsValid;
     },
 
     async submitData() {
-      let err = false,
-          self = this;
+      let err = false;
+      const self = this;
       err = !this.checkName() || err;
       err = !this.checkJob() || err;
+      err = !this.checkPlatform() || err;
+      err = !this.checkZonesValid() || err;
+      err = !this.checkCustomFieldsValid() || err;
       if(err) {
         return;
       }
 
       if(this.stayOnPage) {
-        this.buttonLabel = isEdit ? 'Updating template...' : 'Create template...'
+        this.buttonLabel = this.isEdit ? 'Updating template...' : 'Create template...'
       }
       this.loading = true;
 
-      let data = {
+      const data = {
         name: this.formData.name,
         description: this.formData.description,
-        job: this.formData.is_manual ? "" : this.formData.job,
-        volumes: this.formData.is_manual ? "" : this.formData.volumes,
+        job: this.formData.platform === 'manual' ? "" : this.formData.job,
+        volumes: this.formData.platform === 'manual' ? "" : this.formData.volumes,
         groups: this.formData.groups,
         with_terminal: this.formData.with_terminal,
         with_vscode_tunnel: this.formData.with_vscode_tunnel,
@@ -277,17 +317,19 @@ window.templateForm = function(isEdit, templateId) {
         with_ssh: this.formData.with_ssh,
         compute_units: parseInt(this.formData.compute_units),
         storage_units: parseInt(this.formData.storage_units),
-        schedule_enabled: this.formData.schedule_enabled,
+        schedule_enabled: this.formData.schedule_enabled && this.formData.platform !== 'manual',
+        auto_start: this.formData.auto_start,
         schedule: this.formData.schedule,
-        locations: this.formData.locations,
+        zones: this.formData.zones,
+        active: this.formData.active,
+        max_uptime: parseInt(this.formData.max_uptime),
+        max_uptime_unit: this.formData.platform !== 'manual' ? 'disabled' : this.formData.max_uptime_unit,
+        platform: this.formData.platform,
+        icon_url: this.formData.icon_url,
+        custom_fields: this.formData.custom_fields,
       };
 
-      if(!isEdit) {
-        data.local_container = this.formData.local_container;
-        data.is_manual = this.formData.is_manual;
-      }
-
-      fetch(isEdit ? '/api/templates/' + templateId : '/api/templates', {
+      await fetch(isEdit ? `/api/templates/${templateId}` : '/api/templates', {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -307,48 +349,82 @@ window.templateForm = function(isEdit, templateId) {
             self.$dispatch('show-alert', { msg: "Template created", type: 'success' });
             window.location.href = '/templates';
           } else {
-            response.json().then((data) => {
-              self.$dispatch('show-alert', { msg: "Failed to update the template, " + data.error, type: 'error' });
+            response.json().then((d) => {
+              self.$dispatch('show-alert', { msg: `Failed to update the template, ${d.error}`, type: 'error' });
             });
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: 'Ooops Error!<br />' + error.message, type: 'error' });
+          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update' : 'Create Template';
+          this.buttonLabel = this.isEdit ? 'Update' : 'Create Template';
           this.loading = false;
         })
     },
     getDayOfWeek(day) {
       return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day];
     },
-    async addLocation() {
-      this.locationValid.push(true);
-      this.formData.locations.push('');
+    addZone() {
+      this.zoneValid.push(true);
+      this.formData.zones.push('');
     },
-    async removeLocation(index) {
-      this.formData.locations.splice(index, 1);
-      this.locationValid.splice(index, 1);
+    removeZone(index) {
+      this.formData.zones.splice(index, 1);
+      this.zoneValid.splice(index, 1);
     },
-    checkLocation(index) {
-      if(index >= 0 && index < this.formData.locations.length) {
-        let isValid = validate.maxLength(this.formData.locations[index], 64);
+    checkZone(index) {
+      if(index >= 0 && index < this.formData.zones.length) {
+        let isValid = validate.maxLength(this.formData.zones[index], 64);
 
         // If valid then check for duplicate extra name
         if(isValid) {
-          for (let i = 0; i < this.formData.locations.length; i++) {
-            if(i !== index && this.formData.locations[i] === this.formData.locations[index]) {
+          for (let i = 0; i < this.formData.zones.length; i++) {
+            if(i !== index && this.formData.zones[i] === this.formData.zones[index]) {
               isValid = false;
               break;
             }
           }
         }
 
-        return this.locationValid[index] = isValid;
+        this.zoneValid[index] = isValid;
+        return isValid;
       } else {
         return false;
       }
     },
+    addField() {
+      this.customFieldValid.push(true);
+      this.formData.custom_fields.push({name: '', description: ''});
+    },
+    removeField(index) {
+      this.formData.custom_fields.splice(index, 1);
+      this.customFieldValid.splice(index, 1);
+    },
+    checkCustomField(index) {
+      if(index >= 0 && index < this.formData.custom_fields.length) {
+        let isValid = validate.maxLength(this.formData.custom_fields[index].name, 24) &&
+                      validate.varName(this.formData.custom_fields[index].name) &&
+                      validate.maxLength(this.formData.custom_fields[index].description, 256);
+
+        // If valid then check for duplicate name
+        if(isValid) {
+          for (let i = 0; i < this.formData.custom_fields.length; i++) {
+            if(i !== index && this.formData.custom_fields[i].name === this.formData.custom_fields[index].name) {
+              isValid = false;
+              break;
+            }
+          }
+        }
+
+        this.customFieldValid[index] = isValid;
+        return isValid;
+      } else {
+        return false;
+      }
+    },
+    isLocalContainer() {
+      return this.formData.platform === 'docker' || this.formData.platform === 'podman';
+    }
   }
 }

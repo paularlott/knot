@@ -1,22 +1,22 @@
 package apiclient
 
 import (
+	"context"
 	"time"
 
-	"github.com/paularlott/knot/database/model"
+	"github.com/paularlott/knot/internal/database/model"
 )
 
 type SpaceRequest struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	TemplateId  string   `json:"template_id"`
-	Shell       string   `json:"shell"`
-	UserId      string   `json:"user_id"`
-	AltNames    []string `json:"alt_names"`
-	Location    string   `json:"location"`
+	Name         string             `json:"name"`
+	Description  string             `json:"description"`
+	TemplateId   string             `json:"template_id"`
+	Shell        string             `json:"shell"`
+	UserId       string             `json:"user_id"`
+	AltNames     []string           `json:"alt_names"`
+	IconURL      string             `json:"icon_url"`
+	CustomFields []CustomFieldValue `json:"custom_fields"`
 }
-type CreateSpaceRequest = SpaceRequest
-type UpdateSpaceRequest = SpaceRequest
 
 type CreateSpaceResponse struct {
 	Status  bool   `json:"status"`
@@ -31,13 +31,13 @@ type SpaceInfo struct {
 	Id              string            `json:"space_id"`
 	Name            string            `json:"name"`
 	Description     string            `json:"description"`
+	Note            string            `json:"note"`
 	TemplateName    string            `json:"template_name"`
 	TemplateId      string            `json:"template_id"`
-	Location        string            `json:"location"`
+	Zone            string            `json:"zone"`
 	Username        string            `json:"username"`
 	UserId          string            `json:"user_id"`
-	LocalContainer  bool              `json:"local_container"`
-	IsManual        bool              `json:"is_manual"`
+	Platform        string            `json:"platform"`
 	SharedUserId    string            `json:"shared_user_id"`
 	SharedUsername  string            `json:"shared_username"`
 	HasCodeServer   bool              `json:"has_code_server"`
@@ -54,6 +54,8 @@ type SpaceInfo struct {
 	IsRemote        bool              `json:"is_remote"`
 	HasVSCodeTunnel bool              `json:"has_vscode_tunnel"`
 	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
+	StartedAt       time.Time         `json:"started_at"`
+	IconURL         string            `json:"icon_url"`
 }
 
 type SpaceInfoList struct {
@@ -61,24 +63,32 @@ type SpaceInfoList struct {
 	Spaces []SpaceInfo `json:"spaces"`
 }
 
-type SpaceDefinition struct {
-	UserId      string                       `json:"user_id"`
-	TemplateId  string                       `json:"template_id"`
-	Name        string                       `json:"name"`
-	Description string                       `json:"description"`
-	Shell       string                       `json:"shell"`
-	Location    string                       `json:"location"`
-	AltNames    []string                     `json:"alt_names"`
-	IsDeployed  bool                         `json:"is_deployed"`
-	IsPending   bool                         `json:"is_pending"`
-	IsDeleting  bool                         `json:"is_deleting"`
-	VolumeData  map[string]model.SpaceVolume `json:"volume_data"`
+type CustomFieldValue struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
-func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
+type SpaceDefinition struct {
+	UserId       string                       `json:"user_id"`
+	TemplateId   string                       `json:"template_id"`
+	Name         string                       `json:"name"`
+	Description  string                       `json:"description"`
+	Shell        string                       `json:"shell"`
+	Zone         string                       `json:"zone"`
+	AltNames     []string                     `json:"alt_names"`
+	IsDeployed   bool                         `json:"is_deployed"`
+	IsPending    bool                         `json:"is_pending"`
+	IsDeleting   bool                         `json:"is_deleting"`
+	VolumeData   map[string]model.SpaceVolume `json:"volume_data"`
+	StartedAt    time.Time                    `json:"started_at"`
+	IconURL      string                       `json:"icon_url"`
+	CustomFields []CustomFieldValue           `json:"custom_fields"`
+}
+
+func (c *ApiClient) GetSpaces(ctx context.Context, userId string) (*SpaceInfoList, int, error) {
 	response := &SpaceInfoList{}
 
-	code, err := c.httpClient.Get("/api/spaces?user_id="+userId, &response)
+	code, err := c.httpClient.Get(ctx, "/api/spaces?user_id="+userId, &response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -86,48 +96,19 @@ func (c *ApiClient) GetSpaces(userId string) (*SpaceInfoList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) GetSpace(spaceId string) (*model.Space, int, error) {
+func (c *ApiClient) GetSpace(ctx context.Context, spaceId string) (*SpaceDefinition, int, error) {
 	response := &SpaceDefinition{}
 
-	code, err := c.httpClient.Get("/api/spaces/"+spaceId, &response)
+	code, err := c.httpClient.Get(ctx, "/api/spaces/"+spaceId, &response)
 	if err != nil {
 		return nil, code, err
 	}
 
-	now := time.Now().UTC()
-
-	space := &model.Space{
-		Id:           spaceId,
-		UserId:       response.UserId,
-		TemplateId:   response.TemplateId,
-		Name:         response.Name,
-		Description:  response.Description,
-		AltNames:     response.AltNames,
-		Shell:        response.Shell,
-		TemplateHash: "",
-		IsDeployed:   response.IsDeployed,
-		IsPending:    response.IsPending,
-		IsDeleting:   response.IsDeleting,
-		VolumeData:   response.VolumeData,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-		Location:     response.Location,
-	}
-
-	return space, code, nil
+	return response, code, nil
 }
 
-func (c *ApiClient) UpdateSpace(space *model.Space) (int, error) {
-	request := &UpdateSpaceRequest{
-		UserId:     space.UserId,
-		TemplateId: space.TemplateId,
-		Name:       space.Name,
-		AltNames:   space.AltNames,
-		Shell:      space.Shell,
-		Location:   space.Location,
-	}
-
-	code, err := c.httpClient.Put("/api/spaces/"+space.Id, request, nil, 200)
+func (c *ApiClient) UpdateSpace(ctx context.Context, spaceId string, space *SpaceRequest) (int, error) {
+	code, err := c.httpClient.Put(ctx, "/api/spaces/"+spaceId, space, nil, 200)
 	if err != nil {
 		return code, err
 	}
@@ -135,45 +116,37 @@ func (c *ApiClient) UpdateSpace(space *model.Space) (int, error) {
 	return code, nil
 }
 
-func (c *ApiClient) CreateSpace(space *model.Space) (int, error) {
-	request := &CreateSpaceRequest{
-		UserId:     space.UserId,
-		TemplateId: space.TemplateId,
-		Name:       space.Name,
-		AltNames:   space.AltNames,
-		Shell:      space.Shell,
-		Location:   space.Location,
-	}
-
+func (c *ApiClient) CreateSpace(ctx context.Context, space *SpaceRequest) (string, int, error) {
 	response := &CreateSpaceResponse{}
 
-	code, err := c.httpClient.Post("/api/spaces", request, response, 201)
+	code, err := c.httpClient.Post(ctx, "/api/spaces", space, response, 201)
 	if err != nil {
-		return code, err
+		return "", code, err
 	}
 
-	// Match ID to core server
-	space.Id = response.SpaceID
-
-	return code, nil
+	return response.SpaceID, code, nil
 }
 
-func (c *ApiClient) DeleteSpace(spaceId string) (int, error) {
-	return c.httpClient.Delete("/api/spaces/"+spaceId, nil, nil, 200)
+func (c *ApiClient) DeleteSpace(ctx context.Context, spaceId string) (int, error) {
+	return c.httpClient.Delete(ctx, "/api/spaces/"+spaceId, nil, nil, 200)
 }
 
-func (c *ApiClient) StartSpace(spaceId string) (int, error) {
-	return c.httpClient.Post("/api/spaces/"+spaceId+"/start", nil, nil, 200)
+func (c *ApiClient) StartSpace(ctx context.Context, spaceId string) (int, error) {
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/start", nil, nil, 200)
 }
 
-func (c *ApiClient) StopSpace(spaceId string) (int, error) {
-	return c.httpClient.Post("/api/spaces/"+spaceId+"/stop", nil, nil, 200)
+func (c *ApiClient) StopSpace(ctx context.Context, spaceId string) (int, error) {
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/stop", nil, nil, 200)
 }
 
-func (c *ApiClient) TransferSpace(spaceId string, userId string) (int, error) {
+func (c *ApiClient) RestartSpace(ctx context.Context, spaceId string) (int, error) {
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/restart", nil, nil, 200)
+}
+
+func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId string) (int, error) {
 	request := &SpaceTransferRequest{
 		UserId: userId,
 	}
 
-	return c.httpClient.Post("/api/spaces/"+spaceId+"/transfer", request, nil, 200)
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/transfer", request, nil, 200)
 }

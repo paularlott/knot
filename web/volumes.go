@@ -3,7 +3,8 @@ package web
 import (
 	"net/http"
 
-	"github.com/paularlott/knot/util/validate"
+	"github.com/paularlott/knot/internal/util/validate"
+
 	"github.com/rs/zerolog/log"
 )
 

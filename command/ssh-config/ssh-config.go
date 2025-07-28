@@ -1,32 +1,35 @@
 package command_ssh_config
 
 import (
-	"github.com/paularlott/knot/command"
 	"github.com/paularlott/knot/internal/config"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/paularlott/cli"
 )
 
-func init() {
-	sshConfigCmd.PersistentFlags().BoolP("tls-skip-verify", "", true, "Skip TLS verification when talking to server.\nOverrides the "+config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY environment variable if set.")
-
-	command.RootCmd.AddCommand(sshConfigCmd)
-	sshConfigCmd.AddCommand(sshConfigUpdateCmd)
-	sshConfigCmd.AddCommand(sshConfigRemoveCmd)
-}
-
-var sshConfigCmd = &cobra.Command{
-	Use:   "ssh-config",
-	Short: "Operate on the .ssh/config file",
-	Long:  `Operations to perform management of the .ssh/config file.`,
-	Args:  cobra.NoArgs,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("tls_skip_verify", cmd.Flags().Lookup("tls-skip-verify"))
-		viper.BindEnv("tls_skip_verify", config.CONFIG_ENV_PREFIX+"_TLS_SKIP_VERIFY")
-		viper.SetDefault("tls_skip_verify", true)
+var SshConfigCmd = &cli.Command{
+	Name:        "ssh-config",
+	Usage:       "Operate on the .ssh/config file",
+	Description: "Operations to perform management of the .ssh/config file.",
+	MaxArgs:     cli.NoArgs,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:         "tls-skip-verify",
+			Usage:        "Skip TLS verification when talking to server.",
+			ConfigPath:   []string{"tls.skip_verify"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_TLS_SKIP_VERIFY"},
+			DefaultValue: true,
+			Global:       true,
+		},
+		&cli.StringFlag{
+			Name:         "alias",
+			Aliases:      []string{"a"},
+			Usage:        "The server alias to use.",
+			DefaultValue: "default",
+			Global:       true,
+		},
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+	Commands: []*cli.Command{
+		SshConfigUpdateCmd,
+		SshConfigRemoveCmd,
 	},
 }

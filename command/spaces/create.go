@@ -1,79 +1,93 @@
 package command_spaces
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/config"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/paularlott/cli"
 )
 
-func init() {
-	createCmd.Flags().StringP("shell", "", "bash", "The shell to use for the space (sh, bash, zsh or fish).\nOverrides the "+config.CONFIG_ENV_PREFIX+"_SHELL environment variable if set.")
-}
-
-var createCmd = &cobra.Command{
-	Use:   "create <space> <template> [flags]",
-	Short: "Create a space",
-	Long:  `Create a new space from the given template. The new space is not started automatically.`,
-	Args:  cobra.ExactArgs(2),
-	PreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("shell", cmd.Flags().Lookup("shell"))
-		viper.BindEnv("shell", config.CONFIG_ENV_PREFIX+"_SHELL")
-		viper.SetDefault("shell", "bash")
+var CreateCmd = &cli.Command{
+	Name:        "create",
+	Usage:       "Create a space",
+	Description: `Create a new space from the given template. The new space is not started automatically.`,
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "space",
+			Usage:    "The name of the new space to create",
+			Required: true,
+		},
+		&cli.StringArg{
+			Name:     "template",
+			Usage:    "The name of the template to use for the space",
+			Required: true,
+		},
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	MaxArgs: cli.NoArgs,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:         "shell",
+			Usage:        "The shell to use for the space (sh, bash, zsh or fish).",
+			ConfigPath:   []string{"shell"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SHELL"},
+			DefaultValue: "bash",
+		},
+	},
+	Run: func(ctx context.Context, cmd *cli.Command) error {
 
 		// Check shell is one of bash,zsh,fish,sh
-		shell := viper.GetString("shell")
+		shell := cmd.GetString("shell")
 		if shell != "bash" && shell != "zsh" && shell != "fish" && shell != "sh" {
-			fmt.Println("Invalid shell: ", shell)
-			return
+			return fmt.Errorf("Invalid shell: %s", shell)
 		}
 
-		fmt.Println("Creating space: ", args[0], " from template: ", args[1])
+		fmt.Println("Creating space: ", cmd.GetStringArg("space"), " from template: ", cmd.GetStringArg("template"))
 
-		client := apiclient.NewClient(viper.GetString("client.server"), viper.GetString("client.token"), viper.GetBool("tls_skip_verify"))
+		alias := cmd.GetString("alias")
+		cfg := config.GetServerAddr(alias, cmd)
+		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+		if err != nil {
+			return fmt.Errorf("Failed to create API client: %w", err)
+		}
 
 		// Get a list of available templates
-		templates, _, err := client.GetTemplates()
+		templates, _, err := client.GetTemplates(context.Background())
 		if err != nil {
-			fmt.Println("Error getting templates: ", err)
-			return
+			return fmt.Errorf("Error getting templates: %w", err)
 		}
 
 		// Find the ID of the template from the name
 		var templateId string = ""
 		for _, template := range templates.Templates {
-			if template.Name == args[1] {
+			if template.Name == cmd.GetStringArg("template") {
 				templateId = template.Id
 				break
 			}
 		}
 
 		if templateId == "" {
-			fmt.Println("Template not found: ", args[1])
-			return
+			return fmt.Errorf("Template not found: %s", cmd.GetStringArg("template"))
 		}
 
 		// Create the template
-		space := &model.Space{
-			UserId:     "",
-			TemplateId: templateId,
-			Name:       args[0],
-			AltNames:   []string{},
-			Shell:      shell,
+		space := &apiclient.SpaceRequest{
+			Name:        cmd.GetStringArg("space"),
+			Description: "",
+			TemplateId:  templateId,
+			Shell:       shell,
+			UserId:      "",
+			AltNames:    []string{},
 		}
 
-		_, err = client.CreateSpace(space)
+		_, _, err = client.CreateSpace(context.Background(), space)
 		if err != nil {
-			fmt.Println("Error creating space: ", err)
-			return
+			return fmt.Errorf("Error creating space: %w", err)
 		}
 
-		fmt.Println("Space created: ", args[0])
+		fmt.Println("Space created: ", cmd.GetStringArg("space"))
+		return nil
 	},
 }

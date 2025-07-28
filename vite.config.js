@@ -23,6 +23,7 @@ export default defineConfig({
       input: {
         knot: resolve(__dirname, 'web/src/js/knot.js'),
         terminal: resolve(__dirname, 'web/src/js/terminal.js'),
+        meshanimation: resolve(__dirname, 'web/src/js/mesh-animation.js'),
         nunito: resolve(__dirname, 'web/src/less/nunito.less'),
       },
     },

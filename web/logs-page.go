@@ -5,20 +5,26 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"github.com/paularlott/knot/database"
-	"github.com/paularlott/knot/database/model"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/util"
-	"github.com/paularlott/knot/util/validate"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
+
+	// Check if the user has permission to view logs
+	if !user.HasPermission(model.PermissionUseLogs) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 
 	spaceId := r.PathValue("space_id")
 	if !validate.UUID(spaceId) {
@@ -48,7 +54,8 @@ func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var renderer string
-	if viper.GetBool("server.terminal.webgl") {
+	cfg := config.GetServerConfig()
+	if cfg.TerminalWebGL {
 		renderer = "webgl"
 	} else {
 		renderer = "canvas"
@@ -68,6 +75,12 @@ func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 
 func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
+
+	// Check if the user has permission to view logs
+	if !user.HasPermission(model.PermissionUseLogs) {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 
 	spaceId := r.PathValue("space_id")
 	if !validate.UUID(spaceId) {

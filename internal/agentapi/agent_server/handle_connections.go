@@ -5,18 +5,22 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/database"
 	"github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/internal/origin_leaf/leaf"
-	"github.com/paularlott/knot/internal/origin_leaf/origin"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/tunnel_server"
 
 	"github.com/hashicorp/yamux"
+	"github.com/paularlott/gossip/hlc"
 	"github.com/rs/zerolog/log"
 )
 
 const (
 	AGENT_SESSION_LOG_HISTORY = 1000 // Number of lines of log history to keep
+	AGENT_TOKEN_DESCRIPTION   = "agent token"
 )
 
 func handleAgentConnection(conn net.Conn) {
@@ -143,6 +147,18 @@ func handleAgentConnection(conn net.Conn) {
 		return
 	}
 
+	// If manual template then record spaces start time
+	if template.IsManual() {
+		space.UpdatedAt = hlc.Now()
+		space.StartedAt = time.Now().UTC()
+		if err := db.SaveSpace(space, []string{"UpdatedAt", "StartedAt"}); err != nil {
+			log.Error().Msgf("agent: updating space start time: %v", err)
+			return
+		}
+	}
+
+	log.Debug().Str("space_name", space.Name).Msg("agent: session created...")
+
 	// Loop forever waiting for connections on the mux session
 	for {
 		// Accept a new connection
@@ -196,7 +212,15 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HttpPorts = state.HttpPorts
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel
 				session.VSCodeTunnelName = state.VSCodeTunnelName
-				session.AgentIp = state.AgentIp
+			}
+
+			// Return the list of agent server endpoints
+			reply := msg.AgentStateReply{
+				Endpoints: service.GetTransport().GetAgentEndpoints(),
+			}
+			if err := msg.WriteMessage(stream, &reply); err != nil {
+				log.Error().Msgf("agent: writing agent state reply: %v", err)
+				return
 			}
 
 		case byte(msg.CmdLogMessage):
@@ -223,10 +247,10 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				}
 			}()
 
-		case byte(msg.CmdUpdateSpaceDescription):
-			var spaceDesc msg.SpaceDescription
-			if err := msg.ReadMessage(stream, &spaceDesc); err != nil {
-				log.Error().Msgf("agent: reading space description message: %v", err)
+		case byte(msg.CmdUpdateSpaceNote):
+			var spaceNote msg.SpaceNote
+			if err := msg.ReadMessage(stream, &spaceNote); err != nil {
+				log.Error().Msgf("agent: reading space note message: %v", err)
 				return
 			}
 
@@ -238,15 +262,57 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				return
 			}
 
-			// Update description and save it
-			space.Description = spaceDesc.Description
-			if err := db.SaveSpace(space, []string{"Description"}); err != nil {
-				log.Error().Msgf("agent: updating space description: %v", err)
+			// Update note and save it
+			space.Note = spaceNote.Note
+			space.UpdatedAt = hlc.Now()
+			if err := db.SaveSpace(space, []string{"Note", "UpdatedAt"}); err != nil {
+				log.Error().Msgf("agent: updating space note: %v", err)
 				return
 			}
 
-			origin.UpdateSpace(space, []string{"Description"})
-			leaf.UpdateSpace(space, []string{"Description"}, nil)
+			service.GetTransport().GossipSpace(space)
+
+			// Single shot command so done
+			return
+
+		case byte(msg.CmdCreateToken):
+			handleCreateToken(stream, session)
+			return // Single shot command so done
+
+		case byte(msg.CmdTunnelPortConnection):
+			var reversePort msg.TcpPort
+			if err := msg.ReadMessage(stream, &reversePort); err != nil {
+				log.Error().Msgf("agent: reading reverse port message: %v", err)
+				return
+			}
+
+			tunnel_server.TunnelAgentPort(session.Id, reversePort.Port, stream)
+			return
+
+		case byte(msg.CmdSpaceStop):
+			// Load the space from the database
+			db := database.GetInstance()
+			space, err := db.GetSpace(session.Id)
+			if err != nil {
+				log.Error().Msgf("agent: unknown space: %s", session.Id)
+				return
+			}
+
+			service.GetContainerService().StopSpace(space)
+
+			// Single shot command so done
+			return
+
+		case byte(msg.CmdSpaceRestart):
+			// Load the space from the database
+			db := database.GetInstance()
+			space, err := db.GetSpace(session.Id)
+			if err != nil {
+				log.Error().Msgf("agent: unknown space: %s", session.Id)
+				return
+			}
+
+			service.GetContainerService().RestartSpace(space)
 
 			// Single shot command so done
 			return
@@ -255,5 +321,55 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			log.Error().Msgf("agent: unknown command from agent: %d", cmd)
 			return
 		}
+	}
+}
+
+func handleCreateToken(stream net.Conn, session *Session) {
+	db := database.GetInstance()
+
+	// Load the space from the database so we can get the user id
+	space, err := db.GetSpace(session.Id)
+	if err != nil {
+		log.Error().Msgf("agent: unknown space: %s", session.Id)
+		return
+	}
+
+	createTokenMutex.Lock()
+	defer createTokenMutex.Unlock()
+
+	// Get the users tokens
+	tokens, err := db.GetTokensForUser(space.UserId)
+	if err != nil {
+		log.Error().Msgf("agent: getting tokens for user: %s", err)
+		return
+	}
+
+	// Look for a token with the name AGENT_TOKEN_DESCRIPTION, if not found we create one
+	var token *model.Token
+	for _, t := range tokens {
+		if t.Name == AGENT_TOKEN_DESCRIPTION && !t.IsDeleted {
+			token = t
+			break
+		}
+	}
+
+	if token == nil {
+		token = model.NewToken(AGENT_TOKEN_DESCRIPTION, space.UserId)
+		err := db.SaveToken(token)
+		if err != nil {
+			log.Error().Msgf("agent: saving token: %v", err)
+			return
+		}
+		service.GetTransport().GossipToken(token)
+	}
+
+	cfg := config.GetServerConfig()
+	response := msg.CreateTokenResponse{
+		Server: cfg.URL,
+		Token:  token.Id,
+	}
+	if err := msg.WriteMessage(stream, &response); err != nil {
+		log.Error().Msgf("agent: writing create token response: %v", err)
+		return
 	}
 }

@@ -1,9 +1,11 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http"
 
-	"github.com/paularlott/knot/util/validate"
+	"github.com/paularlott/knot/internal/util/validate"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -17,7 +19,15 @@ func HandleTemplateCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	iconListJSON, err := json.Marshal(loadIcons())
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	data["isEdit"] = false
+	data["iconList"] = string(iconListJSON)
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
@@ -41,8 +51,16 @@ func HandleTemplateEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	iconListJSON, err := json.Marshal(loadIcons())
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	data["isEdit"] = true
 	data["templateId"] = templateId
+	data["iconList"] = string(iconListJSON)
 
 	err = tmpl.Execute(w, data)
 	if err != nil {

@@ -4,9 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/util/rest"
+	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/rs/zerolog/log"
 )
@@ -22,9 +21,9 @@ func handleLogMessage(w http.ResponseWriter, r *http.Request) {
 
 	// Decode the log message
 	var logMessage LogMessage
-	if err := rest.BindJSON(w, r, &logMessage); err != nil {
+	if err := rest.DecodeRequestBody(w, r, &logMessage); err != nil {
 		log.Error().Msgf("service_api: failed to decode log message: %v", err)
-		rest.SendJSON(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log message"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log message"})
 		return
 	}
 
@@ -42,12 +41,12 @@ func handleLogMessage(w http.ResponseWriter, r *http.Request) {
 
 	default:
 		log.Error().Msgf("service_api: invalid log level: %s", logMessage.Level)
-		rest.SendJSON(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log level"})
+		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log level"})
 		return
 	}
 
 	// Send the log message to the server
-	agent_client.SendLogMessage(logMessage.Service, level, logMessage.Message)
+	agentClient.SendLogMessage(logMessage.Service, level, logMessage.Message)
 
 	// Write 202 Accepted response
 	w.WriteHeader(http.StatusAccepted)

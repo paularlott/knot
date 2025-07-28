@@ -1,25 +1,23 @@
 package command
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/paularlott/knot/util/crypt"
+	"github.com/paularlott/knot/internal/util/crypt"
 
-	"github.com/spf13/cobra"
+	"github.com/paularlott/cli"
 )
 
-func init() {
-  RootCmd.AddCommand(genkeyCmd)
-}
-
-var genkeyCmd = &cobra.Command{
-  Use:   "genkey",
-  Short: "Generate Encryption Key",
-  Long:  `Generate an encryption key for encrypting stored variables.`,
-  Args: cobra.NoArgs,
-  Run: func(cmd *cobra.Command, args []string) {
-    key := crypt.CreateKey()
-    fmt.Println("Encryption Key:", key)
-    fmt.Println("")
-  },
+var GenkeyCmd = &cli.Command{
+	Name:        "genkey",
+	Usage:       "Generate Encryption Key",
+	Description: "Generate an encryption key for encrypting stored variables and cluster communications.",
+	MaxArgs:     cli.NoArgs,
+	Run: func(ctx context.Context, cmd *cli.Command) error {
+		key := crypt.CreateKey()
+		fmt.Println("Encryption Key:", key)
+		fmt.Println("")
+		return nil
+	},
 }

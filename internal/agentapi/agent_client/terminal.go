@@ -7,11 +7,11 @@ import (
 	"os/exec"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/util"
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/creack/pty"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
 func startTerminal(conn net.Conn, shell string) {
@@ -69,7 +69,8 @@ func startVSCodeTunnelTerminal(conn net.Conn) {
 	var cmd *exec.Cmd
 	var err error
 
-	cmd = exec.Command("screen", "-d", "-r", viper.GetString("agent.vscode_tunnel"))
+	cfg := config.GetAgentConfig()
+	cmd = exec.Command("screen", "-d", "-r", cfg.VSCodeTunnel)
 	cmd.Env = os.Environ()
 
 	if tty, err = pty.Start(cmd); err != nil {

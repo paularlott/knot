@@ -1,5 +1,7 @@
 package apiclient
 
+import "context"
+
 type RoleDetails struct {
 	Id          string   `json:"role_id"`
 	Name        string   `json:"name"`
@@ -16,7 +18,7 @@ type RoleInfoList struct {
 	Roles []RoleInfo `json:"roles"`
 }
 
-type UserRoleRequest struct {
+type RoleRequest struct {
 	Name        string   `json:"name"`
 	Permissions []uint16 `json:"permissions"`
 }
@@ -26,10 +28,10 @@ type RoleResponse struct {
 	Id     string `json:"role_id"`
 }
 
-func (c *ApiClient) GetRoles() (*RoleInfoList, int, error) {
+func (c *ApiClient) GetRoles(ctx context.Context) (*RoleInfoList, int, error) {
 	response := &RoleInfoList{}
 
-	code, err := c.httpClient.Get("/api/roles", response)
+	code, err := c.httpClient.Get(ctx, "/api/roles", response)
 	if err != nil {
 		return nil, code, err
 	}
@@ -37,13 +39,8 @@ func (c *ApiClient) GetRoles() (*RoleInfoList, int, error) {
 	return response, code, nil
 }
 
-func (c *ApiClient) UpdateRole(roleId string, roleName string, permissions []uint16) (int, error) {
-	request := UserRoleRequest{
-		Name:        roleName,
-		Permissions: permissions,
-	}
-
-	code, err := c.httpClient.Put("/api/roles/"+roleId, request, nil, 200)
+func (c *ApiClient) UpdateRole(ctx context.Context, roleId string, request *RoleRequest) (int, error) {
+	code, err := c.httpClient.Put(ctx, "/api/roles/"+roleId, request, nil, 200)
 	if err != nil {
 		return code, err
 	}
@@ -51,15 +48,10 @@ func (c *ApiClient) UpdateRole(roleId string, roleName string, permissions []uin
 	return code, nil
 }
 
-func (c *ApiClient) CreateRole(roleName string, permissions []uint16) (string, int, error) {
-	request := UserRoleRequest{
-		Name:        roleName,
-		Permissions: permissions,
-	}
-
+func (c *ApiClient) CreateRole(ctx context.Context, request *RoleRequest) (string, int, error) {
 	response := &RoleResponse{}
 
-	code, err := c.httpClient.Post("/api/roles", request, response, 201)
+	code, err := c.httpClient.Post(ctx, "/api/roles", request, response, 201)
 	if err != nil {
 		return "", code, err
 	}
@@ -67,14 +59,14 @@ func (c *ApiClient) CreateRole(roleName string, permissions []uint16) (string, i
 	return response.Id, code, nil
 }
 
-func (c *ApiClient) DeleteRole(roleId string) (int, error) {
-	return c.httpClient.Delete("/api/roles/"+roleId, nil, nil, 200)
+func (c *ApiClient) DeleteRole(ctx context.Context, roleId string) (int, error) {
+	return c.httpClient.Delete(ctx, "/api/roles/"+roleId, nil, nil, 200)
 }
 
-func (c *ApiClient) GetRole(roleId string) (*RoleDetails, int, error) {
+func (c *ApiClient) GetRole(ctx context.Context, roleId string) (*RoleDetails, int, error) {
 	response := &RoleDetails{}
 
-	code, err := c.httpClient.Get("/api/roles/"+roleId, response)
+	code, err := c.httpClient.Get(ctx, "/api/roles/"+roleId, response)
 	if err != nil {
 		return nil, code, err
 	}

@@ -1,3 +1,5 @@
+import Alpine from 'alpinejs';
+
 window.apiTokensComponent = function() {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -20,11 +22,11 @@ window.apiTokensComponent = function() {
     searchTerm: Alpine.$persist('').as('apitoken-search-term').using(sessionStorage),
 
     async init() {
-      this.getTokens();
+      await this.getTokens();
 
       // Start a timer to look for updates
       setInterval(async () => {
-        this.getTokens();
+        await this.getTokens();
       }, 3000);
     },
 
@@ -42,7 +44,7 @@ window.apiTokensComponent = function() {
       this.loading = false;
     },
     async deleteToken(tokenId) {
-      var self = this;
+      const self = this;
       await fetch(`/api/tokens/${tokenId}`, {
         method: 'DELETE',
         headers: {
@@ -57,17 +59,21 @@ window.apiTokensComponent = function() {
       });
       this.getTokens();
     },
-    async searchChanged() {
-      let term = this.searchTerm.toLowerCase();
+    searchChanged() {
+      const term = this.searchTerm.toLowerCase();
 
       // For all tokens if name contains the term show; else hide
       this.tokens.forEach(t => {
-        if(term.length == 0) {
+        if(term.length === 0) {
           t.searchHide = false;
         } else {
           t.searchHide = !t.name.toLowerCase().includes(term);
         }
       });
+    },
+    async copyToClipboard(text) {
+      await navigator.clipboard.writeText(text);
+      this.$dispatch('show-alert', { msg: "Copied to clipboard", type: 'success' });
     },
   };
 }
