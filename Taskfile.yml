@@ -331,7 +331,21 @@ tasks:
 
   release:
     desc: Tag, build, push container, create GitHub release, checksums, and update Homebrew
-    deps: [tag, all, container, create-release, checksums, homebrew-formula]
+    cmds:
+      - |
+        # Check if tag exists
+        if git tag -l v{{.VERSION}} | grep -q v{{.VERSION}}; then
+          echo "Tag v{{.VERSION}} already exists, skipping tag creation"
+        else
+          echo "Creating tag v{{.VERSION}}"
+          git tag -a v{{.VERSION}} -m "Release {{.VERSION}}"
+          git push origin v{{.VERSION}}
+        fi
+      - task: all
+      - task: container
+      - task: create-release
+      - task: checksums
+      - task: homebrew-formula
 
   tag:
     desc: Tag the current code with the derived version
