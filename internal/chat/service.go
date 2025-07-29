@@ -11,10 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/mcp"
-	"github.com/paularlott/knot/internal/service"
 )
 
 type Service struct {
@@ -338,24 +336,7 @@ func (s *Service) getMCPTools(ctx context.Context, user *model.User) ([]OpenAITo
 				},
 			},
 		},
-		{
-			Type: "function",
-			Function: OpenAIToolFunction{
-				Name:        "find_space_by_name",
-				Description: "Find a space by its name and return its ID and details",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"space_name": map[string]interface{}{
-							"type":        "string",
-							"description": "The name of the space to find",
-						},
-					},
-					"required":             []string{"space_name"},
-					"additionalProperties": false,
-				},
-			},
-		},
+
 	}, nil
 }
 
@@ -511,7 +492,7 @@ func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, u
 
 func (s *Service) executeToolCall(ctx context.Context, toolCall ToolCall, user *model.User) (string, error) {
 	// Check if it's an MCP tool
-	mcpTools := []string{"list_spaces", "start_space", "stop_space", "find_space_by_name", "get_docker_podman_spec"}
+	mcpTools := []string{"list_spaces", "start_space", "stop_space", "get_docker_podman_spec"}
 	for _, mcpTool := range mcpTools {
 		if toolCall.Function.Name == mcpTool {
 			return s.executeMCPTool(ctx, toolCall, user)
@@ -529,85 +510,77 @@ func (s *Service) executeToolCall(ctx context.Context, toolCall ToolCall, user *
 }
 
 func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *model.User) (string, error) {
-	switch toolCall.Function.Name {
-	case "start_space":
-		spaceID, ok := toolCall.Function.Arguments["space_id"].(string)
-		if !ok {
-			return "", fmt.Errorf("space_id is required")
-		}
-
-		// Check if the spaceID is actually a space name (common user mistake)
-		// Try to find by ID first, if not found, try by name
-		db := database.GetInstance()
-		_, err := db.GetSpace(spaceID)
-		if err != nil {
-			// Maybe it's a space name, try to find by name
-			spaces, nameErr := db.GetSpacesForUser(user.Id)
-			if nameErr != nil {
-				return "", fmt.Errorf("failed to get spaces: %v", nameErr)
-			}
-
-			var foundSpace *model.Space
-			for _, space := range spaces {
-				if space.Name == spaceID {
-					foundSpace = space
-					break
-				}
-			}
-
-			if foundSpace == nil {
-				return "", fmt.Errorf("space not found by ID or name: %s", spaceID)
-			}
-			spaceID = foundSpace.Id
-		}
-
-		return s.startSpace(ctx, spaceID, user)
-
-	case "stop_space":
-		spaceID, ok := toolCall.Function.Arguments["space_id"].(string)
-		if !ok {
-			return "", fmt.Errorf("space_id is required")
-		}
-
-		// Same logic for stop_space - handle both ID and name
-		db := database.GetInstance()
-		_, err := db.GetSpace(spaceID)
-		if err != nil {
-			// Maybe it's a space name, try to find by name
-			spaces, nameErr := db.GetSpacesForUser(user.Id)
-			if nameErr != nil {
-				return "", fmt.Errorf("failed to get spaces: %v", nameErr)
-			}
-
-			var foundSpace *model.Space
-			for _, space := range spaces {
-				if space.Name == spaceID {
-					foundSpace = space
-					break
-				}
-			}
-
-			if foundSpace == nil {
-				return "", fmt.Errorf("space not found by ID or name: %s", spaceID)
-			}
-			spaceID = foundSpace.Id
-		}
-
-		return s.stopSpace(ctx, spaceID, user)
-
-	case "list_spaces":
-		return s.listSpaces(ctx, user)
-
-	case "find_space_by_name":
-		spaceName, ok := toolCall.Function.Arguments["space_name"].(string)
-		if !ok {
-			return "", fmt.Errorf("space_name is required")
-		}
-		return s.findSpaceByName(ctx, spaceName, user)
-
-	default:
-		return "", fmt.Errorf("unknown MCP tool: %s", toolCall.Function.Name)
+	if s.mcpServer == nil {
+		return "", fmt.Errorf("MCP server not available")
 	}
+
+	// Create MCP request
+	mcpReq := &mcp.MCPRequest{
+		JSONRPC: "2.0",
+		ID:      "chat-tool-call",
+		Method:  "tools/call",
+		Params: mcp.ToolCallParams{
+			Name:      toolCall.Function.Name,
+			Arguments: toolCall.Function.Arguments,
+		},
+	}
+
+	// Create a mock HTTP request with user context
+	req, err := http.NewRequestWithContext(ctx, "POST", "/mcp", nil)
+	if err != nil {
+		return "", err
+	}
+	req = req.WithContext(context.WithValue(req.Context(), "user", user))
+
+	// Call MCP server directly
+	var result strings.Builder
+	writer := &responseWriter{body: &result}
+	s.mcpServer.HandleMCP(writer, req.WithContext(context.WithValue(req.Context(), "mcpRequest", mcpReq)))
+
+	// Parse the MCP response
+	var mcpResp mcp.MCPResponse
+	if err := json.Unmarshal([]byte(result.String()), &mcpResp); err != nil {
+		return "", fmt.Errorf("failed to parse MCP response: %v", err)
+	}
+
+	if mcpResp.Error != nil {
+		return "", fmt.Errorf("MCP error: %s", mcpResp.Error.Message)
+	}
+
+	// Extract text content from tool result
+	if toolResult, ok := mcpResp.Result.(map[string]interface{}); ok {
+		if content, ok := toolResult["content"].([]interface{}); ok && len(content) > 0 {
+			if textContent, ok := content[0].(map[string]interface{}); ok {
+				if text, ok := textContent["text"].(string); ok {
+					return text, nil
+				}
+			}
+		}
+	}
+
+	return "Tool executed successfully", nil
+}
+
+// Helper type for capturing MCP response
+type responseWriter struct {
+	body   *strings.Builder
+	header http.Header
+	status int
+}
+
+func (w *responseWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+func (w *responseWriter) Write(data []byte) (int, error) {
+	return w.body.Write(data)
+}
+
+func (w *responseWriter) WriteHeader(statusCode int) {
+	w.status = statusCode
 }
 
 func (s *Service) continueWithToolResults(ctx context.Context, toolCalls []ToolCall, toolResults []ToolResult, user *model.User, writer io.Writer) error {
@@ -693,135 +666,7 @@ func (s *Service) writeSSEEvent(writer io.Writer, event SSEEvent) {
 	}
 }
 
-func (s *Service) startSpace(ctx context.Context, spaceID string, user *model.User) (string, error) {
-	db := database.GetInstance()
 
-	// Get the space to verify it exists and user has access
-	space, err := db.GetSpace(spaceID)
-	if err != nil {
-		return "", fmt.Errorf("space not found: %v", err)
-	}
-
-	// Check permissions
-	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
-		return "", fmt.Errorf("access denied to space %s", spaceID)
-	}
-
-	// Check if space can be started
-	if space.IsDeployed || space.IsPending || space.IsDeleting {
-		return "", fmt.Errorf("space %s cannot be started (current state: deployed=%v, pending=%v, deleting=%v)", spaceID, space.IsDeployed, space.IsPending, space.IsDeleting)
-	}
-
-	// Get template
-	template, err := db.GetTemplate(space.TemplateId)
-	if err != nil {
-		return "", fmt.Errorf("template not found: %v", err)
-	}
-
-	// Start the space using the container service
-	if err := service.GetContainerService().StartSpace(space, template, user); err != nil {
-		return "", fmt.Errorf("failed to start space: %v", err)
-	}
-
-	return fmt.Sprintf("Successfully started space '%s' (ID: %s)", space.Name, spaceID), nil
-}
-
-func (s *Service) stopSpace(ctx context.Context, spaceID string, user *model.User) (string, error) {
-	db := database.GetInstance()
-
-	// Get the space
-	space, err := db.GetSpace(spaceID)
-	if err != nil {
-		return "", fmt.Errorf("space not found: %v", err)
-	}
-
-	// Check permissions
-	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
-		return "", fmt.Errorf("access denied to space %s", spaceID)
-	}
-
-	// Check if space can be stopped
-	if (!space.IsDeployed && !space.IsPending) || space.IsDeleting {
-		return "", fmt.Errorf("space %s cannot be stopped (current state: deployed=%v, pending=%v, deleting=%v)", spaceID, space.IsDeployed, space.IsPending, space.IsDeleting)
-	}
-
-	// Stop the space
-	if err := service.GetContainerService().StopSpace(space); err != nil {
-		return "", fmt.Errorf("failed to stop space: %v", err)
-	}
-
-	return fmt.Sprintf("Successfully stopped space '%s' (ID: %s)", space.Name, spaceID), nil
-}
-
-func (s *Service) listSpaces(ctx context.Context, user *model.User) (string, error) {
-	db := database.GetInstance()
-
-	// Get spaces for the user
-	spaces, err := db.GetSpacesForUser(user.Id)
-	if err != nil {
-		return "", fmt.Errorf("failed to get spaces: %v", err)
-	}
-
-	if len(spaces) == 0 {
-		return "No spaces found for user", nil
-	}
-
-	// Format the response
-	var result strings.Builder
-	result.WriteString(fmt.Sprintf("Found %d spaces:\n", len(spaces)))
-
-	for _, space := range spaces {
-		if space.IsDeleted {
-			continue
-		}
-
-		status := "stopped"
-		if space.IsDeployed {
-			status = "running"
-		} else if space.IsPending {
-			status = "starting"
-		} else if space.IsDeleting {
-			status = "deleting"
-		}
-
-		result.WriteString(fmt.Sprintf("- %s (ID: %s) - Status: %s\n", space.Name, space.Id, status))
-	}
-
-	return result.String(), nil
-}
-
-func (s *Service) findSpaceByName(ctx context.Context, spaceName string, user *model.User) (string, error) {
-	db := database.GetInstance()
-
-	// Get all spaces for the user and search by name
-	spaces, err := db.GetSpacesForUser(user.Id)
-	if err != nil {
-		return "", fmt.Errorf("failed to get spaces: %v", err)
-	}
-
-	var foundSpace *model.Space
-	for _, space := range spaces {
-		if space.Name == spaceName {
-			foundSpace = space
-			break
-		}
-	}
-
-	if foundSpace == nil {
-		return fmt.Sprintf("No space found with name '%s'", spaceName), nil
-	}
-
-	status := "stopped"
-	if foundSpace.IsDeployed {
-		status = "running"
-	} else if foundSpace.IsPending {
-		status = "starting"
-	} else if foundSpace.IsDeleting {
-		status = "deleting"
-	}
-
-	return fmt.Sprintf("Found space '%s' (ID: %s) - Status: %s", foundSpace.Name, foundSpace.Id, status), nil
-}
 
 func (s *Service) AddHTTPTool(tool HTTPTool) {
 	s.httpTools = append(s.httpTools, tool)
