@@ -128,6 +128,7 @@ window.chatComponent = function() {
         }
       } finally {
         this.isLoading = false;
+        this.focusInput();
       }
     },
     
@@ -148,11 +149,21 @@ window.chatComponent = function() {
       });
     },
     
+    focusInput() {
+      this.$nextTick(() => {
+        const input = this.$refs.messageInput;
+        if (input) {
+          input.focus();
+        }
+      });
+    },
+    
     init() {
       this.$watch('isOpen', (isOpen) => {
         if (isOpen) {
           setTimeout(() => {
             this.scrollToBottom();
+            this.focusInput();
           }, 100);
         }
       });
