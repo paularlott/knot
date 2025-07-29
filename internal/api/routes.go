@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/paularlott/knot/internal/chat"
 	"github.com/paularlott/knot/internal/middleware"
 )
 
@@ -95,6 +96,11 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Cluster Information
 	router.HandleFunc("GET /api/cluster-info", middleware.ApiAuth(middleware.ApiPermissionViewClusterInfo(HandleGetClusterInfo)))
+
+	// Chat
+	router.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(chat.HandleChatStream))
+	router.HandleFunc("GET /api/chat/config", middleware.ApiAuth(chat.HandleChatConfig))
+	router.HandleFunc("POST /api/chat/config", middleware.ApiAuth(chat.HandleChatConfig))
 
 	// Unauthenticated routes
 	router.HandleFunc("POST /api/auth", HandleAuthorization)

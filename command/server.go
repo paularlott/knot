@@ -18,6 +18,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/api"
 	"github.com/paularlott/knot/internal/api/api_utils"
+	"github.com/paularlott/knot/internal/chat"
 	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
@@ -520,6 +521,36 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "unix:///var/run/podman.sock",
 		},
 
+		// Chat flags
+		&cli.StringFlag{
+			Name:         "chat-openai-api-key",
+			Usage:        "OpenAI API key for chat functionality.",
+			ConfigPath:   []string{"server.chat.openai_api_key"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_API_KEY"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "chat-openai-base-url",
+			Usage:        "OpenAI API base URL for chat functionality.",
+			ConfigPath:   []string{"server.chat.openai_base_url"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_BASE_URL"},
+			DefaultValue: "http://127.0.0.1:11434/v1",
+		},
+		&cli.StringFlag{
+			Name:         "chat-model",
+			Usage:        "OpenAI model to use for chat.",
+			ConfigPath:   []string{"server.chat.model"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_MODEL"},
+			DefaultValue: "qwen2.5-coder:7b",
+		},
+		&cli.IntFlag{
+			Name:         "chat-max-tokens",
+			Usage:        "Maximum tokens for chat responses.",
+			ConfigPath:   []string{"server.chat.max_tokens"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_MAX_TOKENS"},
+			DefaultValue: 4096,
+		},
+
 		// DNS flags
 		&cli.BoolFlag{
 			Name:         "dns-enabled",
@@ -644,6 +675,18 @@ var ServerCmd = &cli.Command{
 		// MCP
 		mcpServer := mcp.NewServer("knot-mcp-server", build.Version)
 		routes.HandleFunc("POST /mcp", middleware.ApiAuth(mcpServer.HandleMCP))
+
+		// Initialize chat service with config
+		chatConfig := chat.ChatConfig{
+			OpenAIAPIKey:  cfg.Chat.OpenAIAPIKey,
+			OpenAIBaseURL: cfg.Chat.OpenAIBaseURL,
+			Model:         cfg.Chat.Model,
+			MaxTokens:     cfg.Chat.MaxTokens,
+			Temperature:   cfg.Chat.Temperature,
+			SystemPrompt:  cfg.Chat.SystemPrompt,
+		}
+		chatService := chat.NewService(chatConfig, mcpServer)
+		chat.SetChatService(chatService)
 
 		// Add support for page not found
 		appRoutes := web.HandlePageNotFound(routes)
@@ -960,6 +1003,14 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			UseTLS:      cmd.GetBool("use-tls"),
 			AgentUseTLS: cmd.GetBool("agent-use-tls"),
 			SkipVerify:  cmd.GetBool("tls-skip-verify"),
+		},
+		Chat: config.ChatConfig{
+			OpenAIAPIKey:  cmd.GetString("chat-openai-api-key"),
+			OpenAIBaseURL: cmd.GetString("chat-openai-base-url"),
+			Model:         cmd.GetString("chat-model"),
+			MaxTokens:     cmd.GetInt("chat-max-tokens"),
+			Temperature:   0.7,
+			SystemPrompt:  "You are a helpful coding assistant for the Knot development environment management system. You can help users manage their development spaces, start and stop containers, and provide information about the system. You are particularly good at helping with code and development tasks.",
 		},
 	}
 

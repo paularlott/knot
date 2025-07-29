@@ -40,6 +40,7 @@ type ServerConfig struct {
 	Podman             PodmanConfig
 	Nomad              NomadConfig
 	TLS                TLSConfig
+	Chat               ChatConfig
 }
 
 type OriginConfig struct {
@@ -121,6 +122,15 @@ type PodmanConfig struct {
 type NomadConfig struct {
 	Host  string
 	Token string
+}
+
+type ChatConfig struct {
+	OpenAIAPIKey  string
+	OpenAIBaseURL string
+	Model         string
+	MaxTokens     int
+	Temperature   float32
+	SystemPrompt  string
 }
 
 // Global configuration instance
