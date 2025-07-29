@@ -541,7 +541,7 @@ var ServerCmd = &cli.Command{
 			Usage:        "OpenAI model to use for chat.",
 			ConfigPath:   []string{"server.chat.model"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_MODEL"},
-			DefaultValue: "qwen2.5-coder:7b",
+			DefaultValue: "qwen2.5-coder:14b",
 		},
 		&cli.IntFlag{
 			Name:         "chat-max-tokens",
@@ -1010,7 +1010,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			Model:         cmd.GetString("chat-model"),
 			MaxTokens:     cmd.GetInt("chat-max-tokens"),
 			Temperature:   0.7,
-			SystemPrompt:  "You are a helpful coding assistant for the Knot development environment management system. You can help users manage their development spaces, start and stop containers, and provide information about the system. You are particularly good at helping with code and development tasks.",
+			SystemPrompt:  "You are a helpful assistant for the Knot development environment management system. You can help users manage their development spaces, start and stop containers, and provide information about the system. When users ask about spaces or want to perform actions, use the available tools to help them. Always provide helpful responses and execute the appropriate tools when needed.",
 		},
 	}
 
