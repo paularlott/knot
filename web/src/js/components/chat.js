@@ -151,9 +151,18 @@ window.chatComponent = function() {
     init() {
       this.$watch('isOpen', (isOpen) => {
         if (isOpen) {
-          this.scrollToBottom();
+          setTimeout(() => {
+            this.scrollToBottom();
+          }, 100);
         }
       });
+      
+      // Scroll to bottom when component initializes and has messages
+      if (this.isOpen && this.messages.length > 0) {
+        setTimeout(() => {
+          this.scrollToBottom();
+        }, 200);
+      }
     }
   };
 };
