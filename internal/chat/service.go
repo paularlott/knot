@@ -172,7 +172,9 @@ func (s *Service) callOpenAI(ctx context.Context, req OpenAIRequest, user *model
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+s.config.OpenAIAPIKey)
+	if s.config.OpenAIAPIKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+s.config.OpenAIAPIKey)
+	}
 
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(httpReq)
@@ -182,7 +184,8 @@ func (s *Service) callOpenAI(ctx context.Context, req OpenAIRequest, user *model
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("OpenAI API error: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("OpenAI API error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	return s.processStreamResponse(ctx, resp.Body, user, writer)
@@ -205,6 +208,7 @@ func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, u
 
 		var response OpenAIResponse
 		if err := json.Unmarshal([]byte(data), &response); err != nil {
+			// Skip malformed JSON but continue processing
 			continue
 		}
 
@@ -223,7 +227,7 @@ func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, u
 			}
 		}
 
-		// Handle content
+		// Handle content - stream all content including thinking
 		if choice.Delta.Content != "" {
 			event := SSEEvent{
 				Type: "content",
@@ -255,6 +259,8 @@ func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, u
 			// Send tool results back to AI for final response
 			s.continueWithToolResults(ctx, currentToolCalls, user, writer)
 		}
+		
+		// Continue processing even if finish_reason is "stop" to ensure all content is streamed
 	}
 
 	return scanner.Err()
