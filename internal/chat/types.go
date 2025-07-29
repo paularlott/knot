@@ -23,6 +23,7 @@ type ToolCall struct {
 	ID       string                 `json:"id"`
 	Type     string                 `json:"type"`
 	Function ToolCallFunction       `json:"function"`
+	Index    int                    `json:"index"`
 }
 
 type ToolCallFunction struct {
@@ -41,9 +42,27 @@ type SSEEvent struct {
 }
 
 type OpenAIMessage struct {
-	Role      string     `json:"role"`
-	Content   string     `json:"content,omitempty"`
-	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content,omitempty"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+}
+
+type OpenAIDeltaToolCall struct {
+	Index    int                    `json:"index"`
+	ID       string                 `json:"id"`
+	Type     string                 `json:"type"`
+	Function OpenAIDeltaFunction    `json:"function"`
+}
+
+type OpenAIDeltaFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+type OpenAIDelta struct {
+	Content   string                `json:"content"`
+	ToolCalls []OpenAIDeltaToolCall `json:"tool_calls"`
 }
 
 type OpenAITool struct {
@@ -71,7 +90,7 @@ type OpenAIResponse struct {
 }
 
 type OpenAIChoice struct {
-	Delta        OpenAIMessage `json:"delta"`
+	Delta        OpenAIDelta   `json:"delta"`
 	Message      OpenAIMessage `json:"message"`
 	FinishReason string        `json:"finish_reason"`
 }

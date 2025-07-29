@@ -541,7 +541,7 @@ var ServerCmd = &cli.Command{
 			Usage:        "OpenAI model to use for chat.",
 			ConfigPath:   []string{"server.chat.model"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_MODEL"},
-			DefaultValue: "qwen3:4b",
+			DefaultValue: "qwen2.5-coder:14b",
 		},
 		&cli.IntFlag{
 			Name:         "chat-max-tokens",
