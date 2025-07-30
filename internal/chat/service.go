@@ -13,6 +13,7 @@ import (
 
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/mcp"
+	"github.com/paularlott/knot/internal/util"
 )
 
 type Service struct {
@@ -139,8 +140,12 @@ func (s *Service) processStreamResponseWithContext(ctx context.Context, reader i
 
 		choice := response.Choices[0]
 
+		fmt.Println("Choices")
+		util.PrettyPrintJSON(response)
+
 		// Handle tool calls
 		if len(choice.Delta.ToolCalls) > 0 {
+			fmt.Println("we have tool calls")
 			for _, deltaCall := range choice.Delta.ToolCalls {
 				index := deltaCall.Index
 
@@ -185,6 +190,8 @@ func (s *Service) processStreamResponseWithContext(ctx context.Context, reader i
 			var toolCalls []ToolCall
 			var toolResults []ToolResult
 
+			fmt.Println("tool buffer", toolCallBuffer)
+
 			for index, toolCall := range toolCallBuffer {
 				if toolCall != nil && toolCall.Function.Name != "" {
 					// Parse accumulated JSON arguments
@@ -198,6 +205,7 @@ func (s *Service) processStreamResponseWithContext(ctx context.Context, reader i
 					toolCalls = append(toolCalls, *toolCall)
 
 					// Execute tool
+					fmt.Println("at tool call", toolCall)
 					result, err := s.executeToolCall(ctx, *toolCall, user)
 					if err != nil {
 						result = fmt.Sprintf("Error executing tool: %v", err)
@@ -336,7 +344,6 @@ func (s *Service) getMCPTools(ctx context.Context, user *model.User) ([]OpenAITo
 				},
 			},
 		},
-
 	}, nil
 }
 
@@ -491,6 +498,9 @@ func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, u
 }
 
 func (s *Service) executeToolCall(ctx context.Context, toolCall ToolCall, user *model.User) (string, error) {
+
+	fmt.Println("Executing tool", toolCall.Function.Name, toolCall.Function.Arguments)
+
 	// Check if it's an MCP tool
 	mcpTools := []string{"list_spaces", "start_space", "stop_space", "get_docker_podman_spec"}
 	for _, mcpTool := range mcpTools {
@@ -525,17 +535,30 @@ func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *m
 		},
 	}
 
+	fmt.Println("here 1")
+
 	// Create a mock HTTP request with user context
 	req, err := http.NewRequestWithContext(ctx, "POST", "/mcp", nil)
 	if err != nil {
 		return "", err
 	}
+	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(context.WithValue(req.Context(), "user", user))
+	if err != nil {
+		return "", err
+	}
+	req = req.WithContext(context.WithValue(req.Context(), "user", user))
+
+	fmt.Println("here 2")
 
 	// Call MCP server directly
 	var result strings.Builder
 	writer := &responseWriter{body: &result}
 	s.mcpServer.HandleMCP(writer, req.WithContext(context.WithValue(req.Context(), "mcpRequest", mcpReq)))
+
+	fmt.Println("here 3")
+
+	fmt.Println(result.String())
 
 	// Parse the MCP response
 	var mcpResp mcp.MCPResponse
@@ -546,6 +569,8 @@ func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *m
 	if mcpResp.Error != nil {
 		return "", fmt.Errorf("MCP error: %s", mcpResp.Error.Message)
 	}
+
+	fmt.Println("MCP response: %+v", mcpResp)
 
 	// Extract text content from tool result
 	if toolResult, ok := mcpResp.Result.(map[string]interface{}); ok {
@@ -665,8 +690,6 @@ func (s *Service) writeSSEEvent(writer io.Writer, event SSEEvent) {
 		flusher.Flush()
 	}
 }
-
-
 
 func (s *Service) AddHTTPTool(tool HTTPTool) {
 	s.httpTools = append(s.httpTools, tool)

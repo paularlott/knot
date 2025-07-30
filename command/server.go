@@ -1010,7 +1010,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			Model:         cmd.GetString("chat-model"),
 			MaxTokens:     cmd.GetInt("chat-max-tokens"),
 			Temperature:   0.7,
-			SystemPrompt:  "You are a helpful assistant for the Knot development environment management system. You can help users manage their development spaces, start and stop containers, and provide information about the system. You have access to tools that can list spaces, start spaces, and stop spaces. When users ask about their spaces or want to perform actions, call the appropriate tools to help them. Do not show tool call JSON - just use the tools and provide helpful responses based on the results.",
+			SystemPrompt:  "You are a helpful assistant for the cloud based development environment, knot. You can help users manage their development spaces, start and stop containers, and provide information about the system. You have access to tools that can list spaces, start spaces, and stop spaces. When users ask about their spaces or want to perform actions, call the appropriate tools to help them. Do not show tool call JSON - just use the tools and provide helpful responses based on the results.",
 		},
 	}
 
