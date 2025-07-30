@@ -1,306 +1,60 @@
 package mcp
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
+
+	"github.com/paularlott/mcp"
 )
 
-const (
-	MCPProtocolVersionLatest = "2025-06-18"
-	MCPProtocolVersionMin    = "2024-11-05"
-)
+func InitializeMCPServer(routes *http.ServeMux) {
+	// Create a new MCP server instance
+	server := mcp.NewServer("knot-mcp-server", build.Version)
+	routes.HandleFunc("POST /mcp", middleware.ApiAuth(server.HandleRequest))
 
-var supportedProtocolVersions = []string{
-	"2024-11-05",
-	"2025-03-26",
-	"2025-06-18",
+	// Register tools
+	server.RegisterTool(
+		mcp.NewTool("list_spaces", "List all spaces for a user or all users"),
+		listTools,
+	)
+
+	server.RegisterTool(
+		mcp.NewTool("start_space", "Start a space by its ID").
+			AddParam("space_id", mcp.String, "The ID of the space to start", true),
+		startSpace,
+	)
+
+	server.RegisterTool(
+		mcp.NewTool("stop_space", "Stop a space by its ID").
+			AddParam("space_id", mcp.String, "The ID of the space to stop", true),
+		stopSpace,
+	)
+
+	server.RegisterTool(
+		mcp.NewTool("get_docker_podman_spec", "Get the complete Docker/Podman job specification documentation in markdown format"),
+		getContainerSpec,
+	)
 }
 
-// Server represents an MCP server instance
-type Server struct {
-	name    string
-	version string
-}
-
-// NewServer creates a new MCP server instance
-func NewServer(name, version string) *Server {
-	return &Server{
-		name:    name,
-		version: version,
-	}
-}
-
-// HandleMCP handles MCP protocol requests
-func (s *Server) HandleMCP(w http.ResponseWriter, r *http.Request) {
-	// Handle CORS preflight
-	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Max-Age", "86400")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", "POST, OPTIONS")
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Validate Content-Type
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" && !strings.HasPrefix(contentType, "application/json;") {
-		http.Error(w, "Content-Type must be application/json", http.StatusUnsupportedMediaType)
-		return
-	}
-
-	// Set CORS headers for actual requests
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req MCPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.sendMCPError(w, nil, -32700, "Parse error", map[string]interface{}{
-			"details": err.Error(),
-		})
-		return
-	}
-
-	// Validate JSONRPC version
-	if req.JSONRPC != "2.0" {
-		s.sendMCPError(w, req.ID, -32600, "Invalid Request", map[string]interface{}{
-			"details": "JSONRPC field must be '2.0'",
-		})
-		return
-	}
-
-	// Ensure ID is never nil - use empty string as default
-	if req.ID == nil {
-		req.ID = ""
-	}
-
-	fmt.Println("MCP Rqequest:", req.Method)
-
-	switch req.Method {
-	case "initialize":
-		s.handleInitialize(w, r, &req)
-	case "ping":
-		s.handlePing(w, r, &req)
-	case "tools/list":
-		s.handleToolsList(w, r, &req)
-	case "tools/call":
-		s.handleToolsCall(w, r, &req)
-	default:
-		s.sendMCPError(w, req.ID, -32601, "Method not found", map[string]interface{}{
-			"method": req.Method,
-		})
-	}
-}
-
-func isSupportedProtocolVersion(version string) bool {
-	for _, supported := range supportedProtocolVersions {
-		if supported == version {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *Server) handleInitialize(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
-	// Parse initialization parameters
-	var params InitializeParams
-	if req.Params != nil {
-		paramsBytes, err := json.Marshal(req.Params)
-		if err != nil {
-			s.sendMCPError(w, req.ID, -32602, "Invalid params", nil)
-			return
-		}
-		if err := json.Unmarshal(paramsBytes, &params); err != nil {
-			s.sendMCPError(w, req.ID, -32602, "Invalid params", nil)
-			return
-		}
-	}
-
-	// Determine which protocol version to use
-	protocolVersion := MCPProtocolVersionLatest
-	if params.ProtocolVersion != "" {
-		if !isSupportedProtocolVersion(params.ProtocolVersion) {
-			s.sendMCPError(w, req.ID, -32602, "Unsupported protocol version", map[string]interface{}{
-				"requested": params.ProtocolVersion,
-				"supported": supportedProtocolVersions,
-			})
-			return
-		}
-		protocolVersion = params.ProtocolVersion
-	}
-
-	fmt.Println("Using Protocol Version:", protocolVersion)
-
-	result := InitializeResult{
-		ProtocolVersion: protocolVersion,
-		Capabilities:    s.buildCapabilities(protocolVersion),
-		ServerInfo: ServerInfo{
-			Name:    s.name,
-			Version: s.version,
-		},
-	}
-
-	s.sendMCPResponse(w, req.ID, result)
-}
-
-func (s *Server) handlePing(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
-	s.sendMCPResponse(w, req.ID, map[string]interface{}{})
-}
-
-func (s *Server) buildCapabilities(protocolVersion string) Capabilities {
-	capabilities := Capabilities{
-		Tools: map[string]interface{}{},
-	}
-
-	// Add version-specific capabilities
-	switch protocolVersion {
-	case "2024-11-05":
-		// Basic capabilities for 2024-11-05
-		capabilities.Tools = map[string]interface{}{}
-	default: // 2025-03-26, 2025-06-18 and use latest if unknown
-		// Default to latest
-		capabilities.Tools = map[string]interface{}{
-			"listChanged": false,
-		}
-	}
-
-	return capabilities
-}
-
-func (s *Server) handleToolsList(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
-	// You could store the negotiated protocol version in context during initialize
-	// For now, we'll build tools that work across all supported versions
-
-	tools := []Tool{
-		{
-			Name:        "list_spaces",
-			Description: "List all spaces for a user or all users",
-			InputSchema: s.buildToolSchema("list_spaces"),
-		},
-		{
-			Name:        "start_space",
-			Description: "Start a space by its ID",
-			InputSchema: s.buildToolSchema("start_space"),
-		},
-		{
-			Name:        "stop_space",
-			Description: "Stop a space by its ID",
-			InputSchema: s.buildToolSchema("stop_space"),
-		},
-		{
-			Name:        "get_docker_podman_spec",
-			Description: "Get the complete Docker/Podman job specification documentation in markdown format",
-			InputSchema: s.buildToolSchema("get_docker_podman_spec"),
-		},
-	}
-
-	result := map[string]interface{}{
-		"tools": tools,
-	}
-
-	s.sendMCPResponse(w, req.ID, result)
-}
-
-func (s *Server) buildToolSchema(toolName string) map[string]interface{} {
-	switch toolName {
-	case "list_spaces":
-		return map[string]interface{}{
-			"type":                 "object",
-			"properties":           map[string]interface{}{},
-			"additionalProperties": false,
-		}
-	case "start_space", "stop_space":
-		return map[string]interface{}{
-			"type": "object",
-			"properties": map[string]interface{}{
-				"space_id": map[string]interface{}{
-					"type":        "string",
-					"description": "The ID of the space to start/stop",
-				},
-			},
-			"required":             []string{"space_id"},
-			"additionalProperties": false,
-		}
-	case "get_docker_podman_spec":
-		return map[string]interface{}{
-			"type":                 "object",
-			"properties":           map[string]interface{}{},
-			"additionalProperties": false,
-		}
-	default:
-		return map[string]interface{}{
-			"type": "object",
-		}
-	}
-}
-
-func (s *Server) handleToolsCall(w http.ResponseWriter, r *http.Request, req *MCPRequest) {
-	// Get user from context (set by ApiAuth middleware)
-	user := r.Context().Value("user").(*model.User)
-	if user == nil {
-		s.sendMCPError(w, req.ID, -32603, "Internal error: user not found in context", nil)
-		return
-	}
-
-	var params ToolCallParams
-	paramsBytes, err := json.Marshal(req.Params)
-	if err != nil {
-		s.sendMCPError(w, req.ID, -32602, "Invalid params", nil)
-		return
-	}
-
-	if err := json.Unmarshal(paramsBytes, &params); err != nil {
-		s.sendMCPError(w, req.ID, -32602, "Invalid params", nil)
-		return
-	}
-
-	switch params.Name {
-	case "list_spaces":
-		s.handleListSpaces(w, r, req, user, params.Arguments)
-	case "start_space":
-		s.handleStartSpace(w, r, req, user, params.Arguments)
-	case "stop_space":
-		s.handleStopSpace(w, r, req, user, params.Arguments)
-	case "get_docker_podman_spec":
-		s.handleGetDockerPodmanSpec(w, r, req, user, params.Arguments)
-	default:
-		s.sendMCPError(w, req.ID, -32601, "Tool not found", nil)
-	}
-}
-
-func (s *Server) handleListSpaces(w http.ResponseWriter, r *http.Request, req *MCPRequest, user *model.User, args map[string]interface{}) {
+func listTools(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	db := database.GetInstance()
 
-	var userID string
-	if uid, ok := args["user_id"].(string); ok {
-		userID = uid
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionUseSpaces) {
+		return nil, fmt.Errorf("No permission to list spaces")
 	}
 
-	// If no user_id provided or user doesn't have manage permissions, use their own ID
-	if userID == "" || (!user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionUseSpaces)) {
-		userID = user.Id
-	}
-
-	spaces, err := db.GetSpacesForUser(userID)
+	spaces, err := db.GetSpacesForUser(user.Id)
 	if err != nil {
-		s.sendMCPError(w, req.ID, -32603, fmt.Sprintf("Failed to get spaces: %v", err), nil)
-		return
+		return nil, fmt.Errorf("Failed to get spaces: %v", err)
 	}
 
 	var spaceInfos []SpaceInfo
@@ -324,106 +78,80 @@ func (s *Server) handleListSpaces(w http.ResponseWriter, r *http.Request, req *M
 		spaceInfos = append(spaceInfos, spaceInfo)
 	}
 
-	result := ToolResult{
-		Content: []ToolContent{
-			{
-				Type: "text",
-				Text: fmt.Sprintf("Found %d spaces:\n%s", len(spaceInfos), s.formatSpacesList(spaceInfos)),
-			},
-		},
-	}
-
-	s.sendMCPResponse(w, req.ID, result)
+	return mcp.NewToolResponseText(fmt.Sprintf("Found %d spaces:\n%s", len(spaceInfos), formatSpacesList(spaceInfos))), nil
 }
 
-func (s *Server) handleStartSpace(w http.ResponseWriter, r *http.Request, req *MCPRequest, user *model.User, args map[string]interface{}) {
-	spaceID, ok := args["space_id"].(string)
-	if !ok || spaceID == "" {
-		s.sendMCPError(w, req.ID, -32602, "space_id is required", nil)
-		return
+func startSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionUseSpaces) {
+		return nil, fmt.Errorf("No permission to list spaces")
+	}
+
+	spaceID, err := req.String("space_id")
+	if err != nil || spaceID == "" {
+		return nil, mcp.NewToolErrorInvalidParams("space_id is required")
 	}
 
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceID)
 	if err != nil {
-		s.sendMCPError(w, req.ID, -32603, fmt.Sprintf("Space not found: %v", err), nil)
-		return
+		return nil, fmt.Errorf("Space not found: %v", err)
 	}
 
 	// Check if user has permission to start this space
 	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
-		s.sendMCPError(w, req.ID, -32603, "No permission to start this space", nil)
-		return
+		return nil, fmt.Errorf("No permission to start this space")
 	}
 
 	// Get the templates
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
-		s.sendMCPError(w, req.ID, -32603, fmt.Sprintf("Failed to get template: %v", err), nil)
-		return
+		return nil, fmt.Errorf("Failed to get template: %v", err)
 	}
 
 	// Use the container service to start the space
 	containerService := service.GetContainerService()
 	err = containerService.StartSpace(space, template, user)
 	if err != nil {
-		s.sendMCPError(w, req.ID, -32603, fmt.Sprintf("Failed to start space: %v", err), nil)
-		return
+		return nil, fmt.Errorf("Failed to start space: %v", err)
 	}
 
-	result := ToolResult{
-		Content: []ToolContent{
-			{
-				Type: "text",
-				Text: fmt.Sprintf("Space '%s' (%s) is starting", space.Name, spaceID),
-			},
-		},
-	}
-
-	s.sendMCPResponse(w, req.ID, result)
+	return mcp.NewToolResponseText(fmt.Sprintf("Space '%s' (%s) is starting", space.Name, spaceID)), nil
 }
 
-func (s *Server) handleStopSpace(w http.ResponseWriter, r *http.Request, req *MCPRequest, user *model.User, args map[string]interface{}) {
-	spaceID, ok := args["space_id"].(string)
-	if !ok || spaceID == "" {
-		s.sendMCPError(w, req.ID, -32602, "space_id is required", nil)
-		return
+func stopSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionUseSpaces) {
+		return nil, fmt.Errorf("No permission to list spaces")
+	}
+
+	spaceID, err := req.String("space_id")
+	if err != nil || spaceID == "" {
+		return nil, mcp.NewToolErrorInvalidParams("space_id is required")
 	}
 
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceID)
 	if err != nil {
-		s.sendMCPError(w, req.ID, -32603, fmt.Sprintf("Space not found: %v", err), nil)
-		return
+		return nil, fmt.Errorf("Space not found: %v", err)
 	}
 
 	// Check if user has permission to stop this space
 	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
-		s.sendMCPError(w, req.ID, -32603, "No permission to stop this space", nil)
-		return
+		return nil, fmt.Errorf("No permission to stop this space")
 	}
 
 	// Use the container service to stop the space
 	containerService := service.GetContainerService()
 	err = containerService.StopSpace(space)
 	if err != nil {
-		s.sendMCPError(w, req.ID, -32603, fmt.Sprintf("Failed to stop space: %v", err), nil)
-		return
+		return nil, fmt.Errorf("Failed to stop space: %v", err)
 	}
 
-	result := ToolResult{
-		Content: []ToolContent{
-			{
-				Type: "text",
-				Text: fmt.Sprintf("Space '%s' (%s) is stopping", space.Name, spaceID),
-			},
-		},
-	}
-
-	s.sendMCPResponse(w, req.ID, result)
+	return mcp.NewToolResponseText(fmt.Sprintf("Space '%s' (%s) is stopping", space.Name, spaceID)), nil
 }
 
-func (s *Server) formatSpacesList(spaces []SpaceInfo) string {
+func formatSpacesList(spaces []SpaceInfo) string {
 	if len(spaces) == 0 {
 		return "No spaces found."
 	}
@@ -446,47 +174,8 @@ func (s *Server) formatSpacesList(spaces []SpaceInfo) string {
 	return builder.String()
 }
 
-func (s *Server) sendMCPResponse(w http.ResponseWriter, id interface{}, result interface{}) {
-	response := MCPResponse{
-		JSONRPC: "2.0",
-		ID:      id,
-		Result:  result,
-	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
-
-func (s *Server) sendMCPError(w http.ResponseWriter, id interface{}, code int, message string, data interface{}) {
-	response := MCPResponse{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error: &MCPError{
-			Code:    code,
-			Message: message,
-			Data:    data,
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.WriteHeader(http.StatusOK) // Always 200 for JSON-RPC responses
-	json.NewEncoder(w).Encode(response)
-}
-
-func (s *Server) handleGetDockerPodmanSpec(w http.ResponseWriter, r *http.Request, req *MCPRequest, user *model.User, args map[string]interface{}) {
-	result := ToolResult{
-		Content: []ToolContent{
-			{
-				Type: "text",
-				Text: getDockerPodmanJobSpecContent(),
-			},
-		},
-	}
-
-	s.sendMCPResponse(w, req.ID, result)
+func getContainerSpec(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	return mcp.NewToolResponseText(getDockerPodmanJobSpecContent()), nil
 }
 
 func getDockerPodmanJobSpecContent() string {

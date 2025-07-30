@@ -642,8 +642,7 @@ var ServerCmd = &cli.Command{
 		web.Routes(routes, cfg)
 
 		// MCP
-		mcpServer := mcp.NewServer("knot-mcp-server", build.Version)
-		routes.HandleFunc("POST /mcp", middleware.ApiAuth(mcpServer.HandleMCP))
+		mcp.InitializeMCPServer(routes)
 
 		// Add support for page not found
 		appRoutes := web.HandlePageNotFound(routes)
