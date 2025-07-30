@@ -1,7 +1,9 @@
 package chat
 
+import "encoding/json"
+
 type ChatMessage struct {
-	Role      string `json:"role"`      // "user", "assistant", "system"
+	Role      string `json:"role"` // "user", "assistant", "system"
 	Content   string `json:"content"`
 	Timestamp int64  `json:"timestamp"`
 }
@@ -11,24 +13,44 @@ type ChatRequest struct {
 }
 
 type ChatConfig struct {
-	OpenAIAPIKey     string `json:"openai_api_key"`
-	OpenAIBaseURL    string `json:"openai_base_url"`
-	Model            string `json:"model"`
-	MaxTokens        int    `json:"max_tokens"`
-	Temperature      float32 `json:"temperature"`
-	SystemPrompt     string `json:"system_prompt"`
+	OpenAIAPIKey  string  `json:"openai_api_key"`
+	OpenAIBaseURL string  `json:"openai_base_url"`
+	Model         string  `json:"model"`
+	MaxTokens     int     `json:"max_tokens"`
+	Temperature   float32 `json:"temperature"`
+	SystemPrompt  string  `json:"system_prompt"`
 }
 
 type ToolCall struct {
-	ID       string                 `json:"id"`
-	Type     string                 `json:"type"`
-	Function ToolCallFunction       `json:"function"`
-	Index    int                    `json:"index"`
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
+	Function ToolCallFunction `json:"function"`
+	Index    int              `json:"index"`
 }
 
 type ToolCallFunction struct {
 	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"`
+	Arguments map[string]interface{} `json:"-"`
+}
+
+// Custom JSON marshaling for ToolCallFunction
+func (tcf ToolCallFunction) MarshalJSON() ([]byte, error) {
+	// Convert arguments map to JSON string
+	argsJSON, err := json.Marshal(tcf.Arguments)
+	if err != nil {
+		argsJSON = []byte("{}")
+	}
+
+	// Create a temporary struct for marshaling
+	temp := struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	}{
+		Name:      tcf.Name,
+		Arguments: string(argsJSON),
+	}
+
+	return json.Marshal(temp)
 }
 
 type ToolResult struct {
@@ -49,10 +71,10 @@ type OpenAIMessage struct {
 }
 
 type OpenAIDeltaToolCall struct {
-	Index    int                    `json:"index"`
-	ID       string                 `json:"id"`
-	Type     string                 `json:"type"`
-	Function OpenAIDeltaFunction    `json:"function"`
+	Index    int                 `json:"index"`
+	ID       string              `json:"id"`
+	Type     string              `json:"type"`
+	Function OpenAIDeltaFunction `json:"function"`
 }
 
 type OpenAIDeltaFunction struct {
@@ -66,8 +88,8 @@ type OpenAIDelta struct {
 }
 
 type OpenAITool struct {
-	Type     string                 `json:"type"`
-	Function OpenAIToolFunction     `json:"function"`
+	Type     string             `json:"type"`
+	Function OpenAIToolFunction `json:"function"`
 }
 
 type OpenAIToolFunction struct {

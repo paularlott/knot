@@ -85,6 +85,7 @@ func (s *Service) callOpenAIWithContext(ctx context.Context, req OpenAIRequest, 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		fmt.Println("OpenAI API error:", resp.StatusCode, string(body))
 		return fmt.Errorf("OpenAI API error: %d - %s", resp.StatusCode, string(body))
 	}
 
@@ -195,12 +196,20 @@ func (s *Service) processStreamResponseWithContext(ctx context.Context, reader i
 
 			for index, toolCall := range toolCallBuffer {
 				if toolCall != nil && toolCall.Function.Name != "" {
+					// Ensure ID is set
+					if toolCall.ID == "" {
+						toolCall.ID = fmt.Sprintf("call_%d", index)
+					}
+
 					// Parse accumulated JSON arguments
 					if argumentsBuffer[index] != "" {
 						var parsedArgs map[string]interface{}
 						if err := json.Unmarshal([]byte(argumentsBuffer[index]), &parsedArgs); err == nil {
 							toolCall.Function.Arguments = parsedArgs
 						}
+					} else {
+						// Ensure arguments is not nil
+						toolCall.Function.Arguments = make(map[string]interface{})
 					}
 
 					toolCalls = append(toolCalls, *toolCall)
@@ -261,6 +270,9 @@ func (s *Service) processStreamResponseWithContext(ctx context.Context, reader i
 				Stream:      true,
 			}
 
+			util.PrettyPrintJSON(req)
+
+			fmt.Println("Continuing conversation with tool results")
 			return s.callOpenAIWithContext(ctx, req, user, writer, newHistory)
 		}
 	}
@@ -509,8 +521,6 @@ func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *m
 
 	return "Tool executed successfully", nil
 }
-
-
 
 func (s *Service) continueWithToolResults(ctx context.Context, toolCalls []ToolCall, toolResults []ToolResult, user *model.User, writer io.Writer) error {
 	// Get the original conversation context - we need to rebuild the message history
