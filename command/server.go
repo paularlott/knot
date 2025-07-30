@@ -673,8 +673,7 @@ var ServerCmd = &cli.Command{
 		web.Routes(routes, cfg)
 
 		// MCP
-		mcpServer := mcp.NewServer("knot-mcp-server", build.Version)
-		routes.HandleFunc("POST /mcp", middleware.ApiAuth(mcpServer.HandleMCP))
+		mcp.InitializeMCPServer(routes)
 
 		// Initialize chat service with config
 		chatConfig := chat.ChatConfig{

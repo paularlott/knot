@@ -6,6 +6,8 @@ go 1.24.5
 
 // replace github.com/paularlott/cli => ../cli/
 
+replace github.com/paularlott/mcp => ../mcp/
+
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/creack/pty v1.1.24
@@ -20,6 +22,7 @@ require (
 	github.com/miekg/dns v1.1.67
 	github.com/paularlott/cli v0.2.3
 	github.com/paularlott/gossip v0.2.0
+	github.com/paularlott/mcp v0.0.0-20250728180220-c2ea046bfcb0
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/rs/zerolog v1.34.0
