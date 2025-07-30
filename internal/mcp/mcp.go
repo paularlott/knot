@@ -15,7 +15,7 @@ import (
 	"github.com/paularlott/mcp"
 )
 
-func InitializeMCPServer(routes *http.ServeMux) {
+func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 	// Create a new MCP server instance
 	server := mcp.NewServer("knot-mcp-server", build.Version)
 	routes.HandleFunc("POST /mcp", middleware.ApiAuth(server.HandleRequest))
@@ -42,6 +42,8 @@ func InitializeMCPServer(routes *http.ServeMux) {
 		mcp.NewTool("get_docker_podman_spec", "Get the complete Docker/Podman job specification documentation in markdown format"),
 		getContainerSpec,
 	)
+
+	return server
 }
 
 func listTools(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {

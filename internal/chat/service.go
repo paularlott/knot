@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/util"
+
+	"github.com/paularlott/mcp"
 )
 
 type Service struct {
@@ -293,58 +294,26 @@ func (s *Service) getAvailableTools(ctx context.Context, user *model.User) ([]Op
 }
 
 func (s *Service) getMCPTools(ctx context.Context, user *model.User) ([]OpenAITool, error) {
-	// This is a simplified approach - in practice you'd want to properly call the MCP server
-	// For now, we'll return the known tools
-	return []OpenAITool{
-		{
+	if s.mcpServer == nil {
+		return []OpenAITool{}, nil
+	}
+
+	// Get tools directly from MCP server
+	tools := s.mcpServer.ListTools()
+	var openAITools []OpenAITool
+
+	for _, tool := range tools {
+		openAITools = append(openAITools, OpenAITool{
 			Type: "function",
 			Function: OpenAIToolFunction{
-				Name:        "list_spaces",
-				Description: "List all spaces for the current user with their current status",
-				Parameters: map[string]interface{}{
-					"type":                 "object",
-					"properties":           map[string]interface{}{},
-					"additionalProperties": false,
-				},
+				Name:        tool.Name,
+				Description: tool.Description,
+				Parameters:  tool.InputSchema.(map[string]interface{}),
 			},
-		},
-		{
-			Type: "function",
-			Function: OpenAIToolFunction{
-				Name:        "start_space",
-				Description: "Start a space by its ID or name. The space must be in a stopped state.",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"space_id": map[string]interface{}{
-							"type":        "string",
-							"description": "The ID or name of the space to start",
-						},
-					},
-					"required":             []string{"space_id"},
-					"additionalProperties": false,
-				},
-			},
-		},
-		{
-			Type: "function",
-			Function: OpenAIToolFunction{
-				Name:        "stop_space",
-				Description: "Stop a space by its ID or name. The space must be in a running state.",
-				Parameters: map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"space_id": map[string]interface{}{
-							"type":        "string",
-							"description": "The ID or name of the space to stop",
-						},
-					},
-					"required":             []string{"space_id"},
-					"additionalProperties": false,
-				},
-			},
-		},
-	}, nil
+		})
+	}
+
+	return openAITools, nil
 }
 
 func (s *Service) callOpenAI(ctx context.Context, req OpenAIRequest, user *model.User, writer io.Writer) error {
@@ -524,89 +493,24 @@ func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *m
 		return "", fmt.Errorf("MCP server not available")
 	}
 
-	// Create MCP request
-	mcpReq := &mcp.MCPRequest{
-		JSONRPC: "2.0",
-		ID:      "chat-tool-call",
-		Method:  "tools/call",
-		Params: mcp.ToolCallParams{
-			Name:      toolCall.Function.Name,
-			Arguments: toolCall.Function.Arguments,
-		},
-	}
+	// Add user to context for MCP server
+	ctxWithUser := context.WithValue(ctx, "user", user)
 
-	fmt.Println("here 1")
-
-	// Create a mock HTTP request with user context
-	req, err := http.NewRequestWithContext(ctx, "POST", "/mcp", nil)
+	// Call tool directly using MCP server's CallTool method
+	response, err := s.mcpServer.CallTool(ctxWithUser, toolCall.Function.Name, toolCall.Function.Arguments)
 	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(context.WithValue(req.Context(), "user", user))
-	if err != nil {
-		return "", err
-	}
-	req = req.WithContext(context.WithValue(req.Context(), "user", user))
-
-	fmt.Println("here 2")
-
-	// Call MCP server directly
-	var result strings.Builder
-	writer := &responseWriter{body: &result}
-	s.mcpServer.HandleMCP(writer, req.WithContext(context.WithValue(req.Context(), "mcpRequest", mcpReq)))
-
-	fmt.Println("here 3")
-
-	fmt.Println(result.String())
-
-	// Parse the MCP response
-	var mcpResp mcp.MCPResponse
-	if err := json.Unmarshal([]byte(result.String()), &mcpResp); err != nil {
-		return "", fmt.Errorf("failed to parse MCP response: %v", err)
+		return "", fmt.Errorf("MCP tool call failed: %v", err)
 	}
 
-	if mcpResp.Error != nil {
-		return "", fmt.Errorf("MCP error: %s", mcpResp.Error.Message)
-	}
-
-	fmt.Println("MCP response: %+v", mcpResp)
-
-	// Extract text content from tool result
-	if toolResult, ok := mcpResp.Result.(map[string]interface{}); ok {
-		if content, ok := toolResult["content"].([]interface{}); ok && len(content) > 0 {
-			if textContent, ok := content[0].(map[string]interface{}); ok {
-				if text, ok := textContent["text"].(string); ok {
-					return text, nil
-				}
-			}
-		}
+	// Extract text content from response
+	if len(response.Content) > 0 && response.Content[0].Type == "text" {
+		return response.Content[0].Text, nil
 	}
 
 	return "Tool executed successfully", nil
 }
 
-// Helper type for capturing MCP response
-type responseWriter struct {
-	body   *strings.Builder
-	header http.Header
-	status int
-}
 
-func (w *responseWriter) Header() http.Header {
-	if w.header == nil {
-		w.header = make(http.Header)
-	}
-	return w.header
-}
-
-func (w *responseWriter) Write(data []byte) (int, error) {
-	return w.body.Write(data)
-}
-
-func (w *responseWriter) WriteHeader(statusCode int) {
-	w.status = statusCode
-}
 
 func (s *Service) continueWithToolResults(ctx context.Context, toolCalls []ToolCall, toolResults []ToolResult, user *model.User, writer io.Writer) error {
 	// Get the original conversation context - we need to rebuild the message history

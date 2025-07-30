@@ -673,7 +673,7 @@ var ServerCmd = &cli.Command{
 		web.Routes(routes, cfg)
 
 		// MCP
-		mcp.InitializeMCPServer(routes)
+		mcpServer := mcp.InitializeMCPServer(routes)
 
 		// Initialize chat service with config
 		chatConfig := chat.ChatConfig{
