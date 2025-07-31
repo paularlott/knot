@@ -1,8 +1,8 @@
 {{ define "chat" }}
 <!-- Chat Component -->
-<div x-data="chatComponent()" x-show="isOpen" x-cloak class="fixed bottom-4 right-4 z-50" style="pointer-events: none;">
+<div x-data="chatComponent()" x-show="isOpen" x-cloak class="fixed bottom-4 left-4 right-4 z-50" style="pointer-events: none;">
 
-  <div x-show="isOpen" x-transition:enter="transition-all ease-out duration-300" x-transition:enter-start="opacity-0 transform translate-y-4 scale-95" x-transition:enter-end="opacity-100 transform translate-y-0 scale-100" x-transition:leave="transition-all ease-in duration-200" x-transition:leave-start="opacity-100 transform translate-y-0 scale-100" x-transition:leave-end="opacity-0 transform translate-y-4 scale-95" class="w-96 max-h-[80vh] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col" style="pointer-events: auto;">
+  <div x-show="isOpen" x-transition:enter="transition-all ease-out duration-300" x-transition:enter-start="opacity-0 transform translate-y-4 scale-95" x-transition:enter-end="opacity-100 transform translate-y-0 scale-100" x-transition:leave="transition-all ease-in duration-200" x-transition:leave-start="opacity-100 transform translate-y-0 scale-100" x-transition:leave-end="opacity-0 transform translate-y-4 scale-95" class="w-full max-w-xl ml-auto max-h-[80vh] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col" style="pointer-events: auto;">
 
     <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
       <h3 class="text-lg font-semibold text-gray-900 dark:text-white">AI Assistant</h3>
