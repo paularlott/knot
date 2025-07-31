@@ -39,6 +39,7 @@ window.chatComponent = function() {
 
     currentMessage: '',
     isLoading: false,
+    inputRows: 1,
 
     close() {
       this.$store.chat.close();
@@ -49,6 +50,7 @@ window.chatComponent = function() {
 
       const userMessage = this.currentMessage.trim();
       this.currentMessage = '';
+      this.inputRows = 1;
 
       this.$store.chat.addMessage({
         role: 'user',
@@ -191,6 +193,23 @@ window.chatComponent = function() {
         const input = this.$refs.messageInput;
         if (input) {
           input.focus();
+        }
+      });
+    },
+
+    adjustInputSize() {
+      this.$nextTick(() => {
+        const input = this.$refs.messageInput;
+        if (input) {
+          const style = getComputedStyle(input);
+          const lineHeight = parseInt(style.lineHeight);
+          const padding = parseInt(style.paddingTop) + parseInt(style.paddingBottom);
+          
+          input.style.height = 'auto';
+          const scrollHeight = input.scrollHeight;
+          const neededRows = Math.min(Math.max(1, Math.ceil((scrollHeight - padding) / lineHeight)), 8);
+          this.inputRows = neededRows;
+          input.style.height = '';
         }
       });
     },
