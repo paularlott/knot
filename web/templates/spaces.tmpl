@@ -306,6 +306,9 @@
 
                 <!-- Services (desktop only) -->
                 <td class="px-4 py-3 hidden md:table-cell">
+                  <div x-show="s.user_id != '{{ .user_id }}' && s.shared_user_id != '{{ .user_id }}'">
+                    -
+                  </div>
                   <div x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}')" class="flex flex-nowrap items-center gap-1" x-data>
                     <!-- VNC -->
                     {{ if .permissionUseVNC }}

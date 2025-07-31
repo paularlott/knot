@@ -2,7 +2,6 @@ package driver_mysql
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util"
@@ -115,7 +114,6 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 		}
 
 		// Add any new alt names
-		now := time.Now().UTC()
 		for _, name := range space.AltNames {
 			found := false
 			for _, altName := range altNames {
@@ -123,7 +121,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 					found = true
 
 					// Update the zone
-					_, err = tx.Exec("UPDATE spaces SET zone=?,updated_at=? WHERE parent_space_id = ? AND name = ?", now, space.Zone, space.Id, name)
+					_, err = tx.Exec("UPDATE spaces SET zone=?,updated_at=? WHERE parent_space_id = ? AND name = ?", space.Zone, space.UpdatedAt, space.Id, name)
 					if err != nil {
 						tx.Rollback()
 						return err
@@ -139,7 +137,7 @@ func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) erro
 					return err
 				}
 
-				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, zone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name, space.Zone, now, now)
+				_, err = tx.Exec("INSERT INTO spaces (space_id, parent_space_id, user_id, name, zone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", altId, space.Id, space.UserId, name, space.Zone, space.CreatedAt, space.UpdatedAt)
 				if err != nil {
 					tx.Rollback()
 					return err

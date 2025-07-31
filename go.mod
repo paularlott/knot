@@ -2,7 +2,7 @@ module github.com/paularlott/knot
 
 go 1.24.5
 
-// replace github.com/paularlott/gossip => ../gossip/
+//replace github.com/paularlott/gossip => ../gossip/
 
 // replace github.com/paularlott/cli => ../cli/
 
@@ -10,7 +10,7 @@ require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/creack/pty v1.1.24
 	github.com/dgraph-io/badger/v4 v4.8.0
-	github.com/docker/docker v28.3.2+incompatible
+	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-sql-driver/mysql v1.9.3
@@ -19,7 +19,7 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.67
 	github.com/paularlott/cli v0.2.3
-	github.com/paularlott/gossip v0.2.0
+	github.com/paularlott/gossip v0.3.0
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/rs/zerolog v1.34.0
