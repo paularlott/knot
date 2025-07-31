@@ -830,7 +830,7 @@ var ServerCmd = &cli.Command{
 			Addr:         listen,
 			Handler:      router,
 			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 10 * time.Second,
+			WriteTimeout: 2 * time.Minute, // Extended to support AI time
 			TLSConfig:    tlsConfig,
 		}
 

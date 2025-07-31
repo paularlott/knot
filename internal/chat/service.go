@@ -356,127 +356,10 @@ func (s *Service) callOpenAI(ctx context.Context, req OpenAIRequest, user *model
 		return fmt.Errorf("OpenAI API error: %d - %s", resp.StatusCode, string(body))
 	}
 
-	return s.processStreamResponse(ctx, resp.Body, user, writer)
+	return s.processStreamResponseWithContext(ctx, resp.Body, user, writer, []OpenAIMessage{})
 }
 
-func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, user *model.User, writer io.Writer) error {
-	scanner := bufio.NewScanner(reader)
-	var toolCallBuffer = make(map[int]*ToolCall)
-	var argumentsBuffer = make(map[int]string) // Buffer for JSON string arguments
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
-			break
-		}
-
-		var response OpenAIResponse
-		if err := json.Unmarshal([]byte(data), &response); err != nil {
-			continue
-		}
-
-		if len(response.Choices) == 0 {
-			continue
-		}
-
-		choice := response.Choices[0]
-
-		// Handle tool calls - they come in chunks
-		if len(choice.Delta.ToolCalls) > 0 {
-			for _, deltaCall := range choice.Delta.ToolCalls {
-				index := deltaCall.Index
-
-				// Initialize tool call if not exists
-				if toolCallBuffer[index] == nil {
-					toolCallBuffer[index] = &ToolCall{
-						Index: index,
-						Function: ToolCallFunction{
-							Arguments: make(map[string]interface{}),
-						},
-					}
-					argumentsBuffer[index] = ""
-				}
-
-				// Update fields if they exist in this chunk
-				if deltaCall.ID != "" {
-					toolCallBuffer[index].ID = deltaCall.ID
-				}
-				if deltaCall.Type != "" {
-					toolCallBuffer[index].Type = deltaCall.Type
-				}
-				if deltaCall.Function.Name != "" {
-					toolCallBuffer[index].Function.Name = deltaCall.Function.Name
-				}
-
-				// Accumulate function arguments (they come as JSON string chunks)
-				if deltaCall.Function.Arguments != "" {
-					argumentsBuffer[index] += deltaCall.Function.Arguments
-				}
-			}
-		}
-
-		// Handle content - only stream if we're not about to execute tools
-		if choice.Delta.Content != "" && choice.FinishReason != "tool_calls" {
-			event := SSEEvent{
-				Type: "content",
-				Data: choice.Delta.Content,
-			}
-			s.writeSSEEvent(writer, event)
-		}
-
-		// Handle finish reason
-		if choice.FinishReason == "tool_calls" {
-			// Parse accumulated arguments and execute tools
-			var toolCalls []ToolCall
-			var toolResults []ToolResult
-
-			for index, toolCall := range toolCallBuffer {
-				if toolCall != nil && toolCall.Function.Name != "" {
-					// Parse accumulated JSON arguments
-					if argumentsBuffer[index] != "" {
-						var parsedArgs map[string]interface{}
-						if err := json.Unmarshal([]byte(argumentsBuffer[index]), &parsedArgs); err == nil {
-							toolCall.Function.Arguments = parsedArgs
-						}
-					}
-
-					toolCalls = append(toolCalls, *toolCall)
-
-					// Execute tool
-					result, err := s.executeToolCall(ctx, *toolCall, user)
-					if err != nil {
-						result = fmt.Sprintf("Error executing tool: %v", err)
-					}
-
-					toolResults = append(toolResults, ToolResult{
-						ToolCallID: toolCall.ID,
-						Content:    result,
-					})
-
-					// Send tool result event to frontend
-					event := SSEEvent{
-						Type: "tool_result",
-						Data: map[string]interface{}{
-							"tool_name": toolCall.Function.Name,
-							"result":    result,
-						},
-					}
-					s.writeSSEEvent(writer, event)
-				}
-			}
-
-			// Continue conversation with tool results
-			return s.continueWithToolResults(ctx, toolCalls, toolResults, user, writer)
-		}
-	}
-
-	return scanner.Err()
-}
 
 func (s *Service) executeToolCall(ctx context.Context, toolCall ToolCall, user *model.User) (string, error) {
 
@@ -522,43 +405,7 @@ func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *m
 	return "Tool executed successfully", nil
 }
 
-func (s *Service) continueWithToolResults(ctx context.Context, toolCalls []ToolCall, toolResults []ToolResult, user *model.User, writer io.Writer) error {
-	// Get the original conversation context - we need to rebuild the message history
-	// For now, we'll create a simplified continuation
-	messages := []OpenAIMessage{
-		{
-			Role:      "assistant",
-			ToolCalls: toolCalls,
-		},
-	}
 
-	// Add tool results as tool messages
-	for _, result := range toolResults {
-		messages = append(messages, OpenAIMessage{
-			Role:       "tool",
-			Content:    result.Content,
-			ToolCallID: result.ToolCallID,
-		})
-	}
-
-	// Get available tools again
-	tools, err := s.getAvailableTools(ctx, user)
-	if err != nil {
-		return fmt.Errorf("failed to get tools: %w", err)
-	}
-
-	// Create new request to continue the conversation
-	req := OpenAIRequest{
-		Model:       s.config.Model,
-		Messages:    messages,
-		Tools:       tools,
-		MaxTokens:   s.config.MaxTokens,
-		Temperature: s.config.Temperature,
-		Stream:      true,
-	}
-
-	return s.callOpenAI(ctx, req, user, writer)
-}
 
 func (s *Service) executeHTTPTool(ctx context.Context, tool HTTPTool, args map[string]interface{}) (string, error) {
 	var reqBody io.Reader

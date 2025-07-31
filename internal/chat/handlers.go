@@ -40,11 +40,18 @@ func HandleChatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set SSE headers
+	// Set SSE headers with HTTP/2 compatibility
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
+	w.Header().Set("Transfer-Encoding", "chunked")
+
+	// Flush headers immediately
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
 
 	// Create message history (in a real implementation, you might want to get this from the request)
 	messages := []ChatMessage{
@@ -66,6 +73,9 @@ func HandleChatStream(w http.ResponseWriter, r *http.Request) {
 		}
 		data, _ := json.Marshal(event)
 		w.Write([]byte("data: " + string(data) + "\n\n"))
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
 	}
 
 	// Send done event
@@ -75,6 +85,9 @@ func HandleChatStream(w http.ResponseWriter, r *http.Request) {
 	}
 	data, _ := json.Marshal(event)
 	w.Write([]byte("data: " + string(data) + "\n\n"))
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
 
 func HandleChatConfig(w http.ResponseWriter, r *http.Request) {
