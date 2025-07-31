@@ -65,7 +65,7 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Templates
 	router.HandleFunc("GET /api/templates", middleware.ApiAuth(HandleGetTemplates))
-	router.HandleFunc("GET /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleGetTemplate)))
+	router.HandleFunc("GET /api/templates/{template_id}", middleware.ApiAuth(HandleGetTemplate))
 	router.HandleFunc("POST /api/templates", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleCreateTemplate)))
 	router.HandleFunc("PUT /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleUpdateTemplate)))
 	router.HandleFunc("DELETE /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleDeleteTemplate)))
