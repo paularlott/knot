@@ -216,6 +216,13 @@ window.chatComponent = function() {
         }
       });
     },
+    
+    handleKeyDown(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        this.sendMessage();
+      }
+    },
 
     init() {
       this.$watch('isOpen', (isOpen) => {
