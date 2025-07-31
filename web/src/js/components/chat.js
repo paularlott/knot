@@ -205,9 +205,12 @@ window.chatComponent = function() {
           const lineHeight = parseInt(style.lineHeight);
           const padding = parseInt(style.paddingTop) + parseInt(style.paddingBottom);
           
+          const savedRows = input.rows;
+          input.rows = 1;
           input.style.height = 'auto';
           const scrollHeight = input.scrollHeight;
           const neededRows = Math.min(Math.max(1, Math.ceil((scrollHeight - padding) / lineHeight)), 8);
+          input.rows = savedRows;
           this.inputRows = neededRows;
           input.style.height = '';
         }
