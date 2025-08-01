@@ -31,7 +31,6 @@ func HandleChatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
@@ -40,20 +39,6 @@ func HandleChatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set SSE headers with HTTP/2 compatibility
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
-	w.Header().Set("Transfer-Encoding", "chunked")
-
-	// Flush headers immediately
-	if flusher, ok := w.(http.Flusher); ok {
-		flusher.Flush()
-	}
-
-	// Create message history (in a real implementation, you might want to get this from the request)
 	messages := []ChatMessage{
 		{
 			Role:      "user",
@@ -62,31 +47,12 @@ func HandleChatStream(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	// Stream response
-	err := chatService.StreamChat(r.Context(), messages, user, w)
+	err := chatService.StreamChat(r.Context(), messages, user, w, r)
 	if err != nil {
-		event := SSEEvent{
-			Type: "error",
-			Data: map[string]string{
-				"error": err.Error(),
-			},
-		}
-		data, _ := json.Marshal(event)
-		w.Write([]byte("data: " + string(data) + "\n\n"))
-		if flusher, ok := w.(http.Flusher); ok {
-			flusher.Flush()
-		}
-	}
-
-	// Send done event
-	event := SSEEvent{
-		Type: "done",
-		Data: nil,
-	}
-	data, _ := json.Marshal(event)
-	w.Write([]byte("data: " + string(data) + "\n\n"))
-	if flusher, ok := w.(http.Flusher); ok {
-		flusher.Flush()
+		// Don't create a new SSE writer here since StreamChat already handles SSE setup
+		// Just write a simple error response
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -144,7 +110,12 @@ func HandleChatConfig(w http.ResponseWriter, r *http.Request) {
 
 		// Update service
 		if chatService != nil {
-			chatService.config = config
+			if err := chatService.UpdateConfig(config); err != nil {
+				rest.WriteResponse(http.StatusInternalServerError, w, r, map[string]string{
+					"error": "Failed to update chat configuration",
+				})
+				return
+			}
 		}
 
 		rest.WriteResponse(http.StatusOK, w, r, map[string]string{

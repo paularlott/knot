@@ -8,45 +8,54 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util"
+	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/mcp"
 )
 
 type Service struct {
-	config    ChatConfig
-	mcpServer *mcp.Server
-	httpTools []HTTPTool
+	config     ChatConfig
+	mcpServer  *mcp.Server
+	httpTools  []HTTPTool
+	restClient *rest.RESTClient
 }
 
-func NewService(config ChatConfig, mcpServer *mcp.Server) *Service {
-	return &Service{
-		config:    config,
-		mcpServer: mcpServer,
-		httpTools: []HTTPTool{},
+func NewService(config ChatConfig, mcpServer *mcp.Server) (*Service, error) {
+	restClient, err := rest.NewClient(config.OpenAIBaseURL, config.OpenAIAPIKey, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create REST client: %w", err)
 	}
+	restClient.SetTimeout(60 * time.Second)
+	restClient.SetTokenFormat("Bearer %s")
+
+	return &Service{
+		config:     config,
+		mcpServer:  mcpServer,
+		httpTools:  []HTTPTool{},
+		restClient: restClient,
+	}, nil
 }
 
-func (s *Service) StreamChat(ctx context.Context, messages []ChatMessage, user *model.User, writer io.Writer) error {
-	// If no messages, return early
+func (s *Service) StreamChat(ctx context.Context, messages []ChatMessage, user *model.User, w http.ResponseWriter, r *http.Request) error {
 	if len(messages) == 0 {
 		return nil
 	}
 
-	// Convert messages to OpenAI format
-	openAIMessages := s.convertMessages(messages)
+	sseWriter := rest.NewSSEStreamWriter(w, r)
+	defer sseWriter.Close()
 
-	// Get available tools
+	openAIMessages := s.convertMessages(messages)
 	tools, err := s.getAvailableTools(ctx, user)
 	if err != nil {
 		return fmt.Errorf("failed to get tools: %w", err)
 	}
 
-	// Create OpenAI request
 	req := OpenAIRequest{
 		Model:       s.config.Model,
 		Messages:    openAIMessages,
@@ -56,11 +65,10 @@ func (s *Service) StreamChat(ctx context.Context, messages []ChatMessage, user *
 		Stream:      true,
 	}
 
-	// Call OpenAI API with conversation context
-	return s.callOpenAIWithContext(ctx, req, user, writer, openAIMessages)
+	return s.callOpenAIWithContext(ctx, req, user, sseWriter, openAIMessages)
 }
 
-func (s *Service) callOpenAIWithContext(ctx context.Context, req OpenAIRequest, user *model.User, writer io.Writer, conversationHistory []OpenAIMessage) error {
+func (s *Service) callOpenAIWithContext(ctx context.Context, req OpenAIRequest, user *model.User, sseWriter *rest.SSEStreamWriter, conversationHistory []OpenAIMessage) error {
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		return err
@@ -76,8 +84,7 @@ func (s *Service) callOpenAIWithContext(ctx context.Context, req OpenAIRequest, 
 		httpReq.Header.Set("Authorization", "Bearer "+s.config.OpenAIAPIKey)
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(httpReq)
+	resp, err := s.restClient.HTTPClient.Do(httpReq)
 	if err != nil {
 		return err
 	}
@@ -85,11 +92,10 @@ func (s *Service) callOpenAIWithContext(ctx context.Context, req OpenAIRequest, 
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		fmt.Println("OpenAI API error:", resp.StatusCode, string(body))
 		return fmt.Errorf("OpenAI API error: %d - %s", resp.StatusCode, string(body))
 	}
 
-	return s.processStreamResponseWithContext(ctx, resp.Body, user, writer, conversationHistory)
+	return s.processStreamResponse(ctx, resp.Body, user, sseWriter, conversationHistory)
 }
 
 func (s *Service) convertMessages(messages []ChatMessage) []OpenAIMessage {
@@ -114,11 +120,18 @@ func (s *Service) convertMessages(messages []ChatMessage) []OpenAIMessage {
 	return openAIMessages
 }
 
-func (s *Service) processStreamResponseWithContext(ctx context.Context, reader io.Reader, user *model.User, writer io.Writer, conversationHistory []OpenAIMessage) error {
+type streamState struct {
+	toolCallBuffer  map[int]*ToolCall
+	argumentsBuffer map[int]string
+	assistantMessage strings.Builder
+}
+
+func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, user *model.User, sseWriter *rest.SSEStreamWriter, conversationHistory []OpenAIMessage) error {
 	scanner := bufio.NewScanner(reader)
-	var toolCallBuffer = make(map[int]*ToolCall)
-	var argumentsBuffer = make(map[int]string)
-	var assistantMessage strings.Builder
+	state := &streamState{
+		toolCallBuffer:  make(map[int]*ToolCall),
+		argumentsBuffer: make(map[int]string),
+	}
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -141,143 +154,129 @@ func (s *Service) processStreamResponseWithContext(ctx context.Context, reader i
 		}
 
 		choice := response.Choices[0]
-
-		fmt.Println("Choices")
 		util.PrettyPrintJSON(response)
 
 		// Handle tool calls
 		if len(choice.Delta.ToolCalls) > 0 {
-			fmt.Println("we have tool calls")
 			for _, deltaCall := range choice.Delta.ToolCalls {
 				index := deltaCall.Index
-
-				if toolCallBuffer[index] == nil {
-					toolCallBuffer[index] = &ToolCall{
+				if state.toolCallBuffer[index] == nil {
+					state.toolCallBuffer[index] = &ToolCall{
 						Index: index,
-						Function: ToolCallFunction{
-							Arguments: make(map[string]interface{}),
-						},
+						Function: ToolCallFunction{Arguments: make(map[string]interface{})},
 					}
-					argumentsBuffer[index] = ""
+					state.argumentsBuffer[index] = ""
 				}
-
 				if deltaCall.ID != "" {
-					toolCallBuffer[index].ID = deltaCall.ID
+					state.toolCallBuffer[index].ID = deltaCall.ID
 				}
 				if deltaCall.Type != "" {
-					toolCallBuffer[index].Type = deltaCall.Type
+					state.toolCallBuffer[index].Type = deltaCall.Type
 				}
 				if deltaCall.Function.Name != "" {
-					toolCallBuffer[index].Function.Name = deltaCall.Function.Name
+					state.toolCallBuffer[index].Function.Name = deltaCall.Function.Name
 				}
 				if deltaCall.Function.Arguments != "" {
-					argumentsBuffer[index] += deltaCall.Function.Arguments
+					state.argumentsBuffer[index] += deltaCall.Function.Arguments
 				}
 			}
 		}
 
 		// Handle content
 		if choice.Delta.Content != "" {
-			assistantMessage.WriteString(choice.Delta.Content)
-			event := SSEEvent{
+			state.assistantMessage.WriteString(choice.Delta.Content)
+			sseWriter.WriteChunk(SSEEvent{
 				Type: "content",
 				Data: choice.Delta.Content,
-			}
-			s.writeSSEEvent(writer, event)
+			})
 		}
 
 		// Handle finish reason
 		if choice.FinishReason == "tool_calls" {
-			// Execute tools and continue conversation
-			var toolCalls []ToolCall
-			var toolResults []ToolResult
-
-			fmt.Println("tool buffer", toolCallBuffer)
-
-			for index, toolCall := range toolCallBuffer {
-				if toolCall != nil && toolCall.Function.Name != "" {
-					// Ensure ID is set
-					if toolCall.ID == "" {
-						toolCall.ID = fmt.Sprintf("call_%d", index)
-					}
-
-					// Parse accumulated JSON arguments
-					if argumentsBuffer[index] != "" {
-						var parsedArgs map[string]interface{}
-						if err := json.Unmarshal([]byte(argumentsBuffer[index]), &parsedArgs); err == nil {
-							toolCall.Function.Arguments = parsedArgs
-						}
-					} else {
-						// Ensure arguments is not nil
-						toolCall.Function.Arguments = make(map[string]interface{})
-					}
-
-					toolCalls = append(toolCalls, *toolCall)
-
-					// Execute tool
-					fmt.Println("at tool call", toolCall)
-					result, err := s.executeToolCall(ctx, *toolCall, user)
-					if err != nil {
-						result = fmt.Sprintf("Error executing tool: %v", err)
-					}
-
-					toolResults = append(toolResults, ToolResult{
-						ToolCallID: toolCall.ID,
-						Content:    result,
-					})
-
-					// Send tool result event to frontend
-					event := SSEEvent{
-						Type: "tool_result",
-						Data: map[string]interface{}{
-							"tool_name": toolCall.Function.Name,
-							"result":    result,
-						},
-					}
-					s.writeSSEEvent(writer, event)
-				}
-			}
-
-			// Build new conversation history with tool calls and results
-			newHistory := append(conversationHistory, OpenAIMessage{
-				Role:      "assistant",
-				Content:   assistantMessage.String(),
-				ToolCalls: toolCalls,
-			})
-
-			// Add tool results
-			for _, result := range toolResults {
-				newHistory = append(newHistory, OpenAIMessage{
-					Role:       "tool",
-					Content:    result.Content,
-					ToolCallID: result.ToolCallID,
-				})
-			}
-
-			// Get available tools
-			tools, err := s.getAvailableTools(ctx, user)
-			if err != nil {
-				return fmt.Errorf("failed to get tools: %w", err)
-			}
-
-			// Continue conversation
-			req := OpenAIRequest{
-				Model:       s.config.Model,
-				Messages:    newHistory,
-				Tools:       tools,
-				MaxTokens:   s.config.MaxTokens,
-				Temperature: s.config.Temperature,
-				Stream:      true,
-			}
-
-			util.PrettyPrintJSON(req)
-
-			fmt.Println("Continuing conversation with tool results")
-			return s.callOpenAIWithContext(ctx, req, user, writer, newHistory)
+			return s.handleToolCalls(ctx, state, user, sseWriter, conversationHistory)
 		}
 	}
 
+	// Send done event
+	sseWriter.WriteChunk(SSEEvent{
+		Type: "done",
+		Data: nil,
+	})
+
 	return scanner.Err()
+}
+
+func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user *model.User, sseWriter *rest.SSEStreamWriter, conversationHistory []OpenAIMessage) error {
+	var toolCalls []ToolCall
+	var toolResults []ToolResult
+
+	for index, toolCall := range state.toolCallBuffer {
+		if toolCall != nil && toolCall.Function.Name != "" {
+			if toolCall.ID == "" {
+				toolCall.ID = fmt.Sprintf("call_%d", index)
+			}
+
+			if state.argumentsBuffer[index] != "" {
+				var parsedArgs map[string]interface{}
+				if err := json.Unmarshal([]byte(state.argumentsBuffer[index]), &parsedArgs); err == nil {
+					toolCall.Function.Arguments = parsedArgs
+				}
+			} else {
+				toolCall.Function.Arguments = make(map[string]interface{})
+			}
+
+			toolCalls = append(toolCalls, *toolCall)
+
+			result, err := s.executeToolCall(ctx, *toolCall, user)
+			if err != nil {
+				result = fmt.Sprintf("Error executing tool: %v", err)
+			}
+
+			toolResults = append(toolResults, ToolResult{
+				ToolCallID: toolCall.ID,
+				Content:    result,
+			})
+
+			sseWriter.WriteChunk(SSEEvent{
+				Type: "tool_result",
+				Data: map[string]interface{}{
+					"tool_name": toolCall.Function.Name,
+					"result":    result,
+				},
+			})
+		}
+	}
+
+	// Build new conversation history
+	newHistory := append(conversationHistory, OpenAIMessage{
+		Role:      "assistant",
+		Content:   state.assistantMessage.String(),
+		ToolCalls: toolCalls,
+	})
+
+	for _, result := range toolResults {
+		newHistory = append(newHistory, OpenAIMessage{
+			Role:       "tool",
+			Content:    result.Content,
+			ToolCallID: result.ToolCallID,
+		})
+	}
+
+	tools, err := s.getAvailableTools(ctx, user)
+	if err != nil {
+		return fmt.Errorf("failed to get tools: %w", err)
+	}
+
+	req := OpenAIRequest{
+		Model:       s.config.Model,
+		Messages:    newHistory,
+		Tools:       tools,
+		MaxTokens:   s.config.MaxTokens,
+		Temperature: s.config.Temperature,
+		Stream:      true,
+	}
+
+	return s.callOpenAIWithContext(ctx, req, user, sseWriter, newHistory)
 }
 
 func (s *Service) getAvailableTools(ctx context.Context, user *model.User) ([]OpenAITool, error) {
@@ -373,50 +372,59 @@ func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *m
 }
 
 func (s *Service) executeHTTPTool(ctx context.Context, tool HTTPTool, args map[string]interface{}) (string, error) {
-	var reqBody io.Reader
-	if tool.Method == "POST" || tool.Method == "PUT" {
-		jsonBody, err := json.Marshal(args)
-		if err != nil {
-			return "", err
-		}
-		reqBody = bytes.NewReader(jsonBody)
+	// Parse the URL to separate base and path
+	u, err := url.Parse(tool.URL)
+	if err != nil {
+		return "", fmt.Errorf("invalid tool URL: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, tool.Method, tool.URL, reqBody)
-	if err != nil {
-		return "", err
+	baseURL := fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+	path := u.Path
+	if u.RawQuery != "" {
+		path += "?" + u.RawQuery
 	}
+
+	toolClient, err := rest.NewClient(baseURL, "", false)
+	if err != nil {
+		return "", fmt.Errorf("failed to create tool client: %w", err)
+	}
+	toolClient.SetTimeout(30 * time.Second)
 
 	for key, value := range tool.Headers {
-		req.Header.Set(key, value)
-	}
-	if reqBody != nil {
-		req.Header.Set("Content-Type", "application/json")
+		toolClient.SetHeader(key, value)
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
+	var result string
+	switch tool.Method {
+	case "GET":
+		_, err = toolClient.Get(ctx, path, &result)
+	case "POST":
+		_, err = toolClient.Post(ctx, path, args, &result, 0)
+	case "PUT":
+		_, err = toolClient.Put(ctx, path, args, &result, 0)
+	case "DELETE":
+		_, err = toolClient.Delete(ctx, path, args, &result, 0)
+	default:
+		return "", fmt.Errorf("unsupported HTTP method: %s", tool.Method)
 	}
-	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return string(respBody), nil
+	return result, err
 }
 
-func (s *Service) writeSSEEvent(writer io.Writer, event SSEEvent) {
-	data, _ := json.Marshal(event)
-	fmt.Fprintf(writer, "data: %s\n\n", data)
-	if flusher, ok := writer.(http.Flusher); ok {
-		flusher.Flush()
-	}
-}
+
 
 func (s *Service) AddHTTPTool(tool HTTPTool) {
 	s.httpTools = append(s.httpTools, tool)
+}
+
+func (s *Service) UpdateConfig(config ChatConfig) error {
+	s.config = config
+	restClient, err := rest.NewClient(config.OpenAIBaseURL, config.OpenAIAPIKey, false)
+	if err != nil {
+		return fmt.Errorf("failed to create REST client: %w", err)
+	}
+	restClient.SetTimeout(60 * time.Second)
+	restClient.SetTokenFormat("Bearer %s")
+	s.restClient = restClient
+	return nil
 }

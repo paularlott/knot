@@ -684,7 +684,10 @@ var ServerCmd = &cli.Command{
 			Temperature:   cfg.Chat.Temperature,
 			SystemPrompt:  cfg.Chat.SystemPrompt,
 		}
-		chatService := chat.NewService(chatConfig, mcpServer)
+		chatService, err := chat.NewService(chatConfig, mcpServer)
+		if err != nil {
+			log.Fatal().Msgf("server: failed to create chat service: %s", err.Error())
+		}
 		chat.SetChatService(chatService)
 
 		// Add support for page not found
