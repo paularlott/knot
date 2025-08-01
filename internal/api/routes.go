@@ -99,8 +99,6 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Chat
 	router.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(chat.HandleChatStream))
-	router.HandleFunc("GET /api/chat/config", middleware.ApiAuth(chat.HandleChatConfig))
-	router.HandleFunc("POST /api/chat/config", middleware.ApiAuth(chat.HandleChatConfig))
 
 	// Unauthenticated routes
 	router.HandleFunc("POST /api/auth", HandleAuthorization)

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -20,13 +21,13 @@ import (
 )
 
 type Service struct {
-	config     ChatConfig
+	config     config.ChatConfig
 	mcpServer  *mcp.Server
 	httpTools  []HTTPTool
 	restClient *rest.RESTClient
 }
 
-func NewService(config ChatConfig, mcpServer *mcp.Server) (*Service, error) {
+func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, error) {
 	restClient, err := rest.NewClient(config.OpenAIBaseURL, config.OpenAIAPIKey, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create REST client: %w", err)
@@ -121,8 +122,8 @@ func (s *Service) convertMessages(messages []ChatMessage) []OpenAIMessage {
 }
 
 type streamState struct {
-	toolCallBuffer  map[int]*ToolCall
-	argumentsBuffer map[int]string
+	toolCallBuffer   map[int]*ToolCall
+	argumentsBuffer  map[int]string
 	assistantMessage strings.Builder
 }
 
@@ -162,7 +163,7 @@ func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, u
 				index := deltaCall.Index
 				if state.toolCallBuffer[index] == nil {
 					state.toolCallBuffer[index] = &ToolCall{
-						Index: index,
+						Index:    index,
 						Function: ToolCallFunction{Arguments: make(map[string]interface{})},
 					}
 					state.argumentsBuffer[index] = ""
@@ -411,20 +412,6 @@ func (s *Service) executeHTTPTool(ctx context.Context, tool HTTPTool, args map[s
 	return result, err
 }
 
-
-
 func (s *Service) AddHTTPTool(tool HTTPTool) {
 	s.httpTools = append(s.httpTools, tool)
-}
-
-func (s *Service) UpdateConfig(config ChatConfig) error {
-	s.config = config
-	restClient, err := rest.NewClient(config.OpenAIBaseURL, config.OpenAIAPIKey, false)
-	if err != nil {
-		return fmt.Errorf("failed to create REST client: %w", err)
-	}
-	restClient.SetTimeout(60 * time.Second)
-	restClient.SetTokenFormat("Bearer %s")
-	s.restClient = restClient
-	return nil
 }

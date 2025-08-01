@@ -12,15 +12,6 @@ type ChatRequest struct {
 	Message string `json:"message"`
 }
 
-type ChatConfig struct {
-	OpenAIAPIKey  string  `json:"openai_api_key"`
-	OpenAIBaseURL string  `json:"openai_base_url"`
-	Model         string  `json:"model"`
-	MaxTokens     int     `json:"max_tokens"`
-	Temperature   float32 `json:"temperature"`
-	SystemPrompt  string  `json:"system_prompt"`
-}
-
 type ToolCall struct {
 	ID       string           `json:"id"`
 	Type     string           `json:"type"`
