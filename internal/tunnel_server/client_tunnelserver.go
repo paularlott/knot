@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
@@ -72,6 +73,9 @@ func (ts *tunnelServer) ConnectAndServe() {
 			} else {
 				url = fmt.Sprintf("%s/tunnel/spaces/%s/%d", ts.address, ts.client.spaceName, ts.client.spacePort)
 			}
+
+			// Swap leading http to ws
+			url = strings.NewReplacer("http://", "ws://", "https://", "wss://").Replace(url)
 
 			// Open the websocket
 			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", ts.client.token)}}
