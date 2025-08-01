@@ -164,6 +164,9 @@ window.chatComponent = function() {
         .replace(/^\s+/, '')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        // Handle triple backtick code blocks first
+        .replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-200 dark:bg-gray-600 p-2 rounded overflow-x-auto"><code>$1</code></pre>')
+        // Then handle single backtick inline code
         .replace(/`(.*?)`/g, '<code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">$1</code>')
         .replace(/\n/g, '<br>')
         .replace(/^(<br>\s*)+/, '');

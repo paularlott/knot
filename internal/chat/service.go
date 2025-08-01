@@ -328,39 +328,6 @@ func (s *Service) getMCPTools(ctx context.Context, user *model.User) ([]OpenAITo
 	return openAITools, nil
 }
 
-func (s *Service) callOpenAI(ctx context.Context, req OpenAIRequest, user *model.User, writer io.Writer) error {
-	reqBody, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", s.config.OpenAIBaseURL+"/chat/completions", bytes.NewReader(reqBody))
-	if err != nil {
-		return err
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	if s.config.OpenAIAPIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+s.config.OpenAIAPIKey)
-	}
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("OpenAI API error: %d - %s", resp.StatusCode, string(body))
-	}
-
-	return s.processStreamResponseWithContext(ctx, resp.Body, user, writer, []OpenAIMessage{})
-}
-
-
-
 func (s *Service) executeToolCall(ctx context.Context, toolCall ToolCall, user *model.User) (string, error) {
 
 	fmt.Println("Executing tool", toolCall.Function.Name, toolCall.Function.Arguments)
@@ -404,8 +371,6 @@ func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *m
 
 	return "Tool executed successfully", nil
 }
-
-
 
 func (s *Service) executeHTTPTool(ctx context.Context, tool HTTPTool, args map[string]interface{}) (string, error) {
 	var reqBody io.Reader
