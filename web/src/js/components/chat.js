@@ -152,9 +152,7 @@ window.chatComponent = function() {
           id: assistantMessageId,
           role: 'assistant',
           inThinking: false,
-          toolResults: [],
           toolCalls: [],
-          // Add structured content storage
           fragments: {
             thinking: '',
             content: '',
@@ -214,10 +212,6 @@ window.chatComponent = function() {
                   }
                   assistantMessage.toolCalls = event.data;
                 } else if (event.type === 'tool_result') {
-                  if (!assistantMessage.toolResults) {
-                    assistantMessage.toolResults = [];
-                  }
-                  assistantMessage.toolResults.push(event.data);
                   assistantMessage.fragments.toolResults.push(event.data);
                 } else if (event.type === 'error') {
                   assistantMessage.fragments.content = 'Error: ' + event.data.error;
