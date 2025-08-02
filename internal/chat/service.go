@@ -14,7 +14,6 @@ import (
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/mcp"
@@ -102,7 +101,7 @@ func (s *Service) callOpenAIWithContext(ctx context.Context, req OpenAIRequest, 
 func (s *Service) convertMessages(messages []ChatMessage) []OpenAIMessage {
 	var openAIMessages []OpenAIMessage
 
-	// Add system prompt if configured
+	// Add system prompt if configured (always first)
 	if s.config.SystemPrompt != "" {
 		openAIMessages = append(openAIMessages, OpenAIMessage{
 			Role:    "system",
@@ -110,12 +109,26 @@ func (s *Service) convertMessages(messages []ChatMessage) []OpenAIMessage {
 		})
 	}
 
-	// Convert chat messages
+	// Convert chat messages, skipping any existing system messages from history
 	for _, msg := range messages {
-		openAIMessages = append(openAIMessages, OpenAIMessage{
-			Role:    msg.Role,
-			Content: msg.Content,
-		})
+		if msg.Role != "system" {
+			openAIMessage := OpenAIMessage{
+				Role:    msg.Role,
+				Content: msg.Content,
+			}
+
+			// Include tool calls for assistant messages
+			if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+				openAIMessage.ToolCalls = msg.ToolCalls
+			}
+
+			// Include tool call ID for tool messages
+			if msg.Role == "tool" && msg.ToolCallID != "" {
+				openAIMessage.ToolCallID = msg.ToolCallID
+			}
+
+			openAIMessages = append(openAIMessages, openAIMessage)
+		}
 	}
 
 	return openAIMessages
@@ -155,7 +168,6 @@ func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, u
 		}
 
 		choice := response.Choices[0]
-		util.PrettyPrintJSON(response)
 
 		// Handle tool calls
 		if len(choice.Delta.ToolCalls) > 0 {
@@ -194,6 +206,19 @@ func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, u
 
 		// Handle finish reason
 		if choice.FinishReason == "tool_calls" {
+			// Parse and validate arguments before processing
+			for _, toolCall := range state.toolCallBuffer {
+				if argsStr, exists := state.argumentsBuffer[toolCall.Index]; exists {
+					if argsStr == "" || argsStr == "null" {
+						toolCall.Function.Arguments = make(map[string]interface{})
+					} else {
+						if err := json.Unmarshal([]byte(argsStr), &toolCall.Function.Arguments); err != nil {
+							toolCall.Function.Arguments = make(map[string]interface{})
+						}
+					}
+				}
+			}
+
 			return s.handleToolCalls(ctx, state, user, sseWriter, conversationHistory)
 		}
 	}
@@ -211,12 +236,28 @@ func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user 
 	var toolCalls []ToolCall
 	var toolResults []ToolResult
 
+	// Send tool calls info to frontend
 	for index, toolCall := range state.toolCallBuffer {
 		if toolCall != nil && toolCall.Function.Name != "" {
 			if toolCall.ID == "" {
 				toolCall.ID = fmt.Sprintf("call_%d", index)
 			}
+			toolCalls = append(toolCalls, *toolCall)
+		}
+	}
 
+	if len(toolCalls) > 0 {
+		sseWriter.WriteChunk(SSEEvent{
+			Type: "tool_calls",
+			Data: toolCalls,
+		})
+	}
+
+	// Execute tools and collect results
+	for _, toolCall := range toolCalls {
+		// Parse arguments if not already done
+		if len(toolCall.Function.Arguments) == 0 {
+			index := toolCall.Index
 			if state.argumentsBuffer[index] != "" {
 				var parsedArgs map[string]interface{}
 				if err := json.Unmarshal([]byte(state.argumentsBuffer[index]), &parsedArgs); err == nil {
@@ -225,27 +266,26 @@ func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user 
 			} else {
 				toolCall.Function.Arguments = make(map[string]interface{})
 			}
-
-			toolCalls = append(toolCalls, *toolCall)
-
-			result, err := s.executeToolCall(ctx, *toolCall, user)
-			if err != nil {
-				result = fmt.Sprintf("Error executing tool: %v", err)
-			}
-
-			toolResults = append(toolResults, ToolResult{
-				ToolCallID: toolCall.ID,
-				Content:    result,
-			})
-
-			sseWriter.WriteChunk(SSEEvent{
-				Type: "tool_result",
-				Data: map[string]interface{}{
-					"tool_name": toolCall.Function.Name,
-					"result":    result,
-				},
-			})
 		}
+
+		result, err := s.executeToolCall(ctx, toolCall, user)
+		if err != nil {
+			result = fmt.Sprintf("Error executing tool: %v", err)
+		}
+
+		toolResults = append(toolResults, ToolResult{
+			ToolCallID: toolCall.ID,
+			Content:    result,
+		})
+
+		sseWriter.WriteChunk(SSEEvent{
+			Type: "tool_result",
+			Data: map[string]interface{}{
+				"tool_name":    toolCall.Function.Name,
+				"result":       result,
+				"tool_call_id": toolCall.ID,
+			},
+		})
 	}
 
 	// Build new conversation history

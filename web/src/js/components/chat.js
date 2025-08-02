@@ -50,6 +50,11 @@ document.addEventListener('alpine:init', () => {
         ...message,
         timestamp: Date.now()
       });
+
+      // Limit history to 200 messages, keeping newest
+      if (this.messages.length > 200) {
+        this.messages = this.messages.slice(-200);
+      }
     },
 
     clearMessages() {
@@ -93,37 +98,69 @@ window.chatComponent = function() {
         content: userMessage
       });
 
-      const assistantMessageId = Date.now() + 1;
-      this.$store.chat.addMessage({
-        id: assistantMessageId,
-        role: 'assistant',
-        inThinking: false,
-        toolResults: [],
-        // Add structured content storage
-        fragments: {
-          thinking: '',
-          content: '',
-          toolResults: []
-        }
-      });
-
       this.isLoading = true;
       this.scrollToBottom();
 
       try {
+        // Prepare message history for API call (before adding assistant message)
+        const messageHistory = [];
+
+        for (const msg of this.messages) {
+          const historyMsg = {
+            role: msg.role,
+            content: msg.fragments ? msg.fragments.content.trim() : msg.content.trim(),
+            timestamp: msg.timestamp
+          };
+
+          // Include tool calls for assistant messages
+          if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+            historyMsg.tool_calls = msg.toolCalls;
+          }
+
+          messageHistory.push(historyMsg);
+
+          // Add tool results as separate tool messages for API context
+          if (msg.role === 'assistant' && msg.fragments && msg.fragments.toolResults) {
+            for (const toolResult of msg.fragments.toolResults) {
+              messageHistory.push({
+                role: 'tool',
+                content: toolResult.result.trim(),
+                tool_call_id: toolResult.tool_call_id,
+                timestamp: msg.timestamp
+              });
+            }
+          }
+        }
+
         const response = await fetch('/api/chat/stream', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            message: userMessage
+            messages: messageHistory
           })
         });
 
         if (!response.ok) {
           throw new Error('Failed to send message');
         }
+
+        // Add assistant message after successful request
+        const assistantMessageId = Date.now() + 1;
+        this.$store.chat.addMessage({
+          id: assistantMessageId,
+          role: 'assistant',
+          inThinking: false,
+          toolResults: [],
+          toolCalls: [],
+          // Add structured content storage
+          fragments: {
+            thinking: '',
+            content: '',
+            toolResults: []
+          }
+        });
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -170,6 +207,12 @@ window.chatComponent = function() {
                       buffer = '';
                     }
                   }
+                } else if (event.type === 'tool_calls') {
+                  // Store tool calls in assistant message
+                  if (!assistantMessage.toolCalls) {
+                    assistantMessage.toolCalls = [];
+                  }
+                  assistantMessage.toolCalls = event.data;
                 } else if (event.type === 'tool_result') {
                   if (!assistantMessage.toolResults) {
                     assistantMessage.toolResults = [];

@@ -3,13 +3,15 @@ package chat
 import "encoding/json"
 
 type ChatMessage struct {
-	Role      string `json:"role"` // "user", "assistant", "system"
-	Content   string `json:"content"`
-	Timestamp int64  `json:"timestamp"`
+	Role       string     `json:"role"` // "user", "assistant", "system", "tool"
+	Content    string     `json:"content"`
+	Timestamp  int64      `json:"timestamp"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
 }
 
 type ChatRequest struct {
-	Message string `json:"message"`
+	Messages []ChatMessage `json:"messages"`
 }
 
 type ToolCall struct {

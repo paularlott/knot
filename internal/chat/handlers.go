@@ -3,9 +3,9 @@ package chat
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
@@ -39,15 +39,16 @@ func HandleChatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages := []ChatMessage{
-		{
-			Role:      "user",
-			Content:   req.Message,
-			Timestamp: time.Now().Unix(),
-		},
+	if len(req.Messages) == 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
+			"error": "No messages provided",
+		})
+		return
 	}
 
-	err := chatService.StreamChat(r.Context(), messages, user, w, r)
+	util.PrettyPrintJSON(req.Messages)
+
+	err := chatService.StreamChat(r.Context(), req.Messages, user, w, r)
 	if err != nil {
 		// Don't create a new SSE writer here since StreamChat already handles SSE setup
 		// Just write a simple error response
