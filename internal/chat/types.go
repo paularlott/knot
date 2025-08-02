@@ -28,10 +28,17 @@ type ToolCallFunction struct {
 
 // Custom JSON marshaling for ToolCallFunction
 func (tcf ToolCallFunction) MarshalJSON() ([]byte, error) {
-	// Convert arguments map to JSON string
-	argsJSON, err := json.Marshal(tcf.Arguments)
-	if err != nil {
+	var argsJSON []byte
+	var err error
+
+	if tcf.Arguments == nil {
 		argsJSON = []byte("{}")
+	} else {
+		// Convert arguments map to JSON string
+		argsJSON, err = json.Marshal(tcf.Arguments)
+		if err != nil {
+			argsJSON = []byte("{}")
+		}
 	}
 
 	// Create a temporary struct for marshaling
