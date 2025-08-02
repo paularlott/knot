@@ -557,6 +557,32 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_TEMPERATURE"},
 			DefaultValue: 0.1,
 		},
+		&cli.StringFlag{
+			Name:       "chat-system-prompt",
+			Usage:      "System prompt for chat functionality.",
+			ConfigPath: []string{"server.chat.system_prompt"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_CHAT_SYSTEM_PROMPT"},
+			DefaultValue: `You are a helpful assistant for the cloud-based development environment, knot.
+
+You can help users manage their development spaces, start and stop space, and provide information about the system.
+
+You have access to tools that can:
+- List spaces and their details
+- Start and stop spaces
+- Get Docker/Podman specifications
+- Provide system information
+
+Guidelines for interactions:
+- When users ask about their spaces or want to perform actions, call the appropriate tools to help them
+- If a user asks you to create a Docker or Podman job, first call get_docker_podman_spec to get the latest specification, then use it to create the job specification
+- If a user asks you to interact with a space by name and you don't know the ID of the space, first call list_spaces to get the list of spaces including their names and IDs, then use the ID you find to interact with the space
+- If you can't find the ID of a space, tell the user that you don't know that space - don't guess
+- Always use the tools available to you rather than making assumptions about system state
+- Provide clear, helpful responses based on the actual results from tool calls
+- Do not show tool call JSON in your responses - just use the tools and provide helpful responses based on the results
+
+Be concise, accurate, and helpful in all interactions.`,
+		},
 
 		// DNS flags
 		&cli.BoolFlag{
@@ -1011,13 +1037,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			Model:         cmd.GetString("chat-model"),
 			MaxTokens:     cmd.GetInt("chat-max-tokens"),
 			Temperature:   cmd.GetFloat32("chat-temperature"),
-			SystemPrompt: `You are a helpful assistant for the cloud based development environment, knot.
-You can help users manage their development spaces, start and stop containers, and provide information about the system.
-You have access to tools that can list spaces, start spaces, and stop spaces.
-When users ask about their spaces or want to perform actions, call the appropriate tools to help them.
-If the user asks you to create a docker or podman job firstly call get_docker_podman_spec to get the latest spec, then use it to create the job specification.
-If the user asks you to interact with a space by name and you do knot know the ID of the space then 1st call list_spaces to get the list of spaces including their names and IDs, then use the ID you find to interact with the space, if you can't find the ID of the space then tell the user that you do not knot the space, don't guess.
-Do not show tool call JSON - just use the tools and provide helpful responses based on the results.`,
+			SystemPrompt:  cmd.GetString("chat-system-prompt"),
 		},
 	}
 
