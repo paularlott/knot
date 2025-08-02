@@ -147,9 +147,7 @@ window.chatComponent = function() {
         }
 
         // Add assistant message after successful request
-        const assistantMessageId = Date.now() + 1;
         this.$store.chat.addMessage({
-          id: assistantMessageId,
           role: 'assistant',
           inThinking: false,
           toolCalls: [],
@@ -162,7 +160,7 @@ window.chatComponent = function() {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let assistantMessage = this.messages.find(m => m.id === assistantMessageId);
+        let assistantMessage = this.messages[this.messages.length - 1];
         let buffer = '';
 
         while (true) {
@@ -228,8 +226,8 @@ window.chatComponent = function() {
         }
       } catch (error) {
         console.error('Chat error:', error);
-        const assistantMessage = this.messages.find(m => m.id === assistantMessageId);
-        if (assistantMessage) {
+        const assistantMessage = this.messages[this.messages.length - 1];
+        if (assistantMessage && assistantMessage.role === 'assistant') {
           assistantMessage.fragments.content = 'Sorry, I encountered an error. Please try again.';
         }
       } finally {
