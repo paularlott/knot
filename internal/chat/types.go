@@ -53,6 +53,32 @@ func (tcf ToolCallFunction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
+// Custom JSON unmarshaling for ToolCallFunction
+func (tcf *ToolCallFunction) UnmarshalJSON(data []byte) error {
+	// Create a temporary struct for unmarshaling
+	temp := struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	}{}
+
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	tcf.Name = temp.Name
+
+	// Parse arguments string back to map
+	if temp.Arguments == "" || temp.Arguments == "null" {
+		tcf.Arguments = make(map[string]interface{})
+	} else {
+		if err := json.Unmarshal([]byte(temp.Arguments), &tcf.Arguments); err != nil {
+			tcf.Arguments = make(map[string]interface{})
+		}
+	}
+
+	return nil
+}
+
 type ToolResult struct {
 	ToolCallID string `json:"tool_call_id"`
 	Content    string `json:"content"`
