@@ -1,5 +1,36 @@
 import Alpine from 'alpinejs';
 
+// Simple markdown processor for chat messages
+function processMarkdown(text) {
+  if (!text) return '';
+
+  return text
+    .trim() // Remove leading/trailing whitespace
+    // Code blocks (```language\ncode\n```)
+    .replace(/```(\w+)?\n([\s\S]*?)\n```/g, (match, lang, code) => {
+      const language = lang || 'text';
+      return `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded-md overflow-x-auto my-2"><code class="language-${language} text-sm">${escapeHtml(code.trim())}</code></pre>`;
+    })
+    // Inline code (`code`)
+    .replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+    // Bold (**text** or __text__)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.*?)__/g, '<strong>$1</strong>')
+    // Italic (*text* or _text_)
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/_(.*?)_/g, '<em>$1</em>')
+    // Links [text](url)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-500 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer">$1</a>')
+    // Line breaks
+    .replace(/\n/g, '<br>');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 document.addEventListener('alpine:init', () => {
   Alpine.store('chat', {
     isOpen: Alpine.$persist(false),
@@ -41,6 +72,11 @@ window.chatComponent = function() {
     isLoading: false,
     inputRows: 1,
 
+    // Markdown processing function
+    formatContent(content) {
+      return processMarkdown(content);
+    },
+
     close() {
       this.$store.chat.close();
     },
@@ -61,10 +97,14 @@ window.chatComponent = function() {
       this.$store.chat.addMessage({
         id: assistantMessageId,
         role: 'assistant',
-        content: '',
-        thinking: '',
         inThinking: false,
-        toolResults: []
+        toolResults: [],
+        // Add structured content storage
+        fragments: {
+          thinking: '',
+          content: '',
+          toolResults: []
+        }
       });
 
       this.isLoading = true;
@@ -111,19 +151,21 @@ window.chatComponent = function() {
                   while (buffer.length > 0) {
                     if (!assistantMessage.inThinking && buffer.includes('<think>')) {
                       const idx = buffer.indexOf('<think>');
-                      assistantMessage.content += buffer.substring(0, idx);
+                      const contentPart = buffer.substring(0, idx);
+                      assistantMessage.fragments.content += contentPart;
                       assistantMessage.inThinking = true;
                       buffer = buffer.substring(idx + 7);
                     } else if (assistantMessage.inThinking && buffer.includes('</think>')) {
                       const idx = buffer.indexOf('</think>');
-                      assistantMessage.thinking += buffer.substring(0, idx);
+                      const thinkingPart = buffer.substring(0, idx);
+                      assistantMessage.fragments.thinking += thinkingPart;
                       assistantMessage.inThinking = false;
                       buffer = buffer.substring(idx + 8);
                     } else {
                       if (assistantMessage.inThinking) {
-                        assistantMessage.thinking += buffer;
+                        assistantMessage.fragments.thinking += buffer;
                       } else {
-                        assistantMessage.content += buffer;
+                        assistantMessage.fragments.content += buffer;
                       }
                       buffer = '';
                     }
@@ -133,8 +175,9 @@ window.chatComponent = function() {
                     assistantMessage.toolResults = [];
                   }
                   assistantMessage.toolResults.push(event.data);
+                  assistantMessage.fragments.toolResults.push(event.data);
                 } else if (event.type === 'error') {
-                  assistantMessage.content = 'Error: ' + event.data.error;
+                  assistantMessage.fragments.content = 'Error: ' + event.data.error;
                 } else if (event.type === 'done') {
                   break;
                 }
@@ -150,36 +193,12 @@ window.chatComponent = function() {
         console.error('Chat error:', error);
         const assistantMessage = this.messages.find(m => m.id === assistantMessageId);
         if (assistantMessage) {
-          assistantMessage.content = 'Sorry, I encountered an error. Please try again.';
+          assistantMessage.fragments.content = 'Sorry, I encountered an error. Please try again.';
         }
       } finally {
         this.isLoading = false;
         this.focusInput();
       }
-    },
-
-    formatMessage(content) {
-      return content
-        .replace(/<think>[\s\S]*?<\/think>/g, '')
-        .replace(/^\s+/, '')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        // Handle triple backtick code blocks first
-        .replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-200 dark:bg-gray-600 p-2 rounded overflow-x-auto"><code>$1</code></pre>')
-        // Then handle single backtick inline code
-        .replace(/`(.*?)`/g, '<code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">$1</code>')
-        .replace(/\n/g, '<br>')
-        .replace(/^(<br>\s*)+/, '');
-    },
-
-    extractThinking(content) {
-      const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
-      const match = thinkRegex.exec(content);
-      return match ? match[1].trim() : null;
-    },
-
-    removeThinking(content) {
-      return content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
     },
 
     scrollToBottom() {
@@ -207,7 +226,7 @@ window.chatComponent = function() {
           const style = getComputedStyle(input);
           const lineHeight = parseInt(style.lineHeight);
           const padding = parseInt(style.paddingTop) + parseInt(style.paddingBottom);
-          
+
           const savedRows = input.rows;
           input.rows = 1;
           input.style.height = 'auto';
@@ -219,7 +238,7 @@ window.chatComponent = function() {
         }
       });
     },
-    
+
     handleKeyDown(event) {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
