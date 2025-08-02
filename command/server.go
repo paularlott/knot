@@ -676,7 +676,7 @@ var ServerCmd = &cli.Command{
 		mcpServer := mcp.InitializeMCPServer(routes)
 
 		// Initialize chat service with config
-		chatConfig := chat.ChatConfig{
+		chatConfig := config.ChatConfig{
 			OpenAIAPIKey:  cfg.Chat.OpenAIAPIKey,
 			OpenAIBaseURL: cfg.Chat.OpenAIBaseURL,
 			Model:         cfg.Chat.Model,
