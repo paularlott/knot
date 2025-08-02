@@ -548,7 +548,14 @@ var ServerCmd = &cli.Command{
 			Usage:        "Maximum tokens for chat responses.",
 			ConfigPath:   []string{"server.chat.max_tokens"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_MAX_TOKENS"},
-			DefaultValue: 4096,
+			DefaultValue: 8192,
+		},
+		&cli.Float32Flag{
+			Name:         "chat-temperature",
+			Usage:        "Temperature for chat responses.",
+			ConfigPath:   []string{"server.chat.temperature"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_TEMPERATURE"},
+			DefaultValue: 0.1,
 		},
 
 		// DNS flags
@@ -676,15 +683,7 @@ var ServerCmd = &cli.Command{
 		mcpServer := mcp.InitializeMCPServer(routes)
 
 		// Initialize chat service with config
-		chatConfig := config.ChatConfig{
-			OpenAIAPIKey:  cfg.Chat.OpenAIAPIKey,
-			OpenAIBaseURL: cfg.Chat.OpenAIBaseURL,
-			Model:         cfg.Chat.Model,
-			MaxTokens:     cfg.Chat.MaxTokens,
-			Temperature:   cfg.Chat.Temperature,
-			SystemPrompt:  cfg.Chat.SystemPrompt,
-		}
-		chatService, err := chat.NewService(chatConfig, mcpServer)
+		chatService, err := chat.NewService(cfg.Chat, mcpServer)
 		if err != nil {
 			log.Fatal().Msgf("server: failed to create chat service: %s", err.Error())
 		}
@@ -1011,7 +1010,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			OpenAIBaseURL: cmd.GetString("chat-openai-base-url"),
 			Model:         cmd.GetString("chat-model"),
 			MaxTokens:     cmd.GetInt("chat-max-tokens"),
-			Temperature:   0.7,
+			Temperature:   cmd.GetFloat32("chat-temperature"),
 			SystemPrompt: `You are a helpful assistant for the cloud based development environment, knot.
 You can help users manage their development spaces, start and stop containers, and provide information about the system.
 You have access to tools that can list spaces, start spaces, and stop spaces.
