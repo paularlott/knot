@@ -33,8 +33,8 @@ function escapeHtml(text) {
 
 document.addEventListener('alpine:init', () => {
   Alpine.store('chat', {
-    isOpen: Alpine.$persist(false),
-    messages: Alpine.$persist([]),
+    isOpen: Alpine.$persist(false).using(sessionStorage),
+    messages: Alpine.$persist([]).using(sessionStorage),
 
     toggle() {
       this.isOpen = !this.isOpen;
