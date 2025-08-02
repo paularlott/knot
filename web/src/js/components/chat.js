@@ -5,7 +5,7 @@ function processMarkdown(text) {
   if (!text) return '';
 
   return text
-    .trim() // Remove leading/trailing whitespace
+    .trim()
     // Code blocks (```language\ncode\n```)
     .replace(/```(\w+)?\n([\s\S]*?)\n```/g, (match, lang, code) => {
       const language = lang || 'text';
@@ -77,13 +77,90 @@ window.chatComponent = function() {
     isLoading: false,
     inputRows: 1,
 
-    // Markdown processing function
     formatContent(content) {
       return processMarkdown(content);
     },
 
     close() {
       this.$store.chat.close();
+    },
+
+    prepareMessageHistory() {
+      const messageHistory = [];
+
+      for (const msg of this.messages) {
+        const historyMsg = {
+          role: msg.role,
+          content: msg.fragments ? msg.fragments.content.trim() : msg.content.trim(),
+          timestamp: msg.timestamp
+        };
+
+        // Include tool calls for assistant messages
+        if (msg.role === 'assistant' && msg.toolCalls?.length > 0) {
+          historyMsg.tool_calls = msg.toolCalls;
+        }
+
+        messageHistory.push(historyMsg);
+
+        // Add tool results as separate tool messages for API context
+        if (msg.role === 'assistant' && msg.fragments?.toolResults) {
+          for (const toolResult of msg.fragments.toolResults) {
+            messageHistory.push({
+              role: 'tool',
+              content: toolResult.result.trim(),
+              tool_call_id: toolResult.tool_call_id,
+              timestamp: msg.timestamp
+            });
+          }
+        }
+      }
+
+      return messageHistory;
+    },
+
+    processContentBuffer(buffer, assistantMessage) {
+      while (buffer.length > 0) {
+        if (!assistantMessage.inThinking && buffer.includes('<think>')) {
+          const idx = buffer.indexOf('<think>');
+          assistantMessage.fragments.content += buffer.substring(0, idx);
+          assistantMessage.inThinking = true;
+          buffer = buffer.substring(idx + 7);
+        } else if (assistantMessage.inThinking && buffer.includes('</think>')) {
+          const idx = buffer.indexOf('</think>');
+          assistantMessage.fragments.thinking += buffer.substring(0, idx);
+          assistantMessage.inThinking = false;
+          buffer = buffer.substring(idx + 8);
+        } else {
+          const target = assistantMessage.inThinking ? 'thinking' : 'content';
+          assistantMessage.fragments[target] += buffer;
+          buffer = '';
+        }
+      }
+      return buffer;
+    },
+
+    handleStreamEvent(event, assistantMessage, buffer) {
+      switch (event.type) {
+        case 'content':
+          buffer += event.data;
+          return this.processContentBuffer(buffer, assistantMessage);
+
+        case 'tool_calls':
+          assistantMessage.toolCalls = event.data;
+          break;
+
+        case 'tool_result':
+          assistantMessage.fragments.toolResults.push(event.data);
+          break;
+
+        case 'error':
+          assistantMessage.fragments.content = 'Error: ' + event.data.error;
+          break;
+
+        case 'done':
+          break;
+      }
+      return buffer;
     },
 
     async sendMessage() {
@@ -102,44 +179,12 @@ window.chatComponent = function() {
       this.scrollToBottom();
 
       try {
-        // Prepare message history for API call (before adding assistant message)
-        const messageHistory = [];
-
-        for (const msg of this.messages) {
-          const historyMsg = {
-            role: msg.role,
-            content: msg.fragments ? msg.fragments.content.trim() : msg.content.trim(),
-            timestamp: msg.timestamp
-          };
-
-          // Include tool calls for assistant messages
-          if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
-            historyMsg.tool_calls = msg.toolCalls;
-          }
-
-          messageHistory.push(historyMsg);
-
-          // Add tool results as separate tool messages for API context
-          if (msg.role === 'assistant' && msg.fragments && msg.fragments.toolResults) {
-            for (const toolResult of msg.fragments.toolResults) {
-              messageHistory.push({
-                role: 'tool',
-                content: toolResult.result.trim(),
-                tool_call_id: toolResult.tool_call_id,
-                timestamp: msg.timestamp
-              });
-            }
-          }
-        }
+        const messageHistory = this.prepareMessageHistory();
 
         const response = await fetch('/api/chat/stream', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            messages: messageHistory
-          })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: messageHistory })
         });
 
         if (!response.ok) {
@@ -158,81 +203,48 @@ window.chatComponent = function() {
           }
         });
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let assistantMessage = this.messages[this.messages.length - 1];
-        let buffer = '';
+        await this.processStreamResponse(response);
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') continue;
-
-              try {
-                const event = JSON.parse(data);
-
-                if (event.type === 'content') {
-                  buffer += event.data;
-
-                  while (buffer.length > 0) {
-                    if (!assistantMessage.inThinking && buffer.includes('<think>')) {
-                      const idx = buffer.indexOf('<think>');
-                      const contentPart = buffer.substring(0, idx);
-                      assistantMessage.fragments.content += contentPart;
-                      assistantMessage.inThinking = true;
-                      buffer = buffer.substring(idx + 7);
-                    } else if (assistantMessage.inThinking && buffer.includes('</think>')) {
-                      const idx = buffer.indexOf('</think>');
-                      const thinkingPart = buffer.substring(0, idx);
-                      assistantMessage.fragments.thinking += thinkingPart;
-                      assistantMessage.inThinking = false;
-                      buffer = buffer.substring(idx + 8);
-                    } else {
-                      if (assistantMessage.inThinking) {
-                        assistantMessage.fragments.thinking += buffer;
-                      } else {
-                        assistantMessage.fragments.content += buffer;
-                      }
-                      buffer = '';
-                    }
-                  }
-                } else if (event.type === 'tool_calls') {
-                  // Store tool calls in assistant message
-                  if (!assistantMessage.toolCalls) {
-                    assistantMessage.toolCalls = [];
-                  }
-                  assistantMessage.toolCalls = event.data;
-                } else if (event.type === 'tool_result') {
-                  assistantMessage.fragments.toolResults.push(event.data);
-                } else if (event.type === 'error') {
-                  assistantMessage.fragments.content = 'Error: ' + event.data.error;
-                } else if (event.type === 'done') {
-                  break;
-                }
-              } catch (e) {
-                console.error('Error parsing SSE data:', e);
-              }
-            }
-          }
-
-          this.scrollToBottom();
-        }
       } catch (error) {
         console.error('Chat error:', error);
-        const assistantMessage = this.messages[this.messages.length - 1];
-        if (assistantMessage && assistantMessage.role === 'assistant') {
-          assistantMessage.fragments.content = 'Sorry, I encountered an error. Please try again.';
+        const lastMessage = this.messages[this.messages.length - 1];
+        if (lastMessage?.role === 'assistant') {
+          lastMessage.fragments.content = 'Sorry, I encountered an error. Please try again.';
         }
       } finally {
         this.isLoading = false;
         this.focusInput();
+      }
+    },
+
+    async processStreamResponse(response) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const assistantMessage = this.messages[this.messages.length - 1];
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const event = JSON.parse(data);
+            buffer = this.handleStreamEvent(event, assistantMessage, buffer);
+          } catch (e) {
+            console.error('Error parsing SSE data:', e);
+          }
+        }
+
+        this.scrollToBottom();
       }
     },
 
@@ -247,30 +259,27 @@ window.chatComponent = function() {
 
     focusInput() {
       this.$nextTick(() => {
-        const input = this.$refs.messageInput;
-        if (input) {
-          input.focus();
-        }
+        this.$refs.messageInput?.focus();
       });
     },
 
     adjustInputSize() {
       this.$nextTick(() => {
         const input = this.$refs.messageInput;
-        if (input) {
-          const style = getComputedStyle(input);
-          const lineHeight = parseInt(style.lineHeight);
-          const padding = parseInt(style.paddingTop) + parseInt(style.paddingBottom);
+        if (!input) return;
 
-          const savedRows = input.rows;
-          input.rows = 1;
-          input.style.height = 'auto';
-          const scrollHeight = input.scrollHeight;
-          const neededRows = Math.min(Math.max(1, Math.ceil((scrollHeight - padding) / lineHeight)), 8);
-          input.rows = savedRows;
-          this.inputRows = neededRows;
-          input.style.height = '';
-        }
+        const style = getComputedStyle(input);
+        const lineHeight = parseInt(style.lineHeight);
+        const padding = parseInt(style.paddingTop) + parseInt(style.paddingBottom);
+
+        const savedRows = input.rows;
+        input.rows = 1;
+        input.style.height = 'auto';
+        const scrollHeight = input.scrollHeight;
+        const neededRows = Math.min(Math.max(1, Math.ceil((scrollHeight - padding) / lineHeight)), 8);
+        input.rows = savedRows;
+        this.inputRows = neededRows;
+        input.style.height = '';
       });
     },
 
@@ -293,9 +302,7 @@ window.chatComponent = function() {
 
       // Scroll to bottom when component initializes and has messages
       if (this.isOpen && this.messages.length > 0) {
-        setTimeout(() => {
-          this.scrollToBottom();
-        }, 200);
+        setTimeout(() => this.scrollToBottom(), 200);
       }
     }
   };
