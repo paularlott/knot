@@ -9,10 +9,10 @@ function processMarkdown(text) {
     // Code blocks (```language\ncode\n```)
     .replace(/```(\w+)?\n([\s\S]*?)\n```/g, (match, lang, code) => {
       const language = lang || 'text';
-      return `<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded-md overflow-x-auto my-2"><code class="language-${language} text-sm">${escapeHtml(code.trim())}</code></pre>`;
+      return `<pre class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 p-3 rounded-md overflow-x-auto my-2"><code class="language-${language} text-sm">${escapeHtml(code.trim())}</code></pre>`;
     })
     // Inline code (`code`)
-    .replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+    .replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
     // Bold (**text** or __text__)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.*?)__/g, '<strong>$1</strong>')
