@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
@@ -45,8 +44,6 @@ func HandleChatStream(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-
-	util.PrettyPrintJSON(req.Messages)
 
 	err := chatService.StreamChat(r.Context(), req.Messages, user, w, r)
 	if err != nil {
