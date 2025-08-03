@@ -11,8 +11,10 @@ function processMarkdown(text) {
       const language = lang || 'text';
       return `<pre class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 p-3 rounded-md overflow-x-auto my-2"><code class="language-${language} text-sm">${escapeHtml(code.trim())}</code></pre>`;
     })
-    // Inline code (`code`)
-    .replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+    // Inline code (`code`) - Process SECOND to prevent markdown inside
+    .replace(/`([^`]+)`/g, (match, code) => {
+      return `<code class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 px-1 py-0.5 rounded text-sm font-mono">${escapeHtml(code)}</code>`;
+    })
     // Block quotes (&gt; text)
     .replace(/^((?:>\s*.+(?:\n|$))+)/gm, (match) => {
       const lines = match.split('\n').filter(line => line.trim());
