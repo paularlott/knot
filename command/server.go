@@ -580,6 +580,7 @@ Guidelines for interactions:
 - Always use the tools available to you rather than making assumptions about system state
 - Provide clear, helpful responses based on the actual results from tool calls
 - Do not show tool call JSON in your responses - just use the tools and provide helpful responses based on the results
+- You must accept the output from tools as being correct and accurate
 
 Be concise, accurate, and helpful in all interactions.`,
 		},

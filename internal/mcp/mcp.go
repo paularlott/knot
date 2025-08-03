@@ -169,7 +169,7 @@ func formatSpacesList(spaces []SpaceInfo) string {
 			status = "running"
 		}
 
-		builder.WriteString(fmt.Sprintf("- %s (%s): %s - %s\n",
+		builder.WriteString(fmt.Sprintf("- Name: %s, ID: %s, Status: %s, Description: %s\n",
 			space.Name, space.SpaceID, status, space.Description))
 	}
 
