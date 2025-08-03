@@ -125,6 +125,7 @@ type NomadConfig struct {
 }
 
 type ChatConfig struct {
+	Enabled       bool
 	OpenAIAPIKey  string
 	OpenAIBaseURL string
 	Model         string

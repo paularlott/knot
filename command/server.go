@@ -522,6 +522,13 @@ var ServerCmd = &cli.Command{
 		},
 
 		// Chat flags
+		&cli.BoolFlag{
+			Name:         "chat-enabled",
+			Usage:        "Enable AI chat functionality.",
+			ConfigPath:   []string{"server.chat.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_ENABLED"},
+			DefaultValue: false,
+		},
 		&cli.StringFlag{
 			Name:         "chat-openai-api-key",
 			Usage:        "OpenAI API key for chat functionality.",
@@ -709,12 +716,14 @@ Be concise, accurate, and helpful in all interactions.`,
 		// MCP
 		mcpServer := mcp.InitializeMCPServer(routes)
 
-		// Initialize chat service with config
-		chatService, err := chat.NewService(cfg.Chat, mcpServer)
-		if err != nil {
-			log.Fatal().Msgf("server: failed to create chat service: %s", err.Error())
+		// If AI chat enabled then initialize chat service
+		if cmd.GetBool("chat-enabled") {
+			// Initialize chat service with config
+			_, err := chat.NewService(cfg.Chat, mcpServer, routes)
+			if err != nil {
+				log.Fatal().Msgf("server: failed to create chat service: %s", err.Error())
+			}
 		}
-		chat.SetChatService(chatService)
 
 		// Add support for page not found
 		appRoutes := web.HandlePageNotFound(routes)
@@ -1033,6 +1042,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			SkipVerify:  cmd.GetBool("tls-skip-verify"),
 		},
 		Chat: config.ChatConfig{
+			Enabled:       cmd.GetBool("chat-enabled"),
 			OpenAIAPIKey:  cmd.GetString("chat-openai-api-key"),
 			OpenAIBaseURL: cmd.GetString("chat-openai-base-url"),
 			Model:         cmd.GetString("chat-model"),

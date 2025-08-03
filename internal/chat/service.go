@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/mcp"
@@ -26,7 +28,7 @@ type Service struct {
 	restClient *rest.RESTClient
 }
 
-func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, error) {
+func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.ServeMux) (*Service, error) {
 	restClient, err := rest.NewClient(config.OpenAIBaseURL, config.OpenAIAPIKey, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create REST client: %w", err)
@@ -34,15 +36,20 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, erro
 	restClient.SetTimeout(60 * time.Second)
 	restClient.SetTokenFormat("Bearer %s")
 
-	return &Service{
+	chatService := &Service{
 		config:     config,
 		mcpServer:  mcpServer,
 		httpTools:  []HTTPTool{},
 		restClient: restClient,
-	}, nil
+	}
+
+	// Chat
+	router.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(chatService.HandleChatStream))
+
+	return chatService, nil
 }
 
-func (s *Service) StreamChat(ctx context.Context, messages []ChatMessage, user *model.User, w http.ResponseWriter, r *http.Request) error {
+func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *model.User, w http.ResponseWriter, r *http.Request) error {
 	if len(messages) == 0 {
 		return nil
 	}
@@ -372,11 +379,12 @@ func (s *Service) executeToolCall(ctx context.Context, toolCall ToolCall, user *
 
 	fmt.Println("Executing tool", toolCall.Function.Name, toolCall.Function.Arguments)
 
-	// Check if it's an MCP tool
-	mcpTools := []string{"list_spaces", "start_space", "stop_space", "get_docker_podman_spec"}
-	for _, mcpTool := range mcpTools {
-		if toolCall.Function.Name == mcpTool {
-			return s.executeMCPTool(ctx, toolCall, user)
+	// Try MCP tool first
+	if s.mcpServer != nil {
+		if result, err := s.executeMCPTool(ctx, toolCall, user); err == nil {
+			if !errors.Is(err, mcp.ErrUnknownTool) {
+				return result, nil
+			}
 		}
 	}
 
@@ -391,10 +399,6 @@ func (s *Service) executeToolCall(ctx context.Context, toolCall ToolCall, user *
 }
 
 func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *model.User) (string, error) {
-	if s.mcpServer == nil {
-		return "", fmt.Errorf("MCP server not available")
-	}
-
 	// Add user to context for MCP server
 	ctxWithUser := context.WithValue(ctx, "user", user)
 
@@ -454,4 +458,35 @@ func (s *Service) executeHTTPTool(ctx context.Context, tool HTTPTool, args map[s
 
 func (s *Service) AddHTTPTool(tool HTTPTool) {
 	s.httpTools = append(s.httpTools, tool)
+}
+
+func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+	if user == nil {
+		rest.WriteResponse(http.StatusUnauthorized, w, r, map[string]string{
+			"error": "User not found",
+		})
+		return
+	}
+
+	var req ChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
+			"error": "Invalid request body",
+		})
+		return
+	}
+
+	if len(req.Messages) == 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
+			"error": "No messages provided",
+		})
+		return
+	}
+
+	err := s.streamChat(r.Context(), req.Messages, user, w, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
