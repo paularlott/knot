@@ -13,6 +13,28 @@ function processMarkdown(text) {
     })
     // Inline code (`code`)
     .replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+    // Block quotes (&gt; text)
+    .replace(/^((?:>\s*.+(?:\n|$))+)/gm, (match) => {
+      const lines = match.split('\n').filter(line => line.trim());
+      const content = lines.map(line => line.replace(/^>\s?/, '')).join('\n');
+      return `<blockquote class="border-l-4 border-gray-300 dark:border-gray-600 pl-4 py-2 my-2 bg-gray-50 dark:bg-gray-800 italic text-gray-700 dark:text-gray-300">${processNestedMarkdown(content)}</blockquote>`;
+    })
+    // Process lists (both ordered and unordered with nesting)
+    .replace(/^((?:[ \t]*(?:\d+\.|\*|\+|\-)\s+.+(?:\n|$))+)/gm, (match) => {
+      return processLists(match);
+    })
+    // Horizontal rules (--- or ***)
+    .replace(/^---\s*$/gm, '<hr class="border-t border-gray-300 dark:border-gray-600 my-4">')
+    .replace(/^\*\*\*$/gm, '<hr class="border-t border-gray-300 dark:border-gray-600 my-4">')
+    // Headings (# ## ### #### ##### ######)
+    .replace(/^######\s+(.+)$/gm, '<h6 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2">$1</h6>')
+    .replace(/^#####\s+(.+)$/gm, '<h5 class="text-base font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2">$1</h5>')
+    .replace(/^####\s+(.+)$/gm, '<h4 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2">$1</h4>')
+    .replace(/^###\s+(.+)$/gm, '<h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2">$1</h3>')
+    .replace(/^##\s+(.+)$/gm, '<h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2">$1</h2>')
+    .replace(/^#\s+(.+)$/gm, '<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-4 mb-2">$1</h1>')
+    // Strikethrough (~~text~~)
+    .replace(/~~(.*?)~~/g, '<del>$1</del>')
     // Bold (**text** or __text__)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.*?)__/g, '<strong>$1</strong>')
@@ -23,6 +45,84 @@ function processMarkdown(text) {
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-500 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer">$1</a>')
     // Line breaks
     .replace(/\n/g, '<br>');
+}
+
+// Helper function to process nested markdown (for blockquotes)
+function processNestedMarkdown(text) {
+  return text
+    // Bold (**text** or __text__)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__(.*?)__/g, '<strong>$1</strong>')
+    // Italic (*text* or _text_)
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/_(.*?)_/g, '<em>$1</em>')
+    // Inline code (`code`)
+    .replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
+    // Links [text](url)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-500 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer">$1</a>')
+    // Line breaks
+    .replace(/\n/g, '<br>');
+}
+
+// Helper function to process lists with nesting support
+function processLists(text) {
+  const lines = text.split('\n').filter(line => line.trim());
+  const result = [];
+  const stack = []; // Will store objects with {type, level}
+
+  for (const line of lines) {
+    const match = line.match(/^(\s*)(\d+\.|\*|\+|\-)\s+(.+)$/);
+    if (!match) continue;
+
+    const [, indent, marker, content] = match;
+    const level = Math.floor(indent.length / 2); // 2 spaces per level
+    const isOrdered = /^\d+\./.test(marker);
+    const listType = isOrdered ? 'ol' : 'ul';
+
+    // Close lists that are at deeper or equal levels when moving to a shallower level
+    // OR when switching list types at the same level
+    while (stack.length > 0 &&
+           (stack[stack.length - 1].level > level ||
+            (stack[stack.length - 1].level === level && stack[stack.length - 1].type !== listType))) {
+      const item = stack.pop();
+      result.push(`</li></${item.type}>`);
+    }
+
+    // If we need to open a new list (either first list or going deeper)
+    if (stack.length === 0 || stack[stack.length - 1].level < level) {
+      let listClass;
+      if (isOrdered) {
+        // Use different numbering styles for different nesting levels
+        const numberingStyles = ['decimal', 'lower-alpha', 'lower-roman', 'decimal'];
+        const styleIndex = level % numberingStyles.length;
+        listClass = `space-y-1 my-2 pl-6`;
+        result.push(`<${listType} class="${listClass}" style="list-style-type: ${numberingStyles[styleIndex]};">`);
+      } else {
+        // Use different bullet styles for different nesting levels
+        const bulletStyles = ['disc', 'circle', 'square', 'disc'];
+        const styleIndex = level % bulletStyles.length;
+        listClass = `space-y-1 my-2 pl-6`;
+        result.push(`<${listType} class="${listClass}" style="list-style-type: ${bulletStyles[styleIndex]};">`);
+      }
+
+      stack.push({ type: listType, level });
+    } else if (stack.length > 0 && stack[stack.length - 1].level === level) {
+      // Same level, close previous list item
+      result.push('</li>');
+    }
+
+    // Add the new list item
+    const processedContent = processNestedMarkdown(content);
+    result.push(`<li>${processedContent}`);
+  }
+
+  // Close all remaining open lists
+  while (stack.length > 0) {
+    const item = stack.pop();
+    result.push(`</li></${item.type}>`);
+  }
+
+  return result.join('');
 }
 
 function escapeHtml(text) {

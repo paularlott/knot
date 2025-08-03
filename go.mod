@@ -19,10 +19,10 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
-	github.com/miekg/dns v1.1.67
+	github.com/miekg/dns v1.1.68
 	github.com/paularlott/cli v0.2.3
 	github.com/paularlott/gossip v0.3.0
-	github.com/paularlott/mcp v0.0.0-20250730163138-363a35569094
+	github.com/paularlott/mcp v0.0.0-20250803173146-24c9636c0fb3
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/rs/zerolog v1.34.0
@@ -85,6 +85,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	golang.org/x/image v0.29.0 // indirect
 	golang.org/x/mod v0.26.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
 	golang.org/x/tools v0.35.0 // indirect
