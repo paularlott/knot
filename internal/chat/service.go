@@ -377,8 +377,6 @@ func (s *Service) getMCPTools(ctx context.Context, user *model.User) ([]OpenAITo
 
 func (s *Service) executeToolCall(ctx context.Context, toolCall ToolCall, user *model.User) (string, error) {
 
-	fmt.Println("Executing tool", toolCall.Function.Name, toolCall.Function.Arguments)
-
 	// Try MCP tool first
 	if s.mcpServer != nil {
 		if result, err := s.executeMCPTool(ctx, toolCall, user); err == nil {
