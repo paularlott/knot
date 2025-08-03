@@ -4,17 +4,27 @@ import Alpine from 'alpinejs';
 function processMarkdown(text) {
   if (!text) return '';
 
-  return text
+  // First, let's protect code blocks by replacing them with placeholders
+  const codeBlocks = [];
+  const inlineCodeBlocks = [];
+
+  // Extract and protect fenced code blocks first
+  text = text.replace(/```[\s\S]*?```/g, (match) => {
+    const placeholder = `CODEBLOCK${codeBlocks.length}PLACEHOLDER`;
+    codeBlocks.push(match);
+    return placeholder;
+  });
+
+  // Extract and protect inline code blocks
+  text = text.replace(/`[^`\n]+`/g, (match) => {
+    const placeholder = `INLINECODE${inlineCodeBlocks.length}PLACEHOLDER`;
+    inlineCodeBlocks.push(match);
+    return placeholder;
+  });
+
+  // Now process all other markdown
+  text = text
     .trim()
-    // Code blocks (```language\ncode\n```)
-    .replace(/```(\w+)?\n([\s\S]*?)\n```/g, (match, lang, code) => {
-      const language = lang || 'text';
-      return `<pre class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 p-3 rounded-md overflow-x-auto my-2"><code class="language-${language} text-sm">${escapeHtml(code.trim())}</code></pre>`;
-    })
-    // Inline code (`code`) - Process SECOND to prevent markdown inside
-    .replace(/`([^`]+)`/g, (match, code) => {
-      return `<code class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 px-1 py-0.5 rounded text-sm font-mono">${escapeHtml(code)}</code>`;
-    })
     // Block quotes (&gt; text)
     .replace(/^((?:>\s*.+(?:\n|$))+)/gm, (match) => {
       const lines = match.split('\n').filter(line => line.trim());
@@ -47,6 +57,28 @@ function processMarkdown(text) {
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-500 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer">$1</a>')
     // Line breaks
     .replace(/\n/g, '<br>');
+
+  // Restore inline code blocks
+  inlineCodeBlocks.forEach((code, index) => {
+    const placeholder = `INLINECODE${index}PLACEHOLDER`;
+    const codeContent = code.slice(1, -1); // Remove backticks
+    const replacement = `<code class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 px-1 py-0.5 rounded text-sm font-mono">${escapeHtml(codeContent)}</code>`;
+    text = text.replace(placeholder, replacement);
+  });
+
+  // Restore fenced code blocks
+  codeBlocks.forEach((code, index) => {
+    const placeholder = `CODEBLOCK${index}PLACEHOLDER`;
+    const match = code.match(/```(\w+)?\s*([\s\S]*?)\s*```/);
+    if (match) {
+      const [, lang, codeContent] = match;
+      const language = lang || 'text';
+      const replacement = `<pre class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 p-3 rounded-md overflow-x-auto my-2"><code class="language-${language} text-sm">${escapeHtml(codeContent.trim())}</code></pre>`;
+      text = text.replace(placeholder, replacement);
+    }
+  });
+
+  return text;
 }
 
 // Helper function to process nested markdown (for blockquotes)
