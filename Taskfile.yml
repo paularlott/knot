@@ -277,7 +277,8 @@ tasks:
       - npx @redocly/cli build-docs --output ./web/public_html/api-docs/index.html --config ./redocly-config.yaml --disableGoogleFont
       - sed -i.bak 's|<script src="https.*</script>||g' ./web/public_html/api-docs/index.html && rm ./web/public_html/api-docs/index.html.bak
     sources:
-      - internal/api/spec/knot-openapi.yaml # Adjust if spec file is different
+      - internal/api/spec/knot-openapi.yaml
+      - internal/api/spec/chat.yaml
       - redocly-config.yaml
     generates:
       - ./web/public_html/api-docs/index.html

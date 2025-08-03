@@ -33,6 +33,7 @@ import './pages/usageComponent.js';
 import './pages/tunnelsListComponent.js';
 import './pages/auditLogComponent.js';
 import './pages/clusterInfoComponent.js';
+import './components/chat.js';
 
 window.Alpine = Alpine;
 Alpine.plugin(persist);

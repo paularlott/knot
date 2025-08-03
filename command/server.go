@@ -18,6 +18,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/api"
 	"github.com/paularlott/knot/internal/api/api_utils"
+	"github.com/paularlott/knot/internal/chat"
 	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
@@ -520,6 +521,77 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "unix:///var/run/podman.sock",
 		},
 
+		// Chat flags
+		&cli.BoolFlag{
+			Name:         "chat-enabled",
+			Usage:        "Enable AI chat functionality.",
+			ConfigPath:   []string{"server.chat.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_ENABLED"},
+			DefaultValue: false,
+		},
+		&cli.StringFlag{
+			Name:         "chat-openai-api-key",
+			Usage:        "OpenAI API key for chat functionality.",
+			ConfigPath:   []string{"server.chat.openai_api_key"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_API_KEY"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "chat-openai-base-url",
+			Usage:        "OpenAI API base URL for chat functionality.",
+			ConfigPath:   []string{"server.chat.openai_base_url"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_BASE_URL"},
+			DefaultValue: "http://127.0.0.1:11434/v1",
+		},
+		&cli.StringFlag{
+			Name:         "chat-model",
+			Usage:        "OpenAI model to use for chat.",
+			ConfigPath:   []string{"server.chat.model"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_MODEL"},
+			DefaultValue: "qwen2.5-coder:14b",
+		},
+		&cli.IntFlag{
+			Name:         "chat-max-tokens",
+			Usage:        "Maximum tokens for chat responses.",
+			ConfigPath:   []string{"server.chat.max_tokens"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_MAX_TOKENS"},
+			DefaultValue: 8192,
+		},
+		&cli.Float32Flag{
+			Name:         "chat-temperature",
+			Usage:        "Temperature for chat responses.",
+			ConfigPath:   []string{"server.chat.temperature"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_TEMPERATURE"},
+			DefaultValue: 0.1,
+		},
+		&cli.StringFlag{
+			Name:       "chat-system-prompt",
+			Usage:      "System prompt for chat functionality.",
+			ConfigPath: []string{"server.chat.system_prompt"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_CHAT_SYSTEM_PROMPT"},
+			DefaultValue: `You are a helpful assistant for the cloud-based development environment, knot.
+
+You can help users manage their development spaces, start and stop space, and provide information about the system.
+
+You have access to tools that can:
+- List spaces and their details
+- Start and stop spaces
+- Get Docker/Podman specifications
+- Provide system information
+
+Guidelines for interactions:
+- When users ask about their spaces or want to perform actions, call the appropriate tools to help them
+- If a user asks you to create a Docker or Podman job, first call get_docker_podman_spec to get the latest specification, then use it to create the job specification
+- If a user asks you to interact with a space by name and you don't know the ID of the space, first call list_spaces to get the list of spaces including their names and IDs, then use the ID you find to interact with the space
+- If you can't find the ID of a space, tell the user that you don't know that space - don't guess
+- Always use the tools available to you rather than making assumptions about system state
+- Provide clear, helpful responses based on the actual results from tool calls
+- Do not show tool call JSON in your responses - just use the tools and provide helpful responses based on the results
+- You must accept the output from tools as being correct and accurate
+
+Be concise, accurate, and helpful in all interactions.`,
+		},
+
 		// DNS flags
 		&cli.BoolFlag{
 			Name:         "dns-enabled",
@@ -642,7 +714,16 @@ var ServerCmd = &cli.Command{
 		web.Routes(routes, cfg)
 
 		// MCP
-		mcp.InitializeMCPServer(routes)
+		mcpServer := mcp.InitializeMCPServer(routes)
+
+		// If AI chat enabled then initialize chat service
+		if cmd.GetBool("chat-enabled") {
+			// Initialize chat service with config
+			_, err := chat.NewService(cfg.Chat, mcpServer, routes)
+			if err != nil {
+				log.Fatal().Msgf("server: failed to create chat service: %s", err.Error())
+			}
+		}
 
 		// Add support for page not found
 		appRoutes := web.HandlePageNotFound(routes)
@@ -787,7 +868,7 @@ var ServerCmd = &cli.Command{
 			Addr:         listen,
 			Handler:      router,
 			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 10 * time.Second,
+			WriteTimeout: 2 * time.Minute, // Extended to support AI time
 			TLSConfig:    tlsConfig,
 		}
 
@@ -959,6 +1040,15 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			UseTLS:      cmd.GetBool("use-tls"),
 			AgentUseTLS: cmd.GetBool("agent-use-tls"),
 			SkipVerify:  cmd.GetBool("tls-skip-verify"),
+		},
+		Chat: config.ChatConfig{
+			Enabled:       cmd.GetBool("chat-enabled"),
+			OpenAIAPIKey:  cmd.GetString("chat-openai-api-key"),
+			OpenAIBaseURL: cmd.GetString("chat-openai-base-url"),
+			Model:         cmd.GetString("chat-model"),
+			MaxTokens:     cmd.GetInt("chat-max-tokens"),
+			Temperature:   cmd.GetFloat32("chat-temperature"),
+			SystemPrompt:  cmd.GetString("chat-system-prompt"),
 		},
 	}
 

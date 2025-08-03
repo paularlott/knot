@@ -19,6 +19,9 @@ tags:
       This API is authenticated using a bearer token. The token is passed in the Authorization header as a Bearer token.
 
       A token can be obtained by logging in with the login endpoint and providing a valid username and password, or by creating a token with the create token endpoint.
+  - name: Chat
+    description: |
+      Operations for AI chat functionality.
   - name: Tokens
     description: |
       Operations for working with API tokens.
@@ -32,6 +35,7 @@ tags:
     description: |
       These operations are for working with users.
 paths:
+  $ref: './chat.yaml#/paths'
 
   /api/auth/using-totp:
     get:
@@ -1877,6 +1881,8 @@ components:
       type: http
       scheme: bearer
   schemas:
+    $ref: './chat.yaml#/components/schemas'
+
     AuthLoginRequest:
       type: object
       properties:

@@ -447,5 +447,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"isLeafNode":                cfg.LeafNode,
 		"logoURL":                   cfg.UI.LogoURL,
 		"logoInvert":                cfg.UI.LogoInvert,
+		"aiChatEnabled":             cfg.Chat.Enabled,
 	}
 }
