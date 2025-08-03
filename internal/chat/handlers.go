@@ -47,8 +47,6 @@ func HandleChatStream(w http.ResponseWriter, r *http.Request) {
 
 	err := chatService.StreamChat(r.Context(), req.Messages, user, w, r)
 	if err != nil {
-		// Don't create a new SSE writer here since StreamChat already handles SSE setup
-		// Just write a simple error response
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
