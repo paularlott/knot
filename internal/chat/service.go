@@ -5,12 +5,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
@@ -22,10 +21,13 @@ import (
 )
 
 type Service struct {
-	config     config.ChatConfig
-	mcpServer  *mcp.Server
-	httpTools  []HTTPTool
-	restClient *rest.RESTClient
+	config          config.ChatConfig
+	mcpServer       *mcp.Server
+	restClient      *rest.RESTClient
+	toolsCache      []OpenAITool
+	toolsCacheTime  time.Time
+	toolsCacheTTL   time.Duration
+	toolsCacheMutex sync.RWMutex
 }
 
 func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.ServeMux) (*Service, error) {
@@ -37,10 +39,10 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.Se
 	restClient.SetTokenFormat("Bearer %s")
 
 	chatService := &Service{
-		config:     config,
-		mcpServer:  mcpServer,
-		httpTools:  []HTTPTool{},
-		restClient: restClient,
+		config:        config,
+		mcpServer:     mcpServer,
+		restClient:    restClient,
+		toolsCacheTTL: 5 * time.Minute,
 	}
 
 	// Chat
@@ -58,7 +60,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 	defer sseWriter.Close()
 
 	openAIMessages := s.convertMessages(messages)
-	tools, err := s.getAvailableTools(ctx, user)
+	tools, err := s.getMCPTools(ctx, user)
 	if err != nil {
 		return fmt.Errorf("failed to get tools: %w", err)
 	}
@@ -275,7 +277,7 @@ func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user 
 			}
 		}
 
-		result, err := s.executeToolCall(ctx, toolCall, user)
+		result, err := s.executeMCPTool(ctx, toolCall, user)
 		if err != nil {
 			result = fmt.Sprintf("Error executing tool: %v", err)
 		}
@@ -310,7 +312,7 @@ func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user 
 		})
 	}
 
-	tools, err := s.getAvailableTools(ctx, user)
+	tools, err := s.getMCPTools(ctx, user)
 	if err != nil {
 		return fmt.Errorf("failed to get tools: %w", err)
 	}
@@ -327,32 +329,34 @@ func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user 
 	return s.callOpenAIWithContext(ctx, req, user, sseWriter, newHistory)
 }
 
-func (s *Service) getAvailableTools(ctx context.Context, user *model.User) ([]OpenAITool, error) {
-	var tools []OpenAITool
+func (s *Service) getMCPTools(ctx context.Context, user *model.User) ([]OpenAITool, error) {
+	s.toolsCacheMutex.RLock()
 
-	// Get MCP tools
-	mcpTools, err := s.getMCPTools(ctx, user)
-	if err != nil {
-		return nil, err
-	}
-	tools = append(tools, mcpTools...)
-
-	// Add HTTP tools
-	for _, httpTool := range s.httpTools {
-		tools = append(tools, OpenAITool{
-			Type: "function",
-			Function: OpenAIToolFunction{
-				Name:        httpTool.Name,
-				Description: httpTool.Description,
-				Parameters:  httpTool.Parameters,
-			},
-		})
+	// Check if cache is still valid
+	if time.Since(s.toolsCacheTime) < s.toolsCacheTTL && len(s.toolsCache) > 0 {
+		tools := make([]OpenAITool, len(s.toolsCache))
+		copy(tools, s.toolsCache)
+		s.toolsCacheMutex.RUnlock()
+		return tools, nil
 	}
 
-	return tools, nil
+	s.toolsCacheMutex.RUnlock()
+
+	// Cache is stale, refresh it
+	return s.refreshToolsCache(ctx, user)
 }
 
-func (s *Service) getMCPTools(ctx context.Context, user *model.User) ([]OpenAITool, error) {
+func (s *Service) refreshToolsCache(ctx context.Context, user *model.User) ([]OpenAITool, error) {
+	s.toolsCacheMutex.Lock()
+	defer s.toolsCacheMutex.Unlock()
+
+	// Double-check in case another goroutine already refreshed
+	if time.Since(s.toolsCacheTime) < s.toolsCacheTTL && len(s.toolsCache) > 0 {
+		tools := make([]OpenAITool, len(s.toolsCache))
+		copy(tools, s.toolsCache)
+		return tools, nil
+	}
+
 	if s.mcpServer == nil {
 		return []OpenAITool{}, nil
 	}
@@ -372,31 +376,21 @@ func (s *Service) getMCPTools(ctx context.Context, user *model.User) ([]OpenAITo
 		})
 	}
 
-	return openAITools, nil
-}
+	// Update cache
+	s.toolsCache = openAITools
+	s.toolsCacheTime = time.Now()
 
-func (s *Service) executeToolCall(ctx context.Context, toolCall ToolCall, user *model.User) (string, error) {
-
-	// Try MCP tool first
-	if s.mcpServer != nil {
-		if result, err := s.executeMCPTool(ctx, toolCall, user); err == nil {
-			if !errors.Is(err, mcp.ErrUnknownTool) {
-				return result, nil
-			}
-		}
-	}
-
-	// Check if it's an HTTP tool
-	for _, httpTool := range s.httpTools {
-		if httpTool.Name == toolCall.Function.Name {
-			return s.executeHTTPTool(ctx, httpTool, toolCall.Function.Arguments)
-		}
-	}
-
-	return "", fmt.Errorf("unknown tool: %s", toolCall.Function.Name)
+	// Return a copy to prevent external modifications
+	result := make([]OpenAITool, len(openAITools))
+	copy(result, openAITools)
+	return result, nil
 }
 
 func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *model.User) (string, error) {
+	if s.mcpServer == nil {
+		return "", fmt.Errorf("MCP server is not configured")
+	}
+
 	// Add user to context for MCP server
 	ctxWithUser := context.WithValue(ctx, "user", user)
 
@@ -412,50 +406,6 @@ func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *m
 	}
 
 	return "Tool executed successfully", nil
-}
-
-func (s *Service) executeHTTPTool(ctx context.Context, tool HTTPTool, args map[string]interface{}) (string, error) {
-	// Parse the URL to separate base and path
-	u, err := url.Parse(tool.URL)
-	if err != nil {
-		return "", fmt.Errorf("invalid tool URL: %w", err)
-	}
-
-	baseURL := fmt.Sprintf("%s://%s", u.Scheme, u.Host)
-	path := u.Path
-	if u.RawQuery != "" {
-		path += "?" + u.RawQuery
-	}
-
-	toolClient, err := rest.NewClient(baseURL, "", false)
-	if err != nil {
-		return "", fmt.Errorf("failed to create tool client: %w", err)
-	}
-	toolClient.SetTimeout(30 * time.Second)
-
-	for key, value := range tool.Headers {
-		toolClient.SetHeader(key, value)
-	}
-
-	var result string
-	switch tool.Method {
-	case "GET":
-		_, err = toolClient.Get(ctx, path, &result)
-	case "POST":
-		_, err = toolClient.Post(ctx, path, args, &result, 0)
-	case "PUT":
-		_, err = toolClient.Put(ctx, path, args, &result, 0)
-	case "DELETE":
-		_, err = toolClient.Delete(ctx, path, args, &result, 0)
-	default:
-		return "", fmt.Errorf("unsupported HTTP method: %s", tool.Method)
-	}
-
-	return result, err
-}
-
-func (s *Service) AddHTTPTool(tool HTTPTool) {
-	s.httpTools = append(s.httpTools, tool)
 }
 
 func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {

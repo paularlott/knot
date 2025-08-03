@@ -142,12 +142,3 @@ type OpenAIChoice struct {
 	Message      OpenAIMessage `json:"message"`
 	FinishReason string        `json:"finish_reason"`
 }
-
-type HTTPTool struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	URL         string                 `json:"url"`
-	Method      string                 `json:"method"`
-	Headers     map[string]string      `json:"headers"`
-	Parameters  map[string]interface{} `json:"parameters"`
-}
