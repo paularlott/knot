@@ -9,6 +9,7 @@ import (
 
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
@@ -30,12 +31,32 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 	handler.server = server
 	routes.HandleFunc("POST /mcp", middleware.ApiAuth(server.HandleRequest))
 
-	// Register tools
+	// Register tools for exposing data
 	server.RegisterTool(
-		mcp.NewTool("list_spaces", "List all spaces for a user or all users"),
+		mcp.NewTool("list_permissions", "Get a list of all the permissions available within the system."),
+		handler.listPermissions,
+	)
+	server.RegisterTool(
+		mcp.NewTool("list_groups", "Get a list of all the groups available within the system."),
+		handler.listGroups,
+	)
+	server.RegisterTool(
+		mcp.NewTool("list_roles", "Get a list of all the roles available within the system."),
+		handler.listRoles,
+	)
+	server.RegisterTool(
+		mcp.NewTool("list_spaces", "Get a list of all spaces on this server (zone) for the current user."),
 		handler.listSpaces,
 	)
+	server.RegisterTool(
+		mcp.NewTool("list_templates", "Get a list of all templates available within the system."),
+		handler.listTemplates,
+	)
 
+	// TODO users
+	// TODO tunnels
+
+	// Register tools for working with spaces
 	server.RegisterTool(
 		mcp.NewTool("start_space", "Start a space by its ID").
 			AddParam("space_id", mcp.String, "The ID of the space to start", true),
@@ -48,12 +69,68 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		handler.stopSpace,
 	)
 
+	// Register tools for working with templates
 	server.RegisterTool(
 		mcp.NewTool("get_docker_podman_spec", "Get the complete Docker/Podman job specification documentation in markdown format"),
 		handler.getContainerSpec,
 	)
 
 	return server
+}
+
+func (h *MCPHandler) listPermissions(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	var builder strings.Builder
+	builder.WriteString("| ID | Group | Name |\n")
+	builder.WriteString("|----|-------|-------|\n")
+
+	for _, permission := range model.PermissionNames {
+		builder.WriteString(fmt.Sprintf("| %d | %s | %s |\n", permission.Id, permission.Group, permission.Name))
+	}
+
+	return mcp.NewToolResponseText(builder.String()), nil
+}
+
+func (h *MCPHandler) listGroups(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	db := database.GetInstance()
+	groups, err := db.GetGroups()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get groups: %v", err)
+	}
+
+	var builder strings.Builder
+	builder.WriteString("| ID | Name | Max Spaces | Compute Units | Storage Units | Max Tunnels |\n")
+	builder.WriteString("|----|------|------------|---------------|---------------|-------------|\n")
+
+	for _, group := range groups {
+		if group.IsDeleted {
+			continue
+		}
+
+		builder.WriteString(fmt.Sprintf("| %s | %s | %d | %d | %d | %d |\n", group.Id, group.Name, group.MaxSpaces, group.ComputeUnits, group.StorageUnits, group.MaxTunnels))
+	}
+
+	return mcp.NewToolResponseText(builder.String()), nil
+}
+
+func (h *MCPHandler) listRoles(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	db := database.GetInstance()
+	roles, err := db.GetRoles()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get roles: %v", err)
+	}
+
+	var builder strings.Builder
+	builder.WriteString("| ID | Name |\n")
+
+	for _, role := range roles {
+		if role.IsDeleted {
+			continue
+		}
+
+		builder.WriteString(fmt.Sprintf("| %s | %s |\n", role.Id, role.Name))
+	}
+
+	return mcp.NewToolResponseText(builder.String()), nil
 }
 
 func (h *MCPHandler) listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -76,12 +153,13 @@ func (h *MCPHandler) listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp
 	// Create markdown table for better AI consumption
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("Found %d spaces:\n\n", len(spaces)))
-	builder.WriteString("| ID | Name | State | Description | Note | Zone | Platform | Web Ports | TCP Ports | SSH | Web Terminal |\n")
-	builder.WriteString("|----|------|-------|-------------|------|------|----------|-----------|-----------|-----|--------------|\n")
+	builder.WriteString("| ID | Name | State | Description | Note | Zone | Platform | Web Ports | TCP Ports | SSH | Web Terminal | Shared With |\n")
+	builder.WriteString("|----|------|-------|-------------|------|------|----------|-----------|-----------|-----|--------------|-------------|\n")
 
+	cfg := config.GetServerConfig()
 	for _, space := range spaces {
-		// Ignore deleted spaces
-		if space.IsDeleted {
+		// Ignore deleted spaces or spaces not in this zone
+		if space.IsDeleted || (space.Zone != "" && space.Zone != cfg.Zone) {
 			continue
 		}
 
@@ -95,12 +173,25 @@ func (h *MCPHandler) listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp
 		}
 
 		// Get additional space details
-		ports := "N/A"
-		tcpPorts := "N/A"
+		ports := "-"
+		tcpPorts := "-"
 		sshAvailable := "No"
 		webTerminal := "No"
-		platform := space.Zone
+		platform := "-"
 		note := space.Note
+		sharedWith := "-"
+
+		template, err := db.GetTemplate(space.TemplateId)
+		if err == nil {
+			platform = template.Platform
+		}
+
+		if space.SharedWithUserId != "" {
+			user, err := db.GetUser(space.SharedWithUserId)
+			if err == nil {
+				sharedWith = fmt.Sprintf("%s (ID: %s)", user.Username, user.Id)
+			}
+		}
 
 		if space.IsDeployed {
 			// Load the space state
@@ -137,8 +228,53 @@ func (h *MCPHandler) listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp
 			}
 		}
 
-		builder.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
-			space.Id, space.Name, state, space.Description, note, space.Zone, platform, ports, tcpPorts, sshAvailable, webTerminal))
+		builder.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+			space.Id, space.Name, state, space.Description, note, space.Zone, platform, ports, tcpPorts, sshAvailable, webTerminal, sharedWith))
+	}
+
+	return mcp.NewToolResponseText(builder.String()), nil
+}
+
+func (h *MCPHandler) listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+
+	db := database.GetInstance()
+	templates, err := db.GetTemplates()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get templates: %v", err)
+	}
+
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("Found %d templates:\n\n", len(templates)))
+	builder.WriteString("| ID | Name | Description | Platform | Groups | Compute Units | Storage Units | Schedule Enabled | Is Managed | Schedule | Zones | Custom Fields | Max Uptime | Max Uptime Unit |\n")
+	builder.WriteString("|----|------|-------------|----------|--------|---------------|---------------|------------------|------------|----------|-------|---------------|------------|-----------------|\n")
+
+	// Load the groups so we can look up their names & convert to map id => group
+	groups, err := db.GetGroups()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get groups: %v", err)
+	}
+	groupMap := make(map[string]*model.Group)
+	for _, group := range groups {
+		groupMap[group.Id] = group
+	}
+
+	cfg := config.GetServerConfig()
+	for _, template := range templates {
+		if template.IsDeleted || !template.Active || (len(template.Groups) > 0 && !user.HasAnyGroup(&template.Groups)) || !template.IsValidForZone(cfg.Zone) {
+			continue
+		}
+
+		// Build the groups list
+		var groupsList []string
+		for _, group := range template.Groups {
+			if grp, ok := groupMap[group]; ok {
+				groupsList = append(groupsList, fmt.Sprintf("%s (ID: %s)", grp.Name, grp.Id))
+			}
+		}
+
+		builder.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %d | %d | %t | %t | %v | %s | %s | %d | %s |\n",
+			template.Id, template.Name, template.Description, template.Platform, strings.Join(groupsList, ", "), template.ComputeUnits, template.StorageUnits, template.ScheduleEnabled, template.IsManaged, template.Schedule, strings.Join(template.Zones, ", "), template.CustomFields, template.MaxUptime, template.MaxUptimeUnit))
 	}
 
 	return mcp.NewToolResponseText(builder.String()), nil
