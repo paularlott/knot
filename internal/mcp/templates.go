@@ -2,30 +2,35 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/paularlott/mcp"
 )
 
 type Template struct {
-	ID              string                        `json:"id"`
-	Name            string                        `json:"name"`
-	Description     string                        `json:"description"`
-	Platform        string                        `json:"platform"`
-	Groups          []string                      `json:"groups"`
-	ComputeUnits    uint32                        `json:"compute_units"`
-	StorageUnits    uint32                        `json:"storage_units"`
-	ScheduleEnabled bool                          `json:"schedule_enabled"`
-	IsManaged       bool                          `json:"is_managed"`
-	Schedule        string                        `json:"schedule"`
-	Zones           []string                      `json:"zones"`
-	CustomFields    []model.TemplateCustomField   `json:"custom_fields"`
-	MaxUptime       uint32                        `json:"max_uptime"`
-	MaxUptimeUnit   string                        `json:"max_uptime_unit"`
+	ID              string                      `json:"id"`
+	Name            string                      `json:"name"`
+	Description     string                      `json:"description"`
+	Platform        string                      `json:"platform"`
+	Groups          []string                    `json:"groups"`
+	ComputeUnits    uint32                      `json:"compute_units"`
+	StorageUnits    uint32                      `json:"storage_units"`
+	ScheduleEnabled bool                        `json:"schedule_enabled"`
+	IsManaged       bool                        `json:"is_managed"`
+	Schedule        string                      `json:"schedule"`
+	Zones           []string                    `json:"zones"`
+	CustomFields    []model.TemplateCustomField `json:"custom_fields"`
+	MaxUptime       uint32                      `json:"max_uptime"`
+	MaxUptimeUnit   string                      `json:"max_uptime_unit"`
 }
 
 func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -81,4 +86,586 @@ func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 	}
 
 	return mcp.NewToolResponseJSON(result), nil
+}
+
+func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionManageTemplates) {
+		return nil, fmt.Errorf("No permission to manage templates")
+	}
+
+	name := req.StringOr("name", "")
+	if !validate.Required(name) || !validate.MaxLength(name, 64) {
+		return nil, fmt.Errorf("Invalid template name given")
+	}
+
+	platform := req.StringOr("platform", "")
+	if !validate.OneOf(platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformPodman, model.PlatformNomad}) {
+		return nil, fmt.Errorf("Invalid platform")
+	}
+
+	job := req.StringOr("job", "")
+	if platform != model.PlatformManual {
+		if !validate.Required(job) || !validate.MaxLength(job, 10*1024*1024) {
+			return nil, fmt.Errorf("Job is required and must be less than 10MB")
+		}
+	} else {
+		job = ""
+	}
+
+	description := req.StringOr("description", "")
+	volumes := req.StringOr("volumes", "")
+	if !validate.MaxLength(volumes, 10*1024*1024) {
+		return nil, fmt.Errorf("Volumes must be less than 10MB")
+	}
+
+	computeUnits := req.IntOr("compute_units", 0)
+	if !validate.IsPositiveNumber(computeUnits) {
+		return nil, fmt.Errorf("Compute units must be a positive number")
+	}
+
+	storageUnits := req.IntOr("storage_units", 0)
+	if !validate.IsPositiveNumber(storageUnits) {
+		return nil, fmt.Errorf("Storage units must be a positive number")
+	}
+
+	withTerminal := req.BoolOr("with_terminal", false)
+	withVSCodeTunnel := req.BoolOr("with_vscode_tunnel", false)
+	withCodeServer := req.BoolOr("with_code_server", false)
+	withSSH := req.BoolOr("with_ssh", false)
+	active := req.BoolOr("active", true)
+
+	var groups []string
+	if g, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
+		db := database.GetInstance()
+		for _, groupId := range g {
+			if _, err := db.GetGroup(groupId); err == nil {
+				groups = append(groups, groupId)
+			}
+		}
+	}
+
+	template := model.NewTemplate(
+		name,
+		description,
+		job,
+		volumes,
+		user.Id,
+		groups,
+		platform,
+		withTerminal,
+		withVSCodeTunnel,
+		withCodeServer,
+		withSSH,
+		uint32(computeUnits),
+		uint32(storageUnits),
+		false,      // schedule disabled by default
+		nil,        // no schedule
+		[]string{}, // no zones
+		false,      // auto start disabled
+		active,
+		0,          // max uptime disabled
+		"disabled", // max uptime unit
+		req.StringOr("icon_url", ""),
+		[]model.TemplateCustomField{}, // no custom fields
+	)
+
+	err := database.GetInstance().SaveTemplate(template, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to save template: %v", err)
+	}
+
+	service.GetTransport().GossipTemplate(template)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventTemplateCreate,
+		fmt.Sprintf("Created template %s", template.Name),
+		&map[string]interface{}{
+			"template_id":   template.Id,
+			"template_name": template.Name,
+		},
+	)
+
+	result := map[string]interface{}{
+		"status": true,
+		"id":     template.Id,
+	}
+
+	return mcp.NewToolResponseJSON(result), nil
+}
+
+func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionManageTemplates) {
+		return nil, fmt.Errorf("No permission to manage templates")
+	}
+
+	templateId := req.StringOr("template_id", "")
+	if !validate.UUID(templateId) {
+		return nil, fmt.Errorf("Invalid template ID")
+	}
+
+	db := database.GetInstance()
+	template, err := db.GetTemplate(templateId)
+	if err != nil {
+		return nil, fmt.Errorf("Template not found: %v", err)
+	}
+
+	if template.IsManaged {
+		return nil, fmt.Errorf("Cannot update managed template")
+	}
+
+	// Update name if provided
+	if name, err := req.String("name"); err != mcp.ErrUnknownParameter {
+		if !validate.Required(name) || !validate.MaxLength(name, 64) {
+			return nil, fmt.Errorf("Invalid template name given")
+		}
+		template.Name = name
+	}
+
+	// Update description if provided
+	if description, err := req.String("description"); err != mcp.ErrUnknownParameter {
+		template.Description = description
+	}
+
+	// Update job if provided
+	if job, err := req.String("job"); err != mcp.ErrUnknownParameter {
+		if template.Platform != model.PlatformManual {
+			if !validate.Required(job) || !validate.MaxLength(job, 10*1024*1024) {
+				return nil, fmt.Errorf("Job is required and must be less than 10MB")
+			}
+		} else {
+			job = ""
+		}
+		template.Job = job
+	}
+
+	// Update volumes if provided
+	if volumes, err := req.String("volumes"); err != mcp.ErrUnknownParameter {
+		if !validate.MaxLength(volumes, 10*1024*1024) {
+			return nil, fmt.Errorf("Volumes must be less than 10MB")
+		}
+		template.Volumes = volumes
+	}
+
+	// Update features if provided
+	if withTerminal, err := req.Bool("with_terminal"); err != mcp.ErrUnknownParameter {
+		template.WithTerminal = withTerminal
+	}
+	if withVSCodeTunnel, err := req.Bool("with_vscode_tunnel"); err != mcp.ErrUnknownParameter {
+		template.WithVSCodeTunnel = withVSCodeTunnel
+	}
+	if withCodeServer, err := req.Bool("with_code_server"); err != mcp.ErrUnknownParameter {
+		template.WithCodeServer = withCodeServer
+	}
+	if withSSH, err := req.Bool("with_ssh"); err != mcp.ErrUnknownParameter {
+		template.WithSSH = withSSH
+	}
+
+	// Update resource limits if provided
+	if computeUnits, err := req.Int("compute_units"); err != mcp.ErrUnknownParameter {
+		if !validate.IsPositiveNumber(computeUnits) {
+			return nil, fmt.Errorf("Compute units must be a positive number")
+		}
+		template.ComputeUnits = uint32(computeUnits)
+	}
+
+	if storageUnits, err := req.Int("storage_units"); err != mcp.ErrUnknownParameter {
+		if !validate.IsPositiveNumber(storageUnits) {
+			return nil, fmt.Errorf("Storage units must be a positive number")
+		}
+		template.StorageUnits = uint32(storageUnits)
+	}
+
+	// Update active status if provided
+	if active, err := req.Bool("active"); err != mcp.ErrUnknownParameter {
+		template.Active = active
+	}
+
+	// Handle group operations
+	if action, err := req.String("group_action"); err != mcp.ErrUnknownParameter {
+		switch action {
+		case "replace":
+			if groups, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
+				template.Groups = []string{}
+				for _, groupId := range groups {
+					if _, err := db.GetGroup(groupId); err == nil {
+						template.Groups = append(template.Groups, groupId)
+					}
+				}
+			}
+		case "add":
+			if groups, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
+				for _, groupId := range groups {
+					if _, err := db.GetGroup(groupId); err == nil {
+						exists := false
+						for _, existing := range template.Groups {
+							if existing == groupId {
+								exists = true
+								break
+							}
+						}
+						if !exists {
+							template.Groups = append(template.Groups, groupId)
+						}
+					}
+				}
+			}
+		case "remove":
+			if groups, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
+				for _, groupId := range groups {
+					newGroups := []string{}
+					for _, existing := range template.Groups {
+						if existing != groupId {
+							newGroups = append(newGroups, existing)
+						}
+					}
+					template.Groups = newGroups
+				}
+			}
+		default:
+			return nil, fmt.Errorf("Invalid group_action. Must be 'replace', 'add', or 'remove'")
+		}
+	}
+
+	template.UpdatedUserId = user.Id
+	template.UpdatedAt = hlc.Now()
+	template.UpdateHash()
+
+	err = db.SaveTemplate(template, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to save template: %v", err)
+	}
+
+	service.GetTransport().GossipTemplate(template)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventTemplateUpdate,
+		fmt.Sprintf("Updated template %s", template.Name),
+		&map[string]interface{}{
+			"template_id":   template.Id,
+			"template_name": template.Name,
+		},
+	)
+
+	result := map[string]interface{}{
+		"status": true,
+	}
+
+	return mcp.NewToolResponseJSON(result), nil
+}
+
+func deleteTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionManageTemplates) {
+		return nil, fmt.Errorf("No permission to manage templates")
+	}
+
+	templateId := req.StringOr("template_id", "")
+	if !validate.UUID(templateId) {
+		return nil, fmt.Errorf("Invalid template ID")
+	}
+
+	db := database.GetInstance()
+	template, err := db.GetTemplate(templateId)
+	if err != nil {
+		return nil, fmt.Errorf("Template not found: %v", err)
+	}
+
+	// Check if template is in use
+	spaces, err := db.GetSpacesByTemplateId(templateId)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to check template usage: %v", err)
+	}
+
+	activeSpaces := 0
+	for _, space := range spaces {
+		if !space.IsDeleted {
+			activeSpaces++
+		}
+	}
+
+	if activeSpaces > 0 {
+		return nil, fmt.Errorf("Template is in use by spaces")
+	}
+
+	template.IsDeleted = true
+	template.UpdatedAt = hlc.Now()
+	template.UpdatedUserId = user.Id
+	err = db.SaveTemplate(template, []string{"IsDeleted", "UpdatedAt", "UpdatedUserId"})
+	if err != nil {
+		if errors.Is(err, database.ErrTemplateInUse) {
+			return nil, fmt.Errorf("Template is in use")
+		}
+		return nil, fmt.Errorf("Failed to delete template: %v", err)
+	}
+
+	service.GetTransport().GossipTemplate(template)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventTemplateDelete,
+		fmt.Sprintf("Deleted template %s", template.Name),
+		&map[string]interface{}{
+			"template_id":   template.Id,
+			"template_name": template.Name,
+		},
+	)
+
+	result := map[string]interface{}{
+		"status": true,
+	}
+
+	return mcp.NewToolResponseJSON(result), nil
+}
+
+func getNomadSpec(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	spec := `# Nomad Job Specification for Knot Templates
+
+## Overview
+This specification defines the structure and requirements for Nomad job definitions used in Knot templates. Nomad jobs define how applications are deployed and managed within a Nomad cluster.
+
+## Basic Job Structure
+
+` + "```hcl" + `
+job "example-job" {
+  datacenters = ["dc1"]
+  type = "service"
+
+  group "app" {
+    count = 1
+
+    network {
+      port "http" {
+        to = 8080
+      }
+    }
+
+    task "web" {
+      driver = "docker"
+
+      config {
+        image = "nginx:latest"
+        ports = ["http"]
+      }
+
+      resources {
+        cpu    = 500
+        memory = 256
+      }
+    }
+  }
+}
+` + "```" + `
+
+## Required Fields
+
+### Job Level
+- **job**: Job name (must be unique)
+- **datacenters**: List of datacenters where the job can run
+- **type**: Job type (typically "service" for long-running applications)
+
+### Group Level
+- **group**: Logical grouping of tasks
+- **count**: Number of instances to run
+
+### Task Level
+- **task**: Individual task definition
+- **driver**: Task driver (docker, exec, java, etc.)
+- **config**: Driver-specific configuration
+- **resources**: Resource requirements (CPU, memory)
+
+## Common Drivers
+
+### Docker Driver
+` + "```hcl" + `
+task "app" {
+  driver = "docker"
+
+  config {
+    image = "myapp:latest"
+    ports = ["http"]
+    volumes = [
+      "/host/path:/container/path"
+    ]
+  }
+}
+` + "```" + `
+
+### Exec Driver
+` + "```hcl" + `
+task "app" {
+  driver = "exec"
+
+  config {
+    command = "/usr/bin/myapp"
+    args = ["--config", "/etc/myapp.conf"]
+  }
+}
+` + "```" + `
+
+## Networking
+
+### Port Configuration
+` + "```hcl" + `
+network {
+  port "http" {
+    static = 8080  # Static port
+  }
+  port "api" {
+    to = 3000      # Dynamic port mapped to container port 3000
+  }
+}
+` + "```" + `
+
+## Resource Constraints
+
+` + "```hcl" + `
+resources {
+  cpu    = 500    # MHz
+  memory = 512    # MB
+
+  device "nvidia/gpu" {
+    count = 1
+  }
+}
+` + "```" + `
+
+## Environment Variables
+
+` + "```hcl" + `
+env {
+  DATABASE_URL = "postgres://localhost/mydb"
+  LOG_LEVEL = "info"
+}
+` + "```" + `
+
+## Health Checks
+
+` + "```hcl" + `
+service {
+  name = "web-app"
+  port = "http"
+
+  check {
+    type     = "http"
+    path     = "/health"
+    interval = "10s"
+    timeout  = "3s"
+  }
+}
+` + "```" + `
+
+## Volumes and Storage
+
+` + "```hcl" + `
+volume "data" {
+  type      = "host"
+  source    = "myvolume"
+  read_only = false
+}
+
+task "app" {
+  volume_mount {
+    volume      = "data"
+    destination = "/data"
+  }
+}
+` + "```" + `
+
+## Template Variables
+
+Knot provides template variables that can be used in job specifications:
+
+- **{{ .Space.Name }}**: Space name
+- **{{ .Space.Id }}**: Space ID
+- **{{ .User.Username }}**: Username
+- **{{ .User.Email }}**: User email
+- **{{ .Template.Name }}**: Template name
+
+Example usage:
+` + "```hcl" + `
+env {
+  SPACE_NAME = "{{ .Space.Name }}"
+  USER_NAME = "{{ .User.Username }}"
+}
+` + "```" + `
+
+## Best Practices
+
+1. **Resource Limits**: Always specify appropriate CPU and memory limits
+2. **Health Checks**: Include health checks for service discovery
+3. **Logging**: Configure proper logging drivers
+4. **Security**: Use least privilege principles
+5. **Networking**: Use dynamic ports when possible
+6. **Volumes**: Use CSI volumes for persistent storage
+
+## Complete Example
+
+` + "```hcl" + `
+job "web-app" {
+  datacenters = ["dc1"]
+  type = "service"
+
+  group "web" {
+    count = 1
+
+    network {
+      port "http" {
+        to = 8080
+      }
+    }
+
+    volume "data" {
+      type   = "csi"
+      source = "web-data"
+    }
+
+    task "app" {
+      driver = "docker"
+
+      config {
+        image = "nginx:alpine"
+        ports = ["http"]
+      }
+
+      volume_mount {
+        volume      = "data"
+        destination = "/usr/share/nginx/html"
+      }
+
+      env {
+        SPACE_NAME = "{{ .Space.Name }}"
+        USER_NAME = "{{ .User.Username }}"
+      }
+
+      resources {
+        cpu    = 500
+        memory = 256
+      }
+
+      service {
+        name = "web-app"
+        port = "http"
+
+        check {
+          type     = "http"
+          path     = "/"
+          interval = "10s"
+          timeout  = "3s"
+        }
+      }
+    }
+  }
+}
+` + "```" + `
+
+For more detailed information, refer to the official Nomad documentation at https://www.nomadproject.io/docs/job-specification`
+
+	return mcp.NewToolResponseText(spec), nil
 }

@@ -84,6 +84,47 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		mcp.NewTool("list_templates", "Get a list of all templates available within the system."),
 		listTemplates,
 	)
+	server.RegisterTool(
+		mcp.NewTool("create_template", "Create a new template. IMPORTANT: For Docker/Podman templates, use get_docker_podman_spec first to understand the job format. For Nomad templates, use get_nomad_spec first.").
+			AddParam("name", mcp.String, "The name of the template", true).
+			AddParam("platform", mcp.String, "Platform type: 'manual', 'docker', 'podman', or 'nomad'", true).
+			AddParam("job", mcp.String, "Job specification (not required for manual platform)", false).
+			AddParam("description", mcp.String, "Template description", false).
+			AddParam("volumes", mcp.String, "Volume specification", false).
+			AddParam("compute_units", mcp.Number, "Compute units required", false).
+			AddParam("storage_units", mcp.Number, "Storage units required", false).
+			AddParam("with_terminal", mcp.Boolean, "Enable terminal access", false).
+			AddParam("with_vscode_tunnel", mcp.Boolean, "Enable VSCode tunnel", false).
+			AddParam("with_code_server", mcp.Boolean, "Enable code server", false).
+			AddParam("with_ssh", mcp.Boolean, "Enable SSH access", false).
+			AddParam("active", mcp.Boolean, "Template active status", false).
+			AddParam("icon_url", mcp.String, "Icon URL for the template", false).
+			AddParam("groups", mcp.Array, "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false),
+		createTemplate,
+	)
+	server.RegisterTool(
+		mcp.NewTool("update_template", "Update an existing template. IMPORTANT: For Docker/Podman templates, use get_docker_podman_spec first to understand the job format. For Nomad templates, use get_nomad_spec first.").
+			AddParam("template_id", mcp.String, "The ID of the template to update", true).
+			AddParam("name", mcp.String, "The name of the template", false).
+			AddParam("job", mcp.String, "Job specification", false).
+			AddParam("description", mcp.String, "Template description", false).
+			AddParam("volumes", mcp.String, "Volume specification", false).
+			AddParam("compute_units", mcp.Number, "Compute units required", false).
+			AddParam("storage_units", mcp.Number, "Storage units required", false).
+			AddParam("with_terminal", mcp.Boolean, "Enable terminal access", false).
+			AddParam("with_vscode_tunnel", mcp.Boolean, "Enable VSCode tunnel", false).
+			AddParam("with_code_server", mcp.Boolean, "Enable code server", false).
+			AddParam("with_ssh", mcp.Boolean, "Enable SSH access", false).
+			AddParam("active", mcp.Boolean, "Template active status", false).
+			AddParam("group_action", mcp.String, "Action for groups: 'replace', 'add', or 'remove'", false).
+			AddParam("groups", mcp.Array, "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false),
+		updateTemplate,
+	)
+	server.RegisterTool(
+		mcp.NewTool("delete_template", "Delete a template").
+			AddParam("template_id", mcp.String, "The ID of the template to delete", true),
+		deleteTemplate,
+	)
 
 	// Spaces
 	server.RegisterTool(
@@ -116,6 +157,30 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("space_id", mcp.String, "The ID of the space to transfer", true).
 			AddParam("user_id", mcp.String, "The ID of the user to transfer to", true),
 		transferSpace,
+	)
+	server.RegisterTool(
+		mcp.NewTool("create_space", "Create a new space from a template").
+			AddParam("name", mcp.String, "The name of the space", true).
+			AddParam("template_id", mcp.String, "The ID of the template to use", true).
+			AddParam("description", mcp.String, "Space description", false).
+			AddParam("shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
+			AddParam("icon_url", mcp.String, "Icon URL for the space", false),
+		createSpace,
+	)
+	server.RegisterTool(
+		mcp.NewTool("update_space", "Update an existing space").
+			AddParam("space_id", mcp.String, "The ID of the space to update", true).
+			AddParam("name", mcp.String, "The name of the space", false).
+			AddParam("description", mcp.String, "Space description", false).
+			AddParam("template_id", mcp.String, "The ID of the template to use", false).
+			AddParam("shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
+			AddParam("icon_url", mcp.String, "Icon URL for the space", false),
+		updateSpace,
+	)
+	server.RegisterTool(
+		mcp.NewTool("delete_space", "Delete a space").
+			AddParam("space_id", mcp.String, "The ID of the space to delete", true),
+		deleteSpace,
 	)
 
 	// Tokens
@@ -195,8 +260,12 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 
 	// Specifications
 	server.RegisterTool(
-		mcp.NewTool("get_docker_podman_spec", "Get the complete Docker/Podman job specification documentation in markdown format"),
+		mcp.NewTool("get_docker_podman_spec", "Get the complete Docker/Podman job specification documentation in markdown format. Use this before creating Docker or Podman templates."),
 		getContainerSpec,
+	)
+	server.RegisterTool(
+		mcp.NewTool("get_nomad_spec", "Get the complete Nomad job specification documentation in markdown format. Use this before creating Nomad templates."),
+		getNomadSpec,
 	)
 
 	return server

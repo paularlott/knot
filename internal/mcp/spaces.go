@@ -438,3 +438,240 @@ func stopSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, er
 
 	return mcp.NewToolResponseJSON(response), nil
 }
+
+func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionUseSpaces) && !user.HasPermission(model.PermissionManageSpaces) {
+		return nil, fmt.Errorf("No permission to manage or use spaces")
+	}
+
+	name := req.StringOr("name", "")
+	if !validate.Name(name) {
+		return nil, fmt.Errorf("Invalid name given for new space")
+	}
+
+	templateId := req.StringOr("template_id", "")
+	if !validate.UUID(templateId) {
+		return nil, fmt.Errorf("Invalid template ID")
+	}
+
+	description := req.StringOr("description", "")
+	if !validate.MaxLength(description, 1024) {
+		return nil, fmt.Errorf("Description too long")
+	}
+
+	shell := req.StringOr("shell", "bash")
+	if !validate.OneOf(shell, []string{"bash", "zsh", "fish", "sh"}) {
+		return nil, fmt.Errorf("Invalid shell given for space")
+	}
+
+	db := database.GetInstance()
+	cfg := config.GetServerConfig()
+
+	template, err := db.GetTemplate(templateId)
+	if err != nil || template == nil || template.IsDeleted || !template.Active {
+		return nil, fmt.Errorf("Invalid template given for new space")
+	}
+
+	// Check template group permissions
+	if !user.HasPermission(model.PermissionManageTemplates) && len(template.Groups) > 0 && !user.HasAnyGroup(&template.Groups) {
+		return nil, fmt.Errorf("No permission to use this template")
+	}
+
+	// Check if space creation is disabled
+	if cfg.DisableSpaceCreate {
+		return nil, fmt.Errorf("Space creation is disabled")
+	}
+
+	// Check quotas if not on leaf node
+	if !cfg.LeafNode {
+		usage, err := database.GetUserUsage(user.Id, "")
+		if err != nil {
+			return nil, fmt.Errorf("Failed to check user usage: %v", err)
+		}
+
+		userQuota, err := database.GetUserQuota(user)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to check user quota: %v", err)
+		}
+
+		if userQuota.MaxSpaces > 0 && uint32(usage.NumberSpaces+1) > userQuota.MaxSpaces {
+			return nil, fmt.Errorf("Space quota exceeded")
+		}
+
+		if userQuota.StorageUnits > 0 && uint32(usage.StorageUnits+template.StorageUnits) > userQuota.StorageUnits {
+			return nil, fmt.Errorf("Storage unit quota exceeded")
+		}
+	}
+
+	space := model.NewSpace(name, description, user.Id, templateId, shell, &[]string{}, cfg.Zone, req.StringOr("icon_url", ""), []model.SpaceCustomField{})
+	err = db.SaveSpace(space, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to save space: %v", err)
+	}
+
+	service.GetTransport().GossipSpace(space)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceCreate,
+		fmt.Sprintf("Created space %s", space.Name),
+		&map[string]interface{}{
+			"space_id":   space.Id,
+			"space_name": space.Name,
+		},
+	)
+
+	result := map[string]interface{}{
+		"status":   true,
+		"space_id": space.Id,
+	}
+
+	return mcp.NewToolResponseJSON(result), nil
+}
+
+func updateSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionUseSpaces) && !user.HasPermission(model.PermissionManageSpaces) {
+		return nil, fmt.Errorf("No permission to manage or use spaces")
+	}
+
+	spaceId := req.StringOr("space_id", "")
+	if !validate.UUID(spaceId) {
+		return nil, fmt.Errorf("Invalid space ID")
+	}
+
+	db := database.GetInstance()
+	cfg := config.GetServerConfig()
+
+	space, err := db.GetSpace(spaceId)
+	if err != nil {
+		return nil, fmt.Errorf("Space not found: %v", err)
+	}
+
+	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+		return nil, fmt.Errorf("Space not found")
+	}
+
+	if space.Zone != "" && space.Zone != cfg.Zone {
+		return nil, fmt.Errorf("Space not on this server")
+	}
+
+	// Update name if provided
+	if name, err := req.String("name"); err != mcp.ErrUnknownParameter {
+		if !validate.Name(name) {
+			return nil, fmt.Errorf("Invalid name given for space")
+		}
+		space.Name = name
+	}
+
+	// Update description if provided
+	if description, err := req.String("description"); err != mcp.ErrUnknownParameter {
+		if !validate.MaxLength(description, 1024) {
+			return nil, fmt.Errorf("Description too long")
+		}
+		space.Description = description
+	}
+
+	// Update template if provided
+	if templateId, err := req.String("template_id"); err != mcp.ErrUnknownParameter {
+		if !validate.UUID(templateId) {
+			return nil, fmt.Errorf("Invalid template ID")
+		}
+		template, err := db.GetTemplate(templateId)
+		if err != nil || template == nil {
+			return nil, fmt.Errorf("Unknown template")
+		}
+		space.TemplateId = templateId
+	}
+
+	// Update shell if provided
+	if shell, err := req.String("shell"); err != mcp.ErrUnknownParameter {
+		if !validate.OneOf(shell, []string{"bash", "zsh", "fish", "sh"}) {
+			return nil, fmt.Errorf("Invalid shell given for space")
+		}
+		space.Shell = shell
+	}
+
+	// Update icon URL if provided
+	if iconURL, err := req.String("icon_url"); err != mcp.ErrUnknownParameter {
+		space.IconURL = iconURL
+	}
+
+	space.UpdatedAt = hlc.Now()
+	err = db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "Shell", "IconURL", "UpdatedAt"})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to save space: %v", err)
+	}
+
+	service.GetTransport().GossipSpace(space)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceUpdate,
+		fmt.Sprintf("Updated space %s", space.Name),
+		&map[string]interface{}{
+			"space_id":   space.Id,
+			"space_name": space.Name,
+		},
+	)
+
+	result := map[string]interface{}{
+		"status": true,
+	}
+
+	return mcp.NewToolResponseJSON(result), nil
+}
+
+func deleteSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionUseSpaces) && !user.HasPermission(model.PermissionManageSpaces) {
+		return nil, fmt.Errorf("No permission to manage or use spaces")
+	}
+
+	spaceId := req.StringOr("space_id", "")
+	if !validate.UUID(spaceId) {
+		return nil, fmt.Errorf("Invalid space ID")
+	}
+
+	db := database.GetInstance()
+	cfg := config.GetServerConfig()
+
+	space, err := db.GetSpace(spaceId)
+	if err != nil || (space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces)) {
+		return nil, fmt.Errorf("Space not found")
+	}
+
+	// Check if space can be deleted
+	if space.IsDeployed || space.IsPending || space.IsDeleting || (space.Zone != "" && space.Zone != cfg.Zone) {
+		return nil, fmt.Errorf("Space cannot be deleted")
+	}
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceDelete,
+		fmt.Sprintf("Deleted space %s", space.Name),
+		&map[string]interface{}{
+			"space_id":   space.Id,
+			"space_name": space.Name,
+		},
+	)
+
+	// Mark as deleting and delete in background
+	space.IsDeleting = true
+	space.UpdatedAt = hlc.Now()
+	db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
+	service.GetTransport().GossipSpace(space)
+
+	// Delete the space in the background
+	service.GetContainerService().DeleteSpace(space)
+
+	result := map[string]interface{}{
+		"status": true,
+	}
+
+	return mcp.NewToolResponseJSON(result), nil
+}
