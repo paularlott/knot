@@ -9,7 +9,7 @@ import (
 
 type Permission struct {
 	ID    int    `json:"id"`
-	Group string `json:"group"`
+	Group string `json:"group,omitempty"`
 	Name  string `json:"name"`
 }
 

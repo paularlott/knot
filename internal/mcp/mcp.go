@@ -100,6 +100,23 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("space_id", mcp.String, "The ID of the space to stop", true),
 		stopSpace,
 	)
+	server.RegisterTool(
+		mcp.NewTool("share_space", "Share a space with another user").
+			AddParam("space_id", mcp.String, "The ID of the space to share", true).
+			AddParam("user_id", mcp.String, "The ID of the user to share with", true),
+		shareSpace,
+	)
+	server.RegisterTool(
+		mcp.NewTool("stop_sharing_space", "Stop sharing a space").
+			AddParam("space_id", mcp.String, "The ID of the space to stop sharing", true),
+		stopSharingSpace,
+	)
+	server.RegisterTool(
+		mcp.NewTool("transfer_space", "Transfer ownership of a space to another user").
+			AddParam("space_id", mcp.String, "The ID of the space to transfer", true).
+			AddParam("user_id", mcp.String, "The ID of the user to transfer to", true),
+		transferSpace,
+	)
 
 	// Tokens
 	server.RegisterTool(
@@ -128,7 +145,53 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		deleteTunnel,
 	)
 
-	// TODO users
+	// Users
+	server.RegisterTool(
+		mcp.NewTool("list_users", "Get a list of all users in the system."),
+		listUsers,
+	)
+	server.RegisterTool(
+		mcp.NewTool("create_user", "Create a new user").
+			AddParam("username", mcp.String, "The username", true).
+			AddParam("email", mcp.String, "The email address", true).
+			AddParam("password", mcp.String, "The password", true).
+			AddParam("preferred_shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
+			AddParam("timezone", mcp.String, "User timezone", false).
+			AddParam("ssh_public_key", mcp.String, "SSH public key", false).
+			AddParam("github_username", mcp.String, "GitHub username", false).
+			AddParam("max_spaces", mcp.Number, "Maximum spaces allowed", false).
+			AddParam("compute_units", mcp.Number, "Compute units limit", false).
+			AddParam("storage_units", mcp.Number, "Storage units limit", false).
+			AddParam("max_tunnels", mcp.Number, "Maximum tunnels allowed", false).
+			AddParam("roles", mcp.Array, "Array of role IDs", false).
+			AddParam("groups", mcp.Array, "Array of group IDs", false),
+		createUser,
+	)
+	server.RegisterTool(
+		mcp.NewTool("update_user", "Update an existing user").
+			AddParam("user_id", mcp.String, "The ID of the user to update", true).
+			AddParam("email", mcp.String, "The email address", false).
+			AddParam("password", mcp.String, "The password", false).
+			AddParam("preferred_shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
+			AddParam("timezone", mcp.String, "User timezone", false).
+			AddParam("ssh_public_key", mcp.String, "SSH public key", false).
+			AddParam("github_username", mcp.String, "GitHub username", false).
+			AddParam("active", mcp.Boolean, "User active status (admin only)", false).
+			AddParam("max_spaces", mcp.Number, "Maximum spaces allowed (admin only)", false).
+			AddParam("compute_units", mcp.Number, "Compute units limit (admin only)", false).
+			AddParam("storage_units", mcp.Number, "Storage units limit (admin only)", false).
+			AddParam("max_tunnels", mcp.Number, "Maximum tunnels allowed (admin only)", false).
+			AddParam("role_action", mcp.String, "Action for roles: 'replace', 'add', or 'remove' (admin only)", false).
+			AddParam("roles", mcp.Array, "Array of role IDs for the specified action (admin only)", false).
+			AddParam("group_action", mcp.String, "Action for groups: 'replace', 'add', or 'remove' (admin only)", false).
+			AddParam("groups", mcp.Array, "Array of group IDs for the specified action (admin only)", false),
+		updateUser,
+	)
+	server.RegisterTool(
+		mcp.NewTool("delete_user", "Delete a user").
+			AddParam("user_id", mcp.String, "The ID of the user to delete", true),
+		deleteUser,
+	)
 
 	// Specifications
 	server.RegisterTool(
