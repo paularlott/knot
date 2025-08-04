@@ -24,11 +24,54 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		mcp.NewTool("list_groups", "Get a list of all the groups available within the system."),
 		listGroups,
 	)
+	server.RegisterTool(
+		mcp.NewTool("create_group", "Create a new group").
+			AddParam("name", mcp.String, "The name of the group", true).
+			AddParam("max_spaces", mcp.Number, "Maximum number of spaces (default: 0)", false).
+			AddParam("compute_units", mcp.Number, "Compute units limit (default: 0)", false).
+			AddParam("storage_units", mcp.Number, "Storage units limit (default: 0)", false).
+			AddParam("max_tunnels", mcp.Number, "Maximum number of tunnels (default: 0)", false),
+		createGroup,
+	)
+	server.RegisterTool(
+		mcp.NewTool("update_group", "Update an existing group").
+			AddParam("group_id", mcp.String, "The ID of the group to update", true).
+			AddParam("name", mcp.String, "The name of the group", true).
+			AddParam("max_spaces", mcp.Number, "Maximum number of spaces (default: 0)", false).
+			AddParam("compute_units", mcp.Number, "Compute units limit (default: 0)", false).
+			AddParam("storage_units", mcp.Number, "Storage units limit (default: 0)", false).
+			AddParam("max_tunnels", mcp.Number, "Maximum number of tunnels (default: 0)", false),
+		updateGroup,
+	)
+	server.RegisterTool(
+		mcp.NewTool("delete_group", "Delete a group").
+			AddParam("group_id", mcp.String, "The ID of the group to delete", true),
+		deleteGroup,
+	)
 
 	// Roles
 	server.RegisterTool(
 		mcp.NewTool("list_roles", "Get a list of all the roles available within the system."),
 		listRoles,
+	)
+	server.RegisterTool(
+		mcp.NewTool("create_role", "Create a new role with specified permissions. IMPORTANT: Use list_permissions tool first to get the numeric permission IDs.").
+			AddParam("name", mcp.String, "The name of the role", true).
+			AddParam("permissions", mcp.Array, "Array of permission IDs as integers (e.g., [1, 2, 5]). Do NOT use permission names - use the numeric 'id' field from list_permissions.", false),
+		createRole,
+	)
+	server.RegisterTool(
+		mcp.NewTool("update_role", "Update an existing role. IMPORTANT: Use list_permissions tool first to get the numeric permission IDs.").
+			AddParam("role_id", mcp.String, "The ID of the role to update", true).
+			AddParam("name", mcp.String, "The name of the role", false).
+			AddParam("permission_action", mcp.String, "Action to perform on permissions: 'replace', 'add', or 'remove'", false).
+			AddParam("permissions", mcp.Array, "Array of permission IDs as integers (e.g., [1, 2, 5]). Do NOT use permission names - use the numeric 'id' field from list_permissions.", false),
+		updateRole,
+	)
+	server.RegisterTool(
+		mcp.NewTool("delete_role", "Delete a role").
+			AddParam("role_id", mcp.String, "The ID of the role to delete", true),
+		deleteRole,
 	)
 
 	// Templates
