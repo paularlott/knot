@@ -125,13 +125,13 @@ type NomadConfig struct {
 }
 
 type ChatConfig struct {
-	Enabled       bool
-	OpenAIAPIKey  string
-	OpenAIBaseURL string
-	Model         string
-	MaxTokens     int
-	Temperature   float32
-	SystemPrompt  string
+	Enabled           bool
+	OpenAIAPIKey      string
+	OpenAIBaseURL     string
+	Model             string
+	MaxTokens         int
+	Temperature       float32
+	SystemPromptFile  string
 }
 
 // Global configuration instance

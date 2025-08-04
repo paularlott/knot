@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -20,10 +22,14 @@ import (
 	"github.com/paularlott/mcp"
 )
 
+//go:embed system-prompt.md
+var defaultSystemPrompt string
+
 type Service struct {
 	config          config.ChatConfig
 	mcpServer       *mcp.Server
 	restClient      *rest.RESTClient
+	systemPrompt    string
 	toolsCache      []OpenAITool
 	toolsCacheTime  time.Time
 	toolsCacheTTL   time.Duration
@@ -38,10 +44,21 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.Se
 	restClient.SetTimeout(60 * time.Second)
 	restClient.SetTokenFormat("Bearer %s")
 
+	// Load system prompt
+	systemPrompt := defaultSystemPrompt
+	if config.SystemPromptFile != "" {
+		content, err := os.ReadFile(config.SystemPromptFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read system prompt file %s: %w", config.SystemPromptFile, err)
+		}
+		systemPrompt = string(content)
+	}
+
 	chatService := &Service{
 		config:        config,
 		mcpServer:     mcpServer,
 		restClient:    restClient,
+		systemPrompt:  systemPrompt,
 		toolsCacheTTL: 5 * time.Minute,
 	}
 
@@ -110,11 +127,11 @@ func (s *Service) callOpenAIWithContext(ctx context.Context, req OpenAIRequest, 
 func (s *Service) convertMessages(messages []ChatMessage) []OpenAIMessage {
 	var openAIMessages []OpenAIMessage
 
-	// Add system prompt if configured (always first)
-	if s.config.SystemPrompt != "" {
+	// Add system prompt (always first)
+	if s.systemPrompt != "" {
 		openAIMessages = append(openAIMessages, OpenAIMessage{
 			Role:    "system",
-			Content: s.config.SystemPrompt,
+			Content: s.systemPrompt,
 		})
 	}
 
