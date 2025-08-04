@@ -1,0 +1,72 @@
+package mcp
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/paularlott/knot/internal/database"
+
+	"github.com/paularlott/mcp"
+)
+
+type Group struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	MaxSpaces    uint32 `json:"max_spaces"`
+	ComputeUnits uint32 `json:"compute_units"`
+	StorageUnits uint32 `json:"storage_units"`
+	MaxTunnels   uint32 `json:"max_tunnels"`
+}
+
+func listGroups(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	db := database.GetInstance()
+	groups, err := db.GetGroups()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get groups: %v", err)
+	}
+
+	var result []Group
+	for _, group := range groups {
+		if group.IsDeleted {
+			continue
+		}
+
+		result = append(result, Group{
+			ID:           group.Id,
+			Name:         group.Name,
+			MaxSpaces:    group.MaxSpaces,
+			ComputeUnits: group.ComputeUnits,
+			StorageUnits: group.StorageUnits,
+			MaxTunnels:   group.MaxTunnels,
+		})
+	}
+
+	return mcp.NewToolResponseJSON(result), nil
+}
+
+type Role struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+func listRoles(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	db := database.GetInstance()
+	roles, err := db.GetRoles()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get roles: %v", err)
+	}
+
+	var result []Role
+	for _, role := range roles {
+		if role.IsDeleted {
+			continue
+		}
+
+		result = append(result, Role{
+			ID:   role.Id,
+			Name: role.Name,
+		})
+	}
+
+	return mcp.NewToolResponseJSON(result), nil
+}
