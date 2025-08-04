@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
@@ -26,14 +25,10 @@ import (
 var defaultSystemPrompt string
 
 type Service struct {
-	config          config.ChatConfig
-	mcpServer       *mcp.Server
-	restClient      *rest.RESTClient
-	systemPrompt    string
-	toolsCache      []OpenAITool
-	toolsCacheTime  time.Time
-	toolsCacheTTL   time.Duration
-	toolsCacheMutex sync.RWMutex
+	config       config.ChatConfig
+	mcpServer    *mcp.Server
+	restClient   *rest.RESTClient
+	systemPrompt string
 }
 
 func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.ServeMux) (*Service, error) {
@@ -55,11 +50,10 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.Se
 	}
 
 	chatService := &Service{
-		config:        config,
-		mcpServer:     mcpServer,
-		restClient:    restClient,
-		systemPrompt:  systemPrompt,
-		toolsCacheTTL: 5 * time.Minute,
+		config:       config,
+		mcpServer:    mcpServer,
+		restClient:   restClient,
+		systemPrompt: systemPrompt,
 	}
 
 	// Chat
@@ -347,38 +341,11 @@ func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user 
 }
 
 func (s *Service) getMCPTools(ctx context.Context, user *model.User) ([]OpenAITool, error) {
-	s.toolsCacheMutex.RLock()
-
-	// Check if cache is still valid
-	if time.Since(s.toolsCacheTime) < s.toolsCacheTTL && len(s.toolsCache) > 0 {
-		tools := make([]OpenAITool, len(s.toolsCache))
-		copy(tools, s.toolsCache)
-		s.toolsCacheMutex.RUnlock()
-		return tools, nil
-	}
-
-	s.toolsCacheMutex.RUnlock()
-
-	// Cache is stale, refresh it
-	return s.refreshToolsCache(ctx, user)
-}
-
-func (s *Service) refreshToolsCache(ctx context.Context, user *model.User) ([]OpenAITool, error) {
-	s.toolsCacheMutex.Lock()
-	defer s.toolsCacheMutex.Unlock()
-
-	// Double-check in case another goroutine already refreshed
-	if time.Since(s.toolsCacheTime) < s.toolsCacheTTL && len(s.toolsCache) > 0 {
-		tools := make([]OpenAITool, len(s.toolsCache))
-		copy(tools, s.toolsCache)
-		return tools, nil
-	}
-
 	if s.mcpServer == nil {
 		return []OpenAITool{}, nil
 	}
 
-	// Get tools directly from MCP server
+	// Get tools directly from MCP server without caching
 	tools := s.mcpServer.ListTools()
 	var openAITools []OpenAITool
 
@@ -393,14 +360,7 @@ func (s *Service) refreshToolsCache(ctx context.Context, user *model.User) ([]Op
 		})
 	}
 
-	// Update cache
-	s.toolsCache = openAITools
-	s.toolsCacheTime = time.Now()
-
-	// Return a copy to prevent external modifications
-	result := make([]OpenAITool, len(openAITools))
-	copy(result, openAITools)
-	return result, nil
+	return openAITools, nil
 }
 
 func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *model.User) (string, error) {
