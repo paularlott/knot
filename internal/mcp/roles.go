@@ -20,6 +20,12 @@ type Role struct {
 	Name string `json:"name"`
 }
 
+type RoleDetails struct {
+	ID          string       `json:"id"`
+	Name        string       `json:"name"`
+	Permissions []Permission `json:"permissions"`
+}
+
 func listRoles(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	roles := model.GetRolesFromCache()
 
@@ -119,7 +125,6 @@ func updateRole(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 		switch action {
 		case "replace":
 			if perms, err := req.IntSlice("permissions"); err != mcp.ErrUnknownParameter {
-				fmt.Println("update role", action, perms)
 				role.Permissions = []uint16{}
 				for _, perm := range perms {
 					role.Permissions = append(role.Permissions, uint16(perm))
@@ -127,7 +132,6 @@ func updateRole(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 			}
 		case "add":
 			if perms, err := req.IntSlice("permissions"); err != mcp.ErrUnknownParameter {
-				fmt.Println("update role", action, perms)
 				for _, perm := range perms {
 					permVal := uint16(perm)
 					// Check if permission already exists
@@ -145,7 +149,6 @@ func updateRole(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 			}
 		case "remove":
 			if perms, err := req.IntSlice("permissions"); err != mcp.ErrUnknownParameter {
-				fmt.Println("update role", action, perms)
 				for _, perm := range perms {
 					permVal := uint16(perm)
 					// Remove permission
@@ -240,6 +243,49 @@ func deleteRole(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 
 	result := map[string]interface{}{
 		"status": true,
+	}
+
+	return mcp.NewToolResponseJSON(result), nil
+}
+
+func getRole(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionManageRoles) {
+		return nil, fmt.Errorf("No permission to manage roles")
+	}
+
+	roleId := req.StringOr("role_id", "")
+	if !validate.UUID(roleId) {
+		return nil, fmt.Errorf("Invalid role ID")
+	}
+
+	db := database.GetInstance()
+	role, err := db.GetRole(roleId)
+	if err != nil {
+		return nil, fmt.Errorf("Role not found: %v", err)
+	}
+	if role == nil {
+		return nil, fmt.Errorf("Role not found")
+	}
+
+	// Build permission list with names
+	var permissions []Permission
+	for _, permId := range role.Permissions {
+		for _, permName := range model.PermissionNames {
+			if permName.Id == int(permId) {
+				permissions = append(permissions, Permission{
+					ID:   permName.Id,
+					Name: permName.Name,
+				})
+				break
+			}
+		}
+	}
+
+	result := RoleDetails{
+		ID:          role.Id,
+		Name:        role.Name,
+		Permissions: permissions,
 	}
 
 	return mcp.NewToolResponseJSON(result), nil

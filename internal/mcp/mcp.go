@@ -73,6 +73,11 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("role_id", mcp.String, "The ID of the role to delete", true),
 		deleteRole,
 	)
+	server.RegisterTool(
+		mcp.NewTool("get_role", "Get details of a specific role including permissions").
+			AddParam("role_id", mcp.String, "The ID of the role to retrieve", true),
+		getRole,
+	)
 
 	// Templates
 	server.RegisterTool(
@@ -96,8 +101,34 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		stopSpace,
 	)
 
+	// Tokens
+	server.RegisterTool(
+		mcp.NewTool("list_tokens", "Get a list of all API tokens for the current user."),
+		listTokens,
+	)
+	server.RegisterTool(
+		mcp.NewTool("create_token", "Create a new API token").
+			AddParam("name", mcp.String, "The name of the token", true),
+		createToken,
+	)
+	server.RegisterTool(
+		mcp.NewTool("delete_token", "Delete an API token").
+			AddParam("token_id", mcp.String, "The ID of the token to delete", true),
+		deleteToken,
+	)
+
+	// Tunnels
+	server.RegisterTool(
+		mcp.NewTool("list_tunnels", "Get a list of all tunnels for the current user."),
+		listTunnels,
+	)
+	server.RegisterTool(
+		mcp.NewTool("delete_tunnel", "Delete a tunnel").
+			AddParam("tunnel_name", mcp.String, "The name of the tunnel to delete (format: username--tunnelname)", true),
+		deleteTunnel,
+	)
+
 	// TODO users
-	// TODO tunnels
 
 	// Specifications
 	server.RegisterTool(
