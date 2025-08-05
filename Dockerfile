@@ -7,7 +7,7 @@ ARG TARGETPLATFORM=linux/amd64
 
 RUN apk update \
   && apk add --no-cache bash unzip zip nodejs npm \
-  && GO_TASK_VERSION=3.44.0 \
+  && GO_TASK_VERSION=3.44.1 \
   && ARCH=$(uname -m) \
   && case $ARCH in \
     'x86_64') url="https://github.com/go-task/task/releases/download/v${GO_TASK_VERSION}/task_linux_amd64.tar.gz" ;; \

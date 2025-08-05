@@ -215,33 +215,6 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		deleteTemplateVar,
 	)
 
-	// Tokens
-	server.RegisterTool(
-		mcp.NewTool("list_tokens", "Get a list of all API tokens for the current user."),
-		listTokens,
-	)
-	server.RegisterTool(
-		mcp.NewTool("create_token", "Create a new API token").
-			AddParam("name", mcp.String, "The name of the token", true),
-		createToken,
-	)
-	server.RegisterTool(
-		mcp.NewTool("delete_token", "Delete an API token").
-			AddParam("token_id", mcp.String, "The ID of the token to delete", true),
-		deleteToken,
-	)
-
-	// Tunnels
-	server.RegisterTool(
-		mcp.NewTool("list_tunnels", "Get a list of all tunnels for the current user."),
-		listTunnels,
-	)
-	server.RegisterTool(
-		mcp.NewTool("delete_tunnel", "Delete a tunnel").
-			AddParam("tunnel_name", mcp.String, "The name of the tunnel to delete (format: username--tunnelname)", true),
-		deleteTunnel,
-	)
-
 	// Users
 	server.RegisterTool(
 		mcp.NewTool("list_users", "Get a list of all users in the system."),
@@ -290,16 +263,6 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		deleteUser,
 	)
 
-	// Specifications
-	server.RegisterTool(
-		mcp.NewTool("get_docker_podman_spec", "Get the complete Docker/Podman job specification documentation in markdown format. Use this before creating Docker or Podman templates."),
-		getContainerSpec,
-	)
-	server.RegisterTool(
-		mcp.NewTool("get_nomad_spec", "Get the complete Nomad job specification documentation in markdown format. Use this before creating Nomad templates."),
-		getNomadSpec,
-	)
-
 	// Tokens
 	server.RegisterTool(
 		mcp.NewTool("list_tokens", "Get a list of all API tokens for the current user."),
@@ -325,54 +288,6 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		mcp.NewTool("delete_tunnel", "Delete a tunnel").
 			AddParam("tunnel_name", mcp.String, "The name of the tunnel to delete (format: username--tunnelname)", true),
 		deleteTunnel,
-	)
-
-	// Users
-	server.RegisterTool(
-		mcp.NewTool("list_users", "Get a list of all users in the system."),
-		listUsers,
-	)
-	server.RegisterTool(
-		mcp.NewTool("create_user", "Create a new user").
-			AddParam("username", mcp.String, "The username", true).
-			AddParam("email", mcp.String, "The email address", true).
-			AddParam("password", mcp.String, "The password", true).
-			AddParam("preferred_shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
-			AddParam("timezone", mcp.String, "User timezone", false).
-			AddParam("ssh_public_key", mcp.String, "SSH public key", false).
-			AddParam("github_username", mcp.String, "GitHub username", false).
-			AddParam("max_spaces", mcp.Number, "Maximum spaces allowed", false).
-			AddParam("compute_units", mcp.Number, "Compute units limit", false).
-			AddParam("storage_units", mcp.Number, "Storage units limit", false).
-			AddParam("max_tunnels", mcp.Number, "Maximum tunnels allowed", false).
-			AddParam("roles", mcp.Array, "Array of role IDs", false).
-			AddParam("groups", mcp.Array, "Array of group IDs", false),
-		createUser,
-	)
-	server.RegisterTool(
-		mcp.NewTool("update_user", "Update an existing user").
-			AddParam("user_id", mcp.String, "The ID of the user to update", true).
-			AddParam("email", mcp.String, "The email address", false).
-			AddParam("password", mcp.String, "The password", false).
-			AddParam("preferred_shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
-			AddParam("timezone", mcp.String, "User timezone", false).
-			AddParam("ssh_public_key", mcp.String, "SSH public key", false).
-			AddParam("github_username", mcp.String, "GitHub username", false).
-			AddParam("active", mcp.Boolean, "User active status (admin only)", false).
-			AddParam("max_spaces", mcp.Number, "Maximum spaces allowed (admin only)", false).
-			AddParam("compute_units", mcp.Number, "Compute units limit (admin only)", false).
-			AddParam("storage_units", mcp.Number, "Storage units limit (admin only)", false).
-			AddParam("max_tunnels", mcp.Number, "Maximum tunnels allowed (admin only)", false).
-			AddParam("role_action", mcp.String, "Action for roles: 'replace', 'add', or 'remove' (admin only)", false).
-			AddParam("roles", mcp.Array, "Array of role IDs for the specified action (admin only)", false).
-			AddParam("group_action", mcp.String, "Action for groups: 'replace', 'add', or 'remove' (admin only)", false).
-			AddParam("groups", mcp.Array, "Array of group IDs for the specified action (admin only)", false),
-		updateUser,
-	)
-	server.RegisterTool(
-		mcp.NewTool("delete_user", "Delete a user").
-			AddParam("user_id", mcp.String, "The ID of the user to delete", true),
-		deleteUser,
 	)
 
 	// Specifications

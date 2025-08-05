@@ -132,6 +132,7 @@ type ChatConfig struct {
 	MaxTokens         int
 	Temperature       float32
 	SystemPromptFile  string
+	ReasoningEffort   string
 }
 
 // Global configuration instance

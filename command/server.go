@@ -571,6 +571,20 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_SYSTEM_PROMPT_FILE"},
 			DefaultValue: "",
 		},
+		&cli.StringFlag{
+			Name:         "chat-reasoning-effort",
+			Usage:        "Reasoning effort level for chat responses (low, medium, high).",
+			ConfigPath:   []string{"server.chat.reasoning_effort"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_REASONING_EFFORT"},
+			DefaultValue: "",
+			ValidateFlag: func(c *cli.Command) error {
+				value := c.GetString("chat-reasoning-effort")
+				if value != "" && value != "none" && value != "low" && value != "medium" && value != "high" {
+					return fmt.Errorf("If given, reasoning effort must be one of: none, low, medium, high")
+				}
+				return nil
+			},
+		},
 
 		// DNS flags
 		&cli.BoolFlag{
@@ -1029,6 +1043,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			MaxTokens:        cmd.GetInt("chat-max-tokens"),
 			Temperature:      cmd.GetFloat32("chat-temperature"),
 			SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
+			ReasoningEffort:  cmd.GetString("chat-reasoning-effort"),
 		},
 	}
 

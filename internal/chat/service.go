@@ -1,13 +1,10 @@
 package chat
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -29,6 +26,7 @@ type Service struct {
 	mcpServer    *mcp.Server
 	restClient   *rest.RESTClient
 	systemPrompt string
+	streamState  *streamState
 }
 
 func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.ServeMux) (*Service, error) {
@@ -77,45 +75,30 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 	}
 
 	req := OpenAIRequest{
-		Model:       s.config.Model,
-		Messages:    openAIMessages,
-		Tools:       tools,
-		MaxTokens:   s.config.MaxTokens,
-		Temperature: s.config.Temperature,
-		Stream:      true,
+		Model:           s.config.Model,
+		Messages:        openAIMessages,
+		Tools:           tools,
+		MaxTokens:       s.config.MaxTokens,
+		Temperature:     s.config.Temperature,
+		ReasoningEffort: s.config.ReasoningEffort,
+		Stream:          true,
 	}
 
 	return s.callOpenAIWithContext(ctx, req, user, sseWriter, openAIMessages)
 }
 
 func (s *Service) callOpenAIWithContext(ctx context.Context, req OpenAIRequest, user *model.User, sseWriter *rest.SSEStreamWriter, conversationHistory []OpenAIMessage) error {
-	reqBody, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", s.config.OpenAIBaseURL+"/chat/completions", bytes.NewReader(reqBody))
-	if err != nil {
-		return err
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-	if s.config.OpenAIAPIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+s.config.OpenAIAPIKey)
-	}
-
-	resp, err := s.restClient.HTTPClient.Do(httpReq)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("OpenAI API error: %d - %s", resp.StatusCode, string(body))
-	}
-
-	return s.processStreamResponse(ctx, resp.Body, user, sseWriter, conversationHistory)
+	return rest.StreamData[*OpenAIResponse, OpenAIResponse](
+		s.restClient,
+		ctx,
+		"POST",
+		"chat/completions",
+		req,
+		func(response *OpenAIResponse) (bool, error) {
+			return s.processStreamChunk(ctx, *response, user, sseWriter, conversationHistory)
+		},
+		rest.StreamSSE,
+	)
 }
 
 func (s *Service) convertMessages(messages []ChatMessage) []OpenAIMessage {
@@ -160,96 +143,88 @@ type streamState struct {
 	assistantMessage strings.Builder
 }
 
-func (s *Service) processStreamResponse(ctx context.Context, reader io.Reader, user *model.User, sseWriter *rest.SSEStreamWriter, conversationHistory []OpenAIMessage) error {
-	scanner := bufio.NewScanner(reader)
-	state := &streamState{
-		toolCallBuffer:  make(map[int]*ToolCall),
-		argumentsBuffer: make(map[int]string),
+func (s *Service) processStreamChunk(ctx context.Context, response OpenAIResponse, user *model.User, sseWriter *rest.SSEStreamWriter, conversationHistory []OpenAIMessage) (bool, error) {
+	if len(response.Choices) == 0 {
+		return false, nil
 	}
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
-			continue
+	// Initialize state if not exists (we need to maintain state across chunks)
+	if s.streamState == nil {
+		s.streamState = &streamState{
+			toolCallBuffer:  make(map[int]*ToolCall),
+			argumentsBuffer: make(map[int]string),
 		}
+	}
 
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
-			break
-		}
+	choice := response.Choices[0]
 
-		var response OpenAIResponse
-		if err := json.Unmarshal([]byte(data), &response); err != nil {
-			continue
-		}
-
-		if len(response.Choices) == 0 {
-			continue
-		}
-
-		choice := response.Choices[0]
-
-		// Handle tool calls
-		if len(choice.Delta.ToolCalls) > 0 {
-			for _, deltaCall := range choice.Delta.ToolCalls {
-				index := deltaCall.Index
-				if state.toolCallBuffer[index] == nil {
-					state.toolCallBuffer[index] = &ToolCall{
-						Index:    index,
-						Function: ToolCallFunction{Arguments: make(map[string]interface{})},
-					}
-					state.argumentsBuffer[index] = ""
+	// Handle tool calls
+	if len(choice.Delta.ToolCalls) > 0 {
+		for _, deltaCall := range choice.Delta.ToolCalls {
+			index := deltaCall.Index
+			if s.streamState.toolCallBuffer[index] == nil {
+				s.streamState.toolCallBuffer[index] = &ToolCall{
+					Index:    index,
+					Function: ToolCallFunction{Arguments: make(map[string]interface{})},
 				}
-				if deltaCall.ID != "" {
-					state.toolCallBuffer[index].ID = deltaCall.ID
-				}
-				if deltaCall.Type != "" {
-					state.toolCallBuffer[index].Type = deltaCall.Type
-				}
-				if deltaCall.Function.Name != "" {
-					state.toolCallBuffer[index].Function.Name = deltaCall.Function.Name
-				}
-				if deltaCall.Function.Arguments != "" {
-					state.argumentsBuffer[index] += deltaCall.Function.Arguments
-				}
+				s.streamState.argumentsBuffer[index] = ""
+			}
+			if deltaCall.ID != "" {
+				s.streamState.toolCallBuffer[index].ID = deltaCall.ID
+			}
+			if deltaCall.Type != "" {
+				s.streamState.toolCallBuffer[index].Type = deltaCall.Type
+			}
+			if deltaCall.Function.Name != "" {
+				s.streamState.toolCallBuffer[index].Function.Name = deltaCall.Function.Name
+			}
+			if deltaCall.Function.Arguments != "" {
+				s.streamState.argumentsBuffer[index] += deltaCall.Function.Arguments
 			}
 		}
+	}
 
-		// Handle content
-		if choice.Delta.Content != "" {
-			state.assistantMessage.WriteString(choice.Delta.Content)
-			sseWriter.WriteChunk(SSEEvent{
-				Type: "content",
-				Data: choice.Delta.Content,
-			})
-		}
+	// Handle content
+	if choice.Delta.Content != "" {
+		s.streamState.assistantMessage.WriteString(choice.Delta.Content)
+		sseWriter.WriteChunk(SSEEvent{
+			Type: "content",
+			Data: choice.Delta.Content,
+		})
+	}
 
-		// Handle finish reason
-		if choice.FinishReason == "tool_calls" {
-			// Parse and validate arguments before processing
-			for _, toolCall := range state.toolCallBuffer {
-				if argsStr, exists := state.argumentsBuffer[toolCall.Index]; exists {
-					if argsStr == "" || argsStr == "null" {
+	// Handle finish reason
+	if choice.FinishReason == "tool_calls" {
+		// Parse and validate arguments before processing
+		for _, toolCall := range s.streamState.toolCallBuffer {
+			if argsStr, exists := s.streamState.argumentsBuffer[toolCall.Index]; exists {
+				if argsStr == "" || argsStr == "null" {
+					toolCall.Function.Arguments = make(map[string]interface{})
+				} else {
+					if err := json.Unmarshal([]byte(argsStr), &toolCall.Function.Arguments); err != nil {
 						toolCall.Function.Arguments = make(map[string]interface{})
-					} else {
-						if err := json.Unmarshal([]byte(argsStr), &toolCall.Function.Arguments); err != nil {
-							toolCall.Function.Arguments = make(map[string]interface{})
-						}
 					}
 				}
 			}
-
-			return s.handleToolCalls(ctx, state, user, sseWriter, conversationHistory)
 		}
+
+		err := s.handleToolCalls(ctx, s.streamState, user, sseWriter, conversationHistory)
+		s.streamState = nil // Reset state after tool calls
+		return true, err
 	}
 
-	// Send done event
-	sseWriter.WriteChunk(SSEEvent{
-		Type: "done",
-		Data: nil,
-	})
+	// Check if we're done
+	if choice.FinishReason != "" && choice.FinishReason != "tool_calls" {
+		// Send done event
+		sseWriter.WriteChunk(SSEEvent{
+			Type: "done",
+			Data: nil,
+		})
+		s.streamState = nil // Reset state
+		return true, nil
+	}
 
-	return scanner.Err()
+	return false, nil
 }
 
 func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user *model.User, sseWriter *rest.SSEStreamWriter, conversationHistory []OpenAIMessage) error {
@@ -329,12 +304,13 @@ func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user 
 	}
 
 	req := OpenAIRequest{
-		Model:       s.config.Model,
-		Messages:    newHistory,
-		Tools:       tools,
-		MaxTokens:   s.config.MaxTokens,
-		Temperature: s.config.Temperature,
-		Stream:      true,
+		Model:           s.config.Model,
+		Messages:        newHistory,
+		Tools:           tools,
+		MaxTokens:       s.config.MaxTokens,
+		Temperature:     s.config.Temperature,
+		ReasoningEffort: s.config.ReasoningEffort,
+		Stream:          true,
 	}
 
 	return s.callOpenAIWithContext(ctx, req, user, sseWriter, newHistory)
@@ -411,6 +387,7 @@ func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 
 	err := s.streamChat(r.Context(), req.Messages, user, w, r)
 	if err != nil {
+		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

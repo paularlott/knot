@@ -210,6 +210,10 @@ window.chatComponent = function() {
     currentMessage: '',
     isLoading: false,
     inputRows: 1,
+    chatHistory: [],
+    historyIndex: -1,
+    partialMessage: '',
+    abortController: null,
 
     formatContent(content) {
       return processMarkdown(content);
@@ -301,8 +305,17 @@ window.chatComponent = function() {
       if (!this.currentMessage.trim() || this.isLoading) return;
 
       const userMessage = this.currentMessage.trim();
+      
+      // Add to chat history
+      this.chatHistory.push(userMessage);
+      if (this.chatHistory.length > 50) {
+        this.chatHistory = this.chatHistory.slice(-50);
+      }
+      
       this.currentMessage = '';
       this.inputRows = 1;
+      this.historyIndex = -1;
+      this.partialMessage = '';
 
       this.$store.chat.addMessage({
         role: 'user',
@@ -310,6 +323,7 @@ window.chatComponent = function() {
       });
 
       this.isLoading = true;
+      this.abortController = new AbortController();
       this.scrollToBottom();
 
       try {
@@ -318,7 +332,8 @@ window.chatComponent = function() {
         const response = await fetch('/api/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: messageHistory })
+          body: JSON.stringify({ messages: messageHistory }),
+          signal: this.abortController.signal
         });
 
         if (!response.ok) {
@@ -340,14 +355,28 @@ window.chatComponent = function() {
         await this.processStreamResponse(response);
 
       } catch (error) {
-        console.error('Chat error:', error);
-        const lastMessage = this.messages[this.messages.length - 1];
-        if (lastMessage?.role === 'assistant') {
-          lastMessage.fragments.content = 'Sorry, I encountered an error. Please try again.';
+        if (error.name === 'AbortError') {
+          const lastMessage = this.messages[this.messages.length - 1];
+          if (lastMessage?.role === 'assistant') {
+            lastMessage.fragments.content += '\n\n*[Response stopped by user]*';
+          }
+        } else {
+          console.error('Chat error:', error);
+          const lastMessage = this.messages[this.messages.length - 1];
+          if (lastMessage?.role === 'assistant') {
+            lastMessage.fragments.content = 'Sorry, I encountered an error. Please try again.';
+          }
         }
       } finally {
         this.isLoading = false;
+        this.abortController = null;
         this.focusInput();
+      }
+    },
+
+    stopGeneration() {
+      if (this.abortController) {
+        this.abortController.abort();
       }
     },
 
@@ -421,7 +450,41 @@ window.chatComponent = function() {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         this.sendMessage();
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        this.navigateHistory('up');
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        this.navigateHistory('down');
       }
+    },
+
+    navigateHistory(direction) {
+      if (this.chatHistory.length === 0) return;
+
+      if (direction === 'up') {
+        if (this.historyIndex === -1) {
+          // Save current partial message
+          this.partialMessage = this.currentMessage;
+          this.historyIndex = this.chatHistory.length - 1;
+        } else if (this.historyIndex > 0) {
+          this.historyIndex--;
+        }
+        this.currentMessage = this.chatHistory[this.historyIndex];
+      } else if (direction === 'down') {
+        if (this.historyIndex === -1) return;
+        
+        if (this.historyIndex < this.chatHistory.length - 1) {
+          this.historyIndex++;
+          this.currentMessage = this.chatHistory[this.historyIndex];
+        } else {
+          // Return to partial message or empty
+          this.historyIndex = -1;
+          this.currentMessage = this.partialMessage;
+        }
+      }
+      
+      this.adjustInputSize();
     },
 
     init() {
