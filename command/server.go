@@ -585,6 +585,13 @@ var ServerCmd = &cli.Command{
 				return nil
 			},
 		},
+		&cli.BoolFlag{
+			Name:         "chat-pseudo-tools",
+			Usage:        "Enable pseudo-tools for chat, this can allow tools to work with LLMs that don't natively support tools.",
+			ConfigPath:   []string{"server.chat.pseudo_tools"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_PSEUDO_TOOLS"},
+			DefaultValue: false,
+		},
 
 		// DNS flags
 		&cli.BoolFlag{
@@ -1044,6 +1051,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			Temperature:      cmd.GetFloat32("chat-temperature"),
 			SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
 			ReasoningEffort:  cmd.GetString("chat-reasoning-effort"),
+			PseudoTools:      cmd.GetBool("chat-pseudo-tools"),
 		},
 	}
 

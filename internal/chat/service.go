@@ -385,7 +385,13 @@ func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := s.streamChat(r.Context(), req.Messages, user, w, r)
+	var err error
+	if s.config.PseudoTools {
+		err = s.streamChatPseudo(r.Context(), req.Messages, user, w, r)
+	} else {
+		err = s.streamChat(r.Context(), req.Messages, user, w, r)
+	}
+
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
