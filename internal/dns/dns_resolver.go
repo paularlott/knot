@@ -6,19 +6,12 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/miekg/dns"
-	"github.com/rs/zerolog/log"
 )
-
-type HostPort struct {
-	Host string
-	Port string
-}
 
 type ResolverConfig struct {
 	QueryTimeout time.Duration // Timeout for upstream queries, 0 uses 2s default
@@ -128,10 +121,9 @@ func (r *DNSResolver) UpdateNameservers(nameservers []string) {
 
 func (r *DNSResolver) SetConfig(newConfig ResolverConfig) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	oldEnableCache := r.config.EnableCache
 	r.config = newConfig
+	r.mu.Unlock()
 
 	// Handle cache cleanup and cache state
 	if oldEnableCache && !newConfig.EnableCache {
@@ -156,17 +148,14 @@ func (r *DNSResolver) getResolvers(record string) []string {
 	// Look through the domains map to see if we have specific servers for this domain
 	for domain, ns := range r.domainServers {
 		if strings.HasSuffix(record, domain) {
-			log.Trace().Msgf("Using Servers for %s: %+v", domain, ns)
 			return ns
 		}
 	}
 
 	// If no specific servers are found, use the default servers
 	if len(r.nameservers) == 0 {
-		log.Trace().Msgf("Using system default nameservers")
 		return nil
 	} else {
-		log.Trace().Msgf("Using Default Servers: %+v", r.nameservers)
 		return r.nameservers
 	}
 }
@@ -251,12 +240,18 @@ func (r *DNSResolver) QueryUpstream(name string, recordType string) ([]DNSRecord
 	defer cancel()
 
 	// Response channel - buffered to prevent goroutine leaks
-	respChan := make(chan *dns.Msg, len(nameservers))
+	respChan := make(chan *dns.Msg, 1) // Only need 1 success
 	errChan := make(chan error, len(nameservers))
+
+	var wg sync.WaitGroup
 
 	// Query all nameservers in parallel
 	for _, nameserver := range nameservers {
+		wg.Add(1)
+
 		go func(ns string) {
+			defer wg.Done()
+
 			response := r.queryNameserver(ctx, msg, ns)
 			if response != nil && response.Rcode == dns.RcodeSuccess && len(response.Answer) > 0 {
 				select {
@@ -275,9 +270,20 @@ func (r *DNSResolver) QueryUpstream(name string, recordType string) ([]DNSRecord
 		}(nameserver)
 	}
 
+	// Close channels when all goroutines complete
+	go func() {
+		wg.Wait()
+		close(respChan)
+		close(errChan)
+	}()
+
 	// Wait for first success or all failures
 	select {
-	case response := <-respChan:
+	case response, ok := <-respChan:
+		if !ok {
+			// Channel closed, no successful response
+			break
+		}
 		// Success - convert DNS RRs to our internal format
 		var results []DNSRecord
 		for _, rr := range response.Answer {
@@ -291,18 +297,20 @@ func (r *DNSResolver) QueryUpstream(name string, recordType string) ([]DNSRecord
 		return results, nil
 
 	case <-ctx.Done():
-		// Collect any errors that came in
-		var errs []error
-		for i := 0; i < len(nameservers); i++ {
-			select {
-			case err := <-errChan:
-				errs = append(errs, err)
-			default:
-				errs = append(errs, fmt.Errorf("timeout"))
-			}
-		}
-		return nil, fmt.Errorf("all nameservers failed: %w", errors.Join(errs...))
+		// Context timeout/cancellation
 	}
+
+	// Collect all errors
+	var errs []error
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+
+	if len(errs) == 0 {
+		errs = append(errs, fmt.Errorf("query timeout after %v", r.config.QueryTimeout))
+	}
+
+	return nil, fmt.Errorf("all nameservers failed: %w", errors.Join(errs...))
 }
 
 // queryNameserver queries a single nameserver with both UDP and TCP fallback
@@ -378,7 +386,7 @@ func (r *DNSResolver) rrToRecord(rr dns.RR) *DNSRecord {
 	case *dns.TXT:
 		record.Type = "TXT"
 		if len(r.Txt) > 0 {
-			record.Target = r.Txt[0]
+			record.Target = strings.Join(r.Txt, " ")
 		}
 		return record
 
@@ -404,7 +412,7 @@ func (r *DNSResolver) stringToType(recordType string) uint16 {
 	case "TXT":
 		return dns.TypeTXT
 	default:
-		return dns.TypeNone
+		return dns.TypeA
 	}
 }
 
@@ -525,10 +533,6 @@ func (r *DNSResolver) cleanExpiredEntries() {
 			removed++
 		}
 	}
-
-	if removed > 0 {
-		log.Debug().Msgf("dns: resolver cache cleanup, removed %d expired entries, %d remaining", removed, len(r.cache))
-	}
 }
 
 // Stop stops the resolver and cleans up resources
@@ -544,36 +548,41 @@ func (r *DNSResolver) Stop() {
 }
 
 // Legacy functions for backward compatibility with existing SRV/IP lookup functionality
-func (r *DNSResolver) LookupSRV(service string) ([]HostPort, error) {
+func (r *DNSResolver) LookupSRV(service string) ([]*net.TCPAddr, error) {
 	records, err := r.QueryUpstream(service, "SRV")
 	if err != nil {
 		return nil, err
 	}
 
-	var hostPorts []HostPort
+	var tcpAddrs []*net.TCPAddr
 	for _, record := range records {
 		if record.Type == "SRV" {
 			// Look up IPs for the target
 			ips, err := r.LookupIP(record.Target)
 			if err == nil {
 				for _, ip := range ips {
-					hostPorts = append(hostPorts, HostPort{
-						Host: ip,
-						Port: strconv.Itoa(record.Port),
-					})
+					parsedIP := net.ParseIP(ip)
+					if parsedIP != nil {
+						tcpAddrs = append(tcpAddrs, &net.TCPAddr{
+							IP:   parsedIP,
+							Port: record.Port,
+						})
+					}
 				}
 			}
 		}
 	}
 
-	if len(hostPorts) == 0 {
+	if len(tcpAddrs) == 0 {
 		return nil, errors.New("no such host")
 	}
 
-	return hostPorts, nil
+	return tcpAddrs, nil
 }
 
 func (r *DNSResolver) LookupIP(host string) ([]string, error) {
+	var lastErr error
+
 	// Try A records first
 	records, err := r.QueryUpstream(host, "A")
 	if err == nil && len(records) > 0 {
@@ -586,6 +595,8 @@ func (r *DNSResolver) LookupIP(host string) ([]string, error) {
 		if len(ips) > 0 {
 			return ips, nil
 		}
+	} else {
+		lastErr = err
 	}
 
 	// Try AAAA records
@@ -600,9 +611,14 @@ func (r *DNSResolver) LookupIP(host string) ([]string, error) {
 		if len(ips) > 0 {
 			return ips, nil
 		}
+	} else if lastErr == nil {
+		lastErr = err
 	}
 
-	return nil, errors.New("no such host")
+	if lastErr != nil {
+		return nil, fmt.Errorf("failed to resolve %s: %w", host, lastErr)
+	}
+	return nil, fmt.Errorf("no IP addresses found for %s", host)
 }
 
 func (r *DNSResolver) ResolveSRVHttp(uri string) string {
@@ -619,7 +635,7 @@ func (r *DNSResolver) ResolveSRVHttp(uri string) string {
 			return uri[4:]
 		}
 
-		u.Host = hostPorts[0].Host + ":" + hostPorts[0].Port
+		u.Host = hostPorts[0].String()
 		return u.String()
 	}
 
@@ -642,7 +658,7 @@ func SetConfig(newConfig ResolverConfig) {
 	defaultResolver.SetConfig(newConfig)
 }
 
-func LookupSRV(service string) ([]HostPort, error) {
+func LookupSRV(service string) ([]*net.TCPAddr, error) {
 	return defaultResolver.LookupSRV(service)
 }
 

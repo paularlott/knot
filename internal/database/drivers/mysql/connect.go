@@ -3,7 +3,6 @@ package driver_mysql
 import (
 	"database/sql"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
@@ -45,11 +44,8 @@ func (db *MySQLDriver) realConnect() error {
 				continue
 			}
 
-			host = hostPort[0].Host
-			port, err = strconv.Atoi(hostPort[0].Port)
-			if err != nil {
-				log.Fatal().Err(err).Msg("db: failed to convert MySQL port to integer")
-			}
+			host = hostPort[0].IP.String()
+			port = hostPort[0].Port
 
 			break
 		}

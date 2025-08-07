@@ -2,7 +2,7 @@ module github.com/paularlott/knot
 
 go 1.24.5
 
-//replace github.com/paularlott/gossip => ../gossip/
+replace github.com/paularlott/gossip => ../gossip/
 
 // replace github.com/paularlott/cli => ../cli/
 
@@ -21,7 +21,7 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.68
 	github.com/paularlott/cli v0.2.3
-	github.com/paularlott/gossip v0.4.0
+	github.com/paularlott/gossip v0.4.1
 	github.com/paularlott/mcp v0.0.0-20250804153224-b9a52335d41e
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.11.0

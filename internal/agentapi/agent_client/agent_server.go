@@ -89,7 +89,7 @@ func (s *agentServer) ConnectAndServe() {
 					continue
 				}
 
-				serverAddr = hostIPs[0].Host + ":" + hostIPs[0].Port
+				serverAddr = hostIPs[0].String()
 			}
 			log.Info().Msgf("agent: connecting to server: %s", serverAddr)
 

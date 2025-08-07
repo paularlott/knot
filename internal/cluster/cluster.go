@@ -20,6 +20,7 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/dns"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/util/crypt"
 
@@ -62,6 +63,7 @@ func NewCluster(
 
 	gossipConfig := gossip.DefaultConfig()
 	gossipConfig.GossipInterval = GossipInterval
+	gossipConfig.Resolver = dns.GetDefaultResolver()
 	cluster.config = gossipConfig
 
 	if advertiseAddr != "" {

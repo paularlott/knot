@@ -22,6 +22,11 @@ function processMarkdown(text) {
     return placeholder;
   });
 
+  // Process tables
+  text = text.replace(/^((?:\|.*\|\s*\n)+)/gm, (match) => {
+    return processTable(match);
+  });
+
   // Now process all other markdown
   text = text
     .trim()
@@ -159,6 +164,75 @@ function processLists(text) {
   return result.join('');
 }
 
+// Helper function to process tables
+function processTable(text) {
+  const lines = text.trim().split('\n').filter(line => line.trim());
+  if (lines.length < 2) return text;
+
+  const tableRows = [];
+  let hasHeader = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line.startsWith('|') || !line.endsWith('|')) continue;
+
+    const content = line.slice(1, -1);
+    
+    // Check if this is a separator line (only dashes, colons, spaces, and pipes)
+    if (/^[\s\-:|]+$/.test(content) && content.includes('-')) {
+      // This is a separator - mark that we have a header and skip this line
+      if (tableRows.length === 1) {
+        hasHeader = true;
+      }
+      continue;
+    }
+
+    // Parse table cells
+    const cells = content.split('|').map(cell => cell.trim());
+    tableRows.push(cells);
+  }
+
+  if (tableRows.length === 0) return text;
+
+  let html = '<div class="overflow-x-auto my-4"><table class="min-w-full border-collapse border border-gray-300 dark:border-gray-600">';
+  
+  if (hasHeader && tableRows.length > 0) {
+    // First row is header
+    html += '<thead class="bg-gray-50 dark:bg-gray-800"><tr>';
+    for (const cell of tableRows[0]) {
+      html += `<th class="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left font-semibold">${processNestedMarkdown(cell)}</th>`;
+    }
+    html += '</tr></thead>';
+    
+    // Remaining rows are body
+    if (tableRows.length > 1) {
+      html += '<tbody>';
+      for (let i = 1; i < tableRows.length; i++) {
+        html += '<tr class="even:bg-gray-50 dark:even:bg-gray-800">';
+        for (const cell of tableRows[i]) {
+          html += `<td class="border border-gray-300 dark:border-gray-600 px-3 py-2">${processNestedMarkdown(cell)}</td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</tbody>';
+    }
+  } else {
+    // No header, all rows are body
+    html += '<tbody>';
+    for (const row of tableRows) {
+      html += '<tr class="even:bg-gray-50 dark:even:bg-gray-800">';
+      for (const cell of row) {
+        html += `<td class="border border-gray-300 dark:border-gray-600 px-3 py-2">${processNestedMarkdown(cell)}</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody>';
+  }
+  
+  html += '</table></div>';
+  return html;
+}
+
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -227,9 +301,16 @@ window.chatComponent = function() {
       const messageHistory = [];
 
       for (const msg of this.messages) {
+        let content = msg.fragments ? msg.fragments.content.trim() : msg.content.trim();
+
+        // Include thinking content for assistant messages
+        if (msg.role === 'assistant' && msg.fragments?.thinking?.trim()) {
+          content = `<think>\n${msg.fragments.thinking.trim()}\n</think>\n\n${content}`;
+        }
+
         const historyMsg = {
           role: msg.role,
-          content: msg.fragments ? msg.fragments.content.trim() : msg.content.trim(),
+          content: content,
           timestamp: msg.timestamp
         };
 
@@ -305,13 +386,13 @@ window.chatComponent = function() {
       if (!this.currentMessage.trim() || this.isLoading) return;
 
       const userMessage = this.currentMessage.trim();
-      
+
       // Add to chat history
       this.chatHistory.push(userMessage);
       if (this.chatHistory.length > 50) {
         this.chatHistory = this.chatHistory.slice(-50);
       }
-      
+
       this.currentMessage = '';
       this.inputRows = 1;
       this.historyIndex = -1;
@@ -473,7 +554,7 @@ window.chatComponent = function() {
         this.currentMessage = this.chatHistory[this.historyIndex];
       } else if (direction === 'down') {
         if (this.historyIndex === -1) return;
-        
+
         if (this.historyIndex < this.chatHistory.length - 1) {
           this.historyIndex++;
           this.currentMessage = this.chatHistory[this.historyIndex];
@@ -483,7 +564,7 @@ window.chatComponent = function() {
           this.currentMessage = this.partialMessage;
         }
       }
-      
+
       this.adjustInputSize();
     },
 
