@@ -623,7 +623,7 @@ func (r *DNSResolver) LookupIP(host string) ([]string, error) {
 
 func (r *DNSResolver) ResolveSRVHttp(uri string) string {
 	// If url starts with srv+ then remove it and resolve the actual url
-	if strings.HasPrefix(uri, "srv+") {
+	if strings.HasPrefix(uri, "srv+") || strings.HasPrefix(uri, "SRV+") {
 		// Parse the url excluding the srv+ prefix
 		u, err := url.Parse(uri[4:])
 		if err != nil {
