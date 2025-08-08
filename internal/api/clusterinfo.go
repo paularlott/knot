@@ -16,7 +16,7 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 	for i, p := range peers {
 		response[i] = apiclient.ClusterNodeInfo{
 			Id:       p.ID.String(),
-			Address:  p.GetAddress().String(),
+			Address:  p.GetAdvertisedAddress(),
 			State:    p.GetState().String(),
 			Metadata: p.Metadata.GetAllAsString(),
 		}
