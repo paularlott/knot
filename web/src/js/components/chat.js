@@ -121,8 +121,8 @@ function processLists(text) {
     // Close lists that are at deeper or equal levels when moving to a shallower level
     // OR when switching list types at the same level
     while (stack.length > 0 &&
-           (stack[stack.length - 1].level > level ||
-            (stack[stack.length - 1].level === level && stack[stack.length - 1].type !== listType))) {
+      (stack[stack.length - 1].level > level ||
+        (stack[stack.length - 1].level === level && stack[stack.length - 1].type !== listType))) {
       const item = stack.pop();
       result.push(`</li></${item.type}>`);
     }
@@ -243,6 +243,8 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('chat', {
     isOpen: Alpine.$persist(false).using(sessionStorage),
     messages: Alpine.$persist([]).using(sessionStorage),
+    // Separate persistent storage for input history - independent of conversation
+    inputHistory: Alpine.$persist([]).using(localStorage),
 
     toggle() {
       this.isOpen = !this.isOpen;
@@ -265,13 +267,30 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    addToInputHistory(message) {
+      // Remove duplicate if it exists
+      const index = this.inputHistory.indexOf(message);
+      if (index > -1) {
+        this.inputHistory.splice(index, 1);
+      }
+
+      // Add to end of array
+      this.inputHistory.push(message);
+
+      // Keep only last 50 entries
+      if (this.inputHistory.length > 50) {
+        this.inputHistory = this.inputHistory.slice(-50);
+      }
+    },
+
     clearMessages() {
       this.messages = [];
+      // Note: We deliberately do NOT clear inputHistory here
     }
   });
 });
 
-window.chatComponent = function() {
+window.chatComponent = function () {
   return {
     get isOpen() {
       return this.$store.chat.isOpen;
@@ -281,10 +300,13 @@ window.chatComponent = function() {
       return this.$store.chat.messages;
     },
 
+    get inputHistory() {
+      return this.$store.chat.inputHistory;
+    },
+
     currentMessage: '',
     isLoading: false,
     inputRows: 1,
-    chatHistory: [],
     historyIndex: -1,
     partialMessage: '',
     abortController: null,
@@ -387,11 +409,8 @@ window.chatComponent = function() {
 
       const userMessage = this.currentMessage.trim();
 
-      // Add to chat history
-      this.chatHistory.push(userMessage);
-      if (this.chatHistory.length > 50) {
-        this.chatHistory = this.chatHistory.slice(-50);
-      }
+      // Add to persistent input history (independent of conversation)
+      this.$store.chat.addToInputHistory(userMessage);
 
       this.currentMessage = '';
       this.inputRows = 1;
@@ -541,23 +560,23 @@ window.chatComponent = function() {
     },
 
     navigateHistory(direction) {
-      if (this.chatHistory.length === 0) return;
+      if (this.inputHistory.length === 0) return;
 
       if (direction === 'up') {
         if (this.historyIndex === -1) {
           // Save current partial message
           this.partialMessage = this.currentMessage;
-          this.historyIndex = this.chatHistory.length - 1;
+          this.historyIndex = this.inputHistory.length - 1;
         } else if (this.historyIndex > 0) {
           this.historyIndex--;
         }
-        this.currentMessage = this.chatHistory[this.historyIndex];
+        this.currentMessage = this.inputHistory[this.historyIndex];
       } else if (direction === 'down') {
         if (this.historyIndex === -1) return;
 
-        if (this.historyIndex < this.chatHistory.length - 1) {
+        if (this.historyIndex < this.inputHistory.length - 1) {
           this.historyIndex++;
-          this.currentMessage = this.chatHistory[this.historyIndex];
+          this.currentMessage = this.inputHistory[this.historyIndex];
         } else {
           // Return to partial message or empty
           this.historyIndex = -1;
