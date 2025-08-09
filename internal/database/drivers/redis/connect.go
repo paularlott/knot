@@ -61,7 +61,7 @@ func (db *RedisDbDriver) realConnect() {
 					continue
 				}
 
-				hosts[idx] = hostPort[0].Host + ":" + hostPort[0].Port
+				hosts[idx] = hostPort[0].String()
 			}
 		}
 	}
