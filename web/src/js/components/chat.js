@@ -244,7 +244,7 @@ document.addEventListener('alpine:init', () => {
     isOpen: Alpine.$persist(false).using(sessionStorage),
     messages: Alpine.$persist([]).using(sessionStorage),
     // Separate persistent storage for input history - independent of conversation
-    inputHistory: Alpine.$persist([]).using(localStorage),
+    inputHistory: Alpine.$persist([]).using(sessionStorage),
 
     toggle() {
       this.isOpen = !this.isOpen;
