@@ -232,10 +232,10 @@ func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user 
 	var toolResults []ToolResult
 
 	// Send tool calls info to frontend
-	for index, toolCall := range state.toolCallBuffer {
+	for _, toolCall := range state.toolCallBuffer {
 		if toolCall != nil && toolCall.Function.Name != "" {
 			if toolCall.ID == "" {
-				toolCall.ID = fmt.Sprintf("call_%d", index)
+				toolCall.ID = fmt.Sprintf("call_%d", toolCall.Index)
 			}
 			toolCalls = append(toolCalls, *toolCall)
 		}
@@ -250,19 +250,6 @@ func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user 
 
 	// Execute tools and collect results
 	for _, toolCall := range toolCalls {
-		// Parse arguments if not already done
-		if len(toolCall.Function.Arguments) == 0 {
-			index := toolCall.Index
-			if state.argumentsBuffer[index] != "" {
-				var parsedArgs map[string]interface{}
-				if err := json.Unmarshal([]byte(state.argumentsBuffer[index]), &parsedArgs); err == nil {
-					toolCall.Function.Arguments = parsedArgs
-				}
-			} else {
-				toolCall.Function.Arguments = make(map[string]interface{})
-			}
-		}
-
 		result, err := s.executeMCPTool(ctx, toolCall, user)
 		if err != nil {
 			result = fmt.Sprintf("Error executing tool: %v", err)
@@ -312,6 +299,8 @@ func (s *Service) handleToolCalls(ctx context.Context, state *streamState, user 
 		ReasoningEffort: s.config.ReasoningEffort,
 		Stream:          true,
 	}
+
+	s.streamState = nil // Reset state after tool calls
 
 	return s.callOpenAIWithContext(ctx, req, user, sseWriter, newHistory)
 }
@@ -387,7 +376,6 @@ func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 
 	err := s.streamChat(r.Context(), req.Messages, user, w, r)
 	if err != nil {
-		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

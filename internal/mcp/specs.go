@@ -3,20 +3,31 @@ package mcp
 import (
 	"context"
 	_ "embed"
+	"fmt"
 
 	"github.com/paularlott/mcp"
 )
 
-//go:embed specs/docker-podman-spec.md
-var dockerPodmanSpec string
+var (
+	//go:embed specs/docker-podman-spec.md
+	dockerPodmanSpec string
 
-//go:embed specs/nomad-spec.md
-var nomadSpec string
+	//go:embed specs/nomad-spec.md
+	nomadSpec string
+)
 
-func getContainerSpec(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
-	return mcp.NewToolResponseText(dockerPodmanSpec), nil
-}
+func getPlatformSpec(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	platform, err := req.String("platform")
+	if err != nil {
+		return nil, fmt.Errorf("platform parameter is required")
+	}
 
-func getNomadSpec(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
-	return mcp.NewToolResponseText(nomadSpec), nil
+	switch platform {
+	case "docker", "podman":
+		return mcp.NewToolResponseText(dockerPodmanSpec), nil
+	case "nomad":
+		return mcp.NewToolResponseText(nomadSpec), nil
+	default:
+		return nil, fmt.Errorf("platform must be one of: docker, podman, nomad")
+	}
 }

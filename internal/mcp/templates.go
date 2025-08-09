@@ -21,7 +21,7 @@ type Template struct {
 	Name            string                      `json:"name"`
 	Description     string                      `json:"description"`
 	Platform        string                      `json:"platform"`
-	Groups          []string                    `json:"groups"`
+	Groups          []TemplateGroup             `json:"groups"`
 	ComputeUnits    uint32                      `json:"compute_units"`
 	StorageUnits    uint32                      `json:"storage_units"`
 	ScheduleEnabled bool                        `json:"schedule_enabled"`
@@ -31,6 +31,11 @@ type Template struct {
 	CustomFields    []model.TemplateCustomField `json:"custom_fields"`
 	MaxUptime       uint32                      `json:"max_uptime"`
 	MaxUptimeUnit   string                      `json:"max_uptime_unit"`
+}
+
+type TemplateGroup struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -60,10 +65,10 @@ func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 		}
 
 		// Build the groups list
-		var groupsList []string
+		var groupsList []TemplateGroup
 		for _, group := range template.Groups {
 			if grp, ok := groupMap[group]; ok {
-				groupsList = append(groupsList, fmt.Sprintf("%s (ID: %s)", grp.Name, grp.Id))
+				groupsList = append(groupsList, TemplateGroup{ID: grp.Id, Name: grp.Name})
 			}
 		}
 
@@ -135,7 +140,7 @@ func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 	withSSH := req.BoolOr("with_ssh", false)
 	active := req.BoolOr("active", true)
 
-	var groups []string
+	groups := []string{}
 	if g, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
 		db := database.GetInstance()
 		for _, groupId := range g {
