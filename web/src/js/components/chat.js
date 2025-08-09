@@ -56,8 +56,8 @@ function processMarkdown(text) {
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.*?)__/g, '<strong>$1</strong>')
     // Italic (*text* or _text_)
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/_(.*?)_/g, '<em>$1</em>')
+    .replace(/\b\*((?:[^*\s](?:[^*]*[^*\s])?)*)\*\b/g, '<em>$1</em>')
+    .replace(/\b_((?:[^_\s](?:[^_]*[^_\s])?)*?)_\b/g, '<em>$1</em>')
     // Links [text](url)
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-500 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer">$1</a>')
     // Line breaks
@@ -93,8 +93,8 @@ function processNestedMarkdown(text) {
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.*?)__/g, '<strong>$1</strong>')
     // Italic (*text* or _text_)
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/_(.*?)_/g, '<em>$1</em>')
+    .replace(/\b\*((?:[^*\s](?:[^*]*[^*\s])?)*)\*\b/g, '<em>$1</em>')
+    .replace(/\b_((?:[^_\s](?:[^_]*[^_\s])?)*?)_\b/g, '<em>$1</em>')
     // Inline code (`code`)
     .replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
     // Links [text](url)
@@ -177,7 +177,7 @@ function processTable(text) {
     if (!line.startsWith('|') || !line.endsWith('|')) continue;
 
     const content = line.slice(1, -1);
-    
+
     // Check if this is a separator line (only dashes, colons, spaces, and pipes)
     if (/^[\s\-:|]+$/.test(content) && content.includes('-')) {
       // This is a separator - mark that we have a header and skip this line
@@ -195,7 +195,7 @@ function processTable(text) {
   if (tableRows.length === 0) return text;
 
   let html = '<div class="overflow-x-auto my-4"><table class="min-w-full border-collapse border border-gray-300 dark:border-gray-600">';
-  
+
   if (hasHeader && tableRows.length > 0) {
     // First row is header
     html += '<thead class="bg-gray-50 dark:bg-gray-800"><tr>';
@@ -203,7 +203,7 @@ function processTable(text) {
       html += `<th class="border border-gray-300 dark:border-gray-600 px-3 py-2 text-left font-semibold">${processNestedMarkdown(cell)}</th>`;
     }
     html += '</tr></thead>';
-    
+
     // Remaining rows are body
     if (tableRows.length > 1) {
       html += '<tbody>';
@@ -228,7 +228,7 @@ function processTable(text) {
     }
     html += '</tbody>';
   }
-  
+
   html += '</table></div>';
   return html;
 }

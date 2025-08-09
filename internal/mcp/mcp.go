@@ -57,7 +57,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 	server.RegisterTool(
 		mcp.NewTool("create_role", "Create a new role with specified permissions. IMPORTANT: Use list_permissions tool first to get the numeric permission IDs.").
 			AddParam("name", mcp.String, "The name of the role", true).
-			AddParam("permissions", mcp.Array, "Array of permission IDs as integers (e.g., [1, 2, 5]). Do NOT use permission names - use the numeric 'id' field from list_permissions.", false),
+			AddParam("permissions", mcp.ArrayOf(mcp.Number), "Array of permission IDs as integers (e.g., [1, 2, 5]). Do NOT use permission names - use the numeric 'id' field from list_permissions.", false),
 		createRole,
 	)
 	server.RegisterTool(
@@ -65,7 +65,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("role_id", mcp.String, "The ID of the role to update", true).
 			AddParam("name", mcp.String, "The name of the role", false).
 			AddParam("permission_action", mcp.String, "Action to perform on permissions: 'replace', 'add', or 'remove'", false).
-			AddParam("permissions", mcp.Array, "Array of permission IDs as integers (e.g., [1, 2, 5]). Do NOT use permission names - use the numeric 'id' field from list_permissions.", false),
+			AddParam("permissions", mcp.ArrayOf(mcp.Number), "Array of permission IDs as integers (e.g., [1, 2, 5]). Do NOT use permission names - use the numeric 'id' field from list_permissions.", false),
 		updateRole,
 	)
 	server.RegisterTool(
@@ -99,7 +99,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("with_ssh", mcp.Boolean, "Enable SSH access", false).
 			AddParam("active", mcp.Boolean, "Template active status", false).
 			AddParam("icon_url", mcp.String, "Icon URL for the template", false).
-			AddParam("groups", mcp.Array, "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false),
+			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false),
 		createTemplate,
 	)
 	server.RegisterTool(
@@ -117,7 +117,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("with_ssh", mcp.Boolean, "Enable SSH access", false).
 			AddParam("active", mcp.Boolean, "Template active status", false).
 			AddParam("group_action", mcp.String, "Action for groups: 'replace', 'add', or 'remove'", false).
-			AddParam("groups", mcp.Array, "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false),
+			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false),
 		updateTemplate,
 	)
 	server.RegisterTool(
@@ -192,7 +192,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		mcp.NewTool("create_templatevar", "Create a new template variable").
 			AddParam("name", mcp.String, "The name of the template variable (must be valid variable name)", true).
 			AddParam("value", mcp.String, "The value of the template variable", false).
-			AddParam("zones", mcp.Array, "Array of zone names where this variable applies", false).
+			AddParam("zones", mcp.ArrayOf(mcp.String), "Array of zone names where this variable applies", false).
 			AddParam("local", mcp.Boolean, "Whether this is a local variable", false).
 			AddParam("protected", mcp.Boolean, "Whether this variable is protected (value hidden)", false).
 			AddParam("restricted", mcp.Boolean, "Whether this variable is restricted", false),
@@ -203,7 +203,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("templatevar_id", mcp.String, "The ID of the template variable to update", true).
 			AddParam("name", mcp.String, "The name of the template variable (must be valid variable name)", false).
 			AddParam("value", mcp.String, "The value of the template variable", false).
-			AddParam("zones", mcp.Array, "Array of zone names where this variable applies", false).
+			AddParam("zones", mcp.ArrayOf(mcp.String), "Array of zone names where this variable applies", false).
 			AddParam("local", mcp.Boolean, "Whether this is a local variable", false).
 			AddParam("protected", mcp.Boolean, "Whether this variable is protected (value hidden)", false).
 			AddParam("restricted", mcp.Boolean, "Whether this variable is restricted", false),
@@ -233,8 +233,8 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("compute_units", mcp.Number, "Compute units limit", false).
 			AddParam("storage_units", mcp.Number, "Storage units limit", false).
 			AddParam("max_tunnels", mcp.Number, "Maximum tunnels allowed", false).
-			AddParam("roles", mcp.Array, "Array of role IDs", false).
-			AddParam("groups", mcp.Array, "Array of group IDs", false),
+			AddParam("roles", mcp.ArrayOf(mcp.String), "Array of role IDs", false).
+			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group IDs", false),
 		createUser,
 	)
 	server.RegisterTool(
@@ -252,9 +252,9 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("storage_units", mcp.Number, "Storage units limit (admin only)", false).
 			AddParam("max_tunnels", mcp.Number, "Maximum tunnels allowed (admin only)", false).
 			AddParam("role_action", mcp.String, "Action for roles: 'replace', 'add', or 'remove' (admin only)", false).
-			AddParam("roles", mcp.Array, "Array of role IDs for the specified action (admin only)", false).
+			AddParam("roles", mcp.ArrayOf(mcp.String), "Array of role IDs for the specified action (admin only)", false).
 			AddParam("group_action", mcp.String, "Action for groups: 'replace', 'add', or 'remove' (admin only)", false).
-			AddParam("groups", mcp.Array, "Array of group IDs for the specified action (admin only)", false),
+			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group IDs for the specified action (admin only)", false),
 		updateUser,
 	)
 	server.RegisterTool(
