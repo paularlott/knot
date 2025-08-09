@@ -47,6 +47,63 @@ dns_search:
   - <domain_name>
 ```
 
+#### Field Descriptions
+
+##### Core Configuration
+- **container_name**: Unique container identifier, must be present and if not specified should be set to `${{ .user.username }}-${{ .space.name }}`
+- **hostname**: Internal container hostname, must be present and if not given should be set to `${{ .space.name }}`
+- **image**: Container image, this must be present.
+
+##### Authentication
+- **auth**: Registry credentials for private images
+  - **username**: Registry username
+  - **password**: Registry password
+
+##### Networking & Access
+- **ports**: Port mappings `<host>:<container>/<protocol>` (tcp/udp)
+- **network**: Network mode (bridge, host, none, container:<name>)
+- **dns**: Custom DNS servers
+- **add_host**: Custom host entries for /etc/hosts
+- **dns_search**: DNS search domains
+
+For most templates these will not be required and can be excluded.
+
+##### Storage & Data
+- **volumes**: Volume mounts `<host_path>:<container_path>`
+
+Where the `host_path` is to be a location from the host it must be prefixed with a `/`.
+
+Where the `host_path` is a volume is needs to start with the space ID `${{.space.id}}` e.g. `${{.space.id}}-home:/home`. Volumes also need to be added to the templates volume definition, the following example references two volumes, one for home and one for data:
+
+```yaml
+volumes:
+  ${{.space.id}}-home:
+  ${{.space.id}}-data:
+```
+
+##### Runtime Configuration
+- **command**: Override default container command (array of strings)
+- **environment**: Environment variables `<VAR>=<value>`
+- **privileged**: Extended host privileges (use cautiously)
+
+For most templates these will not be required and can be excluded.
+
+##### Security & Capabilities
+- **cap_add**: Add Linux capabilities
+- **cap_drop**: Remove Linux capabilities
+- **devices**: Device mappings `<host_device>:<container_device>`
+
+For Podman containers you can include `CAP_NET_RAW` to allow ping to work e.g.
+
+```yaml
+cap_add:
+  - CAP_NET_RAW
+```
+
+### Naming Ports
+
+The environment variables `KNOT_HTTP_PORT` and `KNOT_TCP_PORT` can be used to name ports within the container, to name Web on port 80 and Email on port 8025 you would use `KNOT_HTTP_PORT=80=Web,8025=Email`.
+
 ## Part 2: The Volume Definitions
 This is a separate YAML structure that declares the named volumes.
 

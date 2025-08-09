@@ -1,242 +1,372 @@
-# Nomad Job Specification for Knot Templates
+# knot Nomad Job Specification for AI Assistants (with Ceph CSI Volumes)
 
-## Overview
-This specification defines the structure and requirements for Nomad job definitions used in Knot templates. Nomad jobs define how applications are deployed and managed within a Nomad cluster.
+This document specifies the format for creating HashiCorp Nomad job files (`.nomad`) and their associated volume definitions. Your primary goal is to assist users in generating the necessary configurations to run containerized applications on a Nomad cluster, with persistent storage provided by a Ceph cluster via the CSI plugin.
 
-## Basic Job Structure
+## Core Concept: A Two-Part Template
+
+A complete `knot` Nomad template consists of **two separate files**:
+
+1.  **The Nomad Job Specification (HCL):** A `.nomad` file defining the job, its tasks, and how it *uses* volumes.
+2.  **The Volume Definitions (YAML):** A YAML file that *declares* the CSI volume `source` names that `knot` needs to track or provision.
+
+You must generate **both** of these for any job that requires persistent storage.
+
+### Using Knot Variables for Dynamic Configuration
+In addition to hard-coded values, knot allows users to specify variable placeholders in the Nomad job file. These variables are resolved by knot before the job is submitted to Nomad. This is useful for environment-specific settings like cluster IDs or pool names.
+
+The variable syntax is: `${{.var.<variable_name>}}`
+
+**Your Role**: If a user asks you to use a "variable" for a specific field (e.g., "use the variable my_ceph_pool for the pool"), you must use this exact syntax in the generated HCL. **Do not** ask for the value of the variable.
+
+**Example:**
+
+- **User says**: "Use the variable prod_cluster for the clusterID."
+- **You generate**: clusterID = "${{.var.prod_cluster}}"
+
+## Part 1: The Nomad Job Specification (HCL)
+
+A Nomad job is defined in a single HCL file. The basic structure you will generate is as follows:
 
 ```hcl
-job "example-job" {
-  datacenters = ["dc1"]
-  type = "service"
+job "<job_name>" {
+  datacenters = ["<datacenter_name>"]
+  type        = "service"
 
-  group "app" {
+  group "<group_name>" {
     count = 1
 
-    network {
-      port "http" {
-        to = 8080
+    # This stanza is for persistent Ceph volumes
+    volume "<volume_name>" {
+      type            = "csi"
+      source          = "<ceph_volume_source_name>" # Must be defined in the Volume Definitions YAML
+      access_mode     = "single-node-writer"
+      attachment_mode = "file-system"
+
+      parameters = {
+        clusterID = "<ceph_cluster_id>"
+        pool      = "<ceph_pool_name>"
+        fsType    = "ext4"
       }
     }
 
-    task "web" {
-      driver = "docker"
+    task "<task_name>" {
+      driver = "docker" # or "podman"
 
       config {
-        image = "nginx:latest"
-        ports = ["http"]
+        image = "<image_name>"
+        hostname = "<container_hostname>"
+        auth {
+          username = "<registry_user>"
+          password = "<registry_pass>"
+        }
+
+        # For Podman driver host path mounts
+        # volumes = [ "/host/path:/container/path" ]
+
+        # For Docker driver host path mounts
+        # mount {
+        #   type   = "bind"
+        #   source = "/host/path"
+        #   target = "/container/path"
+        # }
+
+        # For Podman driver, to allow tools like ping to work
+        cap_add = [ "NET_RAW" ]
       }
 
-      resources {
-        cpu    = 500
-        memory = 256
-      }
-    }
-  }
-}
-```
-
-## Required Fields
-
-### Job Level
-- **job**: Job name (must be unique)
-- **datacenters**: List of datacenters where the job can run
-- **type**: Job type (typically "service" for long-running applications)
-
-### Group Level
-- **group**: Logical grouping of tasks
-- **count**: Number of instances to run
-
-### Task Level
-- **task**: Individual task definition
-- **driver**: Task driver (docker, exec, java, etc.)
-- **config**: Driver-specific configuration
-- **resources**: Resource requirements (CPU, memory)
-
-## Common Drivers
-
-### Docker Driver
-```hcl
-task "app" {
-  driver = "docker"
-
-  config {
-    image = "myapp:latest"
-    ports = ["http"]
-    volumes = [
-      "/host/path:/container/path"
-    ]
-  }
-}
-```
-
-### Exec Driver
-```hcl
-task "app" {
-  driver = "exec"
-
-  config {
-    command = "/usr/bin/myapp"
-    args = ["--config", "/etc/myapp.conf"]
-  }
-}
-```
-
-## Networking
-
-### Port Configuration
-```hcl
-network {
-  port "http" {
-    static = 8080  # Static port
-  }
-  port "api" {
-    to = 3000      # Dynamic port mapped to container port 3000
-  }
-}
-```
-
-## Resource Constraints
-
-```hcl
-resources {
-  cpu    = 500    # MHz
-  memory = 512    # MB
-
-  device "nvidia/gpu" {
-    count = 1
-  }
-}
-```
-
-## Environment Variables
-
-```hcl
-env {
-  DATABASE_URL = "postgres://localhost/mydb"
-  LOG_LEVEL = "info"
-}
-```
-
-## Health Checks
-
-```hcl
-service {
-  name = "web-app"
-  port = "http"
-
-  check {
-    type     = "http"
-    path     = "/health"
-    interval = "10s"
-    timeout  = "3s"
-  }
-}
-```
-
-## Volumes and Storage
-
-```hcl
-volume "data" {
-  type      = "host"
-  source    = "myvolume"
-  read_only = false
-}
-
-task "app" {
-  volume_mount {
-    volume      = "data"
-    destination = "/data"
-  }
-}
-```
-
-## Template Variables
-
-Knot provides template variables that can be used in job specifications:
-
-- **{{ .Space.Name }}**: Space name
-- **{{ .Space.Id }}**: Space ID
-- **{{ .User.Username }}**: Username
-- **{{ .User.Email }}**: User email
-- **{{ .Template.Name }}**: Template name
-
-Example usage:
-
-```hcl
-env {
-  SPACE_NAME = "{{ .Space.Name }}"
-  USER_NAME = "{{ .User.Username }}"
-}
-```
-
-## Best Practices
-
-1. **Resource Limits**: Always specify appropriate CPU and memory limits
-2. **Health Checks**: Include health checks for service discovery
-3. **Logging**: Configure proper logging drivers
-4. **Security**: Use least privilege principles
-5. **Networking**: Use dynamic ports when possible
-6. **Volumes**: Use CSI volumes for persistent storage
-
-## Complete Example
-
-```hcl
-job "web-app" {
-  datacenters = ["dc1"]
-  type = "service"
-
-  group "web" {
-    count = 1
-
-    network {
-      port "http" {
-        to = 8080
-      }
-    }
-
-    volume "data" {
-      type   = "csi"
-      source = "web-data"
-    }
-
-    task "app" {
-      driver = "docker"
-
-      config {
-        image = "nginx:alpine"
-        ports = ["http"]
-      }
-
+      # Mounts a persistent Ceph volume declared in the group
       volume_mount {
-        volume      = "data"
-        destination = "/usr/share/nginx/html"
+        volume      = "<volume_name>"
+        destination = "<container_path>"
       }
 
       env {
-        SPACE_NAME = "{{ .Space.Name }}"
-        USER_NAME = "{{ .User.Username }}"
+        KNOT_USER           = "${{ .user.username }}"
+        KNOT_SERVER         = "${{ .server.url }}"
+        KNOT_AGENT_ENDPOINT = "${{ .server.agent_endpoint }}"
+        KNOT_SPACEID        = "${{ .space.id }}"
       }
 
       resources {
-        cpu    = 500
-        memory = 256
-      }
-
-      service {
-        name = "web-app"
-        port = "http"
-
-        check {
-          type     = "http"
-          path     = "/"
-          interval = "10s"
-          timeout  = "3s"
-        }
+        cpu    = 250    # MHz
+        memory = 2048   # MB
       }
     }
   }
 }
 ```
 
-For more detailed information, refer to the official Nomad documentation at https://www.nomadproject.io/docs/job-specification
+**Strict rule: Unless the job name is explicitly given the jobs must be named `${{.user.username}}-${{.space.name}}`**.
+
+## Part 2: The Volume Definitions (YAML)
+
+This is a separate YAML file declaring the `source` identifiers for the CSI volumes.
+
+### Volume Definition Structure
+
+```yaml
+volumes:
+  - id: "<volume_name>"
+    name: "<volume_name>"
+    plugin_id: "rbd"
+    capacity_min: 60G
+    capacity_max: 60G
+    mount_options:
+      fs_type: "ext4"
+      mount_flags:
+        - rw
+        - noatime
+    capabilities:
+      - access_mode: "single-node-writer"
+        attachment_mode: "file-system"
+    secrets:
+      userID: "<ceph_user>"
+      userKey: "<ceph_password>"
+    parameters:
+      clusterID: "<ceph_cluster_id"
+      pool: "rbd"
+      imageFeatures: "deep-flatten,exclusive-lock,fast-diff,layering,object-map"
+```
+
+*   **Format:** This is a YAML list under the `volumes` key.
+*   **Naming Convention (Strict):** Each `source` name in the list **must** follow the format `knot-${{ .space.id }}-<purpose>`, where `<purpose>` is a short, descriptive name (e.g., `html`, `database`).
+
+## Nomad Job Specification Field Descriptions
+
+| Field Name | Type | Context | Description | Required? | Default/Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `job` | `block` | Root | Defines the entire job. | Yes | |
+| `job.<job_name>` | `string`| Job | A unique name for the Nomad job. | Yes | `${{.user.username}}-${{.space.name}}` unless explicitly specified by the user. |
+| `datacenters` | `list` | Job | Datacenters where the job can run. | Yes | `["dc1"]` |
+| `type` | `string`| Job | The job type. | Yes | `"service"` |
+| `group` | `block` | Job | Defines a group of co-located tasks. | Yes | |
+| `volume` | `block` | Group | Declares a persistent CSI volume requirement. | No | Required for Ceph volumes. |
+| `volume.source`| `string`| Volume | The unique identifier for the CSI volume. **Must match an entry in the Volume Definitions YAML.** | Yes | |
+| `volume.parameters.clusterID`| `string`| Params | The Ceph cluster's FSID. **Can be a hardcoded string or a knot variable like** `${{.var.ceph_cluster_id}}`. | Yes | Prompt if not provided as a value or variable. |
+| `volume.parameters.pool`| `string`| Params | The Ceph storage pool to use. **Can be a hardcoded string or a knot variable like** `${{.var.ceph_pool_name}}`. | Yes | Prompt if not provided as a value or variable. |
+| `task` | `block` | Group | Defines a unit of work. | Yes | |
+| `driver` | `string`| Task | The task driver. | Yes | `"docker"` (unless `podman` is specified). |
+| `config.image`| `string`| Config | The container image to run. | Yes | |
+| `config.hostname`| `string`| Config | The internal hostname of the container. | No | Defaults to the task name. |
+| `config.auth` | `block` | Config | Credentials for a private container registry. | No | |
+| `config.volumes`| `list` | Config | **For Podman driver only:** Host path mounts. Format: `"/host/path:/container/path"`. | No | |
+| `config.mount`| `block` | Config | **For Docker driver only:** Host path mounts. | No | |
+| `config.cap_add`| `list` | Config | **For Podman driver only:** Adds Linux capabilities. | No | Add `NET_RAW` for Podman by default. |
+| `volume_mount`| `block` | Task | Mounts a `volume` declared in the group into the container. | No | Required if `volume` stanza is used. |
+| `env` | `block` | Task | Sets environment variables. | Yes | Must include the four standard `KNOT_` variables. |
+| `resources` | `block` | Task | Sets resource limits. | Yes | `cpu = 250`, `memory = 2048` |
+| `resources.cpu` | `integer` | Resources | CPU limit in MHz (1000 MHz = 1 CPU core). | Yes | `250` |
+| `resources.memory` | `integer` | Resources | Memory limit in MB. | Yes | `256` |
+| `service` | `block` | Task | Defines a service for discovery via Consul. | No | |
+| `service.name` | `string` | Service | The name of the service to register. | Yes (if service block) | Defaults to job name. |
+| `service.tags` | `list of string` | Service | Tags to apply to the service. | No | |
+| `service.port` | `string` | Service | The named port to expose for the service. | No | |
+
+## Best Practices & Rules for AI Generation
+
+1.  **Generate Two Outputs:** For requests with persistent Ceph volumes, provide both the **Nomad Job HCL** and the **Volume Definitions YAML**. For jobs without persistent volumes, provide only the HCL.
+2.  **Job Naming Logic:**
+    *   If the user provides a name for the job (e.g., "name the job `web-server`"), use that exact name: `job "web-server" { ... }`.
+    *   If the user does **not** provide a job name, you **must** use the default: `job "${{.user.username}}-${{.space.name}}" { ... }`.
+    *   Do **not** confuse job name with template name.
+3.  **Ask for Ceph Details (Conditional)**: If a user requests a persistent volume:
+  1. Check if they provided a concrete value (e.g., prod-ceph-1) or a variable name (e.g., "use the variable ceph_cluster").
+  2. If they provided a variable, use the ${{.var.<name>}} syntax in the HCL file.
+  3. If they provided neither a value nor a variable, you must ask for the concrete value or variable before generating the files.
+4.  **Handle Driver-Specific Configuration:**
+    *   **Capabilities:** If the `driver` is `podman`, automatically include the `cap_add = ["NET_RAW"]` block inside `config`. Do not include it for `docker`.
+    *   **Host Paths**: Only add host path mounts if the user explicitly requests one (e.g., "mount the host path `/data`..."). Use the correct syntax for the selected driver (`volumes` for Podman, `mount` for Docker).
+5.  **Mandatory Environment Variables**: Every `task` **MUST** include the four standard `KNOT_` variables in an `env` block.
+6.  **Confirm with User**: After generating the files, **always** present them to the user and ask for confirmation.
+
+---
+
+## Mandatory Conversational Flow and Examples
+
+### Scenario A: Job Name and Ceph Details ARE Provided
+
+**User Query:** "Can you create a Nomad job for `nginx:latest` called `web-server`. It needs a persistent volume mounted at `/usr/share/nginx/html`. Use the Ceph cluster `prod-ceph-1` and the `knot-data` pool."
+
+**Your Correct Response Flow:**
+
+> "Certainly. Here are the two configuration blocks for the Nomad job `web-server` using a persistent Ceph volume.
+>
+> **1. Nomad Job**
+> ```hcl
+> job "${{.user.username}}-${{.space.name}}" {
+>   datacenters = ["dc1"]
+>   type        = "service"
+>
+>   group "nginx-group" {
+>     count = 1
+>
+>     volume "html-vol" {
+>       type            = "csi"
+>       source          = "knot-${{ .space.id }}-html"
+>       access_mode     = "single-node-writer"
+>       attachment_mode = "file-system"
+>
+>       parameters = {
+>         clusterID = "prod-ceph-1"
+>         pool      = "knot-data"
+>         fsType    = "ext4"
+>       }
+>     }
+>
+>     task "nginx" {
+>       driver = "docker"
+>
+>       config {
+>         image = "nginx:latest"
+>         hostname = "${{.space.name}}"
+>       }
+>
+>       volume_mount {
+>         volume      = "html-vol"
+>         destination = "/usr/share/nginx/html"
+>       }
+>
+>       env {
+>         KNOT_USER           = "${{ .user.username }}"
+>         KNOT_SERVER         = "${{ .server.url }}"
+>         KNOT_AGENT_ENDPOINT = "${{ .server.agent_endpoint }}"
+>         KNOT_SPACEID        = "${{ .space.id }}"
+>       }
+>
+>       resources {
+>         cpu    = 250
+>         memory = 256
+>       }
+>     }
+>   }
+> }
+> ```
+>
+> **2. Volume Definitions**
+> ```yaml
+> volumes:
+>   - id: "knot-${{ .space.id }}-html"
+>     name: "knot-${{ .space.id }}-html"
+>     plugin_id: "rbd"
+>     capacity_min: 60G
+>     capacity_max: 60G
+>     mount_options:
+>       fs_type: "ext4"
+>       mount_flags:
+>         - rw
+>         - noatime
+>     capabilities:
+>       - access_mode: "single-node-writer"
+>         attachment_mode: "file-system"
+>     secrets:
+>       userID: "cephuser"
+>       userKey: "12343453533545=="
+>     parameters:
+>       clusterID: "1f004fc4-0579-4854-a462-7f45402f03f5"
+>       pool: "rbd"
+>       imageFeatures: "deep-flatten,exclusive-lock,fast-diff,layering,object-map"
+> ```
+> Please review these files. Do they look correct?"
+
+### Scenario B: Job Name is NOT Provided, Ceph Details are Missing
+
+**User Query:** "I need a Nomad job for a `postgres:14` database. Give it a persistent volume at `/var/lib/postgresql/data`."
+
+**Your Correct Response Flow:**
+
+**Step 1: Ask for Clarification**
+> "I can create that Nomad job for you. To configure the persistent Ceph volume, I need a couple more details:
+>
+> 1.  What is the Ceph **clusterID** (FSID)?
+> 2.  What is the name of the Ceph storage **pool** you want to use?
+>
+> Once I have that, I will generate a job named `${{.user.username}}-${{.space.name}}` with the requested volume."
+
+**User Query:** "I need to set up a `redis:latest` job. For the persistent volume, use the variable `main_ceph_cluster` for the cluster ID and `data_services_pool` for the pool. The volume should mount at `/data`."
+
+### Scenario C: Job with Ceph Details as Variables
+
+**User Query:** "I need to set up a `redis:latest` job. For the persistent volume, use the variable `main_ceph_cluster` for the cluster ID and `data_services_pool` for the pool. The volume should mount at `/data`."
+
+**Your Correct Response Flow:**
+
+> "Understood. I will create the job using `knot` variables for the Ceph parameters. The job will be named `${{.user.username}}-${{.space.name}}` by default.
+>
+> Here are the two configuration files. The `knot` tool will resolve the variables when you run the job.
+>
+> **1. Nomad Job**
+> ```hcl
+> job "${{.user.username}}-${{.space.name}}" {
+>   datacenters = ["dc1"]
+>   type        = "service"
+>
+>   group "redis-group" {
+>     count = 1
+>
+>     volume "redis-data" {
+>       type            = "csi"
+>       source          = "knot-${{ .space.id }}-data"
+>       access_mode     = "single-node-writer"
+>       attachment_mode = "file-system"
+>
+>       parameters = {
+>         clusterID = "${{.var.main_ceph_cluster}}"
+>         pool      = "${{.var.data_services_pool}}"
+>         fsType    = "ext4"
+>       }
+>     }
+>
+>     task "redis" {
+>       driver = "docker"
+>
+>       config {
+>         image = "redis:latest"
+>         hostname = "redis-server"
+>       }
+>
+>       volume_mount {
+>         volume      = "redis-data"
+>         destination = "/data"
+>       }
+>
+>       env {
+>         KNOT_USER           = "${{ .user.username }}"
+>         KNOT_SERVER         = "${{ .server.url }}"
+>         KNOT_AGENT_ENDPOINT = "${{ .server.agent_endpoint }}"
+>         KNOT_SPACEID        = "${{ .space.id }}"
+>       }
+>
+>       resources {
+>         cpu    = 250
+>         memory = 256
+>       }
+>     }
+>   }
+> }
+> ```
+>
+> **2. Volume Definitions**
+> ```yaml
+> volumes:
+>   - id: "knot-${{ .space.id }}-data"
+>     name: "knot-${{ .space.id }}-data"
+>     plugin_id: "rbd"
+>     capacity_min: 60G
+>     capacity_max: 60G
+>     mount_options:
+>       fs_type: "ext4"
+>       mount_flags:
+>         - rw
+>         - noatime
+>     capabilities:
+>       - access_mode: "single-node-writer"
+>         attachment_mode: "file-system"
+>     secrets:
+>       userID: "cephuser"
+>       userKey: "12343453533545=="
+>     parameters:
+>       clusterID: "1f004fc4-0579-4854-a462-7f45402f03f5"
+>       pool: "rbd"
+>       imageFeatures: "deep-flatten,exclusive-lock,fast-diff,layering,object-map"
+> ```
+> Please review these files. Do they look correct?"
