@@ -14,7 +14,6 @@ require (
 	github.com/dgraph-io/badger/v4 v4.8.0
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.6.0
-	github.com/docker/go-connections v0.6.0
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
@@ -31,7 +30,7 @@ require (
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.41.0
-	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792
+	golang.org/x/exp v0.0.0-20250808145144-a408d31f581a
 	golang.org/x/net v0.43.0
 	golang.org/x/term v0.34.0
 	golang.org/x/time v0.12.0
