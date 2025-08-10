@@ -72,36 +72,17 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		listSpaces,
 	)
 	server.RegisterTool(
-		mcp.NewTool("start_space", "Start a space by its ID").
-			AddParam("space_id", mcp.String, "The ID of the space to start", true),
-		startSpace,
+		mcp.NewTool("manage_space_state", "Start, stop, or restart a space by its ID").
+			AddParam("space_id", mcp.String, "The ID of the space to manage", true).
+			AddParam("action", mcp.String, "Action to perform: 'start', 'stop', or 'restart'", true),
+		manageSpaceState,
 	)
 	server.RegisterTool(
-		mcp.NewTool("stop_space", "Stop a space by its ID").
-			AddParam("space_id", mcp.String, "The ID of the space to stop", true),
-		stopSpace,
-	)
-	server.RegisterTool(
-		mcp.NewTool("restart_space", "Restart a space by its ID").
-			AddParam("space_id", mcp.String, "The ID of the space to restart", true),
-		restartSpace,
-	)
-	server.RegisterTool(
-		mcp.NewTool("share_space", "Share a space with another user").
-			AddParam("space_id", mcp.String, "The ID of the space to share", true).
-			AddParam("user_id", mcp.String, "The ID of the user to share with", true),
-		shareSpace,
-	)
-	server.RegisterTool(
-		mcp.NewTool("stop_sharing_space", "Stop sharing a space").
-			AddParam("space_id", mcp.String, "The ID of the space to stop sharing", true),
-		stopSharingSpace,
-	)
-	server.RegisterTool(
-		mcp.NewTool("transfer_space", "Transfer ownership of a space to another user").
-			AddParam("space_id", mcp.String, "The ID of the space to transfer", true).
-			AddParam("user_id", mcp.String, "The ID of the user to transfer to", true),
-		transferSpace,
+		mcp.NewTool("manage_space_sharing", "Share, stop sharing, or transfer ownership of a space. IMPORTANT: If the user doesn't provide the ID of the user then FIRST call list_users to find the ID of the user.").
+			AddParam("space_id", mcp.String, "The ID of the space to manage", true).
+			AddParam("action", mcp.String, "Action to perform: 'share', 'stop_sharing', or 'transfer'", true).
+			AddParam("user_id", mcp.String, "The ID of the user (required for share and transfer actions).", false),
+		manageSpaceSharing,
 	)
 	server.RegisterTool(
 		mcp.NewTool("create_space", "Create a new space from a template").
@@ -126,6 +107,12 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		mcp.NewTool("delete_space", "Delete a space").
 			AddParam("space_id", mcp.String, "The ID of the space to delete", true),
 		deleteSpace,
+	)
+
+	// Users
+	server.RegisterTool(
+		mcp.NewTool("list_users", "Get a list of all users in the system."),
+		listUsers,
 	)
 
 	// Specifications
