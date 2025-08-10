@@ -35,6 +35,26 @@ var ScaffoldCmd = &cli.Command{
 			Usage:      "Generate a nomad job file",
 			ConfigPath: []string{"scaffold.nomad"},
 		},
+		&cli.BoolFlag{
+			Name:       "system-prompt",
+			Usage:      "Generate the internal system prompt",
+			ConfigPath: []string{"scaffold.system_prompt"},
+		},
+		&cli.BoolFlag{
+			Name:       "nomad-spec",
+			Usage:      "Generate the internal nomad spec",
+			ConfigPath: []string{"scaffold.nomad_spec"},
+		},
+		&cli.BoolFlag{
+			Name:       "docker-spec",
+			Usage:      "Generate the internal docker spec",
+			ConfigPath: []string{"scaffold.docker_spec"},
+		},
+		&cli.BoolFlag{
+			Name:       "podman-spec",
+			Usage:      "Generate the internal podman spec",
+			ConfigPath: []string{"scaffold.podman_spec"},
+		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		any := false
@@ -53,6 +73,22 @@ var ScaffoldCmd = &cli.Command{
 		}
 		if cmd.GetBool("nomad") {
 			fmt.Println(scaffold.NomadScaffold)
+			any = true
+		}
+		if cmd.GetBool("system-prompt") {
+			fmt.Println(scaffold.GetSystemPromptScaffold())
+			any = true
+		}
+		if cmd.GetBool("nomad-spec") {
+			fmt.Println(scaffold.GetNomadSpecScaffold())
+			any = true
+		}
+		if cmd.GetBool("docker-spec") {
+			fmt.Println(scaffold.GetDockerSpecScaffold())
+			any = true
+		}
+		if cmd.GetBool("podman-spec") {
+			fmt.Println(scaffold.GetPodmanSpecScaffold())
 			any = true
 		}
 

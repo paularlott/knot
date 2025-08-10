@@ -380,3 +380,8 @@ func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+// GetInternalSystemPrompt returns the embedded system prompt (for scaffold command)
+func GetInternalSystemPrompt() string {
+	return defaultSystemPrompt
+}
