@@ -439,6 +439,44 @@ func stopSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, er
 	return mcp.NewToolResponseJSON(response), nil
 }
 
+func restartSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionUseSpaces) {
+		return nil, fmt.Errorf("No permission to use spaces")
+	}
+
+	spaceID, err := req.String("space_id")
+	if err != nil || spaceID == "" {
+		return nil, mcp.NewToolErrorInvalidParams("space_id is required")
+	}
+
+	db := database.GetInstance()
+	space, err := db.GetSpace(spaceID)
+	if err != nil {
+		return nil, fmt.Errorf("Space not found: %v", err)
+	}
+
+	// Check if user has permission to restart this space
+	if space.UserId != user.Id && space.SharedWithUserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+		return nil, fmt.Errorf("No permission to restart this space")
+	}
+
+	// Use the container service to restart the space
+	containerService := service.GetContainerService()
+	err = containerService.RestartSpace(space)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to restart space: %v", err)
+	}
+
+	response := SpaceOperationResponse{
+		Message:   fmt.Sprintf("Space '%s' is restarting", space.Name),
+		SpaceName: space.Name,
+		SpaceID:   spaceID,
+	}
+
+	return mcp.NewToolResponseJSON(response), nil
+}
+
 func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
 	if !user.HasPermission(model.PermissionUseSpaces) && !user.HasPermission(model.PermissionManageSpaces) {
