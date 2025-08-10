@@ -85,7 +85,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		listTemplates,
 	)
 	server.RegisterTool(
-		mcp.NewTool("create_template", "Create a new template. get_platform_spec tool can be used to get the latest template specification.").
+		mcp.NewTool("create_template", "Creates a new space template from a job specification. IMPORTANT: Do NOT call this tool directly. You must FIRST call get_platform_spec(platform='<platform>') to learn the correct structure for the 'job' and 'volumes' arguments, if the user's request does not contain the full spec; you must retrieve it first.").
 			AddParam("name", mcp.String, "The name of the template", true).
 			AddParam("platform", mcp.String, "Platform type: 'manual', 'docker', 'podman', or 'nomad'", true).
 			AddParam("job", mcp.String, "Job specification (not required for manual platform)", false).
@@ -103,7 +103,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		createTemplate,
 	)
 	server.RegisterTool(
-		mcp.NewTool("update_template", "Update an existing template. get_platform_spec tool can be used to get the latest template specification.").
+		mcp.NewTool("update_template", "Updates and existing space template from a job specification. IMPORTANT: Do NOT call this tool directly. You must FIRST call get_platform_spec(platform='<platform>') to learn the correct structure for the 'job' and 'volumes' arguments, if the user's request does not contain the full spec; you must retrieve it first.").
 			AddParam("template_id", mcp.String, "The ID of the template to update", true).
 			AddParam("name", mcp.String, "The name of the template", false).
 			AddParam("job", mcp.String, "Job specification", false).
@@ -292,7 +292,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 	*/
 	// Specifications
 	server.RegisterTool(
-		mcp.NewTool("get_platform_spec", "Get the complete job specification documentation in markdown format for the specified platform. Use this before creating templates.").
+		mcp.NewTool("get_platform_spec", "Crucial first step. Retrieves the required job specification schema for a given platform ('nomad', 'docker' or 'podman). This MUST be called before attempting to create a template.").
 			AddParam("platform", mcp.String, "Platform type: 'docker', 'podman', or 'nomad'", true),
 		getPlatformSpec,
 	)
