@@ -201,7 +201,7 @@ func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 
 	audit.Log(
 		user.Username,
-		model.AuditActorTypeUser,
+		model.AuditActorTypeMCP,
 		model.AuditEventSpaceCreate,
 		fmt.Sprintf("Created space %s", space.Name),
 		&map[string]interface{}{
@@ -296,7 +296,7 @@ func updateSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 
 	audit.Log(
 		user.Username,
-		model.AuditActorTypeUser,
+		model.AuditActorTypeMCP,
 		model.AuditEventSpaceUpdate,
 		fmt.Sprintf("Updated space %s", space.Name),
 		&map[string]interface{}{
@@ -338,7 +338,7 @@ func deleteSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 
 	audit.Log(
 		user.Username,
-		model.AuditActorTypeUser,
+		model.AuditActorTypeMCP,
 		model.AuditEventSpaceDelete,
 		fmt.Sprintf("Deleted space %s", space.Name),
 		&map[string]interface{}{
@@ -500,7 +500,7 @@ func manageSpaceSharing(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRes
 
 		audit.Log(
 			user.Username,
-			model.AuditActorTypeUser,
+			model.AuditActorTypeMCP,
 			model.AuditEventSpaceShare,
 			fmt.Sprintf("Shared space %s to user %s", space.Name, userId),
 			&map[string]interface{}{
@@ -531,7 +531,7 @@ func manageSpaceSharing(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRes
 
 		audit.Log(
 			user.Username,
-			model.AuditActorTypeUser,
+			model.AuditActorTypeMCP,
 			model.AuditEventSpaceStopShare,
 			fmt.Sprintf("Stop space share %s", space.Name),
 			&map[string]interface{}{
@@ -615,7 +615,7 @@ func manageSpaceSharing(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRes
 
 		audit.Log(
 			user.Username,
-			model.AuditActorTypeUser,
+			model.AuditActorTypeMCP,
 			model.AuditEventSpaceTransfer,
 			fmt.Sprintf("Transfer space %s to user %s", space.Name, userId),
 			&map[string]interface{}{

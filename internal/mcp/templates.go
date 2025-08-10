@@ -184,7 +184,7 @@ func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 
 	audit.Log(
 		user.Username,
-		model.AuditActorTypeUser,
+		model.AuditActorTypeMCP,
 		model.AuditEventTemplateCreate,
 		fmt.Sprintf("Created template %s", template.Name),
 		&map[string]interface{}{
@@ -348,7 +348,7 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 
 	audit.Log(
 		user.Username,
-		model.AuditActorTypeUser,
+		model.AuditActorTypeMCP,
 		model.AuditEventTemplateUpdate,
 		fmt.Sprintf("Updated template %s", template.Name),
 		&map[string]interface{}{
@@ -413,7 +413,7 @@ func deleteTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 
 	audit.Log(
 		user.Username,
-		model.AuditActorTypeUser,
+		model.AuditActorTypeMCP,
 		model.AuditEventTemplateDelete,
 		fmt.Sprintf("Deleted template %s", template.Name),
 		&map[string]interface{}{

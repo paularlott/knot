@@ -12,6 +12,7 @@ const (
 
 	AuditActorTypeUser   = "User"
 	AuditActorTypeSystem = "System"
+	AuditActorTypeMCP    = "MCP"
 )
 
 // Define events
