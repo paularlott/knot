@@ -17,18 +17,19 @@ import (
 )
 
 type Space struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	State       string            `json:"state"`
-	Description string            `json:"description"`
-	Note        string            `json:"note"`
-	Zone        string            `json:"zone"`
-	Platform    string            `json:"platform"`
-	WebPorts    map[string]string `json:"web_ports"`
-	TCPPorts    map[string]string `json:"tcp_ports"`
-	SSH         bool              `json:"ssh"`
-	WebTerminal bool              `json:"web_terminal"`
-	SharedWith  SharedWith        `json:"shared_with,omitempty"`
+	ID           string                   `json:"id"`
+	Name         string                   `json:"name"`
+	State        string                   `json:"state"`
+	Description  string                   `json:"description"`
+	Note         string                   `json:"note"`
+	Zone         string                   `json:"zone"`
+	Platform     string                   `json:"platform"`
+	WebPorts     map[string]string        `json:"web_ports"`
+	TCPPorts     map[string]string        `json:"tcp_ports"`
+	SSH          bool                     `json:"ssh"`
+	WebTerminal  bool                     `json:"web_terminal"`
+	CustomFields []model.SpaceCustomField `json:"custom_fields"`
+	SharedWith   SharedWith               `json:"shared_with,omitempty"`
 }
 
 type SharedWith struct {
@@ -98,17 +99,18 @@ func listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 		}
 
 		s := Space{
-			ID:          space.Id,
-			Name:        space.Name,
-			State:       state,
-			Description: space.Description,
-			Note:        space.Note,
-			Zone:        space.Zone,
-			Platform:    platform,
-			WebPorts:    webPorts,
-			TCPPorts:    tcpPorts,
-			SSH:         sshAvailable,
-			WebTerminal: webTerminal,
+			ID:           space.Id,
+			Name:         space.Name,
+			State:        state,
+			Description:  space.Description,
+			Note:         space.Note,
+			Zone:         space.Zone,
+			Platform:     platform,
+			WebPorts:     webPorts,
+			TCPPorts:     tcpPorts,
+			SSH:          sshAvailable,
+			WebTerminal:  webTerminal,
+			CustomFields: space.CustomFields,
 		}
 
 		if space.SharedWithUserId != "" {
@@ -138,7 +140,7 @@ func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 		&[]string{}, // no alt names in MCP
 		"",          // zone will be set by service
 		req.StringOr("icon_url", ""),
-		[]model.SpaceCustomField{}, // no custom fields in MCP
+		parseSpaceCustomFields(req), // parse custom fields from request
 	)
 
 	spaceService := service.GetSpaceService()
@@ -191,6 +193,11 @@ func updateSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 	}
 	if iconURL, err := req.String("icon_url"); err != mcp.ErrUnknownParameter {
 		space.IconURL = iconURL
+	}
+
+	// Handle custom fields
+	if customFields := parseSpaceCustomFields(req); len(customFields) > 0 {
+		space.CustomFields = customFields
 	}
 
 	err = spaceService.UpdateSpace(space, user)
@@ -531,4 +538,34 @@ func manageSpaceSharing(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRes
 	}
 
 	return mcp.NewToolResponseJSON(result), nil
+}
+
+// parseSpaceCustomFields extracts custom field values from the MCP request
+// Expects custom_fields as an array of objects with name and value properties
+func parseSpaceCustomFields(req *mcp.ToolRequest) []model.SpaceCustomField {
+	var fields []model.SpaceCustomField
+
+	// Get array of custom field objects
+	customFields, err := req.ObjectSlice("custom_fields")
+	if err != mcp.ErrUnknownParameter {
+		for _, fieldObj := range customFields {
+			field := model.SpaceCustomField{}
+
+			// Extract name (required)
+			if name, ok := fieldObj["name"].(string); ok && name != "" {
+				field.Name = name
+			} else {
+				continue // Skip fields without valid names
+			}
+
+			// Extract value (required)
+			if value, ok := fieldObj["value"].(string); ok {
+				field.Value = value
+			}
+
+			fields = append(fields, field)
+		}
+	}
+
+	return fields
 }

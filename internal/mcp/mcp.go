@@ -102,7 +102,11 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("template_id", mcp.String, "The ID of the template to use", true).
 			AddParam("description", mcp.String, "Space description", false).
 			AddParam("shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
-			AddParam("icon_url", mcp.String, "Icon URL for the space", false),
+			AddParam("icon_url", mcp.String, "Icon URL for the space", false).
+			AddArrayObjectParam("custom_fields", "Array of custom field values", false).
+			AddProperty("name", mcp.String, "Field name", true).
+			AddProperty("value", mcp.String, "Field value", true).
+			Done(),
 		createSpace,
 	)
 	server.RegisterTool(
@@ -112,7 +116,11 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("description", mcp.String, "Space description", false).
 			AddParam("template_id", mcp.String, "The ID of the template to use", false).
 			AddParam("shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
-			AddParam("icon_url", mcp.String, "Icon URL for the space", false),
+			AddParam("icon_url", mcp.String, "Icon URL for the space", false).
+			AddArrayObjectParam("custom_fields", "Array of custom field values", false).
+			AddProperty("name", mcp.String, "Field name", true).
+			AddProperty("value", mcp.String, "Field value", true).
+			Done(),
 		updateSpace,
 	)
 	server.RegisterTool(
