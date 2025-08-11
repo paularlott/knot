@@ -117,7 +117,7 @@ func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 		0,          // max uptime disabled
 		"disabled", // max uptime unit
 		req.StringOr("icon_url", ""),
-		[]model.TemplateCustomField{}, // no custom fields
+		parseCustomFields(req),
 	)
 
 	templateService := service.GetTemplateService()
@@ -264,6 +264,56 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 		}
 	}
 
+	// Handle custom field operations - this is MCP-specific logic
+	if action, err := req.String("custom_field_action"); err != mcp.ErrUnknownParameter {
+		switch action {
+		case "replace":
+			template.CustomFields = parseCustomFields(req)
+		case "add":
+			if fields := parseCustomFields(req); len(fields) > 0 {
+				for _, newField := range fields {
+					// Check if field already exists
+					exists := false
+					for i, existing := range template.CustomFields {
+						if existing.Name == newField.Name {
+							// Update existing field
+							template.CustomFields[i] = newField
+							exists = true
+							break
+						}
+					}
+					if !exists {
+						template.CustomFields = append(template.CustomFields, newField)
+					}
+				}
+			}
+		case "remove":
+			if fieldsToRemove := parseCustomFields(req); len(fieldsToRemove) > 0 {
+				// Extract field names to remove
+				removeNames := make([]string, len(fieldsToRemove))
+				for i, field := range fieldsToRemove {
+					removeNames[i] = field.Name
+				}
+
+				// Filter out fields to remove
+				newFields := []model.TemplateCustomField{}
+				for _, existing := range template.CustomFields {
+					if !slices.Contains(removeNames, existing.Name) {
+						newFields = append(newFields, existing)
+					}
+				}
+				template.CustomFields = newFields
+			}
+		default:
+			return nil, fmt.Errorf("Invalid custom_field_action. Must be 'replace', 'add', or 'remove'")
+		}
+	} else {
+		// Fallback to old behavior for backward compatibility
+		if fields := parseCustomFields(req); len(fields) > 0 {
+			template.CustomFields = fields
+		}
+	}
+
 	err = templateService.UpdateTemplate(template, user)
 	if err != nil {
 		return nil, err
@@ -323,4 +373,34 @@ func deleteTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 	}
 
 	return mcp.NewToolResponseJSON(result), nil
+}
+
+// parseCustomFields extracts custom fields from the MCP request
+// Expects custom_fields as an array of objects with name and description properties
+func parseCustomFields(req *mcp.ToolRequest) []model.TemplateCustomField {
+	var fields []model.TemplateCustomField
+
+	// Get array of custom field objects
+	customFields, err := req.ObjectSlice("custom_fields")
+	if err != mcp.ErrUnknownParameter {
+		for _, fieldObj := range customFields {
+			field := model.TemplateCustomField{}
+
+			// Extract name (required)
+			if name, ok := fieldObj["name"].(string); ok && name != "" {
+				field.Name = name
+			} else {
+				continue // Skip fields without valid names
+			}
+
+			// Extract description (optional)
+			if description, ok := fieldObj["description"].(string); ok {
+				field.Description = description
+			}
+
+			fields = append(fields, field)
+		}
+	}
+
+	return fields
 }

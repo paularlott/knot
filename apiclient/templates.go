@@ -38,7 +38,7 @@ type TemplateUpdateRequest struct {
 	Volumes          string               `json:"volumes"`
 	Groups           []string             `json:"groups"`
 	Active           bool                 `json:"active"`
-	Platform         string               `json:platform`
+	Platform         string               `json:"platform"`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`
