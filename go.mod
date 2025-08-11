@@ -22,7 +22,7 @@ require (
 	github.com/miekg/dns v1.1.68
 	github.com/paularlott/cli v0.3.0
 	github.com/paularlott/gossip v0.5.0
-	github.com/paularlott/mcp v0.0.0-20250804153224-b9a52335d41e
+	github.com/paularlott/mcp v0.0.0-00010101000000-000000000000
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.12.0
 	github.com/rs/zerolog v1.34.0
