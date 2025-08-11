@@ -37,6 +37,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("with_vscode_tunnel", mcp.Boolean, "Enable VSCode tunnel", false).
 			AddParam("with_code_server", mcp.Boolean, "Enable code server", false).
 			AddParam("with_ssh", mcp.Boolean, "Enable SSH access", false).
+			AddParam("with_run_command", mcp.Boolean, "Enable run command in space", false).
 			AddParam("active", mcp.Boolean, "Template active status", false).
 			AddParam("icon_url", mcp.String, "Icon URL for the template", false).
 			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false).
@@ -60,6 +61,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("with_vscode_tunnel", mcp.Boolean, "Enable VSCode tunnel", false).
 			AddParam("with_code_server", mcp.Boolean, "Enable code server", false).
 			AddParam("with_ssh", mcp.Boolean, "Enable SSH access", false).
+			AddParam("with_run_command", mcp.Boolean, "Enable run command in space", false).
 			AddParam("active", mcp.Boolean, "Template active status", false).
 			AddParam("group_action", mcp.String, "Action for groups: 'replace', 'add', or 'remove'", false).
 			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false).
@@ -82,6 +84,14 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 	server.RegisterTool(
 		mcp.NewTool("list_spaces", "Get a list of all spaces on this server (zone) for the current user. Returns status, sharing and other details about the spaces."),
 		listSpaces,
+	)
+	server.RegisterTool(
+		mcp.NewTool("run_command", "Execute a command within a running space and return the output").
+			AddParam("space_id", mcp.String, "The ID of the space to run the command in", true).
+			AddParam("command", mcp.String, "The command to execute", true).
+			AddParam("timeout", mcp.Number, "Command timeout in seconds (default: 30)", false).
+			AddParam("workdir", mcp.String, "Working directory for the command", false),
+		runCommand,
 	)
 	server.RegisterTool(
 		mcp.NewTool("manage_space_state", "Start, stop, or restart a space by its ID").

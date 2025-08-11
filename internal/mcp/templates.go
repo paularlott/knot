@@ -107,6 +107,7 @@ func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 		req.BoolOr("with_vscode_tunnel", false),
 		req.BoolOr("with_code_server", false),
 		req.BoolOr("with_ssh", false),
+		req.BoolOr("with_run_command", false),
 		uint32(req.IntOr("compute_units", 0)),
 		uint32(req.IntOr("storage_units", 0)),
 		false, // schedule disabled by default
@@ -190,6 +191,10 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 	if active, err := req.Bool("active"); err != mcp.ErrUnknownParameter {
 		template.Active = active
 	}
+	if runCmd, err := req.Bool("with_run_command"); err != mcp.ErrUnknownParameter {
+		template.WithRunCommand = runCmd
+	}
+
 	// Handle zone operations - this is MCP-specific logic
 	if action, err := req.String("zone_action"); err != mcp.ErrUnknownParameter {
 		switch action {
