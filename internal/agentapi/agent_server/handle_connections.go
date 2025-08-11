@@ -103,6 +103,7 @@ func handleAgentConnection(conn net.Conn) {
 	response.WithVSCodeTunnel = template.WithVSCodeTunnel
 	response.WithCodeServer = template.WithCodeServer
 	response.WithSSH = template.WithSSH
+	response.WithRunCommand = template.WithRunCommand
 
 	if user.SSHPublicKey != "" {
 		response.SSHKeys = append(response.SSHKeys, user.SSHPublicKey)
@@ -317,6 +318,10 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			// Single shot command so done
 			return
 
+		case byte(msg.CmdRunCommand):
+			handleRunCommand(stream, session)
+			return // Single shot command so done
+
 		default:
 			log.Error().Msgf("agent: unknown command from agent: %d", cmd)
 			return
@@ -372,4 +377,67 @@ func handleCreateToken(stream net.Conn, session *Session) {
 		log.Error().Msgf("agent: writing create token response: %v", err)
 		return
 	}
+}
+
+func handleRunCommand(stream net.Conn, session *Session) {
+	// Read the run command message
+	var runCmd msg.RunCommandMessage
+	if err := msg.ReadMessage(stream, &runCmd); err != nil {
+		log.Error().Msgf("agent: reading run command message: %v", err)
+		return
+	}
+
+	log.Info().Str("command", runCmd.Command).Str("space_id", session.Id).Msg("agent: forwarding run command to agent")
+
+	// Open a new connection to the agent to send the run command
+	agentConn, err := session.MuxSession.Open()
+	if err != nil {
+		log.Error().Msgf("agent: opening connection to agent: %v", err)
+		response := msg.RunCommandResponse{
+			Success: false,
+			Error:   "Failed to connect to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+	defer agentConn.Close()
+
+	// Send the run command to the agent
+	if err := msg.WriteCommand(agentConn, msg.CmdRunCommand); err != nil {
+		log.Error().Msgf("agent: writing run command to agent: %v", err)
+		response := msg.RunCommandResponse{
+			Success: false,
+			Error:   "Failed to send command to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	if err := msg.WriteMessage(agentConn, &runCmd); err != nil {
+		log.Error().Msgf("agent: writing run command message to agent: %v", err)
+		response := msg.RunCommandResponse{
+			Success: false,
+			Error:   "Failed to send command message to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	// Read the response from the agent
+	var response msg.RunCommandResponse
+	if err := msg.ReadMessage(agentConn, &response); err != nil {
+		log.Error().Msgf("agent: reading run command response from agent: %v", err)
+		response = msg.RunCommandResponse{
+			Success: false,
+			Error:   "Failed to read response from agent",
+		}
+	}
+
+	// Forward the response back to the client
+	if err := msg.WriteMessage(stream, &response); err != nil {
+		log.Error().Msgf("agent: writing run command response to client: %v", err)
+		return
+	}
+
+	log.Info().Bool("success", response.Success).Str("command", runCmd.Command).Str("space_id", session.Id).Msg("agent: run command completed")
 }

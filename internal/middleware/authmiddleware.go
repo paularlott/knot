@@ -276,6 +276,10 @@ func ApiPermissionManageRoles(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionManageRoles, "No permission to manage roles")
 }
 
+func ApiPermissionRunCommands(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionRunCommands, "No permission to run commands")
+}
+
 func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

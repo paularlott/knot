@@ -56,6 +56,13 @@ var AgentCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DISABLE_TERMINAL"},
 			DefaultValue: false,
 		},
+		&cli.BoolFlag{
+			Name:         "disable-run-command",
+			Usage:        "Disable run command access.",
+			ConfigPath:   []string{"agent.disable_run_command"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DISABLE_RUN_COMMAND"},
+			DefaultValue: false,
+		},
 		&cli.StringSliceFlag{
 			Name:       "tcp-port",
 			Usage:      "Can be specified multiple times to give the list of TCP ports to be exposed to the client.",
@@ -203,6 +210,7 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 		SyslogPort:           cmd.GetInt("syslog-port"),
 		APIPort:              cmd.GetInt("api-port"),
 		DisableTerminal:      cmd.GetBool("disable-terminal"),
+		DisableRunCommand:    cmd.GetBool("disable-run-command"),
 		Port: config.PortConfig{
 			CodeServer: cmd.GetInt("code-server-port"),
 			VNCHttp:    cmd.GetInt("vnc-http-port"),

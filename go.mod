@@ -4,7 +4,7 @@ go 1.24.6
 
 // replace github.com/paularlott/gossip => ../gossip/
 
-// replace github.com/paularlott/cli => ../cli/
+//replace github.com/paularlott/cli => ../cli/
 
 replace github.com/paularlott/mcp => ../mcp/
 
@@ -20,7 +20,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.68
-	github.com/paularlott/cli v0.2.3
+	github.com/paularlott/cli v0.3.0
 	github.com/paularlott/gossip v0.5.0
 	github.com/paularlott/mcp v0.0.0-20250804153224-b9a52335d41e
 	github.com/pkg/sftp v1.13.9
@@ -74,7 +74,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/shamaton/msgpack/v2 v2.2.3 // indirect
+	github.com/shamaton/msgpack/v2 v2.3.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect

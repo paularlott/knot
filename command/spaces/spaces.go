@@ -49,6 +49,7 @@ var SpacesCmd = &cli.Command{
 		CreateCmd,
 		DeleteCmd,
 		LogsCmd,
+		RunCmd,
 		TunnelPortCmd,
 	},
 }

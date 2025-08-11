@@ -165,6 +165,7 @@ func (s *agentServer) ConnectAndServe() {
 				s.agentClient.withVSCodeTunnel = response.WithVSCodeTunnel && cfg.VSCodeTunnel != ""
 				s.agentClient.withCodeServer = response.WithCodeServer && cfg.Port.CodeServer > 0
 				s.agentClient.withSSH = response.WithSSH && s.agentClient.sshPort > 0
+				s.agentClient.withRunCommand = response.WithRunCommand && !cfg.DisableRunCommand
 
 				// If ssh port given then test if to start the ssh server
 				if s.agentClient.withSSH {
@@ -439,6 +440,17 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		}
 
 		s.agentPortListenAndServe(stream, reversePort.Port)
+
+	case byte(msg.CmdRunCommand):
+		var runCmd msg.RunCommandMessage
+		if err := msg.ReadMessage(stream, &runCmd); err != nil {
+			log.Error().Msgf("agent: reading run command message: %v", err)
+			return
+		}
+
+		if s.agentClient.withRunCommand {
+			handleRunCommandExecution(stream, runCmd)
+		}
 
 	default:
 		log.Error().Msgf("agent: unknown command: %d", cmd)

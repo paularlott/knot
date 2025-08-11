@@ -31,6 +31,7 @@ type AgentClient struct {
 	withVSCodeTunnel       bool
 	withCodeServer         bool
 	withSSH                bool
+	withRunCommand         bool
 	httpPortMap            map[string]string
 	httpsPortMap           map[string]string
 	tcpPortMap             map[string]string
@@ -51,6 +52,7 @@ func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
 		withVSCodeTunnel:     false,
 		withCodeServer:       false,
 		withSSH:              false,
+		withRunCommand:       false,
 		httpPortMap:          make(map[string]string),
 		httpsPortMap:         make(map[string]string),
 		tcpPortMap:           make(map[string]string),
