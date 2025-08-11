@@ -20,20 +20,13 @@ import (
 )
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
-	var spaceData *apiclient.SpaceInfoList
-
 	user := r.Context().Value("user").(*model.User)
 	userId := r.URL.Query().Get("user_id")
 
-	db := database.GetInstance()
-
-	spaceData = &apiclient.SpaceInfoList{
+	spaceData := &apiclient.SpaceInfoList{
 		Count:  0,
 		Spaces: []apiclient.SpaceInfo{},
 	}
-
-	var spaces []*model.Space
-	var err error
 
 	// If user doesn't have permission to manage spaces and filter user ID doesn't match the user return an empty list
 	if !user.HasPermission(model.PermissionManageSpaces) && userId != user.Id {
@@ -41,34 +34,28 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if userId == "" {
-		spaces, err = db.GetSpaces()
-		if err != nil {
-			log.Error().Msgf("HandleGetSpaces: GetSpaces: %s", err.Error())
-			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-	} else {
-		spaces, err = db.GetSpacesForUser(userId)
-		if err != nil {
-			log.Error().Msgf("HandleGetSpaces: GetSpacesForUser: %s", err.Error())
-			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
+	spaceService := service.GetSpaceService()
+	spaces, err := spaceService.ListSpaces(service.SpaceListOptions{
+		User:           user,
+		UserId:         userId,
+		IncludeDeleted: false,
+		CheckZone:      false, // API doesn't filter by zone
+	})
+	if err != nil {
+		log.Error().Msgf("HandleGetSpaces: %s", err.Error())
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	// Build a json array of space data to return to the client
 	cfg := config.GetServerConfig()
+	db := database.GetInstance()
 	for _, space := range spaces {
 		var templateName string
 
-		if space.IsDeleted {
-			continue
-		}
-
 		// Lookup the template
-		template, err := db.GetTemplate(space.TemplateId)
-		if err != nil {
+		template, templateErr := db.GetTemplate(space.TemplateId)
+		if templateErr != nil {
 			templateName = "Unknown"
 		} else {
 			templateName = template.Name
@@ -178,14 +165,17 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		user = r.Context().Value("user").(*model.User)
 	}
 
-	// Load the space if not found or doesn't belong to the user then treat both as not found
-	space, err := db.GetSpace(spaceId)
-	if err != nil || (user != nil && space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces)) {
+	spaceService := service.GetSpaceService()
+
+	// Get space name for audit log before deletion
+	space, err := spaceService.GetSpace(spaceId, user)
+	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("space %s not found", spaceId)})
 		return
 	}
+	spaceName := space.Name
 
-	// If the space is running or changing state then fail
+	// API-specific logic for checking if space can be deleted
 	cfg := config.GetServerConfig()
 	if space.IsDeployed || space.IsPending || space.IsDeleting || (space.Zone != "" && space.Zone != cfg.Zone) {
 		rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: "space cannot be deleted"})
@@ -196,17 +186,17 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceDelete,
-		fmt.Sprintf("Deleted space %s", space.Name),
+		fmt.Sprintf("Deleted space %s", spaceName),
 		&map[string]interface{}{
 			"agent":           r.UserAgent(),
 			"IP":              r.RemoteAddr,
 			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
-			"space_id":        space.Id,
-			"space_name":      space.Name,
+			"space_id":        spaceId,
+			"space_name":      spaceName,
 		},
 	)
 
-	// Mark the space as deleting and delete it in the background
+	// Mark the space as deleting and delete it in the background (API-specific logic)
 	space.IsDeleting = true
 	space.UpdatedAt = hlc.Now()
 	db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
@@ -250,43 +240,10 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validate.Name(request.Name) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid name or template given for new space"})
-		return
-	}
-
-	if !validate.MaxLength(request.Description, 1024) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Description too long"})
-		return
-	}
-
-	for _, altName := range request.AltNames {
-		if !validate.Name(altName) {
-			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid alt name given for space"})
-			return
-		}
-	}
-
-	if !validate.OneOf(request.Shell, []string{"bash", "zsh", "fish", "sh"}) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid shell given for space"})
-		return
-	}
-
-	db := database.GetInstance()
-	cfg := config.GetServerConfig()
-
-	template, err := db.GetTemplate(request.TemplateId)
-	if err != nil {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	if template == nil || template.IsDeleted || !template.Active {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template given for new space"})
-		return
-	}
-
+	// If creating for another user, get that user
 	if request.UserId != "" {
+		db := database.GetInstance()
+		var err error
 		user, err = db.GetUser(request.UserId)
 		if err != nil {
 			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -294,38 +251,8 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// If space create is disabled then fail
-	if cfg.DisableSpaceCreate {
-		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "Space creation is disabled"})
-		return
-	}
-
-	// We don't check quotas on leaf nodes as they are controlled by the user
-	if !cfg.LeafNode {
-		usage, err := database.GetUserUsage(user.Id, "")
-		if err != nil {
-			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		userQuota, err := database.GetUserQuota(user)
-		if err != nil {
-			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		if userQuota.MaxSpaces > 0 && uint32(usage.NumberSpaces+1) > userQuota.MaxSpaces {
-			rest.WriteResponse(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "space quota exceeded"})
-			return
-		}
-
-		if userQuota.StorageUnits > 0 && uint32(usage.StorageUnits+template.StorageUnits) > userQuota.StorageUnits {
-			rest.WriteResponse(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage unit quota exceeded"})
-			return
-		}
-	}
-
-	var customFields = []model.SpaceCustomField{}
+	// Convert custom fields
+	var customFields []model.SpaceCustomField
 	for _, field := range request.CustomFields {
 		customFields = append(customFields, model.SpaceCustomField{
 			Name:  field.Name,
@@ -334,14 +261,14 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the space
-	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, cfg.Zone, request.IconURL, customFields)
-	err = db.SaveSpace(space, nil)
+	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, "", request.IconURL, customFields)
+
+	spaceService := service.GetSpaceService()
+	err = spaceService.CreateSpace(space, user)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
-
-	service.GetTransport().GossipSpace(space)
 
 	audit.Log(
 		user.Username,
@@ -583,27 +510,15 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db := database.GetInstance()
-	cfg := config.GetServerConfig()
-
 	if r.Context().Value("user") != nil {
 		user = r.Context().Value("user").(*model.User)
 	}
 
-	space, err := db.GetSpace(spaceId)
+	spaceService := service.GetSpaceService()
+	space, err := spaceService.GetSpace(spaceId, user)
 	if err != nil {
 		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	if user != nil && space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
-		return
-	}
-
-	if space.Zone != "" && space.Zone != cfg.Zone {
-		rest.WriteResponse(http.StatusNotAcceptable, w, r, ErrorResponse{Error: "space not on this server"})
 		return
 	}
 
@@ -618,29 +533,8 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	// Remove any blank alt names, any that match the primary name, and any duplicates
 	request.AltNames = removeBlankAndDuplicates(request.AltNames, request.Name)
 
-	if !validate.Name(request.Name) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid name or template given for new space"})
-		return
-	}
-
-	if !validate.MaxLength(request.Description, 1024) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Description too long"})
-		return
-	}
-
-	for _, altName := range request.AltNames {
-		if !validate.Name(altName) {
-			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid alt name given for space"})
-			return
-		}
-	}
-
-	if !validate.OneOf(request.Shell, []string{"bash", "zsh", "fish", "sh"}) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid shell given for space"})
-		return
-	}
-
-	var customFields = []model.SpaceCustomField{}
+	// Convert custom fields
+	var customFields []model.SpaceCustomField
 	for _, field := range request.CustomFields {
 		customFields = append(customFields, model.SpaceCustomField{
 			Name:  field.Name,
@@ -648,20 +542,18 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Update the space
+	// Update the space with request data
 	space.Name = request.Name
 	space.Description = request.Description
 	space.TemplateId = request.TemplateId
 	space.Shell = request.Shell
 	space.AltNames = request.AltNames
-	space.UpdatedAt = hlc.Now()
 	space.IconURL = request.IconURL
 	space.CustomFields = customFields
 
-	// Lookup the template
-	template, err := db.GetTemplate(request.TemplateId)
-	if err != nil || template == nil {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Unknown template"})
+	err = spaceService.UpdateSpace(space, user)
+	if err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -679,16 +571,10 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	err = db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "Shell", "AltNames", "UpdatedAt", "IconURL", "CustomFields"})
-	if err != nil {
-		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	service.GetTransport().GossipSpace(space)
-
-	if template != nil && (space.IsDeployed || template.IsManual()) {
+	// API-specific logic for updating shell on deployed spaces
+	db := database.GetInstance()
+	template, templateErr := db.GetTemplate(space.TemplateId)
+	if templateErr == nil && template != nil && (space.IsDeployed || template.IsManual()) {
 		// Get the agent state
 		agentState := agent_server.GetSession(space.Id)
 		if agentState != nil && agentState.SSHPort > 0 {
