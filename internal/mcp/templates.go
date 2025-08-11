@@ -2,16 +2,12 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"github.com/paularlott/gossip/hlc"
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/audit"
-	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/paularlott/mcp"
 )
@@ -41,13 +37,20 @@ type TemplateGroup struct {
 func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
 
-	db := database.GetInstance()
-	templates, err := db.GetTemplates()
+	templateService := service.GetTemplateService()
+	templates, err := templateService.ListTemplates(service.TemplateListOptions{
+		User:                 user,
+		IncludeInactive:      false,
+		IncludeDeleted:       false,
+		CheckPermissions:     true,
+		CheckZoneRestriction: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get templates: %v", err)
 	}
 
 	// Load the groups so we can look up their names & convert to map id => group
+	db := database.GetInstance()
 	groups, err := db.GetGroups()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get groups: %v", err)
@@ -57,13 +60,8 @@ func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 		groupMap[group.Id] = group
 	}
 
-	cfg := config.GetServerConfig()
 	var result []Template
 	for _, template := range templates {
-		if template.IsDeleted || !template.Active || (len(template.Groups) > 0 && !user.HasAnyGroup(&template.Groups)) || !template.IsValidForZone(cfg.Zone) {
-			continue
-		}
-
 		// Build the groups list
 		var groupsList []TemplateGroup
 		for _, group := range template.Groups {
@@ -95,93 +93,39 @@ func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 
 func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
-	if !user.HasPermission(model.PermissionManageTemplates) {
-		return nil, fmt.Errorf("No permission to manage templates")
-	}
-
-	name := req.StringOr("name", "")
-	if !validate.Required(name) || !validate.MaxLength(name, 64) {
-		return nil, fmt.Errorf("Invalid template name given")
-	}
-
-	platform := req.StringOr("platform", "")
-	if !validate.OneOf(platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformPodman, model.PlatformNomad}) {
-		return nil, fmt.Errorf("Invalid platform")
-	}
-
-	job := req.StringOr("job", "")
-	if platform != model.PlatformManual {
-		if !validate.Required(job) || !validate.MaxLength(job, 10*1024*1024) {
-			return nil, fmt.Errorf("Job is required and must be less than 10MB")
-		}
-	} else {
-		job = ""
-	}
-
-	description := req.StringOr("description", "")
-	volumes := req.StringOr("volumes", "")
-	if !validate.MaxLength(volumes, 10*1024*1024) {
-		return nil, fmt.Errorf("Volumes must be less than 10MB")
-	}
-
-	computeUnits := req.IntOr("compute_units", 0)
-	if !validate.IsPositiveNumber(computeUnits) {
-		return nil, fmt.Errorf("Compute units must be a positive number")
-	}
-
-	storageUnits := req.IntOr("storage_units", 0)
-	if !validate.IsPositiveNumber(storageUnits) {
-		return nil, fmt.Errorf("Storage units must be a positive number")
-	}
-
-	withTerminal := req.BoolOr("with_terminal", false)
-	withVSCodeTunnel := req.BoolOr("with_vscode_tunnel", false)
-	withCodeServer := req.BoolOr("with_code_server", false)
-	withSSH := req.BoolOr("with_ssh", false)
-	active := req.BoolOr("active", true)
-
-	groups := []string{}
-	if g, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
-		db := database.GetInstance()
-		for _, groupId := range g {
-			if _, err := db.GetGroup(groupId); err == nil {
-				groups = append(groups, groupId)
-			}
-		}
-	}
 
 	template := model.NewTemplate(
-		name,
-		description,
-		job,
-		volumes,
+		req.StringOr("name", ""),
+		req.StringOr("description", ""),
+		req.StringOr("job", ""),
+		req.StringOr("volumes", ""),
 		user.Id,
-		groups,
-		platform,
-		withTerminal,
-		withVSCodeTunnel,
-		withCodeServer,
-		withSSH,
-		uint32(computeUnits),
-		uint32(storageUnits),
-		false,      // schedule disabled by default
-		nil,        // no schedule
-		[]string{}, // no zones
-		false,      // auto start disabled
-		active,
+		req.StringSliceOr("groups", []string{}),
+		req.StringOr("platform", ""),
+		req.BoolOr("with_terminal", false),
+		req.BoolOr("with_vscode_tunnel", false),
+		req.BoolOr("with_code_server", false),
+		req.BoolOr("with_ssh", false),
+		uint32(req.IntOr("compute_units", 0)),
+		uint32(req.IntOr("storage_units", 0)),
+		false, // schedule disabled by default
+		nil,   // no schedule
+		req.StringSliceOr("zones", []string{}),
+		false, // auto start disabled
+		req.BoolOr("active", true),
 		0,          // max uptime disabled
 		"disabled", // max uptime unit
 		req.StringOr("icon_url", ""),
 		[]model.TemplateCustomField{}, // no custom fields
 	)
 
-	err := database.GetInstance().SaveTemplate(template, nil)
+	templateService := service.GetTemplateService()
+	err := templateService.CreateTemplate(template, user)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to save template: %v", err)
+		return nil, err
 	}
 
-	service.GetTransport().GossipTemplate(template)
-
+	// Audit log
 	audit.Log(
 		user.Username,
 		model.AuditActorTypeMCP,
@@ -203,59 +147,27 @@ func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 
 func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
-	if !user.HasPermission(model.PermissionManageTemplates) {
-		return nil, fmt.Errorf("No permission to manage templates")
-	}
-
 	templateId := req.StringOr("template_id", "")
-	if !validate.UUID(templateId) {
-		return nil, fmt.Errorf("Invalid template ID")
-	}
 
-	db := database.GetInstance()
-	template, err := db.GetTemplate(templateId)
+	templateService := service.GetTemplateService()
+	template, err := templateService.GetTemplate(templateId)
 	if err != nil {
 		return nil, fmt.Errorf("Template not found: %v", err)
 	}
 
-	if template.IsManaged {
-		return nil, fmt.Errorf("Cannot update managed template")
-	}
-
-	// Update name if provided
+	// Apply updates based on provided parameters
 	if name, err := req.String("name"); err != mcp.ErrUnknownParameter {
-		if !validate.Required(name) || !validate.MaxLength(name, 64) {
-			return nil, fmt.Errorf("Invalid template name given")
-		}
 		template.Name = name
 	}
-
-	// Update description if provided
 	if description, err := req.String("description"); err != mcp.ErrUnknownParameter {
 		template.Description = description
 	}
-
-	// Update job if provided
 	if job, err := req.String("job"); err != mcp.ErrUnknownParameter {
-		if template.Platform != model.PlatformManual {
-			if !validate.Required(job) || !validate.MaxLength(job, 10*1024*1024) {
-				return nil, fmt.Errorf("Job is required and must be less than 10MB")
-			}
-		} else {
-			job = ""
-		}
 		template.Job = job
 	}
-
-	// Update volumes if provided
 	if volumes, err := req.String("volumes"); err != mcp.ErrUnknownParameter {
-		if !validate.MaxLength(volumes, 10*1024*1024) {
-			return nil, fmt.Errorf("Volumes must be less than 10MB")
-		}
 		template.Volumes = volumes
 	}
-
-	// Update features if provided
 	if withTerminal, err := req.Bool("with_terminal"); err != mcp.ErrUnknownParameter {
 		template.WithTerminal = withTerminal
 	}
@@ -268,38 +180,32 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 	if withSSH, err := req.Bool("with_ssh"); err != mcp.ErrUnknownParameter {
 		template.WithSSH = withSSH
 	}
-
-	// Update resource limits if provided
 	if computeUnits, err := req.Int("compute_units"); err != mcp.ErrUnknownParameter {
-		if !validate.IsPositiveNumber(computeUnits) {
-			return nil, fmt.Errorf("Compute units must be a positive number")
-		}
 		template.ComputeUnits = uint32(computeUnits)
 	}
-
 	if storageUnits, err := req.Int("storage_units"); err != mcp.ErrUnknownParameter {
-		if !validate.IsPositiveNumber(storageUnits) {
-			return nil, fmt.Errorf("Storage units must be a positive number")
-		}
 		template.StorageUnits = uint32(storageUnits)
 	}
-
-	// Update active status if provided
 	if active, err := req.Bool("active"); err != mcp.ErrUnknownParameter {
 		template.Active = active
 	}
+	if zones, err := req.StringSlice("zones"); err != mcp.ErrUnknownParameter {
+		template.Zones = zones
+	}
 
-	// Handle group operations
+	// Handle group operations - this is MCP-specific logic
 	if action, err := req.String("group_action"); err != mcp.ErrUnknownParameter {
+		db := database.GetInstance()
 		switch action {
 		case "replace":
 			if groups, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
-				template.Groups = []string{}
+				validGroups := []string{}
 				for _, groupId := range groups {
 					if _, err := db.GetGroup(groupId); err == nil {
-						template.Groups = append(template.Groups, groupId)
+						validGroups = append(validGroups, groupId)
 					}
 				}
+				template.Groups = validGroups
 			}
 		case "add":
 			if groups, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
@@ -320,32 +226,32 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 			}
 		case "remove":
 			if groups, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
-				for _, groupId := range groups {
-					newGroups := []string{}
-					for _, existing := range template.Groups {
-						if existing != groupId {
-							newGroups = append(newGroups, existing)
+				newGroups := []string{}
+				for _, existing := range template.Groups {
+					shouldRemove := false
+					for _, groupId := range groups {
+						if existing == groupId {
+							shouldRemove = true
+							break
 						}
 					}
-					template.Groups = newGroups
+					if !shouldRemove {
+						newGroups = append(newGroups, existing)
+					}
 				}
+				template.Groups = newGroups
 			}
 		default:
 			return nil, fmt.Errorf("Invalid group_action. Must be 'replace', 'add', or 'remove'")
 		}
 	}
 
-	template.UpdatedUserId = user.Id
-	template.UpdatedAt = hlc.Now()
-	template.UpdateHash()
-
-	err = db.SaveTemplate(template, nil)
+	err = templateService.UpdateTemplate(template, user)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to save template: %v", err)
+		return nil, err
 	}
 
-	service.GetTransport().GossipTemplate(template)
-
+	// Audit log
 	audit.Log(
 		user.Username,
 		model.AuditActorTypeMCP,
@@ -366,59 +272,31 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 
 func deleteTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
-	if !user.HasPermission(model.PermissionManageTemplates) {
-		return nil, fmt.Errorf("No permission to manage templates")
-	}
-
 	templateId := req.StringOr("template_id", "")
-	if !validate.UUID(templateId) {
-		return nil, fmt.Errorf("Invalid template ID")
-	}
 
-	db := database.GetInstance()
-	template, err := db.GetTemplate(templateId)
+	templateService := service.GetTemplateService()
+
+	// Get template name for audit log before deletion
+	template, err := templateService.GetTemplate(templateId)
 	if err != nil {
-		return nil, fmt.Errorf("Template not found: %v", err)
+		return nil, err
 	}
+	templateName := template.Name
 
-	// Check if template is in use
-	spaces, err := db.GetSpacesByTemplateId(templateId)
+	err = templateService.DeleteTemplate(templateId, user)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to check template usage: %v", err)
+		return nil, err
 	}
 
-	activeSpaces := 0
-	for _, space := range spaces {
-		if !space.IsDeleted {
-			activeSpaces++
-		}
-	}
-
-	if activeSpaces > 0 {
-		return nil, fmt.Errorf("Template is in use by spaces")
-	}
-
-	template.IsDeleted = true
-	template.UpdatedAt = hlc.Now()
-	template.UpdatedUserId = user.Id
-	err = db.SaveTemplate(template, []string{"IsDeleted", "UpdatedAt", "UpdatedUserId"})
-	if err != nil {
-		if errors.Is(err, database.ErrTemplateInUse) {
-			return nil, fmt.Errorf("Template is in use")
-		}
-		return nil, fmt.Errorf("Failed to delete template: %v", err)
-	}
-
-	service.GetTransport().GossipTemplate(template)
-
+	// Audit log
 	audit.Log(
 		user.Username,
 		model.AuditActorTypeMCP,
 		model.AuditEventTemplateDelete,
-		fmt.Sprintf("Deleted template %s", template.Name),
+		fmt.Sprintf("Deleted template %s", templateName),
 		&map[string]interface{}{
-			"template_id":   template.Id,
-			"template_name": template.Name,
+			"template_id":   templateId,
+			"template_name": templateName,
 		},
 	)
 

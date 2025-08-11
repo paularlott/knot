@@ -39,7 +39,8 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("with_ssh", mcp.Boolean, "Enable SSH access", false).
 			AddParam("active", mcp.Boolean, "Template active status", false).
 			AddParam("icon_url", mcp.String, "Icon URL for the template", false).
-			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false),
+			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false).
+			AddParam("zones", mcp.ArrayOf(mcp.String), "Array of zone names that the template should show in", false),
 		createTemplate,
 	)
 	server.RegisterTool(
@@ -57,7 +58,8 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("with_ssh", mcp.Boolean, "Enable SSH access", false).
 			AddParam("active", mcp.Boolean, "Template active status", false).
 			AddParam("group_action", mcp.String, "Action for groups: 'replace', 'add', or 'remove'", false).
-			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false),
+			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false).
+			AddParam("zones", mcp.ArrayOf(mcp.String), "Array of zone names that the template should show in", false),
 		updateTemplate,
 	)
 	server.RegisterTool(
