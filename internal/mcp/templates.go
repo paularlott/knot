@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -189,8 +190,39 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 	if active, err := req.Bool("active"); err != mcp.ErrUnknownParameter {
 		template.Active = active
 	}
-	if zones, err := req.StringSlice("zones"); err != mcp.ErrUnknownParameter {
-		template.Zones = zones
+	// Handle zone operations - this is MCP-specific logic
+	if action, err := req.String("zone_action"); err != mcp.ErrUnknownParameter {
+		switch action {
+		case "replace":
+			if zones, err := req.StringSlice("zones"); err != mcp.ErrUnknownParameter {
+				template.Zones = zones
+			}
+		case "add":
+			if zones, err := req.StringSlice("zones"); err != mcp.ErrUnknownParameter {
+				for _, zone := range zones {
+					if !slices.Contains(template.Zones, zone) {
+						template.Zones = append(template.Zones, zone)
+					}
+				}
+			}
+		case "remove":
+			if zones, err := req.StringSlice("zones"); err != mcp.ErrUnknownParameter {
+				newZones := []string{}
+				for _, existing := range template.Zones {
+					if !slices.Contains(zones, existing) {
+						newZones = append(newZones, existing)
+					}
+				}
+				template.Zones = newZones
+			}
+		default:
+			return nil, fmt.Errorf("Invalid zone_action. Must be 'replace', 'add', or 'remove'")
+		}
+	} else {
+		// Fallback to old behavior for backward compatibility
+		if zones, err := req.StringSlice("zones"); err != mcp.ErrUnknownParameter {
+			template.Zones = zones
+		}
 	}
 
 	// Handle group operations - this is MCP-specific logic
@@ -211,14 +243,7 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 			if groups, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
 				for _, groupId := range groups {
 					if _, err := db.GetGroup(groupId); err == nil {
-						exists := false
-						for _, existing := range template.Groups {
-							if existing == groupId {
-								exists = true
-								break
-							}
-						}
-						if !exists {
+						if !slices.Contains(template.Groups, groupId) {
 							template.Groups = append(template.Groups, groupId)
 						}
 					}
@@ -228,14 +253,7 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 			if groups, err := req.StringSlice("groups"); err != mcp.ErrUnknownParameter {
 				newGroups := []string{}
 				for _, existing := range template.Groups {
-					shouldRemove := false
-					for _, groupId := range groups {
-						if existing == groupId {
-							shouldRemove = true
-							break
-						}
-					}
-					if !shouldRemove {
+					if !slices.Contains(groups, existing) {
 						newGroups = append(newGroups, existing)
 					}
 				}

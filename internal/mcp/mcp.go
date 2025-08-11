@@ -59,6 +59,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("active", mcp.Boolean, "Template active status", false).
 			AddParam("group_action", mcp.String, "Action for groups: 'replace', 'add', or 'remove'", false).
 			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false).
+			AddParam("zone_action", mcp.String, "Action for zones: 'replace', 'add', or 'remove'", false).
 			AddParam("zones", mcp.ArrayOf(mcp.String), "Array of zone names that the template should show in", false),
 		updateTemplate,
 	)
