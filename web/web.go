@@ -221,6 +221,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	}
 
 	router.HandleFunc("GET /logs/{space_id}/stream", middleware.ApiAuth(HandleLogsStream))
+	router.HandleFunc("GET /run/{space_id}/exec", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleRunCommandStream)))
 	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 
 	// Routes without authentication
@@ -437,6 +438,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionUseCodeServer":   user.HasPermission(model.PermissionUseCodeServer) || cfg.LeafNode,
 		"permissionUseVSCodeTunnel": user.HasPermission(model.PermissionUseVSCodeTunnel) || cfg.LeafNode,
 		"permissionUseLogs":         user.HasPermission(model.PermissionUseLogs) || cfg.LeafNode,
+		"permissionRunCommands":     user.HasPermission(model.PermissionRunCommands) || cfg.LeafNode,
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"zone":                      cfg.Zone,

@@ -30,6 +30,7 @@ const (
 	PermissionUseCodeServer          // Can use code-server
 	PermissionUseVSCodeTunnel        // Can use VSCode Tunnel
 	PermissionUseLogs                // Can use the log window
+	PermissionRunCommands            // Can run commands in spaces
 )
 
 type PermissionName struct {
@@ -62,6 +63,7 @@ var PermissionNames = []PermissionName{
 	{PermissionUseVNC, "Resource Usage", "Use VNC"},
 	{PermissionUseVSCodeTunnel, "Resource Usage", "Use VSCode Tunnel"},
 	{PermissionUseWebTerminal, "Resource Usage", "Use Web Terminal"},
+	{PermissionRunCommands, "Resource Usage", "Run Commands"},
 }
 
 // Role
@@ -114,6 +116,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionUseCodeServer,
 			PermissionUseVSCodeTunnel,
 			PermissionUseLogs,
+			PermissionRunCommands,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

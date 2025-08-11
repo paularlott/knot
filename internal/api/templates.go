@@ -228,6 +228,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.WithVSCodeTunnel = request.WithVSCodeTunnel
 	template.WithCodeServer = request.WithCodeServer
 	template.WithSSH = request.WithSSH
+	template.WithRunCommand = request.WithRunCommand
 	template.ComputeUnits = request.ComputeUnits
 	template.StorageUnits = request.StorageUnits
 	template.ScheduleEnabled = request.ScheduleEnabled
@@ -396,6 +397,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.WithVSCodeTunnel,
 		request.WithCodeServer,
 		request.WithSSH,
+		request.WithRunCommand,
 		request.ComputeUnits,
 		request.StorageUnits,
 		request.ScheduleEnabled,
@@ -551,6 +553,7 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		WithVSCodeTunnel: template.WithVSCodeTunnel,
 		WithCodeServer:   template.WithCodeServer,
 		WithSSH:          template.WithSSH,
+		WithRunCommand:   template.WithRunCommand,
 		ScheduleEnabled:  template.ScheduleEnabled,
 		AutoStart:        template.AutoStart,
 		Schedule:         make([]apiclient.TemplateDetailsDay, 7),
