@@ -30,6 +30,7 @@ func runCommand(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 
 	timeout := req.IntOr("timeout", 30)
 	workdir := req.StringOr("workdir", "")
+	arguments := req.StringSliceOr("arguments", []string{})
 
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceId)
@@ -56,6 +57,7 @@ func runCommand(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 	// Send command to agent
 	runCmd := &msg.RunCommandMessage{
 		Command: command,
+		Args:    arguments,
 		Timeout: timeout,
 		Workdir: workdir,
 	}

@@ -89,6 +89,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		mcp.NewTool("run_command", "Execute a command within a running space and return the output").
 			AddParam("space_id", mcp.String, "The ID of the space to run the command in", true).
 			AddParam("command", mcp.String, "The command to execute", true).
+			AddParam("arguments", mcp.ArrayOf(mcp.String), "The arguments to pass to the command", false).
 			AddParam("timeout", mcp.Number, "Command timeout in seconds (default: 30)", false).
 			AddParam("workdir", mcp.String, "Working directory for the command", false),
 		runCommand,

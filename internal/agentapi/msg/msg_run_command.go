@@ -1,9 +1,10 @@
 package msg
 
 type RunCommandMessage struct {
-	Command string `msgpack:"command"`
-	Timeout int    `msgpack:"timeout"`
-	Workdir string `msgpack:"workdir"`
+	Command string   `msgpack:"command"`
+	Args    []string `msgpack:"args"`
+	Timeout int      `msgpack:"timeout"`
+	Workdir string   `msgpack:"workdir"`
 }
 
 type RunCommandResponse struct {

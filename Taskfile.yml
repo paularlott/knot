@@ -187,6 +187,7 @@ tasks:
           var: 'AGENT_PLATFORMS'
     sources:
       - ./agent/**/*.go
+      - ./internal/**/*.go
       - go.mod
       - go.sum
     generates:
@@ -214,6 +215,7 @@ tasks:
         rm -f {{.FINAL_NAME}}
     sources:
       - ./agent/**/*.go
+      - ./internal/**/*.go
       - go.mod
       - go.sum
     generates:

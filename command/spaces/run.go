@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
@@ -33,15 +32,25 @@ var RunCmd = &cli.Command{
 			DefaultValue: "",
 		},
 	},
+	Arguments: []cli.Argument{
+		&cli.StringArg{
+			Name:     "space",
+			Required: true,
+			Usage:    "The name of the space to run the command in",
+		},
+		&cli.StringArg{
+			Name:     "command",
+			Required: true,
+			Usage:    "The command to run in the space",
+		},
+	},
 	MinArgs: 1,
 	MaxArgs: cli.UnlimitedArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		timeout := cmd.GetInt("timeout")
 		workdir := cmd.GetString("workdir")
-
-		args := cmd.GetArgs()
-		spaceName := args[0]
-		fullCommand := strings.Join(args[1:], " ")
+		spaceName := cmd.GetStringArg("space")
+		command := cmd.GetStringArg("command")
 
 		// Create a new websocket connection
 		alias := cmd.GetString("alias")
@@ -76,8 +85,8 @@ var RunCmd = &cli.Command{
 			return fmt.Errorf("Space not found: %s", spaceName)
 		}
 
-		// Connect to the websocket for command execution
-		wsUrl := fmt.Sprintf("%s/run/%s/exec", cfg.WsServer, spaceId)
+		// Connect to the websocket for command execution (new path under /space-io)
+		wsUrl := fmt.Sprintf("%s/space-io/%s/run", cfg.WsServer, spaceId)
 		header := http.Header{
 			"Authorization": []string{fmt.Sprintf("Bearer %s", cfg.ApiToken)},
 		}
@@ -96,13 +105,12 @@ var RunCmd = &cli.Command{
 		}
 		defer ws.Close()
 
-		// Send the command execution request
-		execRequest := map[string]interface{}{
-			"command": fullCommand,
-			"timeout": timeout,
-		}
-		if workdir != "" {
-			execRequest["workdir"] = workdir
+		// Send the command execution request as command string plus arguments array
+		execRequest := apiclient.RunCommandRequest{
+			Command: command,
+			Args:    cmd.GetArgs(),
+			Timeout: timeout,
+			Workdir: workdir,
 		}
 
 		err = ws.WriteJSON(execRequest)

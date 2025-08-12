@@ -19,7 +19,6 @@ const (
 	CommandSpaceNote
 	CommandSpaceStop
 	CommandSpaceRestart
-	CommandRunCommand
 )
 
 type CommandMsg struct {

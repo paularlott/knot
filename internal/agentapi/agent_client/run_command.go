@@ -8,25 +8,48 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/util"
 
 	"github.com/rs/zerolog/log"
 )
 
 func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
-	log.Info().Str("command", runCmd.Command).Msg("agent: executing run command")
+	log.Debug().Str("command", runCmd.Command).Strs("args", runCmd.Args).Msg("agent: executing run command")
 
-	// Parse the command and arguments
-	parts := strings.Fields(runCmd.Command)
-	if len(parts) == 0 {
-		response := msg.RunCommandResponse{
-			Success: false,
-			Error:   "Empty command",
-		}
+	if runCmd.Command == "" && len(runCmd.Args) == 0 {
+		response := msg.RunCommandResponse{Success: false, Error: "Empty command"}
 		msg.WriteMessage(stream, &response)
 		return
 	}
 
-	// Create context with timeout
+	// Always invoke via shell to support pipes/redirection.
+	// Combine command and args into a single shell command string
+	shellCmd := runCmd.Command
+	/* 	if len(runCmd.Args) > 0 {
+	   		// Always append args if they exist
+	   		for _, arg := range runCmd.Args {
+	   			shellCmd += " " + arg
+	   		}
+	   	}
+
+	   	// If no command but we have args, use first arg as command
+	   	if shellCmd == "" && len(runCmd.Args) > 0 {
+	   		shellCmd = runCmd.Args[0]
+	   		for i := 1; i < len(runCmd.Args); i++ {
+	   			shellCmd += " " + runCmd.Args[i]
+	   		}
+	   	} */
+
+	// Use shlex or similar for proper shell escaping
+	var parts []string
+	if shellCmd != "" {
+		parts = append(parts, shellCmd)
+	}
+	parts = append(parts, runCmd.Args...)
+	shellCmd = strings.Join(parts, " ")
+
+	log.Debug().Str("final_shell_command", shellCmd).Msg("agent: constructed shell command")
+
 	timeout := time.Duration(runCmd.Timeout) * time.Second
 	if timeout <= 0 {
 		timeout = 30 * time.Second
@@ -34,21 +57,32 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Create the command
-	cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+	// Find the best available shell (reusing the same logic as the SSH server)
+	selectedShell := util.CheckShells("bash")
+	if selectedShell == "" {
+		response := msg.RunCommandResponse{Success: false, Error: "No valid shell found"}
+		msg.WriteMessage(stream, &response)
+		return
+	}
 
-	// Set working directory if specified
+	log.Debug().Str("selected_shell", selectedShell).Msg("agent: using shell")
+
+	// Use -c flag only (no login shell to avoid profile loading issues)
+	cmd := exec.CommandContext(ctx, selectedShell, "-c", shellCmd)
 	if runCmd.Workdir != "" {
 		cmd.Dir = runCmd.Workdir
 	}
 
-	// Execute the command and capture output
+	log.Debug().Str("shell", selectedShell).Str("shell_command", shellCmd).Str("workdir", runCmd.Workdir).Msg("agent: executing shell command")
+
 	output, err := cmd.CombinedOutput()
 
-	response := msg.RunCommandResponse{
-		Output: output,
+	log.Debug().Int("raw_output_bytes", len(output)).Str("raw_output", string(output)).Msg("agent: raw command output")
+	if err != nil {
+		log.Error().Err(err).Msg("agent: command execution error")
 	}
 
+	response := msg.RunCommandResponse{Output: output}
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			response.Success = false
@@ -61,11 +95,12 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 		response.Success = true
 	}
 
-	// Send the response
+	log.Debug().Str("shell", selectedShell).Str("command", shellCmd).Int("output_bytes", len(response.Output)).Bool("success", response.Success).Str("error", response.Error).Msg("agent: run command execution completed")
+
 	if err := msg.WriteMessage(stream, &response); err != nil {
 		log.Error().Err(err).Msg("agent: failed to send run command response")
 		return
 	}
 
-	log.Info().Bool("success", response.Success).Str("command", runCmd.Command).Msg("agent: run command execution completed")
+	log.Debug().Msg("agent: response sent successfully")
 }

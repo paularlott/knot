@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database"
@@ -13,12 +14,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
-
-type RunCommandRequest struct {
-	Command string `json:"command"`
-	Timeout int    `json:"timeout"`
-	Workdir string `json:"workdir,omitempty"`
-}
 
 func HandleRunCommandStream(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
@@ -66,12 +61,11 @@ func HandleRunCommandStream(w http.ResponseWriter, r *http.Request) {
 	agentSession := agent_server.GetSession(spaceId)
 	if agentSession == nil {
 		w.WriteHeader(http.StatusNotFound)
-		ws.Close()
 		return
 	}
 
 	// Read the command request from the websocket
-	var request RunCommandRequest
+	var request apiclient.RunCommandRequest
 	err = ws.ReadJSON(&request)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to read command request")
@@ -92,6 +86,7 @@ func HandleRunCommandStream(w http.ResponseWriter, r *http.Request) {
 	// Send the run command message to the agent
 	runCommandMsg := &msg.RunCommandMessage{
 		Command: request.Command,
+		Args:    request.Args,
 		Timeout: request.Timeout,
 		Workdir: request.Workdir,
 	}

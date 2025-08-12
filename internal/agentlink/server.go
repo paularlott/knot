@@ -99,8 +99,5 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandSpaceRestart:
 		handleSpaceRestart(conn, msg)
-
-	case CommandRunCommand:
-		handleRunCommand(conn, msg)
 	}
 }

@@ -85,6 +85,13 @@ type SpaceDefinition struct {
 	CustomFields []CustomFieldValue           `json:"custom_fields"`
 }
 
+type RunCommandRequest struct {
+	Command string   `json:"command"`
+	Args    []string `json:"args,omitempty"`
+	Timeout int      `json:"timeout"`
+	Workdir string   `json:"workdir,omitempty"`
+}
+
 func (c *ApiClient) GetSpaces(ctx context.Context, userId string) (*SpaceInfoList, int, error) {
 	response := &SpaceInfoList{}
 
