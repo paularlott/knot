@@ -41,6 +41,7 @@ type ServerConfig struct {
 	Nomad              NomadConfig
 	TLS                TLSConfig
 	Chat               ChatConfig
+	RecipesPath        string
 }
 
 type OriginConfig struct {

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/middleware"
 
 	"github.com/paularlott/mcp"
@@ -160,6 +161,15 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("platform", mcp.String, "Platform type: 'docker', 'podman', or 'nomad'", true),
 		getPlatformSpec,
 	)
+
+	// Recipes/Knowledgebase
+	if config.GetServerConfig().RecipesPath != "" {
+		server.RegisterTool(
+			mcp.NewTool("recipes", "Access the knowledge base/recipes collection. You MUST consult this to ensure you can completing tasks correctly, if you can't find a recipe that fits your needs, you can continue on your own.").
+				AddParam("filename", mcp.String, "Filename of the recipe to retrieve (relative to recipes directory). Omit to list all recipes.", false),
+			recipes,
+		)
+	}
 
 	return server
 }
