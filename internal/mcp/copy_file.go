@@ -24,8 +24,6 @@ func copyFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, err
 		return nil, mcp.NewToolErrorInvalidParams("space_id is required")
 	}
 
-	workdir := req.StringOr("workdir", "")
-
 	// Check if content is provided (write to space) or path is provided (read from space)
 	content := req.StringOr("content", "")
 	sourcePath := req.StringOr("source_path", "")
@@ -50,7 +48,7 @@ func copyFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, err
 			DestPath:  destPath,
 			Content:   contentBytes,
 			Direction: direction,
-			Workdir:   workdir,
+			Workdir:   "",
 		}
 	} else if sourcePath != "" {
 		// Read from space
@@ -58,7 +56,7 @@ func copyFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, err
 		copyCmd = &msg.CopyFileMessage{
 			SourcePath: sourcePath,
 			Direction:  direction,
-			Workdir:    workdir,
+			Workdir:    "",
 		}
 	} else {
 		return nil, mcp.NewToolErrorInvalidParams("Either (content and dest_path) or source_path must be provided")

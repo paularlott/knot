@@ -99,8 +99,7 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("space_id", mcp.String, "The ID of the space to copy files to/from, use list_spaces if you need to convert a space name to an ID", true).
 			AddParam("content", mcp.String, "Content to write to the space (for writing to space)", false).
 			AddParam("dest_path", mcp.String, "Destination path in space (for writing to space)", false).
-			AddParam("source_path", mcp.String, "Source path in space (for reading from space)", false).
-			AddParam("workdir", mcp.String, "Working directory for relative paths", false),
+			AddParam("source_path", mcp.String, "Source path in space (for reading from space)", false),
 		copyFile,
 	)
 	server.RegisterTool(
