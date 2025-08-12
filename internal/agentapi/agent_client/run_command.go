@@ -24,29 +24,12 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 
 	// Always invoke via shell to support pipes/redirection.
 	// Combine command and args into a single shell command string
-	shellCmd := runCmd.Command
-	/* 	if len(runCmd.Args) > 0 {
-	   		// Always append args if they exist
-	   		for _, arg := range runCmd.Args {
-	   			shellCmd += " " + arg
-	   		}
-	   	}
-
-	   	// If no command but we have args, use first arg as command
-	   	if shellCmd == "" && len(runCmd.Args) > 0 {
-	   		shellCmd = runCmd.Args[0]
-	   		for i := 1; i < len(runCmd.Args); i++ {
-	   			shellCmd += " " + runCmd.Args[i]
-	   		}
-	   	} */
-
-	// Use shlex or similar for proper shell escaping
 	var parts []string
-	if shellCmd != "" {
-		parts = append(parts, shellCmd)
+	if runCmd.Command != "" {
+		parts = append(parts, runCmd.Command)
 	}
 	parts = append(parts, runCmd.Args...)
-	shellCmd = strings.Join(parts, " ")
+	shellCmd := strings.Join(parts, " ")
 
 	log.Debug().Str("final_shell_command", shellCmd).Msg("agent: constructed shell command")
 
