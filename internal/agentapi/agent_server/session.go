@@ -208,3 +208,57 @@ func (s *Session) SendRunCommand(runCmd *msg.RunCommandMessage) (chan *msg.RunCo
 
 	return responseChannel, nil
 }
+
+func (s *Session) SendCopyFile(copyCmd *msg.CopyFileMessage) (chan *msg.CopyFileResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a response channel
+	responseChannel := make(chan *msg.CopyFileResponse, 1)
+
+	// Handle the command in a goroutine
+	go func() {
+		defer conn.Close()
+		defer close(responseChannel)
+
+		// Write the copy file command
+		err = msg.WriteCommand(conn, msg.CmdCopyFile)
+		if err != nil {
+			log.Error().Msgf("agent: writing copy file command: %v", err)
+			responseChannel <- &msg.CopyFileResponse{
+				Success: false,
+				Error:   "Failed to send command to agent",
+			}
+			return
+		}
+
+		// Write the copy file message
+		err = msg.WriteMessage(conn, copyCmd)
+		if err != nil {
+			log.Error().Msgf("agent: writing copy file message: %v", err)
+			responseChannel <- &msg.CopyFileResponse{
+				Success: false,
+				Error:   "Failed to send command message to agent",
+			}
+			return
+		}
+
+		// Read the response
+		var response msg.CopyFileResponse
+		err = msg.ReadMessage(conn, &response)
+		if err != nil {
+			log.Error().Msgf("agent: reading copy file response: %v", err)
+			responseChannel <- &msg.CopyFileResponse{
+				Success: false,
+				Error:   "Failed to read response from agent",
+			}
+			return
+		}
+
+		responseChannel <- &response
+	}()
+
+	return responseChannel, nil
+}

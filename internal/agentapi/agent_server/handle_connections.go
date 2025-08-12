@@ -322,6 +322,10 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleRunCommand(stream, session)
 			return // Single shot command so done
 
+		case byte(msg.CmdCopyFile):
+			handleCopyFile(stream, session)
+			return // Single shot command so done
+
 		default:
 			log.Error().Msgf("agent: unknown command from agent: %d", cmd)
 			return
@@ -440,4 +444,67 @@ func handleRunCommand(stream net.Conn, session *Session) {
 	}
 
 	log.Info().Bool("success", response.Success).Str("command", runCmd.Command).Str("space_id", session.Id).Msg("agent: run command completed")
+}
+
+func handleCopyFile(stream net.Conn, session *Session) {
+	// Read the copy file message
+	var copyCmd msg.CopyFileMessage
+	if err := msg.ReadMessage(stream, &copyCmd); err != nil {
+		log.Error().Msgf("agent: reading copy file message: %v", err)
+		return
+	}
+
+	log.Info().Str("direction", copyCmd.Direction).Str("source", copyCmd.SourcePath).Str("dest", copyCmd.DestPath).Str("space_id", session.Id).Msg("agent: forwarding copy file to agent")
+
+	// Open a new connection to the agent to send the copy file command
+	agentConn, err := session.MuxSession.Open()
+	if err != nil {
+		log.Error().Msgf("agent: opening connection to agent: %v", err)
+		response := msg.CopyFileResponse{
+			Success: false,
+			Error:   "Failed to connect to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+	defer agentConn.Close()
+
+	// Send the copy file command to the agent
+	if err := msg.WriteCommand(agentConn, msg.CmdCopyFile); err != nil {
+		log.Error().Msgf("agent: writing copy file command to agent: %v", err)
+		response := msg.CopyFileResponse{
+			Success: false,
+			Error:   "Failed to send command to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	if err := msg.WriteMessage(agentConn, &copyCmd); err != nil {
+		log.Error().Msgf("agent: writing copy file message to agent: %v", err)
+		response := msg.CopyFileResponse{
+			Success: false,
+			Error:   "Failed to send command message to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	// Read the response from the agent
+	var response msg.CopyFileResponse
+	if err := msg.ReadMessage(agentConn, &response); err != nil {
+		log.Error().Msgf("agent: reading copy file response from agent: %v", err)
+		response = msg.CopyFileResponse{
+			Success: false,
+			Error:   "Failed to read response from agent",
+		}
+	}
+
+	// Forward the response back to the client
+	if err := msg.WriteMessage(stream, &response); err != nil {
+		log.Error().Msgf("agent: writing copy file response to client: %v", err)
+		return
+	}
+
+	log.Info().Bool("success", response.Success).Str("direction", copyCmd.Direction).Str("space_id", session.Id).Msg("agent: copy file completed")
 }

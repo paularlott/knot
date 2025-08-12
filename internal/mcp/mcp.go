@@ -87,12 +87,21 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 	)
 	server.RegisterTool(
 		mcp.NewTool("run_command", "Execute a command within a running space and return the output").
-			AddParam("space_id", mcp.String, "The ID of the space to run the command in", true).
+			AddParam("space_id", mcp.String, "The ID of the space to run the command in, use list_spaces if you need to convert a space name to an ID", true).
 			AddParam("command", mcp.String, "The command to execute", true).
 			AddParam("arguments", mcp.ArrayOf(mcp.String), "The arguments to pass to the command", false).
 			AddParam("timeout", mcp.Number, "Command timeout in seconds (default: 30)", false).
 			AddParam("workdir", mcp.String, "Working directory for the command", false),
 		runCommand,
+	)
+	server.RegisterTool(
+		mcp.NewTool("copy_file", "Read and write the contents of files within a running space. Provide either (content and dest_path) to write to space, or source_path to read from space.").
+			AddParam("space_id", mcp.String, "The ID of the space to copy files to/from, use list_spaces if you need to convert a space name to an ID", true).
+			AddParam("content", mcp.String, "Content to write to the space (for writing to space)", false).
+			AddParam("dest_path", mcp.String, "Destination path in space (for writing to space)", false).
+			AddParam("source_path", mcp.String, "Source path in space (for reading from space)", false).
+			AddParam("workdir", mcp.String, "Working directory for relative paths", false),
+		copyFile,
 	)
 	server.RegisterTool(
 		mcp.NewTool("manage_space_state", "Start, stop, or restart a space by its ID").

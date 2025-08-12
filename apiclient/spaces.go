@@ -92,6 +92,14 @@ type RunCommandRequest struct {
 	Workdir string   `json:"workdir,omitempty"`
 }
 
+type CopyFileRequest struct {
+	SourcePath string `json:"source_path"`
+	DestPath   string `json:"dest_path"`
+	Content    []byte `json:"content,omitempty"`
+	Direction  string `json:"direction"` // "to_space" or "from_space"
+	Workdir    string `json:"workdir,omitempty"`
+}
+
 func (c *ApiClient) GetSpaces(ctx context.Context, userId string) (*SpaceInfoList, int, error) {
 	response := &SpaceInfoList{}
 
