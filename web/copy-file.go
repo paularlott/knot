@@ -19,8 +19,8 @@ import (
 func HandleCopyFileStream(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
-	// Check if the user has permission to run commands (reusing same permission)
-	if !user.HasPermission(model.PermissionRunCommands) {
+	// Check if the user has permission to copy files
+	if !user.HasPermission(model.PermissionCopyFiles) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}

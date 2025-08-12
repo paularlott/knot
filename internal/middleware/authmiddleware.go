@@ -280,6 +280,10 @@ func ApiPermissionRunCommands(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionRunCommands, "No permission to run commands")
 }
 
+func ApiPermissionCopyFiles(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionCopyFiles, "No permission to copy files")
+}
+
 func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

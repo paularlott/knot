@@ -15,7 +15,7 @@ import (
 
 func copyFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
-	if !user.HasPermission(model.PermissionRunCommands) {
+	if !user.HasPermission(model.PermissionCopyFiles) {
 		return nil, fmt.Errorf("No permission to copy files in spaces")
 	}
 

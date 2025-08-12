@@ -222,7 +222,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 
 	router.HandleFunc("GET /logs/{space_id}/stream", middleware.ApiAuth(HandleLogsStream))
 	router.HandleFunc("GET /space-io/{space_id}/run", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleRunCommandStream)))
-	router.HandleFunc("GET /space-io/{space_id}/copy", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleCopyFileStream)))
+	router.HandleFunc("GET /space-io/{space_id}/copy", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleCopyFileStream)))
 
 	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 
@@ -441,6 +441,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionUseVSCodeTunnel": user.HasPermission(model.PermissionUseVSCodeTunnel) || cfg.LeafNode,
 		"permissionUseLogs":         user.HasPermission(model.PermissionUseLogs) || cfg.LeafNode,
 		"permissionRunCommands":     user.HasPermission(model.PermissionRunCommands) || cfg.LeafNode,
+		"permissionCopyFiles":       user.HasPermission(model.PermissionCopyFiles) || cfg.LeafNode,
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"zone":                      cfg.Zone,
