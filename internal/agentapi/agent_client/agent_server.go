@@ -165,7 +165,7 @@ func (s *agentServer) ConnectAndServe() {
 				s.agentClient.withVSCodeTunnel = response.WithVSCodeTunnel && cfg.VSCodeTunnel != ""
 				s.agentClient.withCodeServer = response.WithCodeServer && cfg.Port.CodeServer > 0
 				s.agentClient.withSSH = response.WithSSH && s.agentClient.sshPort > 0
-				s.agentClient.withRunCommand = response.WithRunCommand && !cfg.DisableRunCommand
+				s.agentClient.withRunCommand = response.WithRunCommand && !cfg.DisableSpaceIO
 
 				// If ssh port given then test if to start the ssh server
 				if s.agentClient.withSSH {

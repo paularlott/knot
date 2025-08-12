@@ -57,10 +57,10 @@ var AgentCmd = &cli.Command{
 			DefaultValue: false,
 		},
 		&cli.BoolFlag{
-			Name:         "disable-run-command",
-			Usage:        "Disable run command access.",
-			ConfigPath:   []string{"agent.disable_run_command"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DISABLE_RUN_COMMAND"},
+			Name:         "disable-space-io",
+			Usage:        "Disable space I/O operations (commands and file copy).",
+			ConfigPath:   []string{"agent.disable_space_io"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DISABLE_SPACE_IO"},
 			DefaultValue: false,
 		},
 		&cli.StringSliceFlag{
@@ -210,7 +210,7 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 		SyslogPort:           cmd.GetInt("syslog-port"),
 		APIPort:              cmd.GetInt("api-port"),
 		DisableTerminal:      cmd.GetBool("disable-terminal"),
-		DisableRunCommand:    cmd.GetBool("disable-run-command"),
+		DisableSpaceIO:       cmd.GetBool("disable-space-io"),
 		Port: config.PortConfig{
 			CodeServer: cmd.GetInt("code-server-port"),
 			VNCHttp:    cmd.GetInt("vnc-http-port"),

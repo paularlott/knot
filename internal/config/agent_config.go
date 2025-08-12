@@ -9,7 +9,7 @@ type AgentConfig struct {
 	SyslogPort           int
 	APIPort              int
 	DisableTerminal      bool
-	DisableRunCommand    bool
+	DisableSpaceIO       bool
 	Port                 PortConfig
 	TLS                  TLSConfig
 }
