@@ -22,7 +22,7 @@ const (
 
 type Message struct {
 	Type    MessageType `json:"type" msgpack:"type"`
-	payload []byte      `json:"payload" msgpack:"payload"`
+	payload []byte
 }
 
 func (m *Message) UnmarshalPayload(v interface{}) error {

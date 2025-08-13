@@ -747,17 +747,38 @@ var ServerCmd = &cli.Command{
 			tunnel_server.Routes(routes)
 		}
 
-		// If have a wildcard domain, build it's routes
-		if wildcardDomain != "" {
-			log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
+		// Check if listen and tunnel addresses are the same
+		listenAddr := util.FixListenAddress(cfg.Listen)
+		tunnelAddr := util.FixListenAddress(cfg.ListenTunnel)
+		sameAddress := cfg.ListenTunnel != "" && listenAddr == tunnelAddr
 
-			// Remove the port form the wildcard domain
-			if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
-				wildcardDomain = host
+		// Get tunnel domain for routing
+		var tunnelDomainMatch *regexp.Regexp = nil
+		if cfg.TunnelDomain != "" {
+			// Create regex to match tunnel domain (always wildcard)
+			tunnelDomainPattern := "^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(cfg.TunnelDomain, ".", "\\.", -1), "*") + "$"
+			tunnelDomainMatch = regexp.MustCompile(tunnelDomainPattern)
+			log.Debug().Msgf("Tunnel Domain Pattern: %s", tunnelDomainPattern)
+		}
+
+		// If have a wildcard domain or need tunnel routing, build domain-based routes
+		if wildcardDomain != "" || sameAddress {
+			if wildcardDomain != "" {
+				log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
+			}
+			if sameAddress {
+				log.Debug().Msgf("Using domain routing for tunnel traffic (same listen address)")
 			}
 
-			// Create a regex to match the wildcard domain
-			match := regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
+			// Remove the port from the wildcard domain
+			var wildcardMatch *regexp.Regexp = nil
+			if wildcardDomain != "" {
+				if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
+					wildcardDomain = host
+				}
+				// Create a regex to match the wildcard domain
+				wildcardMatch = regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
+			}
 
 			// Get our hostname without port if present
 			hostname := u.Host
@@ -765,8 +786,11 @@ var ServerCmd = &cli.Command{
 				hostname = host
 			}
 
-			// Get the routes for the wildcard domain
+			// Get the routes for the wildcard domain and tunnel server
 			wildcardRoutes := proxy.PortRoutes()
+			tunnelRoutes := http.NewServeMux()
+			tunnel_server.Routes(tunnelRoutes)
+
 			domainMux := http.NewServeMux()
 			domainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 				// Extract hostname without port if present
@@ -775,9 +799,13 @@ var ServerCmd = &cli.Command{
 					requestHost = host
 				}
 
-				if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
+				// Check if this is tunnel domain traffic
+				if sameAddress && tunnelDomainMatch != nil && tunnelDomainMatch.MatchString(requestHost) {
+					// Route tunnel domain traffic to tunnel handlers
+					tunnelRoutes.ServeHTTP(w, r)
+				} else if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
 					appRoutes.ServeHTTP(w, r)
-				} else if match.MatchString(requestHost) {
+				} else if wildcardMatch != nil && wildcardMatch.MatchString(requestHost) {
 					wildcardRoutes.ServeHTTP(w, r)
 				} else {
 					if r.URL.Path == "/health" {
@@ -790,7 +818,7 @@ var ServerCmd = &cli.Command{
 
 			router = domainMux
 		} else {
-			// No wildcard domain, just use the app routes
+			// No wildcard domain and different addresses, just use the app routes
 			router = appRoutes
 		}
 
@@ -917,9 +945,9 @@ var ServerCmd = &cli.Command{
 		// Start the agent server
 		agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)
 
-		// Start a tunnel server
-		if cfg.ListenTunnel != "" {
-			tunnel_server.ListenAndServe(util.FixListenAddress(cfg.ListenTunnel), tlsConfig)
+		// Start a tunnel server only if using different addresses
+		if cfg.ListenTunnel != "" && !sameAddress {
+			tunnel_server.ListenAndServe(tunnelAddr, tlsConfig)
 		}
 
 		audit.Log(

@@ -1,6 +1,6 @@
 module github.com/paularlott/knot
 
-go 1.24.6
+go 1.25.0
 
 // replace github.com/paularlott/gossip => ../gossip/
 
@@ -21,16 +21,16 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.68
 	github.com/paularlott/cli v0.3.0
-	github.com/paularlott/gossip v0.5.0
-	github.com/paularlott/mcp v0.0.0-00010101000000-000000000000
+	github.com/paularlott/gossip v0.6.0
+	github.com/paularlott/mcp v0.0.0-20250811120118-91e7d7032cce
 	github.com/pkg/sftp v1.13.9
-	github.com/redis/go-redis/v9 v9.12.0
+	github.com/redis/go-redis/v9 v9.12.1
 	github.com/rs/zerolog v1.34.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.41.0
-	golang.org/x/exp v0.0.0-20250808145144-a408d31f581a
+	golang.org/x/exp v0.0.0-20250813145105-42675adae3e6
 	golang.org/x/net v0.43.0
 	golang.org/x/term v0.34.0
 	golang.org/x/time v0.12.0
