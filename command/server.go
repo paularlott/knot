@@ -25,7 +25,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
-	"github.com/paularlott/knot/internal/mcp"
+	internal_mcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
@@ -35,6 +35,7 @@ import (
 	"github.com/paularlott/knot/web"
 
 	"github.com/paularlott/cli"
+	"github.com/paularlott/mcp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -521,6 +522,15 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "unix:///var/run/podman.sock",
 		},
 
+		// MCP flags
+		&cli.BoolFlag{
+			Name:         "mcp-enabled",
+			Usage:        "Enable MCP (Model Context Protocol) server functionality.",
+			ConfigPath:   []string{"server.mcp.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_ENABLED"},
+			DefaultValue: false,
+		},
+
 		// Chat flags
 		&cli.BoolFlag{
 			Name:         "chat-enabled",
@@ -729,10 +739,16 @@ var ServerCmd = &cli.Command{
 		web.Routes(routes, cfg)
 
 		// MCP
-		mcpServer := mcp.InitializeMCPServer(routes)
+		var mcpServer *mcp.Server = nil
+		if cmd.GetBool("mcp-enabled") {
+			log.Info().Msg("server: MCP server enabled")
+			mcpServer = internal_mcp.InitializeMCPServer(routes)
+		} else {
+			log.Debug().Msg("server: MCP server disabled")
+		}
 
 		// If AI chat enabled then initialize chat service
-		if cmd.GetBool("chat-enabled") {
+		if cmd.GetBool("chat-enabled") && mcpServer != nil {
 			// Initialize chat service with config
 			_, err := chat.NewService(cfg.Chat, mcpServer, routes)
 			if err != nil {
@@ -1083,6 +1099,9 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			UseTLS:      cmd.GetBool("use-tls"),
 			AgentUseTLS: cmd.GetBool("agent-use-tls"),
 			SkipVerify:  cmd.GetBool("tls-skip-verify"),
+		},
+		MCP: config.MCPConfig{
+			Enabled: cmd.GetBool("mcp-enabled"),
 		},
 		Chat: config.ChatConfig{
 			Enabled:          cmd.GetBool("chat-enabled"),

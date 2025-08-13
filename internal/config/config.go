@@ -40,6 +40,7 @@ type ServerConfig struct {
 	Podman             PodmanConfig
 	Nomad              NomadConfig
 	TLS                TLSConfig
+	MCP                MCPConfig
 	Chat               ChatConfig
 }
 
@@ -122,6 +123,10 @@ type PodmanConfig struct {
 type NomadConfig struct {
 	Host  string
 	Token string
+}
+
+type MCPConfig struct {
+	Enabled bool
 }
 
 type ChatConfig struct {
