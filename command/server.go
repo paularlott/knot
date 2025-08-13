@@ -25,7 +25,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
-	"github.com/paularlott/knot/internal/mcp"
+	internal_mcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
@@ -35,6 +35,7 @@ import (
 	"github.com/paularlott/knot/web"
 
 	"github.com/paularlott/cli"
+	"github.com/paularlott/mcp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -528,6 +529,15 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "unix:///var/run/podman.sock",
 		},
 
+		// MCP flags
+		&cli.BoolFlag{
+			Name:         "mcp-enabled",
+			Usage:        "Enable MCP (Model Context Protocol) server functionality.",
+			ConfigPath:   []string{"server.mcp.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_ENABLED"},
+			DefaultValue: false,
+		},
+
 		// Chat flags
 		&cli.BoolFlag{
 			Name:         "chat-enabled",
@@ -736,10 +746,16 @@ var ServerCmd = &cli.Command{
 		web.Routes(routes, cfg)
 
 		// MCP
-		mcpServer := mcp.InitializeMCPServer(routes)
+		var mcpServer *mcp.Server = nil
+		if cmd.GetBool("mcp-enabled") {
+			log.Info().Msg("server: MCP server enabled")
+			mcpServer = internal_mcp.InitializeMCPServer(routes)
+		} else {
+			log.Debug().Msg("server: MCP server disabled")
+		}
 
 		// If AI chat enabled then initialize chat service
-		if cmd.GetBool("chat-enabled") {
+		if cmd.GetBool("chat-enabled") && mcpServer != nil {
 			// Initialize chat service with config
 			_, err := chat.NewService(cfg.Chat, mcpServer, routes)
 			if err != nil {
@@ -754,17 +770,38 @@ var ServerCmd = &cli.Command{
 			tunnel_server.Routes(routes)
 		}
 
-		// If have a wildcard domain, build it's routes
-		if wildcardDomain != "" {
-			log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
+		// Check if listen and tunnel addresses are the same
+		listenAddr := util.FixListenAddress(cfg.Listen)
+		tunnelAddr := util.FixListenAddress(cfg.ListenTunnel)
+		sameAddress := cfg.ListenTunnel != "" && listenAddr == tunnelAddr
 
-			// Remove the port form the wildcard domain
-			if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
-				wildcardDomain = host
+		// Get tunnel domain for routing
+		var tunnelDomainMatch *regexp.Regexp = nil
+		if cfg.TunnelDomain != "" {
+			// Create regex to match tunnel domain (always wildcard)
+			tunnelDomainPattern := "^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(cfg.TunnelDomain, ".", "\\.", -1), "*") + "$"
+			tunnelDomainMatch = regexp.MustCompile(tunnelDomainPattern)
+			log.Debug().Msgf("Tunnel Domain Pattern: %s", tunnelDomainPattern)
+		}
+
+		// If have a wildcard domain or need tunnel routing, build domain-based routes
+		if wildcardDomain != "" || sameAddress {
+			if wildcardDomain != "" {
+				log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
+			}
+			if sameAddress {
+				log.Debug().Msgf("Using domain routing for tunnel traffic (same listen address)")
 			}
 
-			// Create a regex to match the wildcard domain
-			match := regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
+			// Remove the port from the wildcard domain
+			var wildcardMatch *regexp.Regexp = nil
+			if wildcardDomain != "" {
+				if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
+					wildcardDomain = host
+				}
+				// Create a regex to match the wildcard domain
+				wildcardMatch = regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
+			}
 
 			// Get our hostname without port if present
 			hostname := u.Host
@@ -772,8 +809,11 @@ var ServerCmd = &cli.Command{
 				hostname = host
 			}
 
-			// Get the routes for the wildcard domain
+			// Get the routes for the wildcard domain and tunnel server
 			wildcardRoutes := proxy.PortRoutes()
+			tunnelRoutes := http.NewServeMux()
+			tunnel_server.Routes(tunnelRoutes)
+
 			domainMux := http.NewServeMux()
 			domainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 				// Extract hostname without port if present
@@ -782,9 +822,13 @@ var ServerCmd = &cli.Command{
 					requestHost = host
 				}
 
-				if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
+				// Check if this is tunnel domain traffic
+				if sameAddress && tunnelDomainMatch != nil && tunnelDomainMatch.MatchString(requestHost) {
+					// Route tunnel domain traffic to tunnel handlers
+					tunnelRoutes.ServeHTTP(w, r)
+				} else if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
 					appRoutes.ServeHTTP(w, r)
-				} else if match.MatchString(requestHost) {
+				} else if wildcardMatch != nil && wildcardMatch.MatchString(requestHost) {
 					wildcardRoutes.ServeHTTP(w, r)
 				} else {
 					if r.URL.Path == "/health" {
@@ -797,7 +841,7 @@ var ServerCmd = &cli.Command{
 
 			router = domainMux
 		} else {
-			// No wildcard domain, just use the app routes
+			// No wildcard domain and different addresses, just use the app routes
 			router = appRoutes
 		}
 
@@ -924,9 +968,9 @@ var ServerCmd = &cli.Command{
 		// Start the agent server
 		agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)
 
-		// Start a tunnel server
-		if cfg.ListenTunnel != "" {
-			tunnel_server.ListenAndServe(util.FixListenAddress(cfg.ListenTunnel), tlsConfig)
+		// Start a tunnel server only if using different addresses
+		if cfg.ListenTunnel != "" && !sameAddress {
+			tunnel_server.ListenAndServe(tunnelAddr, tlsConfig)
 		}
 
 		audit.Log(
@@ -1063,6 +1107,9 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			UseTLS:      cmd.GetBool("use-tls"),
 			AgentUseTLS: cmd.GetBool("agent-use-tls"),
 			SkipVerify:  cmd.GetBool("tls-skip-verify"),
+		},
+		MCP: config.MCPConfig{
+			Enabled: cmd.GetBool("mcp-enabled"),
 		},
 		Chat: config.ChatConfig{
 			Enabled:          cmd.GetBool("chat-enabled"),

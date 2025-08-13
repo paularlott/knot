@@ -8,4 +8,5 @@ import (
 
 func Routes(router *http.ServeMux) {
 	router.HandleFunc("GET /tunnel/server/{tunnel_name}", middleware.ApiAuth(HandleTunnel))
+	router.HandleFunc("/", HandleWebTunnel)
 }

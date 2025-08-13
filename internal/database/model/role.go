@@ -49,14 +49,14 @@ var PermissionNames = []PermissionName{
 	{PermissionManageRoles, "User Management", "Manage Roles"},
 	{PermissionManageUsers, "User Management", "Manage Users"},
 
-	{PermissionShareSpaces, "Resource Management", "Share Spaces"},
-	{PermissionTransferSpaces, "Resource Management", "Transfer Spaces"},
 	{PermissionManageSpaces, "Resource Management", "Manage Spaces"},
 	{PermissionManageTemplates, "Resource Management", "Manage Templates"},
 	{PermissionManageVariables, "Resource Management", "Manage Variables"},
 	{PermissionManageVolumes, "Resource Management", "Manage Volumes"},
 
 	{PermissionUseSpaces, "Resource Usage", "Use Spaces"},
+	{PermissionShareSpaces, "Resource Usage", "Share Spaces"},
+	{PermissionTransferSpaces, "Resource Usage", "Transfer Spaces"},
 	{PermissionUseTunnels, "Resource Usage", "Use Tunnels"},
 	{PermissionUseCodeServer, "Resource Usage", "Use Code Server"},
 	{PermissionUseLogs, "Resource Usage", "View Logs"},
