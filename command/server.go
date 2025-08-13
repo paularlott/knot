@@ -749,6 +749,8 @@ var ServerCmd = &cli.Command{
 
 		// If AI chat enabled then initialize chat service
 		if cmd.GetBool("chat-enabled") && mcpServer != nil {
+			log.Info().Msg("server: AI chat enabled")
+
 			// Initialize chat service with config
 			_, err := chat.NewService(cfg.Chat, mcpServer, routes)
 			if err != nil {
