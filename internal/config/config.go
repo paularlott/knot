@@ -42,6 +42,7 @@ type ServerConfig struct {
 	TLS                TLSConfig
 	MCP                MCPConfig
 	Chat               ChatConfig
+	RecipesPath        string
 }
 
 type OriginConfig struct {

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/middleware"
 
 	"github.com/paularlott/mcp"
@@ -15,13 +16,13 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 
 	// Groups
 	server.RegisterTool(
-		mcp.NewTool("list_groups", "Get a list of all the groups available within the system."),
+		mcp.NewTool("list_groups", "Get a list of all user groups in the system. Use this to find group IDs when creating or updating templates that should be restricted to specific groups."),
 		listGroups,
 	)
 
 	// Templates
 	server.RegisterTool(
-		mcp.NewTool("list_templates", "Get a list of all templates available within the system."),
+		mcp.NewTool("list_templates", "Get a list of all available space templates. Use this to find template IDs when creating spaces, or to see what templates exist before creating new ones."),
 		listTemplates,
 	)
 	server.RegisterTool(
@@ -75,14 +76,14 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		updateTemplate,
 	)
 	server.RegisterTool(
-		mcp.NewTool("delete_template", "Delete a template").
+		mcp.NewTool("delete_template", "Permanently delete a template. This action cannot be undone. Use list_templates first to find the template ID.").
 			AddParam("template_id", mcp.String, "The ID of the template to delete", true),
 		deleteTemplate,
 	)
 
 	// Spaces
 	server.RegisterTool(
-		mcp.NewTool("list_spaces", "Get a list of all spaces on this server (zone) for the current user. Returns status, sharing and other details about the spaces."),
+		mcp.NewTool("list_spaces", "Get a list of all spaces for the current user, including their status (running/stopped), sharing details, and IDs. Use this to find space IDs before performing actions like start/stop/delete, or to check space status."),
 		listSpaces,
 	)
 	server.RegisterTool(
@@ -103,8 +104,8 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		copyFile,
 	)
 	server.RegisterTool(
-		mcp.NewTool("manage_space_state", "Start, stop, or restart a space by its ID").
-			AddParam("space_id", mcp.String, "The ID of the space to manage", true).
+		mcp.NewTool("manage_space_state", "Start, stop, or restart a space. Use list_spaces first to find the space ID if you only have the space name.").
+			AddParam("space_id", mcp.String, "The ID of the space to manage (use list_spaces to find this)", true).
 			AddParam("action", mcp.String, "Action to perform: 'start', 'stop', or 'restart'", true),
 		manageSpaceState,
 	)
@@ -143,14 +144,14 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 		updateSpace,
 	)
 	server.RegisterTool(
-		mcp.NewTool("delete_space", "Delete a space").
+		mcp.NewTool("delete_space", "Permanently delete a space and all its data. This action cannot be undone. Use list_spaces first to find the space ID.").
 			AddParam("space_id", mcp.String, "The ID of the space to delete", true),
 		deleteSpace,
 	)
 
 	// Users
 	server.RegisterTool(
-		mcp.NewTool("list_users", "Get a list of all users in the system."),
+		mcp.NewTool("list_users", "Get a list of all users in the system with their IDs and details. Use this to find user IDs when sharing spaces or transferring ownership."),
 		listUsers,
 	)
 
@@ -160,6 +161,15 @@ func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
 			AddParam("platform", mcp.String, "Platform type: 'docker', 'podman', or 'nomad'", true),
 		getPlatformSpec,
 	)
+
+	// Recipes/Knowledgebase
+	if config.GetServerConfig().RecipesPath != "" {
+		server.RegisterTool(
+			mcp.NewTool("recipes", "Access the knowledge base/recipes collection for step-by-step guides and best practices. Call without filename to list all available recipes, or with filename to get specific recipe content. Always check recipes first when users request project setup, environment configuration, or similar tasks.").
+				AddParam("filename", mcp.String, "Filename of the recipe to retrieve. Omit to list all recipes.", false),
+			recipes,
+		)
+	}
 
 	return server
 }

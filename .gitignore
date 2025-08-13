@@ -5,6 +5,7 @@
 !/web/agents/.gitignore
 /node_modules
 /files-test
+/test-recipes
 /icons.toml
 /.knot*.toml
 /.parcel-cache
