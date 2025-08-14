@@ -2397,6 +2397,13 @@ components:
           type: string
           format: date-time
           description: The time when the space was started, UTC.
+        created_at:
+          type: string
+          format: date-time
+          description: The time when the space was created, UTC.
+        created_at_formatted:
+          type: string
+          description: The formatted creation date in the user's timezone (e.g., "20 / Feb / 2025 11:54:10pm").
         icon_url:
           type: string
           description: The icon URL for the space or an empty string if there's no icon.

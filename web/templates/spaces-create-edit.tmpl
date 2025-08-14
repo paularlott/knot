@@ -102,6 +102,12 @@
           </fieldset>
         </div>
 
+        <div x-show="isEdit && formData.created_at_formatted" x-cloak>
+          <label for="created_at" class="form-label">Created</label>
+          <input type="text" class="form-field bg-gray-50 dark:bg-gray-700 cursor-not-allowed" name="created_at" :value="formatCreatedAt()" readonly tabindex="-1">
+          <div class="description">The date and time when this space was originally created.</div>
+        </div>
+
         {{ if not .isEdit }}
         <div x-cloak x-show="!isManual">
           <label class="flex items-center cursor-pointer mb-2">

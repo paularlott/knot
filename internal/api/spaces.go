@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
@@ -641,29 +642,44 @@ func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var currentUser *model.User
 	if r.Context().Value("user") != nil {
-		user := r.Context().Value("user").(*model.User)
-		if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+		currentUser = r.Context().Value("user").(*model.User)
+		if space.UserId != currentUser.Id && !currentUser.HasPermission(model.PermissionManageSpaces) {
 			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 			return
 		}
 	}
 
+	// Format the creation date in the user's timezone
+	var createdAtFormatted string
+	if currentUser != nil && currentUser.Timezone != "" {
+		if loc, err := time.LoadLocation(currentUser.Timezone); err == nil {
+			createdAtFormatted = space.CreatedAt.In(loc).Format("2 / Jan / 2006 3:04:05pm")
+		} else {
+			createdAtFormatted = space.CreatedAt.UTC().Format("2 / Jan / 2006 3:04:05pm")
+		}
+	} else {
+		createdAtFormatted = space.CreatedAt.UTC().Format("2 / Jan / 2006 3:04:05pm")
+	}
+
 	response := apiclient.SpaceDefinition{
-		UserId:       space.UserId,
-		TemplateId:   space.TemplateId,
-		Name:         space.Name,
-		Description:  space.Description,
-		Shell:        space.Shell,
-		Zone:         space.Zone,
-		AltNames:     space.AltNames,
-		IsDeployed:   space.IsDeployed,
-		IsPending:    space.IsPending,
-		IsDeleting:   space.IsDeleting,
-		VolumeData:   space.VolumeData,
-		StartedAt:    space.StartedAt.UTC(),
-		IconURL:      space.IconURL,
-		CustomFields: make([]apiclient.CustomFieldValue, len(space.CustomFields)),
+		UserId:             space.UserId,
+		TemplateId:         space.TemplateId,
+		Name:               space.Name,
+		Description:        space.Description,
+		Shell:              space.Shell,
+		Zone:               space.Zone,
+		AltNames:           space.AltNames,
+		IsDeployed:         space.IsDeployed,
+		IsPending:          space.IsPending,
+		IsDeleting:         space.IsDeleting,
+		VolumeData:         space.VolumeData,
+		StartedAt:          space.StartedAt.UTC(),
+		CreatedAt:          space.CreatedAt.UTC(),
+		CreatedAtFormatted: createdAtFormatted,
+		IconURL:            space.IconURL,
+		CustomFields:       make([]apiclient.CustomFieldValue, len(space.CustomFields)),
 	}
 
 	for i, field := range space.CustomFields {
