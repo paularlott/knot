@@ -745,17 +745,22 @@ var ServerCmd = &cli.Command{
 		proxy.Routes(routes, cfg)
 		web.Routes(routes, cfg)
 
-		// MCP
+		// MCP - Create server if either MCP or chat is enabled
 		var mcpServer *mcp.Server = nil
-		if cmd.GetBool("mcp-enabled") {
-			log.Info().Msg("server: MCP server enabled")
-			mcpServer = internal_mcp.InitializeMCPServer(routes)
-		} else {
-			log.Debug().Msg("server: MCP server disabled")
+		mcpEnabled := cmd.GetBool("mcp-enabled")
+		chatEnabled := cmd.GetBool("chat-enabled")
+
+		if mcpEnabled || chatEnabled {
+			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled)
+			if !mcpEnabled {
+				log.Debug().Msg("server: MCP chat-only mode")
+			} else {
+				log.Info().Msg("server: MCP server enabled")
+			}
 		}
 
 		// If AI chat enabled then initialize chat service
-		if cmd.GetBool("chat-enabled") && mcpServer != nil {
+		if chatEnabled {
 			log.Info().Msg("server: AI chat enabled")
 
 			// Initialize chat service with config

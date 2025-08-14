@@ -10,9 +10,12 @@ import (
 	"github.com/paularlott/mcp"
 )
 
-func InitializeMCPServer(routes *http.ServeMux) *mcp.Server {
+func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Server {
 	server := mcp.NewServer("knot-mcp-server", build.Version)
-	routes.HandleFunc("POST /mcp", middleware.ApiAuth(server.HandleRequest))
+
+	if enableWebEndpoint {
+		routes.HandleFunc("POST /mcp", middleware.ApiAuth(server.HandleRequest))
+	}
 
 	// Groups
 	server.RegisterTool(
