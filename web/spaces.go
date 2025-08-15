@@ -80,7 +80,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	iconListJSON, err := json.Marshal(loadIcons())
+	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -169,7 +169,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	iconListJSON, err := json.Marshal(loadIcons())
+	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)

@@ -23,12 +23,38 @@ func recipes(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, erro
 	cfg := config.GetServerConfig()
 
 	if cfg.RecipesPath == "" {
-		return nil, fmt.Errorf("Recipes path not configured")
+		// Return empty list when recipes path is not configured
+		filename := req.StringOr("filename", "")
+		if filename == "" {
+			// Return empty recipe list
+			result := map[string]interface{}{
+				"action":  "list",
+				"recipes": []RecipeInfo{},
+				"count":   0,
+				"message": "Recipes path not configured",
+			}
+			return mcp.NewToolResponseJSON(result), nil
+		} else {
+			// Return error for specific file requests when path not configured
+			return nil, fmt.Errorf("Recipes path not configured - cannot retrieve specific recipe")
+		}
 	}
 
 	// Check if recipes directory exists
 	if _, err := os.Stat(cfg.RecipesPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("Recipes directory does not exist: %s", cfg.RecipesPath)
+		filename := req.StringOr("filename", "")
+		if filename == "" {
+			// Return empty list when directory doesn't exist
+			result := map[string]interface{}{
+				"action":  "list",
+				"recipes": []RecipeInfo{},
+				"count":   0,
+				"message": fmt.Sprintf("Recipes directory does not exist: %s", cfg.RecipesPath),
+			}
+			return mcp.NewToolResponseJSON(result), nil
+		} else {
+			return nil, fmt.Errorf("Recipes directory does not exist: %s", cfg.RecipesPath)
+		}
 	}
 
 	filename := req.StringOr("filename", "")

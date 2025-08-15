@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/rs/zerolog/log"
@@ -19,7 +20,7 @@ func HandleTemplateCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	iconListJSON, err := json.Marshal(loadIcons())
+	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -51,7 +52,7 @@ func HandleTemplateEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	iconListJSON, err := json.Marshal(loadIcons())
+	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)

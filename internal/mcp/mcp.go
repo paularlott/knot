@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/middleware"
 
 	"github.com/paularlott/mcp"
@@ -43,7 +42,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 			AddParam("with_ssh", mcp.Boolean, "Enable SSH access", false).
 			AddParam("with_run_command", mcp.Boolean, "Enable run command in space", false).
 			AddParam("active", mcp.Boolean, "Template active status", false).
-			AddParam("icon_url", mcp.String, "Icon URL for the template", false).
+			AddParam("icon_url", mcp.String, "Icon URL for the template. Use list_icons to find available icon URLs.", false).
 			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false).
 			AddParam("zones", mcp.ArrayOf(mcp.String), "Array of zone names that the template should show in", false).
 			AddArrayObjectParam("custom_fields", "Array of custom field definitions", false).
@@ -68,6 +67,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 			AddParam("with_ssh", mcp.Boolean, "Enable SSH access", false).
 			AddParam("with_run_command", mcp.Boolean, "Enable run command in space", false).
 			AddParam("active", mcp.Boolean, "Template active status", false).
+			AddParam("icon_url", mcp.String, "Icon URL for the template. Use list_icons to find available icon URLs.", false).
 			AddParam("group_action", mcp.String, "Action for groups: 'replace', 'add', or 'remove'", false).
 			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false).
 			AddParam("zone_action", mcp.String, "Action for zones: 'replace', 'add', or 'remove'", false).
@@ -136,7 +136,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 			AddParam("template_id", mcp.String, "The ID of the template to use", true).
 			AddParam("description", mcp.String, "Space description", false).
 			AddParam("shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
-			AddParam("icon_url", mcp.String, "Icon URL for the space", false).
+			AddParam("icon_url", mcp.String, "Icon URL for the space. Use list_icons to find available icon URLs.", false).
 			AddArrayObjectParam("custom_fields", "Array of custom field values", false).
 			AddProperty("name", mcp.String, "Field name", true).
 			AddProperty("value", mcp.String, "Field value", true).
@@ -150,7 +150,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 			AddParam("description", mcp.String, "Space description", false).
 			AddParam("template_id", mcp.String, "The ID of the template to use", false).
 			AddParam("shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
-			AddParam("icon_url", mcp.String, "Icon URL for the space", false).
+			AddParam("icon_url", mcp.String, "Icon URL for the space. Use list_icons to find available icon URLs.", false).
 			AddArrayObjectParam("custom_fields", "Array of custom field values", false).
 			AddProperty("name", mcp.String, "Field name", true).
 			AddProperty("value", mcp.String, "Field value", true).
@@ -169,6 +169,12 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 		listUsers,
 	)
 
+	// Icons
+	server.RegisterTool(
+		mcp.NewTool("list_icons", "Get a list of all available icons (built-in and user-supplied) with their descriptions and URLs. Use this when you need to find an icon URL for templates or spaces. The LLM should use this tool to convert icon names/descriptions to URLs when creating or updating templates and spaces."),
+		listIcons,
+	)
+
 	// Specifications
 	server.RegisterTool(
 		mcp.NewTool("get_platform_spec", "Crucial first step. Retrieves the required job specification schema for a given platform ('nomad', 'docker' or 'podman). This MUST be called before attempting to create a template.").
@@ -177,13 +183,11 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 	)
 
 	// Recipes/Knowledgebase
-	if config.GetServerConfig().RecipesPath != "" {
-		server.RegisterTool(
-			mcp.NewTool("recipes", "Access the knowledge base/recipes collection for step-by-step guides and best practices. Call without filename to list all available recipes, or with filename to get specific recipe content. Always check recipes first when users request project setup, environment configuration, or similar tasks.").
-				AddParam("filename", mcp.String, "Filename of the recipe to retrieve. Omit to list all recipes.", false),
-			recipes,
-		)
-	}
+	server.RegisterTool(
+		mcp.NewTool("recipes", "Access the knowledge base/recipes collection for step-by-step guides and best practices. Call without filename to list all available recipes, or with filename to get specific recipe content. Always check recipes first when users request project setup, environment configuration, or similar tasks. Returns empty list if recipes path is not configured.").
+			AddParam("filename", mcp.String, "Filename of the recipe to retrieve. Omit to list all recipes.", false),
+		recipes,
+	)
 
 	return server
 }

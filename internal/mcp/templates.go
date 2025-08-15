@@ -210,6 +210,9 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 	if runCmd, err := req.Bool("with_run_command"); err != mcp.ErrUnknownParameter {
 		template.WithRunCommand = runCmd
 	}
+	if iconURL, err := req.String("icon_url"); err != mcp.ErrUnknownParameter {
+		template.IconURL = iconURL
+	}
 
 	// Handle zone operations - this is MCP-specific logic
 	if action, err := req.String("zone_action"); err != mcp.ErrUnknownParameter {
