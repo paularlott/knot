@@ -59,7 +59,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClie
 		MaxIdleConns:        32 * 2,
 		MaxIdleConnsPerHost: 32,
 		IdleConnTimeout:     30 * time.Second,
-		DisableCompression:  true,
+		//DisableCompression:  true,
 	}
 
 	return restClient, nil

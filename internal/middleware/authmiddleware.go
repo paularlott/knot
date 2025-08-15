@@ -284,8 +284,8 @@ func ApiPermissionCopyFiles(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionCopyFiles, "No permission to copy files")
 }
 
-func ApiPermissionUseMCPServers(next http.HandlerFunc) http.HandlerFunc {
-	return checkPermission(next, model.PermissionUseMCPServers, "No permission to use MCP servers")
+func ApiPermissionUseMCPServer(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionUseMCPServer, "No permission to use the MCP server")
 }
 
 func ApiPermissionUseWebAssistant(next http.HandlerFunc) http.HandlerFunc {

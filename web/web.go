@@ -442,7 +442,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionUseLogs":         user.HasPermission(model.PermissionUseLogs) || cfg.LeafNode,
 		"permissionRunCommands":     user.HasPermission(model.PermissionRunCommands) || cfg.LeafNode,
 		"permissionCopyFiles":       user.HasPermission(model.PermissionCopyFiles) || cfg.LeafNode,
-		"permissionUseMCPServers":   user.HasPermission(model.PermissionUseMCPServers),
+		"permissionUseMCPServer":    user.HasPermission(model.PermissionUseMCPServer),
 		"permissionUseWebAssistant": user.HasPermission(model.PermissionUseWebAssistant),
 		"version":                   build.Version,
 		"buildDate":                 build.Date,

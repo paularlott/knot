@@ -93,7 +93,6 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 
 	// Iterative tool call loop
 	for iteration := range MAX_TOOL_CALL_ITERATIONS {
-
 		req := OpenAIRequest{
 			Model:           s.config.Model,
 			Messages:        currentMessages,
@@ -232,7 +231,7 @@ func (s *Service) callOpenAIStream(ctx context.Context, req OpenAIRequest, user 
 }
 
 func (s *Service) convertMessages(messages []ChatMessage) []OpenAIMessage {
-	var openAIMessages []OpenAIMessage
+	openAIMessages := make([]OpenAIMessage, 0, len(messages)+1)
 
 	// Add system prompt (always first)
 	if s.systemPrompt != "" {

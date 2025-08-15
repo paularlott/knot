@@ -32,7 +32,7 @@ const (
 	PermissionUseLogs                // Can use the log window
 	PermissionRunCommands            // Can run commands in spaces
 	PermissionCopyFiles              // Can copy files to/from spaces
-	PermissionUseMCPServers          // Can use MCP servers
+	PermissionUseMCPServer           // Can use MCP server
 	PermissionUseWebAssistant        // Can use web-based AI assistant
 )
 
@@ -55,7 +55,7 @@ var PermissionNames = []PermissionName{
 	{PermissionManageTemplates, "Resource Management", "Manage Templates"},
 	{PermissionManageVariables, "Resource Management", "Manage Variables"},
 	{PermissionManageVolumes, "Resource Management", "Manage Volumes"},
-	{PermissionUseMCPServers, "Resource Management", "Use MCP Servers"},
+	{PermissionUseMCPServer, "Resource Management", "Use MCP Server"},
 	{PermissionUseWebAssistant, "Resource Management", "Use Web Assistant"},
 
 	{PermissionUseSpaces, "Resource Usage", "Use Spaces"},
@@ -124,7 +124,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionUseLogs,
 			PermissionRunCommands,
 			PermissionCopyFiles,
-			PermissionUseMCPServers,
+			PermissionUseMCPServer,
 			PermissionUseWebAssistant,
 		},
 		CreatedAt: adminTime,
