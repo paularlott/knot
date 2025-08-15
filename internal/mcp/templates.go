@@ -174,6 +174,9 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 	if name, err := req.String("name"); err != mcp.ErrUnknownParameter {
 		template.Name = name
 	}
+	if platform, err := req.String("platform"); err != mcp.ErrUnknownParameter {
+		template.Platform = platform
+	}
 	if description, err := req.String("description"); err != mcp.ErrUnknownParameter {
 		template.Description = description
 	}

@@ -56,6 +56,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 		mcp.NewTool("update_template", "Updates and existing space template from a job specification. IMPORTANT: Do NOT call this tool directly. You must FIRST call get_platform_spec(platform='<platform>') to learn the correct structure for the 'job' and 'volumes' arguments, if the user's request does not contain the full spec; you must retrieve it first.").
 			AddParam("template_id", mcp.String, "The ID of the template to update", true).
 			AddParam("name", mcp.String, "The name of the template", false).
+			AddParam("platform", mcp.String, "Platform type: 'manual', 'docker', 'podman', or 'nomad'", true).
 			AddParam("job", mcp.String, "Job specification", false).
 			AddParam("description", mcp.String, "Template description", false).
 			AddParam("volumes", mcp.String, "Volume specification", false).
