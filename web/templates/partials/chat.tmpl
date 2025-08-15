@@ -1,5 +1,5 @@
 {{ define "chat" }}
-{{ if .aiChatEnabled }}
+{{ if and .aiChatEnabled .permissionUseWebAssistant }}
 <!-- Chat Component -->
 <div x-data="chatComponent()" x-show="isOpen" x-cloak class="fixed bottom-4 left-4 right-4 z-40 pointer-events-none">
 

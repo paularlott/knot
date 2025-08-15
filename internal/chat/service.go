@@ -55,7 +55,7 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.Se
 	}
 
 	// Chat
-	router.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(chatService.HandleChatStream))
+	router.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
 
 	return chatService, nil
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -33,6 +34,18 @@ type Template struct {
 type TemplateGroup struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+}
+
+func getTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	templateId := req.StringOr("template_id", "")
+
+	data, err := api_utils.GetTemplateDetails(templateId, user)
+	if err != nil {
+		return nil, err
+	}
+
+	return mcp.NewToolResponseJSON(data), nil
 }
 
 func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {

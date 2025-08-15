@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -624,72 +624,26 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
-	var space *model.Space
-	var err error
-
 	spaceId := r.PathValue("space_id")
-
 	if !validate.UUID(spaceId) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
 		return
 	}
 
-	db := database.GetInstance()
-
-	space, err = db.GetSpace(spaceId)
-	if err != nil || space == nil {
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+	user := r.Context().Value("user").(*model.User)
+	data, err := api_utils.GetSpaceDetails(spaceId, user)
+	if err != nil {
+		if err.Error() == "Space not found: sql: no rows in result set" {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Space not found"})
+		} else if err.Error() == "No permission to access this space" {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
+		} else {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		}
 		return
 	}
 
-	var currentUser *model.User
-	if r.Context().Value("user") != nil {
-		currentUser = r.Context().Value("user").(*model.User)
-		if space.UserId != currentUser.Id && !currentUser.HasPermission(model.PermissionManageSpaces) {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
-			return
-		}
-	}
-
-	// Format the creation date in the user's timezone
-	var createdAtFormatted string
-	if currentUser != nil && currentUser.Timezone != "" {
-		if loc, err := time.LoadLocation(currentUser.Timezone); err == nil {
-			createdAtFormatted = space.CreatedAt.In(loc).Format("2 / Jan / 2006 3:04:05pm")
-		} else {
-			createdAtFormatted = space.CreatedAt.UTC().Format("2 / Jan / 2006 3:04:05pm")
-		}
-	} else {
-		createdAtFormatted = space.CreatedAt.UTC().Format("2 / Jan / 2006 3:04:05pm")
-	}
-
-	response := apiclient.SpaceDefinition{
-		UserId:             space.UserId,
-		TemplateId:         space.TemplateId,
-		Name:               space.Name,
-		Description:        space.Description,
-		Shell:              space.Shell,
-		Zone:               space.Zone,
-		AltNames:           space.AltNames,
-		IsDeployed:         space.IsDeployed,
-		IsPending:          space.IsPending,
-		IsDeleting:         space.IsDeleting,
-		VolumeData:         space.VolumeData,
-		StartedAt:          space.StartedAt.UTC(),
-		CreatedAt:          space.CreatedAt.UTC(),
-		CreatedAtFormatted: createdAtFormatted,
-		IconURL:            space.IconURL,
-		CustomFields:       make([]apiclient.CustomFieldValue, len(space.CustomFields)),
-	}
-
-	for i, field := range space.CustomFields {
-		response.CustomFields[i] = apiclient.CustomFieldValue{
-			Name:  field.Name,
-			Value: field.Value,
-		}
-	}
-
-	rest.WriteResponse(http.StatusOK, w, r, &response)
+	rest.WriteResponse(http.StatusOK, w, r, data)
 }
 
 func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {

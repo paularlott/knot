@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -354,73 +355,18 @@ func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	templateService := service.GetTemplateService()
-	template, err := templateService.GetTemplate(templateId)
+	user := r.Context().Value("user").(*model.User)
+	data, err := api_utils.GetTemplateDetails(templateId, user)
 	if err != nil {
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		if err.Error() == "Template not found: sql: no rows in result set" {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Template not found"})
+		} else if err.Error() == "No permission to access this template" {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Template not found"})
+		} else {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		}
 		return
 	}
 
-	// Get template usage
-	total, deployed, err := templateService.GetTemplateUsage(templateId)
-	if err != nil {
-		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	data := apiclient.TemplateDetails{
-		Name:             template.Name,
-		Description:      template.Description,
-		Job:              template.Job,
-		Volumes:          template.Volumes,
-		Usage:            total,
-		Hash:             template.Hash,
-		Deployed:         deployed,
-		Groups:           template.Groups,
-		Zones:            template.Zones,
-		Platform:         template.Platform,
-		IsManaged:        template.IsManaged,
-		WithTerminal:     template.WithTerminal,
-		WithVSCodeTunnel: template.WithVSCodeTunnel,
-		WithCodeServer:   template.WithCodeServer,
-		WithSSH:          template.WithSSH,
-		WithRunCommand:   template.WithRunCommand,
-		ScheduleEnabled:  template.ScheduleEnabled,
-		AutoStart:        template.AutoStart,
-		Schedule:         make([]apiclient.TemplateDetailsDay, 7),
-		ComputeUnits:     template.ComputeUnits,
-		StorageUnits:     template.StorageUnits,
-		Active:           template.Active,
-		MaxUptime:        template.MaxUptime,
-		MaxUptimeUnit:    template.MaxUptimeUnit,
-		IconURL:          template.IconURL,
-		CustomFields:     make([]apiclient.CustomFieldDef, len(template.CustomFields)),
-	}
-
-	if len(template.Schedule) != 7 {
-		for i := 0; i < 7; i++ {
-			data.Schedule[i] = apiclient.TemplateDetailsDay{
-				Enabled: false,
-				From:    "12:00am",
-				To:      "11:59pm",
-			}
-		}
-	} else {
-		for i, day := range template.Schedule {
-			data.Schedule[i] = apiclient.TemplateDetailsDay{
-				Enabled: day.Enabled,
-				From:    day.From,
-				To:      day.To,
-			}
-		}
-	}
-
-	for i, field := range template.CustomFields {
-		data.CustomFields[i] = apiclient.CustomFieldDef{
-			Name:        field.Name,
-			Description: field.Description,
-		}
-	}
-
-	rest.WriteResponse(http.StatusOK, w, r, &data)
+	rest.WriteResponse(http.StatusOK, w, r, data)
 }

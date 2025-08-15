@@ -14,7 +14,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 	server := mcp.NewServer("knot-mcp-server", build.Version)
 
 	if enableWebEndpoint {
-		routes.HandleFunc("POST /mcp", middleware.ApiAuth(server.HandleRequest))
+		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServers(server.HandleRequest)))
 	}
 
 	// Groups
@@ -79,6 +79,11 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 		updateTemplate,
 	)
 	server.RegisterTool(
+		mcp.NewTool("get_template", "Get detailed information about a specific template including its configuration, job specification, and settings. Use this to understand a template before editing it.").
+			AddParam("template_id", mcp.String, "The ID of the template to retrieve", true),
+		getTemplate,
+	)
+	server.RegisterTool(
 		mcp.NewTool("delete_template", "Permanently delete a template. This action cannot be undone. Use list_templates first to find the template ID.").
 			AddParam("template_id", mcp.String, "The ID of the template to delete", true),
 		deleteTemplate,
@@ -88,6 +93,11 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 	server.RegisterTool(
 		mcp.NewTool("list_spaces", "Get a list of all spaces for the current user, including their status (running/stopped), sharing details, and IDs. Use this to find space IDs before performing actions like start/stop/delete, or to check space status."),
 		listSpaces,
+	)
+	server.RegisterTool(
+		mcp.NewTool("get_space", "Get detailed information about a specific space including its configuration, template details, custom fields, and current status. Use this to understand a space before editing it.").
+			AddParam("space_id", mcp.String, "The ID of the space to retrieve", true),
+		getSpace,
 	)
 	server.RegisterTool(
 		mcp.NewTool("run_command", "Execute a command within a running space and return the output").

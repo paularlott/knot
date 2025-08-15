@@ -6,6 +6,7 @@ import (
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -43,6 +44,18 @@ type SpaceOperationResponse struct {
 	Message   string `json:"message"`
 	SpaceName string `json:"space_name"`
 	SpaceID   string `json:"space_id"`
+}
+
+func getSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	spaceId := req.StringOr("space_id", "")
+
+	data, err := api_utils.GetSpaceDetails(spaceId, user)
+	if err != nil {
+		return nil, err
+	}
+
+	return mcp.NewToolResponseJSON(data), nil
 }
 
 func listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
