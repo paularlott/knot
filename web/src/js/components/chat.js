@@ -395,7 +395,8 @@ window.chatComponent = function () {
           break;
 
         case 'error':
-          assistantMessage.fragments.content = 'Error: ' + event.data.error;
+          assistantMessage.fragments.content = '⚠️ ' + (event.data.error || 'An error occurred while processing your request.');
+          assistantMessage.hasError = true;
           break;
 
         case 'done':
@@ -437,7 +438,15 @@ window.chatComponent = function () {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to send message');
+          let errorMessage = 'Failed to send message';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            // If we can't parse the error response, use the status text
+            errorMessage = response.statusText || errorMessage;
+          }
+          throw new Error(errorMessage);
         }
 
         // Add assistant message after successful request
@@ -461,10 +470,23 @@ window.chatComponent = function () {
             lastMessage.fragments.content += '\n\n*[Response stopped by user]*';
           }
         } else {
-          console.error('Chat error:', error);
           const lastMessage = this.messages[this.messages.length - 1];
           if (lastMessage?.role === 'assistant') {
-            lastMessage.fragments.content = 'Sorry, I encountered an error. Please try again.';
+            lastMessage.fragments.content = '⚠️ Failed to connect to the AI service. Please check your connection and try again.';
+            lastMessage.hasError = true;
+          } else {
+            // If no assistant message exists, create one with the error
+            this.$store.chat.addMessage({
+              role: 'assistant',
+              inThinking: false,
+              toolCalls: [],
+              hasError: true,
+              fragments: {
+                thinking: '',
+                content: '⚠️ Failed to connect to the AI service. Please check your connection and try again.',
+                toolResults: []
+              }
+            });
           }
         }
       } finally {
@@ -485,29 +507,56 @@ window.chatComponent = function () {
       const decoder = new TextDecoder();
       const assistantMessage = this.messages[this.messages.length - 1];
       let buffer = '';
+      let lastActivityTime = Date.now();
+      const TIMEOUT_MS = 30000; // 30 second timeout
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
-
-          try {
-            const event = JSON.parse(data);
-            buffer = this.handleStreamEvent(event, assistantMessage, buffer);
-          } catch (e) {
-            console.error('Error parsing SSE data:', e);
+      try {
+        while (true) {
+          // Check for timeout
+          if (Date.now() - lastActivityTime > TIMEOUT_MS) {
+            throw new Error('Stream timeout - no data received for 30 seconds');
           }
-        }
 
-        this.scrollToBottom();
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          lastActivityTime = Date.now(); // Reset timeout on activity
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+
+            try {
+              const event = JSON.parse(data);
+              buffer = this.handleStreamEvent(event, assistantMessage, buffer);
+            } catch (e) {
+              // If we can't parse the event, it might be a malformed response
+              // Add this to the assistant message as an error
+              if (assistantMessage && !assistantMessage.hasError) {
+                assistantMessage.fragments.content += '\n\n⚠️ Received malformed response from AI service.';
+                assistantMessage.hasError = true;
+              }
+            }
+          }
+
+          this.scrollToBottom();
+        }
+      } catch (error) {
+        if (assistantMessage && !assistantMessage.hasError) {
+          assistantMessage.fragments.content += '\n\n⚠️ Stream processing failed: ' + error.message;
+          assistantMessage.hasError = true;
+        }
+        throw error;
+      } finally {
+        try {
+          reader.releaseLock();
+        } catch (e) {
+          // Ignore lock release errors
+        }
       }
     },
 

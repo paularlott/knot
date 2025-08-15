@@ -70,7 +70,7 @@
 
           <div class="flex-1 min-w-0">
             <div class="px-4 py-3 rounded-2xl shadow-sm"
-              :class="message.role === 'user' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white ml-8' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'">
+              :class="message.role === 'user' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white ml-8' : message.hasError ? 'bg-red-50 dark:bg-red-900/20 text-gray-900 dark:text-white border border-red-200 dark:border-red-800' : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'">
               <!-- Thinking section -->
               <template x-if="message.role === 'assistant' && message.fragments?.thinking">
                 <div x-data="{ showThinking: false }" class="mb-3">

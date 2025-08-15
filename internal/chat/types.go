@@ -22,22 +22,23 @@ type ToolCall struct {
 }
 
 type ToolCallFunction struct {
-	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"-"`
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"-"`
 }
 
 // Custom JSON marshaling for ToolCallFunction
 func (tcf ToolCallFunction) MarshalJSON() ([]byte, error) {
-	var argsJSON []byte
-	var err error
+	var argsJSON string
 
 	if tcf.Arguments == nil {
-		argsJSON = []byte("{}")
+		argsJSON = "{}"
 	} else {
 		// Convert arguments map to JSON string
-		argsJSON, err = json.Marshal(tcf.Arguments)
+		argsBytes, err := json.Marshal(tcf.Arguments)
 		if err != nil {
-			argsJSON = []byte("{}")
+			argsJSON = "{}"
+		} else {
+			argsJSON = string(argsBytes)
 		}
 	}
 
@@ -47,7 +48,7 @@ func (tcf ToolCallFunction) MarshalJSON() ([]byte, error) {
 		Arguments string `json:"arguments"`
 	}{
 		Name:      tcf.Name,
-		Arguments: string(argsJSON),
+		Arguments: argsJSON,
 	}
 
 	return json.Marshal(temp)
@@ -69,10 +70,10 @@ func (tcf *ToolCallFunction) UnmarshalJSON(data []byte) error {
 
 	// Parse arguments string back to map
 	if temp.Arguments == "" || temp.Arguments == "null" {
-		tcf.Arguments = make(map[string]interface{})
+		tcf.Arguments = make(map[string]any)
 	} else {
 		if err := json.Unmarshal([]byte(temp.Arguments), &tcf.Arguments); err != nil {
-			tcf.Arguments = make(map[string]interface{})
+			tcf.Arguments = make(map[string]any)
 		}
 	}
 
@@ -85,8 +86,8 @@ type ToolResult struct {
 }
 
 type SSEEvent struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data"`
+	Type string `json:"type"`
+	Data any    `json:"data"`
 }
 
 type OpenAIMessage struct {
@@ -119,9 +120,9 @@ type OpenAITool struct {
 }
 
 type OpenAIToolFunction struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters"`
 }
 
 type OpenAIRequest struct {
