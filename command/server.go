@@ -623,6 +623,20 @@ var ServerCmd = &cli.Command{
 				return nil
 			},
 		},
+		&cli.StringFlag{
+			Name:         "chat-ui-style",
+			Usage:        "UI style for assistant button (icon or avatar).",
+			ConfigPath:   []string{"server.chat.ui_style"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_UI_STYLE"},
+			DefaultValue: "icon",
+			ValidateFlag: func(c *cli.Command) error {
+				value := c.GetString("chat-ui-style")
+				if value != "" && value != "icon" && value != "avatar" {
+					return fmt.Errorf("UI style must be one of: icon, avatar")
+				}
+				return nil
+			},
+		},
 
 		// DNS flags
 		&cli.BoolFlag{
@@ -1130,6 +1144,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			DockerSpecFile:   cmd.GetString("chat-docker-spec-file"),
 			PodmanSpecFile:   cmd.GetString("chat-podman-spec-file"),
 			ReasoningEffort:  cmd.GetString("chat-reasoning-effort"),
+			UIStyle:          cmd.GetString("chat-ui-style"),
 		},
 	}
 

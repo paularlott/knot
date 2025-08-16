@@ -455,5 +455,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"logoURL":                   cfg.UI.LogoURL,
 		"logoInvert":                cfg.UI.LogoInvert,
 		"aiChatEnabled":             cfg.Chat.Enabled,
+		"aiChatStyle":               cfg.Chat.UIStyle,
 	}
 }

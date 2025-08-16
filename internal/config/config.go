@@ -142,6 +142,7 @@ type ChatConfig struct {
 	DockerSpecFile   string
 	PodmanSpecFile   string
 	ReasoningEffort  string
+	UIStyle          string
 }
 
 // Global configuration instance

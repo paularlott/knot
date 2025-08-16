@@ -16,12 +16,24 @@
     <div
       class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-xl">
       <div class="flex items-center space-x-3">
+        {{ if eq .aiChatStyle "icon"}}
         <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
           <svg class="size-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M12 2a2 2 0 012 2v2h3a3 3 0 013 3v8a3 3 0 01-3 3H7a3 3 0 01-3-3V9a3 3 0 013-3h3V4a2 2 0 012-2zM9 12h.01M15 12h.01M9 16h6" />
           </svg>
         </div>
+        {{ end }}
+        {{ if eq .aiChatStyle "avatar"}}
+        <div class="ai-assistant happy scale-[0.8]">
+          <div class="shape"></div>
+          <div class="face">
+            <div class="eye left"></div>
+            <div class="eye right"></div>
+            <div class="mouth"></div>
+          </div>
+        </div>
+        {{ end }}
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">AI Assistant</h3>
       </div>
       <div class="flex items-center space-x-2">
@@ -191,6 +203,7 @@
   </div>
 </div>
 
+{{ if eq .aiChatStyle "icon"}}
 <button @click="$store.chat.toggle()" x-show="!$store.chat.isOpen"
   class="fixed bottom-4 right-4 z-40 bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg transition-colors">
   <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,5 +212,19 @@
     </path>
   </svg>
 </button>
+{{ end }}
+{{ if eq .aiChatStyle "avatar"}}
+<button @click="$store.chat.toggle()" x-show="!$store.chat.isOpen" class="fixed bottom-4 right-4 z-40">
+  <div class="ai-assistant happy">
+    <div class="shape"></div>
+    <div class="face">
+      <div class="eye left"></div>
+      <div class="eye right"></div>
+      <div class="mouth"></div>
+    </div>
+  </div>
+</button>
+{{ end }}
+
 {{ end }}
 {{ end }}

@@ -109,3 +109,149 @@
   height: 100%;
   opacity: 0.3;
 }
+
+
+/* AI Assistant */
+.ai-assistant {
+  width: 40px;
+  height: 40px;
+  position: relative;
+  animation: ai-assistant-float 4s ease-in-out infinite;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.15)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+.dark .ai-assistant {
+  filter: drop-shadow(0 8px 16px rgba(255, 255, 255, 0.2)) drop-shadow(0 4px 8px rgba(255, 255, 255, 0.1));
+}
+
+/* Hexagonal with rounded corners */
+.ai-assistant .shape {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #22d3ee 100%);
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  border-radius: 8px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  animation: ai-assistant-pulse 3s ease-in-out infinite;
+}
+
+.dark .ai-assistant .shape {
+  box-shadow: 0 4px 12px rgba(96, 165, 250, 0.4);
+}
+
+/* Inner glow effect */
+.ai-assistant .shape::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.2) 100%);
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  border-radius: 6px;
+}
+
+/* Face container */
+.ai-assistant .face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  z-index: 2;
+}
+
+/* Eyes */
+.ai-assistant .eye {
+  width: 6px;
+  height: 12px;
+  background: radial-gradient(ellipse at top, #1e293b, #000);
+  border-radius: 50% / 60%;
+  position: absolute;
+  top: 28%;
+  animation: ai-assistant-blink 5s infinite;
+}
+
+.ai-assistant .eye.left { left: 30%; }
+.ai-assistant .eye.right { right: 30%; }
+
+/* Eye highlights */
+.ai-assistant .eye::after {
+  content: '';
+  position: absolute;
+  width: 1.5px;
+  height: 2.5px;
+  background: white;
+  border-radius: 50%;
+  top: 2px;
+  right: 1.5px;
+  opacity: 0.9;
+}
+
+/* Mouth */
+.ai-assistant .mouth {
+  position: absolute;
+  bottom: 22%;
+  left: 50%;
+  width: 16px;
+  height: 12px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border-bottom: 2.5px solid #1e293b;
+}
+
+/* Expression variants */
+.ai-assistant.neutral .mouth {
+  border-radius: 0;
+  width: 12px;
+}
+
+.ai-assistant.excited .mouth {
+  border-bottom-width: 3px;
+  width: 18px;
+  animation: ai-assistant-smile-wiggle 2s ease-in-out infinite;
+}
+
+/* Hover effects */
+.ai-assistant:hover .shape {
+  animation: ai-assistant-pulse 1.5s ease-in-out infinite;
+  transform: scale(1.05);
+  transition: transform 0.3s ease;
+}
+
+.ai-assistant:hover .eye {
+  animation: ai-assistant-blink 2s infinite;
+}
+
+/* Animations */
+@keyframes ai-assistant-pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+  }
+}
+
+@keyframes ai-assistant-smile-wiggle {
+  0%, 100% { transform: translateX(-50%) rotate(0deg); }
+  25% { transform: translateX(-50%) rotate(1deg); }
+  75% { transform: translateX(-50%) rotate(-1deg); }
+}
+
+@keyframes ai-assistant-blink {
+  0%, 100% { transform: scaleY(1); }
+  49% { transform: scaleY(1); }
+  50% { transform: scaleY(0.1); }
+  51% { transform: scaleY(1); }
+}
+
+@keyframes ai-assistant-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
