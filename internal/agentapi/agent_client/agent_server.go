@@ -144,6 +144,13 @@ func (s *agentServer) ConnectAndServe() {
 				continue
 			}
 
+			// If get a freeze then spin here as server going to reboot
+			if response.Freeze {
+				log.Info().Msg("agent: server is going to reboot, waiting for it to start...")
+				time.Sleep(40 * time.Second)
+				continue
+			}
+
 			// If registration rejected, log and exit
 			if !response.Success {
 				log.Error().Msgf("agent: registration rejected")

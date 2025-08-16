@@ -188,6 +188,7 @@ tasks:
     sources:
       - ./agent/**/*.go
       - ./internal/**/*.go
+      - ./build/**/*.go
       - go.mod
       - go.sum
     generates:
@@ -216,6 +217,7 @@ tasks:
     sources:
       - ./agent/**/*.go
       - ./internal/**/*.go
+      - ./build/**/*.go
       - go.mod
       - go.sum
     generates:

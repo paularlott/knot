@@ -2,6 +2,7 @@ package agent_server
 
 import (
 	"net"
+	"strings"
 	"time"
 
 	"github.com/paularlott/knot/build"
@@ -45,6 +46,7 @@ func handleAgentConnection(conn net.Conn) {
 		WithVSCodeTunnel: false,
 		WithCodeServer:   false,
 		WithSSH:          false,
+		Freeze:           false,
 	}
 
 	// Check if the agent is already registered
@@ -69,6 +71,21 @@ func handleAgentConnection(conn net.Conn) {
 	if err != nil {
 		log.Error().Msgf("agent: unknown space: %s", registerMsg.SpaceId)
 		msg.WriteMessage(conn, &response)
+		return
+	}
+
+	// Check the version of the agent
+	if !compareVersionMajorMinor(registerMsg.Version, build.Version) {
+		log.Info().Msgf("agent: version mismatch: %s (expected %s), restarting space", registerMsg.Version, build.Version)
+
+		// Ask the agent to freeze while we reboot it
+		response.Freeze = true
+		msg.WriteMessage(conn, &response)
+
+		// Restart the space
+		time.Sleep(2 * time.Second)
+		containerService := service.GetContainerService()
+		containerService.RestartSpace(space)
 		return
 	}
 
@@ -507,4 +524,27 @@ func handleCopyFile(stream net.Conn, session *Session) {
 	}
 
 	log.Info().Bool("success", response.Success).Str("direction", copyCmd.Direction).Str("space_id", session.Id).Msg("agent: copy file completed")
+}
+
+func compareVersionMajorMinor(version1, version2 string) bool {
+	// Split versions by dots
+	parts1 := strings.Split(version1, ".")
+	parts2 := strings.Split(version2, ".")
+
+	// Need at least 2 parts for major.minor comparison
+	if len(parts1) < 2 || len(parts2) < 2 {
+		return false
+	}
+
+	// Compare major version (first part)
+	if parts1[0] != parts2[0] {
+		return false
+	}
+
+	// Compare minor version (second part)
+	if parts1[1] != parts2[1] {
+		return false
+	}
+
+	return true
 }

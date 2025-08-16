@@ -19,4 +19,5 @@ type RegisterResponse struct {
 	WithCodeServer   bool
 	WithSSH          bool
 	WithRunCommand   bool
+	Freeze           bool
 }
