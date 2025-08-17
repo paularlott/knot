@@ -13,13 +13,22 @@ window.clusterInfoComponent = function() {
     },
 
     async getClusterInfo() {
-      const response = await fetch('/api/cluster-info', {
+      await fetch('/api/cluster-info', {
         headers: {
           'Content-Type': 'application/json'
         }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((nodes) => {
+            this.nodes = nodes;
+            this.loading = false;
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
-      this.nodes = await response.json();
-      this.loading = false;
     }
   };
 }

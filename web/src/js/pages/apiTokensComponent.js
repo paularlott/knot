@@ -31,17 +31,24 @@ window.apiTokensComponent = function() {
     },
 
     async getTokens() {
-      const response = await fetch('/api/tokens', {
+      await fetch('/api/tokens', {
         headers: {
           'Content-Type': 'application/json'
         }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((tokens) => {
+            this.tokens = tokens;
+            // Apply search filter
+            this.searchChanged();
+            this.loading = false;
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
-      this.tokens = await response.json();
-
-      // Apply search filter
-      this.searchChanged();
-
-      this.loading = false;
     },
     async deleteToken(tokenId) {
       const self = this;
@@ -53,9 +60,13 @@ window.apiTokensComponent = function() {
       }).then((response) => {
         if (response.status === 200) {
           self.$dispatch('show-alert', { msg: "Token deleted", type: 'success' });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         } else {
           self.$dispatch('show-alert', { msg: "Token could not be deleted", type: 'error' });
         }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
       this.getTokens();
     },

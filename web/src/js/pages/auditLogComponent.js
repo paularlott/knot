@@ -15,23 +15,32 @@ window.auditLogComponent = function() {
     },
 
     async getAuditLogs() {
-      const response = await fetch(`/api/audit-logs?start=${this.currentPage * 10}`, {
+      await fetch(`/api/audit-logs?start=${this.currentPage * 10}`, {
         headers: {
           'Content-Type': 'application/json'
         }
-      });
-      this.logs = await response.json();
-      this.logs.items.forEach(item => {
-        const date = new Date(item.when);
-        item.when = date.toLocaleString();
-      });
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((logs) => {
+            this.logs = logs;
+            this.logs.items.forEach(item => {
+              const date = new Date(item.when);
+              item.when = date.toLocaleString();
+            });
 
-      this.totalPages = Math.ceil(this.logs.count / 10)
-      if (this.currentPage >= this.totalPages) {
-        this.currentPage = this.totalPages - 1;
-      }
+            this.totalPages = Math.ceil(this.logs.count / 10)
+            if (this.currentPage >= this.totalPages) {
+              this.currentPage = this.totalPages - 1;
+            }
 
-      this.loading = false;
+            this.loading = false;
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
+      });
     }
   };
 }

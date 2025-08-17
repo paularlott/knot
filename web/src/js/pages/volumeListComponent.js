@@ -38,23 +38,31 @@ window.volumeListComponent = function() {
     },
 
     async getVolumes() {
-      const response = await fetch('/api/volumes', {
+      await fetch('/api/volumes', {
         headers: {
           'Content-Type': 'application/json'
         }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((volList) => {
+            this.volumes = volList.volumes;
+
+            this.volumes.forEach(volume => {
+              volume.starting = false;
+              volume.stopping = false;
+            });
+
+            // Apply search filter
+            this.searchChanged();
+
+            this.loading = false;
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
-      const volList = await response.json();
-      this.volumes = volList.volumes;
-
-      this.volumes.forEach(volume => {
-        volume.starting = false;
-        volume.stopping = false;
-      });
-
-      // Apply search filter
-      this.searchChanged();
-
-      this.loading = false;
     },
     editVolume(volumeId) {
       window.location.href = `/volumes/edit/${volumeId}`;
@@ -70,9 +78,13 @@ window.volumeListComponent = function() {
       }).then((response) => {
         if (response.status === 200) {
           self.$dispatch('show-alert', { msg: "Volume deleted", type: 'success' });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         } else {
           self.$dispatch('show-alert', { msg: "Volume could not be deleted", type: 'error' });
         }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
       this.getVolumes();
     },
@@ -94,13 +106,19 @@ window.volumeListComponent = function() {
           });
 
           self.$dispatch('show-alert', { msg: "Volume started", type: 'success' });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         } else {
           response.json().then((d) => {
             self.$dispatch('show-alert', { msg: `Volume could not be started: ${d.error}`, type: 'error' });
           });
         }
       }).catch((error) => {
-        self.$dispatch('show-alert', { msg: `Volume could not be started: ${error}`, type: 'error' });
+        if (error.message && error.message.includes('401')) {
+          window.location.href = '/logout';
+        } else {
+          self.$dispatch('show-alert', { msg: `Volume could not be started: ${error}`, type: 'error' });
+        }
       });
     },
     async stopVolume(volumeId) {
@@ -122,11 +140,17 @@ window.volumeListComponent = function() {
           stoppedVolume.zone = "";
 
           self.$dispatch('show-alert', { msg: "Volume stopped", type: 'success' });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         } else {
           self.$dispatch('show-alert', { msg: "Volume could not be stopped", type: 'error' });
         }
       }).catch((error) => {
-        self.$dispatch('show-alert', { msg: `Volume could not be stopped: ${error}`, type: 'error' });
+        if (error.message && error.message.includes('401')) {
+          window.location.href = '/logout';
+        } else {
+          self.$dispatch('show-alert', { msg: `Volume could not be stopped: ${error}`, type: 'error' });
+        }
       });
     },
     searchChanged() {

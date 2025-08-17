@@ -48,50 +48,78 @@ window.templateListComponent = function(canManageSpaces, zone) {
 
     async getTemplates() {
       if(this.canManageSpaces) {
-        const usersResponse = await fetch('/api/users?state=active', {
+        await fetch('/api/users?state=active', {
           headers: {
             'Content-Type': 'application/json'
           }
+        }).then((response) => {
+          if (response.status === 200) {
+            response.json().then((usersList) => {
+              this.users = usersList.users;
+            });
+          } else if (response.status === 401) {
+            window.location.href = '/logout';
+            return;
+          }
+        }).catch(() => {
+          window.location.href = '/logout';
+          return;
         });
-        const usersList = await usersResponse.json();
-        this.users = usersList.users;
       }
 
-      const groupsResponse = await fetch('/api/groups', {
+      await fetch('/api/groups', {
         headers: {
           'Content-Type': 'application/json'
         }
-      });
-      const groupsList = await groupsResponse.json();
-      this.groups = groupsList.groups;
-
-      const response = await fetch('/api/templates', {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      const templateList = await response.json();
-      this.templates = templateList.templates;
-
-      this.templates.forEach(template => {
-        template.showIdPopup = false;
-        template.icon_url_exists = this.imageExists(template.icon_url);
-
-        // Convert group IDs to names
-        template.group_names = [];
-        template.groups.forEach(groupId => {
-          this.groups.forEach(group => {
-            if (group.group_id === groupId) {
-              template.group_names.push(group.name);
-            }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((groupsList) => {
+            this.groups = groupsList.groups;
           });
-        });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+          return;
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
+        return;
       });
 
-      // Apply search filter
-      this.searchChanged();
+      await fetch('/api/templates', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((templateList) => {
+            this.templates = templateList.templates;
 
-      this.loading = false;
+            this.templates.forEach(template => {
+              template.showIdPopup = false;
+              template.icon_url_exists = this.imageExists(template.icon_url);
+
+              // Convert group IDs to names
+              template.group_names = [];
+              template.groups.forEach(groupId => {
+                this.groups.forEach(group => {
+                  if (group.group_id === groupId) {
+                    template.group_names.push(group.name);
+                  }
+                });
+              });
+            });
+
+            // Apply search filter
+            this.searchChanged();
+
+            this.loading = false;
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
+      });
     },
     async imageExists(url) {
       if (!url.length) {
@@ -124,9 +152,13 @@ window.templateListComponent = function(canManageSpaces, zone) {
       }).then((response) => {
         if (response.status === 200) {
           self.$dispatch('show-alert', { msg: "Template deleted", type: 'success' });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         } else {
           self.$dispatch('show-alert', { msg: "Template could not be deleted", type: 'error' });
         }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
       this.getTemplates();
     },
@@ -156,7 +188,11 @@ window.templateListComponent = function(canManageSpaces, zone) {
               this.chooseUser.invalidTemplate = true;
             }
           });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
     },
     searchChanged() {

@@ -31,20 +31,28 @@ window.groupListComponent = function() {
     },
 
     async getGroups() {
-      const response = await fetch('/api/groups', {
+      await fetch('/api/groups', {
         headers: {
           'Content-Type': 'application/json'
         }
-      });
-      const groupList = await response.json();
-      this.groups = groupList.groups;
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((groupList) => {
+            this.groups = groupList.groups;
 
-      // Apply search filter
-      this.searchChanged();
+            // Apply search filter
+            this.searchChanged();
 
-      this.loading = false;
-      this.groups.forEach(group => {
-        group.showIdPopup = false;
+            this.loading = false;
+            this.groups.forEach(group => {
+              group.showIdPopup = false;
+            });
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
     },
     editGroup(groupId) {
@@ -60,9 +68,13 @@ window.groupListComponent = function() {
       }).then((response) => {
         if (response.status === 200) {
           self.$dispatch('show-alert', { msg: "Group deleted", type: 'success' });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         } else {
           self.$dispatch('show-alert', { msg: "Group could not be deleted", type: 'error' });
         }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
       this.getGroups();
     },
