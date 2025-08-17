@@ -1,0 +1,57 @@
+{{ template "layout-login.tmpl" . }}
+
+{{ define "pageTitle" }}Grant Access{{ end }}
+
+{{ define "mainContent" }}
+<div class="w-full max-w-md p-6 space-y-8 sm:p-8 bg-white rounded-lg shadow-2xl dark:bg-gray-800">
+  <div class="flex items-center justify-center mb-8 text-3xl font-semibold lg:mb-10 dark:text-white">
+    {{ if .logoURL }}
+    <img src="{{ .logoURL }}" class="h-11 {{ if .logoInvert }}dark:brightness-0 dark:invert{{ end }}" alt="Logo">
+    {{ else }}
+    <img src="images/logo.svg" class="mr-4 h-11" alt="knot logo"> Authorize Access
+    {{ end }}
+  </div>
+
+  <div class="space-y-6">
+    <div class="text-center">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Authorize Application</h2>
+      <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        The application <strong>{{ .redirectURI }}</strong> is requesting access to your account.
+      </p>
+    </div>
+
+    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+      <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">This application will be able to:</h3>
+      <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+        <li>• Access your spaces</li>
+        <li>• Perform actions on your behalf</li>
+        <li>• Access all features you have permission to use</li>
+      </ul>
+    </div>
+
+    <form method="POST" action="/oauth/grant" class="space-y-4">
+      <input type="hidden" name="client_id" value="{{ .clientId }}">
+      <input type="hidden" name="redirect_uri" value="{{ .redirectURI }}">
+      <input type="hidden" name="scope" value="{{ .scope }}">
+      <input type="hidden" name="state" value="{{ .state }}">
+
+      <div class="flex space-x-4">
+        <button type="submit" name="action" value="approve" class="flex-1 btn-primary">
+          Authorize
+        </button>
+        <button type="submit" name="action" value="deny" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-200 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white">
+          Deny
+        </button>
+      </div>
+    </form>
+  </div>
+
+  {{ if .logoURL }}
+  <div class="flex justify-end items-center mt-4">
+    <span class="text-xs text-gray-700 dark:text-gray-200 mr-2">Powered by Knot</span>
+    <img src="images/logo.svg" alt="Knot logo" class="h-6 opacity-80">
+  </div>
+  {{ end }}
+</div>
+
+{{ end }}
