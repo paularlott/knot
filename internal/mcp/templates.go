@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/database"
@@ -108,6 +109,14 @@ func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
 
+	scheduleEnabled := req.BoolOr("schedule_enabled", false)
+	var schedule *[]model.TemplateScheduleDays
+	if scheduleEnabled {
+		if parsedSchedule := parseSchedule(req); parsedSchedule != nil {
+			schedule = parsedSchedule
+		}
+	}
+
 	template := model.NewTemplate(
 		req.StringOr("name", ""),
 		req.StringOr("description", ""),
@@ -123,8 +132,8 @@ func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 		req.BoolOr("with_run_command", false),
 		uint32(req.IntOr("compute_units", 0)),
 		uint32(req.IntOr("storage_units", 0)),
-		false, // schedule disabled by default
-		nil,   // no schedule
+		scheduleEnabled,
+		schedule,
 		req.StringSliceOr("zones", []string{}),
 		false, // auto start disabled
 		req.BoolOr("active", true),
@@ -212,6 +221,16 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 	}
 	if iconURL, err := req.String("icon_url"); err != mcp.ErrUnknownParameter {
 		template.IconURL = iconURL
+	}
+	if scheduleEnabled, err := req.Bool("schedule_enabled"); err != mcp.ErrUnknownParameter {
+		template.ScheduleEnabled = scheduleEnabled
+		if scheduleEnabled {
+			if parsedSchedule := parseSchedule(req); parsedSchedule != nil {
+				template.Schedule = *parsedSchedule
+			}
+		} else {
+			template.Schedule = nil
+		}
 	}
 
 	// Handle zone operations - this is MCP-specific logic
@@ -397,6 +416,53 @@ func deleteTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 	}
 
 	return mcp.NewToolResponseJSON(result), nil
+}
+
+// parseSchedule extracts schedule from the MCP request
+// Expects schedule as an array of 7 objects with enabled, from, and to properties
+func parseSchedule(req *mcp.ToolRequest) *[]model.TemplateScheduleDays {
+	scheduleObjects, err := req.ObjectSlice("schedule")
+	if err == mcp.ErrUnknownParameter || len(scheduleObjects) != 7 {
+		return nil
+	}
+
+	schedule := make([]model.TemplateScheduleDays, 7)
+	for i, dayObj := range scheduleObjects {
+		day := model.TemplateScheduleDays{
+			Enabled: false,
+			From:    "12:00am",
+			To:      "11:59pm",
+		}
+
+		// Extract enabled (required)
+		if enabled, ok := dayObj["enabled"].(bool); ok {
+			day.Enabled = enabled
+		}
+
+		// Extract and validate from time
+		if from, ok := dayObj["from"].(string); ok {
+			if day.Enabled {
+				if _, err := time.Parse("3:04pm", from); err != nil {
+					return nil // Invalid time format
+				}
+			}
+			day.From = from
+		}
+
+		// Extract and validate to time
+		if to, ok := dayObj["to"].(string); ok {
+			if day.Enabled {
+				if _, err := time.Parse("3:04pm", to); err != nil {
+					return nil // Invalid time format
+				}
+			}
+			day.To = to
+		}
+
+		schedule[i] = day
+	}
+
+	return &schedule
 }
 
 // parseCustomFields extracts custom fields from the MCP request

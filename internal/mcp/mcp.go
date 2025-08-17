@@ -45,6 +45,12 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 			AddParam("icon_url", mcp.String, "Icon URL for the template. Use list_icons to find available icon URLs.", false).
 			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false).
 			AddParam("zones", mcp.ArrayOf(mcp.String), "Array of zone names that the template should show in", false).
+			AddParam("schedule_enabled", mcp.Boolean, "Enable schedule restrictions", false).
+			AddArrayObjectParam("schedule", "Array of 7 schedule objects (Sunday=0 to Saturday=6). Each day has enabled, from, and to fields. Times must be in format '3:04pm' (e.g., '9:00am', '12:15pm', '11:45pm')", false).
+			AddProperty("enabled", mcp.Boolean, "Whether this day is enabled", true).
+			AddProperty("from", mcp.String, "Start time in format '3:04pm' (e.g., '9:00am')", true).
+			AddProperty("to", mcp.String, "End time in format '3:04pm' (e.g., '5:00pm')", true).
+			Done().
 			AddArrayObjectParam("custom_fields", "Array of custom field definitions", false).
 			AddProperty("name", mcp.String, "Field name", true).
 			AddProperty("description", mcp.String, "Field description", false).
@@ -72,6 +78,12 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 			AddParam("groups", mcp.ArrayOf(mcp.String), "Array of group UUIDs (not names) that can use this template. Use list_groups to get available group UUIDs.", false).
 			AddParam("zone_action", mcp.String, "Action for zones: 'replace', 'add', or 'remove'", false).
 			AddParam("zones", mcp.ArrayOf(mcp.String), "Array of zone names that the template should show in", false).
+			AddParam("schedule_enabled", mcp.Boolean, "Enable schedule restrictions", false).
+			AddArrayObjectParam("schedule", "Array of 7 schedule objects (Sunday=0 to Saturday=6). Each day has enabled, from, and to fields. Times must be in format '3:04pm' (e.g., '9:00am', '12:15pm', '11:45pm')", false).
+			AddProperty("enabled", mcp.Boolean, "Whether this day is enabled", true).
+			AddProperty("from", mcp.String, "Start time in format '3:04pm' (e.g., '9:00am')", true).
+			AddProperty("to", mcp.String, "End time in format '3:04pm' (e.g., '5:00pm')", true).
+			Done().
 			AddParam("custom_field_action", mcp.String, "Action for custom fields: 'replace', 'add', or 'remove'", false).
 			AddArrayObjectParam("custom_fields", "Array of custom field definitions (for 'remove' action, only 'name' property is required)", false).
 			AddProperty("name", mcp.String, "Field name", true).
