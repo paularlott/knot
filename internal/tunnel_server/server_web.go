@@ -28,7 +28,7 @@ func HandleWebTunnel(w http.ResponseWriter, r *http.Request) {
 	session, ok := tunnels[domainParts[0]]
 	tunnelMutex.RUnlock()
 	if !ok || session.tunnelType != WebTunnel {
-		log.Error().Msgf("tunnel: not found %s", domainParts[0])
+		log.Error().Str("host", r.Host).Str("path", r.URL.Path).Msgf("tunnel: not found %s", domainParts[0])
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
