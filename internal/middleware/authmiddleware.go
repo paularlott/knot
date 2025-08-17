@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
@@ -299,7 +300,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		session := GetSessionFromCookie(r)
 		if session == nil || session.ExpiresAfter.Before(time.Now().UTC()) || session.IsDeleted {
 			DeleteSessionCookie(w)
-			http.Redirect(w, r, "/login?redirect="+r.URL.EscapedPath(), http.StatusSeeOther)
+			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}
 
@@ -309,7 +310,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		user, err := db.GetUser(session.UserId)
 		if err != nil || !user.Active || user.IsDeleted {
 			DeleteSessionCookie(w)
-			http.Redirect(w, r, "/login?redirect="+r.URL.EscapedPath(), http.StatusSeeOther)
+			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}
 

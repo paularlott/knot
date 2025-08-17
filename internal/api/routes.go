@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/oauth2"
 )
 
 func ApiRoutes(router *http.ServeMux) {
@@ -100,6 +101,15 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/auth", HandleAuthorization)
 	router.HandleFunc("POST /api/auth/web", HandleAuthorization)
 	router.HandleFunc("GET /api/auth/using-totp", HandleUsingTotp)
+
+	// OAuth2 routes
+	router.HandleFunc("GET /authorize", middleware.WebAuth(oauth2.HandleAuthorize))
+	router.HandleFunc("POST /token", oauth2.HandleToken)
+	//router.HandleFunc("GET /oauth/authorize", middleware.WebAuth(oauth2.HandleAuthorize))
+	//router.HandleFunc("POST /oauth/token", oauth2.HandleToken)
+
+	// OAuth2 Discovery
+	router.HandleFunc("GET /.well-known/oauth-authorization-server", oauth2.HandleAuthorizationServerMetadata)
 
 	// Start a cleanup job for the rate limiters
 	go cleanupLimiters(context.Background())

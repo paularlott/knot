@@ -860,6 +860,141 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
+  /authorize:
+    get:
+      tags:
+        - Authorization
+      summary: OAuth2 Authorization Endpoint
+      description: |
+        Initiate OAuth2 authorization code flow. This endpoint handles the user authorization step
+        and redirects to the authorization grant page where the user can approve or deny the request.
+      operationId: oauth2Authorize
+      parameters:
+        - name: response_type
+          in: query
+          required: true
+          description: Must be "code" for authorization code flow
+          schema:
+            type: string
+            enum: [code]
+        - name: client_id
+          in: query
+          required: true
+          description: The client identifier (any string is accepted)
+          schema:
+            type: string
+        - name: redirect_uri
+          in: query
+          required: true
+          description: The client's redirect URI (any valid URI is accepted)
+          schema:
+            type: string
+            format: uri
+        - name: scope
+          in: query
+          required: false
+          description: The requested scope (optional)
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          description: An opaque value used to maintain state between the request and callback
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to authorization grant page or redirect URI
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/responses/bad-request'
+        '401':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/responses/unauthorized'
+      security: []
+
+  /token:
+    post:
+      tags:
+        - Authorization
+      summary: OAuth2 Token Endpoint
+      description: |
+        Exchange authorization code for access token. This endpoint completes the OAuth2
+        authorization code flow by trading an authorization code for an access token.
+      operationId: oauth2Token
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - grant_type
+                - code
+                - client_id
+                - redirect_uri
+              properties:
+                grant_type:
+                  type: string
+                  enum: [authorization_code]
+                  description: Must be "authorization_code"
+                code:
+                  type: string
+                  description: The authorization code received from the authorization server
+                client_id:
+                  type: string
+                  description: The client identifier
+                redirect_uri:
+                  type: string
+                  format: uri
+                  description: The redirect URI used in the authorization request
+      responses:
+        '200':
+          description: Access token granted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    description: The access token
+                  token_type:
+                    type: string
+                    enum: [Bearer]
+                    description: The token type (always "Bearer")
+                  expires_in:
+                    type: integer
+                    description: Token lifetime in seconds (1209600 = 2 weeks)
+                    example: 1209600
+                required:
+                  - access_token
+                  - token_type
+                  - expires_in
+        '400':
+          description: Invalid request or authorization code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum: [invalid_request, invalid_grant, unsupported_grant_type]
+                    description: Error code
+                  error_description:
+                    type: string
+                    description: Human-readable error description
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: []
+
   /api/tokens:
     get:
       summary: Get Tokens

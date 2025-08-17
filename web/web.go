@@ -17,6 +17,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/oauth2"
 
 	"github.com/rs/zerolog/log"
 )
@@ -231,6 +232,8 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 		router.HandleFunc("GET /initial-system-setup", HandleInitialSystemSetupPage)
 	}
 	router.HandleFunc("GET /login", HandleLoginPage)
+	router.HandleFunc("GET /oauth/grant", middleware.WebAuth(HandleOAuth2GrantPage))
+	router.HandleFunc("POST /oauth/grant", middleware.WebAuth(oauth2.HandleGrant))
 
 	// If download path set then enable serving of the download folder
 	downloadPath := cfg.DownloadPath
