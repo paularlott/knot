@@ -21,6 +21,7 @@ type SpaceCustomField struct {
 type SpaceVolume struct {
 	Id        string `json:"id"`
 	Namespace string `json:"Namespace"`
+	Type      string `json:"type,omitempty"`
 }
 
 // Value implements the driver.Valuer interface.
