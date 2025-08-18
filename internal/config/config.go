@@ -138,9 +138,6 @@ type ChatConfig struct {
 	MaxTokens        int
 	Temperature      float32
 	SystemPromptFile string
-	NomadSpecFile    string
-	DockerSpecFile   string
-	PodmanSpecFile   string
 	ReasoningEffort  string
 	UIStyle          string
 }

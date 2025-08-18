@@ -1,5 +1,9 @@
-# knot Job Template Specification for AI Assistants
-This document specifies the format for creating knot job templates. Your primary goal is to assist users in generating the necessary YAML configurations to run applications in Docker/Podman containers managed by knot.
+---
+title: knot Docker Job Template Specification for AI Assistants
+---
+
+# knot Docker Job Template Specification for AI Assistants
+This document specifies the format for creating knot job templates for Docker containers. Your primary goal is to assist users in generating the necessary YAML configurations to run applications in Docker containers managed by knot.
 
 ## Core Concepts: A Two-Part Template
 A complete knot template consists of **two separate YAML** structures that work together:
@@ -93,13 +97,6 @@ For most templates these will not be required and can be excluded.
 - **cap_drop**: Remove Linux capabilities
 - **devices**: Device mappings `<host_device>:<container_device>`
 
-For Podman containers you can include `CAP_NET_RAW` to allow ping to work e.g.
-
-```yaml
-cap_add:
-  - CAP_NET_RAW
-```
-
 ### Naming Ports
 
 The environment variables `KNOT_HTTP_PORT` and `KNOT_TCP_PORT` can be used to name ports within the container, to name Web on port 80 and Email on port 8025 you would use `KNOT_HTTP_PORT=80=Web,8025=Email`.
@@ -131,7 +128,6 @@ Add an entry to the volumes list in the Job Specification YAML using the format 
 ## Template Variables
 The following system variables are available and are substituted at runtime. Use them with the `${{.variable_name}}` syntax.
 
-
 | **Name**               | **Description**                                                                 |
 |------------------------|---------------------------------------------------------------------------------|
 | `space.id`             | The UUID of the space                                                          |
@@ -155,14 +151,10 @@ User-defined variables are referenced as `${{.var.my_variable}}`.
 ## Best Practices & Rules for AI Generation
 
 1. **Generate Both Outputs**: For request involving volumes, provide both the **Job Specification YAML** and the **Volume Definitions YAML**. If no volumes are requested, provide only the Job Specification.
-2. **Handle Docker vs. Podman Platform (Conditional Logic)**: The knot system supports both Docker and Podman. You must determine the target platform to correctly configure the template. **Follow this logic precisely**:
-  - **If the user's prompt includes "Podman"**: Automatically add the `cap_add` section with `CAP_NET_RAW` to the Job Specification. **Do not ask for the platform**.
-  - **If the user's prompt includes "Docker"**: Do not add `CAP_NET_RAW` unless asked to. **Do not ask for the platform**.
-  - **If the platform is not mentioned**: You **must** ask the user for clarification before generating the template. Use the example question: "Should this be a Docker or a Podman template? Podman templates include CAP_NET_RAW for better network utility support."
-3. **Default to Named Volumes**: Always use the two-step named volume process unless the user explicitly provides a host path starting with /.
-4. **Security First**: Avoid privileged: true. Use it only when essential and explicitly requested.
-5. **Confirm with User**: After generating the YAML, always present it to the user and ask for confirmation before finalizing.
-6. **Mandatory Environment Variables**: Every Job Specification MUST include the following four KNOT_ environment variables.
+2. **Default to Named Volumes**: Always use the two-step named volume process unless the user explicitly provides a host path starting with /.
+3. **Security First**: Avoid privileged: true. Use it only when essential and explicitly requested.
+4. **Confirm with User**: After generating the YAML, always present it to the user and ask for confirmation before finalizing.
+5. **Mandatory Environment Variables**: Every Job Specification MUST include the following four KNOT_ environment variables.
   ```yaml
   environment:
     - KNOT_USER=${{.user.username}}
@@ -171,55 +163,8 @@ User-defined variables are referenced as `${{.var.my_variable}}`.
     - KNOT_SPACEID=${{.space.id}}
   ```
 
-## Mandatory Output Format and Example
-**This section is a strict guide. Your output must follow these conversational flows and formats.**
+## Docker-Specific Notes
 
-### Scenario A: Platform is NOT Specified in the Query
-
-**User Query**: "Can you create a template to run paularlott/knot_ubuntu:24.04 and mount a volume as /home. The template can be called mcptest."
-
-**Your Correct Response Flow:**
-
-**Step 1: Ask for Clarification (because "Docker" or "Podman" is missing)**
-> "Certainly. I can create the mcptest template for you.
-> Should this be a Docker or a Podman template? Podman templates include the CAP_NET_RAW capability for full network utility support (like ping)."
-
-**Step 2: User specifies "Podman"**
-**Step 3: Generate the Final Confirmation Response**
->"Great. Here is the configuration for a **Podman** template named mcptest... (etc.)"
-
-(Proceed to show the two YAML files, including cap_add if podman)
-
-### Scenario B: Platform IS Specified in the Query
-
-**User Query**: "Can you create a Podman template to run paularlott/knot_ubuntu:24.04 and mount a volume as /home. The template can be called mcptest."
-
-**Your Correct Response Flow:**
-
-**Step 1: Generate the Final Confirmation Response (No clarification needed)**
-
-> "Of course. Here is the configuration for a Podman template named mcptest, which runs the paularlott/knot_ubuntu:24.04 image and uses a persistent volume for the /home directory.
-
-> Note the inclusion of cap_add for Podman compatibility.
-
-### 1. Job Specification
-```yaml
-container_name: ${{.user.username}}-${{.space.name}}
-hostname: ${{.space.name}}
-image: "paularlott/knot_ubuntu:24.04"
-volumes:
-  - ${{.space.id}}-home:/home
-environment:
-  - KNOT_USER=${{.user.username}}
-  - KNOT_SERVER=${{.server.url}}
-  - KNOT_AGENT_ENDPOINT=${{.server.agent_endpoint}}
-  - KNOT_SPACEID=${{.space.id}}
-cap_add:
-  - CAP_NET_RAW
-```
-
-### 2. Volume Definitions
-```yaml
-volumes:
-  ${{.space.id}}-home:
-```
+- Docker containers do not include `CAP_NET_RAW` by default
+- Use standard Docker networking and volume mounting
+- Registry authentication is handled through the `auth` block

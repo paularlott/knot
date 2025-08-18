@@ -28,7 +28,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 		listTemplates,
 	)
 	server.RegisterTool(
-		mcp.NewTool("create_template", "Creates a new space template from a job specification. IMPORTANT: Do NOT call this tool directly. You must FIRST call get_platform_spec(platform='<platform>') to learn the correct structure for the 'job' and 'volumes' arguments, if the user's request does not contain the full spec; you must retrieve it first.").
+		mcp.NewTool("create_template", "Creates a new space template from a job specification. IMPORTANT: Do NOT call this tool directly. You must FIRST call recipes(filename='<platform>-spec.md') to learn the correct structure for the 'job' and 'volumes' arguments, if the user's request does not contain the full spec; you must retrieve it first. Use 'nomad-spec.md', 'docker-spec.md', or 'podman-spec.md'.").
 			AddParam("name", mcp.String, "The name of the template", true).
 			AddParam("platform", mcp.String, "Platform type: 'manual', 'docker', 'podman', or 'nomad'", true).
 			AddParam("job", mcp.String, "Job specification (not required for manual platform)", false).
@@ -58,7 +58,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 		createTemplate,
 	)
 	server.RegisterTool(
-		mcp.NewTool("update_template", "Updates and existing space template from a job specification. IMPORTANT: Do NOT call this tool directly. You must FIRST call get_platform_spec(platform='<platform>') to learn the correct structure for the 'job' and 'volumes' arguments, if the user's request does not contain the full spec; you must retrieve it first.").
+		mcp.NewTool("update_template", "Updates and existing space template from a job specification. IMPORTANT: Do NOT call this tool directly. You must FIRST call recipes(filename='<platform>-spec.md') to learn the correct structure for the 'job' and 'volumes' arguments, if the user's request does not contain the full spec; you must retrieve it first. Use 'nomad-spec.md', 'docker-spec.md', or 'podman-spec.md'.").
 			AddParam("template_id", mcp.String, "The ID of the template to update", true).
 			AddParam("name", mcp.String, "The name of the template", false).
 			AddParam("platform", mcp.String, "Platform type: 'manual', 'docker', 'podman', or 'nomad'", false).
@@ -187,16 +187,9 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 		listIcons,
 	)
 
-	// Specifications
+	// Recipes/Knowledge base
 	server.RegisterTool(
-		mcp.NewTool("get_platform_spec", "Crucial first step. Retrieves the required job specification schema for a given platform ('nomad', 'docker' or 'podman). This MUST be called before attempting to create a template.").
-			AddParam("platform", mcp.String, "Platform type: 'docker', 'podman', or 'nomad'", true),
-		getPlatformSpec,
-	)
-
-	// Recipes/Knowledgebase
-	server.RegisterTool(
-		mcp.NewTool("recipes", "Access the knowledge base/recipes collection for step-by-step guides and best practices. Call without filename to list all available recipes, or with filename to get specific recipe content. Always check recipes first when users request project setup, environment configuration, or similar tasks. Returns empty list if recipes path is not configured.").
+		mcp.NewTool("recipes", "Access the knowledge base/recipes collection for step-by-step guides and best practices. Call without filename to list all available recipes, or with filename to get specific recipe content. Always check recipes first when users request project setup, environment configuration, or similar tasks. Built-in specs are always available: 'nomad-spec.md', 'docker-spec.md', 'podman-spec.md'.").
 			AddParam("filename", mcp.String, "Filename of the recipe to retrieve. Omit to list all recipes.", false),
 		recipes,
 	)

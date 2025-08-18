@@ -1,18 +1,22 @@
-# knot Nomad Job Specification for AI Assistants (with Ceph CSI Volumes)
+---
+title: knot Nomad Job Specification for AI Assistants
+---
 
-This document specifies the format for creating HashiCorp Nomad job files (`.nomad`) and their associated volume definitions. Your primary goal is to assist users in generating the necessary configurations to run containerized applications on a Nomad cluster, with persistent storage provided by a Ceph cluster via the CSI plugin.
+# knot Nomad Job Specification for AI Assistants
+
+This document specifies the format for creating HashiCorp Nomad job files (`.nomad`) and their associated volume definitions. Your primary goal is to assist users in generating the necessary configurations to run containerized applications on a Nomad cluster, with persistent storage.
 
 ## Core Concept: A Two-Part Template
 
 A complete `knot` Nomad template consists of **two separate files**:
 
 1.  **The Nomad Job Specification (HCL):** A `.nomad` file defining the job, its tasks, and how it *uses* volumes.
-2.  **The Volume Definitions (YAML):** A YAML file that *declares* the CSI volume `source` names that `knot` needs to track or provision.
+2.  **The Volume Definitions (YAML):** A YAML file that *declares* the volume `source` names that `knot` needs to track or provision.
 
 You must generate **both** of these for any job that requires persistent storage.
 
 ### Using Knot Variables for Dynamic Configuration
-In addition to hard-coded values, knot allows users to specify variable placeholders in the Nomad job file. These variables are resolved by knot before the job is submitted to Nomad. This is useful for environment-specific settings like cluster IDs or pool names.
+In addition to hard-coded values, knot allows users to specify variable placeholders in the Nomad job file. These variables are resolved by `knot` before the job is submitted to Nomad. This is useful for environment-specific settings like cluster IDs or pool names.
 
 The variable syntax is: `${{.var.<variable_name>}}`
 
@@ -49,6 +53,13 @@ job "<job_name>" {
       }
     }
 
+    # This stanza is for persistent dynamic host volumes
+    volume "<volume_name>" {
+      type   = "host"
+      source = "<host_volume_source_name>" # Must be defined in the Volume Definitions YAML
+      read_only = false
+    }
+
     task "<task_name>" {
       driver = "docker" # or "podman"
 
@@ -80,6 +91,13 @@ job "<job_name>" {
         destination = "<container_path>"
       }
 
+      # Mounts a persistent dynamic host volume
+      volume_mount {
+        volume           = "<volume_name>"
+        destination      = "<container_path>"
+        propagation_mode = "private"
+      }
+
       env {
         KNOT_USER           = "${{ .user.username }}"
         KNOT_SERVER         = "${{ .server.url }}"
@@ -88,8 +106,9 @@ job "<job_name>" {
       }
 
       resources {
-        cpu    = 250    # MHz
-        memory = 2048   # MB
+        cpu        = 250    # MHz
+        memory     = 2048   # Reserved memory in MB
+        memory_max = 4096   # Max memory in MB
       }
     }
   }
@@ -106,8 +125,8 @@ This is a separate YAML file declaring the `source` identifiers for the CSI volu
 
 ```yaml
 volumes:
-  - id: "<volume_name>"
-    name: "<volume_name>"
+  - id: "<ceph_volume_source_name>"
+    name: "<ceph_volume_source_name>"
     plugin_id: "rbd"
     capacity_min: 60G
     capacity_max: 60G
@@ -126,6 +145,14 @@ volumes:
       clusterID: "<ceph_cluster_id"
       pool: "rbd"
       imageFeatures: "deep-flatten,exclusive-lock,fast-diff,layering,object-map"
+
+  - name: "<host_volume_source_name>"
+    type: "host"
+    plugin_id: "mkdir"
+    parameters:
+      mode: "0755"
+      uid: 1000
+      gid: 1000
 ```
 
 *   **Format:** This is a YAML list under the `volumes` key.
@@ -157,6 +184,7 @@ volumes:
 | `resources` | `block` | Task | Sets resource limits. | Yes | `cpu = 250`, `memory = 2048` |
 | `resources.cpu` | `integer` | Resources | CPU limit in MHz (1000 MHz = 1 CPU core). | Yes | `250` |
 | `resources.memory` | `integer` | Resources | Memory limit in MB. | Yes | `256` |
+| `resources.max_memory` | `integer` | Resources | Maximum Memory limit in MB. Should be omitted if not specified. | No | `2048` |
 | `service` | `block` | Task | Defines a service for discovery via Consul. | No | |
 | `service.name` | `string` | Service | The name of the service to register. | Yes (if service block) | Defaults to job name. |
 | `service.tags` | `list of string` | Service | Tags to apply to the service. | No | |
@@ -177,7 +205,8 @@ volumes:
     *   **Capabilities:** If the `driver` is `podman`, automatically include the `cap_add = ["NET_RAW"]` block inside `config`. Do not include it for `docker`.
     *   **Host Paths**: Only add host path mounts if the user explicitly requests one (e.g., "mount the host path `/data`..."). Use the correct syntax for the selected driver (`volumes` for Podman, `mount` for Docker).
 5.  **Mandatory Environment Variables**: Every `task` **MUST** include the four standard `KNOT_` variables in an `env` block.
-6.  **Confirm with User**: After generating the files, **always** present them to the user and ask for confirmation.
+6.  **Confirm Storage**: Confirm Ceph or Dynamic Host Volumes for storage if not specified.
+7.  **Confirm with User**: After generating the files, **always** present them to the user and ask for confirmation.
 
 ---
 
@@ -213,6 +242,12 @@ volumes:
 >       }
 >     }
 >
+>     volume "dynamic-host-vol" {
+>       type      = "host"
+>       source    = "knot-${{ .space.id }}-data"
+>       read_only = false
+>     }
+>
 >     task "nginx" {
 >       driver = "docker"
 >
@@ -224,6 +259,11 @@ volumes:
 >       volume_mount {
 >         volume      = "html-vol"
 >         destination = "/usr/share/nginx/html"
+>       }
+>
+>       volume_mount {
+>         volume      = "dynamic-host-vol"
+>         destination = "/data"
 >       }
 >
 >       env {
@@ -265,6 +305,14 @@ volumes:
 >       clusterID: "1f004fc4-0579-4854-a462-7f45402f03f5"
 >       pool: "rbd"
 >       imageFeatures: "deep-flatten,exclusive-lock,fast-diff,layering,object-map"
+>
+>   - name: "knot-${{.space.id}}-data"
+>     type: "host"
+>     plugin_id: "mkdir"
+>     parameters:
+>       mode: "0755"
+>       uid: 1000
+>       gid: 1000
 > ```
 > Please review these files. Do they look correct?"
 
@@ -286,7 +334,7 @@ volumes:
 
 ### Scenario C: Job with Ceph Details as Variables
 
-**User Query:** "I need to set up a `redis:latest` job. For the persistent volume, use the variable `main_ceph_cluster` for the cluster ID and `data_services_pool` for the pool. The volume should mount at `/data`."
+**User Query:** "I need to set up a `redis:latest` job. For the persistent volume, use the variable `main_ceph_cluster` for the cluster ID and `data_services_pool` for the pool. The volume should mount at `/data`." Reserved memory should be 256MB and maximum memory 4096MB.
 
 **Your Correct Response Flow:**
 
@@ -337,8 +385,9 @@ volumes:
 >       }
 >
 >       resources {
->         cpu    = 250
->         memory = 256
+>         cpu        = 250
+>         memory     = 256
+>         max_memory = 4096
 >       }
 >     }
 >   }

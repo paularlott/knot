@@ -33,10 +33,10 @@ func GetNomadSpecScaffold() string {
 
 // GetDockerSpecScaffold returns the embedded docker spec
 func GetDockerSpecScaffold() string {
-	return mcp.GetInternalDockerPodmanSpec()
+	return mcp.GetInternalDockerSpec()
 }
 
 // GetPodmanSpecScaffold returns the embedded podman spec (same as docker)
 func GetPodmanSpecScaffold() string {
-	return mcp.GetInternalDockerPodmanSpec()
+	return mcp.GetInternalPodmanSpec()
 }

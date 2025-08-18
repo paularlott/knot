@@ -588,27 +588,7 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_SYSTEM_PROMPT_FILE"},
 			DefaultValue: "",
 		},
-		&cli.StringFlag{
-			Name:         "chat-nomad-spec-file",
-			Usage:        "Optional file path for nomad spec. If not provided, uses default embedded spec.",
-			ConfigPath:   []string{"server.chat.nomad_spec_file"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_NOMAD_SPEC_FILE"},
-			DefaultValue: "",
-		},
-		&cli.StringFlag{
-			Name:         "chat-docker-spec-file",
-			Usage:        "Optional file path for docker spec. If not provided, uses default embedded spec.",
-			ConfigPath:   []string{"server.chat.docker_spec_file"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_DOCKER_SPEC_FILE"},
-			DefaultValue: "",
-		},
-		&cli.StringFlag{
-			Name:         "chat-podman-spec-file",
-			Usage:        "Optional file path for podman spec. If not provided, uses default embedded spec.",
-			ConfigPath:   []string{"server.chat.podman_spec_file"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_PODMAN_SPEC_FILE"},
-			DefaultValue: "",
-		},
+
 		&cli.StringFlag{
 			Name:         "chat-reasoning-effort",
 			Usage:        "Reasoning effort level for chat responses (low, medium, high).",
@@ -1140,9 +1120,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			MaxTokens:        cmd.GetInt("chat-max-tokens"),
 			Temperature:      cmd.GetFloat32("chat-temperature"),
 			SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
-			NomadSpecFile:    cmd.GetString("chat-nomad-spec-file"),
-			DockerSpecFile:   cmd.GetString("chat-docker-spec-file"),
-			PodmanSpecFile:   cmd.GetString("chat-podman-spec-file"),
+
 			ReasoningEffort:  cmd.GetString("chat-reasoning-effort"),
 			UIStyle:          cmd.GetString("chat-ui-style"),
 		},

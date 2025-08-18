@@ -38,8 +38,8 @@ func TestRecipesWithoutPath(t *testing.T) {
 		t.Errorf("Expected action to be 'list', got %v", result["action"])
 	}
 
-	if result["count"] != float64(0) {
-		t.Errorf("Expected count to be 0, got %v", result["count"])
+	if result["count"] != float64(3) {
+		t.Errorf("Expected count to be 3, got %v", result["count"])
 	}
 
 	recipes, ok := result["recipes"].([]interface{})
@@ -47,11 +47,11 @@ func TestRecipesWithoutPath(t *testing.T) {
 		t.Errorf("Expected recipes to be an array, got %T", result["recipes"])
 	}
 
-	if len(recipes) != 0 {
-		t.Errorf("Expected empty recipes array, got %d items", len(recipes))
+	if len(recipes) != 3 {
+		t.Errorf("Expected 3 internal specs, got %d items", len(recipes))
 	}
 
-	if result["message"] != "Recipes path not configured" {
+	if result["message"] != "Recipes path not configured - showing built-in specs only" {
 		t.Errorf("Expected message about path not configured, got %v", result["message"])
 	}
 }

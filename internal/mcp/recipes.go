@@ -3,6 +3,7 @@ package mcp
 import (
 	"bufio"
 	"context"
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,8 +11,18 @@ import (
 	"strings"
 
 	"github.com/paularlott/knot/internal/config"
-
 	"github.com/paularlott/mcp"
+)
+
+var (
+	//go:embed specs/docker-spec.md
+	dockerSpec string
+
+	//go:embed specs/podman-spec.md
+	podmanSpec string
+
+	//go:embed specs/nomad-spec.md
+	nomadSpec string
 )
 
 type RecipeInfo struct {
@@ -21,54 +32,73 @@ type RecipeInfo struct {
 
 func recipes(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	cfg := config.GetServerConfig()
-
-	if cfg.RecipesPath == "" {
-		// Return empty list when recipes path is not configured
-		filename := req.StringOr("filename", "")
-		if filename == "" {
-			// Return empty recipe list
-			result := map[string]interface{}{
-				"action":  "list",
-				"recipes": []RecipeInfo{},
-				"count":   0,
-				"message": "Recipes path not configured",
-			}
-			return mcp.NewToolResponseJSON(result), nil
-		} else {
-			// Return error for specific file requests when path not configured
-			return nil, fmt.Errorf("Recipes path not configured - cannot retrieve specific recipe")
-		}
-	}
-
-	// Check if recipes directory exists
-	if _, err := os.Stat(cfg.RecipesPath); os.IsNotExist(err) {
-		filename := req.StringOr("filename", "")
-		if filename == "" {
-			// Return empty list when directory doesn't exist
-			result := map[string]interface{}{
-				"action":  "list",
-				"recipes": []RecipeInfo{},
-				"count":   0,
-				"message": fmt.Sprintf("Recipes directory does not exist: %s", cfg.RecipesPath),
-			}
-			return mcp.NewToolResponseJSON(result), nil
-		} else {
-			return nil, fmt.Errorf("Recipes directory does not exist: %s", cfg.RecipesPath)
-		}
-	}
-
 	filename := req.StringOr("filename", "")
 
 	if filename == "" {
-		// List all recipes with descriptions
 		return listRecipes(cfg.RecipesPath)
-	} else {
-		// Get specific recipe content
-		return getRecipeContent(cfg.RecipesPath, filename)
 	}
+	return getRecipeContent(cfg.RecipesPath, filename)
 }
 
 func listRecipes(recipesPath string) (*mcp.ToolResponse, error) {
+	var recipes []RecipeInfo
+
+	// Add user recipes if directory exists and is configured
+	if recipesPath != "" {
+		if _, err := os.Stat(recipesPath); err == nil {
+			userRecipes, err := scanUserRecipes(recipesPath)
+			if err != nil {
+				return nil, fmt.Errorf("Error scanning recipes directory: %v", err)
+			}
+			recipes = append(recipes, userRecipes...)
+		}
+	}
+
+	// Always add internal specs (but skip if user file with same name exists)
+	recipes = addInternalSpecs(recipes)
+
+	result := map[string]interface{}{
+		"action":  "list",
+		"recipes": recipes,
+		"count":   len(recipes),
+	}
+
+	return mcp.NewToolResponseJSON(result), nil
+}
+
+func getRecipeContent(recipesPath, filename string) (*mcp.ToolResponse, error) {
+	var content string
+	var err error
+
+	// Try to read from user recipes directory first (if configured and exists)
+	if recipesPath != "" {
+		if _, statErr := os.Stat(recipesPath); statErr == nil {
+			content, err = readUserRecipe(recipesPath, filename)
+			if err == nil {
+				// Successfully read user recipe
+				return createContentResponse(filename, content), nil
+			}
+			// If file not found, continue to check internal specs
+			if !os.IsNotExist(err) {
+				// Other error (permission, etc.)
+				return nil, err
+			}
+		}
+	}
+
+	// Fallback to internal specs
+	if internalContent := getInternalSpec(filename); internalContent != "" {
+		return createContentResponse(filename, internalContent), nil
+	}
+
+	// File not found anywhere
+	if recipesPath == "" {
+		return nil, fmt.Errorf("Recipe file not found: %s (recipes path not configured)", filename)
+	}
+	return nil, fmt.Errorf("Recipe file not found: %s", filename)
+}
+
+func scanUserRecipes(recipesPath string) ([]RecipeInfo, error) {
 	var recipes []RecipeInfo
 
 	err := filepath.Walk(recipesPath, func(path string, info os.FileInfo, err error) error {
@@ -76,7 +106,6 @@ func listRecipes(recipesPath string) (*mcp.ToolResponse, error) {
 			return err
 		}
 
-		// Skip directories and non-text files
 		if info.IsDir() {
 			return nil
 		}
@@ -96,7 +125,6 @@ func listRecipes(recipesPath string) (*mcp.ToolResponse, error) {
 		// Extract description
 		description := extractDescription(path)
 		if description == "" {
-			// Fallback to filename without extension
 			description = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 		}
 
@@ -108,29 +136,18 @@ func listRecipes(recipesPath string) (*mcp.ToolResponse, error) {
 		return nil
 	})
 
-	if err != nil {
-		return nil, fmt.Errorf("Error scanning recipes directory: %v", err)
-	}
-
-	result := map[string]interface{}{
-		"action":  "list",
-		"recipes": recipes,
-		"count":   len(recipes),
-	}
-
-	return mcp.NewToolResponseJSON(result), nil
+	return recipes, err
 }
 
-func getRecipeContent(recipesPath, filename string) (*mcp.ToolResponse, error) {
-	// Ensure filename is relative and doesn't escape the recipes directory
+func readUserRecipe(recipesPath, filename string) (string, error) {
+	// Security checks
 	if filepath.IsAbs(filename) {
-		return nil, fmt.Errorf("Filename must be relative to recipes directory")
+		return "", fmt.Errorf("filename must be relative to recipes directory")
 	}
 
-	// Clean the path to prevent directory traversal
 	cleanPath := filepath.Clean(filename)
 	if strings.Contains(cleanPath, "..") {
-		return nil, fmt.Errorf("Invalid filename: directory traversal not allowed")
+		return "", fmt.Errorf("invalid filename: directory traversal not allowed")
 	}
 
 	fullPath := filepath.Join(recipesPath, cleanPath)
@@ -138,35 +155,82 @@ func getRecipeContent(recipesPath, filename string) (*mcp.ToolResponse, error) {
 	// Ensure the resolved path is still within the recipes directory
 	absRecipesPath, err := filepath.Abs(recipesPath)
 	if err != nil {
-		return nil, fmt.Errorf("Error resolving recipes path: %v", err)
+		return "", fmt.Errorf("error resolving recipes path: %v", err)
 	}
 
 	absFullPath, err := filepath.Abs(fullPath)
 	if err != nil {
-		return nil, fmt.Errorf("Error resolving file path: %v", err)
+		return "", fmt.Errorf("error resolving file path: %v", err)
 	}
 
 	if !strings.HasPrefix(absFullPath, absRecipesPath) {
-		return nil, fmt.Errorf("File path outside recipes directory")
+		return "", fmt.Errorf("file path outside recipes directory")
 	}
 
 	// Read file content
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("Recipe file not found: %s", filename)
-		}
-		return nil, fmt.Errorf("Error reading recipe file: %v", err)
+		return "", err
 	}
 
+	return string(content), nil
+}
+
+func createContentResponse(filename, content string) *mcp.ToolResponse {
 	result := map[string]interface{}{
 		"action":   "get",
 		"filename": filename,
-		"content":  string(content),
+		"content":  content,
 		"size":     len(content),
 	}
+	return mcp.NewToolResponseJSON(result)
+}
 
-	return mcp.NewToolResponseJSON(result), nil
+func getInternalSpec(filename string) string {
+	switch filename {
+	case "nomad-spec.md":
+		return nomadSpec
+	case "docker-spec.md":
+		return dockerSpec
+	case "podman-spec.md":
+		return podmanSpec
+	default:
+		return ""
+	}
+}
+
+func addInternalSpecs(recipes []RecipeInfo) []RecipeInfo {
+	internalSpecs := map[string]string{
+		"nomad-spec.md":  nomadSpec,
+		"docker-spec.md": dockerSpec,
+		"podman-spec.md": podmanSpec,
+	}
+
+	for filename, content := range internalSpecs {
+		// Check if this spec is already in the list (user override)
+		found := false
+		for _, recipe := range recipes {
+			if recipe.Filename == filename {
+				found = true
+				break
+			}
+		}
+
+		// If not found, add the internal spec
+		if !found {
+			title := extractTitleFromContent(content)
+			if title == "" {
+				title = strings.TrimSuffix(filename, filepath.Ext(filename))
+			}
+
+			recipes = append(recipes, RecipeInfo{
+				Filename:    filename,
+				Description: title,
+			})
+		}
+	}
+
+	return recipes
 }
 
 func extractDescription(filePath string) string {
@@ -176,7 +240,15 @@ func extractDescription(filePath string) string {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	return extractTitleFromReader(file)
+}
+
+func extractTitleFromContent(content string) string {
+	return extractTitleFromReader(strings.NewReader(content))
+}
+
+func extractTitleFromReader(reader interface{ Read([]byte) (int, error) }) string {
+	scanner := bufio.NewScanner(reader)
 	lineCount := 0
 
 	// Look for front matter first (YAML or TOML)
@@ -190,8 +262,14 @@ func extractDescription(filePath string) string {
 					break
 				}
 
-				// Look for description field
-				if strings.HasPrefix(strings.ToLower(line), "description:") {
+				// Look for title field first, then description as fallback
+				if strings.HasPrefix(strings.ToLower(line), "title:") {
+					title := strings.TrimSpace(strings.TrimPrefix(line, "title:"))
+					title = strings.Trim(title, `"'`)
+					if title != "" {
+						return title
+					}
+				} else if strings.HasPrefix(strings.ToLower(line), "description:") {
 					desc := strings.TrimSpace(strings.TrimPrefix(line, "description:"))
 					desc = strings.Trim(desc, `"'`)
 					if desc != "" {
@@ -200,9 +278,8 @@ func extractDescription(filePath string) string {
 				}
 			}
 		} else {
-			// Reset scanner to beginning if no front matter
-			file.Seek(0, 0)
-			scanner = bufio.NewScanner(file)
+			// Reset and look for headings
+			lineCount = 1
 		}
 	}
 
@@ -223,20 +300,6 @@ func extractDescription(filePath string) string {
 			}
 		}
 
-		// RST heading (underlined)
-		if lineCount > 1 && (strings.HasPrefix(line, "===") || strings.HasPrefix(line, "---") || strings.HasPrefix(line, "~~~")) {
-			// Previous line was likely the heading
-			file.Seek(0, 0)
-			scanner = bufio.NewScanner(file)
-			prevLine := ""
-			for i := 0; i < lineCount-1 && scanner.Scan(); i++ {
-				prevLine = strings.TrimSpace(scanner.Text())
-			}
-			if prevLine != "" {
-				return prevLine
-			}
-		}
-
 		// First non-empty line as fallback (but skip common prefixes)
 		if !strings.HasPrefix(line, "//") && !strings.HasPrefix(line, "/*") &&
 			!strings.HasPrefix(line, "<!--") && len(line) > 10 {
@@ -250,4 +313,19 @@ func extractDescription(filePath string) string {
 	}
 
 	return ""
+}
+
+// GetInternalNomadSpec returns the embedded nomad spec (for scaffold command)
+func GetInternalNomadSpec() string {
+	return nomadSpec
+}
+
+// GetInternalDockerSpec returns the embedded docker spec (for scaffold command)
+func GetInternalDockerSpec() string {
+	return dockerSpec
+}
+
+// GetInternalPodmanSpec returns the embedded podman spec (for scaffold command)
+func GetInternalPodmanSpec() string {
+	return dockerSpec
 }
