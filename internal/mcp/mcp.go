@@ -24,7 +24,9 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 
 	// Templates
 	server.RegisterTool(
-		mcp.NewTool("list_templates", "Get a list of all available space templates. Use this to find template IDs when creating spaces, or to see what templates exist before creating new ones."),
+		mcp.NewTool("list_templates", "Get a list of all available space templates. Use this to find template IDs when creating spaces, or to see what templates exist before creating new ones.").
+			AddParam("show_all", mcp.Boolean, "Show all templates from all zones (default: false)", false).
+			AddParam("show_inactive", mcp.Boolean, "Show inactive templates (default: false)", false),
 		listTemplates,
 	)
 	server.RegisterTool(

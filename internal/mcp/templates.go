@@ -55,10 +55,10 @@ func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 	templateService := service.GetTemplateService()
 	templates, err := templateService.ListTemplates(service.TemplateListOptions{
 		User:                 user,
-		IncludeInactive:      false,
+		IncludeInactive:      req.BoolOr("show_inactive", false),
 		IncludeDeleted:       false,
 		CheckPermissions:     true,
-		CheckZoneRestriction: true,
+		CheckZoneRestriction: !req.BoolOr("show_all", false),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get templates: %v", err)
