@@ -61,7 +61,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 	)
 	server.RegisterTool(
 		mcp.NewTool("update_template", "Updates and existing space template from a job specification. IMPORTANT: Do NOT call this tool directly. You must FIRST call recipes(filename='<platform>-spec.md') to learn the correct structure for the 'job' and 'volumes' arguments, if the user's request does not contain the full spec; you must retrieve it first. Use 'nomad-spec.md', 'docker-spec.md', or 'podman-spec.md'.").
-			AddParam("template_id", mcp.String, "The ID of the template to update", true).
+			AddParam("template_name", mcp.String, "The name of the template to update", true).
 			AddParam("name", mcp.String, "The name of the template", false).
 			AddParam("platform", mcp.String, "Platform type: 'manual', 'docker', 'podman', or 'nomad'", false).
 			AddParam("job", mcp.String, "Job specification", false).
@@ -95,12 +95,12 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 	)
 	server.RegisterTool(
 		mcp.NewTool("get_template", "Get detailed information about a specific template including its configuration, job specification, and settings. Use this to understand a template before editing it.").
-			AddParam("template_id", mcp.String, "The ID of the template to retrieve", true),
+			AddParam("template_name", mcp.String, "The name of the template to retrieve", true),
 		getTemplate,
 	)
 	server.RegisterTool(
-		mcp.NewTool("delete_template", "Permanently delete a template. This action cannot be undone. Use list_templates first to find the template ID.").
-			AddParam("template_id", mcp.String, "The ID of the template to delete", true),
+		mcp.NewTool("delete_template", "Permanently delete a template. This action cannot be undone.").
+			AddParam("template_name", mcp.String, "The name of the template to delete", true),
 		deleteTemplate,
 	)
 
@@ -111,12 +111,12 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 	)
 	server.RegisterTool(
 		mcp.NewTool("get_space", "Get detailed information about a specific space including its configuration, template details, custom fields, and current status. Use this to understand a space before editing it.").
-			AddParam("space_id", mcp.String, "The ID of the space to retrieve", true),
+			AddParam("space_name", mcp.String, "The name of the space to retrieve", true),
 		getSpace,
 	)
 	server.RegisterTool(
 		mcp.NewTool("run_command", "Execute a command within a running space and return the output").
-			AddParam("space_id", mcp.String, "The ID of the space to run the command in, use list_spaces if you need to convert a space name to an ID", true).
+			AddParam("space_name", mcp.String, "The name of the space to run the command in", true).
 			AddParam("command", mcp.String, "The command to execute", true).
 			AddParam("arguments", mcp.ArrayOf(mcp.String), "The arguments to pass to the command", false).
 			AddParam("timeout", mcp.Number, "Command timeout in seconds (default: 30)", false).
@@ -125,21 +125,21 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 	)
 	server.RegisterTool(
 		mcp.NewTool("copy_file", "Read and write the contents of files within a running space. Provide either (content and dest_path) to write to space, or source_path to read from space.").
-			AddParam("space_id", mcp.String, "The ID of the space to copy files to/from, use list_spaces if you need to convert a space name to an ID", true).
+			AddParam("space_name", mcp.String, "The name of the space to copy files to/from", true).
 			AddParam("content", mcp.String, "Content to write to the space (for writing to space)", false).
 			AddParam("dest_path", mcp.String, "Destination path in space (for writing to space)", false).
 			AddParam("source_path", mcp.String, "Source path in space (for reading from space)", false),
 		copyFile,
 	)
 	server.RegisterTool(
-		mcp.NewTool("manage_space_state", "Start, stop, or restart a space. Use list_spaces first to find the space ID if you only have the space name.").
-			AddParam("space_id", mcp.String, "The ID of the space to manage (use list_spaces to find this)", true).
+		mcp.NewTool("manage_space_state", "Start, stop, or restart a space.").
+			AddParam("space_name", mcp.String, "The name of the space to manage", true).
 			AddParam("action", mcp.String, "Action to perform: 'start', 'stop', or 'restart'", true),
 		manageSpaceState,
 	)
 	server.RegisterTool(
 		mcp.NewTool("manage_space_sharing", "Share, stop sharing, or transfer ownership of a space. IMPORTANT: If the user doesn't provide the ID of the user then FIRST call list_users to find the ID of the user.").
-			AddParam("space_id", mcp.String, "The ID of the space to manage", true).
+			AddParam("space_name", mcp.String, "The name of the space to manage", true).
 			AddParam("action", mcp.String, "Action to perform: 'share', 'stop_sharing', or 'transfer'", true).
 			AddParam("user_id", mcp.String, "The ID of the user (required for share and transfer actions).", false),
 		manageSpaceSharing,
@@ -147,7 +147,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 	server.RegisterTool(
 		mcp.NewTool("create_space", "Create a new space from a template").
 			AddParam("name", mcp.String, "The name of the space", true).
-			AddParam("template_id", mcp.String, "The ID of the template to use", true).
+			AddParam("template_name", mcp.String, "The name of the template to use", true).
 			AddParam("description", mcp.String, "Space description", false).
 			AddParam("shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
 			AddParam("icon_url", mcp.String, "Icon URL for the space. Use list_icons to find available icon URLs.", false).
@@ -159,10 +159,10 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 	)
 	server.RegisterTool(
 		mcp.NewTool("update_space", "Update an existing space").
-			AddParam("space_id", mcp.String, "The ID of the space to update", true).
-			AddParam("name", mcp.String, "The name of the space", false).
+			AddParam("space_name", mcp.String, "The name of the space to update", true).
+			AddParam("name", mcp.String, "The new name of the space", false).
 			AddParam("description", mcp.String, "Space description", false).
-			AddParam("template_id", mcp.String, "The ID of the template to use", false).
+			AddParam("template_name", mcp.String, "The name of the template to use", false).
 			AddParam("shell", mcp.String, "Preferred shell (bash, zsh, fish, sh)", false).
 			AddParam("icon_url", mcp.String, "Icon URL for the space. Use list_icons to find available icon URLs.", false).
 			AddArrayObjectParam("custom_fields", "Array of custom field values", false).
@@ -172,8 +172,8 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 		updateSpace,
 	)
 	server.RegisterTool(
-		mcp.NewTool("delete_space", "Permanently delete a space and all its data. This action cannot be undone. Use list_spaces first to find the space ID.").
-			AddParam("space_id", mcp.String, "The ID of the space to delete", true),
+		mcp.NewTool("delete_space", "Permanently delete a space and all its data. This action cannot be undone.").
+			AddParam("space_name", mcp.String, "The name of the space to delete", true),
 		deleteSpace,
 	)
 

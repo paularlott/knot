@@ -39,7 +39,12 @@ type TemplateGroup struct {
 
 func getTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
-	templateId := req.StringOr("template_id", "")
+	templateName := req.StringOr("template_name", "")
+
+	templateId, err := resolveTemplateNameToID(templateName)
+	if err != nil {
+		return nil, err
+	}
 
 	data, err := api_utils.GetTemplateDetails(templateId, user)
 	if err != nil {
@@ -171,7 +176,12 @@ func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 
 func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
-	templateId := req.StringOr("template_id", "")
+	templateName := req.StringOr("template_name", "")
+
+	templateId, err := resolveTemplateNameToID(templateName)
+	if err != nil {
+		return nil, err
+	}
 
 	templateService := service.GetTemplateService()
 	template, err := templateService.GetTemplate(templateId)
@@ -383,7 +393,12 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 
 func deleteTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
-	templateId := req.StringOr("template_id", "")
+	templateName := req.StringOr("template_name", "")
+
+	templateId, err := resolveTemplateNameToID(templateName)
+	if err != nil {
+		return nil, err
+	}
 
 	templateService := service.GetTemplateService()
 
@@ -392,7 +407,6 @@ func deleteTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 	if err != nil {
 		return nil, err
 	}
-	templateName := template.Name
 
 	err = templateService.DeleteTemplate(templateId, user)
 	if err != nil {
@@ -404,10 +418,10 @@ func deleteTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 		user.Username,
 		model.AuditActorTypeMCP,
 		model.AuditEventTemplateDelete,
-		fmt.Sprintf("Deleted template %s", templateName),
+		fmt.Sprintf("Deleted template %s", template.Name),
 		&map[string]interface{}{
 			"template_id":   templateId,
-			"template_name": templateName,
+			"template_name": template.Name,
 		},
 	)
 

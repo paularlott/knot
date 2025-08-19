@@ -17,6 +17,33 @@ import (
 	"github.com/paularlott/mcp"
 )
 
+// resolveSpaceNameToID resolves a space name to its ID for the given user
+func resolveSpaceNameToID(spaceName string, user *model.User) (string, error) {
+	db := database.GetInstance()
+	space, err := db.GetSpaceByName(user.Id, spaceName)
+	if err != nil || space == nil {
+		return "", fmt.Errorf("Space '%s' not found", spaceName)
+	}
+	return space.Id, nil
+}
+
+// resolveTemplateNameToID resolves a template name to its ID
+func resolveTemplateNameToID(templateName string) (string, error) {
+	db := database.GetInstance()
+	templates, err := db.GetTemplates()
+	if err != nil {
+		return "", fmt.Errorf("Failed to get templates: %v", err)
+	}
+
+	for _, template := range templates {
+		if template.Name == templateName {
+			return template.Id, nil
+		}
+	}
+
+	return "", fmt.Errorf("Template '%s' not found", templateName)
+}
+
 type Space struct {
 	ID           string                   `json:"id"`
 	Name         string                   `json:"name"`
@@ -48,7 +75,12 @@ type SpaceOperationResponse struct {
 
 func getSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
-	spaceId := req.StringOr("space_id", "")
+	spaceName := req.StringOr("space_name", "")
+
+	spaceId, err := resolveSpaceNameToID(spaceName, user)
+	if err != nil {
+		return nil, err
+	}
 
 	data, err := api_utils.GetSpaceDetails(spaceId, user)
 	if err != nil {
@@ -144,11 +176,17 @@ func listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
 
+	templateName := req.StringOr("template_name", "")
+	templateId, err := resolveTemplateNameToID(templateName)
+	if err != nil {
+		return nil, err
+	}
+
 	space := model.NewSpace(
 		req.StringOr("name", ""),
 		req.StringOr("description", ""),
 		user.Id,
-		req.StringOr("template_id", ""),
+		templateId,
 		req.StringOr("shell", "bash"),
 		&[]string{}, // no alt names in MCP
 		"",          // zone will be set by service
@@ -157,7 +195,7 @@ func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 	)
 
 	spaceService := service.GetSpaceService()
-	err := spaceService.CreateSpace(space, user)
+	err = spaceService.CreateSpace(space, user)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +221,12 @@ func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 
 func updateSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
-	spaceId := req.StringOr("space_id", "")
+	spaceName := req.StringOr("space_name", "")
+
+	spaceId, err := resolveSpaceNameToID(spaceName, user)
+	if err != nil {
+		return nil, err
+	}
 
 	spaceService := service.GetSpaceService()
 	space, err := spaceService.GetSpace(spaceId, user)
@@ -198,7 +241,11 @@ func updateSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 	if description, err := req.String("description"); err != mcp.ErrUnknownParameter {
 		space.Description = description
 	}
-	if templateId, err := req.String("template_id"); err != mcp.ErrUnknownParameter {
+	if templateName, err := req.String("template_name"); err != mcp.ErrUnknownParameter {
+		templateId, err := resolveTemplateNameToID(templateName)
+		if err != nil {
+			return nil, err
+		}
 		space.TemplateId = templateId
 	}
 	if shell, err := req.String("shell"); err != mcp.ErrUnknownParameter {
@@ -238,7 +285,12 @@ func updateSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 
 func deleteSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
-	spaceId := req.StringOr("space_id", "")
+	spaceName := req.StringOr("space_name", "")
+
+	spaceId, err := resolveSpaceNameToID(spaceName, user)
+	if err != nil {
+		return nil, err
+	}
 
 	spaceService := service.GetSpaceService()
 
@@ -247,7 +299,6 @@ func deleteSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 	if err != nil {
 		return nil, err
 	}
-	spaceName := space.Name
 
 	// Check if space can be deleted (MCP-specific logic)
 	cfg := config.GetServerConfig()
@@ -289,9 +340,14 @@ func manageSpaceState(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespo
 		return nil, fmt.Errorf("No permission to use spaces")
 	}
 
-	spaceID, err := req.String("space_id")
-	if err != nil || spaceID == "" {
-		return nil, mcp.NewToolErrorInvalidParams("space_id is required")
+	spaceName, err := req.String("space_name")
+	if err != nil || spaceName == "" {
+		return nil, mcp.NewToolErrorInvalidParams("space_name is required")
+	}
+
+	spaceID, err := resolveSpaceNameToID(spaceName, user)
+	if err != nil {
+		return nil, err
 	}
 
 	action, err := req.String("action")
@@ -364,9 +420,14 @@ func manageSpaceSharing(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRes
 		return nil, fmt.Errorf("No permission to transfer spaces")
 	}
 
-	spaceId := req.StringOr("space_id", "")
-	if !validate.UUID(spaceId) {
-		return nil, fmt.Errorf("Invalid space ID")
+	spaceName := req.StringOr("space_name", "")
+	if spaceName == "" {
+		return nil, fmt.Errorf("Space name is required")
+	}
+
+	spaceId, err := resolveSpaceNameToID(spaceName, user)
+	if err != nil {
+		return nil, err
 	}
 
 	action, err := req.String("action")

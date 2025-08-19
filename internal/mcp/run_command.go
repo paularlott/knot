@@ -18,9 +18,14 @@ func runCommand(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 		return nil, fmt.Errorf("No permission to run commands in spaces")
 	}
 
-	spaceId, err := req.String("space_id")
-	if err != nil || spaceId == "" {
-		return nil, mcp.NewToolErrorInvalidParams("space_id is required")
+	spaceName, err := req.String("space_name")
+	if err != nil || spaceName == "" {
+		return nil, mcp.NewToolErrorInvalidParams("space_name is required")
+	}
+
+	spaceId, err := resolveSpaceNameToID(spaceName, user)
+	if err != nil {
+		return nil, err
 	}
 
 	command, err := req.String("command")
