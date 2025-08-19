@@ -334,7 +334,7 @@ func deleteSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 	return mcp.NewToolResponseJSON(result), nil
 }
 
-func manageSpaceState(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+func startSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
 	if !user.HasPermission(model.PermissionUseSpaces) {
 		return nil, fmt.Errorf("No permission to use spaces")
@@ -350,13 +350,50 @@ func manageSpaceState(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespo
 		return nil, err
 	}
 
-	action, err := req.String("action")
-	if err != nil || action == "" {
-		return nil, mcp.NewToolErrorInvalidParams("action is required")
+	db := database.GetInstance()
+	space, err := db.GetSpace(spaceID)
+	if err != nil {
+		return nil, fmt.Errorf("Space not found: %v", err)
 	}
 
-	if !validate.OneOf(action, []string{"start", "stop", "restart"}) {
-		return nil, mcp.NewToolErrorInvalidParams("action must be 'start', 'stop', or 'restart'")
+	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+		return nil, fmt.Errorf("No permission to start this space")
+	}
+
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get template: %v", err)
+	}
+
+	containerService := service.GetContainerService()
+	err = containerService.StartSpace(space, template, user)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to start space: %v", err)
+	}
+
+	response := SpaceOperationResponse{
+		Message:   fmt.Sprintf("Space '%s' is starting", space.Name),
+		SpaceName: space.Name,
+		SpaceID:   spaceID,
+	}
+
+	return mcp.NewToolResponseJSON(response), nil
+}
+
+func stopSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionUseSpaces) {
+		return nil, fmt.Errorf("No permission to use spaces")
+	}
+
+	spaceName, err := req.String("space_name")
+	if err != nil || spaceName == "" {
+		return nil, mcp.NewToolErrorInvalidParams("space_name is required")
+	}
+
+	spaceID, err := resolveSpaceNameToID(spaceName, user)
+	if err != nil {
+		return nil, err
 	}
 
 	db := database.GetInstance()
@@ -365,48 +402,18 @@ func manageSpaceState(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespo
 		return nil, fmt.Errorf("Space not found: %v", err)
 	}
 
-	// Check permissions based on action
-	switch action {
-	case "start", "stop":
-		if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
-			return nil, fmt.Errorf("No permission to %s this space", action)
-		}
-	case "restart":
-		if space.UserId != user.Id && space.SharedWithUserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
-			return nil, fmt.Errorf("No permission to restart this space")
-		}
+	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+		return nil, fmt.Errorf("No permission to stop this space")
 	}
 
 	containerService := service.GetContainerService()
-	var actionMessage string
-
-	switch action {
-	case "start":
-		template, err := db.GetTemplate(space.TemplateId)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to get template: %v", err)
-		}
-		err = containerService.StartSpace(space, template, user)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to start space: %v", err)
-		}
-		actionMessage = "starting"
-	case "stop":
-		err = containerService.StopSpace(space)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to stop space: %v", err)
-		}
-		actionMessage = "stopping"
-	case "restart":
-		err = containerService.RestartSpace(space)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to restart space: %v", err)
-		}
-		actionMessage = "restarting"
+	err = containerService.StopSpace(space)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to stop space: %v", err)
 	}
 
 	response := SpaceOperationResponse{
-		Message:   fmt.Sprintf("Space '%s' is %s", space.Name, actionMessage),
+		Message:   fmt.Sprintf("Space '%s' is stopping", space.Name),
 		SpaceName: space.Name,
 		SpaceID:   spaceID,
 	}
@@ -414,10 +421,120 @@ func manageSpaceState(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespo
 	return mcp.NewToolResponseJSON(response), nil
 }
 
-func manageSpaceSharing(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+func restartSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionUseSpaces) {
+		return nil, fmt.Errorf("No permission to use spaces")
+	}
+
+	spaceName, err := req.String("space_name")
+	if err != nil || spaceName == "" {
+		return nil, mcp.NewToolErrorInvalidParams("space_name is required")
+	}
+
+	spaceID, err := resolveSpaceNameToID(spaceName, user)
+	if err != nil {
+		return nil, err
+	}
+
+	db := database.GetInstance()
+	space, err := db.GetSpace(spaceID)
+	if err != nil {
+		return nil, fmt.Errorf("Space not found: %v", err)
+	}
+
+	if space.UserId != user.Id && space.SharedWithUserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+		return nil, fmt.Errorf("No permission to restart this space")
+	}
+
+	containerService := service.GetContainerService()
+	err = containerService.RestartSpace(space)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to restart space: %v", err)
+	}
+
+	response := SpaceOperationResponse{
+		Message:   fmt.Sprintf("Space '%s' is restarting", space.Name),
+		SpaceName: space.Name,
+		SpaceID:   spaceID,
+	}
+
+	return mcp.NewToolResponseJSON(response), nil
+}
+
+func shareSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
 	if !user.HasPermission(model.PermissionTransferSpaces) {
-		return nil, fmt.Errorf("No permission to transfer spaces")
+		return nil, fmt.Errorf("No permission to share spaces")
+	}
+
+	spaceName := req.StringOr("space_name", "")
+	if spaceName == "" {
+		return nil, fmt.Errorf("Space name is required")
+	}
+
+	userId := req.StringOr("user_id", "")
+	if !validate.UUID(userId) {
+		return nil, fmt.Errorf("Invalid user ID")
+	}
+
+	spaceId, err := resolveSpaceNameToID(spaceName, user)
+	if err != nil {
+		return nil, err
+	}
+
+	db := database.GetInstance()
+	space, err := db.GetSpace(spaceId)
+	if err != nil {
+		return nil, fmt.Errorf("Space not found: %v", err)
+	}
+
+	if space.UserId != user.Id {
+		return nil, fmt.Errorf("Space not found")
+	}
+
+	if space.IsDeleting {
+		return nil, fmt.Errorf("Space cannot be shared at this time")
+	}
+
+	if space.UserId == userId {
+		return nil, fmt.Errorf("Cannot share with yourself")
+	}
+
+	newUser, err := db.GetUser(userId)
+	if err != nil || newUser == nil || !newUser.Active {
+		return nil, fmt.Errorf("User not found")
+	}
+
+	space.SharedWithUserId = newUser.Id
+	space.UpdatedAt = hlc.Now()
+	err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to share space: %v", err)
+	}
+
+	service.GetTransport().GossipSpace(space)
+	service.GetUserService().UpdateSpaceSSHKeys(space, user)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeMCP,
+		model.AuditEventSpaceShare,
+		fmt.Sprintf("Shared space %s to user %s", space.Name, userId),
+		&map[string]interface{}{
+			"space_id":   space.Id,
+			"space_name": space.Name,
+			"user_id":    userId,
+		},
+	)
+
+	return mcp.NewToolResponseJSON(map[string]interface{}{"status": true}), nil
+}
+
+func stopSharingSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionTransferSpaces) {
+		return nil, fmt.Errorf("No permission to manage space sharing")
 	}
 
 	spaceName := req.StringOr("space_name", "")
@@ -430,13 +547,63 @@ func manageSpaceSharing(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRes
 		return nil, err
 	}
 
-	action, err := req.String("action")
-	if err != nil || action == "" {
-		return nil, mcp.NewToolErrorInvalidParams("action is required")
+	db := database.GetInstance()
+	space, err := db.GetSpace(spaceId)
+	if err != nil {
+		return nil, fmt.Errorf("Space not found: %v", err)
 	}
 
-	if !validate.OneOf(action, []string{"share", "stop_sharing", "transfer"}) {
-		return nil, mcp.NewToolErrorInvalidParams("action must be 'share', 'stop_sharing', or 'transfer'")
+	if space.UserId != user.Id && space.SharedWithUserId != user.Id {
+		return nil, fmt.Errorf("Space not found")
+	}
+
+	if space.SharedWithUserId == "" {
+		return nil, fmt.Errorf("Space is not shared")
+	}
+
+	space.SharedWithUserId = ""
+	space.UpdatedAt = hlc.Now()
+	err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to stop sharing space: %v", err)
+	}
+
+	service.GetTransport().GossipSpace(space)
+	service.GetUserService().UpdateSpaceSSHKeys(space, user)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeMCP,
+		model.AuditEventSpaceStopShare,
+		fmt.Sprintf("Stop space share %s", space.Name),
+		&map[string]interface{}{
+			"space_id":   space.Id,
+			"space_name": space.Name,
+		},
+	)
+
+	return mcp.NewToolResponseJSON(map[string]interface{}{"status": true}), nil
+}
+
+func transferSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+	user := ctx.Value("user").(*model.User)
+	if !user.HasPermission(model.PermissionTransferSpaces) {
+		return nil, fmt.Errorf("No permission to transfer spaces")
+	}
+
+	spaceName := req.StringOr("space_name", "")
+	if spaceName == "" {
+		return nil, fmt.Errorf("Space name is required")
+	}
+
+	userId := req.StringOr("user_id", "")
+	if !validate.UUID(userId) {
+		return nil, fmt.Errorf("Invalid user ID")
+	}
+
+	spaceId, err := resolveSpaceNameToID(spaceName, user)
+	if err != nil {
+		return nil, err
 	}
 
 	db := database.GetInstance()
@@ -445,173 +612,84 @@ func manageSpaceSharing(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRes
 		return nil, fmt.Errorf("Space not found: %v", err)
 	}
 
-	switch action {
-	case "share":
-		userId := req.StringOr("user_id", "")
-		if !validate.UUID(userId) {
-			return nil, fmt.Errorf("Invalid user ID")
-		}
+	if space.UserId != user.Id {
+		return nil, fmt.Errorf("Space not found")
+	}
 
-		if space.UserId != user.Id {
-			return nil, fmt.Errorf("Space not found")
-		}
+	if space.IsDeployed || space.IsPending || space.IsDeleting {
+		return nil, fmt.Errorf("Space cannot be transferred at this time")
+	}
 
-		if space.IsDeleting {
-			return nil, fmt.Errorf("Space cannot be shared at this time")
-		}
+	if space.UserId == userId {
+		return nil, fmt.Errorf("Cannot transfer to yourself")
+	}
 
-		if space.UserId == userId {
-			return nil, fmt.Errorf("Cannot share with yourself")
-		}
+	newUser, err := db.GetUser(userId)
+	if err != nil || newUser == nil || !newUser.Active || newUser.IsDeleted {
+		return nil, fmt.Errorf("User not found")
+	}
 
-		newUser, err := db.GetUser(userId)
-		if err != nil || newUser == nil || !newUser.Active {
-			return nil, fmt.Errorf("User not found")
-		}
+	userQuota, err := database.GetUserQuota(newUser)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to check user quota: %v", err)
+	}
 
-		space.SharedWithUserId = newUser.Id
-		space.UpdatedAt = hlc.Now()
-		err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
-		if err != nil {
-			return nil, fmt.Errorf("Failed to share space: %v", err)
-		}
+	userUsage, err := database.GetUserUsage(newUser.Id, "")
+	if err != nil {
+		return nil, fmt.Errorf("Failed to check user usage: %v", err)
+	}
 
-		service.GetTransport().GossipSpace(space)
-		service.GetUserService().UpdateSpaceSSHKeys(space, user)
+	if userQuota.MaxSpaces > 0 && uint32(userUsage.NumberSpaces) >= userQuota.MaxSpaces {
+		return nil, fmt.Errorf("Space quota exceeded")
+	}
 
-		audit.Log(
-			user.Username,
-			model.AuditActorTypeMCP,
-			model.AuditEventSpaceShare,
-			fmt.Sprintf("Shared space %s to user %s", space.Name, userId),
-			&map[string]interface{}{
-				"space_id":   space.Id,
-				"space_name": space.Name,
-				"user_id":    userId,
-			},
-		)
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get template: %v", err)
+	}
 
-	case "stop_sharing":
-		if space.UserId != user.Id && space.SharedWithUserId != user.Id {
-			return nil, fmt.Errorf("Space not found")
-		}
+	if userQuota.StorageUnits > 0 && userUsage.StorageUnits+template.StorageUnits > userQuota.StorageUnits {
+		return nil, fmt.Errorf("Storage unit quota exceeded")
+	}
 
-		if space.SharedWithUserId == "" {
-			return nil, fmt.Errorf("Space is not shared")
-		}
-
-		space.SharedWithUserId = ""
-		space.UpdatedAt = hlc.Now()
-		err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
-		if err != nil {
-			return nil, fmt.Errorf("Failed to stop sharing space: %v", err)
-		}
-
-		service.GetTransport().GossipSpace(space)
-		service.GetUserService().UpdateSpaceSSHKeys(space, user)
-
-		audit.Log(
-			user.Username,
-			model.AuditActorTypeMCP,
-			model.AuditEventSpaceStopShare,
-			fmt.Sprintf("Stop space share %s", space.Name),
-			&map[string]interface{}{
-				"space_id":   space.Id,
-				"space_name": space.Name,
-			},
-		)
-
-	case "transfer":
-		userId := req.StringOr("user_id", "")
-		if !validate.UUID(userId) {
-			return nil, fmt.Errorf("Invalid user ID")
-		}
-
-		if space.UserId != user.Id {
-			return nil, fmt.Errorf("Space not found")
-		}
-
-		if space.IsDeployed || space.IsPending || space.IsDeleting {
-			return nil, fmt.Errorf("Space cannot be transferred at this time")
-		}
-
-		if space.UserId == userId {
-			return nil, fmt.Errorf("Cannot transfer to yourself")
-		}
-
-		newUser, err := db.GetUser(userId)
-		if err != nil || newUser == nil || !newUser.Active || newUser.IsDeleted {
-			return nil, fmt.Errorf("User not found")
-		}
-
-		// Check quotas
-		userQuota, err := database.GetUserQuota(newUser)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to check user quota: %v", err)
-		}
-
-		userUsage, err := database.GetUserUsage(newUser.Id, "")
-		if err != nil {
-			return nil, fmt.Errorf("Failed to check user usage: %v", err)
-		}
-
-		if userQuota.MaxSpaces > 0 && uint32(userUsage.NumberSpaces) >= userQuota.MaxSpaces {
-			return nil, fmt.Errorf("Space quota exceeded")
-		}
-
-		template, err := db.GetTemplate(space.TemplateId)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to get template: %v", err)
-		}
-
-		if userQuota.StorageUnits > 0 && userUsage.StorageUnits+template.StorageUnits > userQuota.StorageUnits {
-			return nil, fmt.Errorf("Storage unit quota exceeded")
-		}
-
-		// Check name conflicts and rename if needed
-		name := space.Name
-		attempt := 1
-		for {
-			existing, err := db.GetSpaceByName(userId, name)
-			if err == nil && existing != nil {
-				name = fmt.Sprintf("%s-%d", space.Name, attempt)
-				attempt++
-				if attempt > 10 {
-					return nil, fmt.Errorf("User already has a space with the same name")
-				}
-				continue
+	name := space.Name
+	attempt := 1
+	for {
+		existing, err := db.GetSpaceByName(userId, name)
+		if err == nil && existing != nil {
+			name = fmt.Sprintf("%s-%d", space.Name, attempt)
+			attempt++
+			if attempt > 10 {
+				return nil, fmt.Errorf("User already has a space with the same name")
 			}
-			break
+			continue
 		}
-
-		space.Name = name
-		space.UserId = userId
-		space.UpdatedAt = hlc.Now()
-		err = db.SaveSpace(space, []string{"Name", "UserId", "UpdatedAt"})
-		if err != nil {
-			return nil, fmt.Errorf("Failed to transfer space: %v", err)
-		}
-
-		service.GetTransport().GossipSpace(space)
-
-		audit.Log(
-			user.Username,
-			model.AuditActorTypeMCP,
-			model.AuditEventSpaceTransfer,
-			fmt.Sprintf("Transfer space %s to user %s", space.Name, userId),
-			&map[string]interface{}{
-				"space_id":   space.Id,
-				"space_name": space.Name,
-				"user_id":    userId,
-			},
-		)
+		break
 	}
 
-	result := map[string]interface{}{
-		"status": true,
+	space.Name = name
+	space.UserId = userId
+	space.UpdatedAt = hlc.Now()
+	err = db.SaveSpace(space, []string{"Name", "UserId", "UpdatedAt"})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to transfer space: %v", err)
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	service.GetTransport().GossipSpace(space)
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeMCP,
+		model.AuditEventSpaceTransfer,
+		fmt.Sprintf("Transfer space %s to user %s", space.Name, userId),
+		&map[string]interface{}{
+			"space_id":   space.Id,
+			"space_name": space.Name,
+			"user_id":    userId,
+		},
+	)
+
+	return mcp.NewToolResponseJSON(map[string]interface{}{"status": true}), nil
 }
 
 // parseSpaceCustomFields extracts custom field values from the MCP request

@@ -124,25 +124,49 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 		runCommand,
 	)
 	server.RegisterTool(
-		mcp.NewTool("copy_file", "Read and write the contents of files within a running space. Provide either (content and dest_path) to write to space, or source_path to read from space.").
-			AddParam("space_name", mcp.String, "The name of the space to copy files to/from", true).
-			AddParam("content", mcp.String, "Content to write to the space (for writing to space)", false).
-			AddParam("dest_path", mcp.String, "Destination path in space (for writing to space)", false).
-			AddParam("source_path", mcp.String, "Source path in space (for reading from space)", false),
-		copyFile,
+		mcp.NewTool("read_file", "Read the contents of a file from a running space.").
+			AddParam("space_name", mcp.String, "The name of the space to read from", true).
+			AddParam("file_path", mcp.String, "Path to the file in the space", true),
+		readFile,
 	)
 	server.RegisterTool(
-		mcp.NewTool("manage_space_state", "Start, stop, or restart a space.").
-			AddParam("space_name", mcp.String, "The name of the space to manage", true).
-			AddParam("action", mcp.String, "Action to perform: 'start', 'stop', or 'restart'", true),
-		manageSpaceState,
+		mcp.NewTool("write_file", "Write content to a file in a running space.").
+			AddParam("space_name", mcp.String, "The name of the space to write to", true).
+			AddParam("file_path", mcp.String, "Path to the file in the space", true).
+			AddParam("content", mcp.String, "Content to write to the file", true),
+		writeFile,
 	)
 	server.RegisterTool(
-		mcp.NewTool("manage_space_sharing", "Share, stop sharing, or transfer ownership of a space. IMPORTANT: If the user doesn't provide the ID of the user then FIRST call list_users to find the ID of the user.").
-			AddParam("space_name", mcp.String, "The name of the space to manage", true).
-			AddParam("action", mcp.String, "Action to perform: 'share', 'stop_sharing', or 'transfer'", true).
-			AddParam("user_id", mcp.String, "The ID of the user (required for share and transfer actions).", false),
-		manageSpaceSharing,
+		mcp.NewTool("start_space", "Start a space.").
+			AddParam("space_name", mcp.String, "The name of the space to start", true),
+		startSpace,
+	)
+	server.RegisterTool(
+		mcp.NewTool("stop_space", "Stop a space.").
+			AddParam("space_name", mcp.String, "The name of the space to stop", true),
+		stopSpace,
+	)
+	server.RegisterTool(
+		mcp.NewTool("restart_space", "Restart a space.").
+			AddParam("space_name", mcp.String, "The name of the space to restart", true),
+		restartSpace,
+	)
+	server.RegisterTool(
+		mcp.NewTool("share_space", "Share a space with another user. IMPORTANT: If the user doesn't provide the ID of the user then FIRST call list_users to find the ID of the user.").
+			AddParam("space_name", mcp.String, "The name of the space to share", true).
+			AddParam("user_id", mcp.String, "The ID of the user to share with", true),
+		shareSpace,
+	)
+	server.RegisterTool(
+		mcp.NewTool("stop_sharing_space", "Stop sharing a space.").
+			AddParam("space_name", mcp.String, "The name of the space to stop sharing", true),
+		stopSharingSpace,
+	)
+	server.RegisterTool(
+		mcp.NewTool("transfer_space", "Transfer ownership of a space to another user. IMPORTANT: If the user doesn't provide the ID of the user then FIRST call list_users to find the ID of the user.").
+			AddParam("space_name", mcp.String, "The name of the space to transfer", true).
+			AddParam("user_id", mcp.String, "The ID of the user to transfer to", true),
+		transferSpace,
 	)
 	server.RegisterTool(
 		mcp.NewTool("create_space", "Create a new space from a template").
