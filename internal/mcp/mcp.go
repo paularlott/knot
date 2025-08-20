@@ -115,7 +115,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 		getSpace,
 	)
 	server.RegisterTool(
-		mcp.NewTool("run_command", "Execute a command within a running space and return the output").
+		mcp.NewTool("run_command", "Execute a command within a running space and return the output, for example run ls to get a list of the files.").
 			AddParam("space_name", mcp.String, "The name of the space to run the command in", true).
 			AddParam("command", mcp.String, "The command to execute", true).
 			AddParam("arguments", mcp.ArrayOf(mcp.String), "The arguments to pass to the command", false).
