@@ -184,7 +184,7 @@ volumes:
 | `resources` | `block` | Task | Sets resource limits. | Yes | `cpu = 250`, `memory = 2048` |
 | `resources.cpu` | `integer` | Resources | CPU limit in MHz (1000 MHz = 1 CPU core). | Yes | `250` |
 | `resources.memory` | `integer` | Resources | Memory limit in MB. | Yes | `256` |
-| `resources.max_memory` | `integer` | Resources | Maximum Memory limit in MB. Should be omitted if not specified. | No | `2048` |
+| `resources.memory_max` | `integer` | Resources | Maximum Memory limit in MB. Should be omitted if not specified. | No | `2048` |
 | `service` | `block` | Task | Defines a service for discovery via Consul. | No | |
 | `service.name` | `string` | Service | The name of the service to register. | Yes (if service block) | Defaults to job name. |
 | `service.tags` | `list of string` | Service | Tags to apply to the service. | No | |
@@ -307,7 +307,7 @@ volumes:
 >       imageFeatures: "deep-flatten,exclusive-lock,fast-diff,layering,object-map"
 >
 >   - name: "knot-${{.space.id}}-data"
->     type: "host"
+>     type: "host" # Must be given for dynamic host volumes
 >     plugin_id: "mkdir"
 >     parameters:
 >       mode: "0755"
@@ -387,7 +387,7 @@ volumes:
 >       resources {
 >         cpu        = 250
 >         memory     = 256
->         max_memory = 4096
+>         memory_max = 4096
 >       }
 >     }
 >   }

@@ -215,7 +215,7 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 
 	// Recipes/Knowledge base
 	server.RegisterTool(
-		mcp.NewTool("recipes", "Access the knowledge base/recipes collection for step-by-step guides and best practices. Call without filename to list all available recipes, or with filename to get specific recipe content. Always check recipes first when users request project setup, environment configuration, or similar tasks. Built-in specs are always available: 'nomad-spec.md', 'docker-spec.md', 'podman-spec.md'.").
+		mcp.NewTool("recipes", "Access the knowledge base/recipes collection for step-by-step guides and best practices. Call without filename to list all available recipes, or with filename to get specific recipe content. CRITICAL: When creating or updating templates, you MUST first retrieve the platform specification using this tool (e.g., recipes(filename='docker-spec.md') for Docker templates, recipes(filename='nomad-spec.md') for Nomad templates, recipes(filename='podman-spec.md') for Podman templates) to understand the correct job specification format and structure. These specs contain essential information about required fields, syntax, and examples. Built-in specs are always available: 'nomad-spec.md', 'docker-spec.md', 'podman-spec.md'. Always check recipes first when users request project setup, environment configuration, or template creation tasks.").
 			AddParam("filename", mcp.String, "Filename of the recipe to retrieve. Omit to list all recipes.", false),
 		recipes,
 	)
