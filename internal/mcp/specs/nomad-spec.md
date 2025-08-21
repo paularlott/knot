@@ -32,7 +32,7 @@ The variable syntax is: `${{.var.<variable_name>}}`
 A Nomad job is defined in a single HCL file. The basic structure you will generate is as follows:
 
 ```hcl
-job "<job_name>" {
+job "${{.user.username}}-${{.space.name}}" {
   datacenters = ["<datacenter_name>"]
   type        = "service"
 
@@ -163,7 +163,6 @@ volumes:
 | Field Name | Type | Context | Description | Required? | Default/Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `job` | `block` | Root | Defines the entire job. | Yes | |
-| `job.<job_name>` | `string`| Job | A unique name for the Nomad job. | Yes | `${{.user.username}}-${{.space.name}}` unless explicitly specified by the user. |
 | `datacenters` | `list` | Job | Datacenters where the job can run. | Yes | `["dc1"]` |
 | `type` | `string`| Job | The job type. | Yes | `"service"` |
 | `group` | `block` | Job | Defines a group of co-located tasks. | Yes | |

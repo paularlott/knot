@@ -261,9 +261,9 @@ document.addEventListener('alpine:init', () => {
         timestamp: Date.now()
       });
 
-      // Limit history to 200 messages, keeping newest
-      if (this.messages.length > 200) {
-        this.messages = this.messages.slice(-200);
+      // Limit history to 50 messages, keeping newest
+      if (this.messages.length > 50) {
+        this.messages = this.messages.slice(-50);
       }
     },
 
