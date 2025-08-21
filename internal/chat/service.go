@@ -39,7 +39,7 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.Se
 	if err != nil {
 		return nil, fmt.Errorf("failed to create REST client: %w", err)
 	}
-	restClient.SetTimeout(60 * time.Second)
+	restClient.SetTimeout(5 * time.Minute)
 	restClient.SetTokenFormat("Bearer %s")
 
 	// Load system prompt
@@ -306,12 +306,21 @@ func (s *Service) processStreamChunkIterative(ctx context.Context, response Open
 		}
 	}
 
-	// Handle content
+	// Handle content and reasoning content
+	var contentToSend string
 	if choice.Delta.Content != "" {
+		contentToSend = choice.Delta.Content
 		assistantContent.WriteString(choice.Delta.Content)
+	} else if choice.Delta.ReasoningContent != "" {
+		// Wrap reasoning content in think tags for frontend processing
+		contentToSend = "<think>" + choice.Delta.ReasoningContent + "</think>"
+		// Don't add reasoning to assistantContent as it shouldn't go back to LLM
+	}
+
+	if contentToSend != "" {
 		err := sseWriter.WriteChunk(SSEEvent{
 			Type: "content",
-			Data: choice.Delta.Content,
+			Data: contentToSend,
 		})
 		if err != nil {
 			log.Error().Err(err).Str("user_id", user.Id).Msg("processStreamChunkIterative: Failed to write content chunk")

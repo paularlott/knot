@@ -110,8 +110,9 @@ type OpenAIDeltaFunction struct {
 }
 
 type OpenAIDelta struct {
-	Content   string                `json:"content"`
-	ToolCalls []OpenAIDeltaToolCall `json:"tool_calls"`
+	Content          string                `json:"content"`
+	ReasoningContent string                `json:"reasoning_content"`
+	ToolCalls        []OpenAIDeltaToolCall `json:"tool_calls"`
 }
 
 type OpenAITool struct {

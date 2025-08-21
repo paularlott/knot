@@ -935,7 +935,7 @@ var ServerCmd = &cli.Command{
 			Addr:         listen,
 			Handler:      router,
 			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 2 * time.Minute, // Extended to support AI time
+			WriteTimeout: 5 * time.Minute, // Extended to support AI time
 			TLSConfig:    tlsConfig,
 		}
 
@@ -1121,8 +1121,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			Temperature:      cmd.GetFloat32("chat-temperature"),
 			SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
 
-			ReasoningEffort:  cmd.GetString("chat-reasoning-effort"),
-			UIStyle:          cmd.GetString("chat-ui-style"),
+			ReasoningEffort: cmd.GetString("chat-reasoning-effort"),
+			UIStyle:         cmd.GetString("chat-ui-style"),
 		},
 	}
 

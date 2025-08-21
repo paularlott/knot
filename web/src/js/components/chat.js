@@ -325,10 +325,8 @@ window.chatComponent = function () {
       for (const msg of this.messages) {
         let content = msg.fragments ? msg.fragments.content.trim() : msg.content.trim();
 
-        // Include thinking content for assistant messages
-        if (msg.role === 'assistant' && msg.fragments?.thinking?.trim()) {
-          content = `<think>\n${msg.fragments.thinking.trim()}\n</think>\n\n${content}`;
-        }
+        // Strip any think tags that might exist in the content to prevent LLM template errors
+        content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 
         const historyMsg = {
           role: msg.role,
@@ -508,13 +506,13 @@ window.chatComponent = function () {
       const assistantMessage = this.messages[this.messages.length - 1];
       let buffer = '';
       let lastActivityTime = Date.now();
-      const TIMEOUT_MS = 60000; // 60 second timeout
+      const TIMEOUT_MS = 300000; // 5 minute timeout
 
       try {
         while (true) {
           // Check for timeout
           if (Date.now() - lastActivityTime > TIMEOUT_MS) {
-            throw new Error('Stream timeout - no data received for 30 seconds');
+            throw new Error('Stream timeout - no data received for 5 minutes');
           }
 
           const { done, value } = await reader.read();

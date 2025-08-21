@@ -280,8 +280,17 @@ func (c *RESTClient) streamDataCore(
 	// Set headers
 	c.setHeaders(req)
 
+	// For streaming requests, we need to temporarily disable the client timeout
+	// and rely on the context for cancellation instead
+	originalTimeout := c.HTTPClient.Timeout
+	c.HTTPClient.Timeout = 0 // Disable timeout for streaming
+	
 	// Make request
 	resp, err := c.HTTPClient.Do(req)
+	
+	// Restore original timeout
+	c.HTTPClient.Timeout = originalTimeout
+	
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
 	}
@@ -371,15 +380,32 @@ func (c *RESTClient) streamSSECore(
 		default:
 		}
 
-		line := scanner.Text()
+		line := strings.TrimSpace(scanner.Text())
 
-		// Skip empty lines and non-data lines
-		if line == "" || !strings.HasPrefix(line, "data: ") {
+		// Skip empty lines
+		if line == "" {
 			continue
 		}
 
-		// Extract data
-		data := strings.TrimPrefix(line, "data: ")
+		// Handle different SSE line types
+		var data string
+		if strings.HasPrefix(line, "data: ") {
+			data = strings.TrimPrefix(line, "data: ")
+		} else if strings.HasPrefix(line, "data:") {
+			// Handle case without space after colon
+			data = strings.TrimPrefix(line, "data:")
+		} else {
+			// Skip non-data lines (event:, id:, retry:, etc.)
+			continue
+		}
+
+		// Trim any remaining whitespace
+		data = strings.TrimSpace(data)
+
+		// Skip empty data
+		if data == "" {
+			continue
+		}
 
 		// Check for end marker
 		if data == "[DONE]" {
