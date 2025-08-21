@@ -508,7 +508,7 @@ window.chatComponent = function () {
       const assistantMessage = this.messages[this.messages.length - 1];
       let buffer = '';
       let lastActivityTime = Date.now();
-      const TIMEOUT_MS = 30000; // 30 second timeout
+      const TIMEOUT_MS = 60000; // 60 second timeout
 
       try {
         while (true) {
