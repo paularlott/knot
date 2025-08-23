@@ -25,6 +25,9 @@ var defaultSystemPrompt string
 const (
 	// Maximum number of tool call iterations to prevent infinite loops
 	MAX_TOOL_CALL_ITERATIONS = 20
+
+	CONTENT_BATCH_SIZE = 200 // characters
+	CONTENT_BATCH_TIME = 100 * time.Millisecond
 )
 
 type Service struct {
@@ -32,6 +35,15 @@ type Service struct {
 	mcpServer    *mcp.Server
 	restClient   *rest.RESTClient
 	systemPrompt string
+}
+
+type streamState struct {
+	toolCallBuffer  map[int]*ToolCall
+	argumentsBuffer map[int]string
+	inThinking      bool
+	inReasoning     bool
+	contentBuffer   strings.Builder // Content batching
+	lastFlushTime   time.Time
 }
 
 func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.ServeMux) (*Service, error) {
@@ -195,6 +207,9 @@ func (s *Service) callOpenAIStream(ctx context.Context, req OpenAIRequest, user 
 	streamState := &streamState{
 		toolCallBuffer:  make(map[int]*ToolCall),
 		argumentsBuffer: make(map[int]string),
+		inThinking:      false,
+		inReasoning:     false,
+		lastFlushTime:   time.Now(),
 	}
 
 	var toolCalls []ToolCall
@@ -221,6 +236,15 @@ func (s *Service) callOpenAIStream(ctx context.Context, req OpenAIRequest, user 
 		},
 		rest.StreamSSE,
 	)
+
+	// Flush any remaining content in the buffer
+	if streamState.inReasoning {
+		s.addToContentBuffer("</think>", streamState, nil) // Add but don't send
+		streamState.inReasoning = false
+	}
+	if err := s.flushContentBuffer(streamState, sseWriter); err != nil {
+		return nil, "", err
+	}
 
 	if err != nil {
 		log.Error().Err(err).Str("user_id", user.Id).Msg("callOpenAIStream: OpenAI stream failed")
@@ -266,11 +290,6 @@ func (s *Service) convertMessages(messages []ChatMessage) []OpenAIMessage {
 	return openAIMessages
 }
 
-type streamState struct {
-	toolCallBuffer  map[int]*ToolCall
-	argumentsBuffer map[int]string
-}
-
 // processStreamChunkIterative processes stream chunks for the iterative approach
 func (s *Service) processStreamChunkIterative(ctx context.Context, response OpenAIResponse, user *model.User, sseWriter *rest.SSEStreamWriter, streamState *streamState, assistantContent *strings.Builder, toolCalls *[]ToolCall) (bool, error) {
 	if len(response.Choices) == 0 {
@@ -309,33 +328,61 @@ func (s *Service) processStreamChunkIterative(ctx context.Context, response Open
 	// Handle content and reasoning content
 	var contentToSend string
 	if choice.Delta.Content != "" {
+		if streamState.inReasoning {
+			// Wrap content in think tags for frontend processing
+			s.addToContentBuffer("</think>", streamState, nil) // Add but don't send
+			streamState.inReasoning = false
+		}
+
 		contentToSend = choice.Delta.Content
-		assistantContent.WriteString(choice.Delta.Content)
+		if contentToSend == "<think>" {
+			streamState.inThinking = true
+		} else if contentToSend == "</think>" {
+			streamState.inThinking = false
+		} else if !streamState.inThinking && len(contentToSend) > 0 {
+			assistantContent.WriteString(choice.Delta.Content)
+		}
 	} else if choice.Delta.ReasoningContent != "" {
-		// Wrap reasoning content in think tags for frontend processing
-		contentToSend = "<think>" + choice.Delta.ReasoningContent + "</think>"
-		// Don't add reasoning to assistantContent as it shouldn't go back to LLM
+		if !streamState.inReasoning {
+			// Wrap reasoning content in think tags for frontend processing
+			s.addToContentBuffer("<think>", streamState, nil) // Add but don't send
+			streamState.inReasoning = true
+		}
+
+		contentToSend = choice.Delta.ReasoningContent
 	}
 
-	if contentToSend != "" {
-		err := sseWriter.WriteChunk(SSEEvent{
-			Type: "content",
-			Data: contentToSend,
-		})
-		if err != nil {
-			log.Error().Err(err).Str("user_id", user.Id).Msg("processStreamChunkIterative: Failed to write content chunk")
-			return false, fmt.Errorf("failed to write content to stream: %w", err)
-		}
+	err := s.addToContentBuffer(contentToSend, streamState, sseWriter)
+	if err != nil {
+		log.Error().Err(err).Str("user_id", user.Id).Msg("processStreamChunkIterative: Failed to write content chunk")
+		return false, fmt.Errorf("failed to write content to stream: %w", err)
 	}
 
 	// Handle finish reason
 	if choice.FinishReason == "tool_calls" {
+		if streamState.inReasoning {
+			s.addToContentBuffer("</think>", streamState, nil) // Add but don't send
+			streamState.inReasoning = false
+		}
+
+		if err := s.flushContentBuffer(streamState, sseWriter); err != nil {
+			return false, err
+		}
+
 		log.Debug().Str("user_id", user.Id).Int("buffered_tools", len(streamState.toolCallBuffer)).Msg("processStreamChunkIterative: LLM finished with tool_calls reason")
 		return s.finalizeToolCalls(streamState, toolCalls, user)
 	}
 
 	// Check if we're done with other finish reasons
 	if choice.FinishReason != "" && choice.FinishReason != "tool_calls" {
+		if streamState.inReasoning {
+			s.addToContentBuffer("</think>", streamState, nil) // Add but don't send
+			streamState.inReasoning = false
+		}
+		if err := s.flushContentBuffer(streamState, sseWriter); err != nil {
+			return false, err
+		}
+
 		// If we have tool calls buffered but the finish reason is not "tool_calls",
 		// this is likely a Gemini API quirk - let's process the tools anyway
 		if len(streamState.toolCallBuffer) > 0 {
@@ -612,6 +659,38 @@ func (s *Service) formatUserFriendlyError(err error) string {
 
 	// For any other error, provide a generic message
 	return "The AI service is currently unavailable. Please try again in a moment."
+}
+
+// addToContentBuffer adds content to the buffer and flushes if needed
+func (s *Service) addToContentBuffer(content string, streamState *streamState, sseWriter *rest.SSEStreamWriter) error {
+	if content == "" {
+		return nil
+	}
+
+	streamState.contentBuffer.WriteString(content)
+
+	// Flush if buffer is large enough or maximum time has passed
+	if streamState.contentBuffer.Len() >= CONTENT_BATCH_SIZE || time.Since(streamState.lastFlushTime) >= CONTENT_BATCH_TIME {
+		return s.flushContentBuffer(streamState, sseWriter)
+	}
+
+	return nil
+}
+
+// flushContentBuffer sends accumulated content to the client
+func (s *Service) flushContentBuffer(streamState *streamState, sseWriter *rest.SSEStreamWriter) error {
+	if sseWriter == nil || streamState.contentBuffer.Len() == 0 {
+		return nil
+	}
+
+	content := streamState.contentBuffer.String()
+	streamState.contentBuffer.Reset()
+	streamState.lastFlushTime = time.Now()
+
+	return sseWriter.WriteChunk(SSEEvent{
+		Type: "content",
+		Data: content,
+	})
 }
 
 // GetInternalSystemPrompt returns the embedded system prompt (for scaffold command)
