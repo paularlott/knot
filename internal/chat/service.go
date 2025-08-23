@@ -83,7 +83,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 		return nil
 	}
 
-	sseWriter := rest.NewSSEStreamWriter(w, r)
+	sseWriter := rest.NewStreamWriter(w, r)
 	defer sseWriter.Close()
 
 	currentMessages := s.convertMessages(messages)
@@ -173,7 +173,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 }
 
 // callOpenAIWithRetry calls OpenAI API with retry mechanism and returns tool calls and assistant content
-func (s *Service) callOpenAIWithRetry(ctx context.Context, req OpenAIRequest, user *model.User, sseWriter *rest.SSEStreamWriter, iteration int) ([]ToolCall, string, error) {
+func (s *Service) callOpenAIWithRetry(ctx context.Context, req OpenAIRequest, user *model.User, sseWriter *rest.StreamWriter, iteration int) ([]ToolCall, string, error) {
 	maxRetries := 2
 	var err error
 
@@ -201,7 +201,7 @@ func (s *Service) callOpenAIWithRetry(ctx context.Context, req OpenAIRequest, us
 }
 
 // callOpenAIStream makes a single call to OpenAI API and processes the stream
-func (s *Service) callOpenAIStream(ctx context.Context, req OpenAIRequest, user *model.User, sseWriter *rest.SSEStreamWriter) ([]ToolCall, string, error) {
+func (s *Service) callOpenAIStream(ctx context.Context, req OpenAIRequest, user *model.User, sseWriter *rest.StreamWriter) ([]ToolCall, string, error) {
 
 	// Initialize stream state for this call
 	streamState := &streamState{
@@ -234,7 +234,6 @@ func (s *Service) callOpenAIStream(ctx context.Context, req OpenAIRequest, user 
 
 			return s.processStreamChunkIterative(ctx, *response, user, sseWriter, streamState, &assistantContent, &toolCalls)
 		},
-		rest.StreamSSE,
 	)
 
 	// Flush any remaining content in the buffer
@@ -291,7 +290,7 @@ func (s *Service) convertMessages(messages []ChatMessage) []OpenAIMessage {
 }
 
 // processStreamChunkIterative processes stream chunks for the iterative approach
-func (s *Service) processStreamChunkIterative(ctx context.Context, response OpenAIResponse, user *model.User, sseWriter *rest.SSEStreamWriter, streamState *streamState, assistantContent *strings.Builder, toolCalls *[]ToolCall) (bool, error) {
+func (s *Service) processStreamChunkIterative(ctx context.Context, response OpenAIResponse, user *model.User, sseWriter *rest.StreamWriter, streamState *streamState, assistantContent *strings.Builder, toolCalls *[]ToolCall) (bool, error) {
 	if len(response.Choices) == 0 {
 		return false, nil
 	}
@@ -427,7 +426,7 @@ func (s *Service) finalizeToolCalls(streamState *streamState, toolCalls *[]ToolC
 }
 
 // executeToolCalls executes all tool calls and returns results
-func (s *Service) executeToolCalls(ctx context.Context, toolCalls []ToolCall, user *model.User, sseWriter *rest.SSEStreamWriter) ([]ToolResult, error) {
+func (s *Service) executeToolCalls(ctx context.Context, toolCalls []ToolCall, user *model.User, sseWriter *rest.StreamWriter) ([]ToolResult, error) {
 	var toolResults []ToolResult
 
 	if len(toolCalls) > 0 {
@@ -575,8 +574,8 @@ func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 
 // sendErrorToStream attempts to send an error via SSE, falls back to HTTP error
 func (s *Service) sendErrorToStream(w http.ResponseWriter, r *http.Request, err error) {
-	// Try to create SSE writer and send error
-	sseWriter := rest.NewSSEStreamWriter(w, r)
+	// Try to create stream writer and send error
+	sseWriter := rest.NewStreamWriter(w, r)
 	defer sseWriter.Close()
 
 	writeErr := sseWriter.WriteChunk(SSEEvent{
@@ -662,7 +661,7 @@ func (s *Service) formatUserFriendlyError(err error) string {
 }
 
 // addToContentBuffer adds content to the buffer and flushes if needed
-func (s *Service) addToContentBuffer(content string, streamState *streamState, sseWriter *rest.SSEStreamWriter) error {
+func (s *Service) addToContentBuffer(content string, streamState *streamState, sseWriter *rest.StreamWriter) error {
 	if content == "" {
 		return nil
 	}
@@ -678,7 +677,7 @@ func (s *Service) addToContentBuffer(content string, streamState *streamState, s
 }
 
 // flushContentBuffer sends accumulated content to the client
-func (s *Service) flushContentBuffer(streamState *streamState, sseWriter *rest.SSEStreamWriter) error {
+func (s *Service) flushContentBuffer(streamState *streamState, sseWriter *rest.StreamWriter) error {
 	if sseWriter == nil || streamState.contentBuffer.Len() == 0 {
 		return nil
 	}

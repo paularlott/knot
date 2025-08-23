@@ -73,122 +73,15 @@ func WriteResponse(status int, w http.ResponseWriter, r *http.Request, v interfa
 	return json.NewEncoder(w).Encode(v)
 }
 
-// Add these types to existing server.go
-type StreamType int
-
-const (
-	StreamChunked StreamType = iota
-	StreamSSE
-)
-
-// StreamWriter interface for different streaming types
-type StreamWriter interface {
-	WriteChunk(chunk interface{}) error
-	WriteEnd() error
-	Close() error
-}
-
-// ChunkedStreamWriter writes chunks using Transfer-Encoding: chunked
-type ChunkedStreamWriter struct {
-	w          http.ResponseWriter
-	flusher    http.Flusher
-	useMsgPack bool
-	closed     bool
-}
-
-// NewChunkedStreamWriter creates a new chunked stream writer
-func NewChunkedStreamWriter(w http.ResponseWriter, r *http.Request) *ChunkedStreamWriter {
-	if w == nil || r == nil {
-		return nil
-	}
-
-	// Determine encoding based on Accept header
-	accept := r.Header.Get("Accept")
-	useMsgPack := strings.Contains(accept, "application/msgpack")
-
-	if useMsgPack {
-		w.Header().Set("Content-Type", "application/msgpack")
-	} else {
-		w.Header().Set("Content-Type", "application/x-ndjson")
-	}
-
-	w.Header().Set("Transfer-Encoding", "chunked")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	flusher, _ := w.(http.Flusher)
-
-	return &ChunkedStreamWriter{
-		w:          w,
-		flusher:    flusher,
-		useMsgPack: useMsgPack,
-		closed:     false,
-	}
-}
-
-// WriteChunk writes a single chunk
-func (csw *ChunkedStreamWriter) WriteChunk(chunk interface{}) error {
-	if csw.closed {
-		return errors.New("stream writer is closed")
-	}
-
-	var data []byte
-	var err error
-
-	if csw.useMsgPack {
-		data, err = msgpack.Marshal(chunk)
-	} else {
-		data, err = json.Marshal(chunk)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to marshal chunk: %w", err)
-	}
-
-	// For chunked encoding, write the data directly
-	if _, err := csw.w.Write(data); err != nil {
-		return fmt.Errorf("failed to write chunk: %w", err)
-	}
-
-	// Add newline for JSON readability (msgpack is binary)
-	if !csw.useMsgPack {
-		if _, err := csw.w.Write([]byte("\n")); err != nil {
-			return fmt.Errorf("failed to write newline: %w", err)
-		}
-	}
-
-	if csw.flusher != nil {
-		csw.flusher.Flush()
-	}
-
-	return nil
-}
-
-// WriteEnd signals the end of the stream
-func (csw *ChunkedStreamWriter) WriteEnd() error {
-	if csw.closed {
-		return nil
-	}
-
-	// For chunked encoding, we just stop writing
-	// The connection will naturally close
-	return nil
-}
-
-// Close closes the stream writer
-func (csw *ChunkedStreamWriter) Close() error {
-	csw.closed = true
-	return nil
-}
-
-// SSEStreamWriter writes chunks using Server-Sent Events
-type SSEStreamWriter struct {
+// StreamWriter writes chunks using Server-Sent Events
+type StreamWriter struct {
 	w       http.ResponseWriter
 	flusher http.Flusher
 	closed  bool
 }
 
-// NewSSEStreamWriter creates a new SSE stream writer
-func NewSSEStreamWriter(w http.ResponseWriter, r *http.Request) *SSEStreamWriter {
+// NewStreamWriter creates a new stream writer
+func NewStreamWriter(w http.ResponseWriter, r *http.Request) *StreamWriter {
 	if w == nil || r == nil {
 		return nil
 	}
@@ -202,7 +95,7 @@ func NewSSEStreamWriter(w http.ResponseWriter, r *http.Request) *SSEStreamWriter
 
 	flusher, _ := w.(http.Flusher)
 
-	return &SSEStreamWriter{
+	return &StreamWriter{
 		w:       w,
 		flusher: flusher,
 		closed:  false,
@@ -210,8 +103,8 @@ func NewSSEStreamWriter(w http.ResponseWriter, r *http.Request) *SSEStreamWriter
 }
 
 // WriteChunk writes a single chunk as SSE
-func (ssw *SSEStreamWriter) WriteChunk(chunk interface{}) error {
-	if ssw.closed {
+func (sw *StreamWriter) WriteChunk(chunk interface{}) error {
+	if sw.closed {
 		return errors.New("stream writer is closed")
 	}
 
@@ -221,36 +114,36 @@ func (ssw *SSEStreamWriter) WriteChunk(chunk interface{}) error {
 		return fmt.Errorf("failed to marshal chunk: %w", err)
 	}
 
-	if _, err := fmt.Fprintf(ssw.w, "data: %s\n\n", data); err != nil {
+	if _, err := fmt.Fprintf(sw.w, "data: %s\n\n", data); err != nil {
 		return fmt.Errorf("failed to write chunk: %w", err)
 	}
 
-	if ssw.flusher != nil {
-		ssw.flusher.Flush()
+	if sw.flusher != nil {
+		sw.flusher.Flush()
 	}
 
 	return nil
 }
 
-// WriteEnd signals the end of the SSE stream
-func (ssw *SSEStreamWriter) WriteEnd() error {
-	if ssw.closed {
+// WriteEnd signals the end of the stream
+func (sw *StreamWriter) WriteEnd() error {
+	if sw.closed {
 		return nil
 	}
 
-	if _, err := fmt.Fprint(ssw.w, "data: [DONE]\n\n"); err != nil {
+	if _, err := fmt.Fprint(sw.w, "data: [DONE]\n\n"); err != nil {
 		return fmt.Errorf("failed to write end marker: %w", err)
 	}
 
-	if ssw.flusher != nil {
-		ssw.flusher.Flush()
+	if sw.flusher != nil {
+		sw.flusher.Flush()
 	}
 
 	return nil
 }
 
-// Close closes the SSE stream writer
-func (ssw *SSEStreamWriter) Close() error {
-	ssw.closed = true
+// Close closes the stream writer
+func (sw *StreamWriter) Close() error {
+	sw.closed = true
 	return nil
 }
