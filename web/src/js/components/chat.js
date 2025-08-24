@@ -56,8 +56,8 @@ function processMarkdown(text) {
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.*?)__/g, '<strong>$1</strong>')
     // Italic (*text* or _text_)
-    .replace(/\b\*((?:[^*\s](?:[^*]*[^*\s])?)*)\*\b/g, '<em>$1</em>')
-    .replace(/\b_((?:[^_\s](?:[^_]*[^_\s])?)*?)_\b/g, '<em>$1</em>')
+    .replace(/\*([^*\s][^*]*[^*\s]|[^*\s])\*/g, '<em>$1</em>')
+    .replace(/\b_([^_\s][^_]*[^_\s]|[^_\s])_\b/g, '<em>$1</em>')
     // Links [text](url)
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-500 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer">$1</a>')
     // Line breaks
@@ -93,8 +93,8 @@ function processNestedMarkdown(text) {
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.*?)__/g, '<strong>$1</strong>')
     // Italic (*text* or _text_)
-    .replace(/\b\*((?:[^*\s](?:[^*]*[^*\s])?)*)\*\b/g, '<em>$1</em>')
-    .replace(/\b_((?:[^_\s](?:[^_]*[^_\s])?)*?)_\b/g, '<em>$1</em>')
+    .replace(/\*([^*\s][^*]*[^*\s]|[^*\s])\*/g, '<em>$1</em>')
+    .replace(/\b_([^_\s][^_]*[^_\s]|[^_\s])_\b/g, '<em>$1</em>')
     // Inline code (`code`)
     .replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-900 dark:border dark:border-gray-700 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
     // Links [text](url)
@@ -357,58 +357,10 @@ window.chatComponent = function () {
       return messageHistory;
     },
 
-    processContentBuffer(buffer, assistantMessage) {
-      while (buffer.length > 0) {
-        if (!assistantMessage.inThinking && buffer.includes('<think>')) {
-          const idx = buffer.indexOf('<think>');
-          assistantMessage.fragments.content += buffer.substring(0, idx);
-          assistantMessage.inThinking = true;
-          buffer = buffer.substring(idx + 7);
-        } else if (assistantMessage.inThinking && buffer.includes('</think>')) {
-          const idx = buffer.indexOf('</think>');
-          assistantMessage.fragments.thinking += buffer.substring(0, idx);
-          assistantMessage.inThinking = false;
-          buffer = buffer.substring(idx + 8);
-        } else {
-          const target = assistantMessage.inThinking ? 'thinking' : 'content';
-          assistantMessage.fragments[target] += buffer;
-          buffer = '';
-        }
-      }
-      return buffer;
-    },
-
-    handleStreamEvent(event, assistantMessage, buffer) {
-      switch (event.type) {
-        case 'content':
-          buffer += event.data;
-          return this.processContentBuffer(buffer, assistantMessage);
-
-        case 'tool_calls':
-          assistantMessage.toolCalls = event.data;
-          break;
-
-        case 'tool_result':
-          assistantMessage.fragments.toolResults.push(event.data);
-          break;
-
-        case 'error':
-          assistantMessage.fragments.content = '⚠️ ' + (event.data.error || 'An error occurred while processing your request.');
-          assistantMessage.hasError = true;
-          break;
-
-        case 'done':
-          break;
-      }
-      return buffer;
-    },
-
     async sendMessage() {
       if (!this.currentMessage.trim() || this.isLoading) return;
 
       const userMessage = this.currentMessage.trim();
-
-      // Add to persistent input history (independent of conversation)
       this.$store.chat.addToInputHistory(userMessage);
 
       this.currentMessage = '';
@@ -427,7 +379,6 @@ window.chatComponent = function () {
 
       try {
         const messageHistory = this.prepareMessageHistory();
-
         const response = await fetch('/api/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -436,18 +387,10 @@ window.chatComponent = function () {
         });
 
         if (!response.ok) {
-          let errorMessage = 'Failed to send message';
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch (e) {
-            // If we can't parse the error response, use the status text
-            errorMessage = response.statusText || errorMessage;
-          }
-          throw new Error(errorMessage);
+          throw new Error('Failed to send message');
         }
 
-        // Add assistant message after successful request
+        // Add assistant message
         this.$store.chat.addMessage({
           role: 'assistant',
           inThinking: false,
@@ -459,66 +402,41 @@ window.chatComponent = function () {
           }
         });
 
-        await this.processStreamResponse(response);
+        await this.processStream(response);
 
       } catch (error) {
-        if (error.name === 'AbortError') {
-          const lastMessage = this.messages[this.messages.length - 1];
-          if (lastMessage?.role === 'assistant') {
-            lastMessage.fragments.content += '\n\n*[Response stopped by user]*';
-          }
-        } else {
-          const lastMessage = this.messages[this.messages.length - 1];
-          if (lastMessage?.role === 'assistant') {
-            lastMessage.fragments.content = '⚠️ Failed to connect to the AI service. Please check your connection and try again.';
-            lastMessage.hasError = true;
-          } else {
-            // If no assistant message exists, create one with the error
-            this.$store.chat.addMessage({
-              role: 'assistant',
-              inThinking: false,
-              toolCalls: [],
-              hasError: true,
-              fragments: {
-                thinking: '',
-                content: '⚠️ Failed to connect to the AI service. Please check your connection and try again.',
-                toolResults: []
-              }
-            });
-          }
+        if (error.name !== 'AbortError') {
+          this.$store.chat.addMessage({
+            role: 'assistant',
+            hasError: true,
+            fragments: {
+              thinking: '',
+              content: '⚠️ Failed to connect to the AI service.',
+              toolResults: []
+            }
+          });
         }
       } finally {
         this.isLoading = false;
         this.abortController = null;
-        this.focusInput();
       }
     },
 
-    stopGeneration() {
-      if (this.abortController) {
-        this.abortController.abort();
-      }
-    },
-
-    async processStreamResponse(response) {
+    async processStream(response) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       const assistantMessage = this.messages[this.messages.length - 1];
-      let buffer = '';
-      let lastActivityTime = Date.now();
-      const TIMEOUT_MS = 300000; // 5 minute timeout
+
+      let contentBuffer = '';
+      let inThinking = false;
 
       try {
         while (true) {
-          // Check for timeout
-          if (Date.now() - lastActivityTime > TIMEOUT_MS) {
-            throw new Error('Stream timeout - no data received for 5 minutes');
-          }
+          if (this.abortController?.signal.aborted) break;
 
           const { done, value } = await reader.read();
           if (done) break;
 
-          lastActivityTime = Date.now(); // Reset timeout on activity
           const chunk = decoder.decode(value);
           const lines = chunk.split('\n');
 
@@ -530,31 +448,58 @@ window.chatComponent = function () {
 
             try {
               const event = JSON.parse(data);
-              buffer = this.handleStreamEvent(event, assistantMessage, buffer);
-            } catch (e) {
-              // If we can't parse the event, it might be a malformed response
-              // Add this to the assistant message as an error
-              if (assistantMessage && !assistantMessage.hasError) {
-                assistantMessage.fragments.content += '\n\n⚠️ Received malformed response from AI service.';
+
+              if (event.type === 'content') {
+                contentBuffer += event.data;
+
+                // Process thinking tags
+                while (contentBuffer.length > 0) {
+                  if (!inThinking && contentBuffer.includes('<think>')) {
+                    const idx = contentBuffer.indexOf('<think>');
+                    if (idx > 0) {
+                      assistantMessage.fragments.content += contentBuffer.substring(0, idx);
+                    }
+                    contentBuffer = contentBuffer.substring(idx + 7);
+                    inThinking = true;
+                  } else if (inThinking && contentBuffer.includes('</think>')) {
+                    const idx = contentBuffer.indexOf('</think>');
+                    assistantMessage.fragments.thinking += contentBuffer.substring(0, idx);
+                    contentBuffer = contentBuffer.substring(idx + 8);
+                    inThinking = false;
+                  } else {
+                    // Add remaining content to appropriate fragment
+                    if (inThinking) {
+                      assistantMessage.fragments.thinking += contentBuffer;
+                    } else {
+                      assistantMessage.fragments.content += contentBuffer;
+                    }
+                    contentBuffer = '';
+                  }
+                }
+                // Auto-scroll after content updates
+                this.scrollToBottom();
+              } else if (event.type === 'tool_calls') {
+                assistantMessage.toolCalls = event.data;
+              } else if (event.type === 'tool_result') {
+                assistantMessage.fragments.toolResults.push(event.data);
+              } else if (event.type === 'error') {
+                assistantMessage.fragments.content = '⚠️ ' + (event.data.error || 'An error occurred');
                 assistantMessage.hasError = true;
               }
+            } catch (e) {
+              // Skip malformed events
             }
           }
-
-          this.scrollToBottom();
         }
-      } catch (error) {
-        if (assistantMessage && !assistantMessage.hasError) {
-          assistantMessage.fragments.content += '\n\n⚠️ Stream processing failed: ' + error.message;
-          assistantMessage.hasError = true;
-        }
-        throw error;
       } finally {
-        try {
-          reader.releaseLock();
-        } catch (e) {
-          // Ignore lock release errors
-        }
+        reader.releaseLock();
+      }
+    },
+
+    stopGeneration() {
+      if (this.abortController) {
+        this.abortController.abort();
+        this.abortController = null;
       }
     },
 
@@ -611,7 +556,6 @@ window.chatComponent = function () {
 
       if (direction === 'up') {
         if (this.historyIndex === -1) {
-          // Save current partial message
           this.partialMessage = this.currentMessage;
           this.historyIndex = this.inputHistory.length - 1;
         } else if (this.historyIndex > 0) {
@@ -625,7 +569,6 @@ window.chatComponent = function () {
           this.historyIndex++;
           this.currentMessage = this.inputHistory[this.historyIndex];
         } else {
-          // Return to partial message or empty
           this.historyIndex = -1;
           this.currentMessage = this.partialMessage;
         }
@@ -644,7 +587,6 @@ window.chatComponent = function () {
         }
       });
 
-      // Scroll to bottom when component initializes and has messages
       if (this.isOpen && this.messages.length > 0) {
         setTimeout(() => this.scrollToBottom(), 200);
       }

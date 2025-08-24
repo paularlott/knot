@@ -26,8 +26,8 @@ const (
 	// Maximum number of tool call iterations to prevent infinite loops
 	MAX_TOOL_CALL_ITERATIONS = 20
 
-	CONTENT_BATCH_SIZE = 200 // characters
-	CONTENT_BATCH_TIME = 100 * time.Millisecond
+	CONTENT_BATCH_SIZE = 150                    // characters - smaller for more responsive streaming
+	CONTENT_BATCH_TIME = 100 * time.Millisecond // shorter time for more responsive streaming
 )
 
 type Service struct {
@@ -83,6 +83,14 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 		return nil
 	}
 
+	// Check if client disconnected before starting
+	select {
+	case <-ctx.Done():
+		log.Debug().Str("user_id", user.Id).Msg("streamChat: Client disconnected before processing")
+		return ctx.Err()
+	default:
+	}
+
 	sseWriter := rest.NewStreamWriter(w, r)
 	defer sseWriter.Close()
 
@@ -105,6 +113,14 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 
 	// Iterative tool call loop
 	for iteration := range MAX_TOOL_CALL_ITERATIONS {
+		// Check if client disconnected
+		select {
+		case <-ctx.Done():
+			log.Debug().Str("user_id", user.Id).Int("iteration", iteration).Msg("streamChat: Client disconnected during iteration")
+			return ctx.Err()
+		default:
+		}
+
 		req := OpenAIRequest{
 			Model:           s.config.Model,
 			Messages:        currentMessages,
@@ -136,6 +152,14 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 				Data: nil,
 			})
 			return nil
+		}
+
+		// Check if client disconnected before tool execution
+		select {
+		case <-ctx.Done():
+			log.Debug().Str("user_id", user.Id).Int("iteration", iteration).Msg("streamChat: Client disconnected before tool execution")
+			return ctx.Err()
+		default:
 		}
 
 		// Execute tools and get results
@@ -222,6 +246,14 @@ func (s *Service) callOpenAIStream(ctx context.Context, req OpenAIRequest, user 
 		"chat/completions",
 		req,
 		func(response *OpenAIResponse) (bool, error) {
+			// Check if client disconnected
+			select {
+			case <-ctx.Done():
+				log.Debug().Str("user_id", user.Id).Msg("callOpenAIStream: Client disconnected during stream processing")
+				return true, ctx.Err() // Return true to stop streaming
+			default:
+			}
+
 			if response == nil {
 				log.Error().Str("user_id", user.Id).Msg("callOpenAIStream: Received nil response from OpenAI")
 				return false, fmt.Errorf("received nil response from AI service")
@@ -299,7 +331,6 @@ func (s *Service) processStreamChunkIterative(ctx context.Context, response Open
 
 	// Handle tool calls
 	if len(choice.Delta.ToolCalls) > 0 {
-		log.Debug().Str("user_id", user.Id).Int("tool_calls", len(choice.Delta.ToolCalls)).Msg("processStreamChunkIterative: LLM is making tool calls!")
 		for _, deltaCall := range choice.Delta.ToolCalls {
 			index := deltaCall.Index
 			if streamState.toolCallBuffer[index] == nil {
@@ -669,7 +700,7 @@ func (s *Service) addToContentBuffer(content string, streamState *streamState, s
 	streamState.contentBuffer.WriteString(content)
 
 	// Flush if buffer is large enough or maximum time has passed
-	if streamState.contentBuffer.Len() >= CONTENT_BATCH_SIZE || time.Since(streamState.lastFlushTime) >= CONTENT_BATCH_TIME {
+	if streamState.contentBuffer.Len() >= CONTENT_BATCH_SIZE || (streamState.contentBuffer.Len() > 0 && time.Since(streamState.lastFlushTime) >= CONTENT_BATCH_TIME) {
 		return s.flushContentBuffer(streamState, sseWriter)
 	}
 
@@ -685,6 +716,8 @@ func (s *Service) flushContentBuffer(streamState *streamState, sseWriter *rest.S
 	content := streamState.contentBuffer.String()
 	streamState.contentBuffer.Reset()
 	streamState.lastFlushTime = time.Now()
+
+	fmt.Println(content)
 
 	return sseWriter.WriteChunk(SSEEvent{
 		Type: "content",
