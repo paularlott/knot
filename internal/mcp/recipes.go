@@ -48,7 +48,7 @@ func listRecipes(recipesPath string) (*mcp.ToolResponse, error) {
 		if _, err := os.Stat(recipesPath); err == nil {
 			userRecipes, err := scanUserRecipes(recipesPath)
 			if err != nil {
-				return nil, fmt.Errorf("Error scanning recipes directory: %v", err)
+				return nil, fmt.Errorf("error scanning recipes directory: %v", err)
 			}
 			recipes = append(recipes, userRecipes...)
 		}
@@ -93,9 +93,9 @@ func getRecipeContent(recipesPath, filename string) (*mcp.ToolResponse, error) {
 
 	// File not found anywhere
 	if recipesPath == "" {
-		return nil, fmt.Errorf("Recipe file not found: %s (recipes path not configured)", filename)
+		return nil, fmt.Errorf("recipe file not found: %s (recipes path not configured). Available built-in specs: nomad-spec.md, docker-spec.md, podman-spec.md. Use recipes() without filename to list all available recipes", filename)
 	}
-	return nil, fmt.Errorf("Recipe file not found: %s", filename)
+	return nil, fmt.Errorf("recipe file not found: %s. Use recipes() without filename to list all available recipes", filename)
 }
 
 func scanUserRecipes(recipesPath string) ([]RecipeInfo, error) {
