@@ -717,8 +717,6 @@ func (s *Service) flushContentBuffer(streamState *streamState, sseWriter *rest.S
 	streamState.contentBuffer.Reset()
 	streamState.lastFlushTime = time.Now()
 
-	fmt.Println(content)
-
 	return sseWriter.WriteChunk(SSEEvent{
 		Type: "content",
 		Data: content,
