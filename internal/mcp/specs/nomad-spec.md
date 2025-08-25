@@ -162,11 +162,11 @@ volumes:
 
 | Field Name | Type | Context | Description | Required? | Default/Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `job` | `block` | Root | Defines the entire job. | Yes | |
+| `job` | `block` | Root | Defines the entire job in HCL. **Must be in HCL** | Yes | |
 | `datacenters` | `list` | Job | Datacenters where the job can run. | Yes | `["dc1"]` |
 | `type` | `string`| Job | The job type. | Yes | `"service"` |
 | `group` | `block` | Job | Defines a group of co-located tasks. | Yes | |
-| `volume` | `block` | Group | Declares a persistent CSI volume requirement. | No | Required for Ceph volumes. |
+| `volume` | `block` | Group | Declares a persistent CSI or dynamic host volume requirement in YAML. | No | Required for Ceph volumes. |
 | `volume.source`| `string`| Volume | The unique identifier for the CSI volume. **Must match an entry in the Volume Definitions YAML.** | Yes | |
 | `volume.parameters.clusterID`| `string`| Params | The Ceph cluster's FSID. **Can be a hardcoded string or a knot variable like** `${{.var.ceph_cluster_id}}`. | Yes | Prompt if not provided as a value or variable. |
 | `volume.parameters.pool`| `string`| Params | The Ceph storage pool to use. **Can be a hardcoded string or a knot variable like** `${{.var.ceph_pool_name}}`. | Yes | Prompt if not provided as a value or variable. |

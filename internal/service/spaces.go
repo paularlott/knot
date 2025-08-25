@@ -205,11 +205,12 @@ func (s *SpaceService) DeleteSpace(spaceId string, user *model.User) error {
 
 	// Mark as deleted
 	space.IsDeleted = true
+	space.Name = space.Id
 	space.UpdatedAt = hlc.Now()
 
 	// Save to database
 	db := database.GetInstance()
-	if err := db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt"}); err != nil {
+	if err := db.SaveSpace(space, []string{"IsDeleted", "Name", "UpdatedAt"}); err != nil {
 		return fmt.Errorf("failed to delete space: %v", err)
 	}
 

@@ -36,7 +36,7 @@ func resolveTemplateNameToID(templateName string) (string, error) {
 	}
 
 	for _, template := range templates {
-		if template.Name == templateName {
+		if template.Name == templateName && !template.IsDeleted {
 			return template.Id, nil
 		}
 	}
