@@ -182,6 +182,12 @@ func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 		return nil, err
 	}
 
+	// Load the template
+	template, err := database.GetInstance().GetTemplate(templateId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load template: %v", err)
+	}
+
 	space := model.NewSpace(
 		req.StringOr("name", ""),
 		req.StringOr("description", ""),
@@ -190,7 +196,7 @@ func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 		req.StringOr("shell", "bash"),
 		&[]string{}, // no alt names in MCP
 		"",          // zone will be set by service
-		req.StringOr("icon_url", ""),
+		req.StringOr("icon_url", template.IconURL),
 		parseSpaceCustomFields(req), // parse custom fields from request
 	)
 
