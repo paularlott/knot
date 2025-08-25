@@ -199,9 +199,8 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 
 	// Mark the space as deleting and delete it in the background (API-specific logic)
 	space.IsDeleting = true
-	space.Name = space.Id
 	space.UpdatedAt = hlc.Now()
-	db.SaveSpace(space, []string{"IsDeleting", "Name", "UpdatedAt"})
+	db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 	service.GetTransport().GossipSpace(space)
 
 	// Delete the space in the background
