@@ -270,7 +270,7 @@ func (s *Service) callOpenAIStream(ctx context.Context, req OpenAIRequest, user 
 
 	// Flush any remaining content in the buffer
 	if streamState.inReasoning {
-		s.addToContentBuffer("</think>", streamState, nil) // Add but don't send
+		s.addToContentBuffer("</think>", streamState, sseWriter)
 		streamState.inReasoning = false
 	}
 	if err := s.flushContentBuffer(streamState, sseWriter); err != nil {
@@ -360,7 +360,7 @@ func (s *Service) processStreamChunkIterative(ctx context.Context, response Open
 	if choice.Delta.Content != "" {
 		if streamState.inReasoning {
 			// Wrap content in think tags for frontend processing
-			s.addToContentBuffer("</think>", streamState, nil) // Add but don't send
+			s.addToContentBuffer("</think>", streamState, sseWriter)
 			streamState.inReasoning = false
 		}
 
@@ -375,7 +375,7 @@ func (s *Service) processStreamChunkIterative(ctx context.Context, response Open
 	} else if choice.Delta.ReasoningContent != "" {
 		if !streamState.inReasoning {
 			// Wrap reasoning content in think tags for frontend processing
-			s.addToContentBuffer("<think>", streamState, nil) // Add but don't send
+			s.addToContentBuffer("<think>", streamState, sseWriter)
 			streamState.inReasoning = true
 		}
 
@@ -390,8 +390,10 @@ func (s *Service) processStreamChunkIterative(ctx context.Context, response Open
 
 	// Handle finish reason
 	if choice.FinishReason == "tool_calls" {
+		log.Debug().Str("user_id", user.Id).Str("finish_reason", "tool_calls").Msg("Stream finished with tool_calls")
+
 		if streamState.inReasoning {
-			s.addToContentBuffer("</think>", streamState, nil) // Add but don't send
+			s.addToContentBuffer("</think>", streamState, sseWriter)
 			streamState.inReasoning = false
 		}
 
@@ -405,8 +407,10 @@ func (s *Service) processStreamChunkIterative(ctx context.Context, response Open
 
 	// Check if we're done with other finish reasons
 	if choice.FinishReason != "" && choice.FinishReason != "tool_calls" {
+		log.Debug().Str("user_id", user.Id).Str("finish_reason", choice.FinishReason).Msg("Stream finished with reason")
+
 		if streamState.inReasoning {
-			s.addToContentBuffer("</think>", streamState, nil) // Add but don't send
+			s.addToContentBuffer("</think>", streamState, sseWriter)
 			streamState.inReasoning = false
 		}
 		if err := s.flushContentBuffer(streamState, sseWriter); err != nil {
@@ -709,7 +713,7 @@ func (s *Service) addToContentBuffer(content string, streamState *streamState, s
 
 // flushContentBuffer sends accumulated content to the client
 func (s *Service) flushContentBuffer(streamState *streamState, sseWriter *rest.StreamWriter) error {
-	if sseWriter == nil || streamState.contentBuffer.Len() == 0 {
+	if streamState.contentBuffer.Len() == 0 {
 		return nil
 	}
 

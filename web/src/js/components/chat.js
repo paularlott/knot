@@ -429,6 +429,7 @@ window.chatComponent = function () {
 
       let contentBuffer = '';
       let inThinking = false;
+      let codeBlockOpen = false; // Track if we're inside a code block
 
       try {
         while (true) {
@@ -457,7 +458,10 @@ window.chatComponent = function () {
                   if (!inThinking && contentBuffer.includes('<think>')) {
                     const idx = contentBuffer.indexOf('<think>');
                     if (idx > 0) {
-                      assistantMessage.fragments.content += contentBuffer.substring(0, idx);
+                      const beforeThink = contentBuffer.substring(0, idx);
+                      assistantMessage.fragments.content += beforeThink;
+                      // Track code blocks in the content before thinking
+                      codeBlockOpen = this.trackCodeBlocks(beforeThink, codeBlockOpen);
                     }
                     contentBuffer = contentBuffer.substring(idx + 7);
                     inThinking = true;
@@ -472,6 +476,8 @@ window.chatComponent = function () {
                       assistantMessage.fragments.thinking += contentBuffer;
                     } else {
                       assistantMessage.fragments.content += contentBuffer;
+                      // Track code blocks in regular content
+                      codeBlockOpen = this.trackCodeBlocks(contentBuffer, codeBlockOpen);
                     }
                     contentBuffer = '';
                   }
@@ -491,6 +497,12 @@ window.chatComponent = function () {
             }
           }
         }
+
+        // Fix unclosed code block at the end of streaming
+        if (codeBlockOpen) {
+          assistantMessage.fragments.content += '\n```';
+        }
+
       } finally {
         reader.releaseLock();
       }
@@ -575,6 +587,20 @@ window.chatComponent = function () {
       }
 
       this.adjustInputSize();
+    },
+
+    // Track code blocks and return updated state
+    trackCodeBlocks(content, currentState) {
+      // Count code fences in the content
+      const fenceCount = (content.match(/```/g) || []).length;
+
+      // Each fence toggles the state
+      let newState = currentState;
+      for (let i = 0; i < fenceCount; i++) {
+        newState = !newState;
+      }
+
+      return newState;
     },
 
     init() {
