@@ -40,6 +40,16 @@ func readFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, err
 		return nil, fmt.Errorf("Space not found: %v", err)
 	}
 
+	// Load the template to test if file commands are allowed
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get template: %v", err)
+	}
+
+	if !template.WithRunCommand {
+		return nil, fmt.Errorf("file operations are not allowed in this space")
+	}
+
 	if space.UserId != user.Id && space.SharedWithUserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
 		return nil, fmt.Errorf("No permission to read files in this space")
 	}
@@ -115,6 +125,16 @@ func writeFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, er
 	space, err := db.GetSpace(spaceId)
 	if err != nil {
 		return nil, fmt.Errorf("Space not found: %v", err)
+	}
+
+	// Load the template to test if file commands are allowed
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get template: %v", err)
+	}
+
+	if !template.WithRunCommand {
+		return nil, fmt.Errorf("file operations are not allowed in this space")
 	}
 
 	if space.UserId != user.Id && space.SharedWithUserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {

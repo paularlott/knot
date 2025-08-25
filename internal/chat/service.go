@@ -688,7 +688,7 @@ func (s *Service) formatUserFriendlyError(err error) string {
 	}
 
 	if strings.Contains(errStr, "MCP") {
-		return "A tool execution failed. Please try again or rephrase your request."
+		return errStr
 	}
 
 	// For any other error, provide a generic message

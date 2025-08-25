@@ -15,7 +15,7 @@ import (
 func runCommand(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
 	if !user.HasPermission(model.PermissionRunCommands) {
-		return nil, fmt.Errorf("No permission to run commands in spaces")
+		return nil, fmt.Errorf("no permission to run commands in spaces")
 	}
 
 	spaceName, err := req.String("space_name")
@@ -40,12 +40,22 @@ func runCommand(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceId)
 	if err != nil {
-		return nil, fmt.Errorf("Space not found: %v", err)
+		return nil, fmt.Errorf("space not found: %v", err)
+	}
+
+	// Load the template to test if run commands are allowed
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get template: %v", err)
+	}
+
+	if !template.WithRunCommand {
+		return nil, fmt.Errorf("running commands are not allowed in this space")
 	}
 
 	// Check permissions
 	if space.UserId != user.Id && space.SharedWithUserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
-		return nil, fmt.Errorf("No permission to run commands in this space")
+		return nil, fmt.Errorf("no permission to run commands in this space")
 	}
 
 	// Check if space is running
@@ -56,7 +66,7 @@ func runCommand(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 	// Get the agent session
 	session := agent_server.GetSession(spaceId)
 	if session == nil {
-		return nil, fmt.Errorf("Agent session not found for space")
+		return nil, fmt.Errorf("agent session not found for space")
 	}
 
 	// Send command to agent
@@ -69,13 +79,13 @@ func runCommand(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 
 	responseChannel, err := session.SendRunCommand(runCmd)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to send command to agent: %v", err)
+		return nil, fmt.Errorf("failed to send command to agent: %v", err)
 	}
 
 	// Wait for response
 	response := <-responseChannel
 	if response == nil {
-		return nil, fmt.Errorf("No response from agent")
+		return nil, fmt.Errorf("no response from agent")
 	}
 
 	result := map[string]interface{}{
