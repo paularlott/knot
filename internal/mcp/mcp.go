@@ -13,15 +13,23 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 	server := mcp.NewServer("knot-mcp-server", build.Version)
 	server.SetInstructions(`These tools manage spaces, templates, and other resources.
 
-TEMPLATE OPERATIONS:
-- When user asks to create/update a template, get the platform spec with recipes(filename='<platform>-spec.md') then execute immediately
-- Do NOT ask for confirmation on template operations - execute directly
+CRITICAL TEMPLATE CREATION WORKFLOW:
+When user asks to create/update a template, you MUST follow this exact sequence:
+1. FIRST: Call recipes(filename='<platform>-spec.md') where platform is nomad, docker, or podman
+2. SECOND: Use the specification from step 1 as your guide to construct the job definition
+3. THIRD: Call create_template or update_template with the properly formatted job
+
+EXAMPLE: For "create a nomad template":
+1. Call recipes(filename='nomad-spec.md')
+2. Follow the nomad specification format from the response
+3. Create the template with proper nomad job syntax
 
 SPACE OPERATIONS:
 - When user asks to create spaces or environments, check recipes() first for guidance
 - Follow recipe instructions when available
 
-NEVER create templates or spaces unless explicitly requested.`)
+NEVER create templates or spaces unless explicitly requested.
+NEVER skip the recipes() call when creating/updating templates.`)
 
 	if enableWebEndpoint {
 		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(server.HandleRequest)))
@@ -41,7 +49,7 @@ NEVER create templates or spaces unless explicitly requested.`)
 		listTemplates,
 	)
 	server.RegisterTool(
-		mcp.NewTool("create_template", "Create a new space template immediately when user requests it. Get platform spec first with recipes(filename='<platform>-spec.md'), then create the template directly.").
+		mcp.NewTool("create_template", "Create a new space template. MANDATORY: Before calling this, you MUST first call recipes(filename='<platform>-spec.md') to get the platform specification and use it as your guide for the job definition.").
 			AddParam("name", mcp.String, "Template name", true).
 			AddParam("platform", mcp.String, "Platform: 'manual', 'docker', 'podman', or 'nomad'", true).
 			AddParam("job", mcp.String, "Job specification (not required for manual platform)", false).
@@ -70,7 +78,7 @@ NEVER create templates or spaces unless explicitly requested.`)
 		createTemplate,
 	)
 	server.RegisterTool(
-		mcp.NewTool("update_template", "Update an existing template. ONLY use when explicitly asked to UPDATE A TEMPLATE. First call recipes(filename='<platform>-spec.md') to learn the structure.").
+		mcp.NewTool("update_template", "Update an existing template. MANDATORY: Before calling this, you MUST first call recipes(filename='<platform>-spec.md') to get the platform specification and use it as your guide.").
 			AddParam("template_name", mcp.String, "Name of template to update", true).
 			AddParam("name", mcp.String, "New template name", false).
 			AddParam("platform", mcp.String, "Platform: 'manual', 'docker', 'podman', or 'nomad'", false).
