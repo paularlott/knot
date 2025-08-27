@@ -53,6 +53,8 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.Se
 	}
 	restClient.SetTimeout(5 * time.Minute)
 	restClient.SetTokenFormat("Bearer %s")
+	restClient.SetContentType(rest.ContentTypeJSON)
+	restClient.SetAccept(rest.ContentTypeJSON)
 
 	// Load system prompt
 	systemPrompt := defaultSystemPrompt
