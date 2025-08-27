@@ -419,6 +419,8 @@ window.chatComponent = function () {
       } finally {
         this.isLoading = false;
         this.abortController = null;
+        // Focus the input when the agent finishes responding
+        this.focusInput();
       }
     },
 
@@ -513,6 +515,8 @@ window.chatComponent = function () {
         this.abortController.abort();
         this.abortController = null;
       }
+      // Focus the input when generation is stopped
+      this.focusInput();
     },
 
     scrollToBottom() {
