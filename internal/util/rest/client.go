@@ -32,6 +32,7 @@ type RESTClient struct {
 	contentType string
 	HTTPClient  *http.Client
 	headers     map[string]string
+	accept      []string
 }
 
 func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClient, error) {
@@ -51,6 +52,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClie
 			Timeout: 10 * time.Second,
 		},
 		headers: make(map[string]string),
+		accept:  []string{ContentTypeJSON, ContentTypeMsgPack},
 	}
 
 	restClient.HTTPClient.Transport = &http.Transport{
@@ -76,6 +78,11 @@ func (c *RESTClient) SetTimeout(timeout time.Duration) *RESTClient {
 
 func (c *RESTClient) SetContentType(contentType string) *RESTClient {
 	c.contentType = contentType
+	return c
+}
+
+func (c *RESTClient) SetAccept(accept ...string) *RESTClient {
+	c.accept = accept
 	return c
 }
 
@@ -131,7 +138,7 @@ func (c *RESTClient) ClearHeaders() *RESTClient {
 }
 
 func (c *RESTClient) setHeaders(req *http.Request) {
-	req.Header.Set("Accept", "application/json, application/msgpack")
+	req.Header.Set("Accept", strings.Join(c.accept, ", "))
 	req.Header.Set("Content-Type", c.contentType)
 	req.Header.Set("User-Agent", c.userAgent)
 	if c.token != "" {
