@@ -89,16 +89,16 @@ func runCommand(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 	}
 
 	result := map[string]interface{}{
-		"space_id":   spaceId,
-		"space_name": space.Name,
-		"command":    command,
-		"output":     string(response.Output),
-		"success":    response.Success,
+		"output":  string(response.Output),
+		"success": response.Success,
 	}
 
 	if !response.Success {
 		result["error"] = response.Error
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }

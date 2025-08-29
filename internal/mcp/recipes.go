@@ -58,12 +58,13 @@ func listRecipes(recipesPath string) (*mcp.ToolResponse, error) {
 	recipes = addInternalSpecs(recipes)
 
 	result := map[string]interface{}{
-		"action":  "list",
 		"recipes": recipes,
-		"count":   len(recipes),
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }
 
 func getRecipeContent(recipesPath, filename string) (*mcp.ToolResponse, error) {
@@ -178,12 +179,13 @@ func readUserRecipe(recipesPath, filename string) (string, error) {
 
 func createContentResponse(filename, content string) *mcp.ToolResponse {
 	result := map[string]interface{}{
-		"action":   "get",
 		"filename": filename,
 		"content":  content,
-		"size":     len(content),
 	}
-	return mcp.NewToolResponseJSON(result)
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	)
 }
 
 func getInternalSpec(filename string) string {

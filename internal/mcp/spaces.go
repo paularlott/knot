@@ -3,8 +3,10 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/paularlott/gossip/hlc"
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/config"
@@ -52,8 +54,8 @@ type Space struct {
 	Note         string                   `json:"note"`
 	Zone         string                   `json:"zone"`
 	Platform     string                   `json:"platform"`
-	WebPorts     map[string]string        `json:"web_ports"`
-	TCPPorts     map[string]string        `json:"tcp_ports"`
+	WebPorts     []string                 `json:"web_ports"`
+	TCPPorts     []string                 `json:"tcp_ports"`
 	SSH          bool                     `json:"ssh"`
 	WebTerminal  bool                     `json:"web_terminal"`
 	CustomFields []model.SpaceCustomField `json:"custom_fields"`
@@ -66,11 +68,25 @@ type SharedWith struct {
 	Email    string `json:"email,omitempty"`
 }
 
-// Generic response structure for space operations
-type SpaceOperationResponse struct {
-	Message   string `json:"message"`
-	SpaceName string `json:"space_name"`
-	SpaceID   string `json:"space_id"`
+type SpaceList struct {
+	Spaces []Space `json:"spaces"`
+}
+
+type SpaceDefinition struct {
+	UserId       string                       `json:"user_id"`
+	TemplateId   string                       `json:"template_id"`
+	Name         string                       `json:"name"`
+	Description  string                       `json:"description"`
+	Shell        string                       `json:"shell"`
+	Zone         string                       `json:"zone"`
+	AltNames     []string                     `json:"alt_names"`
+	IsDeployed   bool                         `json:"is_deployed"`
+	IsPending    bool                         `json:"is_pending"`
+	IsDeleting   bool                         `json:"is_deleting"`
+	StartedAt    time.Time                    `json:"started_at"`
+	CreatedAt    time.Time                    `json:"created_at"`
+	IconURL      string                       `json:"icon_url"`
+	CustomFields []apiclient.CustomFieldValue `json:"custom_fields"`
 }
 
 func getSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -87,7 +103,31 @@ func getSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, err
 		return nil, err
 	}
 
-	return mcp.NewToolResponseJSON(data), nil
+	result := SpaceDefinition{
+		UserId:       data.UserId,
+		TemplateId:   data.TemplateId,
+		Name:         data.Name,
+		Description:  data.Description,
+		Shell:        data.Shell,
+		Zone:         data.Zone,
+		AltNames:     data.AltNames,
+		IsDeployed:   data.IsDeployed,
+		IsPending:    data.IsPending,
+		IsDeleting:   data.IsDeleting,
+		StartedAt:    data.StartedAt,
+		CreatedAt:    data.CreatedAt,
+		IconURL:      data.IconURL,
+		CustomFields: data.CustomFields,
+	}
+
+	if result.AltNames == nil {
+		result.AltNames = make([]string, 0)
+	}
+
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }
 
 func listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -121,8 +161,8 @@ func listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 		}
 
 		// Get additional space details
-		webPorts := make(map[string]string)
-		tcpPorts := make(map[string]string)
+		webPorts := make([]string, 0)
+		tcpPorts := make([]string, 0)
 		sshAvailable := false
 		webTerminal := false
 		platform := ""
@@ -136,8 +176,12 @@ func listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 			// Load the space state
 			state := agent_server.GetSession(space.Id)
 			if state != nil {
-				webPorts = state.HttpPorts
-				tcpPorts = state.TcpPorts
+				for name, port := range state.HttpPorts {
+					webPorts = append(webPorts, fmt.Sprintf("%s:%s", name, port))
+				}
+				for name, port := range state.TcpPorts {
+					tcpPorts = append(tcpPorts, fmt.Sprintf("%s:%s", name, port))
+				}
 				sshAvailable = state.SSHPort > 0
 				webTerminal = state.HasTerminal
 			}
@@ -170,7 +214,12 @@ func listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 		result = append(result, s)
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	spaceList := SpaceList{Spaces: result}
+
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(spaceList),
+		mcp.NewToolResponseStructured(spaceList),
+	), nil
 }
 
 func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -222,7 +271,10 @@ func createSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 		"space_id": space.Id,
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }
 
 func updateSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -286,7 +338,10 @@ func updateSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 		"status": true,
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }
 
 func deleteSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -337,7 +392,10 @@ func deleteSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 		"status": true,
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }
 
 func startSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -377,13 +435,7 @@ func startSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 		return nil, fmt.Errorf("Failed to start space: %v", err)
 	}
 
-	response := SpaceOperationResponse{
-		Message:   fmt.Sprintf("Space '%s' is starting", space.Name),
-		SpaceName: space.Name,
-		SpaceID:   spaceID,
-	}
-
-	return mcp.NewToolResponseJSON(response), nil
+	return mcp.NewToolResponseText(fmt.Sprintf("Space '%s' is starting", space.Name)), nil
 }
 
 func stopSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -418,13 +470,7 @@ func stopSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, er
 		return nil, fmt.Errorf("Failed to stop space: %v", err)
 	}
 
-	response := SpaceOperationResponse{
-		Message:   fmt.Sprintf("Space '%s' is stopping", space.Name),
-		SpaceName: space.Name,
-		SpaceID:   spaceID,
-	}
-
-	return mcp.NewToolResponseJSON(response), nil
+	return mcp.NewToolResponseText(fmt.Sprintf("Space '%s' is stopping", space.Name)), nil
 }
 
 func restartSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -459,13 +505,7 @@ func restartSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse,
 		return nil, fmt.Errorf("Failed to restart space: %v", err)
 	}
 
-	response := SpaceOperationResponse{
-		Message:   fmt.Sprintf("Space '%s' is restarting", space.Name),
-		SpaceName: space.Name,
-		SpaceID:   spaceID,
-	}
-
-	return mcp.NewToolResponseJSON(response), nil
+	return mcp.NewToolResponseText(fmt.Sprintf("Space '%s' is restarting", space.Name)), nil
 }
 
 func shareSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -492,19 +532,19 @@ func shareSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceId)
 	if err != nil {
-		return nil, fmt.Errorf("Space not found: %v", err)
+		return nil, fmt.Errorf("space not found: %v", err)
 	}
 
 	if space.UserId != user.Id {
-		return nil, fmt.Errorf("Space not found")
+		return nil, fmt.Errorf("space not found")
 	}
 
 	if space.IsDeleting {
-		return nil, fmt.Errorf("Space cannot be shared at this time")
+		return nil, fmt.Errorf("space cannot be shared at this time")
 	}
 
 	if space.UserId == userId {
-		return nil, fmt.Errorf("Cannot share with yourself")
+		return nil, fmt.Errorf("cannot share with yourself")
 	}
 
 	newUser, err := db.GetUser(userId)
@@ -516,7 +556,7 @@ func shareSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to share space: %v", err)
+		return nil, fmt.Errorf("failed to share space: %v", err)
 	}
 
 	service.GetTransport().GossipSpace(space)
@@ -534,18 +574,21 @@ func shareSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 		},
 	)
 
-	return mcp.NewToolResponseJSON(map[string]interface{}{"status": true}), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(map[string]interface{}{"status": true}),
+		mcp.NewToolResponseStructured(map[string]interface{}{"status": true}),
+	), nil
 }
 
 func stopSharingSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
 	if !user.HasPermission(model.PermissionTransferSpaces) {
-		return nil, fmt.Errorf("No permission to manage space sharing")
+		return nil, fmt.Errorf("no permission to manage space sharing")
 	}
 
 	spaceName := req.StringOr("space_name", "")
 	if spaceName == "" {
-		return nil, fmt.Errorf("Space name is required")
+		return nil, fmt.Errorf("space name is required")
 	}
 
 	spaceId, err := resolveSpaceNameToID(spaceName, user)
@@ -556,22 +599,22 @@ func stopSharingSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespo
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceId)
 	if err != nil {
-		return nil, fmt.Errorf("Space not found: %v", err)
+		return nil, fmt.Errorf("space not found: %v", err)
 	}
 
 	if space.UserId != user.Id && space.SharedWithUserId != user.Id {
-		return nil, fmt.Errorf("Space not found")
+		return nil, fmt.Errorf("space not found")
 	}
 
 	if space.SharedWithUserId == "" {
-		return nil, fmt.Errorf("Space is not shared")
+		return nil, fmt.Errorf("space is not shared")
 	}
 
 	space.SharedWithUserId = ""
 	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to stop sharing space: %v", err)
+		return nil, fmt.Errorf("failed to stop sharing space: %v", err)
 	}
 
 	service.GetTransport().GossipSpace(space)
@@ -588,7 +631,10 @@ func stopSharingSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespo
 		},
 	)
 
-	return mcp.NewToolResponseJSON(map[string]interface{}{"status": true}), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(map[string]interface{}{"status": true}),
+		mcp.NewToolResponseStructured(map[string]interface{}{"status": true}),
+	), nil
 }
 
 func transferSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -615,19 +661,19 @@ func transferSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 	db := database.GetInstance()
 	space, err := db.GetSpace(spaceId)
 	if err != nil {
-		return nil, fmt.Errorf("Space not found: %v", err)
+		return nil, fmt.Errorf("space not found: %v", err)
 	}
 
 	if space.UserId != user.Id {
-		return nil, fmt.Errorf("Space not found")
+		return nil, fmt.Errorf("space not found")
 	}
 
 	if space.IsDeployed || space.IsPending || space.IsDeleting {
-		return nil, fmt.Errorf("Space cannot be transferred at this time")
+		return nil, fmt.Errorf("space cannot be transferred at this time")
 	}
 
 	if space.UserId == userId {
-		return nil, fmt.Errorf("Cannot transfer to yourself")
+		return nil, fmt.Errorf("cannot transfer to yourself")
 	}
 
 	newUser, err := db.GetUser(userId)
@@ -637,12 +683,12 @@ func transferSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 
 	userQuota, err := database.GetUserQuota(newUser)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to check user quota: %v", err)
+		return nil, fmt.Errorf("failed to check user quota: %v", err)
 	}
 
 	userUsage, err := database.GetUserUsage(newUser.Id, "")
 	if err != nil {
-		return nil, fmt.Errorf("Failed to check user usage: %v", err)
+		return nil, fmt.Errorf("failed to check user usage: %v", err)
 	}
 
 	if userQuota.MaxSpaces > 0 && uint32(userUsage.NumberSpaces) >= userQuota.MaxSpaces {
@@ -651,11 +697,11 @@ func transferSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get template: %v", err)
+		return nil, fmt.Errorf("failed to get template: %v", err)
 	}
 
 	if userQuota.StorageUnits > 0 && userUsage.StorageUnits+template.StorageUnits > userQuota.StorageUnits {
-		return nil, fmt.Errorf("Storage unit quota exceeded")
+		return nil, fmt.Errorf("storage unit quota exceeded")
 	}
 
 	name := space.Name
@@ -666,7 +712,7 @@ func transferSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 			name = fmt.Sprintf("%s-%d", space.Name, attempt)
 			attempt++
 			if attempt > 10 {
-				return nil, fmt.Errorf("User already has a space with the same name")
+				return nil, fmt.Errorf("user already has a space with the same name")
 			}
 			continue
 		}
@@ -678,7 +724,7 @@ func transferSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"Name", "UserId", "UpdatedAt"})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to transfer space: %v", err)
+		return nil, fmt.Errorf("failed to transfer space: %v", err)
 	}
 
 	service.GetTransport().GossipSpace(space)
@@ -695,7 +741,10 @@ func transferSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 		},
 	)
 
-	return mcp.NewToolResponseJSON(map[string]interface{}{"status": true}), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(map[string]interface{}{"status": true}),
+		mcp.NewToolResponseStructured(map[string]interface{}{"status": true}),
+	), nil
 }
 
 // parseSpaceCustomFields extracts custom field values from the MCP request

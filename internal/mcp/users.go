@@ -18,6 +18,10 @@ type User struct {
 	Groups   []string `json:"groups"`
 }
 
+type UserList struct {
+	Users []User `json:"users"`
+}
+
 func listUsers(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
 	if !user.HasPermission(model.PermissionManageUsers) && !user.HasPermission(model.PermissionManageSpaces) && !user.HasPermission(model.PermissionTransferSpaces) {
@@ -45,5 +49,10 @@ func listUsers(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, er
 		})
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	userList := UserList{Users: result}
+
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(userList),
+		mcp.NewToolResponseStructured(userList),
+	), nil
 }

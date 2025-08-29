@@ -18,6 +18,10 @@ type Group struct {
 	MaxTunnels   uint32 `json:"max_tunnels"`
 }
 
+type GroupList struct {
+	Groups []Group `json:"groups"`
+}
+
 func listGroups(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	db := database.GetInstance()
 	groups, err := db.GetGroups()
@@ -25,13 +29,13 @@ func listGroups(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 		return nil, fmt.Errorf("Failed to get groups: %v", err)
 	}
 
-	var result []Group
+	var groupList GroupList
 	for _, group := range groups {
 		if group.IsDeleted {
 			continue
 		}
 
-		result = append(result, Group{
+		groupList.Groups = append(groupList.Groups, Group{
 			ID:           group.Id,
 			Name:         group.Name,
 			MaxSpaces:    group.MaxSpaces,
@@ -41,5 +45,8 @@ func listGroups(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 		})
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(groupList),
+		mcp.NewToolResponseStructured(groupList),
+	), nil
 }

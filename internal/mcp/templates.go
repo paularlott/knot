@@ -37,6 +37,10 @@ type TemplateGroup struct {
 	Name string `json:"name"`
 }
 
+type TemplateList struct {
+	Templates []Template `json:"templates"`
+}
+
 func getTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	user := ctx.Value("user").(*model.User)
 	templateName := req.StringOr("template_name", "")
@@ -51,7 +55,10 @@ func getTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 		return nil, err
 	}
 
-	return mcp.NewToolResponseJSON(data), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(data),
+		mcp.NewToolResponseStructured(data),
+	), nil
 }
 
 func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -83,7 +90,7 @@ func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 	var result []Template
 	for _, template := range templates {
 		// Build the groups list
-		var groupsList []TemplateGroup
+		groupsList := []TemplateGroup{}
 		for _, group := range template.Groups {
 			if grp, ok := groupMap[group]; ok {
 				groupsList = append(groupsList, TemplateGroup{ID: grp.Id, Name: grp.Name})
@@ -108,7 +115,12 @@ func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 		})
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	templateList := TemplateList{Templates: result}
+
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(templateList),
+		mcp.NewToolResponseStructured(templateList),
+	), nil
 }
 
 func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -171,7 +183,10 @@ func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 		"id":     template.Id,
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }
 
 func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -388,7 +403,10 @@ func updateTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 		"status": true,
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }
 
 func deleteTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {

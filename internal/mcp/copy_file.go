@@ -80,9 +80,8 @@ func readFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, err
 	}
 
 	result := map[string]interface{}{
-		"space_name": space.Name,
-		"file_path":  filePath,
-		"success":    response.Success,
+		"file_path": filePath,
+		"success":   response.Success,
 	}
 
 	if !response.Success {
@@ -92,7 +91,10 @@ func readFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, err
 		result["size"] = len(response.Content)
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }
 
 func writeFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
@@ -147,7 +149,7 @@ func writeFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, er
 
 	session := agent_server.GetSession(spaceId)
 	if session == nil {
-		return nil, fmt.Errorf("Agent session not found for space")
+		return nil, fmt.Errorf("agent session not found for space")
 	}
 
 	var contentBytes []byte
@@ -166,18 +168,17 @@ func writeFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, er
 
 	responseChannel, err := session.SendCopyFile(copyCmd)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to send write file command to agent: %v", err)
+		return nil, fmt.Errorf("failed to send write file command to agent: %v", err)
 	}
 
 	response := <-responseChannel
 	if response == nil {
-		return nil, fmt.Errorf("No response from agent")
+		return nil, fmt.Errorf("no response from agent")
 	}
 
 	result := map[string]interface{}{
-		"space_name": space.Name,
-		"file_path":  filePath,
-		"success":    response.Success,
+		"file_path": filePath,
+		"success":   response.Success,
 	}
 
 	if !response.Success {
@@ -187,5 +188,8 @@ func writeFile(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, er
 		result["bytes_written"] = len(contentBytes)
 	}
 
-	return mcp.NewToolResponseJSON(result), nil
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }

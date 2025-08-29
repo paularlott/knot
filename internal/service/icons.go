@@ -21,7 +21,7 @@ type Icon struct {
 }
 
 type IconList struct {
-	Icons []Icon `toml:"icons"`
+	Icons []Icon `toml:"icons" json:"icons"`
 }
 
 var (

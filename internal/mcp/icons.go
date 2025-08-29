@@ -11,5 +11,12 @@ func listIcons(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, er
 	iconService := service.GetIconService()
 	icons := iconService.GetIcons()
 
-	return mcp.NewToolResponseJSON(icons), nil
+	result := service.IconList{
+		Icons: icons,
+	}
+
+	return mcp.NewToolResponseMulti(
+		mcp.NewToolResponseJSON(result),
+		mcp.NewToolResponseStructured(result),
+	), nil
 }
