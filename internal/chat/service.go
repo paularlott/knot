@@ -562,7 +562,17 @@ func (s *Service) executeMCPTool(ctx context.Context, toolCall ToolCall, user *m
 		return "", fmt.Errorf("MCP tool call failed: %v", err)
 	}
 
-	// Extract text content from response
+	// Priority 1: Check for structured content first
+	if response.StructuredContent != nil {
+		jsonBytes, err := json.Marshal(response.StructuredContent)
+		if err != nil {
+			log.Error().Err(err).Str("user_id", user.Id).Str("tool_name", toolCall.Function.Name).Msg("executeMCPTool: Failed to marshal structured content")
+			return "", fmt.Errorf("failed to serialize structured tool response: %v", err)
+		}
+		return string(jsonBytes), nil
+	}
+
+	// Priority 2: Fall back to text content from Content array
 	if len(response.Content) > 0 && response.Content[0].Type == "text" {
 		return response.Content[0].Text, nil
 	}
