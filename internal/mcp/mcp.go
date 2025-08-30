@@ -403,7 +403,7 @@ NEVER skip the recipes() call when creating/updating templates.`)
 
 	// Users
 	server.RegisterTool(
-		mcp.NewTool("list_users", "List all users with IDs and details. Use to find user IDs for sharing or transfers.",
+		mcp.NewTool("list_users", "List all users details (id, username, email, active, groups). Use to find user IDs for sharing or transfers.",
 			mcp.Output(
 				mcp.ObjectArray("users", "Array of users within the system",
 					mcp.String("id", "User ID"),
