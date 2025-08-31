@@ -182,7 +182,6 @@ func NewCluster(
 		metadata.SetString("zone", cfg.Zone)
 		metadata.SetString("agent_endpoint", cfg.AgentEndpoint)
 		metadata.SetString("tunnel_server", cfg.TunnelServer)
-		cluster.gossipCluster.UpdateMetadata()
 
 		// Set up leader elections within the locality
 		electionCfg := leader.DefaultConfig()

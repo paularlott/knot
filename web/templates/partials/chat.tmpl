@@ -130,16 +130,39 @@
                     x-transition:leave="transition-all ease-in duration-200"
                     x-transition:leave-start="opacity-100 max-h-96" x-transition:leave-end="opacity-0 max-h-0"
                     class="space-y-2 overflow-hidden">
-                    <template x-for="result in message.fragments.toolResults">
-                      <div
-                        class="text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-700 min-w-0">
-                        <div class="font-semibold text-gray-700 dark:text-gray-300 mb-2" x-text="result.name"></div>
-                        <div class="overflow-x-auto max-h-64">
-                          <pre class="text-gray-600 dark:text-gray-400 font-mono text-xs py-4 whitespace-pre"
-                            x-text="result.result"></pre>
-                        </div>
+
+                    <!-- Paired Tool Calls and Results -->
+                    <template x-if="message.toolCalls && message.toolCalls.length > 0">
+                      <div class="space-y-3">
+                        <template x-for="toolCall in message.toolCalls" :key="toolCall.id">
+                          <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                            <!-- Tool Call -->
+                            <div class="bg-gray-50 dark:bg-gray-900/20 border-b border-gray-200 dark:border-gray-800 p-3">
+                              <code class="bg-blue-100 dark:bg-blue-800 px-2 py-1 rounded text-xs font-mono" x-text="toolCall.function.name"></code>
+                              <div x-show="toolCall.function.arguments && Object.keys(JSON.parse(toolCall.function.arguments || '{}')).length > 0" class="mt-2 text-xs text-gray-800 dark:text-gray-300">
+                                <span class="font-medium">Arguments:</span>
+                                <div class="bg-gray-200 dark:bg-gray-900 p-2 rounded mt-1 overflow-x-auto max-h-32">
+                                  <pre class="text-gray-600 dark:text-gray-400 font-mono text-xs whitespace-pre"><code x-text="formatResult(toolCall.function.arguments || '{}')"></code></pre>
+                                </div>
+                              </div>
+                            </div>
+
+                            <!-- Corresponding Tool Result -->
+                            <template x-for="result in (message.fragments?.toolResults || [])" :key="result.tool_call_id">
+                              <template x-if="result.tool_call_id === toolCall.id">
+                                <div class="bg-gray-50 dark:bg-gray-900/20 p-3 pt-0">
+                                  <span class="font-medium text-gray-800 dark:text-gray-300 text-xs">Result:</span>
+                                  <div class="bg-gray-200 dark:bg-gray-900 p-2 rounded overflow-x-auto max-h-64">
+                                    <pre class="text-gray-600 dark:text-gray-400 font-mono text-xs whitespace-pre" x-text="formatResult(result.result)"></pre>
+                                  </div>
+                                </div>
+                              </template>
+                            </template>
+                          </div>
+                        </template>
                       </div>
                     </template>
+
                   </div>
                 </div>
               </template>

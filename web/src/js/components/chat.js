@@ -336,7 +336,23 @@ window.chatComponent = function () {
 
         // Include tool calls for assistant messages
         if (msg.role === 'assistant' && msg.toolCalls?.length > 0) {
-          historyMsg.tool_calls = msg.toolCalls;
+          // Ensure tool calls are properly formatted
+          historyMsg.tool_calls = msg.toolCalls.map(tc => ({
+            id: tc.id,
+            type: tc.type || 'function',
+            function: {
+              name: tc.function?.name || tc.name,
+              arguments: typeof tc.function?.arguments === 'string'
+                ? tc.function.arguments
+                : JSON.stringify(tc.function?.arguments || tc.arguments || {})
+            }
+          }));
+
+          // When there are tool calls, content should be minimal or empty
+          // Only keep content if it's substantial and not just tool call descriptions
+          if (content.length < 50 || content.includes('I\'ll') || content.includes('Let me')) {
+            historyMsg.content = '';
+          }
         }
 
         messageHistory.push(historyMsg);
@@ -346,7 +362,7 @@ window.chatComponent = function () {
           for (const toolResult of msg.fragments.toolResults) {
             messageHistory.push({
               role: 'tool',
-              content: toolResult.result.trim(),
+              content: toolResult.result.trim() || '',
               tool_call_id: toolResult.tool_call_id,
               timestamp: msg.timestamp
             });
@@ -487,7 +503,14 @@ window.chatComponent = function () {
                 // Auto-scroll after content updates
                 this.scrollToBottom();
               } else if (event.type === 'tool_calls') {
-                assistantMessage.toolCalls = event.data;
+                if (!assistantMessage.toolCalls) {
+                  assistantMessage.toolCalls = [];
+                }
+
+                // Add new tool calls, avoiding duplicates based on ID
+                const existingIds = new Set(assistantMessage.toolCalls.map(tc => tc.id));
+                const newToolCalls = event.data.filter(tc => !existingIds.has(tc.id));
+                assistantMessage.toolCalls.push(...newToolCalls);
               } else if (event.type === 'tool_result') {
                 assistantMessage.fragments.toolResults.push(event.data);
               } else if (event.type === 'error') {
@@ -605,6 +628,14 @@ window.chatComponent = function () {
       }
 
       return newState;
+    },
+
+    formatResult(result) {
+      try {
+        return JSON.stringify(JSON.parse(result || '{}'), null, 2);
+      } catch {
+        return result;
+      }
     },
 
     init() {
