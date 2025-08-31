@@ -274,7 +274,7 @@ func (c *Client) getAvailableTools() ([]Tool, error) {
 }
 
 // StreamCallback defines the callback function for streaming events
-type StreamCallback func(content string, eventType string, data interface{}) error
+type StreamCallback func(event StreamEvent) error
 
 const MAX_TOOL_CALL_ITERATIONS = 20
 
@@ -321,7 +321,7 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest, 
 		if len(tools) == 0 || len(response.Choices) == 0 || len(response.Choices[0].Message.ToolCalls) == 0 {
 			// Send completion event
 			if streamCallback != nil {
-				streamCallback("", "done", nil)
+				streamCallback(DoneEvent{})
 			}
 			return response, nil
 		}
@@ -332,7 +332,7 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest, 
 
 		// Send tool calls to stream
 		if streamCallback != nil {
-			if err := streamCallback("", "tool_calls", toolCalls); err != nil {
+			if err := streamCallback(ToolCallsEvent{ToolCalls: toolCalls}); err != nil {
 				return nil, err
 			}
 		}
@@ -360,12 +360,11 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest, 
 
 			// Send tool result to stream
 			if streamCallback != nil {
-				toolResultData := map[string]interface{}{
-					"tool_name":    toolCall.Function.Name,
-					"result":       result,
-					"tool_call_id": toolCall.ID,
-				}
-				if err := streamCallback("", "tool_result", toolResultData); err != nil {
+				if err := streamCallback(ToolResultEvent{
+					ToolName:   toolCall.Function.Name,
+					Result:     result,
+					ToolCallID: toolCall.ID,
+				}); err != nil {
 					return nil, err
 				}
 			}
@@ -384,10 +383,9 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest, 
 
 	// If we reach here, we've hit the iteration limit
 	if streamCallback != nil {
-		errorData := map[string]string{
-			"error": fmt.Sprintf("Maximum tool call limit (%d) reached. The conversation has been stopped to prevent infinite loops.", MAX_TOOL_CALL_ITERATIONS),
-		}
-		streamCallback("", "error", errorData)
+		streamCallback(ErrorEvent{
+			Error: fmt.Sprintf("Maximum tool call limit (%d) reached. The conversation has been stopped to prevent infinite loops.", MAX_TOOL_CALL_ITERATIONS),
+		})
 	}
 
 	return nil, fmt.Errorf("maximum tool call iterations (%d) reached", MAX_TOOL_CALL_ITERATIONS)
@@ -467,14 +465,14 @@ func (c *Client) internalCallback(streamCallback StreamCallback) func(ChatComple
 
 			// Handle regular content
 			if choice.Delta.Content != "" {
-				if err := streamCallback(choice.Delta.Content, "content", resp); err != nil {
+				if err := streamCallback(ContentEvent{Content: choice.Delta.Content}); err != nil {
 					return false, err
 				}
 			}
 
 			// Handle reasoning content (thinking blocks)
 			if choice.Delta.ReasoningContent != "" {
-				if err := streamCallback(choice.Delta.ReasoningContent, "reasoning", resp); err != nil {
+				if err := streamCallback(ReasoningEvent{Content: choice.Delta.ReasoningContent}); err != nil {
 					return false, err
 				}
 			}

@@ -116,7 +116,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 	ctxWithUser := context.WithValue(ctx, "user", user)
 
 	// Create stream callback to handle events from OpenAI client
-	streamCallback := func(content string, eventType string, data interface{}) error {
+	eventCallback := func(event openai.StreamEvent) error {
 		// Check if client disconnected
 		select {
 		case <-ctx.Done():
@@ -124,24 +124,38 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 		default:
 		}
 
-		switch eventType {
-		case "content":
-			return s.handleContentStream(content, streamState, sseWriter)
-		case "reasoning":
-			return s.handleReasoningStream(content, streamState, sseWriter)
-		case "tool_calls", "tool_result", "error":
+		switch e := event.(type) {
+		case openai.ContentEvent:
+			return s.handleContentStream(e.Content, streamState, sseWriter)
+		case openai.ReasoningEvent:
+			return s.handleReasoningStream(e.Content, streamState, sseWriter)
+		case openai.ToolCallsEvent:
 			return sseWriter.WriteChunk(SSEEvent{
-				Type: eventType,
-				Data: data,
+				Type: "tool_calls",
+				Data: e.ToolCalls,
 			})
-		case "done":
+		case openai.ToolResultEvent:
+			return sseWriter.WriteChunk(SSEEvent{
+				Type: "tool_result",
+				Data: map[string]interface{}{
+					"tool_name":    e.ToolName,
+					"result":       e.Result,
+					"tool_call_id": e.ToolCallID,
+				},
+			})
+		case openai.ErrorEvent:
+			return sseWriter.WriteChunk(SSEEvent{
+				Type: "error",
+				Data: map[string]string{"error": e.Error},
+			})
+		case openai.DoneEvent:
 			return s.handleDoneStream(streamState, sseWriter)
 		}
 		return nil
 	}
 
 	// Call OpenAI client (automatically handles tools if MCP server is available)
-	_, err := s.openaiClient.ChatCompletion(ctxWithUser, req, streamCallback)
+	_, err := s.openaiClient.ChatCompletion(ctxWithUser, req, eventCallback)
 	if err != nil {
 		log.Error().Err(err).Str("user_id", user.Id).Msg("streamChat: Chat completion with tools failed")
 		sseWriter.WriteChunk(SSEEvent{

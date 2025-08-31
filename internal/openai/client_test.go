@@ -235,16 +235,16 @@ func TestClient_ChatCompletion_Streaming(t *testing.T) {
 	}
 
 	var chunks []string
-	streamCallback := func(content string, eventType string, data interface{}) error {
-		if eventType == "content" {
-			chunks = append(chunks, content)
+	eventCallback := func(event StreamEvent) error {
+		if e, ok := event.(ContentEvent); ok {
+			chunks = append(chunks, e.Content)
 		}
 		return nil
 	}
 
 	ctx := context.Background()
 	req.Stream = true
-	response, err := client.ChatCompletion(ctx, req, streamCallback)
+	response, err := client.ChatCompletion(ctx, req, eventCallback)
 	if err != nil {
 		t.Fatalf("ChatCompletion() error = %v", err)
 	}
