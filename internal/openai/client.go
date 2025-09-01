@@ -27,6 +27,8 @@ type Config struct {
 	Timeout time.Duration
 }
 
+type ToolFilter func(toolName string) bool
+
 // New creates a new OpenAI client
 func New(config Config, mcpServer *mcp.Server) (*Client, error) {
 	if config.BaseURL == "" {
@@ -237,7 +239,7 @@ func (c *Client) finalizeToolCalls(toolCallBuffer map[int]*ToolCall, argumentsBu
 }
 
 // getAvailableTools returns the list of available tools from MCP server
-func (c *Client) getAvailableTools() ([]Tool, error) {
+func (c *Client) getAvailableTools(filter ToolFilter) ([]Tool, error) {
 	if c.mcpServer == nil {
 		return []Tool{}, nil
 	}
@@ -247,6 +249,11 @@ func (c *Client) getAvailableTools() ([]Tool, error) {
 	var openAITools []Tool
 
 	for _, tool := range tools {
+		// Apply filter if provided
+		if filter != nil && !filter(tool.Name) {
+			continue // Skip this tool if filter rejects it
+		}
+
 		// Safely convert InputSchema to map[string]any
 		var parameters map[string]any
 		if tool.InputSchema != nil {
@@ -282,11 +289,11 @@ const MAX_TOOL_CALL_ITERATIONS = 20
 // Automatically detects if MCP server is available and adds tools if so
 // Uses req.Stream to determine streaming vs non-streaming mode
 // If streaming and streamCallback is provided, calls streamCallback for each event
-func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest, streamCallback StreamCallback) (*ChatCompletionResponse, error) {
+func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest, streamCallback StreamCallback, toolFilter ToolFilter) (*ChatCompletionResponse, error) {
 	currentMessages := req.Messages
 
 	// Get available tools
-	tools, err := c.getAvailableTools()
+	tools, err := c.getAvailableTools(toolFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get available tools: %w", err)
 	}

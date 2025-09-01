@@ -12,6 +12,7 @@ import (
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
+	mcpTools "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -155,7 +156,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 	}
 
 	// Call OpenAI client (automatically handles tools if MCP server is available)
-	_, err := s.openaiClient.ChatCompletion(ctxWithUser, req, eventCallback)
+	_, err := s.openaiClient.ChatCompletion(ctxWithUser, req, eventCallback, mcpTools.ToolFilter(user))
 	if err != nil {
 		log.Error().Err(err).Str("user_id", user.Id).Msg("streamChat: Chat completion with tools failed")
 		sseWriter.WriteChunk(SSEEvent{
