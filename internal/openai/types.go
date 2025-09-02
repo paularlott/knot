@@ -49,7 +49,7 @@ type Choice struct {
 
 // Message represents a message in the conversation
 type Message struct {
-	Role       string     `json:"role"`
+	Role       string     `json:"role,omitempty"`
 	Content    string     `json:"content,omitempty"`
 	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
 	ToolCallID string     `json:"tool_call_id,omitempty"`
