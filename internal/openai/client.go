@@ -165,8 +165,8 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolCallBu
 
 	choice := response.Choices[0]
 
-	// Handle tool calls
-	if len(choice.Delta.ToolCalls) > 0 {
+	// Handle tool calls only if MCP server is available
+	if c.mcpServer != nil && len(choice.Delta.ToolCalls) > 0 {
 		for _, deltaCall := range choice.Delta.ToolCalls {
 			index := deltaCall.Index
 			if (*toolCallBuffer)[index] == nil {
@@ -298,8 +298,10 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest, 
 		return nil, fmt.Errorf("failed to get available tools: %w", err)
 	}
 
-	// Add tools to request
-	req.Tools = tools
+	// Add tools to request if we have any
+	if len(tools) > 0 {
+		req.Tools = tools
+	}
 
 	// Iterative tool call loop
 	for iteration := 0; iteration < MAX_TOOL_CALL_ITERATIONS; iteration++ {
@@ -325,7 +327,7 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest, 
 		}
 
 		// If no tool calls, no tools or no mcp server, we're done
-		if len(tools) == 0 || len(response.Choices) == 0 || len(response.Choices[0].Message.ToolCalls) == 0 {
+		if len(tools) == 0 || c.mcpServer == nil || len(response.Choices) == 0 || len(response.Choices[0].Message.ToolCalls) == 0 {
 			// Send completion event
 			if streamCallback != nil {
 				streamCallback(DoneEvent{})
@@ -441,7 +443,6 @@ func (c *Client) chatCompletionWithRetry(ctx context.Context, req ChatCompletion
 			}
 		}
 
-		req.Stream = streamCallback != nil
 		var response *ChatCompletionResponse
 		var err error
 
