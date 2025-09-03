@@ -21,10 +21,10 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.68
 	github.com/paularlott/cli v0.3.0
-	github.com/paularlott/gossip v0.6.2
-	github.com/paularlott/mcp v0.0.0-20250831155941-afa482785b98
+	github.com/paularlott/gossip v0.7.0
+	github.com/paularlott/mcp v0.0.0-20250831160749-e7c8f607d2d6
 	github.com/pkg/sftp v1.13.9
-	github.com/redis/go-redis/v9 v9.12.1
+	github.com/redis/go-redis/v9 v9.13.0
 	github.com/rs/zerolog v1.34.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5

@@ -3,8 +3,8 @@ package scaffold
 import (
 	_ "embed"
 
-	"github.com/paularlott/knot/internal/chat"
 	"github.com/paularlott/knot/internal/mcp"
+	"github.com/paularlott/knot/internal/systemprompt"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 
 // GetSystemPromptScaffold returns the embedded system prompt
 func GetSystemPromptScaffold() string {
-	return chat.GetInternalSystemPrompt()
+	return systemprompt.GetInternalSystemPrompt()
 }
 
 // GetNomadSpecScaffold returns the embedded nomad spec

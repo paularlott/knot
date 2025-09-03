@@ -29,6 +29,7 @@ func createTestConfig() config.ChatConfig {
 		MaxTokens:       1000,
 		Temperature:     0.7,
 		ReasoningEffort: "medium",
+		SystemPrompt:    "You are a helpful assistant.",
 	}
 }
 
@@ -55,8 +56,7 @@ func createMockOpenAIServer(t *testing.T, responses []string) *httptest.Server {
 func TestService_ConvertMessages(t *testing.T) {
 	config := createTestConfig()
 	service := &Service{
-		config:       config,
-		systemPrompt: "You are a helpful assistant.",
+		config: config,
 	}
 
 	tests := []struct {

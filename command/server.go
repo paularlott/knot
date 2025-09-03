@@ -27,8 +27,10 @@ import (
 	"github.com/paularlott/knot/internal/dns"
 	internal_mcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/systemprompt"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
@@ -546,6 +548,13 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_ENABLED"},
 			DefaultValue: false,
 		},
+		&cli.BoolFlag{
+			Name:         "chat-openai-endpoints",
+			Usage:        "Enable OpenAI-compatible endpoints for external clients.",
+			ConfigPath:   []string{"server.chat.openai_endpoints"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_ENDPOINTS"},
+			DefaultValue: false,
+		},
 		&cli.StringFlag{
 			Name:         "chat-openai-api-key",
 			Usage:        "OpenAI API key for chat functionality.",
@@ -743,8 +752,9 @@ var ServerCmd = &cli.Command{
 		var mcpServer *mcp.Server = nil
 		mcpEnabled := cmd.GetBool("mcp-enabled")
 		chatEnabled := cmd.GetBool("chat-enabled")
+		openaiEndpointEnabled := cmd.GetBool("chat-openai-endpoints")
 
-		if mcpEnabled || chatEnabled {
+		if mcpEnabled || chatEnabled || openaiEndpointEnabled {
 			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled)
 			if !mcpEnabled {
 				log.Debug().Msg("server: MCP chat-only mode")
@@ -754,14 +764,31 @@ var ServerCmd = &cli.Command{
 		}
 
 		// If AI chat enabled then initialize chat service
-		if chatEnabled {
+		var openAIClient *openai.Client
+		if chatEnabled || openaiEndpointEnabled {
 			log.Info().Msg("server: AI chat enabled")
 
 			// Initialize chat service with config
-			_, err := chat.NewService(cfg.Chat, mcpServer, routes)
+			chatService, err := chat.NewService(cfg.Chat, mcpServer)
 			if err != nil {
 				log.Fatal().Msgf("server: failed to create chat service: %s", err.Error())
 			}
+			openAIClient = chatService.GetOpenAIClient()
+
+			// API endpoint for chat
+			if chatEnabled {
+				routes.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
+			}
+		}
+
+		// If OpenAI chat enabled then initialize OpenAI service
+		if openaiEndpointEnabled {
+			//openai.SetupOpenAIEndpoints(cfg, routes, mcpServer)
+			log.Info().Msg("server: OpenAI endpoints enabled")
+
+			service := openai.NewService(openAIClient, cfg.Chat.SystemPrompt)
+			routes.HandleFunc("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetModels)))
+			routes.HandleFunc("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleChatCompletions)))
 		}
 
 		// Add support for page not found
@@ -1125,6 +1152,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			UIStyle:         cmd.GetString("chat-ui-style"),
 		},
 	}
+
+	serverCfg.Chat.SystemPrompt = systemprompt.GetSystemPrompt(serverCfg.Chat.SystemPromptFile)
 
 	// If tunnel domain doesn't start with a . then prefix it, strip leading * if present
 	if serverCfg.TunnelDomain != "" {

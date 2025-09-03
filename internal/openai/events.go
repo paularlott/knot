@@ -1,48 +1,28 @@
 package openai
 
-// StreamEvent represents a streaming event from the OpenAI client
-type StreamEvent interface {
-	EventType() string
+import "context"
+
+// ToolHandler receives tool-related events during streaming
+type ToolHandler interface {
+	OnToolCall(toolCall ToolCall) error
+	OnToolResult(toolCallID, toolName, result string) error
 }
 
-// ContentEvent represents content being streamed
-type ContentEvent struct {
-	Content string
+// private key type to avoid collisions
+type toolHandlerKey struct{}
+
+// WithToolHandler attaches a per-request ToolHandler to the context.
+func WithToolHandler(ctx context.Context, h ToolHandler) context.Context {
+	// ToolHandler is assumed to be defined in this package
+	return context.WithValue(ctx, toolHandlerKey{}, h)
 }
 
-func (e ContentEvent) EventType() string { return "content" }
-
-// ReasoningEvent represents reasoning content (thinking blocks)
-type ReasoningEvent struct {
-	Content string
+// toolHandlerFromContext retrieves a per-request ToolHandler (or nil).
+func toolHandlerFromContext(ctx context.Context) ToolHandler {
+	if v := ctx.Value(toolHandlerKey{}); v != nil {
+		if th, ok := v.(ToolHandler); ok {
+			return th
+		}
+	}
+	return nil
 }
-
-func (e ReasoningEvent) EventType() string { return "reasoning" }
-
-// ToolCallsEvent represents tool calls being made
-type ToolCallsEvent struct {
-	ToolCalls []ToolCall
-}
-
-func (e ToolCallsEvent) EventType() string { return "tool_calls" }
-
-// ToolResultEvent represents the result of a tool call
-type ToolResultEvent struct {
-	ToolName   string
-	Result     string
-	ToolCallID string
-}
-
-func (e ToolResultEvent) EventType() string { return "tool_result" }
-
-// ErrorEvent represents an error during streaming
-type ErrorEvent struct {
-	Error string
-}
-
-func (e ErrorEvent) EventType() string { return "error" }
-
-// DoneEvent represents completion of streaming
-type DoneEvent struct{}
-
-func (e DoneEvent) EventType() string { return "done" }

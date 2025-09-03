@@ -7,7 +7,26 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/paularlott/mcp"
 )
+
+// Mock MCP Server for testing
+type mockMCPServer struct {
+	tools []mcp.MCPTool
+}
+
+func (m *mockMCPServer) ListTools() []mcp.MCPTool {
+	return m.tools
+}
+
+func (m *mockMCPServer) CallTool(ctx context.Context, name string, args map[string]any) (*mcp.ToolResponse, error) {
+	return &mcp.ToolResponse{
+		Content: []mcp.ToolContent{
+			{Type: "text", Text: "Tool executed successfully"},
+		},
+	}, nil
+}
 
 func TestNew(t *testing.T) {
 	tests := []struct {
@@ -72,7 +91,7 @@ func TestClient_GetModels(t *testing.T) {
 					},
 					{
 						"id": "gpt-3.5-turbo",
-						"object": "model", 
+						"object": "model",
 						"created": 1677610602,
 						"owned_by": "openai"
 					}
@@ -114,78 +133,7 @@ func TestClient_GetModels(t *testing.T) {
 	}
 }
 
-func TestClient_ChatCompletion_NonStreaming(t *testing.T) {
-	// Create mock server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/chat/completions" {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
-				"id": "chatcmpl-123",
-				"object": "chat.completion",
-				"created": 1677652288,
-				"model": "gpt-4",
-				"choices": [{
-					"index": 0,
-					"message": {
-						"role": "assistant",
-						"content": "Hello! How can I help you today?"
-					},
-					"finish_reason": "stop"
-				}],
-				"usage": {
-					"prompt_tokens": 9,
-					"completion_tokens": 12,
-					"total_tokens": 21
-				}
-			}`))
-		} else {
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	defer server.Close()
-
-	config := Config{
-		APIKey:  "test-key",
-		BaseURL: server.URL + "/",
-		Timeout: 10 * time.Second,
-	}
-
-	client, err := New(config, nil)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	req := ChatCompletionRequest{
-		Model: "gpt-4",
-		Messages: []Message{
-			{Role: "user", Content: "Hello"},
-		},
-		MaxTokens:   100,
-		Temperature: 0.7,
-	}
-
-	ctx := context.Background()
-	req.Stream = false
-	response, err := client.ChatCompletion(ctx, req, nil)
-	if err != nil {
-		t.Fatalf("ChatCompletion() error = %v", err)
-	}
-
-	if response == nil {
-		t.Fatal("ChatCompletion() returned nil")
-	}
-
-	if len(response.Choices) != 1 {
-		t.Errorf("Expected 1 choice, got %d", len(response.Choices))
-	}
-
-	if response.Choices[0].Message.Content != "Hello! How can I help you today?" {
-		t.Errorf("Unexpected response content: %s", response.Choices[0].Message.Content)
-	}
-}
-
-func TestClient_ChatCompletion_Streaming(t *testing.T) {
+func TestClient_StreamChatCompletion_Basic(t *testing.T) {
 	// Create mock server for streaming
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/chat/completions" {
@@ -225,32 +173,32 @@ func TestClient_ChatCompletion_Streaming(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
+	message := Message{Role: "user"}
+	message.SetContentAsString("Hello")
 	req := ChatCompletionRequest{
-		Model: "gpt-4",
-		Messages: []Message{
-			{Role: "user", Content: "Hello"},
-		},
+		Model:       "gpt-4",
+		Messages:    []Message{message},
 		MaxTokens:   100,
 		Temperature: 0.7,
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	stream := client.StreamChatCompletion(ctx, req)
+
 	var chunks []string
-	eventCallback := func(event StreamEvent) error {
-		if e, ok := event.(ContentEvent); ok {
-			chunks = append(chunks, e.Content)
+
+	for stream.Next() {
+		response := stream.Current()
+		if len(response.Choices) > 0 && response.Choices[0].Delta.Content != "" {
+			chunks = append(chunks, response.Choices[0].Delta.Content)
 		}
-		return nil
 	}
 
-	ctx := context.Background()
-	req.Stream = true
-	response, err := client.ChatCompletion(ctx, req, eventCallback)
-	if err != nil {
-		t.Fatalf("ChatCompletion() error = %v", err)
-	}
-
-	if response == nil {
-		t.Fatal("ChatCompletion() returned nil")
+	// Check for errors after the loop
+	if err := stream.Err(); err != nil {
+		t.Fatalf("StreamChatCompletion() error = %v", err)
 	}
 
 	if len(chunks) == 0 {
@@ -265,7 +213,11 @@ func TestClient_ChatCompletion_Streaming(t *testing.T) {
 }
 
 func TestClient_FinalizeToolCalls(t *testing.T) {
-	client := &Client{}
+	// Create a mock MCP server so tool calls are processed
+	mcpServer := &mockMCPServer{
+		tools: []mcp.MCPTool{},
+	}
+	client := &Client{mcpServer: mcpServer}
 
 	toolCallBuffer := map[int]*ToolCall{
 		0: {
@@ -287,6 +239,7 @@ func TestClient_FinalizeToolCalls(t *testing.T) {
 
 	if len(toolCalls) != 1 {
 		t.Errorf("Expected 1 tool call, got %d", len(toolCalls))
+		return
 	}
 
 	if toolCalls[0].Function.Name != "get_weather" {

@@ -2,6 +2,7 @@ package openai
 
 import (
 	"encoding/json"
+	"strings"
 )
 
 // ModelsResponse represents the response from the models endpoint
@@ -50,9 +51,49 @@ type Choice struct {
 // Message represents a message in the conversation
 type Message struct {
 	Role       string     `json:"role,omitempty"`
-	Content    string     `json:"content,omitempty"`
+	Content    any        `json:"content,omitempty"` // Can be string or []ContentPart
 	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
 	ToolCallID string     `json:"tool_call_id,omitempty"`
+}
+
+// ContentPart represents a part of message content (for multimodal messages)
+type ContentPart struct {
+	Type string `json:"type"`
+	Text string `json:"text,omitempty"`
+}
+
+// GetContentAsString returns the content as a string, handling both string and array formats
+func (m *Message) GetContentAsString() string {
+	if m.Content == nil {
+		return ""
+	}
+	
+	// If it's already a string, return it
+	if str, ok := m.Content.(string); ok {
+		return str
+	}
+	
+	// If it's an array of content parts, extract text from text parts
+	if parts, ok := m.Content.([]interface{}); ok {
+		var result strings.Builder
+		for _, part := range parts {
+			if partMap, ok := part.(map[string]interface{}); ok {
+				if partType, ok := partMap["type"].(string); ok && partType == "text" {
+					if text, ok := partMap["text"].(string); ok {
+						result.WriteString(text)
+					}
+				}
+			}
+		}
+		return result.String()
+	}
+	
+	return ""
+}
+
+// SetContentAsString sets the content as a simple string
+func (m *Message) SetContentAsString(content string) {
+	m.Content = content
 }
 
 // Delta represents incremental changes in streaming responses

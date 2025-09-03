@@ -2,27 +2,20 @@ package chat
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
-	mcpTools "github.com/paularlott/knot/internal/mcp"
-	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/mcp"
 	"github.com/rs/zerolog/log"
 )
-
-//go:embed system-prompt.md
-var defaultSystemPrompt string
 
 const (
 	CONTENT_BATCH_SIZE = 150                    // characters - smaller for more responsive streaming
@@ -32,7 +25,6 @@ const (
 type Service struct {
 	config       config.ChatConfig
 	openaiClient *openai.Client
-	systemPrompt string
 }
 
 type streamState struct {
@@ -42,7 +34,7 @@ type streamState struct {
 	lastFlushTime time.Time
 }
 
-func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.ServeMux) (*Service, error) {
+func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, error) {
 	// Create OpenAI client
 	openaiConfig := openai.Config{
 		APIKey:  config.OpenAIAPIKey,
@@ -50,31 +42,27 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server, router *http.Se
 		Timeout: 5 * time.Minute,
 	}
 
-	openaiClient, err := openai.New(openaiConfig, mcpServer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create OpenAI client: %w", err)
+	// Convert mcp.Server to openai.MCPServer interface
+	var mcpServerInterface openai.MCPServer
+	if mcpServer != nil {
+		mcpServerInterface = mcpServer
 	}
 
-	// Load system prompt
-	systemPrompt := defaultSystemPrompt
-	if config.SystemPromptFile != "" {
-		content, err := os.ReadFile(config.SystemPromptFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read system prompt file %s: %w", config.SystemPromptFile, err)
-		}
-		systemPrompt = string(content)
+	openaiClient, err := openai.New(openaiConfig, mcpServerInterface)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OpenAI client: %w", err)
 	}
 
 	chatService := &Service{
 		config:       config,
 		openaiClient: openaiClient,
-		systemPrompt: systemPrompt,
 	}
 
-	// Chat
-	router.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
-
 	return chatService, nil
+}
+
+func (s *Service) GetOpenAIClient() *openai.Client {
+	return s.openaiClient
 }
 
 func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *model.User, w http.ResponseWriter, r *http.Request) error {
@@ -86,7 +74,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 	// Check if client disconnected before starting
 	select {
 	case <-ctx.Done():
-		log.Debug().Str("user_id", user.Id).Msg("streamChat: Client disconnected before processing")
+		log.Trace().Str("user_id", user.Id).Msg("streamChat: Client disconnected before processing")
 		return ctx.Err()
 	default:
 	}
@@ -114,79 +102,71 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 	log.Debug().Str("user_id", user.Id).Str("model", s.config.Model).Msg("streamChat: Starting chat completion with tools")
 
 	// Add user to context for MCP server
-	ctxWithUser := context.WithValue(ctx, "user", user)
+	chatCtx := context.WithValue(ctx, "user", user)
 
-	// Create stream callback to handle events from OpenAI client
-	eventCallback := func(event openai.StreamEvent) error {
-		// Check if client disconnected
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+	// Add the tool handler to the context
+	toolHandler := NewWebChatToolHandler(sseWriter)
+	chatCtx = openai.WithToolHandler(chatCtx, toolHandler)
 
-		switch e := event.(type) {
-		case openai.ContentEvent:
-			return s.handleContentStream(e.Content, streamState, sseWriter)
-		case openai.ReasoningEvent:
-			return s.handleReasoningStream(e.Content, streamState, sseWriter)
-		case openai.ToolCallsEvent:
-			return sseWriter.WriteChunk(SSEEvent{
-				Type: "tool_calls",
-				Data: e.ToolCalls,
-			})
-		case openai.ToolResultEvent:
-			return sseWriter.WriteChunk(SSEEvent{
-				Type: "tool_result",
-				Data: map[string]interface{}{
-					"tool_name":    e.ToolName,
-					"result":       e.Result,
-					"tool_call_id": e.ToolCallID,
-				},
-			})
-		case openai.ErrorEvent:
-			return sseWriter.WriteChunk(SSEEvent{
-				Type: "error",
-				Data: map[string]string{"error": e.Error},
-			})
-		case openai.DoneEvent:
-			return s.handleDoneStream(streamState, sseWriter)
+	// Start streaming
+	stream := s.openaiClient.StreamChatCompletion(chatCtx, req)
+	for stream.Next() {
+		response := stream.Current()
+
+		// Process OpenAI response
+		if len(response.Choices) > 0 {
+			choice := response.Choices[0]
+
+			if choice.Delta.Content != "" {
+				if err := s.handleContentStream(choice.Delta.Content, streamState, sseWriter); err != nil {
+					return err
+				}
+			}
+
+			if choice.Delta.ReasoningContent != "" {
+				if err := s.handleReasoningStream(choice.Delta.ReasoningContent, streamState, sseWriter); err != nil {
+					return err
+				}
+			}
 		}
-		return nil
 	}
 
-	// Call OpenAI client (automatically handles tools if MCP server is available)
-	_, err := s.openaiClient.ChatCompletion(ctxWithUser, req, eventCallback, mcpTools.ToolFilter(user))
-	if err != nil {
+	// Check for errors after the loop - much cleaner!
+	if err := stream.Err(); err != nil {
 		log.Error().Err(err).Str("user_id", user.Id).Msg("streamChat: Chat completion with tools failed")
 		sseWriter.WriteChunk(SSEEvent{
 			Type: "error",
 			Data: map[string]string{"error": s.formatUserFriendlyError(err)},
 		})
+		return err
 	}
-	return err
+
+	// Stream completed successfully
+	return s.handleDoneStream(streamState, sseWriter)
 }
 
 func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []openai.Message {
 	openAIMessages := make([]openai.Message, 0, len(messages)+1)
 
 	// Add system prompt (always first)
-	if s.systemPrompt != "" {
-		openAIMessages = append(openAIMessages, openai.Message{
-			Role:    "system",
-			Content: s.systemPrompt,
-		})
+	if s.config.SystemPrompt != "" {
+		systemMessage := openai.Message{
+			Role: "system",
+		}
+		systemMessage.SetContentAsString(s.config.SystemPrompt)
+		openAIMessages = append(openAIMessages, systemMessage)
 	}
 
 	// Convert chat messages, skipping any existing system messages from history
 	for _, msg := range messages {
 		if msg.Role != "system" {
-			openAIMessages = append(openAIMessages, openai.Message{
+			openAIMessage := openai.Message{
 				Role:       msg.Role,
-				Content:    msg.Content,
 				ToolCalls:  msg.ToolCalls,
 				ToolCallID: msg.ToolCallID,
-			})
+			}
+			openAIMessage.SetContentAsString(msg.Content)
+			openAIMessages = append(openAIMessages, openAIMessage)
 		}
 	}
 
@@ -335,9 +315,4 @@ func (s *Service) handleDoneStream(streamState *streamState, sseWriter *rest.Str
 		Type: "done",
 		Data: nil,
 	})
-}
-
-// GetInternalSystemPrompt returns the embedded system prompt (for scaffold command)
-func GetInternalSystemPrompt() string {
-	return defaultSystemPrompt
 }
