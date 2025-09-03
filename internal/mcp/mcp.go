@@ -4,7 +4,9 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/openai"
 
 	"github.com/paularlott/mcp"
 )
@@ -448,4 +450,53 @@ NEVER skip the recipes() call when creating/updating templates.`)
 	)
 
 	return server
+}
+
+func ToolFilter(user *model.User) openai.ToolFilter {
+	return func(toolName string) bool {
+		switch toolName {
+		// Command execution and file operations
+		case "run_command":
+			return user.HasPermission(model.PermissionRunCommands)
+		case "read_file", "write_file":
+			return user.HasPermission(model.PermissionCopyFiles)
+
+		// Space management
+		case "list_spaces", "get_space", "start_space", "stop_space", "restart_space", "create_space", "update_space", "delete_space":
+			return user.HasPermission(model.PermissionUseSpaces)
+
+		// Space sharing and transfer
+		case "share_space", "stop_sharing_space", "transfer_space":
+			return user.HasPermission(model.PermissionTransferSpaces)
+
+		// Template management
+		case "list_templates", "get_template":
+			return user.HasPermission(model.PermissionUseSpaces) // Users need to see templates to create spaces
+		case "create_template", "update_template", "delete_template":
+			return user.HasPermission(model.PermissionManageTemplates)
+
+		// User management
+		case "list_users":
+			return user.HasPermission(model.PermissionManageUsers) ||
+				user.HasPermission(model.PermissionManageSpaces) ||
+				user.HasPermission(model.PermissionTransferSpaces)
+
+		// Group management
+		case "list_groups":
+			return user.HasPermission(model.PermissionManageGroups) ||
+				user.HasPermission(model.PermissionManageTemplates) // Template managers need to see groups for restrictions
+
+		// Icons and recipes - generally available to all users with basic permissions
+		case "list_icons":
+			return user.HasPermission(model.PermissionUseSpaces) ||
+				user.HasPermission(model.PermissionManageTemplates)
+		case "recipes":
+			return user.HasPermission(model.PermissionUseSpaces) ||
+				user.HasPermission(model.PermissionManageTemplates)
+
+		default:
+			// For unknown tools, default to allow as the tools will check for permissions
+			return true
+		}
+	}
 }

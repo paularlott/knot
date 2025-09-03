@@ -138,6 +138,7 @@ type ChatConfig struct {
 	MaxTokens        int
 	Temperature      float32
 	SystemPromptFile string
+	SystemPrompt     string
 	ReasoningEffort  string
 	UIStyle          string
 }
