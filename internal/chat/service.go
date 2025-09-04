@@ -42,13 +42,7 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, erro
 		Timeout: 5 * time.Minute,
 	}
 
-	// Convert mcp.Server to openai.MCPServer interface
-	var mcpServerInterface openai.MCPServer
-	if mcpServer != nil {
-		mcpServerInterface = mcpServer
-	}
-
-	openaiClient, err := openai.New(openaiConfig, mcpServerInterface)
+	openaiClient, err := openai.New(openaiConfig, mcpServer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OpenAI client: %w", err)
 	}

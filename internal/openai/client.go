@@ -300,17 +300,25 @@ func (c *Client) streamSingleCompletion(ctx context.Context, req ChatCompletionR
 				return false, fmt.Errorf("received nil response from OpenAI")
 			}
 
-			// Send the raw OpenAI response to the channel
-			select {
-			case responseChan <- *response:
-			case <-ctx.Done():
-				return true, ctx.Err()
-			}
-
-			// Process the chunk for internal state
+			// Process the chunk for internal state first
 			shouldStop, err := c.processStreamChunk(response, toolCallBuffer, argumentsBuffer, &assistantContent)
 			if err != nil {
 				return true, err
+			}
+
+			// Only send response to client if:
+			// 1. No MCP server (client handles tool calls), OR
+			// 2. MCP server exists but this chunk has no tool calls (just content)
+			shouldSendToClient := c.mcpServer == nil ||
+				(len(response.Choices) > 0 && len(response.Choices[0].Delta.ToolCalls) == 0)
+
+			if shouldSendToClient {
+				// Send the response to the channel
+				select {
+				case responseChan <- *response:
+				case <-ctx.Done():
+					return true, ctx.Err()
+				}
 			}
 
 			// Check if we should stop streaming
@@ -365,39 +373,58 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolCallBu
 
 	choice := response.Choices[0]
 
-	// Handle tool calls only if MCP server is available
-	if c.mcpServer != nil && len(choice.Delta.ToolCalls) > 0 {
+	// Handle tool calls - ID generation is needed regardless of MCP server
+	if len(choice.Delta.ToolCalls) > 0 {
 		for i, deltaCall := range choice.Delta.ToolCalls {
 			index := deltaCall.Index
-			if toolCallBuffer[index] == nil {
-				toolCallBuffer[index] = &ToolCall{
-					Index:    index,
-					Function: ToolCallFunction{Arguments: make(map[string]any)},
+
+			// Only initialize buffer if MCP server is available
+			if c.mcpServer != nil {
+				if toolCallBuffer[index] == nil {
+					toolCallBuffer[index] = &ToolCall{
+						Index:    index,
+						Function: ToolCallFunction{Arguments: make(map[string]any)},
+					}
+					argumentsBuffer[index] = ""
 				}
-				argumentsBuffer[index] = ""
 			}
-			if deltaCall.ID != "" {
-				toolCallBuffer[index].ID = deltaCall.ID
-			} else if toolCallBuffer[index].ID == "" {
+
+			// Generate ID if missing
+			if deltaCall.ID == "" {
 				// Generate a fallback ID if none provided by the LLM
+				var generatedID string
 				if id, err := uuid.NewV7(); err == nil {
-					toolCallBuffer[index].ID = id.String()
+					generatedID = id.String()
 				} else {
 					// Fallback to a simple ID if UUID generation fails
-					toolCallBuffer[index].ID = fmt.Sprintf("call_%d_%d", time.Now().UnixNano(), index)
+					generatedID = fmt.Sprintf("call_%d_%d", time.Now().UnixNano(), index)
 				}
 
 				// Update the response chunk with the generated ID
-				choice.Delta.ToolCalls[i].ID = toolCallBuffer[index].ID
+				choice.Delta.ToolCalls[i].ID = generatedID
+
+				// Also update buffer if MCP server is available
+				if c.mcpServer != nil && toolCallBuffer[index] != nil {
+					toolCallBuffer[index].ID = generatedID
+				}
+			} else {
+				// Store existing ID in buffer if MCP server is available
+				if c.mcpServer != nil && toolCallBuffer[index] != nil {
+					toolCallBuffer[index].ID = deltaCall.ID
+				}
 			}
-			if deltaCall.Type != "" {
-				toolCallBuffer[index].Type = deltaCall.Type
-			}
-			if deltaCall.Function.Name != "" {
-				toolCallBuffer[index].Function.Name = deltaCall.Function.Name
-			}
-			if deltaCall.Function.Arguments != "" {
-				argumentsBuffer[index] += deltaCall.Function.Arguments
+
+			// Only process other tool call data if MCP server is available
+			if c.mcpServer != nil && toolCallBuffer[index] != nil {
+				if deltaCall.Type != "" {
+					toolCallBuffer[index].Type = deltaCall.Type
+				}
+				if deltaCall.Function.Name != "" {
+					toolCallBuffer[index].Function.Name = deltaCall.Function.Name
+				}
+				if deltaCall.Function.Arguments != "" {
+					argumentsBuffer[index] += deltaCall.Function.Arguments
+				}
 			}
 		}
 	}
