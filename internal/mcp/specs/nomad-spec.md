@@ -33,7 +33,7 @@ In addition to hard-coded values, knot allows users to specify variable placehol
 
 **CRITICAL VARIABLE SYNTAX**: `${{.var.<variable_name>}}`
 
-**MUST INCLUDE THE DOLLAR SIGN ($)**: The variable syntax MUST start with a dollar sign. 
+**MUST INCLUDE THE DOLLAR SIGN ($)**: The variable syntax MUST start with a dollar sign.
 
 **CORRECT**: `${{.var.prod_cluster}}`
 **WRONG**: `{{.var.prod_cluster}}` (missing dollar sign)
@@ -217,7 +217,7 @@ volumes:
 *   **Naming Convention (Strict):** Each `source` name in the list **must** follow the format `knot-${{ .space.id }}-<purpose>`, where `<purpose>` is a short, descriptive name (e.g., `html`, `database`).
 
 ### YAML FORMAT REQUIREMENTS:
-- **MUST** start with `volumes:` 
+- **MUST** start with `volumes:`
 - **MUST** use dashes (-) for list items
 - **MUST** use proper YAML indentation (2 spaces)
 - **DO NOT** use JSON format with `[{` brackets
@@ -270,13 +270,13 @@ volumes:
 1.  **Two-Part Generation:** For requests with persistent volumes, generate both:
     - **HCL job specification** (goes in `job` parameter) - MUST include `volume` blocks in the group
     - **YAML volume definitions** (goes in `volume` parameter) - declares what knot provisions
-    
+
     **CRITICAL**: The HCL job must have `volume` blocks that reference the same source names as the YAML definitions.
-    
+
     For jobs without persistent volumes, generate only the HCL job specification.
 
 2.  **Job Naming Logic:**
-    - **ALWAYS** use `job "${{.user.username}}-${{.space.name}}"` 
+    - **ALWAYS** use `job "${{.user.username}}-${{.space.name}}"`
     - **NEVER** use a custom job name, even if the user requests one
     - The user may be naming their template, but the job name in the HCL is always the same
 
@@ -447,7 +447,7 @@ volumes:
 > "I can create that Nomad job for you. To configure the persistent Ceph volume, I need:
 > 1. Ceph cluster ID (or variable name)
 > 2. Ceph pool name (or variable name)
-> 
+>
 > Please provide these values or tell me which variables to use."
 
 ### Scenario D: Template with Icon
@@ -461,7 +461,7 @@ volumes:
    - `volume` parameter: YAML volume definitions (if needed)
    - `icon_url` parameter: selected icon URL from the list_icons response
 
-**CRITICAL**: 
+**CRITICAL**:
 - You MUST call `list_icons` before `create_template` when user requests an icon
 - The icon goes in the `icon_url` parameter, NOT `icon` parameter
 - Use the EXACT icon URL from the `list_icons` response
@@ -479,17 +479,17 @@ create_template(
 
 ## COMMON MISTAKES TO AVOID
 
-### ❌ WRONG - Missing Dollar Sign in Variables:
+### WRONG - Missing Dollar Sign in Variables:
 ```hcl
 clusterID = "{{.var.ceph_cluster}}"  # MISSING $
 ```
 
-### ✅ CORRECT - Proper Variable Syntax:
+### CORRECT - Proper Variable Syntax:
 ```hcl
 clusterID = "${{.var.ceph_cluster}}"  # HAS $
 ```
 
-### ❌ WRONG - JSON Format:
+### WRONG - JSON Format:
 ```json
 {
   "job": {
@@ -498,29 +498,29 @@ clusterID = "${{.var.ceph_cluster}}"  # HAS $
 }
 ```
 
-### ✅ CORRECT - HCL Format:
+### CORRECT - HCL Format:
 ```hcl
 job "my-job" {
   datacenters = ["dc1"]
 }
 ```
 
-### ❌ WRONG - Custom Job Name:
+### WRONG - Custom Job Name:
 ```hcl
 job "web-server" {  # WRONG - even if user requested this name
 ```
 
-### ✅ CORRECT - Always Use Standard Job Name:
+### CORRECT - Always Use Standard Job Name:
 ```hcl
 job "${{.user.username}}-${{.space.name}}" {  # ALWAYS use this
 ```
 
-### ❌ WRONG - JSON Format for Volumes:
+### WRONG - JSON Format for Volumes:
 ```json
 [{"id": "knot-${{ .space.id }}-home","name": "knot-${{ .space.id }}-home","type": "host"}]
 ```
 
-### ✅ CORRECT - YAML Format for Volumes:
+### CORRECT - YAML Format for Volumes:
 ```yaml
 volumes:
   - id: "knot-${{ .space.id }}-home"
@@ -533,25 +533,25 @@ volumes:
       gid: 1000
 ```
 
-### ❌ WRONG - Volume Info in Job Parameter:
+### WRONG - Volume Info in Job Parameter:
 - `job` parameter contains both HCL job AND volume YAML
 - `volume` parameter is empty
 
-### ✅ CORRECT - Proper Separation:
+### CORRECT - Proper Separation:
 - `job` parameter contains ONLY HCL job specification
 - `volume` parameter contains ONLY YAML volume definitions
 
-### ❌ WRONG - Wrong Icon Parameter Name:
+### WRONG - Wrong Icon Parameter Name:
 ```
 create_template(icon="https://example.com/icon.svg")  # WRONG parameter name
 ```
 
-### ✅ CORRECT - Correct Icon Parameter Name:
+### CORRECT - Correct Icon Parameter Name:
 ```
 create_template(icon_url="https://example.com/icon.svg")  # CORRECT parameter name
 ```
 
-### ❌ WRONG - Missing Volume Block in HCL Job:
+### WRONG - Missing Volume Block in HCL Job:
 ```hcl
 job "${{.user.username}}-${{.space.name}}" {
   group "app" {
@@ -565,7 +565,7 @@ job "${{.user.username}}-${{.space.name}}" {
 }
 ```
 
-### ✅ CORRECT - Volume Block Included in HCL Job:
+### CORRECT - Volume Block Included in HCL Job:
 ```hcl
 job "${{.user.username}}-${{.space.name}}" {
   group "app" {
@@ -575,7 +575,7 @@ job "${{.user.username}}-${{.space.name}}" {
       source = "knot-${{ .space.id }}-home"
       read_only = false
     }
-    
+
     task "web" {
       volume_mount {
         volume = "home-volume"  # Now this works - volume is declared

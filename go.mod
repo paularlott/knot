@@ -1,6 +1,6 @@
 module github.com/paularlott/knot
 
-go 1.25.0
+go 1.25.1
 
 replace github.com/paularlott/gossip => ../gossip/
 
@@ -12,7 +12,7 @@ require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/creack/pty v1.1.24
 	github.com/dgraph-io/badger/v4 v4.8.0
-	github.com/docker/docker v28.3.3+incompatible
+	github.com/docker/docker v28.4.0+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/gliderlabs/ssh v0.3.8
 	github.com/go-sql-driver/mysql v1.9.3

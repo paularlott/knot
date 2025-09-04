@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
+	command_chat "github.com/paularlott/knot/agent/cmd/chat"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/command"
@@ -84,6 +85,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			command_templates.TemplatesCmd,
 			agentcmd.AgentCmd,
 			commands_admin.AdminCmd,
+			command_chat.ChatCmd,
 			command_tunnel.TunnelCmd,
 			command.ServerCmd,
 			command.PingCmd,

@@ -2,6 +2,12 @@ openapi: 3.0.3
 servers:
   - url: https://127.0.0.1
     description: Local server.
+info:
+  version: 1.0.0
+  title: Knot API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
 
 paths:
   /api/chat/stream:
@@ -11,6 +17,14 @@ paths:
       summary: Stream Chat
       description: Stream a chat conversation with an AI assistant using Server-Sent Events (SSE).
       operationId: streamChat
+      parameters:
+        - name: X-Knot-Api-Version
+          in: header
+          required: false
+          schema:
+            type: string
+            default: "2025-03-10"
+          description: API version
       requestBody:
         required: true
         content:
