@@ -24,7 +24,7 @@ func GetServerAddr(alias string, cmd *cli.Command) *ServerAddr {
 	}
 
 	// Use the server and token flags if given, else use the alias
-	if cmd.HasFlag("server") || cmd.HasFlag("token") {
+	if cmd.HasFlag("server") && cmd.HasFlag("token") {
 		flags.HttpServer = cmd.GetString("server")
 		flags.ApiToken = cmd.GetString("token")
 	} else {
