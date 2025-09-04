@@ -178,7 +178,6 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 			}
 			if len(tools) > 0 {
 				req.Tools = tools
-				log.Debug().Int("tools_count", len(tools)).Msg("Added tools to streaming request")
 			}
 		}
 
@@ -186,8 +185,6 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 
 		// Multi-turn tool processing loop if MCP server is available
 		for iteration := 0; iteration < MAX_TOOL_CALL_ITERATIONS; iteration++ {
-			log.Debug().Int("iteration", iteration).Msg("Starting tool processing iteration")
-
 			req.Messages = currentMessages
 			req.Stream = true
 
@@ -201,24 +198,12 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 
 			// If no MCP server, no tool calls, or no choices, we're done
 			if c.mcpServer == nil || len(finalResponse.Choices) == 0 || len(finalResponse.Choices[0].Message.ToolCalls) == 0 {
-				log.Debug().
-					Bool("has_mcp_server", c.mcpServer != nil).
-					Int("choices_count", len(finalResponse.Choices)).
-					Int("tool_calls_count", func() int {
-						if len(finalResponse.Choices) > 0 {
-							return len(finalResponse.Choices[0].Message.ToolCalls)
-						}
-						return 0
-					}()).
-					Msg("No tool calls to process, ending stream")
 				return
 			}
 
 			// Process tool calls
 			message := finalResponse.Choices[0].Message
 			toolCalls := message.ToolCalls
-
-			log.Debug().Int("tool_calls_count", len(toolCalls)).Int("iteration", iteration).Msg("Processing tool calls")
 
 			// Notify handler of tool calls
 			if toolHandler != nil {
@@ -235,38 +220,19 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 			currentMessages = append(currentMessages, message)
 
 			// Execute tools and add results
-			log.Debug().Int("tool_calls_to_execute", len(toolCalls)).Msg("Starting tool execution loop")
-
-			for i, toolCall := range toolCalls {
+			for _, toolCall := range toolCalls {
 				select {
 				case <-ctx.Done():
-					log.Debug().
-						Err(ctx.Err()).
-						Str("context_error", ctx.Err().Error()).
-						Msg("Context cancelled during tool execution")
 					errorChan <- ctx.Err()
 					return
 				default:
 				}
 
-				log.Debug().
-					Int("tool_index", i).
-					Str("tool_name", toolCall.Function.Name).
-					Str("tool_id", toolCall.ID).
-					Msg("About to execute tool call")
-
 				result, err := c.executeToolCall(ctx, toolCall)
 				if err != nil {
 					log.Error().Err(err).Str("tool_name", toolCall.Function.Name).Msg("Tool execution failed")
 					result = fmt.Sprintf("Error: %s", err.Error())
-				} else {
-					log.Debug().Str("tool_name", toolCall.Function.Name).Str("result", result).Msg("Tool execution succeeded")
 				}
-
-				log.Debug().
-					Int("tool_index", i).
-					Str("tool_name", toolCall.Function.Name).
-					Msg("About to notify tool handler of result")
 
 				// Notify handler of tool result
 				if toolHandler != nil {
@@ -277,11 +243,6 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 					}
 				}
 
-				log.Debug().
-					Int("tool_index", i).
-					Str("tool_name", toolCall.Function.Name).
-					Msg("About to add tool result to conversation")
-
 				// Add tool result to conversation
 				toolResultMessage := Message{
 					Role:       "tool",
@@ -289,14 +250,7 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 				}
 				toolResultMessage.SetContentAsString(result)
 				currentMessages = append(currentMessages, toolResultMessage)
-
-				log.Debug().
-					Int("tool_index", i).
-					Str("tool_name", toolCall.Function.Name).
-					Msg("Completed processing tool call")
 			}
-
-			log.Debug().Int("iteration", iteration).Int("messages_count", len(currentMessages)).Msg("Completed tool execution, continuing to next iteration")
 		}
 
 		errorChan <- fmt.Errorf("maximum tool call iterations (%d) reached", MAX_TOOL_CALL_ITERATIONS)
@@ -412,8 +366,6 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolCallBu
 
 	// Handle tool calls only if MCP server is available
 	if c.mcpServer != nil && len(choice.Delta.ToolCalls) > 0 {
-		log.Debug().Int("tool_calls_count", len(choice.Delta.ToolCalls)).Msg("Processing tool calls in stream chunk")
-
 		for _, deltaCall := range choice.Delta.ToolCalls {
 			index := deltaCall.Index
 			if toolCallBuffer[index] == nil {
@@ -422,23 +374,18 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolCallBu
 					Function: ToolCallFunction{Arguments: make(map[string]any)},
 				}
 				argumentsBuffer[index] = ""
-				log.Debug().Int("index", index).Msg("Created new tool call buffer entry")
 			}
 			if deltaCall.ID != "" {
 				toolCallBuffer[index].ID = deltaCall.ID
-				log.Debug().Int("index", index).Str("id", deltaCall.ID).Msg("Set tool call ID")
 			}
 			if deltaCall.Type != "" {
 				toolCallBuffer[index].Type = deltaCall.Type
-				log.Debug().Int("index", index).Str("type", deltaCall.Type).Msg("Set tool call type")
 			}
 			if deltaCall.Function.Name != "" {
 				toolCallBuffer[index].Function.Name = deltaCall.Function.Name
-				log.Debug().Int("index", index).Str("name", deltaCall.Function.Name).Msg("Set tool call function name")
 			}
 			if deltaCall.Function.Arguments != "" {
 				argumentsBuffer[index] += deltaCall.Function.Arguments
-				log.Debug().Int("index", index).Str("args_chunk", deltaCall.Function.Arguments).Msg("Added arguments chunk")
 			}
 		}
 	}
@@ -450,7 +397,6 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolCallBu
 
 	// Check for finish reason
 	if choice.FinishReason != "" {
-		log.Debug().Str("finish_reason", choice.FinishReason).Msg("Stream chunk finished")
 		return true, nil
 	}
 
@@ -460,11 +406,8 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolCallBu
 // finalizeToolCalls converts buffered tool calls to final format
 func (c *Client) finalizeToolCalls(toolCallBuffer map[int]*ToolCall, argumentsBuffer map[int]string) []ToolCall {
 	if c.mcpServer == nil || len(toolCallBuffer) == 0 {
-		log.Debug().Bool("has_mcp_server", c.mcpServer != nil).Int("buffer_size", len(toolCallBuffer)).Msg("No tool calls to finalize")
 		return nil
 	}
-
-	log.Debug().Int("buffer_size", len(toolCallBuffer)).Msg("Finalizing tool calls")
 
 	toolCalls := make([]ToolCall, 0, len(toolCallBuffer))
 
@@ -472,13 +415,6 @@ func (c *Client) finalizeToolCalls(toolCallBuffer map[int]*ToolCall, argumentsBu
 		if toolCall == nil || toolCall.Function.Name == "" {
 			continue
 		}
-
-		log.Debug().
-			Int("index", index).
-			Str("name", toolCall.Function.Name).
-			Str("id", toolCall.ID).
-			Str("raw_args", argumentsBuffer[index]).
-			Msg("Processing tool call")
 
 		// Parse arguments if present
 		if argsStr := argumentsBuffer[index]; argsStr != "" && argsStr != "null" {
@@ -548,12 +484,6 @@ func (c *Client) executeToolCall(ctx context.Context, toolCall ToolCall) (string
 	if c.mcpServer == nil {
 		return "", fmt.Errorf("MCP server not configured")
 	}
-
-	log.Debug().
-		Str("tool_name", toolCall.Function.Name).
-		Str("tool_id", toolCall.ID).
-		Interface("arguments", toolCall.Function.Arguments).
-		Msg("Executing tool call")
 
 	response, err := c.mcpServer.CallTool(ctx, toolCall.Function.Name, toolCall.Function.Arguments)
 	if err != nil {
