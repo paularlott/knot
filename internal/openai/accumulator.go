@@ -1,5 +1,12 @@
 package openai
 
+import (
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+)
+
 // CompletionAccumulator accumulates streaming chunks into a complete ChatCompletionResponse
 type CompletionAccumulator struct {
 	Choices []Choice `json:"choices"`
@@ -42,6 +49,14 @@ func (acc *CompletionAccumulator) AddChunk(chunk ChatCompletionResponse) {
 
 			if deltaToolCall.ID != "" {
 				toolCall.ID = deltaToolCall.ID
+			} else if toolCall.ID == "" {
+				// Generate a fallback ID if none provided by the LLM
+				if id, err := uuid.NewV7(); err == nil {
+					toolCall.ID = id.String()
+				} else {
+					// Fallback to a simple ID if UUID generation fails
+					toolCall.ID = fmt.Sprintf("call_%d_%d", time.Now().UnixNano(), deltaToolCall.Index)
+				}
 			}
 			if deltaToolCall.Type != "" {
 				toolCall.Type = deltaToolCall.Type

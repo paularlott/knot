@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/mcp"
@@ -366,7 +367,7 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolCallBu
 
 	// Handle tool calls only if MCP server is available
 	if c.mcpServer != nil && len(choice.Delta.ToolCalls) > 0 {
-		for _, deltaCall := range choice.Delta.ToolCalls {
+		for i, deltaCall := range choice.Delta.ToolCalls {
 			index := deltaCall.Index
 			if toolCallBuffer[index] == nil {
 				toolCallBuffer[index] = &ToolCall{
@@ -377,6 +378,17 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolCallBu
 			}
 			if deltaCall.ID != "" {
 				toolCallBuffer[index].ID = deltaCall.ID
+			} else if toolCallBuffer[index].ID == "" {
+				// Generate a fallback ID if none provided by the LLM
+				if id, err := uuid.NewV7(); err == nil {
+					toolCallBuffer[index].ID = id.String()
+				} else {
+					// Fallback to a simple ID if UUID generation fails
+					toolCallBuffer[index].ID = fmt.Sprintf("call_%d_%d", time.Now().UnixNano(), index)
+				}
+
+				// Update the response chunk with the generated ID
+				choice.Delta.ToolCalls[i].ID = toolCallBuffer[index].ID
 			}
 			if deltaCall.Type != "" {
 				toolCallBuffer[index].Type = deltaCall.Type
