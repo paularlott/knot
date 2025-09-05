@@ -201,7 +201,6 @@ func getDefaultIcons() []Icon {
 		{Description: "Unraid", Source: "built-in", URL: "/icons/unraid.svg"},
 		{Description: "Valkey", Source: "built-in", URL: "/icons/valkey.svg"},
 		{Description: "Vite", Source: "built-in", URL: "/icons/vite.svg"},
-		{Description: "VMware", Source: "built-in", URL: "/icons/vmware.svg"},
 		{Description: "VSCode", Source: "built-in", URL: "/icons/vscode.svg"},
 		{Description: "WebHook", Source: "built-in", URL: "/icons/webhook.svg"},
 		{Description: "WordPress", Source: "built-in", URL: "/icons/wordpress.svg"},
