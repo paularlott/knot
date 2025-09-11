@@ -959,11 +959,13 @@ var ServerCmd = &cli.Command{
 
 		// Run the http server
 		server := &http.Server{
-			Addr:         listen,
-			Handler:      router,
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 5 * time.Minute, // Extended to support AI time
-			TLSConfig:    tlsConfig,
+			Addr:              listen,
+			Handler:           router,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      5 * time.Minute, // Extended to support AI thinking time
+			IdleTimeout:       120 * time.Second,
+			ReadHeaderTimeout: 10 * time.Second,
+			TLSConfig:         tlsConfig,
 		}
 
 		go func() {
