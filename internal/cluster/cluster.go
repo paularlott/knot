@@ -16,7 +16,6 @@ import (
 	"github.com/paularlott/gossip/examples/common"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/gossip/leader"
-	"github.com/paularlott/gossip/websocket"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
@@ -76,21 +75,23 @@ func NewCluster(
 		}
 
 		gossipConfig.NodeID = nodeId.Value
-		gossipConfig.BindAddr = bindAddr
 		gossipConfig.AdvertiseAddr = advertiseAddr
 
-		if !strings.HasPrefix(gossipConfig.AdvertiseAddr, "wss://") && !strings.HasPrefix(gossipConfig.AdvertiseAddr, "https://") {
+		var httpTransport *gossip.HTTPTransport
+		if !strings.HasPrefix(gossipConfig.AdvertiseAddr, "https://") {
+			gossipConfig.BindAddr = bindAddr
 			gossipConfig.EncryptionKey = []byte(clusterKey)
 			gossipConfig.Cipher = encryption.NewAESEncryptor()
-			gossipConfig.SocketTransportEnabled = true
+			gossipConfig.Transport = gossip.NewSocketTransport(gossipConfig)
 
 			if compress {
 				gossipConfig.Compressor = compression.NewSnappyCompressor()
 			}
 		} else {
-			gossipConfig.WebsocketProvider = websocket.NewGorillaProvider(5*time.Second, true, clusterKey)
-			gossipConfig.SocketTransportEnabled = false
 			gossipConfig.BearerToken = clusterKey
+			gossipConfig.BindAddr = "/cluster"
+			httpTransport = gossip.NewHTTPTransport(gossipConfig)
+			gossipConfig.Transport = httpTransport
 
 			url, err := url.Parse(gossipConfig.AdvertiseAddr)
 			if err != nil {
@@ -120,8 +121,8 @@ func NewCluster(
 		}
 
 		// If using websockets then add the handler
-		if gossipConfig.WebsocketProvider != nil {
-			routes.HandleFunc("GET /cluster", cluster.gossipCluster.WebsocketHandler)
+		if httpTransport != nil {
+			routes.HandleFunc("POST /cluster", httpTransport.HandleGossipRequest)
 		}
 
 		// Add the handlers
