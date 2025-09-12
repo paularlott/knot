@@ -40,6 +40,8 @@ type Cluster struct {
 	tunnelServers    []string
 	sessionGossip    bool
 	election         *leader.LeaderElection
+	electionRunning  bool
+	electionMux      sync.Mutex
 	resourceLocksMux sync.RWMutex
 	resourceLocks    map[string]*ResourceLock
 }
@@ -157,9 +159,11 @@ func NewCluster(
 		// Capture server state changes and maintain a list of nodes in our zone
 		cluster.gossipCluster.HandleNodeStateChangeFunc(func(node *gossip.Node, prevState gossip.NodeState) {
 			cluster.trackClusterEndpoints()
+			cluster.manageElection()
 		})
 		cluster.gossipCluster.HandleNodeMetadataChangeFunc(func(node *gossip.Node) {
 			cluster.trackClusterEndpoints()
+			cluster.manageElection()
 		})
 
 		// Periodically gossip the status of the objects
@@ -237,6 +241,30 @@ func (c *Cluster) trackClusterEndpoints() {
 	}
 	c.agentEndpoints = endPoints
 	c.tunnelServers = tunnelServers
+}
+
+func (c *Cluster) manageElection() {
+	if c.election == nil || c.electionRunning {
+		return
+	}
+
+	c.electionMux.Lock()
+	defer c.electionMux.Unlock()
+
+	// Count nodes in our zone
+	cfg := config.GetServerConfig()
+	nodesInZone := 0
+	for _, node := range c.gossipCluster.AliveNodes() {
+		if node.Metadata.GetString("zone") == cfg.Zone {
+			nodesInZone++
+		}
+	}
+
+	if nodesInZone >= 2 {
+		log.Info().Msgf("cluster: starting leader election with %d nodes in zone", nodesInZone)
+		c.election.Start()
+		c.electionRunning = true
+	}
 }
 
 func (c *Cluster) Start(peers []string, originServer string, originToken string) {
@@ -342,7 +370,14 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 func (c *Cluster) Stop() {
 	if c.gossipCluster != nil {
 		log.Info().Msg("cluster: stopping gossip cluster")
-		c.election.Stop()
+
+		c.electionMux.Lock()
+		if c.electionRunning {
+			c.election.Stop()
+			c.electionRunning = false
+		}
+		c.electionMux.Unlock()
+
 		c.gossipCluster.Stop()
 	}
 }
@@ -378,7 +413,7 @@ func (c *Cluster) GetTunnelServers() []string {
 
 func (c *Cluster) LockResource(resourceId string) string {
 	// If in cluster mode and not the leader then we have to ask the leader to lock the resource
-	if c.election != nil && !c.election.IsLeader() {
+	if c.election != nil && c.electionRunning && !c.election.IsLeader() {
 		log.Debug().Msg("cluster: Asking leader to lock resource")
 
 		leaderNode := c.election.GetLeader()
@@ -423,7 +458,7 @@ func (c *Cluster) lockResourceLocally(resourceId string) string {
 
 func (c *Cluster) UnlockResource(resourceId, unlockToken string) {
 	// If in cluster mode and not the leader then we have to ask the leader to unlock the resource
-	if c.election != nil && !c.election.IsLeader() {
+	if c.election != nil && c.electionRunning && !c.election.IsLeader() {
 		log.Debug().Msg("cluster: Asking leader to unlock resource")
 
 		leaderNode := c.election.GetLeader()
