@@ -53,7 +53,7 @@ addr = "http://127.0.0.1:4646"
 token = ""
 
 # [server.cluster]
-# advertise_addr = "wss://knot.example.com/"
+# advertise_addr = "https://knot.example.com/"
 # key = "VF9hmdXZyzNF3rcP6M0P" # knot genkey
 # peers = [
 #   "wss://knot.example.com",

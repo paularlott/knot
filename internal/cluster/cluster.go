@@ -80,7 +80,7 @@ func NewCluster(
 		gossipConfig.AdvertiseAddr = advertiseAddr
 
 		var httpTransport *gossip.HTTPTransport
-		if !strings.HasPrefix(gossipConfig.AdvertiseAddr, "https://") {
+		if !strings.HasPrefix(gossipConfig.AdvertiseAddr, "https://") && !strings.HasPrefix(gossipConfig.AdvertiseAddr, "http://") {
 			gossipConfig.BindAddr = bindAddr
 			gossipConfig.EncryptionKey = []byte(clusterKey)
 			gossipConfig.Cipher = encryption.NewAESEncryptor()
