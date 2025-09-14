@@ -393,6 +393,18 @@ window.chatComponent = function () {
       this.abortController = new AbortController();
       this.scrollToBottom();
 
+      // Add assistant message placeholder
+      this.$store.chat.addMessage({
+        role: 'assistant',
+        inThinking: false,
+        toolCalls: [],
+        fragments: {
+          thinking: '',
+          content: '',
+          toolResults: []
+        }
+      });
+
       try {
         const messageHistory = this.prepareMessageHistory();
         const response = await fetch('/api/chat/stream', {
@@ -406,31 +418,14 @@ window.chatComponent = function () {
           throw new Error('Failed to send message');
         }
 
-        // Add assistant message
-        this.$store.chat.addMessage({
-          role: 'assistant',
-          inThinking: false,
-          toolCalls: [],
-          fragments: {
-            thinking: '',
-            content: '',
-            toolResults: []
-          }
-        });
-
         await this.processStream(response);
 
       } catch (error) {
         if (error.name !== 'AbortError') {
-          this.$store.chat.addMessage({
-            role: 'assistant',
-            hasError: true,
-            fragments: {
-              thinking: '',
-              content: '⚠️ Failed to connect to the AI service.',
-              toolResults: []
-            }
-          });
+          // Update the existing assistant message instead of adding a new one
+          const assistantMessage = this.messages[this.messages.length - 1];
+          assistantMessage.hasError = true;
+          assistantMessage.fragments.content = '⚠️ Failed to connect to the AI service.';
         }
       } finally {
         this.isLoading = false;
