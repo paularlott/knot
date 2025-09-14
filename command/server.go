@@ -581,7 +581,7 @@ var ServerCmd = &cli.Command{
 			Usage:        "Maximum tokens for chat responses.",
 			ConfigPath:   []string{"server.chat.max_tokens"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_MAX_TOKENS"},
-			DefaultValue: 32768,
+			DefaultValue: 0,
 		},
 		&cli.Float32Flag{
 			Name:         "chat-temperature",
