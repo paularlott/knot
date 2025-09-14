@@ -113,8 +113,8 @@ github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJw
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
 github.com/paularlott/cli v0.3.0 h1:C/9tijN34L+NO7BXJtMthqNYRp0BRoVfKcf0wuCwSsA=
 github.com/paularlott/cli v0.3.0/go.mod h1:vz7atFOzdL01RWaSzUvyfl704L1Mxbz99HBpBFOTnLc=
-github.com/paularlott/gossip v0.8.0 h1:D3vX9kBi6jXrmaf546+0f6cBmlZ1IRhJj9jrzDFt0t4=
-github.com/paularlott/gossip v0.8.0/go.mod h1:1aA/+skDNNTkrpB6UIleqMgYOMALeLqPOAd7obEK6Ro=
+github.com/paularlott/gossip v0.8.1 h1:iFSeif23iZEXDR3iUnW2y5HD9LtCKAze+GQN0BT47kI=
+github.com/paularlott/gossip v0.8.1/go.mod h1:1aA/+skDNNTkrpB6UIleqMgYOMALeLqPOAd7obEK6Ro=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.13.9 h1:4NGkvGudBL7GteO3m6qnaQ4pC0Kvf0onSVc9gR3EWBw=

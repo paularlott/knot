@@ -240,6 +240,8 @@ function escapeHtml(text) {
 }
 
 document.addEventListener('alpine:init', () => {
+  let messageIdCounter = 0;
+  
   Alpine.store('chat', {
     isOpen: Alpine.$persist(false).using(sessionStorage),
     messages: Alpine.$persist([]).using(sessionStorage),
@@ -256,7 +258,7 @@ document.addEventListener('alpine:init', () => {
 
     addMessage(message) {
       this.messages.push({
-        id: Date.now(),
+        id: `${Date.now()}-${++messageIdCounter}`,
         ...message,
         timestamp: Date.now()
       });
@@ -297,11 +299,11 @@ window.chatComponent = function () {
     },
 
     get messages() {
-      return this.$store.chat.messages;
+      return this.$store.chat.messages || [];
     },
 
     get inputHistory() {
-      return this.$store.chat.inputHistory;
+      return this.$store.chat.inputHistory || [];
     },
 
     currentMessage: '',
