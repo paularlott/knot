@@ -168,34 +168,27 @@
               </template>
 
               <!-- Main content -->
-              <div class="prose prose-sm max-w-none dark:prose-invert"
-                x-html="formatContent(message.fragments?.content || message.content || '')"></div>
+              <div class="prose prose-sm max-w-none dark:prose-invert">
+                <!-- Show actual content when available -->
+                <template x-if="message.fragments?.content || message.content">
+                  <div x-html="formatContent(message.fragments?.content || message.content || '')"></div>
+                </template>
+
+                <!-- Show loading dots when message is empty and loading -->
+                <template x-if="isLoading && message === messages[messages.length - 1]">
+                  <div class="flex space-x-1 py-2 mt-4">
+                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"></div>
+                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce [animation-delay:0.1s]"></div>
+                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                  </div>
+                </template>
+              </div>
             </div>
           </div>
         </div>
       </div>
       </template>
 
-      <!-- Loading indicator -->
-      <div x-show="isLoading" class="flex justify-start">
-        <div class="flex items-start space-x-3">
-          <div
-            class="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-            <svg class="size-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 2a2 2 0 012 2v2h3a3 3 0 013 3v8a3 3 0 01-3 3H7a3 3 0 01-3-3V9a3 3 0 013-3h3V4a2 2 0 012-2zM9 12h.01M15 12h.01M9 16h6" />
-            </svg>
-          </div>
-          <div
-            class="bg-white dark:bg-gray-800 px-4 py-3 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <div class="flex space-x-1">
-              <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-              <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:0.1s]"></div>
-              <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Input area -->

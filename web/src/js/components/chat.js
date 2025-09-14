@@ -23,7 +23,7 @@ function processMarkdown(text) {
   });
 
   // Process tables
-  text = text.replace(/^((?:\|.*\|\s*\n)+)/gm, (match) => {
+  text = text.replace(/^((?:\|.*\|(?:\s*\n|$))+)/gm, (match) => {
     return processTable(match);
   });
 
@@ -241,7 +241,7 @@ function escapeHtml(text) {
 
 document.addEventListener('alpine:init', () => {
   let messageIdCounter = 0;
-  
+
   Alpine.store('chat', {
     isOpen: Alpine.$persist(false).using(sessionStorage),
     messages: Alpine.$persist([]).using(sessionStorage),
