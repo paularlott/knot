@@ -198,7 +198,7 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 			}
 
 			// If no MCP server, no tool calls, or no choices, we're done
-			if c.mcpServer == nil || len(finalResponse.Choices) == 0 || len(finalResponse.Choices[0].Message.ToolCalls) == 0 {
+			if c.mcpServer == nil || finalResponse == nil || len(finalResponse.Choices) == 0 || len(finalResponse.Choices[0].Message.ToolCalls) == 0 {
 				return
 			}
 
