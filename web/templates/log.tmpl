@@ -2,11 +2,14 @@
 <html lang="en">
 <head>
 	<title>Log</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <script>if(localStorage.getItem('_x_darkMode') !== 'false') { document.documentElement.classList.add('dark') }</script>
 	<link rel="stylesheet" href="/assets/css/knot.css?_v={{ .version }}" />
 </head>
 <body>
-	<div id="terminal"></div>
+  <div id="terminal-wrap">
+  	<div id="terminal"></div>
+  </div>
 	<script src="/assets/js/knot.js?_v={{ .version }}" ></script>
   <script>
     initializeTerminal({
