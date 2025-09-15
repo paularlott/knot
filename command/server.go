@@ -597,7 +597,6 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_SYSTEM_PROMPT_FILE"},
 			DefaultValue: "",
 		},
-
 		&cli.StringFlag{
 			Name:         "chat-reasoning-effort",
 			Usage:        "Reasoning effort level for chat responses (low, medium, high).",
