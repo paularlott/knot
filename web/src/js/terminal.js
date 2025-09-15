@@ -1,5 +1,3 @@
-import '../terminal/terminal.less'
-
 import { Terminal } from '@xterm/xterm';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { FitAddon } from '@xterm/addon-fit';
