@@ -30,6 +30,7 @@
 
 				toggleModifier(mod) {
 					this.modifiers[mod] = !this.modifiers[mod];
+          this.terminal.focus();
 				},
 
 				sendKey(key) {
@@ -56,6 +57,7 @@
 
         setKeyboardState(shown) {
           this.showKeyboard = shown;
+          this.terminal.focus();
           window.setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
         }
 			}
@@ -73,7 +75,7 @@
         </svg>
       </div>
       <div x-show="showKeyboard" class="bg-black/90 border-t border-white/20 p-2 backdrop-blur">
-        <div class="flex gap-1 justify-center items-center">
+        <div class="flex gap-1 justify-center items-stretch">
           <button @click="toggleModifier('ctrl')" class="border px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all" :class="{ 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700': modifiers.ctrl, 'bg-white/10 border-white/20 text-white hover:bg-white/20': !modifiers.ctrl }">Ctrl</button>
           <button @click="toggleModifier('alt')" class="border px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all" :class="{ 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700': modifiers.alt, 'bg-white/10 border-white/20 text-white hover:bg-white/20': !modifiers.alt }">Alt</button>
           <button @click="sendKey('\x1b')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all hover:bg-white/20">Esc</button>
@@ -82,6 +84,7 @@
           <button @click="sendKey('\x1b[B')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">↓</button>
           <button @click="sendKey('\x1b[D')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">←</button>
           <button @click="sendKey('\x1b[C')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">→</button>
+          <button @click="sendKey('~')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">~</button>
           <button @click="setKeyboardState(false)" class="bg-red-600 border-red-600 text-white px-3 py-2 rounded text-base font-bold min-w-10 text-center select-none transition-all hover:bg-red-700">×</button>
         </div>
       </div>
