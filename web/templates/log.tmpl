@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 	<title>Log</title>
-	<link rel="stylesheet" href="/assets/css/terminal.css" />
+  <script>if(localStorage.getItem('_x_darkMode') !== 'false') { document.documentElement.classList.add('dark') }</script>
+	<link rel="stylesheet" href="/assets/css/knot.css?_v={{ .version }}" />
 </head>
 <body>
 	<div id="terminal"></div>
-	<script src="/assets/js/terminal.js" ></script>
+	<script src="/assets/js/knot.js?_v={{ .version }}" ></script>
   <script>
     initializeTerminal({
       shell: "{{ .shell }}",
