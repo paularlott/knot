@@ -51,7 +51,12 @@
 
 					this.terminal.input(input);
 					this.terminal.focus();
-				}
+				},
+
+        setKeyboardState(shown) {
+          this.showKeyboard = shown;
+          window.setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
+        }
 			}
 		}
 	</script>
@@ -60,7 +65,7 @@
 	<div id="terminal" :class="{ 'terminal-with-keyboard': showKeyboard }"></div>
 	{{ if not .logView }}
 	<div class="fixed bottom-0 left-0 right-0 z-50 bg-white/30">
-		<div x-show="!showKeyboard" @click="showKeyboard = true" class="w-full h-[20px] bg-black/70 border-t border-white/20 flex items-center justify-center cursor-pointer text-white hover:bg-black/80">
+		<div x-show="!showKeyboard" @click="setKeyboardState(true)" class="w-full h-[20px] bg-black/70 border-t border-white/20 flex items-center justify-center cursor-pointer text-white hover:bg-black/80">
 			<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
 				<path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
 			</svg>
@@ -75,7 +80,7 @@
 				<button @click="sendKey('\x1b[B')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">↓</button>
 				<button @click="sendKey('\x1b[D')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">←</button>
 				<button @click="sendKey('\x1b[C')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">→</button>
-				<button @click="showKeyboard = false" class="bg-red-600 border-red-600 text-white px-3 py-2 rounded text-base font-bold min-w-10 text-center select-none transition-all hover:bg-red-700">×</button>
+				<button @click="setKeyboardState(false)" class="bg-red-600 border-red-600 text-white px-3 py-2 rounded text-base font-bold min-w-10 text-center select-none transition-all hover:bg-red-700">×</button>
 			</div>
 		</div>
 	</div>
