@@ -18,7 +18,7 @@
 						spaceId: "{{ .spaceId }}",
 						logView: {{ .logView }},
 					});
-					
+
 					document.addEventListener('keydown', (e) => {
 						if (this.modifiers.ctrl || this.modifiers.alt) {
 							e.preventDefault();
@@ -59,23 +59,23 @@
 <body x-data="terminalApp()">
 	<div id="terminal" :class="{ 'terminal-with-keyboard': showKeyboard }"></div>
 	{{ if not .logView }}
-	<div class="soft-keyboard-container">
-		<div x-show="!showKeyboard" @click="showKeyboard = true" class="keyboard-toggle">
-			<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+	<div class="fixed bottom-0 left-0 right-0 z-50 bg-white/30">
+		<div x-show="!showKeyboard" @click="showKeyboard = true" class="w-full h-[20px] bg-black/70 border-t border-white/20 flex items-center justify-center cursor-pointer text-white hover:bg-black/80">
+			<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
 				<path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
 			</svg>
 		</div>
-		<div x-show="showKeyboard" class="soft-keyboard">
-			<div class="keyboard-row">
-				<button @click="toggleModifier('ctrl')" :class="{ 'active': modifiers.ctrl }" class="modifier-key">Ctrl</button>
-				<button @click="toggleModifier('alt')" :class="{ 'active': modifiers.alt }" class="modifier-key">Alt</button>
-				<button @click="sendKey('\x1b')" class="key">Esc</button>
-				<button @click="sendKey('\t')" class="key">Tab</button>
-				<button @click="sendKey('\x1b[A')" class="arrow-key">↑</button>
-				<button @click="sendKey('\x1b[B')" class="arrow-key">↓</button>
-				<button @click="sendKey('\x1b[D')" class="arrow-key">←</button>
-				<button @click="sendKey('\x1b[C')" class="arrow-key">→</button>
-				<button @click="showKeyboard = false" class="close-key">×</button>
+		<div x-show="showKeyboard" class="bg-black/90 border-t border-white/20 p-2 backdrop-blur">
+			<div class="flex gap-1 justify-center items-center">
+				<button @click="toggleModifier('ctrl')" class="border px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all" :class="{ 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700': modifiers.ctrl, 'bg-white/10 border-white/20 text-white hover:bg-white/20': !modifiers.ctrl }">Ctrl</button>
+				<button @click="toggleModifier('alt')" class="border px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all" :class="{ 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700': modifiers.alt, 'bg-white/10 border-white/20 text-white hover:bg-white/20': !modifiers.alt }">Alt</button>
+				<button @click="sendKey('\x1b')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all hover:bg-white/20">Esc</button>
+				<button @click="sendKey('\t')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all hover:bg-white/20">Tab</button>
+				<button @click="sendKey('\x1b[A')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">↑</button>
+				<button @click="sendKey('\x1b[B')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">↓</button>
+				<button @click="sendKey('\x1b[D')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">←</button>
+				<button @click="sendKey('\x1b[C')" class="bg-white/10 border border-white/20 text-white px-3 py-2 rounded text-sm font-bold min-w-10 text-center select-none transition-all hover:bg-white/20">→</button>
+				<button @click="showKeyboard = false" class="bg-red-600 border-red-600 text-white px-3 py-2 rounded text-base font-bold min-w-10 text-center select-none transition-all hover:bg-red-700">×</button>
 			</div>
 		</div>
 	</div>
