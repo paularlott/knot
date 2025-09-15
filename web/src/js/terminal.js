@@ -75,4 +75,6 @@ window.initializeTerminal = function(options) {
       fitAddon.fit();
     };
   };
+  
+  return terminal;
 }
