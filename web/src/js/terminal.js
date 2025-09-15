@@ -1,5 +1,3 @@
-import '../terminal/terminal.less'
-
 import { Terminal } from '@xterm/xterm';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { FitAddon } from '@xterm/addon-fit';
@@ -77,4 +75,22 @@ window.initializeTerminal = function(options) {
       fitAddon.fit();
     };
   };
+
+  function updateViewportHeight() {
+    let vh = window.visualViewport.height;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+
+    window.setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
+  }
+
+  // Initial set
+  updateViewportHeight();
+
+  // Listen for changes
+  window.visualViewport.addEventListener('resize', updateViewportHeight);
+  window.visualViewport.addEventListener('scroll', updateViewportHeight);
+
+  return terminal;
 }

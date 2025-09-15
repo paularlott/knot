@@ -35,6 +35,8 @@ import './pages/auditLogComponent.js';
 import './pages/clusterInfoComponent.js';
 import './components/chat.js';
 
+import './terminal.js';
+
 window.Alpine = Alpine;
 Alpine.plugin(persist);
 Alpine.plugin(AlpineFloatingUI);

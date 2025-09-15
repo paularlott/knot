@@ -1,4 +1,6 @@
 @import './ace-editor.less' layer(base);
+@import '../terminal/terminal.less' layer(base);
+@import '../terminal/xterm.less' layer(base);
 
 @import 'tailwindcss';
 

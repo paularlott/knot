@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 
+	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -59,6 +60,7 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 		"shell":    shell,
 		"renderer": renderer,
 		"spaceId":  spaceId,
+		"version":  build.Version,
 	}
 
 	err = tmpl.Execute(w, data)
