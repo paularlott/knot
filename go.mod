@@ -6,7 +6,7 @@ go 1.25.1
 
 //replace github.com/paularlott/cli => ../cli/
 
-replace github.com/paularlott/mcp => ../mcp/
+//replace github.com/paularlott/mcp => ../mcp/
 
 require (
 	github.com/BurntSushi/toml v1.5.0
@@ -22,7 +22,7 @@ require (
 	github.com/miekg/dns v1.1.68
 	github.com/paularlott/cli v0.3.0
 	github.com/paularlott/gossip v0.8.1
-	github.com/paularlott/mcp v0.0.0-20250831160749-e7c8f607d2d6
+	github.com/paularlott/mcp v0.1.0
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.14.0
 	github.com/rs/zerolog v1.34.0
@@ -75,7 +75,7 @@ require (
 	github.com/shamaton/msgpack/v2 v2.3.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
-	go.opentelemetry.io/auto/sdk v1.2.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.33.0 // indirect
