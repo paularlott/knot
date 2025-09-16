@@ -381,11 +381,6 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 			rest.WriteResponse(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "compute unit quota exceeded"})
 			return
 		}
-
-		if userQuota.StorageUnits > 0 && usage.StorageUnits > userQuota.StorageUnits {
-			rest.WriteResponse(http.StatusInsufficientStorage, w, r, ErrorResponse{Error: "storage unit quota exceeded"})
-			return
-		}
 	}
 
 	// Test if the schedule allows the space to be started

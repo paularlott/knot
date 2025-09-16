@@ -56,7 +56,7 @@ dns_search:
 ##### Core Configuration
 - **container_name**: Unique container identifier, must be present and if not specified should be set to `${{ .user.username }}-${{ .space.name }}`
 - **hostname**: Internal container hostname, must be present and if not given should be set to `${{ .space.name }}`
-- **image**: Container image, this must be present.
+- **image**: Container image, this must be present. NOTE: if the container image doesn't include a domain name then prepend registry-1.docker.io
 
 ##### Authentication
 - **auth**: Registry credentials for private images
