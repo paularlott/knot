@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="height: 100%; overflow: hidden; position: fixed; width: 100%;">
 <head>
 	<title>Terminal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
@@ -64,7 +64,7 @@
 		}
 	</script>
 </head>
-<body x-data="terminalApp()">
+<body x-data="terminalApp()" id="terminal-window">
   <div id="terminal-wrap">
     <div id="terminal" :class="{ 'terminal-with-keyboard': showKeyboard }"></div>
     {{ if not .logView }}
