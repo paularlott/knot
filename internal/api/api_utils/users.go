@@ -44,8 +44,9 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		}
 
 		space.IsDeleted = true
+		space.Name = space.Id
 		space.UpdatedAt = hlc.Now()
-		db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt"})
+		db.SaveSpace(space, []string{"IsDeleted", "Name", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
 	}
 

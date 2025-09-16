@@ -18,4 +18,6 @@ type RegisterResponse struct {
 	WithVSCodeTunnel bool
 	WithCodeServer   bool
 	WithSSH          bool
+	WithRunCommand   bool
+	Freeze           bool
 }

@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
@@ -276,6 +277,22 @@ func ApiPermissionManageRoles(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionManageRoles, "No permission to manage roles")
 }
 
+func ApiPermissionRunCommands(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionRunCommands, "No permission to run commands")
+}
+
+func ApiPermissionCopyFiles(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionCopyFiles, "No permission to copy files")
+}
+
+func ApiPermissionUseMCPServer(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionUseMCPServer, "No permission to use the MCP server")
+}
+
+func ApiPermissionUseWebAssistant(next http.HandlerFunc) http.HandlerFunc {
+	return checkPermission(next, model.PermissionUseWebAssistant, "No permission to use web assistant")
+}
+
 func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -283,7 +300,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		session := GetSessionFromCookie(r)
 		if session == nil || session.ExpiresAfter.Before(time.Now().UTC()) || session.IsDeleted {
 			DeleteSessionCookie(w)
-			http.Redirect(w, r, "/login?redirect="+r.URL.EscapedPath(), http.StatusSeeOther)
+			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}
 
@@ -293,7 +310,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		user, err := db.GetUser(session.UserId)
 		if err != nil || !user.Active || user.IsDeleted {
 			DeleteSessionCookie(w)
-			http.Redirect(w, r, "/login?redirect="+r.URL.EscapedPath(), http.StatusSeeOther)
+			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}
 

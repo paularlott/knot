@@ -69,20 +69,37 @@ type CustomFieldValue struct {
 }
 
 type SpaceDefinition struct {
-	UserId       string                       `json:"user_id"`
-	TemplateId   string                       `json:"template_id"`
-	Name         string                       `json:"name"`
-	Description  string                       `json:"description"`
-	Shell        string                       `json:"shell"`
-	Zone         string                       `json:"zone"`
-	AltNames     []string                     `json:"alt_names"`
-	IsDeployed   bool                         `json:"is_deployed"`
-	IsPending    bool                         `json:"is_pending"`
-	IsDeleting   bool                         `json:"is_deleting"`
-	VolumeData   map[string]model.SpaceVolume `json:"volume_data"`
-	StartedAt    time.Time                    `json:"started_at"`
-	IconURL      string                       `json:"icon_url"`
-	CustomFields []CustomFieldValue           `json:"custom_fields"`
+	UserId             string                       `json:"user_id"`
+	TemplateId         string                       `json:"template_id"`
+	Name               string                       `json:"name"`
+	Description        string                       `json:"description"`
+	Shell              string                       `json:"shell"`
+	Zone               string                       `json:"zone"`
+	AltNames           []string                     `json:"alt_names"`
+	IsDeployed         bool                         `json:"is_deployed"`
+	IsPending          bool                         `json:"is_pending"`
+	IsDeleting         bool                         `json:"is_deleting"`
+	VolumeData         map[string]model.SpaceVolume `json:"volume_data"`
+	StartedAt          time.Time                    `json:"started_at"`
+	CreatedAt          time.Time                    `json:"created_at"`
+	CreatedAtFormatted string                       `json:"created_at_formatted"`
+	IconURL            string                       `json:"icon_url"`
+	CustomFields       []CustomFieldValue           `json:"custom_fields"`
+}
+
+type RunCommandRequest struct {
+	Command string   `json:"command"`
+	Args    []string `json:"args,omitempty"`
+	Timeout int      `json:"timeout"`
+	Workdir string   `json:"workdir,omitempty"`
+}
+
+type CopyFileRequest struct {
+	SourcePath string `json:"source_path"`
+	DestPath   string `json:"dest_path"`
+	Content    []byte `json:"content,omitempty"`
+	Direction  string `json:"direction"` // "to_space" or "from_space"
+	Workdir    string `json:"workdir,omitempty"`
 }
 
 func (c *ApiClient) GetSpaces(ctx context.Context, userId string) (*SpaceInfoList, int, error) {

@@ -27,6 +27,7 @@ window.templateForm = function(isEdit, templateId) {
       with_vscode_tunnel: false,
       with_code_server: false,
       with_ssh: false,
+      with_run_command: false,
       compute_units: 0,
       storage_units: 0,
       active: true,
@@ -132,6 +133,7 @@ window.templateForm = function(isEdit, templateId) {
           this.formData.with_vscode_tunnel = template.with_vscode_tunnel;
           this.formData.with_code_server = template.with_code_server;
           this.formData.with_ssh = template.with_ssh;
+          this.formData.with_run_command = template.with_run_command;
           this.formData.compute_units = template.compute_units;
           this.formData.storage_units = template.storage_units;
           this.formData.active = template.active;
@@ -315,6 +317,7 @@ window.templateForm = function(isEdit, templateId) {
         with_vscode_tunnel: this.formData.with_vscode_tunnel,
         with_code_server: this.formData.with_code_server,
         with_ssh: this.formData.with_ssh,
+        with_run_command: this.formData.with_run_command,
         compute_units: parseInt(this.formData.compute_units),
         storage_units: parseInt(this.formData.storage_units),
         schedule_enabled: this.formData.schedule_enabled && this.formData.platform !== 'manual',

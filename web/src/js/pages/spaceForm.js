@@ -11,7 +11,9 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       shell: preferredShell,
       user_id: forUserId,
       alt_names: [],
-      custom_fields: []
+      custom_fields: [],
+      created_at: "",
+      created_at_formatted: ""
     },
     template_id: templateId,
     template: {
@@ -34,6 +36,10 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     saving: false,
     quotaStorageLimitShow: false,
 
+    formatCreatedAt() {
+      return this.formData.created_at_formatted || '';
+    },
+
     async initData() {
       focus.Element('input[name="name"]');
 
@@ -55,6 +61,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.formData.shell = space.shell;
           this.formData.icon_url = space.icon_url;
           this.formData.custom_fields = space.custom_fields;
+          this.formData.created_at = space.created_at;
+          this.formData.created_at_formatted = space.created_at_formatted;
 
           if(space.user_id !== userId) {
             this.formData.user_id = space.user_id;

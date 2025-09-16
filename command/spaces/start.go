@@ -68,7 +68,6 @@ var StartCmd = &cli.Command{
 			} else {
 				return fmt.Errorf("Error starting space: %w", err)
 			}
-			return nil
 		}
 
 		fmt.Println("Space started: ", spaceName)

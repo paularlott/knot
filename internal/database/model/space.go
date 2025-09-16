@@ -21,6 +21,7 @@ type SpaceCustomField struct {
 type SpaceVolume struct {
 	Id        string `json:"id"`
 	Namespace string `json:"Namespace"`
+	Type      string `json:"type,omitempty"`
 }
 
 // Value implements the driver.Valuer interface.
@@ -80,8 +81,8 @@ type Space struct {
 	VolumeData       VolumeDataMap      `json:"volume_data" db:"volume_data" msgpack:"volume_data"`
 	SSHHostSigner    string             `json:"ssh_host_signer" db:"ssh_host_signer" msgpack:"ssh_host_signer"`
 	IsDeployed       bool               `json:"is_deployed" db:"is_deployed" msgpack:"is_deployed"`
-	IsPending        bool               `json:"is_pending" db:"is_pending" msgpack:"is_pending"`    // Flags if the space is pending a state change, starting or stopping
-	IsDeleting       bool               `json:"is_deleting" db:"is_deleting" msgpack:"is_deleting"` // Flags if the space is pending a state change, starting or stopping
+	IsPending        bool               `json:"is_pending" db:"is_pending" msgpack:"is_pending"` // Flags if the space is pending a state change, starting or stopping
+	IsDeleting       bool               `json:"is_deleting" db:"is_deleting" msgpack:"is_deleting"`
 	IsDeleted        bool               `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
 	AltNames         []string           `json:"alt_names" msgpack:"alt_names"`
 	CustomFields     []SpaceCustomField `json:"custom_fields" db:"custom_fields,json" msgpack:"custom_fields"`

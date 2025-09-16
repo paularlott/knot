@@ -2,6 +2,9 @@ package scaffold
 
 import (
 	_ "embed"
+
+	"github.com/paularlott/knot/internal/mcp"
+	"github.com/paularlott/knot/internal/systemprompt"
 )
 
 var (
@@ -17,3 +20,23 @@ var (
 	//go:embed knot-server.nomad
 	NomadScaffold string
 )
+
+// GetSystemPromptScaffold returns the embedded system prompt
+func GetSystemPromptScaffold() string {
+	return systemprompt.GetInternalSystemPrompt()
+}
+
+// GetNomadSpecScaffold returns the embedded nomad spec
+func GetNomadSpecScaffold() string {
+	return mcp.GetInternalNomadSpec()
+}
+
+// GetDockerSpecScaffold returns the embedded docker spec
+func GetDockerSpecScaffold() string {
+	return mcp.GetInternalDockerSpec()
+}
+
+// GetPodmanSpecScaffold returns the embedded podman spec (same as docker)
+func GetPodmanSpecScaffold() string {
+	return mcp.GetInternalPodmanSpec()
+}

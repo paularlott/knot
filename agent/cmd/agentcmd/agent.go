@@ -56,6 +56,13 @@ var AgentCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DISABLE_TERMINAL"},
 			DefaultValue: false,
 		},
+		&cli.BoolFlag{
+			Name:         "disable-space-io",
+			Usage:        "Disable space I/O operations (commands and file copy).",
+			ConfigPath:   []string{"agent.disable_space_io"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_DISABLE_SPACE_IO"},
+			DefaultValue: false,
+		},
 		&cli.StringSliceFlag{
 			Name:       "tcp-port",
 			Usage:      "Can be specified multiple times to give the list of TCP ports to be exposed to the client.",
@@ -203,6 +210,7 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 		SyslogPort:           cmd.GetInt("syslog-port"),
 		APIPort:              cmd.GetInt("api-port"),
 		DisableTerminal:      cmd.GetBool("disable-terminal"),
+		DisableSpaceIO:       cmd.GetBool("disable-space-io"),
 		Port: config.PortConfig{
 			CodeServer: cmd.GetInt("code-server-port"),
 			VNCHttp:    cmd.GetInt("vnc-http-port"),

@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -554,21 +556,19 @@ func (r *DNSResolver) LookupSRV(service string) ([]*net.TCPAddr, error) {
 		return nil, err
 	}
 
+	// Order SRV records by RFC 2782: lowest priority first, then weighted selection
+	ordered := r.orderSRVRecords(records)
+
 	var tcpAddrs []*net.TCPAddr
-	for _, record := range records {
-		if record.Type == "SRV" {
-			// Look up IPs for the target
-			ips, err := r.LookupIP(record.Target)
-			if err == nil {
-				for _, ip := range ips {
-					parsedIP := net.ParseIP(ip)
-					if parsedIP != nil {
-						tcpAddrs = append(tcpAddrs, &net.TCPAddr{
-							IP:   parsedIP,
-							Port: record.Port,
-						})
-					}
-				}
+	for _, rec := range ordered {
+		// Look up IPs for the target of this SRV record
+		ips, err := r.LookupIP(rec.Target)
+		if err != nil {
+			continue
+		}
+		for _, ip := range ips {
+			if parsedIP := net.ParseIP(ip); parsedIP != nil {
+				tcpAddrs = append(tcpAddrs, &net.TCPAddr{IP: parsedIP, Port: rec.Port})
 			}
 		}
 	}
@@ -630,12 +630,23 @@ func (r *DNSResolver) ResolveSRVHttp(uri string) string {
 			return uri[4:]
 		}
 
-		hostPorts, err := r.LookupSRV(u.Host)
-		if err != nil || len(hostPorts) == 0 {
+		// Query SRV directly to obtain the service-selected port while preserving hostname for SNI
+		srvRecords, err := r.QueryUpstream(u.Host, "SRV")
+		if err != nil || len(srvRecords) == 0 {
+			return uri[4:]
+		}
+		ordered := r.orderSRVRecords(srvRecords)
+		if len(ordered) == 0 {
+			return uri[4:]
+		}
+		port := ordered[0].Port
+		if port <= 0 {
 			return uri[4:]
 		}
 
-		u.Host = hostPorts[0].String()
+		// Keep original hostname, only set the port
+		host := net.JoinHostPort(u.Hostname(), strconv.Itoa(port))
+		u.Host = host
 		return u.String()
 	}
 
@@ -644,6 +655,95 @@ func (r *DNSResolver) ResolveSRVHttp(uri string) string {
 	}
 
 	return uri
+}
+
+// orderSRVRecords filters invalid SRV records and returns them ordered by RFC 2782:
+// ascending priority, and within the same priority group, a weighted-shuffle by Weight.
+func (r *DNSResolver) orderSRVRecords(records []DNSRecord) []DNSRecord {
+	// Filter valid SRV records
+	var srvs []DNSRecord
+	for _, rec := range records {
+		if rec.Type != "SRV" {
+			continue
+		}
+		if rec.Port <= 0 {
+			continue
+		}
+		if rec.Target == "" || rec.Target == "." {
+			continue
+		}
+		srvs = append(srvs, rec)
+	}
+	if len(srvs) == 0 {
+		return nil
+	}
+
+	// Collect unique priorities
+	prioSet := map[int]struct{}{}
+	for _, s := range srvs {
+		prioSet[s.Priority] = struct{}{}
+	}
+	// Extract and sort priorities ascending
+	priorities := make([]int, 0, len(prioSet))
+	for p := range prioSet {
+		priorities = append(priorities, p)
+	}
+	// Simple insertion sort to avoid importing sort
+	for i := 1; i < len(priorities); i++ {
+		key := priorities[i]
+		j := i - 1
+		for j >= 0 && priorities[j] > key {
+			priorities[j+1] = priorities[j]
+			j--
+		}
+		priorities[j+1] = key
+	}
+
+	// Weighted shuffle within each priority
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	var ordered []DNSRecord
+	for _, p := range priorities {
+		// Gather candidates of this priority
+		var candidates []DNSRecord
+		for _, s := range srvs {
+			if s.Priority == p {
+				candidates = append(candidates, s)
+			}
+		}
+		// Repeatedly pick one using weight
+		for len(candidates) > 0 {
+			total := 0
+			for _, c := range candidates {
+				if c.Weight > 0 {
+					total += c.Weight
+				}
+			}
+			var idx int
+			if total == 0 {
+				// All zero weights: pick uniformly
+				idx = rnd.Intn(len(candidates))
+			} else {
+				pick := rnd.Intn(total)
+				sum := 0
+				for i, c := range candidates {
+					w := c.Weight
+					if w < 0 {
+						w = 0
+					}
+					sum += w
+					if pick < sum {
+						idx = i
+						break
+					}
+				}
+			}
+			ordered = append(ordered, candidates[idx])
+			// Remove chosen idx
+			candidates = append(candidates[:idx], candidates[idx+1:]...)
+		}
+	}
+
+	return ordered
 }
 
 // Default global resolver instance

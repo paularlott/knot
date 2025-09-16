@@ -2,6 +2,7 @@ package agent_server
 
 import (
 	"net"
+	"strings"
 	"time"
 
 	"github.com/paularlott/knot/build"
@@ -45,6 +46,7 @@ func handleAgentConnection(conn net.Conn) {
 		WithVSCodeTunnel: false,
 		WithCodeServer:   false,
 		WithSSH:          false,
+		Freeze:           false,
 	}
 
 	// Check if the agent is already registered
@@ -69,6 +71,21 @@ func handleAgentConnection(conn net.Conn) {
 	if err != nil {
 		log.Error().Msgf("agent: unknown space: %s", registerMsg.SpaceId)
 		msg.WriteMessage(conn, &response)
+		return
+	}
+
+	// Check the version of the agent
+	if !compareVersionMajorMinor(registerMsg.Version, build.Version) {
+		log.Info().Msgf("agent: version mismatch: %s (expected %s), restarting space", registerMsg.Version, build.Version)
+
+		// Ask the agent to freeze while we reboot it
+		response.Freeze = true
+		msg.WriteMessage(conn, &response)
+
+		// Restart the space
+		time.Sleep(2 * time.Second)
+		containerService := service.GetContainerService()
+		containerService.RestartSpace(space)
 		return
 	}
 
@@ -103,6 +120,7 @@ func handleAgentConnection(conn net.Conn) {
 	response.WithVSCodeTunnel = template.WithVSCodeTunnel
 	response.WithCodeServer = template.WithCodeServer
 	response.WithSSH = template.WithSSH
+	response.WithRunCommand = template.WithRunCommand
 
 	if user.SSHPublicKey != "" {
 		response.SSHKeys = append(response.SSHKeys, user.SSHPublicKey)
@@ -317,6 +335,14 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			// Single shot command so done
 			return
 
+		case byte(msg.CmdRunCommand):
+			handleRunCommand(stream, session)
+			return // Single shot command so done
+
+		case byte(msg.CmdCopyFile):
+			handleCopyFile(stream, session)
+			return // Single shot command so done
+
 		default:
 			log.Error().Msgf("agent: unknown command from agent: %d", cmd)
 			return
@@ -372,4 +398,153 @@ func handleCreateToken(stream net.Conn, session *Session) {
 		log.Error().Msgf("agent: writing create token response: %v", err)
 		return
 	}
+}
+
+func handleRunCommand(stream net.Conn, session *Session) {
+	// Read the run command message
+	var runCmd msg.RunCommandMessage
+	if err := msg.ReadMessage(stream, &runCmd); err != nil {
+		log.Error().Msgf("agent: reading run command message: %v", err)
+		return
+	}
+
+	log.Info().Str("command", runCmd.Command).Str("space_id", session.Id).Msg("agent: forwarding run command to agent")
+
+	// Open a new connection to the agent to send the run command
+	agentConn, err := session.MuxSession.Open()
+	if err != nil {
+		log.Error().Msgf("agent: opening connection to agent: %v", err)
+		response := msg.RunCommandResponse{
+			Success: false,
+			Error:   "Failed to connect to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+	defer agentConn.Close()
+
+	// Send the run command to the agent
+	if err := msg.WriteCommand(agentConn, msg.CmdRunCommand); err != nil {
+		log.Error().Msgf("agent: writing run command to agent: %v", err)
+		response := msg.RunCommandResponse{
+			Success: false,
+			Error:   "Failed to send command to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	if err := msg.WriteMessage(agentConn, &runCmd); err != nil {
+		log.Error().Msgf("agent: writing run command message to agent: %v", err)
+		response := msg.RunCommandResponse{
+			Success: false,
+			Error:   "Failed to send command message to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	// Read the response from the agent
+	var response msg.RunCommandResponse
+	if err := msg.ReadMessage(agentConn, &response); err != nil {
+		log.Error().Msgf("agent: reading run command response from agent: %v", err)
+		response = msg.RunCommandResponse{
+			Success: false,
+			Error:   "Failed to read response from agent",
+		}
+	}
+
+	// Forward the response back to the client
+	if err := msg.WriteMessage(stream, &response); err != nil {
+		log.Error().Msgf("agent: writing run command response to client: %v", err)
+		return
+	}
+
+	log.Info().Bool("success", response.Success).Str("command", runCmd.Command).Str("space_id", session.Id).Msg("agent: run command completed")
+}
+
+func handleCopyFile(stream net.Conn, session *Session) {
+	// Read the copy file message
+	var copyCmd msg.CopyFileMessage
+	if err := msg.ReadMessage(stream, &copyCmd); err != nil {
+		log.Error().Msgf("agent: reading copy file message: %v", err)
+		return
+	}
+
+	log.Info().Str("direction", copyCmd.Direction).Str("source", copyCmd.SourcePath).Str("dest", copyCmd.DestPath).Str("space_id", session.Id).Msg("agent: forwarding copy file to agent")
+
+	// Open a new connection to the agent to send the copy file command
+	agentConn, err := session.MuxSession.Open()
+	if err != nil {
+		log.Error().Msgf("agent: opening connection to agent: %v", err)
+		response := msg.CopyFileResponse{
+			Success: false,
+			Error:   "Failed to connect to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+	defer agentConn.Close()
+
+	// Send the copy file command to the agent
+	if err := msg.WriteCommand(agentConn, msg.CmdCopyFile); err != nil {
+		log.Error().Msgf("agent: writing copy file command to agent: %v", err)
+		response := msg.CopyFileResponse{
+			Success: false,
+			Error:   "Failed to send command to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	if err := msg.WriteMessage(agentConn, &copyCmd); err != nil {
+		log.Error().Msgf("agent: writing copy file message to agent: %v", err)
+		response := msg.CopyFileResponse{
+			Success: false,
+			Error:   "Failed to send command message to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	// Read the response from the agent
+	var response msg.CopyFileResponse
+	if err := msg.ReadMessage(agentConn, &response); err != nil {
+		log.Error().Msgf("agent: reading copy file response from agent: %v", err)
+		response = msg.CopyFileResponse{
+			Success: false,
+			Error:   "Failed to read response from agent",
+		}
+	}
+
+	// Forward the response back to the client
+	if err := msg.WriteMessage(stream, &response); err != nil {
+		log.Error().Msgf("agent: writing copy file response to client: %v", err)
+		return
+	}
+
+	log.Info().Bool("success", response.Success).Str("direction", copyCmd.Direction).Str("space_id", session.Id).Msg("agent: copy file completed")
+}
+
+func compareVersionMajorMinor(version1, version2 string) bool {
+	// Split versions by dots
+	parts1 := strings.Split(version1, ".")
+	parts2 := strings.Split(version2, ".")
+
+	// Need at least 2 parts for major.minor comparison
+	if len(parts1) < 2 || len(parts2) < 2 {
+		return false
+	}
+
+	// Compare major version (first part)
+	if parts1[0] != parts2[0] {
+		return false
+	}
+
+	// Compare minor version (second part)
+	if parts1[1] != parts2[1] {
+		return false
+	}
+
+	return true
 }

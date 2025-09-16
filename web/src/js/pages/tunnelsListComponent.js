@@ -13,13 +13,22 @@ window.tunnelsListComponent = function() {
     },
 
     async getTunnels() {
-      const response = await fetch('/api/tunnels', {
+      await fetch('/api/tunnels', {
         headers: {
           'Content-Type': 'application/json'
         }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((tunnels) => {
+            this.tunnels = tunnels;
+            this.loading = false;
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
-      this.tunnels = await response.json();
-      this.loading = false;
     },
 
     async terminateTunnel(tunnel) {
@@ -34,9 +43,13 @@ window.tunnelsListComponent = function() {
         if(response.status === 200) {
           self.$dispatch('show-alert', { msg: "Tunnel terminated", type: 'success' });
           self.getTunnels();
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         } else {
           self.$dispatch('show-alert', { msg: "Failed to terminate tunnel", type: 'error' });
         }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
     }
   };

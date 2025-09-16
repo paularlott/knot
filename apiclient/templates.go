@@ -19,6 +19,7 @@ type TemplateCreateRequest struct {
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
+	WithRunCommand   bool                 `json:"with_run_command"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
 	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
@@ -38,11 +39,12 @@ type TemplateUpdateRequest struct {
 	Volumes          string               `json:"volumes"`
 	Groups           []string             `json:"groups"`
 	Active           bool                 `json:"active"`
-	Platform         string               `json:platform`
+	Platform         string               `json:"platform"`
 	WithTerminal     bool                 `json:"with_terminal"`
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
+	WithRunCommand   bool                 `json:"with_run_command"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
 	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
@@ -108,6 +110,7 @@ type TemplateDetails struct {
 	WithVSCodeTunnel bool                 `json:"with_vscode_tunnel"`
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
+	WithRunCommand   bool                 `json:"with_run_command"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`

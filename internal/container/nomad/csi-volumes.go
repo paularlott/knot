@@ -15,6 +15,11 @@ func (client *NomadClient) CreateCSIVolume(volume *model.CSIVolume) error {
 	var volumes = model.CSIVolumes{}
 	volumes.Volumes = append(volumes.Volumes, *volume)
 
+	// If Id not set then use the name
+	if volume.Id == "" {
+		volume.Id = volume.Name
+	}
+
 	log.Debug().Msgf("nomad: creating csi volume %s", volume.Id)
 
 	_, err := client.httpClient.Put(context.Background(), fmt.Sprintf("/v1/volume/csi/%s/create", volume.Id), &volumes, nil, http.StatusOK)

@@ -16,7 +16,6 @@ import (
 	"github.com/paularlott/gossip/examples/common"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/gossip/leader"
-	"github.com/paularlott/gossip/websocket"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
@@ -41,6 +40,8 @@ type Cluster struct {
 	tunnelServers    []string
 	sessionGossip    bool
 	election         *leader.LeaderElection
+	electionRunning  bool
+	electionMux      sync.Mutex
 	resourceLocksMux sync.RWMutex
 	resourceLocks    map[string]*ResourceLock
 }
@@ -76,21 +77,23 @@ func NewCluster(
 		}
 
 		gossipConfig.NodeID = nodeId.Value
-		gossipConfig.BindAddr = bindAddr
 		gossipConfig.AdvertiseAddr = advertiseAddr
 
-		if !strings.HasPrefix(gossipConfig.AdvertiseAddr, "wss://") && !strings.HasPrefix(gossipConfig.AdvertiseAddr, "https://") {
+		var httpTransport *gossip.HTTPTransport
+		if !strings.HasPrefix(gossipConfig.AdvertiseAddr, "https://") && !strings.HasPrefix(gossipConfig.AdvertiseAddr, "http://") {
+			gossipConfig.BindAddr = bindAddr
 			gossipConfig.EncryptionKey = []byte(clusterKey)
 			gossipConfig.Cipher = encryption.NewAESEncryptor()
-			gossipConfig.SocketTransportEnabled = true
+			gossipConfig.Transport = gossip.NewSocketTransport(gossipConfig)
 
 			if compress {
 				gossipConfig.Compressor = compression.NewSnappyCompressor()
 			}
 		} else {
-			gossipConfig.WebsocketProvider = websocket.NewGorillaProvider(5*time.Second, true, clusterKey)
-			gossipConfig.SocketTransportEnabled = false
 			gossipConfig.BearerToken = clusterKey
+			gossipConfig.BindAddr = "/cluster"
+			httpTransport = gossip.NewHTTPTransport(gossipConfig)
+			gossipConfig.Transport = httpTransport
 
 			url, err := url.Parse(gossipConfig.AdvertiseAddr)
 			if err != nil {
@@ -120,8 +123,8 @@ func NewCluster(
 		}
 
 		// If using websockets then add the handler
-		if gossipConfig.WebsocketProvider != nil {
-			routes.HandleFunc("GET /cluster", cluster.gossipCluster.WebsocketHandler)
+		if httpTransport != nil {
+			routes.HandleFunc("POST /cluster", httpTransport.HandleGossipRequest)
 		}
 
 		// Add the handlers
@@ -156,9 +159,11 @@ func NewCluster(
 		// Capture server state changes and maintain a list of nodes in our zone
 		cluster.gossipCluster.HandleNodeStateChangeFunc(func(node *gossip.Node, prevState gossip.NodeState) {
 			cluster.trackClusterEndpoints()
+			cluster.manageElection()
 		})
 		cluster.gossipCluster.HandleNodeMetadataChangeFunc(func(node *gossip.Node) {
 			cluster.trackClusterEndpoints()
+			cluster.manageElection()
 		})
 
 		// Periodically gossip the status of the objects
@@ -182,7 +187,6 @@ func NewCluster(
 		metadata.SetString("zone", cfg.Zone)
 		metadata.SetString("agent_endpoint", cfg.AgentEndpoint)
 		metadata.SetString("tunnel_server", cfg.TunnelServer)
-		cluster.gossipCluster.UpdateMetadata()
 
 		// Set up leader elections within the locality
 		electionCfg := leader.DefaultConfig()
@@ -237,6 +241,30 @@ func (c *Cluster) trackClusterEndpoints() {
 	}
 	c.agentEndpoints = endPoints
 	c.tunnelServers = tunnelServers
+}
+
+func (c *Cluster) manageElection() {
+	if c.election == nil || c.electionRunning {
+		return
+	}
+
+	c.electionMux.Lock()
+	defer c.electionMux.Unlock()
+
+	// Count nodes in our zone
+	cfg := config.GetServerConfig()
+	nodesInZone := 0
+	for _, node := range c.gossipCluster.AliveNodes() {
+		if node.Metadata.GetString("zone") == cfg.Zone {
+			nodesInZone++
+		}
+	}
+
+	if nodesInZone >= 2 {
+		log.Info().Msgf("cluster: starting leader election with %d nodes in zone", nodesInZone)
+		c.election.Start()
+		c.electionRunning = true
+	}
 }
 
 func (c *Cluster) Start(peers []string, originServer string, originToken string) {
@@ -342,7 +370,14 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 func (c *Cluster) Stop() {
 	if c.gossipCluster != nil {
 		log.Info().Msg("cluster: stopping gossip cluster")
-		c.election.Stop()
+
+		c.electionMux.Lock()
+		if c.electionRunning {
+			c.election.Stop()
+			c.electionRunning = false
+		}
+		c.electionMux.Unlock()
+
 		c.gossipCluster.Stop()
 	}
 }
@@ -378,7 +413,7 @@ func (c *Cluster) GetTunnelServers() []string {
 
 func (c *Cluster) LockResource(resourceId string) string {
 	// If in cluster mode and not the leader then we have to ask the leader to lock the resource
-	if c.election != nil && !c.election.IsLeader() {
+	if c.election != nil && c.electionRunning && !c.election.IsLeader() {
 		log.Debug().Msg("cluster: Asking leader to lock resource")
 
 		leaderNode := c.election.GetLeader()
@@ -423,7 +458,7 @@ func (c *Cluster) lockResourceLocally(resourceId string) string {
 
 func (c *Cluster) UnlockResource(resourceId, unlockToken string) {
 	// If in cluster mode and not the leader then we have to ask the leader to unlock the resource
-	if c.election != nil && !c.election.IsLeader() {
+	if c.election != nil && c.electionRunning && !c.election.IsLeader() {
 		log.Debug().Msg("cluster: Asking leader to unlock resource")
 
 		leaderNode := c.election.GetLeader()

@@ -64,12 +64,12 @@ var TunnelPortCmd = &cli.Command{
 
 		listenPort := cmd.GetIntArg("listen")
 		if listenPort < 1 || listenPort > 65535 {
-			return fmt.Errorf("Invalid port number, port numbers must be between 1 and 65535", 1)
+			return fmt.Errorf("Invalid port number, port numbers must be between 1 and 65535")
 		}
 
 		localPort := cmd.GetIntArg("port")
 		if localPort < 1 || localPort > 65535 {
-			return fmt.Errorf("Invalid port number, port numbers must be between 1 and 65535", 1)
+			return fmt.Errorf("Invalid port number, port numbers must be between 1 and 65535")
 		}
 
 		opts := tunnel_server.TunnelOpts{

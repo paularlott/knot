@@ -1,6 +1,7 @@
 package nomad
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/paularlott/gossip/hlc"
@@ -40,6 +41,10 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 	// Find the volumes that are defined but not yet created in the space and create them
 	var volById = make(map[string]*model.CSIVolume)
 	for _, volume := range volumes.Volumes {
+		if volume.Id == "" {
+			volume.Id = volume.Name
+		}
+
 		volById[volume.Id] = &volume
 
 		// Check if the volume is already created for the space
@@ -47,12 +52,27 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 			// Existing volume then destroy it as in wrong namespace
 			if ok {
 				log.Debug().Msgf("nomad: deleting volume %s due to wrong namespace", volume.Id)
-				client.DeleteCSIVolume(data.Id, data.Namespace)
+				if volume.Type == "host" {
+					var id string
+					id, err = client.GetIdHostVolume(data.Id, data.Namespace)
+					if err == nil {
+						client.DeleteHostVolume(id, data.Namespace)
+					}
+				} else {
+					client.DeleteCSIVolume(data.Id, data.Namespace)
+				}
 				delete(space.VolumeData, volume.Id)
 			}
 
 			// Create the volume
-			err := client.CreateCSIVolume(&volume)
+			switch volume.Type {
+			case "csi":
+				err = client.CreateCSIVolume(&volume)
+			case "host":
+				_, err = client.CreateHostVolume(&volume)
+			default:
+				err = fmt.Errorf("unsupported volume type: %s", volume.Type)
+			}
 			if err != nil {
 				return err
 			}
@@ -61,6 +81,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 			space.VolumeData[volume.Id] = model.SpaceVolume{
 				Id:        volume.Id,
 				Namespace: volume.Namespace,
+				Type:      volume.Type,
 			}
 		}
 	}
@@ -70,7 +91,16 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 		// Check if the volume is defined in the template
 		if _, ok := volById[volume.Id]; !ok {
 			// Delete the volume
-			err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
+			var err error
+			if volume.Type == "host" {
+				var id string
+				id, err = client.GetIdHostVolume(volume.Id, volume.Namespace)
+				if err == nil {
+					client.DeleteHostVolume(id, volume.Namespace)
+				}
+			} else {
+				err = client.DeleteCSIVolume(volume.Id, volume.Namespace)
+			}
 			if err != nil {
 				return err
 			}
@@ -102,7 +132,16 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 
 	// For all volumes in the space delete them
 	for _, volume := range space.VolumeData {
-		err := client.DeleteCSIVolume(volume.Id, volume.Namespace)
+		var err error
+		if volume.Type == "host" {
+			var id string
+			id, err = client.GetIdHostVolume(volume.Id, volume.Namespace)
+			if err == nil {
+				client.DeleteHostVolume(id, volume.Namespace)
+			}
+		} else {
+			err = client.DeleteCSIVolume(volume.Id, volume.Namespace)
+		}
 		if err != nil {
 			return err
 		}

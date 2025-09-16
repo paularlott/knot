@@ -30,6 +30,10 @@ const (
 	PermissionUseCodeServer          // Can use code-server
 	PermissionUseVSCodeTunnel        // Can use VSCode Tunnel
 	PermissionUseLogs                // Can use the log window
+	PermissionRunCommands            // Can run commands in spaces
+	PermissionCopyFiles              // Can copy files to/from spaces
+	PermissionUseMCPServer           // Can use MCP server
+	PermissionUseWebAssistant        // Can use web-based AI assistant
 )
 
 type PermissionName struct {
@@ -47,21 +51,26 @@ var PermissionNames = []PermissionName{
 	{PermissionManageRoles, "User Management", "Manage Roles"},
 	{PermissionManageUsers, "User Management", "Manage Users"},
 
-	{PermissionShareSpaces, "Resource Management", "Share Spaces"},
-	{PermissionTransferSpaces, "Resource Management", "Transfer Spaces"},
 	{PermissionManageSpaces, "Resource Management", "Manage Spaces"},
 	{PermissionManageTemplates, "Resource Management", "Manage Templates"},
 	{PermissionManageVariables, "Resource Management", "Manage Variables"},
 	{PermissionManageVolumes, "Resource Management", "Manage Volumes"},
 
-	{PermissionUseSpaces, "Resource Usage", "Use Spaces"},
-	{PermissionUseTunnels, "Resource Usage", "Use Tunnels"},
-	{PermissionUseCodeServer, "Resource Usage", "Use Code Server"},
-	{PermissionUseLogs, "Resource Usage", "View Logs"},
-	{PermissionUseSSH, "Resource Usage", "Use SSH"},
-	{PermissionUseVNC, "Resource Usage", "Use VNC"},
-	{PermissionUseVSCodeTunnel, "Resource Usage", "Use VSCode Tunnel"},
-	{PermissionUseWebTerminal, "Resource Usage", "Use Web Terminal"},
+	{PermissionUseMCPServer, "AI Tools", "Use MCP Server"},
+	{PermissionUseWebAssistant, "AI Tools", "Use Web Assistant"},
+
+	{PermissionUseSpaces, "Space Operations", "Use Spaces"},
+	{PermissionShareSpaces, "Space Operations", "Share Spaces"},
+	{PermissionTransferSpaces, "Space Operations", "Transfer Spaces"},
+	{PermissionUseTunnels, "Space Operations", "Use Tunnels"},
+	{PermissionUseCodeServer, "Space Operations", "Use Code Server"},
+	{PermissionUseLogs, "Space Operations", "View Logs"},
+	{PermissionUseSSH, "Space Operations", "Use SSH"},
+	{PermissionUseVNC, "Space Operations", "Use VNC"},
+	{PermissionUseVSCodeTunnel, "Space Operations", "Use VSCode Tunnel"},
+	{PermissionUseWebTerminal, "Space Operations", "Use Web Terminal"},
+	{PermissionRunCommands, "Space Operations", "Run Commands"},
+	{PermissionCopyFiles, "Space Operations", "Copy Files"},
 }
 
 // Role
@@ -114,6 +123,10 @@ func SetRoleCache(roles []*Role) {
 			PermissionUseCodeServer,
 			PermissionUseVSCodeTunnel,
 			PermissionUseLogs,
+			PermissionRunCommands,
+			PermissionCopyFiles,
+			PermissionUseMCPServer,
+			PermissionUseWebAssistant,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/rs/zerolog/log"
@@ -79,7 +80,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	iconListJSON, err := json.Marshal(loadIcons())
+	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -102,8 +103,13 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var maxSpaces uint32
-	var usingUserId string
+	template, err := db.GetTemplate(templateId)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	var forUser *model.User
 
 	if userId != "" {
@@ -114,48 +120,17 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		data["forUserUsername"] = forUser.Username
-		maxSpaces = forUser.MaxSpaces
-		usingUserId = userId
 	} else {
 		data["forUserUsername"] = ""
-		maxSpaces = user.MaxSpaces
-		usingUserId = user.Id
 		forUser = user
 	}
-
-	// Get the groups and build a map
-	groups, err := db.GetGroups()
-	if err != nil {
-		log.Error().Msg(err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	groupMap := make(map[string]*model.Group)
-	for _, group := range groups {
-		groupMap[group.Id] = group
-	}
-
-	for _, groupId := range forUser.Groups {
-		group, ok := groupMap[groupId]
-		if ok {
-			maxSpaces += group.MaxSpaces
-		}
-	}
-
 	data["forUserId"] = userId
 	data["templateId"] = templateId
 
-	// Get the number of spaces for the user
-	if maxSpaces > 0 {
-		spaces, err := db.GetSpacesForUser(usingUserId)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-
-		if uint32(len(spaces)) >= maxSpaces {
-			http.Redirect(w, r, "/space-quota-reached", http.StatusSeeOther)
-		}
+	spaceService := service.GetSpaceService()
+	err = spaceService.CheckUserQuotas(forUser.Id, template)
+	if err != nil {
+		http.Redirect(w, r, "/space-quota-reached", http.StatusSeeOther)
 	}
 
 	err = tmpl.Execute(w, data)
@@ -194,7 +169,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	iconListJSON, err := json.Marshal(loadIcons())
+	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)

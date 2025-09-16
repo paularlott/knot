@@ -46,6 +46,7 @@ func (db *MySQLDriver) realConnect() error {
 
 			host = hostPort[0].IP.String()
 			port = hostPort[0].Port
+
 			break
 		}
 	}

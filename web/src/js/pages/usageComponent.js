@@ -297,50 +297,59 @@ window.usageComponent = function(userId) {
 
     async getUsage() {
       const self = this;
-      const quotaResponse = await fetch(`/api/users/${userId}/quota`, {
+      await fetch(`/api/users/${userId}/quota`, {
         headers: {
           'Content-Type': 'application/json'
         }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((quota) => {
+            self.quota = quota;
+            self.loading = false;
+
+            if (spacesChart) {
+              spacesChart.data.datasets[0].data = [
+                self.quota.number_spaces_deployed,
+                self.quota.number_spaces - self.quota.number_spaces_deployed,
+                Math.max(0, self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : 0)
+              ];
+              spacesChart.data.labels = [`Running ${self.quota.number_spaces_deployed}`, `Stopped ${self.quota.number_spaces - self.quota.number_spaces_deployed}`, `Available ${self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : '-'}`];
+              spacesChart.update();
+            }
+
+            if (tunnelsChart) {
+              tunnelsChart.data.datasets[0].data = [
+                self.quota.used_tunnels,
+                Math.max(0, self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : 0)
+              ];
+              tunnelsChart.data.labels = [`Used ${self.quota.used_tunnels}`, `Available ${self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : '-'}`];
+              tunnelsChart.update();
+            }
+
+            if (computeChart) {
+              computeChart.data.datasets[0].data = [
+                self.quota.used_compute_units,
+                Math.max(0, self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : 0)
+              ];
+              computeChart.data.labels = [`Used ${self.quota.used_compute_units}`, `Available ${self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : '-'}`];
+              computeChart.update();
+            }
+
+            if (storageChart) {
+              storageChart.data.datasets[0].data = [
+                self.quota.used_storage_units,
+                Math.max(0, self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : 0)
+              ];
+              storageChart.data.labels = [`Used ${self.quota.used_storage_units}`, `Available ${self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : '-'}`];
+              storageChart.update();
+            }
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
-      self.quota = await quotaResponse.json();
-      self.loading = false;
-
-      if (spacesChart) {
-        spacesChart.data.datasets[0].data = [
-          self.quota.number_spaces_deployed,
-          self.quota.number_spaces - self.quota.number_spaces_deployed,
-          Math.max(0, self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : 0)
-        ];
-        spacesChart.data.labels = [`Running ${self.quota.number_spaces_deployed}`, `Stopped ${self.quota.number_spaces - self.quota.number_spaces_deployed}`, `Available ${self.quota.max_spaces ? self.quota.max_spaces - self.quota.number_spaces : '-'}`];
-        spacesChart.update();
-      }
-
-      if (tunnelsChart) {
-        tunnelsChart.data.datasets[0].data = [
-          self.quota.used_tunnels,
-          Math.max(0, self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : 0)
-        ];
-        tunnelsChart.data.labels = [`Used ${self.quota.used_tunnels}`, `Available ${self.quota.max_tunnels ? self.quota.max_tunnels - self.quota.used_tunnels : '-'}`];
-        tunnelsChart.update();
-      }
-
-      if (computeChart) {
-        computeChart.data.datasets[0].data = [
-          self.quota.used_compute_units,
-          Math.max(0, self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : 0)
-        ];
-        computeChart.data.labels = [`Used ${self.quota.used_compute_units}`, `Available ${self.quota.compute_units ? self.quota.compute_units - self.quota.used_compute_units : '-'}`];
-        computeChart.update();
-      }
-
-      if (storageChart) {
-        storageChart.data.datasets[0].data = [
-          self.quota.used_storage_units,
-          Math.max(0, self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : 0)
-        ];
-        storageChart.data.labels = [`Used ${self.quota.used_storage_units}`, `Available ${self.quota.storage_units ? self.quota.storage_units - self.quota.used_storage_units : '-'}`];
-        storageChart.update();
-      }
     },
   };
 }

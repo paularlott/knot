@@ -17,12 +17,13 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/oauth2"
 
 	"github.com/rs/zerolog/log"
 )
 
 var (
-	//go:embed public_html/api-docs public_html/assets public_html/images public_html/icons public_html/index.html
+	//go:embed public_html/api-docs public_html/assets/css public_html/assets/js public_html/images public_html/icons public_html/index.html
 	//go:embed public_html/site.webmanifest public_html/favicon.ico public_html/*.png
 	publicHTML embed.FS
 
@@ -221,6 +222,9 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	}
 
 	router.HandleFunc("GET /logs/{space_id}/stream", middleware.ApiAuth(HandleLogsStream))
+	router.HandleFunc("GET /space-io/{space_id}/run", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleRunCommandStream)))
+	router.HandleFunc("GET /space-io/{space_id}/copy", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleCopyFileStream)))
+
 	router.HandleFunc("GET /cluster-info", middleware.WebAuth(checkPermissionViewClusterInfo(HandleSimplePage)))
 
 	// Routes without authentication
@@ -228,6 +232,8 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 		router.HandleFunc("GET /initial-system-setup", HandleInitialSystemSetupPage)
 	}
 	router.HandleFunc("GET /login", HandleLoginPage)
+	router.HandleFunc("GET /oauth/grant", middleware.WebAuth(HandleOAuth2GrantPage))
+	router.HandleFunc("POST /oauth/grant", middleware.WebAuth(oauth2.HandleGrant))
 
 	// If download path set then enable serving of the download folder
 	downloadPath := cfg.DownloadPath
@@ -437,6 +443,10 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionUseCodeServer":   user.HasPermission(model.PermissionUseCodeServer) || cfg.LeafNode,
 		"permissionUseVSCodeTunnel": user.HasPermission(model.PermissionUseVSCodeTunnel) || cfg.LeafNode,
 		"permissionUseLogs":         user.HasPermission(model.PermissionUseLogs) || cfg.LeafNode,
+		"permissionRunCommands":     user.HasPermission(model.PermissionRunCommands) || cfg.LeafNode,
+		"permissionCopyFiles":       user.HasPermission(model.PermissionCopyFiles) || cfg.LeafNode,
+		"permissionUseMCPServer":    user.HasPermission(model.PermissionUseMCPServer),
+		"permissionUseWebAssistant": user.HasPermission(model.PermissionUseWebAssistant),
 		"version":                   build.Version,
 		"buildDate":                 build.Date,
 		"zone":                      cfg.Zone,
@@ -447,5 +457,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"isLeafNode":                cfg.LeafNode,
 		"logoURL":                   cfg.UI.LogoURL,
 		"logoInvert":                cfg.UI.LogoInvert,
+		"aiChatEnabled":             cfg.Chat.Enabled,
+		"aiChatStyle":               cfg.Chat.UIStyle,
 	}
 }

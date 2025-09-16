@@ -19,15 +19,24 @@ window.sessionsListComponent = function() {
     },
 
     async getSessions() {
-      const response = await fetch('/api/sessions', {
+      await fetch('/api/sessions', {
         headers: {
           'Content-Type': 'application/json'
         }
-      });
-      this.sessions = await response.json();
-      this.loading = false;
-      this.sessions.forEach(session => {
-        session.showIdPopup = false;
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((sessions) => {
+            this.sessions = sessions;
+            this.loading = false;
+            this.sessions.forEach(session => {
+              session.showIdPopup = false;
+            });
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
     },
     async deleteSession(sessionId) {
@@ -40,9 +49,13 @@ window.sessionsListComponent = function() {
       }).then((response) => {
         if (response.status === 200) {
           self.$dispatch('show-alert', { msg: "Session deleted", type: 'success' });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         } else {
           self.$dispatch('show-alert', { msg: "Session could not be deleted", type: 'error' });
         }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
       this.getSessions();
     },

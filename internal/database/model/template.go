@@ -39,6 +39,7 @@ type Template struct {
 	WithVSCodeTunnel bool                   `json:"with_vscode_tunnel" db:"with_vscode_tunnel"`
 	WithCodeServer   bool                   `json:"with_code_server" db:"with_code_server"`
 	WithSSH          bool                   `json:"with_ssh" db:"with_ssh"`
+	WithRunCommand   bool                   `json:"with_run_command" db:"with_run_command"`
 	ComputeUnits     uint32                 `json:"compute_units" db:"compute_units"`
 	StorageUnits     uint32                 `json:"storage_units" db:"storage_units"`
 	ScheduleEnabled  bool                   `json:"schedule_enabled" db:"schedule_enabled"`
@@ -79,6 +80,7 @@ func NewTemplate(
 	withVSCodeTunnel bool,
 	withCodeServer bool,
 	withSSH bool,
+	withRunCommand bool,
 	computeUnits uint32,
 	storageUnits uint32,
 	scheduleEnabled bool,
@@ -110,6 +112,7 @@ func NewTemplate(
 		WithVSCodeTunnel: withVSCodeTunnel,
 		WithCodeServer:   withCodeServer,
 		WithSSH:          withSSH,
+		WithRunCommand:   withRunCommand,
 		ComputeUnits:     computeUnits,
 		StorageUnits:     storageUnits,
 		CreatedAt:        time.Now().UTC(),
@@ -140,7 +143,7 @@ func (template *Template) GetVolumes(space *Space, user *User, variables map[str
 }
 
 func (template *Template) UpdateHash() {
-	hash := md5.Sum([]byte(template.Job + template.Volumes + template.Platform + fmt.Sprintf("%t%t%t%t%v", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.CustomFields)))
+	hash := md5.Sum([]byte(template.Job + template.Volumes + template.Platform + fmt.Sprintf("%t%t%t%t%t%v", template.WithTerminal, template.WithVSCodeTunnel, template.WithCodeServer, template.WithSSH, template.WithRunCommand, template.CustomFields)))
 	template.Hash = hex.EncodeToString(hash[:])
 }
 
@@ -203,4 +206,36 @@ func (template *Template) IsManual() bool {
 
 func (template *Template) IsLocalContainer() bool {
 	return template.Platform == PlatformDocker || template.Platform == PlatformPodman
+}
+
+// IsValidForZone determines whether the template is valid for deployment in the specified zone.
+// The function evaluates zone restrictions based on the template's Zones configuration.
+// If no zones are specified, the template is considered valid for all zones.
+// Zone names prefixed with '!' are treated as exclusions (negated zones).
+// The function first checks for exclusions, then checks for explicit inclusions.
+//
+// zone is the target zone name to validate against the template's zone restrictions.
+//
+// Returns true if the template can be deployed in the specified zone, false otherwise.
+func (template *Template) IsValidForZone(zone string) bool {
+    // If no zones specified, template is valid for all zones
+    if len(template.Zones) == 0 {
+        return true
+    }
+
+    // Check for negated zones first
+    for _, z := range template.Zones {
+        if z[0] == '!' && z[1:] == zone {
+            return false
+        }
+    }
+
+    // Check for positive zones
+    for _, z := range template.Zones {
+        if z[0] != '!' && z == zone {
+            return true
+        }
+    }
+
+    return false
 }

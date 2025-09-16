@@ -39,13 +39,19 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 
 		// Parse the URL to redirect to to get just the path
 		var redirect string
-		u, _ := url.Parse(r.URL.Query().Get("redirect"))
+		redirectParam := r.URL.Query().Get("redirect")
+		u, _ := url.Parse(redirectParam)
 		if u.Path == "" || u.Path == "/logout" {
 			redirect = "/spaces"
 		} else if u.Path[0:1] != "/" {
 			redirect = "/" + u.Path
 		} else {
-			redirect = u.Path
+			// Preserve both path and query parameters for OAuth redirects
+			if u.RawQuery != "" {
+				redirect = u.Path + "?" + u.RawQuery
+			} else {
+				redirect = u.Path
+			}
 		}
 
 		data := map[string]interface{}{

@@ -32,6 +32,7 @@ type RESTClient struct {
 	contentType string
 	HTTPClient  *http.Client
 	headers     map[string]string
+	accept      []string
 }
 
 func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClient, error) {
@@ -51,6 +52,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClie
 			Timeout: 10 * time.Second,
 		},
 		headers: make(map[string]string),
+		accept:  []string{ContentTypeJSON, ContentTypeMsgPack},
 	}
 
 	restClient.HTTPClient.Transport = &http.Transport{
@@ -59,7 +61,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClie
 		MaxIdleConns:        32 * 2,
 		MaxIdleConnsPerHost: 32,
 		IdleConnTimeout:     30 * time.Second,
-		DisableCompression:  true,
+		//DisableCompression:  true,
 	}
 
 	return restClient, nil
@@ -76,6 +78,11 @@ func (c *RESTClient) SetTimeout(timeout time.Duration) *RESTClient {
 
 func (c *RESTClient) SetContentType(contentType string) *RESTClient {
 	c.contentType = contentType
+	return c
+}
+
+func (c *RESTClient) SetAccept(accept ...string) *RESTClient {
+	c.accept = accept
 	return c
 }
 
@@ -131,7 +138,7 @@ func (c *RESTClient) ClearHeaders() *RESTClient {
 }
 
 func (c *RESTClient) setHeaders(req *http.Request) {
-	req.Header.Set("Accept", "application/json, application/msgpack")
+	req.Header.Set("Accept", strings.Join(c.accept, ", "))
 	req.Header.Set("Content-Type", c.contentType)
 	req.Header.Set("User-Agent", c.userAgent)
 	if c.token != "" {
@@ -248,7 +255,6 @@ func (c *RESTClient) streamDataCore(
 	path string,
 	request interface{},
 	fn StreamResponseFunc,
-	streamType StreamType,
 	createChunk func() interface{}, // Factory function to create typed chunks
 ) error {
 	// Marshal request based on content type
@@ -280,8 +286,17 @@ func (c *RESTClient) streamDataCore(
 	// Set headers
 	c.setHeaders(req)
 
+	// For streaming requests, we need to temporarily disable the client timeout
+	// and rely on the context for cancellation instead
+	originalTimeout := c.HTTPClient.Timeout
+	c.HTTPClient.Timeout = 0 // Disable timeout for streaming
+
 	// Make request
 	resp, err := c.HTTPClient.Do(req)
+
+	// Restore original timeout
+	c.HTTPClient.Timeout = originalTimeout
+
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
 	}
@@ -293,74 +308,7 @@ func (c *RESTClient) streamDataCore(
 		return fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	// Stream based on type
-	switch streamType {
-	case StreamChunked:
-		return c.streamChunkedCore(ctx, resp, fn, createChunk)
-	case StreamSSE:
-		return c.streamSSECore(ctx, resp, fn, createChunk)
-	default:
-		return fmt.Errorf("unsupported stream type: %d", streamType)
-	}
-}
-
-func (c *RESTClient) streamChunkedCore(
-	ctx context.Context,
-	resp *http.Response,
-	fn StreamResponseFunc,
-	createChunk func() interface{},
-) error {
-	// Create decoder based on content type
-	var decoder interface{ Decode(interface{}) error }
-
-	contentType := resp.Header.Get("Content-Type")
-	if strings.Contains(contentType, ContentTypeMsgPack) {
-		decoder = msgpack.NewDecoder(resp.Body)
-	} else {
-		decoder = json.NewDecoder(resp.Body)
-	}
-
-	// Stream chunks
-	for {
-		// Create new instance using factory function
-		chunk := createChunk()
-
-		err := decoder.Decode(chunk)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return fmt.Errorf("failed to decode chunk: %w", err)
-		}
-
-		// Call handler function
-		isDone, err := fn(chunk)
-		if err != nil {
-			return err
-		}
-
-		// Check if caller indicates we're done
-		if isDone {
-			break
-		}
-
-		// Check context cancellation
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-	}
-
-	return nil
-}
-
-func (c *RESTClient) streamSSECore(
-	ctx context.Context,
-	resp *http.Response,
-	fn StreamResponseFunc,
-	createChunk func() interface{},
-) error {
+	// SSE streaming logic
 	scanner := bufio.NewScanner(resp.Body)
 
 	for scanner.Scan() {
@@ -371,15 +319,32 @@ func (c *RESTClient) streamSSECore(
 		default:
 		}
 
-		line := scanner.Text()
+		line := strings.TrimSpace(scanner.Text())
 
-		// Skip empty lines and non-data lines
-		if line == "" || !strings.HasPrefix(line, "data: ") {
+		// Skip empty lines
+		if line == "" {
 			continue
 		}
 
-		// Extract data
-		data := strings.TrimPrefix(line, "data: ")
+		// Handle different SSE line types
+		var data string
+		if strings.HasPrefix(line, "data: ") {
+			data = strings.TrimPrefix(line, "data: ")
+		} else if strings.HasPrefix(line, "data:") {
+			// Handle case without space after colon
+			data = strings.TrimPrefix(line, "data:")
+		} else {
+			// Skip non-data lines (event:, id:, retry:, etc.)
+			continue
+		}
+
+		// Trim any remaining whitespace
+		data = strings.TrimSpace(data)
+
+		// Skip empty data
+		if data == "" {
+			continue
+		}
 
 		// Check for end marker
 		if data == "[DONE]" {
@@ -423,13 +388,11 @@ func StreamData[P Pointer[T], T any](
 	path string,
 	request interface{},
 	fn func(P) (bool, error),
-	streamType StreamType,
 ) error {
 	return c.streamDataCore(ctx, method, path, request,
 		func(chunk interface{}) (bool, error) {
 			return fn(chunk.(P))
 		},
-		streamType,
 		func() interface{} {
 			// P is *T, so new(T) gives us *T directly
 			return new(T)

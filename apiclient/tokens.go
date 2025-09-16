@@ -8,7 +8,7 @@ import (
 type TokenInfo struct {
 	Id           string    `json:"token_id"`
 	Name         string    `json:"name"`
-	ExpiresAfter time.Time `json:"expires_at"`
+	ExpiresAfter time.Time `json:"expires_after"`
 }
 
 type CreateTokenRequest struct {

@@ -31,21 +31,29 @@ window.rolesListComponent = function() {
     },
 
     async getRoles() {
-      const response = await fetch('/api/roles', {
+      await fetch('/api/roles', {
         headers: {
           'Content-Type': 'application/json'
         }
-      });
-      const roleList = await response.json();
-      roleList.roles.sort((a, b) => (a.name > b.name) ? 1 : -1);
-      this.roles = roleList.roles
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((roleList) => {
+            roleList.roles.sort((a, b) => (a.name > b.name) ? 1 : -1);
+            this.roles = roleList.roles
 
-      // Apply search filter
-      this.searchChanged();
+            // Apply search filter
+            this.searchChanged();
 
-      this.loading = false;
-      this.roles.forEach(role => {
-        role.showIdPopup = false;
+            this.loading = false;
+            this.roles.forEach(role => {
+              role.showIdPopup = false;
+            });
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
     },
     editRole(roleId) {
@@ -61,9 +69,13 @@ window.rolesListComponent = function() {
       }).then((response) => {
         if (response.status === 200) {
           self.$dispatch('show-alert', { msg: "Role deleted", type: 'success' });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         } else {
           self.$dispatch('show-alert', { msg: "Role could not be deleted", type: 'error' });
         }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
       this.getRoles();
     },

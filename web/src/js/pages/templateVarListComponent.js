@@ -31,22 +31,30 @@ window.templateVarListComponent = function() {
     },
 
     async getTemplateVars() {
-      const response = await fetch('/api/templatevars', {
+      await fetch('/api/templatevars', {
         headers: {
           'Content-Type': 'application/json'
         }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((variableList) => {
+            this.variables = variableList.variables;
+
+            this.variables.forEach(variable => {
+              variable.showIdPopup = false;
+            });
+
+            // Apply search filter
+            this.searchChanged();
+
+            this.loading = false;
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
-      const variableList = await response.json();
-      this.variables = variableList.variables;
-
-      this.variables.forEach(variable => {
-        variable.showIdPopup = false;
-      });
-
-      // Apply search filter
-      this.searchChanged();
-
-      this.loading = false;
     },
     editTemplateVar(templateVarId) {
       window.location.href = `/variables/edit/${templateVarId}`;
@@ -61,9 +69,13 @@ window.templateVarListComponent = function() {
       }).then((response) => {
         if (response.status === 200) {
           self.$dispatch('show-alert', { msg: "Variable deleted", type: 'success' });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
         } else {
           self.$dispatch('show-alert', { msg: "Variable could not be deleted", type: 'error' });
         }
+      }).catch(() => {
+        window.location.href = '/logout';
       });
       this.getTemplateVars();
     },

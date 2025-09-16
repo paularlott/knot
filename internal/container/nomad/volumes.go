@@ -25,7 +25,14 @@ func (client *NomadClient) CreateVolume(vol *model.Volume, variables map[string]
 	log.Debug().Msgf("nomad: creating volume: %s", volumes.Volumes[0].Id)
 
 	// Create the volume
-	err = client.CreateCSIVolume(&volumes.Volumes[0])
+	switch volumes.Volumes[0].Type {
+	case "csi":
+		err = client.CreateCSIVolume(&volumes.Volumes[0])
+	case "host":
+		_, err = client.CreateHostVolume(&volumes.Volumes[0])
+	default:
+		err = fmt.Errorf("unsupported volume type: %s", volumes.Volumes[0].Type)
+	}
 	if err != nil {
 		return err
 	}
@@ -49,9 +56,24 @@ func (client *NomadClient) DeleteVolume(vol *model.Volume, variables map[string]
 	}
 
 	// Display the name of the volume
-	log.Debug().Msgf("nomad: deleting volume: %s", volumes.Volumes[0].Id)
+	log.Debug().Msgf("nomad: deleting volume: %s", volumes.Volumes[0].Name)
 
-	err = client.DeleteCSIVolume(volumes.Volumes[0].Id, volumes.Volumes[0].Namespace)
+	switch volumes.Volumes[0].Type {
+	case "csi":
+		if volumes.Volumes[0].Id == "" {
+			volumes.Volumes[0].Id = volumes.Volumes[0].Name
+		}
+		err = client.DeleteCSIVolume(volumes.Volumes[0].Id, volumes.Volumes[0].Namespace)
+	case "host":
+		var id string
+		id, err = client.GetIdHostVolume(volumes.Volumes[0].Name, volumes.Volumes[0].Namespace)
+		if err != nil {
+			return err
+		}
+		err = client.DeleteHostVolume(id, volumes.Volumes[0].Namespace)
+	default:
+		err = fmt.Errorf("unsupported volume type: %s", volumes.Volumes[0].Type)
+	}
 	if err != nil {
 		return err
 	}

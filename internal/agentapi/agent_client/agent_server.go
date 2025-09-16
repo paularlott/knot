@@ -144,6 +144,13 @@ func (s *agentServer) ConnectAndServe() {
 				continue
 			}
 
+			// If get a freeze then spin here as server going to reboot
+			if response.Freeze {
+				log.Info().Msg("agent: server is going to reboot, waiting for it to start...")
+				time.Sleep(40 * time.Second)
+				continue
+			}
+
 			// If registration rejected, log and exit
 			if !response.Success {
 				log.Error().Msgf("agent: registration rejected")
@@ -165,6 +172,7 @@ func (s *agentServer) ConnectAndServe() {
 				s.agentClient.withVSCodeTunnel = response.WithVSCodeTunnel && cfg.VSCodeTunnel != ""
 				s.agentClient.withCodeServer = response.WithCodeServer && cfg.Port.CodeServer > 0
 				s.agentClient.withSSH = response.WithSSH && s.agentClient.sshPort > 0
+				s.agentClient.withRunCommand = response.WithRunCommand && !cfg.DisableSpaceIO
 
 				// If ssh port given then test if to start the ssh server
 				if s.agentClient.withSSH {
@@ -439,6 +447,28 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		}
 
 		s.agentPortListenAndServe(stream, reversePort.Port)
+
+	case byte(msg.CmdRunCommand):
+		var runCmd msg.RunCommandMessage
+		if err := msg.ReadMessage(stream, &runCmd); err != nil {
+			log.Error().Msgf("agent: reading run command message: %v", err)
+			return
+		}
+
+		if s.agentClient.withRunCommand {
+			handleRunCommandExecution(stream, runCmd)
+		}
+
+	case byte(msg.CmdCopyFile):
+		var copyCmd msg.CopyFileMessage
+		if err := msg.ReadMessage(stream, &copyCmd); err != nil {
+			log.Error().Msgf("agent: reading copy file message: %v", err)
+			return
+		}
+
+		if s.agentClient.withRunCommand {
+			handleCopyFileExecution(stream, copyCmd)
+		}
 
 	default:
 		log.Error().Msgf("agent: unknown command: %d", cmd)

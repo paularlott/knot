@@ -18,21 +18,26 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/api"
 	"github.com/paularlott/knot/internal/api/api_utils"
+	"github.com/paularlott/knot/internal/chat"
 	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
+	internal_mcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/systemprompt"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/web"
 
 	"github.com/paularlott/cli"
+	"github.com/paularlott/mcp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -188,6 +193,13 @@ var ServerCmd = &cli.Command{
 			Usage:        "The path to the a directory to serve as /private-files.",
 			ConfigPath:   []string{"server.private_files_path"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PRIVATE_FILES_PATH"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "recipes-path",
+			Usage:        "The path to the recipes/knowledgebase directory for MCP access.",
+			ConfigPath:   []string{"server.recipes_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_RECIPES_PATH"},
 			DefaultValue: "",
 		},
 
@@ -519,6 +531,101 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "unix:///var/run/podman.sock",
 		},
 
+		// MCP flags
+		&cli.BoolFlag{
+			Name:         "mcp-enabled",
+			Usage:        "Enable MCP (Model Context Protocol) server functionality.",
+			ConfigPath:   []string{"server.mcp.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_ENABLED"},
+			DefaultValue: false,
+		},
+
+		// Chat flags
+		&cli.BoolFlag{
+			Name:         "chat-enabled",
+			Usage:        "Enable AI chat functionality.",
+			ConfigPath:   []string{"server.chat.enabled"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_ENABLED"},
+			DefaultValue: false,
+		},
+		&cli.BoolFlag{
+			Name:         "chat-openai-endpoints",
+			Usage:        "Enable OpenAI-compatible endpoints for external clients.",
+			ConfigPath:   []string{"server.chat.openai_endpoints"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_ENDPOINTS"},
+			DefaultValue: false,
+		},
+		&cli.StringFlag{
+			Name:         "chat-openai-api-key",
+			Usage:        "OpenAI API key for chat functionality.",
+			ConfigPath:   []string{"server.chat.openai_api_key"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_API_KEY"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "chat-openai-base-url",
+			Usage:        "OpenAI API base URL for chat functionality.",
+			ConfigPath:   []string{"server.chat.openai_base_url"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_BASE_URL"},
+			DefaultValue: "http://127.0.0.1:11434/v1",
+		},
+		&cli.StringFlag{
+			Name:         "chat-model",
+			Usage:        "OpenAI model to use for chat.",
+			ConfigPath:   []string{"server.chat.model"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_MODEL"},
+			DefaultValue: "qwen2.5-coder:14b",
+		},
+		&cli.IntFlag{
+			Name:         "chat-max-tokens",
+			Usage:        "Maximum tokens for chat responses.",
+			ConfigPath:   []string{"server.chat.max_tokens"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_MAX_TOKENS"},
+			DefaultValue: 0,
+		},
+		&cli.Float32Flag{
+			Name:         "chat-temperature",
+			Usage:        "Temperature for chat responses.",
+			ConfigPath:   []string{"server.chat.temperature"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_TEMPERATURE"},
+			DefaultValue: 0.1,
+		},
+		&cli.StringFlag{
+			Name:         "chat-system-prompt-file",
+			Usage:        "Optional file path for system prompt. If not provided, uses default embedded prompt.",
+			ConfigPath:   []string{"server.chat.system_prompt_file"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_SYSTEM_PROMPT_FILE"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "chat-reasoning-effort",
+			Usage:        "Reasoning effort level for chat responses (low, medium, high).",
+			ConfigPath:   []string{"server.chat.reasoning_effort"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_REASONING_EFFORT"},
+			DefaultValue: "",
+			ValidateFlag: func(c *cli.Command) error {
+				value := c.GetString("chat-reasoning-effort")
+				if value != "" && value != "none" && value != "low" && value != "medium" && value != "high" {
+					return fmt.Errorf("If given, reasoning effort must be one of: none, low, medium, high")
+				}
+				return nil
+			},
+		},
+		&cli.StringFlag{
+			Name:         "chat-ui-style",
+			Usage:        "UI style for assistant button (icon or avatar).",
+			ConfigPath:   []string{"server.chat.ui_style"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_UI_STYLE"},
+			DefaultValue: "icon",
+			ValidateFlag: func(c *cli.Command) error {
+				value := c.GetString("chat-ui-style")
+				if value != "" && value != "icon" && value != "avatar" {
+					return fmt.Errorf("UI style must be one of: icon, avatar")
+				}
+				return nil
+			},
+		},
+
 		// DNS flags
 		&cli.BoolFlag{
 			Name:         "dns-enabled",
@@ -640,6 +747,49 @@ var ServerCmd = &cli.Command{
 		proxy.Routes(routes, cfg)
 		web.Routes(routes, cfg)
 
+		// MCP - Create server if either MCP or chat is enabled
+		var mcpServer *mcp.Server = nil
+		mcpEnabled := cmd.GetBool("mcp-enabled")
+		chatEnabled := cmd.GetBool("chat-enabled")
+		openaiEndpointEnabled := cmd.GetBool("chat-openai-endpoints")
+
+		if mcpEnabled || chatEnabled || openaiEndpointEnabled {
+			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled)
+			if !mcpEnabled {
+				log.Debug().Msg("server: MCP chat-only mode")
+			} else {
+				log.Info().Msg("server: MCP server enabled")
+			}
+		}
+
+		// If AI chat enabled then initialize chat service
+		var openAIClient *openai.Client
+		if chatEnabled || openaiEndpointEnabled {
+			log.Info().Msg("server: AI chat enabled")
+
+			// Initialize chat service with config
+			chatService, err := chat.NewService(cfg.Chat, mcpServer)
+			if err != nil {
+				log.Fatal().Msgf("server: failed to create chat service: %s", err.Error())
+			}
+			openAIClient = chatService.GetOpenAIClient()
+
+			// API endpoint for chat
+			if chatEnabled {
+				routes.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
+			}
+		}
+
+		// If OpenAI chat enabled then initialize OpenAI service
+		if openaiEndpointEnabled {
+			//openai.SetupOpenAIEndpoints(cfg, routes, mcpServer)
+			log.Info().Msg("server: OpenAI endpoints enabled")
+
+			service := openai.NewService(openAIClient, cfg.Chat.SystemPrompt)
+			routes.HandleFunc("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetModels)))
+			routes.HandleFunc("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleChatCompletions)))
+		}
+
 		// Add support for page not found
 		appRoutes := web.HandlePageNotFound(routes)
 
@@ -647,17 +797,38 @@ var ServerCmd = &cli.Command{
 			tunnel_server.Routes(routes)
 		}
 
-		// If have a wildcard domain, build it's routes
-		if wildcardDomain != "" {
-			log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
+		// Check if listen and tunnel addresses are the same
+		listenAddr := util.FixListenAddress(cfg.Listen)
+		tunnelAddr := util.FixListenAddress(cfg.ListenTunnel)
+		sameAddress := cfg.ListenTunnel != "" && listenAddr == tunnelAddr
 
-			// Remove the port form the wildcard domain
-			if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
-				wildcardDomain = host
+		// Get tunnel domain for routing
+		var tunnelDomainMatch *regexp.Regexp = nil
+		if cfg.TunnelDomain != "" {
+			// Create regex to match tunnel domain (always wildcard)
+			tunnelDomainPattern := "^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(cfg.TunnelDomain, ".", "\\.", -1), "*") + "$"
+			tunnelDomainMatch = regexp.MustCompile(tunnelDomainPattern)
+			log.Debug().Msgf("Tunnel Domain Pattern: %s", tunnelDomainPattern)
+		}
+
+		// If have a wildcard domain or need tunnel routing, build domain-based routes
+		if wildcardDomain != "" || sameAddress {
+			if wildcardDomain != "" {
+				log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
+			}
+			if sameAddress {
+				log.Debug().Msgf("Using domain routing for tunnel traffic (same listen address)")
 			}
 
-			// Create a regex to match the wildcard domain
-			match := regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
+			// Remove the port from the wildcard domain
+			var wildcardMatch *regexp.Regexp = nil
+			if wildcardDomain != "" {
+				if host, _, err := net.SplitHostPort(wildcardDomain); err == nil {
+					wildcardDomain = host
+				}
+				// Create a regex to match the wildcard domain
+				wildcardMatch = regexp.MustCompile("^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(wildcardDomain, ".", "\\.", -1), "*") + "$")
+			}
 
 			// Get our hostname without port if present
 			hostname := u.Host
@@ -665,8 +836,11 @@ var ServerCmd = &cli.Command{
 				hostname = host
 			}
 
-			// Get the routes for the wildcard domain
+			// Get the routes for the wildcard domain and tunnel server
 			wildcardRoutes := proxy.PortRoutes()
+			tunnelRoutes := http.NewServeMux()
+			tunnel_server.Routes(tunnelRoutes)
+
 			domainMux := http.NewServeMux()
 			domainMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 				// Extract hostname without port if present
@@ -675,9 +849,13 @@ var ServerCmd = &cli.Command{
 					requestHost = host
 				}
 
-				if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
+				// Check if this is tunnel domain traffic
+				if sameAddress && tunnelDomainMatch != nil && tunnelDomainMatch.MatchString(requestHost) {
+					// Route tunnel domain traffic to tunnel handlers
+					tunnelRoutes.ServeHTTP(w, r)
+				} else if requestHost == hostname || (tunnelServerUrl != nil && requestHost == tunnelServerUrl.Host) {
 					appRoutes.ServeHTTP(w, r)
-				} else if match.MatchString(requestHost) {
+				} else if wildcardMatch != nil && wildcardMatch.MatchString(requestHost) {
 					wildcardRoutes.ServeHTTP(w, r)
 				} else {
 					if r.URL.Path == "/health" {
@@ -690,7 +868,7 @@ var ServerCmd = &cli.Command{
 
 			router = domainMux
 		} else {
-			// No wildcard domain, just use the app routes
+			// No wildcard domain and different addresses, just use the app routes
 			router = appRoutes
 		}
 
@@ -780,11 +958,13 @@ var ServerCmd = &cli.Command{
 
 		// Run the http server
 		server := &http.Server{
-			Addr:         listen,
-			Handler:      router,
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 10 * time.Second,
-			TLSConfig:    tlsConfig,
+			Addr:              listen,
+			Handler:           router,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      5 * time.Minute, // Extended to support AI thinking time
+			IdleTimeout:       120 * time.Second,
+			ReadHeaderTimeout: 10 * time.Second,
+			TLSConfig:         tlsConfig,
 		}
 
 		go func() {
@@ -817,9 +997,9 @@ var ServerCmd = &cli.Command{
 		// Start the agent server
 		agent_server.ListenAndServe(util.FixListenAddress(cfg.ListenAgent), tlsConfig)
 
-		// Start a tunnel server
-		if cfg.ListenTunnel != "" {
-			tunnel_server.ListenAndServe(util.FixListenAddress(cfg.ListenTunnel), tlsConfig)
+		// Start a tunnel server only if using different addresses
+		if cfg.ListenTunnel != "" && !sameAddress {
+			tunnel_server.ListenAndServe(tunnelAddr, tlsConfig)
 		}
 
 		audit.Log(
@@ -876,6 +1056,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		AgentPath:          cmd.GetString("agent-path"),
 		PrivateFilesPath:   cmd.GetString("private-files-path"),
 		PublicFilesPath:    cmd.GetString("public-files-path"),
+		RecipesPath:        cmd.GetString("recipes-path"),
 		DownloadPath:       cmd.GetString("download-path"),
 		DisableSpaceCreate: cmd.GetBool("disable-space-create"),
 		ListenTunnel:       cmd.GetString("listen-tunnel"),
@@ -956,7 +1137,24 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			AgentUseTLS: cmd.GetBool("agent-use-tls"),
 			SkipVerify:  cmd.GetBool("tls-skip-verify"),
 		},
+		MCP: config.MCPConfig{
+			Enabled: cmd.GetBool("mcp-enabled"),
+		},
+		Chat: config.ChatConfig{
+			Enabled:          cmd.GetBool("chat-enabled"),
+			OpenAIAPIKey:     cmd.GetString("chat-openai-api-key"),
+			OpenAIBaseURL:    cmd.GetString("chat-openai-base-url"),
+			Model:            cmd.GetString("chat-model"),
+			MaxTokens:        cmd.GetInt("chat-max-tokens"),
+			Temperature:      cmd.GetFloat32("chat-temperature"),
+			SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
+
+			ReasoningEffort: cmd.GetString("chat-reasoning-effort"),
+			UIStyle:         cmd.GetString("chat-ui-style"),
+		},
 	}
+
+	serverCfg.Chat.SystemPrompt = systemprompt.GetSystemPrompt(serverCfg.Chat.SystemPromptFile)
 
 	// If tunnel domain doesn't start with a . then prefix it, strip leading * if present
 	if serverCfg.TunnelDomain != "" {
