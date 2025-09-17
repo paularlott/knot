@@ -579,12 +579,37 @@ window.chatComponent = function () {
         event.preventDefault();
         this.sendMessage();
       } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        this.navigateHistory('up');
+        if (this.shouldNavigateHistory('up', event.target)) {
+          event.preventDefault();
+          this.navigateHistory('up');
+        }
       } else if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        this.navigateHistory('down');
+        if (this.shouldNavigateHistory('down', event.target)) {
+          event.preventDefault();
+          this.navigateHistory('down');
+        }
       }
+    },
+
+    shouldNavigateHistory(direction, textarea) {
+      const { selectionStart, selectionEnd, value } = textarea;
+      
+      // Only navigate if cursor is at a single position (no text selected)
+      if (selectionStart !== selectionEnd) return false;
+      
+      const lines = value.split('\n');
+      const beforeCursor = value.substring(0, selectionStart);
+      const currentLineIndex = beforeCursor.split('\n').length - 1;
+      
+      if (direction === 'up') {
+        // Navigate history only if cursor is on the first line
+        return currentLineIndex === 0;
+      } else if (direction === 'down') {
+        // Navigate history only if cursor is on the last line
+        return currentLineIndex === lines.length - 1;
+      }
+      
+      return false;
     },
 
     navigateHistory(direction) {
