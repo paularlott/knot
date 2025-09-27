@@ -20,6 +20,33 @@ vars:
   VERSION:
     sh: go run ./scripts/getversion
   REGISTRY: '{{.REGISTRY | default "paularlott"}}'
+  HUB: '{{.HUB | default "registry-1.docker.io/"}}'
+  BUILD_WITH:
+    sh: |
+      if [ -n "${BUILD_WITH}" ]; then
+        echo "${BUILD_WITH}"
+      elif command -v docker >/dev/null 2>&1; then
+        echo "docker"
+      elif command -v container >/dev/null 2>&1; then
+        echo "apple"
+      else
+        echo "none"
+      fi
+  BUILD_CMD:
+    sh: |
+      if [ "{{.BUILD_WITH}}" = "apple" ]; then
+        echo "container build"
+      else
+        echo "docker buildx build"
+      fi
+  PLATFORM_ARG: '--platform linux/amd64,linux/arm64'
+  PUSH_ARG:
+    sh: |
+      if [ "{{.BUILD_WITH}}" = "apple" ]; then
+        echo ""
+      else
+        echo "--push"
+      fi
 
 tasks:
   default:
@@ -321,18 +348,30 @@ tasks:
 
   container:
     desc: Build the docker image and push to Docker Hub
+    method: none
     cmds:
       - |
-        docker buildx build \
-        --platform linux/amd64,linux/arm64 \
-        --tag {{.REGISTRY}}/knot:{{.VERSION}} \
-        --tag {{.REGISTRY}}/knot:latest \
-        --build-arg VERSION={{.VERSION}} \
-        --push \
-        .
-    sources:
-      - Dockerfile
-      - .dockerignore
+        if [ "{{.BUILD_WITH}}" = "apple" ]; then
+          {{.BUILD_CMD}} \
+          {{.PLATFORM_ARG}} \
+          --tag {{.REGISTRY}}/knot:{{.VERSION}} \
+          --build-arg VERSION={{.VERSION}} \
+          --build-arg DOCKER_HUB={{.HUB}} \
+          .
+          echo "Tagging and pushing images for Apple container build..."
+          container image tag {{.REGISTRY}}/knot:{{.VERSION}} {{.REGISTRY}}/knot:latest
+          container images push {{.REGISTRY}}/knot:{{.VERSION}}
+          container images push {{.REGISTRY}}/knot:latest
+        else
+          {{.BUILD_CMD}} \
+          {{.PLATFORM_ARG}} \
+          --tag {{.REGISTRY}}/knot:{{.VERSION}} \
+          --tag {{.REGISTRY}}/knot:latest \
+          --build-arg VERSION={{.VERSION}} \
+          --build-arg DOCKER_HUB={{.HUB}} \
+          {{.PUSH_ARG}} \
+          .
+        fi
 
   release:
     desc: Tag, build, push container, create GitHub release, checksums, and update Homebrew
