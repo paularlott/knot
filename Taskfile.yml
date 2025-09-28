@@ -226,6 +226,7 @@ tasks:
 
   homebrew-formula:
     desc: Generate the Homebrew formula
+    method: none
     cmds:
       - go run ./scripts/homebrew-formula/ > ../homebrew-tap/Formula/knot.rb
     sources:
