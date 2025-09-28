@@ -24,7 +24,7 @@ require (
 	github.com/paularlott/gossip v0.8.3
 	github.com/paularlott/mcp v0.1.0
 	github.com/pkg/sftp v1.13.9
-	github.com/redis/go-redis/v9 v9.15.0
+	github.com/redis/go-redis/v9 v9.14.0
 	github.com/rs/zerolog v1.34.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
