@@ -27,26 +27,14 @@ vars:
         echo "${BUILD_WITH}"
       elif command -v docker >/dev/null 2>&1; then
         echo "docker"
+      elif command -v podman >/dev/null 2>&1; then
+        echo "podman"
       elif command -v container >/dev/null 2>&1; then
         echo "apple"
       else
         echo "none"
       fi
-  BUILD_CMD:
-    sh: |
-      if [ "{{.BUILD_WITH}}" = "apple" ]; then
-        echo "container build"
-      else
-        echo "docker buildx build"
-      fi
   PLATFORM_ARG: '--platform linux/amd64,linux/arm64'
-  PUSH_ARG:
-    sh: |
-      if [ "{{.BUILD_WITH}}" = "apple" ]; then
-        echo ""
-      else
-        echo "--push"
-      fi
 
 tasks:
   default:
@@ -106,25 +94,6 @@ tasks:
       - legal/notice.txt
     generates:
       - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}'
-
-  build-docker:
-    desc: Build the binary for Docker with the specified platform
-    cmds:
-      - |
-        PLATFORM="{{.PLATFORM}}"
-        ARCH="${PLATFORM##*/}"  # Extract architecture from linux/amd64 or linux/arm64
-
-        if [ "$ARCH" = "arm64" ]; then
-          task build-arm64
-        elif [ "$ARCH" = "amd64" ]; then
-          task build-amd64
-        else
-          echo "Unsupported architecture: $ARCH"
-          exit 1
-        fi
-    vars:
-      PLATFORM:
-        sh: echo "${TARGETPLATFORM:-linux/amd64}"
 
   knot-dns:
     desc: Build the knot-dns binary for all platforms
@@ -351,8 +320,11 @@ tasks:
     method: none
     cmds:
       - |
+        echo "Detected container runtime: {{.BUILD_WITH}}"
+        echo "Building for platforms: {{.PLATFORM_ARG}}"
+
         if [ "{{.BUILD_WITH}}" = "apple" ]; then
-          {{.BUILD_CMD}} \
+          container build \
           {{.PLATFORM_ARG}} \
           --tag {{.REGISTRY}}/knot:{{.VERSION}} \
           --build-arg VERSION={{.VERSION}} \
@@ -362,14 +334,23 @@ tasks:
           container image tag {{.REGISTRY}}/knot:{{.VERSION}} {{.REGISTRY}}/knot:latest
           container images push {{.REGISTRY}}/knot:{{.VERSION}}
           container images push {{.REGISTRY}}/knot:latest
+        elif [ "{{.BUILD_WITH}}" = "podman" ]; then
+          podman manifest create {{.REGISTRY}}/knot:{{.VERSION}}
+          podman build \
+            {{.PLATFORM_ARG}} \
+            --manifest {{.REGISTRY}}/knot:{{.VERSION}} \
+            .
+          podman tag {{.REGISTRY}}/knot:{{.VERSION}} {{.REGISTRY}}/knot:latest
+          podman manifest push {{.REGISTRY}}/knot:{{.VERSION}}
+          podman manifest push {{.REGISTRY}}/knot:latest
         else
-          {{.BUILD_CMD}} \
+          docker buildx build \
           {{.PLATFORM_ARG}} \
           --tag {{.REGISTRY}}/knot:{{.VERSION}} \
           --tag {{.REGISTRY}}/knot:latest \
           --build-arg VERSION={{.VERSION}} \
           --build-arg DOCKER_HUB={{.HUB}} \
-          {{.PUSH_ARG}} \
+          --push \
           .
         fi
 
