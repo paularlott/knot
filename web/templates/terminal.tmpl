@@ -65,16 +65,16 @@
 	</script>
 </head>
 <body x-data="terminalApp()" id="terminal-window">
-  <div id="terminal-wrap">
-    <div id="terminal" :class="{ 'terminal-with-keyboard': showKeyboard }"></div>
+  <div class="h-full flex flex-col">
+    <div id="terminal" class="flex-1 overflow-hidden"></div>
     {{ if not .logView }}
-    <div class="absolute bottom-0 left-0 right-0 z-50 bg-white/30">
-      <div x-show="!showKeyboard" @click="setKeyboardState(true)" class="w-full h-[20px] bg-black/70 border-t border-white/20 flex items-center justify-center cursor-pointer text-white hover:bg-black/80">
+    <div class="flex items-center bg-white/30 ml-[-6px] mr-[-6px] mt-[4px] border-t border-gray-700">
+      <div x-show="!showKeyboard" @click="setKeyboardState(true)" class="w-full h-[20px] bg-black/70 flex items-center justify-center cursor-pointer text-white hover:bg-black/80">
         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
           <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
         </svg>
       </div>
-      <div x-show="showKeyboard" class="bg-black/90 border-t border-white/20 p-2 backdrop-blur">
+      <div x-show="showKeyboard" class="w-full bg-black/90 p-2 backdrop-blur">
         <div class="flex gap-1 justify-center items-stretch">
           <button @click="toggleModifier('ctrl')" class="border px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all" :class="{ 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700': modifiers.ctrl, 'bg-white/10 border-white/20 text-white hover:bg-white/20': !modifiers.ctrl }">Ctrl</button>
           <button @click="toggleModifier('alt')" class="border px-3 py-2 rounded text-xs min-w-10 text-center select-none transition-all" :class="{ 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700': modifiers.alt, 'bg-white/10 border-white/20 text-white hover:bg-white/20': !modifiers.alt }">Alt</button>
