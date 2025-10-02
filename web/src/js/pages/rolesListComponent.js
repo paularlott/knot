@@ -53,7 +53,7 @@ window.rolesListComponent = function() {
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
     editRole(roleId) {
@@ -75,7 +75,7 @@ window.rolesListComponent = function() {
           self.$dispatch('show-alert', { msg: "Role could not be deleted", type: 'error' });
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
       this.getRoles();
     },

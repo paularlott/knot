@@ -62,7 +62,7 @@ window.templateListComponent = function(canManageSpaces, zone) {
             return;
           }
         }).catch(() => {
-          window.location.href = '/logout';
+          // Don't logout on network errors - Safari closes connections aggressively
           return;
         });
       }
@@ -81,7 +81,7 @@ window.templateListComponent = function(canManageSpaces, zone) {
           return;
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
         return;
       });
 
@@ -118,7 +118,7 @@ window.templateListComponent = function(canManageSpaces, zone) {
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
     async imageExists(url) {
@@ -158,7 +158,7 @@ window.templateListComponent = function(canManageSpaces, zone) {
           self.$dispatch('show-alert', { msg: "Template could not be deleted", type: 'error' });
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
       this.getTemplates();
     },
@@ -192,7 +192,7 @@ window.templateListComponent = function(canManageSpaces, zone) {
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
     searchChanged() {

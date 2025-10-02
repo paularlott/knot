@@ -36,7 +36,7 @@ window.sessionsListComponent = function() {
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
     async deleteSession(sessionId) {
@@ -55,7 +55,7 @@ window.sessionsListComponent = function() {
           self.$dispatch('show-alert', { msg: "Session could not be deleted", type: 'error' });
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
       this.getSessions();
     },
