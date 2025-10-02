@@ -15,14 +15,14 @@ func HandleTemplateCreate(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("templates-create-edit.tmpl")
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -32,7 +32,7 @@ func HandleTemplateCreate(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 	}
 }
 
@@ -41,7 +41,7 @@ func HandleTemplateEdit(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("templates-create-edit.tmpl")
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -54,7 +54,7 @@ func HandleTemplateEdit(w http.ResponseWriter, r *http.Request) {
 
 	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -65,6 +65,6 @@ func HandleTemplateEdit(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 	}
 }

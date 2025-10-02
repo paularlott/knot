@@ -23,7 +23,7 @@ func HandleInitialSystemSetupPage(w http.ResponseWriter, r *http.Request) {
 
 		err = tmpl.Execute(w, nil)
 		if err != nil {
-			log.Fatal().Msg(err.Error())
+			log.Error().Msg(err.Error())
 		}
 	}
 }

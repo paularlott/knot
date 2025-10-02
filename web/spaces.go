@@ -18,7 +18,7 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("spaces.tmpl")
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -60,7 +60,7 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 	}
 }
 
@@ -75,14 +75,14 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("spaces-create-edit.tmpl")
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -135,7 +135,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 	}
 }
 
@@ -145,7 +145,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("spaces-create-edit.tmpl")
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -171,7 +171,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 
 	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -190,7 +190,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 	}
 }
 

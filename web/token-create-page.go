@@ -15,7 +15,7 @@ import (
 func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := newTemplate("api-tokens_create_named.tmpl")
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -51,6 +51,6 @@ func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 	}
 }
