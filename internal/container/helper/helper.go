@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container"
+	"github.com/paularlott/knot/internal/container/apple"
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/container/podman"
@@ -33,6 +34,8 @@ func (h *Helper) createClient(platform string) (container.ContainerManager, erro
 		return podman.NewClient(), nil
 	case model.PlatformNomad:
 		return nomad.NewClient()
+	case model.PlatformApple:
+		return apple.NewClient(), nil
 	default:
 		return nil, fmt.Errorf("unsupported platform: %s", platform)
 	}

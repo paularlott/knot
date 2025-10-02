@@ -2348,7 +2348,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: [ "manual", "docker", "nomad" ]
+          enum: [ "manual", "docker", "podman", "nomad", "apple" ]
         shared_user_id:
           type: string
           format: uuid
@@ -2577,7 +2577,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: [ "manual", "docker", "nomad" ]
+          enum: [ "manual", "docker", "podman", "nomad", "apple" ]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -2677,7 +2677,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: [ "manual", "docker", "nomad" ]
+          enum: [ "manual", "docker", "podman", "nomad", "apple" ]
         active:
           type: boolean
           description: If the template is active.
@@ -2767,7 +2767,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: [ "manual", "docker", "nomad" ]
+          enum: [ "manual", "docker", "podman", "nomad", "apple" ]
         with_terminal:
           type: boolean
           description: If the space should support a web terminal.
@@ -2858,7 +2858,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: [ "manual", "docker", "nomad" ]
+          enum: [ "manual", "docker", "podman", "nomad", "apple" ]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -3340,7 +3340,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: [ "docker", "nomad" ]
+          enum: [ "docker", "podman", "nomad", "apple" ]
 
     VolumeCreateRequest:
       type: object
@@ -3354,7 +3354,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: [ "docker", "nomad" ]
+          enum: [ "docker", "podman", "nomad", "apple" ]
 
     VolumeUpdateRequest:
       type: object
@@ -3368,7 +3368,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: [ "docker", "nomad" ]
+          enum: [ "docker", "podman", "nomad", "apple" ]
 
     VolumeDefinition:
       type: object
@@ -3390,7 +3390,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: [ "docker", "nomad" ]
+          enum: [ "docker", "podman", "nomad", "apple" ]
 
     SpaceTransferRequest:
       type: object

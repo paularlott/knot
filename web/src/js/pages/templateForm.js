@@ -249,7 +249,7 @@ window.templateForm = function(isEdit, templateId) {
       this.formData.schedule[day].enabled = !this.formData.schedule[day].enabled;
     },
     checkPlatform() {
-      return validate.isOneOf(this.formData.platform, ["manual", "docker", "podman", "nomad"])
+      return validate.isOneOf(this.formData.platform, ["manual", "docker", "podman", "nomad", "apple"])
     },
     checkName() {
       this.nameValid = validate.templateName(this.formData.name);
@@ -427,7 +427,7 @@ window.templateForm = function(isEdit, templateId) {
       }
     },
     isLocalContainer() {
-      return this.formData.platform === 'docker' || this.formData.platform === 'podman';
+      return this.formData.platform === 'docker' || this.formData.platform === 'podman' || this.formData.platform === 'apple';
     }
   }
 }

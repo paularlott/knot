@@ -55,6 +55,11 @@ var ScaffoldCmd = &cli.Command{
 			Usage:      "Generate the internal podman spec",
 			ConfigPath: []string{"scaffold.podman_spec"},
 		},
+		&cli.BoolFlag{
+			Name:       "apple-spec",
+			Usage:      "Generate the internal apple spec",
+			ConfigPath: []string{"scaffold.apple_spec"},
+		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		any := false
@@ -89,6 +94,10 @@ var ScaffoldCmd = &cli.Command{
 		}
 		if cmd.GetBool("podman-spec") {
 			fmt.Println(scaffold.GetPodmanSpecScaffold())
+			any = true
+		}
+		if cmd.GetBool("apple-spec") {
+			fmt.Println(scaffold.GetAppleSpecScaffold())
 			any = true
 		}
 

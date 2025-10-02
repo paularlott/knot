@@ -19,6 +19,7 @@ const (
 	PlatformDocker = "docker"
 	PlatformPodman = "podman"
 	PlatformNomad  = "nomad"
+	PlatformApple  = "apple"
 
 	LeafNodeZone = "<leaf-node>"
 )
@@ -205,7 +206,7 @@ func (template *Template) IsManual() bool {
 }
 
 func (template *Template) IsLocalContainer() bool {
-	return template.Platform == PlatformDocker || template.Platform == PlatformPodman
+	return template.Platform == PlatformDocker || template.Platform == PlatformPodman || template.Platform == PlatformApple
 }
 
 // IsValidForZone determines whether the template is valid for deployment in the specified zone.

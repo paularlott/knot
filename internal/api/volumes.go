@@ -70,7 +70,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volume definition must be less than 10MB"})
 		return
 	}
-	if !validate.OneOf(request.Platform, []string{model.PlatformDocker, model.PlatformPodman, model.PlatformNomad}) {
+	if !validate.OneOf(request.Platform, []string{model.PlatformDocker, model.PlatformPodman, model.PlatformNomad, model.PlatformApple}) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform name given"})
 		return
 	}
@@ -137,7 +137,7 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Volume definition must be less than 10MB"})
 		return
 	}
-	if !validate.OneOf(request.Platform, []string{model.PlatformDocker, model.PlatformPodman, model.PlatformNomad}) {
+	if !validate.OneOf(request.Platform, []string{model.PlatformDocker, model.PlatformPodman, model.PlatformNomad, model.PlatformApple}) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid platform name given"})
 		return
 	}

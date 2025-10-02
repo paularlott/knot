@@ -23,6 +23,9 @@ var (
 
 	//go:embed specs/nomad-spec.md
 	nomadSpec string
+
+	//go:embed specs/apple-spec.md
+	appleSpec string
 )
 
 type RecipeInfo struct {
@@ -94,7 +97,7 @@ func getRecipeContent(recipesPath, filename string) (*mcp.ToolResponse, error) {
 
 	// File not found anywhere
 	if recipesPath == "" {
-		return nil, fmt.Errorf("recipe file not found: %s (recipes path not configured). Available built-in specs: nomad-spec.md, docker-spec.md, podman-spec.md. Use recipes() without filename to list all available recipes", filename)
+		return nil, fmt.Errorf("recipe file not found: %s (recipes path not configured). Available built-in specs: nomad-spec.md, docker-spec.md, podman-spec.md, apple-spec.md. Use recipes() without filename to list all available recipes", filename)
 	}
 	return nil, fmt.Errorf("recipe file not found: %s. Use recipes() without filename to list all available recipes", filename)
 }
@@ -196,6 +199,8 @@ func getInternalSpec(filename string) string {
 		return dockerSpec
 	case "podman-spec.md":
 		return podmanSpec
+	case "apple-spec.md":
+		return appleSpec
 	default:
 		return ""
 	}
@@ -206,6 +211,7 @@ func addInternalSpecs(recipes []RecipeInfo) []RecipeInfo {
 		"nomad-spec.md":  nomadSpec,
 		"docker-spec.md": dockerSpec,
 		"podman-spec.md": podmanSpec,
+		"apple-spec.md":  appleSpec,
 	}
 
 	for filename, content := range internalSpecs {
@@ -330,4 +336,9 @@ func GetInternalDockerSpec() string {
 // GetInternalPodmanSpec returns the embedded podman spec (for scaffold command)
 func GetInternalPodmanSpec() string {
 	return dockerSpec
+}
+
+// GetInternalAppleSpec returns the embedded apple spec (for scaffold command)
+func GetInternalAppleSpec() string {
+	return appleSpec
 }
