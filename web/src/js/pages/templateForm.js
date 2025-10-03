@@ -176,7 +176,7 @@ window.templateForm = function(isEdit, templateId) {
         this.formData.job = editor.getValue();
       });
       editor.setTheme(darkMode ? "ace/theme/github_dark" : "ace/theme/github");
-      editor.session.setMode("ace/mode/terraform");
+      editor.session.setMode(this.isLocalContainer() ? "ace/mode/yaml" : "ace/mode/terraform");
       editor.setOptions({
         printMargin: false,
         newLineMode: 'unix',
@@ -249,7 +249,7 @@ window.templateForm = function(isEdit, templateId) {
       this.formData.schedule[day].enabled = !this.formData.schedule[day].enabled;
     },
     checkPlatform() {
-      return validate.isOneOf(this.formData.platform, ["manual", "docker", "podman", "nomad"])
+      return validate.isOneOf(this.formData.platform, ["manual", "docker", "podman", "nomad", "apple", "container"])
     },
     checkName() {
       this.nameValid = validate.templateName(this.formData.name);
@@ -427,7 +427,7 @@ window.templateForm = function(isEdit, templateId) {
       }
     },
     isLocalContainer() {
-      return this.formData.platform === 'docker' || this.formData.platform === 'podman';
+      return this.formData.platform === 'docker' || this.formData.platform === 'podman' || this.formData.platform === 'apple' || this.formData.platform === 'container';
     }
   }
 }

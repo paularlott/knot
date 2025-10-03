@@ -52,7 +52,7 @@ window.groupListComponent = function() {
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
     editGroup(groupId) {
@@ -74,7 +74,7 @@ window.groupListComponent = function() {
           self.$dispatch('show-alert', { msg: "Group could not be deleted", type: 'error' });
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
       this.getGroups();
     },

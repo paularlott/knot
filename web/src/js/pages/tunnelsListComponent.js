@@ -27,7 +27,7 @@ window.tunnelsListComponent = function() {
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
 
@@ -49,7 +49,7 @@ window.tunnelsListComponent = function() {
           self.$dispatch('show-alert', { msg: "Failed to terminate tunnel", type: 'error' });
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     }
   };

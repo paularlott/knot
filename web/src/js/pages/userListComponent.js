@@ -54,7 +54,7 @@ window.userListComponent = function() {
           return;
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
         return;
       });
 
@@ -72,7 +72,7 @@ window.userListComponent = function() {
           return;
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
         return;
       });
 
@@ -124,7 +124,7 @@ window.userListComponent = function() {
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
     editUser(userId) {
@@ -149,7 +149,7 @@ window.userListComponent = function() {
           self.$dispatch('show-alert', { msg: "User could not be deleted", type: 'error' });
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
 
       this.getUsers();
@@ -171,7 +171,7 @@ window.userListComponent = function() {
           self.$dispatch('show-alert', { msg: "User spaces could not be stopped", type: 'error' });
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
 
       this.getUsers();

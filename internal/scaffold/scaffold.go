@@ -40,3 +40,8 @@ func GetDockerSpecScaffold() string {
 func GetPodmanSpecScaffold() string {
 	return mcp.GetInternalPodmanSpec()
 }
+
+// GetAppleSpecScaffold returns the embedded apple spec
+func GetAppleSpecScaffold() string {
+	return mcp.GetInternalAppleSpec()
+}

@@ -47,7 +47,7 @@ window.apiTokensComponent = function() {
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
     async deleteToken(tokenId) {
@@ -66,7 +66,7 @@ window.apiTokensComponent = function() {
           self.$dispatch('show-alert', { msg: "Token could not be deleted", type: 'error' });
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
       this.getTokens();
     },

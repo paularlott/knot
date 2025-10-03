@@ -72,16 +72,16 @@
                     <div class="flex flex-wrap gap-2 mt-2 lg:hidden">
                       <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-800 dark:bg-gray-700 dark:text-blue-400 md:hidden">
                         <span class="mr-1 font-medium">Spaces:</span>
-                        <span x-text="u.number_spaces + (u.max_spaces ? '/' + u.max_spaces : '')"></span>
-                        <span x-show="u.number_spaces_deployed > 0" x-cloak class="inline-flex items-center justify-center ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500 text-white ml-2" x-text="u.number_spaces_deployed"></span>
+                        <span x-text="u.number_spaces + (u.max_spaces ? ' / ' + u.max_spaces : '')"></span>
+                        <span x-show="u.number_spaces_deployed > 0" x-cloak class="inline-flex items-center justify-center ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white" x-text="u.number_spaces_deployed + ' deployed'"></span>
                       </div>
                       <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-purple-50 text-purple-800 dark:bg-gray-700 dark:text-purple-400">
                         <span class="mr-1 font-medium">Compute:</span>
-                        <span x-text="u.used_compute_units + (u.compute_units ? '/' + u.compute_units : '')"></span>
+                        <span x-text="u.used_compute_units + (u.compute_units ? ' / ' + u.compute_units : '')"></span>
                       </div>
                       <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 dark:bg-gray-700 dark:text-amber-400">
                         <span class="mr-1 font-medium">Storage:</span>
-                        <span x-text="u.used_storage_units + (u.storage_units ? '/' + u.storage_units : '')"></span>
+                        <span x-text="u.used_storage_units + (u.storage_units ? ' / ' + u.storage_units : '')"></span>
                       </div>
                       <div class="inline-flex items-center text-xs px-2.5 py-1 rounded-md bg-teal-50 text-teal-800 dark:bg-gray-700 dark:text-teal-400">
                         <span class="mr-1 font-medium">Tunnels:</span>
@@ -99,9 +99,9 @@
 
                 <!-- Spaces Column - Hidden on Mobile -->
                 <td class="px-4 py-3 hidden md:table-cell">
-                  <div class="inline-flex items-center text-xs px-2.5 py-1 text-nowrap">
+                  <div class="flex flex-col gap-1 text-xs">
                     <span x-text="u.number_spaces + (u.max_spaces ? ' / ' + u.max_spaces : '')"></span>
-                    <span x-show="u.number_spaces_deployed > 0" x-cloak class="inline-flex items-center justify-center ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500 text-white ml-2" x-text="u.number_spaces_deployed"></span>
+                    <span x-show="u.number_spaces_deployed > 0" x-cloak class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white w-fit" x-text="u.number_spaces_deployed + ' deployed'"></span>
                   </div>
                 </td>
 

@@ -61,7 +61,7 @@ window.volumeListComponent = function() {
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
     editVolume(volumeId) {
@@ -84,7 +84,7 @@ window.volumeListComponent = function() {
           self.$dispatch('show-alert', { msg: "Volume could not be deleted", type: 'error' });
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
       this.getVolumes();
     },

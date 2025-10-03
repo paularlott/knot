@@ -13,7 +13,7 @@ func HandleTemplateVarCreate(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("variable-create-edit.tmpl")
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -22,7 +22,7 @@ func HandleTemplateVarCreate(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 	}
 }
 
@@ -31,7 +31,7 @@ func HandleTemplateVarEdit(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("variable-create-edit.tmpl")
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -47,6 +47,6 @@ func HandleTemplateVarEdit(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 	}
 }

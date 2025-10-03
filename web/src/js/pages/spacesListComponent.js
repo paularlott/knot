@@ -214,7 +214,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
     async imageExists(url) {

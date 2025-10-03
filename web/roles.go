@@ -18,7 +18,7 @@ func HandleRoleCreate(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("role-create-edit.tmpl")
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -27,7 +27,7 @@ func HandleRoleCreate(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 	}
 }
 
@@ -40,7 +40,7 @@ func HandleRoleEdit(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("role-create-edit.tmpl")
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -56,6 +56,6 @@ func HandleRoleEdit(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Error().Msg(err.Error())
 	}
 }

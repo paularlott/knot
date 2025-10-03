@@ -1,9 +1,9 @@
 ---
-title: knot Docker Job Template Specification for AI Assistants
+title: knot Local Container Job Template Specification for AI Assistants
 ---
 
-# knot Docker Job Template Specification for AI Assistants
-This document specifies the format for creating knot job templates for Docker containers. Your primary goal is to assist users in generating the necessary YAML configurations to run applications in Docker containers managed by knot.
+# knot Local Container Job Template Specification for AI Assistants
+This document specifies the format for creating knot job templates for local container runtimes (Docker, Podman, and Apple containers). Your primary goal is to assist users in generating the necessary YAML configurations to run applications in local containers managed by knot.
 
 ## Core Concepts: A Two-Part Template
 A complete knot template consists of **two separate YAML** structures that work together:
@@ -56,18 +56,19 @@ dns_search:
 ##### Core Configuration
 - **container_name**: Unique container identifier, must be present and if not specified should be set to `${{ .user.username }}-${{ .space.name }}`
 - **hostname**: Internal container hostname, must be present and if not given should be set to `${{ .space.name }}`
-- **image**: Container image, this must be present.
+- **image**: Container image, this must be present. NOTE: For Podman and Apple containers, if the container image doesn't include a domain name then prepend `registry-1.docker.io`
 
 ##### Authentication
-- **auth**: Registry credentials for private images
+- **auth**: Registry credentials for private images (Docker and Podman only)
   - **username**: Registry username
   - **password**: Registry password
+  - NOTE: Apple containers do not support registry authentication
 
 ##### Networking & Access
 - **ports**: Port mappings `<host>:<container>/<protocol>` (tcp/udp)
 - **network**: Network mode (bridge, host, none, container:<name>)
 - **dns**: Custom DNS servers
-- **add_host**: Custom host entries for /etc/hosts
+- **add_host**: Custom host entries for /etc/hosts (Docker and Podman only)
 - **dns_search**: DNS search domains
 
 For most templates these will not be required and can be excluded.
@@ -88,14 +89,21 @@ volumes:
 ##### Runtime Configuration
 - **command**: Override default container command (array of strings)
 - **environment**: Environment variables `<VAR>=<value>`
-- **privileged**: Extended host privileges (use cautiously)
+- **privileged**: Extended host privileges (use cautiously, Docker and Podman only)
 
 For most templates these will not be required and can be excluded.
 
 ##### Security & Capabilities
-- **cap_add**: Add Linux capabilities
-- **cap_drop**: Remove Linux capabilities
-- **devices**: Device mappings `<host_device>:<container_device>`
+- **cap_add**: Add Linux capabilities (Docker and Podman only)
+- **cap_drop**: Remove Linux capabilities (Docker and Podman only)
+- **devices**: Device mappings `<host_device>:<container_device>` (Docker and Podman only)
+
+For Podman containers you can include `CAP_NET_RAW` to allow ping to work e.g.:
+
+```yaml
+cap_add:
+  - CAP_NET_RAW
+```
 
 ### Naming Ports
 
@@ -163,8 +171,26 @@ User-defined variables are referenced as `${{.var.my_variable}}`.
     - KNOT_SPACEID=${{.space.id}}
   ```
 
-## Docker-Specific Notes
+## Runtime-Specific Notes
 
+### Docker
 - Docker containers do not include `CAP_NET_RAW` by default
 - Use standard Docker networking and volume mounting
 - Registry authentication is handled through the `auth` block
+- Supports all features listed above
+
+### Podman
+- Podman containers include `CAP_NET_RAW` by default for network utility support
+- Use rootless container execution when possible
+- Registry authentication is handled through the `auth` block
+- If the container image doesn't include a domain name, prepend `registry-1.docker.io`
+- Supports all features listed above
+
+### Apple Containers
+- Apple containers use the macOS `container` CLI tool
+- Advanced features like privileged mode, capabilities (cap_add/cap_drop), device mappings, and custom host entries (add_host) are **not supported**
+- Registry authentication is **not supported** by the Apple container CLI
+- Use standard OCI-compatible container images
+- Network modes are limited compared to Docker/Podman
+- If the container image doesn't include a domain name, prepend `registry-1.docker.io`
+- Simplified feature set - only basic container operations are available

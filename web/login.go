@@ -32,7 +32,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 
 		tmpl, err := newTemplate("login.tmpl")
 		if err != nil {
-			log.Fatal().Msg(err.Error())
+			log.Error().Msg(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -64,7 +64,7 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 
 		err = tmpl.Execute(w, data)
 		if err != nil {
-			log.Fatal().Msg(err.Error())
+			log.Error().Msg(err.Error())
 		}
 	}
 }

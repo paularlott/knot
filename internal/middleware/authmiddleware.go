@@ -99,7 +99,18 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 			} else {
 				// Get the session
 				session := GetSessionFromCookie(r)
-				if session == nil || session.ExpiresAfter.Before(time.Now().UTC()) || session.IsDeleted {
+				if session == nil {
+					log.Debug().Msg("ApiAuth: session not found")
+					returnUnauthorized(w, r)
+					return
+				}
+				if session.ExpiresAfter.Before(time.Now().UTC()) {
+					log.Debug().Str("session_id", session.Id).Time("expires", session.ExpiresAfter).Msg("ApiAuth: session expired")
+					returnUnauthorized(w, r)
+					return
+				}
+				if session.IsDeleted {
+					log.Debug().Str("session_id", session.Id).Msg("ApiAuth: session deleted")
 					returnUnauthorized(w, r)
 					return
 				}
@@ -109,8 +120,11 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				// Save the session to extend its life
 				session.UpdatedAt = hlc.Now()
 				session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
-				store.SaveSession(session)
-				service.GetTransport().GossipSession(session)
+				if err := store.SaveSession(session); err != nil {
+					log.Error().Err(err).Str("session_id", session.Id).Msg("ApiAuth: failed to save session")
+				} else {
+					service.GetTransport().GossipSession(session)
+				}
 
 				// Add the session to the context
 				ctx = context.WithValue(r.Context(), "session", session)
@@ -298,7 +312,20 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		// If no session then redirect to login
 		session := GetSessionFromCookie(r)
-		if session == nil || session.ExpiresAfter.Before(time.Now().UTC()) || session.IsDeleted {
+		if session == nil {
+			log.Debug().Str("path", r.URL.Path).Msg("WebAuth: session not found")
+			DeleteSessionCookie(w)
+			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
+			return
+		}
+		if session.ExpiresAfter.Before(time.Now().UTC()) {
+			log.Debug().Str("session_id", session.Id).Str("path", r.URL.Path).Time("expires", session.ExpiresAfter).Msg("WebAuth: session expired")
+			DeleteSessionCookie(w)
+			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
+			return
+		}
+		if session.IsDeleted {
+			log.Debug().Str("session_id", session.Id).Str("path", r.URL.Path).Msg("WebAuth: session deleted")
 			DeleteSessionCookie(w)
 			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
@@ -317,8 +344,11 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		// Save the session to update its life
 		session.UpdatedAt = hlc.Now()
 		session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
-		database.GetSessionStorage().SaveSession(session)
-		service.GetTransport().GossipSession(session)
+		if err := database.GetSessionStorage().SaveSession(session); err != nil {
+			log.Error().Err(err).Str("session_id", session.Id).Msg("WebAuth: failed to save session")
+		} else {
+			service.GetTransport().GossipSession(session)
+		}
 
 		ctx := context.WithValue(r.Context(), "user", user)
 		ctx = context.WithValue(ctx, "session", session)

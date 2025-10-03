@@ -53,7 +53,7 @@ window.templateVarListComponent = function() {
           window.location.href = '/logout';
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
     },
     editTemplateVar(templateVarId) {
@@ -75,7 +75,7 @@ window.templateVarListComponent = function() {
           self.$dispatch('show-alert', { msg: "Variable could not be deleted", type: 'error' });
         }
       }).catch(() => {
-        window.location.href = '/logout';
+        // Don't logout on network errors - Safari closes connections aggressively
       });
       this.getTemplateVars();
     },
