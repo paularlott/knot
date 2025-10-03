@@ -1,0 +1,62 @@
+package runtime
+
+import (
+	"context"
+	"os/exec"
+	"time"
+
+	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
+	"github.com/rs/zerolog/log"
+)
+
+// DetectLocalContainerRuntime detects which local container runtime is available
+// based on the preference order specified in config
+func DetectLocalContainerRuntime(preferences []string) string {
+	// Default preference order if none specified
+	if len(preferences) == 0 {
+		preferences = []string{model.PlatformDocker, model.PlatformPodman, model.PlatformApple}
+	}
+
+	for _, runtime := range preferences {
+		if isRuntimeAvailable(runtime) {
+			log.Info().Msgf("Detected local container runtime: %s", runtime)
+			return runtime
+		}
+	}
+
+	log.Warn().Msg("No local container runtime detected")
+	return ""
+}
+
+// isRuntimeAvailable checks if a specific runtime is available
+func isRuntimeAvailable(runtime string) bool {
+	var cmd *exec.Cmd
+
+	switch runtime {
+	case model.PlatformDocker:
+		cmd = exec.Command("docker", "--version")
+	case model.PlatformPodman:
+		cmd = exec.Command("podman", "--version")
+	case model.PlatformApple:
+		cmd = exec.Command("container", "--version")
+	default:
+		return false
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	cmd = exec.CommandContext(ctx, cmd.Args[0], cmd.Args[1:]...)
+	err := cmd.Run()
+	return err == nil
+}
+
+// GetDetectedRuntime returns the detected runtime from config
+func GetDetectedRuntime() string {
+	cfg := config.GetServerConfig()
+	if cfg == nil {
+		return ""
+	}
+	return cfg.LocalContainerRuntime
+}
