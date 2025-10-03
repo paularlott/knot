@@ -435,7 +435,7 @@ NEVER skip the recipes() call when creating/updating templates.`)
 
 	// Recipes/Knowledge base
 	server.RegisterTool(
-		mcp.NewTool("recipes", "Access knowledge base/recipes for guides and best practices. Call without filename to list all, or with filename for specific content. First call recipes() to see what's available - don't assume filenames. Standard recipes: nomad-spec.md, docker-spec.md, podman-spec.md, apple-spec.md.",
+		mcp.NewTool("recipes", "Access knowledge base/recipes for guides and best practices. Call without filename to list all, or with filename for specific content. First call recipes() to see what's available - don't assume filenames. Standard recipes: nomad-spec.md, local-container-spec.md (covers docker, podman, and apple containers).",
 			mcp.String("filename", "Recipe filename to retrieve. Omit to list all recipes."),
 			mcp.Output(
 				mcp.ObjectArray("recipes", "Array of available recipes",

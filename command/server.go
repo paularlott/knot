@@ -22,6 +22,7 @@ import (
 	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
+	"github.com/paularlott/knot/internal/container/runtime"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
@@ -529,6 +530,15 @@ var ServerCmd = &cli.Command{
 			ConfigPath:   []string{"server.podman.host"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PODMAN_HOST"},
 			DefaultValue: "unix:///var/run/podman.sock",
+		},
+
+		// Local container runtime preference
+		&cli.StringSliceFlag{
+			Name:         "local-container-runtime-pref",
+			Usage:        "Preference order for local container runtimes (docker, podman, apple). First available will be used.",
+			ConfigPath:   []string{"server.local_containers.runtime_pref"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_LOCAL_CONTAINERS_RUNTIME_PREF"},
+			DefaultValue: []string{"docker", "podman", "apple"},
 		},
 
 		// MCP flags
@@ -1152,6 +1162,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			ReasoningEffort: cmd.GetString("chat-reasoning-effort"),
 			UIStyle:         cmd.GetString("chat-ui-style"),
 		},
+		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
 	}
 
 	serverCfg.Chat.SystemPrompt = systemprompt.GetSystemPrompt(serverCfg.Chat.SystemPromptFile)
@@ -1181,6 +1192,9 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	log.Info().Msgf("server: timezone: %s", serverCfg.Timezone)
 
 	config.SetServerConfig(serverCfg)
+
+	// Detect local container runtime
+	serverCfg.LocalContainerRuntime = runtime.DetectLocalContainerRuntime(serverCfg.LocalContainerRuntimePref)
 
 	return serverCfg
 }

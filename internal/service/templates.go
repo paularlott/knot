@@ -233,7 +233,7 @@ func (s *TemplateService) validateTemplateInput(name, platform, job, volumes str
 		return fmt.Errorf("invalid template name given")
 	}
 
-	if !validate.OneOf(platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformPodman, model.PlatformNomad, model.PlatformApple}) {
+	if !validate.OneOf(platform, []string{model.PlatformManual, model.PlatformDocker, model.PlatformPodman, model.PlatformNomad, model.PlatformApple, model.PlatformContainer}) {
 		return fmt.Errorf("invalid platform")
 	}
 

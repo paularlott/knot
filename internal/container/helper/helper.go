@@ -27,6 +27,15 @@ func NewContainerHelper() *Helper {
 }
 
 func (h *Helper) createClient(platform string) (container.ContainerManager, error) {
+	// Map "container" to detected runtime
+	if platform == model.PlatformContainer {
+		cfg := config.GetServerConfig()
+		platform = cfg.LocalContainerRuntime
+		if platform == "" {
+			return nil, fmt.Errorf("no local container runtime detected")
+		}
+	}
+
 	switch platform {
 	case model.PlatformDocker:
 		return docker.NewClient(), nil

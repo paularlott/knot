@@ -15,17 +15,11 @@ import (
 )
 
 var (
-	//go:embed specs/docker-spec.md
-	dockerSpec string
-
-	//go:embed specs/podman-spec.md
-	podmanSpec string
+	//go:embed specs/local-container-spec.md
+	localContainerSpec string
 
 	//go:embed specs/nomad-spec.md
 	nomadSpec string
-
-	//go:embed specs/apple-spec.md
-	appleSpec string
 )
 
 type RecipeInfo struct {
@@ -97,7 +91,7 @@ func getRecipeContent(recipesPath, filename string) (*mcp.ToolResponse, error) {
 
 	// File not found anywhere
 	if recipesPath == "" {
-		return nil, fmt.Errorf("recipe file not found: %s (recipes path not configured). Available built-in specs: nomad-spec.md, docker-spec.md, podman-spec.md, apple-spec.md. Use recipes() without filename to list all available recipes", filename)
+		return nil, fmt.Errorf("recipe file not found: %s (recipes path not configured). Available built-in specs: nomad-spec.md, local-container-spec.md. Use recipes() without filename to list all available recipes", filename)
 	}
 	return nil, fmt.Errorf("recipe file not found: %s. Use recipes() without filename to list all available recipes", filename)
 }
@@ -195,12 +189,8 @@ func getInternalSpec(filename string) string {
 	switch filename {
 	case "nomad-spec.md":
 		return nomadSpec
-	case "docker-spec.md":
-		return dockerSpec
-	case "podman-spec.md":
-		return podmanSpec
-	case "apple-spec.md":
-		return appleSpec
+	case "local-container-spec.md", "docker-spec.md", "podman-spec.md", "apple-spec.md":
+		return localContainerSpec
 	default:
 		return ""
 	}
@@ -208,10 +198,8 @@ func getInternalSpec(filename string) string {
 
 func addInternalSpecs(recipes []RecipeInfo) []RecipeInfo {
 	internalSpecs := map[string]string{
-		"nomad-spec.md":  nomadSpec,
-		"docker-spec.md": dockerSpec,
-		"podman-spec.md": podmanSpec,
-		"apple-spec.md":  appleSpec,
+		"nomad-spec.md":           nomadSpec,
+		"local-container-spec.md": localContainerSpec,
 	}
 
 	for filename, content := range internalSpecs {
@@ -328,17 +316,22 @@ func GetInternalNomadSpec() string {
 	return nomadSpec
 }
 
-// GetInternalDockerSpec returns the embedded docker spec (for scaffold command)
+// GetInternalLocalContainerSpec returns the embedded local container spec (for scaffold command)
+func GetInternalLocalContainerSpec() string {
+	return localContainerSpec
+}
+
+// Deprecated: Use GetInternalLocalContainerSpec instead
 func GetInternalDockerSpec() string {
-	return dockerSpec
+	return localContainerSpec
 }
 
-// GetInternalPodmanSpec returns the embedded podman spec (for scaffold command)
+// Deprecated: Use GetInternalLocalContainerSpec instead
 func GetInternalPodmanSpec() string {
-	return dockerSpec
+	return localContainerSpec
 }
 
-// GetInternalAppleSpec returns the embedded apple spec (for scaffold command)
+// Deprecated: Use GetInternalLocalContainerSpec instead
 func GetInternalAppleSpec() string {
-	return appleSpec
+	return localContainerSpec
 }

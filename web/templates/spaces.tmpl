@@ -167,6 +167,9 @@
                           <template x-if="s.is_local && s.platform === 'apple'">
                             <span class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Apple</span>
                           </template>
+                          <template x-if="s.is_local && s.platform === 'container'">
+                            <span class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Container</span>
+                          </template>
                           <template x-if="s.is_local && s.platform === 'nomad'">
                             <span class="inline-block bg-green-100 text-green-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 whitespace-nowrap">Nomad</span>
                           </template>
@@ -448,6 +451,9 @@
                     </template>
                     <template x-if="s.is_local && s.platform === 'apple'">
                       <span class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Apple</span>
+                    </template>
+                    <template x-if="s.is_local && s.platform === 'container'">
+                      <span class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Container</span>
                     </template>
                     <template x-if="s.is_local && s.platform === 'nomad'">
                       <span class="inline-block bg-green-100 text-green-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 whitespace-nowrap">Nomad</span>

@@ -95,6 +95,7 @@
                             <span x-show="t.platform == 'docker'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Docker</span>
                             <span x-show="t.platform == 'podman'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Podman</span>
                             <span x-show="t.platform == 'apple'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Apple</span>
+                            <span x-show="t.platform == 'container'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Container</span>
                             <span x-show="t.platform == 'nomad'" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 whitespace-nowrap">Nomad</span>
                             <span x-show="t.platform == 'manual'" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
                             {{ if .isLeafNode }}
@@ -184,6 +185,7 @@
                       <span x-show="t.platform == 'docker'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Docker</span>
                       <span x-show="t.platform == 'podman'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Podman</span>
                       <span x-show="t.platform == 'apple'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Apple</span>
+                      <span x-show="t.platform == 'container'" class="inline-block w-fit bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 whitespace-nowrap">Container</span>
                       <span x-show="t.platform == 'nomad'" class="inline-block w-fit bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 whitespace-nowrap">Nomad</span>
                       <span x-show="t.platform == 'manual'" class="inline-block w-fit bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
                       {{ if .isLeafNode }}
