@@ -187,8 +187,8 @@ func (c *Cluster) gossipUsers() {
 		log.Debug().Int("batch_size", batchSize).Int("total", len(users)).Msg("cluster: Gossipping users")
 
 		// Get the 1st number of users up to the batch size & broadcast
-		users = users[:batchSize]
-		c.gossipCluster.Send(UserGossipMsg, &users)
+		clusterUsers := users[:batchSize]
+		c.gossipCluster.Send(UserGossipMsg, &clusterUsers)
 	}
 
 	if len(c.leafSessions) > 0 {

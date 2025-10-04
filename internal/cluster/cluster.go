@@ -27,10 +27,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	GossipInterval = 15 * time.Second
-)
-
 type Cluster struct {
 	gossipCluster    *gossip.Cluster
 	config           *gossip.Config
@@ -63,7 +59,6 @@ func NewCluster(
 	}
 
 	gossipConfig := gossip.DefaultConfig()
-	gossipConfig.GossipInterval = GossipInterval
 	gossipConfig.Resolver = dns.GetDefaultResolver()
 	cluster.config = gossipConfig
 

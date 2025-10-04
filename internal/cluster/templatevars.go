@@ -58,17 +58,21 @@ func (c *Cluster) handleTemplateVarGossip(sender *gossip.Node, packet *gossip.Pa
 }
 
 func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
+	varToGossip := templateVar
+
+	// Only create a copy if we need to modify it
 	if templateVar.Local {
-		templateVar.IsDeleted = true
-		templateVar.Value = ""
-		templateVar.Name = templateVar.Id
-		templateVar.Zones = []string{}
+		copied := *templateVar
+		copied.IsDeleted = true
+		copied.Value = ""
+		copied.Name = copied.Id
+		copied.Zones = []string{}
+		varToGossip = &copied
 	}
 
 	if c.gossipCluster != nil {
 		log.Debug().Msg("cluster: Gossipping template var")
-
-		templateVars := []*model.TemplateVar{templateVar}
+		templateVars := []*model.TemplateVar{varToGossip}
 		c.election.GetNodeGroup().SendToPeers(TemplateVarGossipMsg, &templateVars)
 	}
 
@@ -84,13 +88,17 @@ func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
 			}
 		}
 
-		if templateVar.Restricted || templateVar.Local || !allowVar {
-			templateVar.IsDeleted = true
-			templateVar.Value = ""
-			templateVar.Name = templateVar.Id
-			templateVar.Zones = []string{}
+		leafVarToGossip := varToGossip
+		if !varToGossip.IsDeleted && (varToGossip.Restricted || templateVar.Local || !allowVar) {
+			// Always create a copy for leaf nodes if we need to modify it to avoid race conditions
+			copied := *templateVar
+			copied.IsDeleted = true
+			copied.Value = ""
+			copied.Name = copied.Id
+			copied.Zones = []string{}
+			leafVarToGossip = &copied
 		}
-		c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, []*model.TemplateVar{templateVar})
+		c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, []*model.TemplateVar{leafVarToGossip})
 	}
 }
 
@@ -189,8 +197,8 @@ func (c *Cluster) gossipTemplateVars() {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Gossipping template vars")
 
 			// Get the 1st number of template vars up to the batch size & broadcast
-			templateVars = templateVars[:batchSize]
-			for _, templateVar := range templateVars {
+			clusterVars := templateVars[:batchSize]
+			for _, templateVar := range clusterVars {
 				if templateVar.Local {
 					templateVar.IsDeleted = true
 					templateVar.Value = ""
@@ -198,7 +206,7 @@ func (c *Cluster) gossipTemplateVars() {
 					templateVar.Zones = []string{}
 				}
 			}
-			c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
+			c.gossipCluster.Send(TemplateVarGossipMsg, &clusterVars)
 		}
 	}
 
@@ -206,8 +214,8 @@ func (c *Cluster) gossipTemplateVars() {
 		batchSize := c.CalcLeafPayloadSize(len(templateVars))
 		if batchSize > 0 {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Template vars to leaf nodes")
-			templateVars = templateVars[:batchSize]
-			for _, templateVar := range templateVars {
+			leafVars := templateVars[:batchSize]
+			for _, templateVar := range leafVars {
 				// Only allow vars that have empty zones or explicitly mention leaf node zone
 				allowVar := len(templateVar.Zones) == 0
 				for _, zone := range templateVar.Zones {
@@ -225,7 +233,7 @@ func (c *Cluster) gossipTemplateVars() {
 				}
 			}
 
-			c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, &templateVars)
+			c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, &leafVars)
 		}
 	}
 }

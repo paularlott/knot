@@ -157,8 +157,8 @@ func (c *Cluster) gossipGroups() {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(groups))
 		if batchSize > 0 {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(groups)).Msg("cluster: Gossipping groups")
-			groups = groups[:batchSize]
-			c.gossipCluster.Send(GroupGossipMsg, &groups)
+			clusterGroups := groups[:batchSize]
+			c.gossipCluster.Send(GroupGossipMsg, &clusterGroups)
 		}
 	}
 
@@ -166,8 +166,8 @@ func (c *Cluster) gossipGroups() {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(groups))
 		if batchSize > 0 {
 			log.Debug().Int("batch_size", batchSize).Int("total", len(groups)).Msg("cluster: Groups to leaf nodes")
-			groups = groups[:batchSize]
-			c.sendToLeafNodes(leafmsg.MessageGossipGroup, &groups)
+			leafGroups := groups[:batchSize]
+			c.sendToLeafNodes(leafmsg.MessageGossipGroup, &leafGroups)
 		}
 	}
 }
