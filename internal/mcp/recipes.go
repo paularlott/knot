@@ -39,6 +39,7 @@ func recipes(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, erro
 
 func listRecipes(recipesPath string) (*mcp.ToolResponse, error) {
 	var recipes []RecipeInfo
+	var message string
 
 	// Add user recipes if directory exists and is configured
 	if recipesPath != "" {
@@ -49,13 +50,21 @@ func listRecipes(recipesPath string) (*mcp.ToolResponse, error) {
 			}
 			recipes = append(recipes, userRecipes...)
 		}
+	} else {
+		message = "Recipes path not configured - showing built-in specs only"
 	}
 
 	// Always add internal specs (but skip if user file with same name exists)
 	recipes = addInternalSpecs(recipes)
 
 	result := map[string]interface{}{
+		"action":  "list",
+		"count":   len(recipes),
 		"recipes": recipes,
+	}
+
+	if message != "" {
+		result["message"] = message
 	}
 
 	return mcp.NewToolResponseMulti(

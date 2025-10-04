@@ -26,7 +26,7 @@ func VarName(name string) bool {
 }
 
 func Subdomain(subdomain string) bool {
-	re := regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9\-]{1,63}$`)
+	re := regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9\-]{0,62}[a-zA-Z0-9]$`)
 	return re.MatchString(subdomain)
 }
 

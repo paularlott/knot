@@ -9,6 +9,9 @@ import (
 func ConvertToBytes(input string) (int64, error) {
     input = strings.ToUpper(input)
     length := len(input)
+    if length == 0 {
+        return 0, fmt.Errorf("invalid size: empty string")
+    }
     lastChar := input[length-1:]
     value, err := strconv.ParseInt(input[:length-1], 10, 64)
     if err != nil {

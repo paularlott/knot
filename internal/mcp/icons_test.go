@@ -31,11 +31,12 @@ func TestListIcons(t *testing.T) {
 	}
 
 	// Parse the response
-	var icons []service.Icon
-	err = json.Unmarshal([]byte(response.Content[0].Text), &icons)
+	var result service.IconList
+	err = json.Unmarshal([]byte(response.Content[0].Text), &result)
 	if err != nil {
 		t.Fatalf("Failed to parse response JSON: %v", err)
 	}
+	icons := result.Icons
 
 	// Verify we got icons
 	if len(icons) == 0 {
