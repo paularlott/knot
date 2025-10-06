@@ -345,20 +345,6 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 		c.election.Start()
 	} else if originServer != "" && originToken != "" {
 		c.runLeafClient(originServer, originToken)
-
-		// Periodically gossip objects to leaf nodes
-		go func() {
-			interval := time.NewTicker(c.config.GossipInterval)
-			defer interval.Stop()
-
-			for range interval.C {
-				c.gossipGroups()
-				c.gossipRoles()
-				c.gossipTemplates()
-				c.gossipTemplateVars()
-				c.gossipUsers()
-			}
-		}()
 	}
 }
 
