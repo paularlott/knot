@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/util"
+	"github.com/rs/zerolog/log"
 
 	"github.com/gorilla/websocket"
 )
@@ -30,9 +31,15 @@ func forwardSSH(dialURL, token string, skipTLSVerify bool) error {
 	dialer.HandshakeTimeout = 5 * time.Second
 	wsConn, response, err := dialer.Dial(dialURL, header)
 	if err != nil {
-		// If not authorized then tell user
-		if response != nil && (response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden) {
-			return fmt.Errorf("no permission to use SSH")
+		if response != nil {
+			switch response.StatusCode {
+			case http.StatusUnauthorized, http.StatusForbidden:
+				log.Error().Msgf("no permission to use SSH")
+				return fmt.Errorf("no permission to use SSH")
+			case http.StatusNotFound:
+				log.Error().Msgf("space not found")
+				return fmt.Errorf("space not found")
+			}
 		}
 
 		return fmt.Errorf("ssh: error while connecting: %s", err.Error())
