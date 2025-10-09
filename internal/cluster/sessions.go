@@ -70,7 +70,7 @@ func (c *Cluster) handleSessionGossip(sender *gossip.Node, packet *gossip.Packet
 func (c *Cluster) GossipSession(session *model.Session) {
 	if c.sessionGossip && c.gossipCluster != nil {
 		sessions := []*model.Session{session}
-		c.election.GetNodeGroup().SendToPeers(SessionGossipMsg, &sessions)
+		c.gossipCluster.Send(SessionGossipMsg, &sessions)
 	}
 }
 

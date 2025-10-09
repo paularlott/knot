@@ -4,7 +4,6 @@ import (
 	"math/rand"
 
 	"github.com/paularlott/gossip"
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 
@@ -13,13 +12,6 @@ import (
 
 func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
 	log.Debug().Msg("cluster: Received token full sync request")
-
-	// If the sender doesn't match our zone then ignore the request
-	cfg := config.GetServerConfig()
-	if sender.Metadata.GetString("zone") != cfg.Zone {
-		log.Debug().Msg("cluster: Ignoring token full sync request from a different zone")
-		return []*model.Token{}, nil
-	}
 
 	tokens := []*model.Token{}
 	if err := packet.Unmarshal(&tokens); err != nil {
@@ -44,13 +36,6 @@ func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet
 func (c *Cluster) handleTokenGossip(sender *gossip.Node, packet *gossip.Packet) error {
 	log.Debug().Msg("cluster: Received token gossip request")
 
-	// If the sender doesn't match our zone then ignore the request
-	cfg := config.GetServerConfig()
-	if sender.Metadata.GetString("zone") != cfg.Zone {
-		log.Debug().Msg("cluster: Ignoring token gossip request from a different zone")
-		return nil
-	}
-
 	tokens := []*model.Token{}
 	if err := packet.Unmarshal(&tokens); err != nil {
 		log.Error().Err(err).Msg("cluster: Failed to unmarshal token gossip request")
@@ -69,19 +54,12 @@ func (c *Cluster) handleTokenGossip(sender *gossip.Node, packet *gossip.Packet) 
 func (c *Cluster) GossipToken(token *model.Token) {
 	if c.gossipCluster != nil {
 		tokens := []*model.Token{token}
-		c.election.GetNodeGroup().SendToPeers(TokenGossipMsg, &tokens)
+		c.gossipCluster.Send(TokenGossipMsg, &tokens)
 	}
 }
 
 func (c *Cluster) DoTokenFullSync(node *gossip.Node) error {
 	if c.gossipCluster != nil {
-
-		// If the node doesn't match our zone then ignore the request
-		cfg := config.GetServerConfig()
-		if node.Metadata.GetString("zone") != cfg.Zone {
-			log.Debug().Msg("cluster: Ignoring token full sync with node from a different zone")
-			return nil
-		}
 
 		// Get the list of tokens in the system
 		db := database.GetInstance()

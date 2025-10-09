@@ -62,7 +62,7 @@ func (c *Cluster) GossipRole(role *model.Role) {
 		log.Debug().Msg("cluster: Gossipping role")
 
 		roles := []*model.Role{role}
-		c.election.GetNodeGroup().SendToPeers(RoleGossipMsg, &roles)
+		c.gossipCluster.Send(RoleGossipMsg, &roles)
 	}
 
 	if len(c.leafSessions) > 0 {

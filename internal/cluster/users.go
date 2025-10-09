@@ -72,7 +72,7 @@ func (c *Cluster) GossipUser(user *model.User) {
 		log.Debug().Msg("cluster: Gossipping user")
 
 		users := []*model.User{user}
-		c.election.GetNodeGroup().SendToPeers(UserGossipMsg, &users)
+		c.gossipCluster.Send(UserGossipMsg, &users)
 	}
 
 	if len(c.leafSessions) > 0 {

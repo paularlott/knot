@@ -57,7 +57,7 @@ func (c *Cluster) GossipVolume(volume *model.Volume) {
 		log.Debug().Msg("cluster: Gossipping volume")
 
 		volumes := []*model.Volume{volume}
-		c.election.GetNodeGroup().SendToPeers(VolumeGossipMsg, &volumes)
+		c.gossipCluster.Send(VolumeGossipMsg, &volumes)
 	}
 }
 
