@@ -36,11 +36,11 @@
 
           <div x-show="canManageSpaces && !showingSpecificUser" x-cloak class="mb-4">
             <div x-data="autocompleterUser()" x-init="setDataSource('forUsersList')" data-parent-group="" data-parent-variable="forUserId" data-on-change="userChagned" @refresh-user-autocompleter.window="refresh()" class="relative" @user-selected="userChanged">
-              <input x-model="search" class="form-field" type="search" placeholder="Search..." @focus="showList = true; $event.target.select()" @blur.debounce.200ms="showList = false" x-ref="searchInput" />
+              <input x-model="search" class="form-field" type="search" placeholder="Search..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" />
               <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                 <ul class="list-none">
                   <template x-for="(option, index) in filteredOptions" :key="index">
-                    <li @click="selectOption(option)" x-text="option.username" class="my-1 cursor-pointer nav-item text-sm"></li>
+                    <li @click="selectOption(option)" x-text="option.username" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm"></li>
                   </template>
                 </ul>
               </div>
@@ -632,11 +632,11 @@
             <p x-cloak x-show="!chooseUser.isShare">Select the user to transfer the space to.</p>
             <p x-cloak x-show="chooseUser.isShare">Select the user to share the space with.</p>
             <div x-data="autocompleterUser()" x-init="setDataSource('shareUsers')" data-parent-var-group="chooseUser" data-parent-variable="toUserId" data-parent-variable-username="toUserUsername" @refresh-autocompleter.window="refresh()" class="relative mt-2">
-              <input x-model="search" class="form-field" type="search" placeholder="Search..." @focus="showList = true" @blur.debounce.200ms="showList = false" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
+              <input x-model="search" class="form-field" type="search" placeholder="Search..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
               <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                 <ul class="list-none">
                   <template x-for="(option, index) in filteredOptions" :key="index">
-                    <li @click="selectOption(option)" class="my-1 cursor-pointer nav-item text-sm">
+                    <li @click="selectOption(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
                       {{ if .useGravatar }}
                       <img :src="`https://www.gravatar.com/avatar/${MD5(option.email)}?s=64&d=mp`" alt="User Avatar" class="size-5 rounded-full mr-2">
                       {{ end }}
