@@ -1,6 +1,6 @@
 module github.com/paularlott/knot
 
-go 1.25.2
+go 1.25.3
 
 //replace github.com/paularlott/gossip => ../gossip/
 
@@ -20,17 +20,17 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.68
-	github.com/paularlott/cli v0.3.0
-	github.com/paularlott/gossip v0.8.5
+	github.com/paularlott/cli v0.4.0
+	github.com/paularlott/gossip v0.8.6
+	github.com/paularlott/logger v0.2.0
 	github.com/paularlott/mcp v0.1.0
 	github.com/pkg/sftp v1.13.9
 	github.com/redis/go-redis/v9 v9.14.0
-	github.com/rs/zerolog v1.34.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.43.0
-	golang.org/x/exp v0.0.0-20251002181428-27f1f14c8bb9
+	golang.org/x/exp v0.0.0-20251009144603-d2f985daa21b
 	golang.org/x/net v0.46.0
 	golang.org/x/term v0.36.0
 	golang.org/x/time v0.14.0
@@ -62,8 +62,6 @@ require (
 	github.com/hashicorp/go-msgpack/v2 v2.1.5 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
-	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/moby/term v0.5.2 // indirect
@@ -72,7 +70,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/shamaton/msgpack/v2 v2.3.1 // indirect
+	github.com/shamaton/msgpack/v2 v2.4.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

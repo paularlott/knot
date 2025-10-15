@@ -10,15 +10,15 @@ import (
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) handleUserFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	log.Debug().Msg("cluster: Received user full sync request")
+	log.Debug("cluster: Received user full sync request")
 
 	users := []*model.User{}
 	if err := packet.Unmarshal(&users); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal user full sync request")
+		log.WithError(err).Error("cluster: Failed to unmarshal user full sync request")
 		return nil, err
 	}
 
@@ -37,17 +37,17 @@ func (c *Cluster) handleUserFullSync(sender *gossip.Node, packet *gossip.Packet)
 }
 
 func (c *Cluster) handleUserGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug().Msg("cluster: Received user gossip request")
+	log.Debug("cluster: Received user gossip request")
 
 	users := []*model.User{}
 	if err := packet.Unmarshal(&users); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal user gossip request")
+		log.WithError(err).Error("cluster: Failed to unmarshal user gossip request")
 		return err
 	}
 
 	// Merge the users with the local users
 	if err := c.mergeUsers(users); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to merge users")
+		log.WithError(err).Error("cluster: Failed to merge users")
 		return err
 	}
 
@@ -69,7 +69,7 @@ func (c *Cluster) handleUserGossip(sender *gossip.Node, packet *gossip.Packet) e
 
 func (c *Cluster) GossipUser(user *model.User) {
 	if c.gossipCluster != nil {
-		log.Debug().Msg("cluster: Gossipping user")
+		log.Debug("cluster: Gossipping user")
 
 		users := []*model.User{user}
 		c.gossipCluster.Send(UserGossipMsg, &users)
@@ -103,7 +103,7 @@ func (c *Cluster) DoUserFullSync(node *gossip.Node) error {
 
 		// Merge the users with the local users
 		if err := c.mergeUsers(users); err != nil {
-			log.Error().Err(err).Msg("cluster: Failed to merge users")
+			log.WithError(err).Error("cluster: Failed to merge users")
 			return err
 		}
 	}
@@ -113,7 +113,7 @@ func (c *Cluster) DoUserFullSync(node *gossip.Node) error {
 
 // Merges the users from a cluster member with the local users
 func (c *Cluster) mergeUsers(users []*model.User) error {
-	log.Debug().Int("number_users", len(users)).Msg("cluster: Merging users")
+	log.Debug("cluster: Merging users", "number_users", len(users))
 
 	// Get the list of users in the system
 	db := database.GetInstance()
@@ -134,7 +134,7 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 			// If the remote user is newer than the local user then use its data
 			if user.UpdatedAt.After(localUser.UpdatedAt) {
 				if err := db.SaveUser(user, nil); err != nil {
-					log.Error().Err(err).Str("name", user.Username).Msg("cluster: Failed to update user")
+					log.Error("cluster: Failed to update user", "error", err, "name", user.Username)
 				}
 
 				// If deleting the user, then stop the spaces and delete them
@@ -147,7 +147,7 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 		} else if !user.IsDeleted {
 			// If the user doesn't exist, create it unless it's deleted on the remote node
 			if err := db.SaveUser(user, []string{}); err != nil {
-				log.Error().Err(err).Str("name", user.Username).Msg("cluster: Failed to create user")
+				log.Error("cluster: Failed to create user", "error", err, "name", user.Username)
 				return err
 			}
 
@@ -169,7 +169,7 @@ func (c *Cluster) gossipUsers() {
 	db := database.GetInstance()
 	users, err := db.GetUsers()
 	if err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to get users")
+		log.WithError(err).Error("cluster: Failed to get users")
 		return
 	}
 
@@ -184,7 +184,7 @@ func (c *Cluster) gossipUsers() {
 			return // No keys to send in this batch
 		}
 
-		log.Debug().Int("batch_size", batchSize).Int("total", len(users)).Msg("cluster: Gossipping users")
+		log.Debug("cluster: Gossipping users", "batch_size", batchSize, "total", len(users))
 
 		// Get the 1st number of users up to the batch size & broadcast
 		clusterUsers := users[:batchSize]
@@ -194,7 +194,7 @@ func (c *Cluster) gossipUsers() {
 	if len(c.leafSessions) > 0 {
 		batchSize := c.CalcLeafPayloadSize(len(users))
 		if batchSize > 0 {
-			log.Debug().Int("batch_size", batchSize).Int("total", len(users)).Msg("cluster: Users to leaf nodes")
+			log.Debug("cluster: Users to leaf nodes", "batch_size", batchSize, "total", len(users))
 
 			c.leafSessionMux.RLock()
 			defer c.leafSessionMux.RUnlock()

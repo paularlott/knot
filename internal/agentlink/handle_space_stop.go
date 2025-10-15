@@ -3,13 +3,13 @@ package agentlink
 import (
 	"net"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func handleSpaceStop(conn net.Conn, msg *CommandMsg) error {
 	err := agentClient.SendSpaceStop()
 	if err != nil {
-		log.Error().Err(err).Msg("agent: Failed to send space stop")
+		log.WithError(err).Error("agent: Failed to send space stop")
 		return err
 	}
 

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 var (
@@ -31,7 +31,7 @@ func UpgradeToWS(w http.ResponseWriter, r *http.Request) *websocket.Conn {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Error().Msgf("ws: error while upgrading: %s", err)
+		log.WithError(err).Error("ws: error while upgrading:")
 		return nil
 	}
 

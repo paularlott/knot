@@ -13,7 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func HandleCopyFileStream(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +69,7 @@ func HandleCopyFileStream(w http.ResponseWriter, r *http.Request) {
 	var request apiclient.CopyFileRequest
 	err = ws.ReadJSON(&request)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to read copy file request")
+		log.WithError(err).Error("Failed to read copy file request")
 		ws.WriteMessage(websocket.TextMessage, []byte("Error: Failed to read copy file request\r\n"))
 		return
 	}
@@ -102,7 +102,7 @@ func HandleCopyFileStream(w http.ResponseWriter, r *http.Request) {
 	// Send the command to the agent and get the response channel
 	responseChannel, err := agentSession.SendCopyFile(copyFileMsg)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to send copy file command to agent")
+		log.WithError(err).Error("Failed to send copy file command to agent")
 		ws.WriteMessage(websocket.TextMessage, []byte("Error: Failed to send command to agent\r\n"))
 		return
 	}
@@ -113,7 +113,7 @@ func HandleCopyFileStream(w http.ResponseWriter, r *http.Request) {
 		for {
 			_, _, err := ws.ReadMessage()
 			if err != nil {
-				log.Debug().Msgf("websocket closed: %s", err)
+				log.WithError(err).Debug("websocket closed:")
 				done <- true
 				return
 			}

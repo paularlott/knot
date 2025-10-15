@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	agent_cmd "github.com/paularlott/knot/agent/cmd"
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
@@ -13,16 +12,15 @@ import (
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/log"
 
 	"github.com/paularlott/cli"
 	cli_toml "github.com/paularlott/cli/toml"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC822})
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	// Logger will be configured with proper level in PreRun
+	log.Configure("info", "console", os.Stderr)
 
 	var configFile = config.CONFIG_FILE
 

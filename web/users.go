@@ -5,13 +5,13 @@ import (
 
 	"github.com/paularlott/knot/internal/util/validate"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func HandleUserCreate(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := newTemplate("users-create-edit.tmpl")
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -21,7 +21,7 @@ func HandleUserCreate(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 	}
 }
 
@@ -36,7 +36,7 @@ func HandleUserEdit(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("users-create-edit.tmpl")
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -49,7 +49,7 @@ func HandleUserEdit(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 	}
 }
 
@@ -58,7 +58,7 @@ func HandleUserProfilePage(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("users-create-edit.tmpl")
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -71,6 +71,6 @@ func HandleUserProfilePage(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 	}
 }

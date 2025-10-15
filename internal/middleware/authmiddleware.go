@@ -14,7 +14,7 @@ import (
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 	"golang.org/x/net/context"
 )
 
@@ -27,7 +27,7 @@ func Initialize() {
 	db := database.GetInstance()
 	hasUsers, err := db.HasUsers()
 	if err != nil {
-		log.Fatal().Msgf("failed to get user count: %s", err.Error())
+		log.WithError(err).Fatal("failed to get user count:")
 	}
 
 	if hasUsers || err != nil {
@@ -100,17 +100,17 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				// Get the session
 				session := GetSessionFromCookie(r)
 				if session == nil {
-					log.Debug().Msg("ApiAuth: session not found")
+					log.Debug("ApiAuth: session not found")
 					returnUnauthorized(w, r)
 					return
 				}
 				if session.ExpiresAfter.Before(time.Now().UTC()) {
-					log.Debug().Str("session_id", session.Id).Time("expires", session.ExpiresAfter).Msg("ApiAuth: session expired")
+					log.Debug("ApiAuth: session expired", "session_id", session.Id, "expires", session.ExpiresAfter)
 					returnUnauthorized(w, r)
 					return
 				}
 				if session.IsDeleted {
-					log.Debug().Str("session_id", session.Id).Msg("ApiAuth: session deleted")
+					log.Debug("ApiAuth: session deleted", "session_id", session.Id)
 					returnUnauthorized(w, r)
 					return
 				}
@@ -121,7 +121,7 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 				session.UpdatedAt = hlc.Now()
 				session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
 				if err := store.SaveSession(session); err != nil {
-					log.Error().Err(err).Str("session_id", session.Id).Msg("ApiAuth: failed to save session")
+					log.Error("ApiAuth: failed to save session", "error", err, "session_id", session.Id)
 				} else {
 					service.GetTransport().GossipSession(session)
 				}
@@ -313,19 +313,19 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		// If no session then redirect to login
 		session := GetSessionFromCookie(r)
 		if session == nil {
-			log.Debug().Str("path", r.URL.Path).Msg("WebAuth: session not found")
+			log.Debug("WebAuth: session not found", "path", r.URL.Path)
 			DeleteSessionCookie(w)
 			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}
 		if session.ExpiresAfter.Before(time.Now().UTC()) {
-			log.Debug().Str("session_id", session.Id).Str("path", r.URL.Path).Time("expires", session.ExpiresAfter).Msg("WebAuth: session expired")
+			log.Debug("WebAuth: session expired", "session_id", session.Id, "path", r.URL.Path, "expires", session.ExpiresAfter)
 			DeleteSessionCookie(w)
 			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
 		}
 		if session.IsDeleted {
-			log.Debug().Str("session_id", session.Id).Str("path", r.URL.Path).Msg("WebAuth: session deleted")
+			log.Debug("WebAuth: session deleted", "session_id", session.Id, "path", r.URL.Path)
 			DeleteSessionCookie(w)
 			http.Redirect(w, r, "/login?redirect="+url.QueryEscape(r.URL.String()), http.StatusSeeOther)
 			return
@@ -345,7 +345,7 @@ func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 		session.UpdatedAt = hlc.Now()
 		session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
 		if err := database.GetSessionStorage().SaveSession(session); err != nil {
-			log.Error().Err(err).Str("session_id", session.Id).Msg("WebAuth: failed to save session")
+			log.Error("WebAuth: failed to save session", "error", err, "session_id", session.Id)
 		} else {
 			service.GetTransport().GossipSession(session)
 		}

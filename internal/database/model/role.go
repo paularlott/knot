@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 // Permissions
@@ -96,7 +96,7 @@ var (
 )
 
 func SetRoleCache(roles []*Role) {
-	log.Info().Msg("server: loading roles to cache")
+	log.Info("server: loading roles to cache")
 
 	// Create the admin role
 	adminTime := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
@@ -169,7 +169,7 @@ func SaveRoleToCache(role *Role) {
 func NewRole(name string, permissions []uint16, userId string) *Role {
 	id, err := uuid.NewV7()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	role := &Role{

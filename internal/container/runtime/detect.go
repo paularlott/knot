@@ -7,7 +7,7 @@ import (
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 // DetectLocalContainerRuntime detects which local container runtime is available
@@ -20,12 +20,12 @@ func DetectLocalContainerRuntime(preferences []string) string {
 
 	for _, runtime := range preferences {
 		if isRuntimeAvailable(runtime) {
-			log.Info().Msgf("Detected local container runtime: %s", runtime)
+			log.Info("Detected local container runtime:", "runtime", runtime)
 			return runtime
 		}
 	}
 
-	log.Warn().Msg("No local container runtime detected")
+	log.Warn("No local container runtime detected")
 	return ""
 }
 

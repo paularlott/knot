@@ -6,7 +6,7 @@ import (
 
 	"github.com/paularlott/knot/internal/database/model"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type MemoryDbDriver struct {
@@ -16,7 +16,7 @@ type MemoryDbDriver struct {
 }
 
 func (db *MemoryDbDriver) Connect() {
-	log.Debug().Msg("db: starting memory driver")
+	log.Debug("db: starting memory driver")
 
 	// Initialize the mutexes and maps
 	db.sessionMutex = &sync.RWMutex{}
@@ -24,19 +24,19 @@ func (db *MemoryDbDriver) Connect() {
 	db.sessionsByUserId = make(map[string][]*model.Session)
 
 	// Add a task to clean up expired sessions
-	log.Debug().Msg("db: starting session GC")
+	log.Debug("db: starting session GC")
 	go func() {
 		ticker := time.NewTicker(15 * time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
-			log.Debug().Msg("db: running GC")
+			log.Debug("db: running GC")
 			now := time.Now().UTC()
 
 			// Sweep sessions
 			db.sessionMutex.Lock()
 			for id, session := range db.sessions {
 				if session.ExpiresAfter.Before(now) {
-					log.Debug().Msg("db: removing session " + session.Id)
+					log.Debug("db: removing session " + session.Id)
 
 					delete(db.sessions, id)
 					for i, s := range db.sessionsByUserId[session.UserId] {

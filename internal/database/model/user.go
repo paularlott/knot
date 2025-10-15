@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -53,7 +53,7 @@ type Quota struct {
 func NewUser(username string, email string, password string, roles []string, groups []string, sshPublicKey string, preferredShell string, timezone string, maxSpaces uint32, githubUsername string, computeUnits uint32, storageUnits uint32, maxTunnels uint32) *User {
 	id, err := uuid.NewV7()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	user := &User{

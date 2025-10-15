@@ -8,14 +8,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 	var lines []string
 	var combinedKeys string = ""
 
-	log.Debug().Msg("Start updating authorized_keys")
+	log.Debug("Start updating authorized_keys")
 
 	// Merge the keys into a single string
 	for _, key := range keys {
@@ -23,7 +23,7 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 	}
 
 	// If the github username is not empty, then download the keys from github
-	log.Debug().Msg("Downloading keys from GitHub")
+	log.Debug("Downloading keys from GitHub")
 	for _, githubUsername := range githubUsernames {
 		githubKeys, err := GetGitHubKeys(githubUsername)
 		if err != nil {
@@ -71,7 +71,7 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 
 	// If keys then add them to the authorized_keys
 	if combinedKeys != "" {
-		log.Debug().Msg("Adding key to authorized_keys")
+		log.Debug("Adding key to authorized_keys")
 
 		lines = append(lines, "#===KNOT-START===")
 		lines = append(lines, combinedKeys)
@@ -89,14 +89,14 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 		file.WriteString(line + "\n")
 	}
 
-	log.Debug().Msg("Done updating authorized_keys")
+	log.Debug("Done updating authorized_keys")
 
 	return nil
 }
 
 // Download the public keys from GitHub, https://github.com/<username>.keys
 func GetGitHubKeys(username string) (string, error) {
-	log.Debug().Msgf("Downloading keys from GitHub for %s", username)
+	log.Debug("Downloading keys from GitHub for", "username", username)
 
 	// Download the keys from GitHub
 	resp, err := http.Get("https://github.com/" + username + ".keys")

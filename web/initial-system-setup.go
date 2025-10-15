@@ -5,7 +5,7 @@ import (
 
 	"github.com/paularlott/knot/internal/middleware"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func HandleInitialSystemSetupPage(w http.ResponseWriter, r *http.Request) {
@@ -16,14 +16,14 @@ func HandleInitialSystemSetupPage(w http.ResponseWriter, r *http.Request) {
 	} else {
 		tmpl, err := newTemplate("initial-system-setup.tmpl")
 		if err != nil {
-			log.Error().Msg(err.Error())
+			log.Error(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
 		err = tmpl.Execute(w, nil)
 		if err != nil {
-			log.Error().Msg(err.Error())
+			log.Error(err.Error())
 		}
 	}
 }

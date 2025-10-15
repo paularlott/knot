@@ -8,15 +8,15 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) handleSpaceFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	log.Debug().Msg("cluster: Received space full sync request")
+	log.Debug("cluster: Received space full sync request")
 
 	spaces := []*model.Space{}
 	if err := packet.Unmarshal(&spaces); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal space full sync request")
+		log.WithError(err).Error("cluster: Failed to unmarshal space full sync request")
 		return nil, err
 	}
 
@@ -35,17 +35,17 @@ func (c *Cluster) handleSpaceFullSync(sender *gossip.Node, packet *gossip.Packet
 }
 
 func (c *Cluster) handleSpaceGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug().Msg("cluster: Received space gossip request")
+	log.Debug("cluster: Received space gossip request")
 
 	spaces := []*model.Space{}
 	if err := packet.Unmarshal(&spaces); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal space gossip request")
+		log.WithError(err).Error("cluster: Failed to unmarshal space gossip request")
 		return err
 	}
 
 	// Merge the spaces with the local spaces
 	if err := c.mergeSpaces(spaces); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to merge spaces")
+		log.WithError(err).Error("cluster: Failed to merge spaces")
 		return err
 	}
 
@@ -54,7 +54,7 @@ func (c *Cluster) handleSpaceGossip(sender *gossip.Node, packet *gossip.Packet) 
 
 func (c *Cluster) GossipSpace(space *model.Space) {
 	if c.gossipCluster != nil {
-		log.Debug().Msg("cluster: Gossipping space")
+		log.Debug("cluster: Gossipping space")
 
 		spaces := []*model.Space{space}
 		c.gossipCluster.Send(SpaceGossipMsg, &spaces)
@@ -77,7 +77,7 @@ func (c *Cluster) DoSpaceFullSync(node *gossip.Node) error {
 
 		// Merge the spaces with the local spaces
 		if err := c.mergeSpaces(spaces); err != nil {
-			log.Error().Err(err).Msg("cluster: Failed to merge spaces")
+			log.WithError(err).Error("cluster: Failed to merge spaces")
 			return err
 		}
 	}
@@ -87,7 +87,7 @@ func (c *Cluster) DoSpaceFullSync(node *gossip.Node) error {
 
 // Merges the spaces from a cluster member with the local spaces
 func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
-	log.Debug().Int("number_spaces", len(spaces)).Msg("cluster: Merging spaces")
+	log.Debug("cluster: Merging spaces", "number_spaces", len(spaces))
 
 	// Get the list of spaces in the system
 	db := database.GetInstance()
@@ -108,14 +108,14 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 			// If the remote space is newer than the local space then use its data
 			if space.UpdatedAt.After(localSpace.UpdatedAt) {
 				if err := db.SaveSpace(space, []string{}); err != nil {
-					log.Error().Err(err).Str("name", space.Name).Msg("cluster: Failed to update space")
+					log.Error("cluster: Failed to update space", "error", err, "name", space.Name)
 				}
 
 				//  If share user update the SSH keys
 				if space.SharedWithUserId != localSpace.SharedWithUserId {
 					user, err := db.GetUser(space.SharedWithUserId)
 					if err != nil {
-						log.Error().Err(err).Str("name", space.Name).Msg("cluster: Failed to get user")
+						log.Error("cluster: Failed to get user", "error", err, "name", space.Name)
 						continue
 					}
 					service.GetUserService().UpdateSpaceSSHKeys(space, user)
@@ -138,7 +138,7 @@ func (c *Cluster) gossipSpaces() {
 	db := database.GetInstance()
 	spaces, err := db.GetSpaces()
 	if err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to get groups")
+		log.WithError(err).Error("cluster: Failed to get groups")
 		return
 	}
 
@@ -147,7 +147,7 @@ func (c *Cluster) gossipSpaces() {
 		return // No keys to send in this batch
 	}
 
-	log.Debug().Int("batch_size", batchSize).Int("total", len(spaces)).Msg("cluster: Gossipping spaces")
+	log.Debug("cluster: Gossipping spaces", "batch_size", batchSize, "total", len(spaces))
 
 	// Shuffle the spaces
 	rand.Shuffle(len(spaces), func(i, j int) {

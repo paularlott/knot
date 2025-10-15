@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/paularlott/cli"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type ServerAddr struct {
@@ -20,7 +20,7 @@ func GetServerAddr(alias string, cmd *cli.Command) *ServerAddr {
 
 	re := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9\-]{1,19}$`)
 	if !re.MatchString(alias) {
-		log.Fatal().Msg("Alias must be alphanumeric and can contain -, must start with a letter and be 20 characters or less")
+		log.Fatal("Alias must be alphanumeric and can contain -, must start with a letter and be 20 characters or less")
 	}
 
 	// Use the server and token flags if given, else use the alias
@@ -41,11 +41,11 @@ func GetServerAddr(alias string, cmd *cli.Command) *ServerAddr {
 
 	// If flags.server empty then throw and error
 	if flags.HttpServer == "" {
-		log.Fatal().Msg("Missing knot server address")
+		log.Fatal("Missing knot server address")
 	}
 
 	if flags.ApiToken == "" {
-		log.Fatal().Msg("Missing knot API token")
+		log.Fatal("Missing knot API token")
 	}
 
 	if !strings.HasPrefix(flags.HttpServer, "http://") && !strings.HasPrefix(flags.HttpServer, "https://") {

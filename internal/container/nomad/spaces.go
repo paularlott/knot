@@ -10,7 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
@@ -23,7 +23,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 	}
 
 	if len(volumes.Volumes) == 0 && len(space.VolumeData) == 0 {
-		log.Debug().Msg("nomad: no volumes to create")
+		log.Debug("nomad: no volumes to create")
 		return nil
 	}
 
@@ -31,12 +31,12 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 		// Save the space with the volume data
 		space.UpdatedAt = hlc.Now()
 		if err := db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"}); err != nil {
-			log.Error().Msgf("nomad: saving space %s error %s", space.Id, err)
+			log.Error("nomad: saving space  error", "space_id", space.Id)
 		}
 		service.GetTransport().GossipSpace(space)
 	}()
 
-	log.Debug().Msg("nomad: checking for required volumes")
+	log.Debug("nomad: checking for required volumes")
 
 	// Find the volumes that are defined but not yet created in the space and create them
 	var volById = make(map[string]*model.CSIVolume)
@@ -51,7 +51,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 		if data, ok := space.VolumeData[volume.Id]; !ok || data.Namespace != volume.Namespace {
 			// Existing volume then destroy it as in wrong namespace
 			if ok {
-				log.Debug().Msgf("nomad: deleting volume %s due to wrong namespace", volume.Id)
+				log.Debug("nomad: deleting volume  due to wrong namespace", "volume_id", volume.Id)
 				if volume.Type == "host" {
 					var id string
 					id, err = client.GetIdHostVolume(data.Id, data.Namespace)
@@ -109,7 +109,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 		}
 	}
 
-	log.Debug().Msg("nomad: volumes checked")
+	log.Debug("nomad: volumes checked")
 
 	return nil
 }
@@ -117,10 +117,10 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 	db := database.GetInstance()
 
-	log.Debug().Msg("nomad: deleting volumes")
+	log.Debug("nomad: deleting volumes")
 
 	if len(space.VolumeData) == 0 {
-		log.Debug().Msg("nomad: no volumes to delete")
+		log.Debug("nomad: no volumes to delete")
 		return nil
 	}
 
@@ -149,7 +149,7 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 		delete(space.VolumeData, volume.Id)
 	}
 
-	log.Debug().Msg("nomad: volumes deleted")
+	log.Debug("nomad: volumes deleted")
 
 	return nil
 }
@@ -158,7 +158,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	db := database.GetInstance()
 	cfg := config.GetServerConfig()
 
-	log.Debug().Msgf("nomad: creating space job %s", space.Id)
+	log.Debug("nomad: creating space job", "space_id", space.Id)
 
 	// Pre-parse the job to fill out the knot variables
 	jobHCL, err := model.ResolveVariables(template.Job, template, space, user, variables)
@@ -169,7 +169,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	// Convert job to JSON
 	jobJSON, err := client.ParseJobHCL(jobHCL)
 	if err != nil {
-		log.Error().Msgf("nomad: creating space job %s, parse error: %s", space.Id, err)
+		log.Error("nomad: creating space job , parse error:", "space_id", space.Id)
 		return err
 	}
 
@@ -184,7 +184,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	// Launch the job
 	_, err = client.CreateJob(&jobJSON)
 	if err != nil {
-		log.Error().Msgf("nomad: creating space job %s, error: %s", space.Id, err)
+		log.Error("nomad: creating space job , error:", "space_id", space.Id)
 		return err
 	}
 
@@ -198,7 +198,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"NomadNamespace", "ContainerId", "IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "Zone", "UpdatedAt", "StartedAt"})
 	if err != nil {
-		log.Error().Msgf("nomad: creating space job %s error %s", space.Id, err)
+		log.Error("nomad: creating space job  error", "space_id", space.Id)
 		return err
 	}
 
@@ -209,11 +209,11 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 }
 
 func (client *NomadClient) DeleteSpaceJob(space *model.Space, onStopped func()) error {
-	log.Debug().Msgf("nomad: deleting space job %s, %s", space.Id, space.ContainerId)
+	log.Debug("nomad: deleting space job ,", "space_id", space.Id, "space", space.ContainerId)
 
 	_, err := client.DeleteJob(space.ContainerId, space.NomadNamespace)
 	if err != nil {
-		log.Debug().Msgf("nomad: deleting space job %s, error: %s", space.Id, err)
+		log.Debug("nomad: deleting space job , error:", "space_id", space.Id)
 		return err
 	}
 
@@ -224,7 +224,7 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space, onStopped func()) 
 	db := database.GetInstance()
 	err = db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
 	if err != nil {
-		log.Debug().Msgf("nomad: deleting space job %s error %s", space.Id, err)
+		log.Debug("nomad: deleting space job  error", "space_id", space.Id)
 		return err
 	}
 
@@ -236,30 +236,30 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space, onStopped func()) 
 
 func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 	go func() {
-		log.Info().Msgf("nomad: watching job %s status for change", space.ContainerId)
+		log.Info("nomad: watching job  status for change", "nomad", space.ContainerId)
 
 		for {
 			code, data, err := client.ReadJob(space.ContainerId, space.NomadNamespace)
 			if err != nil && code != 404 {
-				log.Error().Msgf("nomad: reading space job %s, error: %s", space.ContainerId, err)
+				log.Error("nomad: reading space job , error:", "space", space.ContainerId)
 			} else {
 				if code == 404 {
-					log.Debug().Msgf("nomad: reading space job %s, status: %s", space.ContainerId, "404")
+					log.Debug("nomad: reading space job , status:", "space", space.ContainerId, "reading", "404")
 				} else {
-					log.Debug().Msgf("nomad: reading space job %s, status: %s", space.ContainerId, data["Status"])
+					log.Debug("nomad: reading space job , status:", "space", space.ContainerId)
 				}
 
 				if code == 200 && data["Status"] == "running" {
 					// If waiting for job to start then done
 					if space.IsPending && !space.IsDeployed {
-						log.Info().Msgf("nomad: space job %s is running", space.ContainerId)
+						log.Info("nomad: space job  is running", "space", space.ContainerId)
 
 						space.IsPending = false
 						space.IsDeployed = true
 						break
 					}
 				} else if code == 404 || data["Status"] == "dead" {
-					log.Info().Msgf("nomad: space job %s is dead", space.ContainerId)
+					log.Info("nomad: space job  is dead", "space", space.ContainerId)
 
 					space.IsPending = false
 					space.IsDeployed = false
@@ -271,11 +271,11 @@ func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 			time.Sleep(500 * time.Millisecond)
 		}
 
-		log.Info().Msgf("nomad: update space job %s status", space.ContainerId)
+		log.Info("nomad: update space job  status", "space", space.ContainerId)
 		space.UpdatedAt = hlc.Now()
 		err := database.GetInstance().SaveSpace(space, []string{"IsPending", "IsDeployed", "UpdatedAt"})
 		if err != nil {
-			log.Error().Msgf("nomad: updating space job %s error %s", space.ContainerId, err)
+			log.Error("nomad: updating space job  error", "space", space.ContainerId)
 		}
 		service.GetTransport().GossipSpace(space)
 

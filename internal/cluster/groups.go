@@ -8,15 +8,15 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) handleGroupFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	log.Debug().Msg("cluster: Received group full sync request")
+	log.Debug("cluster: Received group full sync request")
 
 	groups := []*model.Group{}
 	if err := packet.Unmarshal(&groups); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal group full sync request")
+		log.WithError(err).Error("cluster: Failed to unmarshal group full sync request")
 		return nil, err
 	}
 
@@ -35,17 +35,17 @@ func (c *Cluster) handleGroupFullSync(sender *gossip.Node, packet *gossip.Packet
 }
 
 func (c *Cluster) handleGroupGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug().Msg("cluster: Received group gossip request")
+	log.Debug("cluster: Received group gossip request")
 
 	groups := []*model.Group{}
 	if err := packet.Unmarshal(&groups); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal group gossip request")
+		log.WithError(err).Error("cluster: Failed to unmarshal group gossip request")
 		return err
 	}
 
 	// Merge the groups with the local groups
 	if err := c.mergeGroups(groups); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to merge groups")
+		log.WithError(err).Error("cluster: Failed to merge groups")
 		return err
 	}
 
@@ -59,14 +59,14 @@ func (c *Cluster) handleGroupGossip(sender *gossip.Node, packet *gossip.Packet) 
 
 func (c *Cluster) GossipGroup(group *model.Group) {
 	if c.gossipCluster != nil {
-		log.Debug().Msg("cluster: Gossipping group")
+		log.Debug("cluster: Gossipping group")
 
 		groups := []*model.Group{group}
 		c.gossipCluster.Send(GroupGossipMsg, &groups)
 	}
 
 	if len(c.leafSessions) > 0 {
-		log.Debug().Msg("cluster: Updating group on leaf nodes")
+		log.Debug("cluster: Updating group on leaf nodes")
 
 		groups := []*model.Group{group}
 		c.sendToLeafNodes(leafmsg.MessageGossipGroup, groups)
@@ -89,7 +89,7 @@ func (c *Cluster) DoGroupFullSync(node *gossip.Node) error {
 
 		// Merge the groups with the local groups
 		if err := c.mergeGroups(groups); err != nil {
-			log.Error().Err(err).Msg("cluster: Failed to merge groups")
+			log.WithError(err).Error("cluster: Failed to merge groups")
 			return err
 		}
 	}
@@ -99,7 +99,7 @@ func (c *Cluster) DoGroupFullSync(node *gossip.Node) error {
 
 // Merges the groups from a cluster member with the local groups
 func (c *Cluster) mergeGroups(groups []*model.Group) error {
-	log.Debug().Int("number_groups", len(groups)).Msg("cluster: Merging groups")
+	log.Debug("cluster: Merging groups", "number_groups", len(groups))
 
 	// Get the list of groups in the system
 	db := database.GetInstance()
@@ -120,7 +120,7 @@ func (c *Cluster) mergeGroups(groups []*model.Group) error {
 			// If the remote group is newer than the local group then use it's data
 			if group.UpdatedAt.After(localGroup.UpdatedAt) {
 				if err := db.SaveGroup(group); err != nil {
-					log.Error().Err(err).Str("name", group.Name).Msg("cluster: Failed to update group")
+					log.Error("cluster: Failed to update group", "error", err, "name", group.Name)
 				}
 			}
 		} else if !group.IsDeleted {
@@ -144,7 +144,7 @@ func (c *Cluster) gossipGroups() {
 	db := database.GetInstance()
 	groups, err := db.GetGroups()
 	if err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to get groups")
+		log.WithError(err).Error("cluster: Failed to get groups")
 		return
 	}
 
@@ -156,7 +156,7 @@ func (c *Cluster) gossipGroups() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(groups))
 		if batchSize > 0 {
-			log.Debug().Int("batch_size", batchSize).Int("total", len(groups)).Msg("cluster: Gossipping groups")
+			log.Debug("cluster: Gossipping groups", "batch_size", batchSize, "total", len(groups))
 			clusterGroups := groups[:batchSize]
 			c.gossipCluster.Send(GroupGossipMsg, &clusterGroups)
 		}
@@ -165,7 +165,7 @@ func (c *Cluster) gossipGroups() {
 	if len(c.leafSessions) > 0 {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(groups))
 		if batchSize > 0 {
-			log.Debug().Int("batch_size", batchSize).Int("total", len(groups)).Msg("cluster: Groups to leaf nodes")
+			log.Debug("cluster: Groups to leaf nodes", "batch_size", batchSize, "total", len(groups))
 			leafGroups := groups[:batchSize]
 			c.sendToLeafNodes(leafmsg.MessageGossipGroup, &leafGroups)
 		}

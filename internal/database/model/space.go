@@ -10,7 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/sshd"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type SpaceCustomField struct {
@@ -31,7 +31,7 @@ func (sv SpaceVolume) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface.
 func (sv *SpaceVolume) Scan(value interface{}) error {
-	log.Warn().Msg("Scan")
+	log.Warn("Scan")
 	b, ok := value.([]byte)
 	if !ok {
 		return nil
@@ -94,13 +94,13 @@ type Space struct {
 func NewSpace(name string, description string, userId string, templateId string, shell string, altNames *[]string, zone string, iconURL string, customFields []SpaceCustomField) *Space {
 	id, err := uuid.NewV7()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	// Create a host key for the space
 	ed25519, err := sshd.GenerateEd25519PrivateKey()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	now := time.Now().UTC()

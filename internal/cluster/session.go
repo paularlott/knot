@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 const (
@@ -37,14 +37,14 @@ func (s *leafSession) SendMessage(msgType leafmsg.MessageType, payload interface
 	}:
 
 	default:
-		log.Error().Str("zone", s.Zone).Msg("failed to send message: queue is full")
+		log.Error("failed to send message: queue is full", "zone", s.Zone)
 	}
 }
 
 func (c *Cluster) registerLeaf(ws *websocket.Conn, user *model.User, token *model.Token, zone string) *leafSession {
 	newSessionId, err := uuid.NewV7()
 	if err != nil {
-		log.Fatal().Msgf("origin: failed to create leaf ID: %s", err)
+		log.Fatal("origin: failed to create leaf ID:", "err", err)
 	}
 
 	c.leafSessionMux.Lock()
@@ -70,12 +70,12 @@ func (c *Cluster) registerLeaf(ws *websocket.Conn, user *model.User, token *mode
 					break
 				}
 
-				log.Warn().Err(err).Str("zone", session.Zone).Msgf("attempt %d failed to write message to leaf", i)
+				log.Warn("attempt failed to write message to leaf", "error", err, "zone", session.Zone, "i", i)
 
 				time.Sleep(time.Duration(i) * time.Second)
 
 				if i == attempts {
-					log.Error().Str("zone", session.Zone).Msgf("failed to write message to leaf after %d attempts", attempts)
+					log.Error("failed to write message to leaf after attempts", "zone", session.Zone, "attempts", attempts)
 				}
 			}
 		}

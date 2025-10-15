@@ -11,7 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 const (
@@ -97,7 +97,7 @@ func NewTemplate(
 ) *Template {
 	id, err := uuid.NewV7()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	template := &Template{
@@ -158,7 +158,7 @@ func (template *Template) AllowedBySchedule() bool {
 	cfg := config.GetServerConfig()
 	loc, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
-		log.Error().Msgf("Error loading timezone: %s", err)
+		log.WithError(err).Error("Error loading timezone:")
 		return false
 	}
 
@@ -179,12 +179,12 @@ func (template *Template) AllowedBySchedule() bool {
 
 	from, err := time.Parse("3:04pm", daySchedule.From)
 	if err != nil {
-		log.Error().Msgf("Error parsing schedule from time: %s", err)
+		log.WithError(err).Error("Error parsing schedule from time:")
 		return false
 	}
 	to, err := time.Parse("3:04pm", daySchedule.To)
 	if err != nil {
-		log.Error().Msgf("Error parsing schedule to time: %s", err)
+		log.WithError(err).Error("Error parsing schedule to time:")
 		return false
 	}
 

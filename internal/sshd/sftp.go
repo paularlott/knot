@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/gliderlabs/ssh"
+	"github.com/paularlott/knot/internal/log"
 	"github.com/pkg/sftp"
-	"github.com/rs/zerolog/log"
 )
 
 // SftpHandler handler for SFTP subsystem
@@ -15,7 +15,7 @@ func SftpHandler(sess ssh.Session) {
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatal().Msgf("failed to get user home directory: %v", err)
+		log.Fatal("failed to get user home directory:", "err", err)
 	}
 
 	debugStream := io.Discard
@@ -28,7 +28,7 @@ func SftpHandler(sess ssh.Session) {
 		serverOptions...,
 	)
 	if err != nil {
-		log.Printf("sftp server init error: %s\n", err)
+		log.WithError(err).Error("sftp server init error")
 		return
 	}
 	if err := server.Serve(); err == io.EOF {

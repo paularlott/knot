@@ -39,7 +39,7 @@ import (
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/mcp"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 var ServerCmd = &cli.Command{
@@ -679,11 +679,11 @@ var ServerCmd = &cli.Command{
 
 		// If agent address not given then don't start
 		if cfg.AgentEndpoint == "" {
-			log.Fatal().Msg("server: agent endpoint not given")
+			log.Fatal("server: agent endpoint not given")
 		}
 
-		log.Info().Msgf("server: starting knot version: %s", build.Version)
-		log.Info().Msgf("server: starting on: %s", listen)
+		log.Info("server: starting knot version:", "version", build.Version)
+		log.Info("server: starting on:", "listen", listen)
 
 		// Initialize the API helpers
 		service.SetUserService(api_utils.NewApiUtilsUsers())
@@ -695,7 +695,7 @@ var ServerCmd = &cli.Command{
 		// Load roles into memory cache
 		roles, err := database.GetInstance().GetRoles()
 		if err != nil {
-			log.Fatal().Msgf("server: failed to get roles: %s", err.Error())
+			log.WithError(err).Fatal("server: failed to get roles:")
 		}
 		model.SetRoleCache(roles)
 
@@ -720,11 +720,11 @@ var ServerCmd = &cli.Command{
 
 			dnsServer, err := dns.NewDNSServer(dnsServerCfg)
 			if err != nil {
-				log.Fatal().Err(err).Msg("Failed to create DNS server")
+				log.Fatal("Failed to create DNS server", "error", err)
 			}
 
 			if err = dnsServer.Start(); err != nil {
-				log.Fatal().Err(err).Msg("Failed to start DNS server")
+				log.Fatal("Failed to start DNS server", "error", err)
 			}
 			defer dnsServer.Stop()
 		}
@@ -736,18 +736,18 @@ var ServerCmd = &cli.Command{
 		serverURL := cfg.URL
 		u, err := url.Parse(serverURL)
 		if err != nil {
-			log.Fatal().Msg(err.Error())
+			log.Fatal(err.Error())
 		}
 
-		log.Debug().Msgf("Host: %s", u.Host)
+		log.Debug("Host:", "host", u.Host)
 
 		var tunnelServerUrl *url.URL = nil
 		if cfg.TunnelServer != "" && cfg.ListenTunnel != "" {
 			tunnelServerUrl, err = url.Parse(cfg.TunnelServer)
 			if err != nil {
-				log.Fatal().Msgf("Error parsing tunnel server URL: %v", err)
+				log.Fatal("Error parsing tunnel server URL:", "err", err)
 			}
-			log.Debug().Msgf("Tunnel Server URL: %s", tunnelServerUrl.Host)
+			log.Debug("Tunnel Server URL:", "tunnel", tunnelServerUrl.Host)
 		}
 
 		// Create the application routes
@@ -766,21 +766,21 @@ var ServerCmd = &cli.Command{
 		if mcpEnabled || chatEnabled || openaiEndpointEnabled {
 			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled)
 			if !mcpEnabled {
-				log.Debug().Msg("server: MCP chat-only mode")
+				log.Debug("server: MCP chat-only mode")
 			} else {
-				log.Info().Msg("server: MCP server enabled")
+				log.Info("server: MCP server enabled")
 			}
 		}
 
 		// If AI chat enabled then initialize chat service
 		var openAIClient *openai.Client
 		if chatEnabled || openaiEndpointEnabled {
-			log.Info().Msg("server: AI chat enabled")
+			log.Info("server: AI chat enabled")
 
 			// Initialize chat service with config
 			chatService, err := chat.NewService(cfg.Chat, mcpServer)
 			if err != nil {
-				log.Fatal().Msgf("server: failed to create chat service: %s", err.Error())
+				log.WithError(err).Fatal("server: failed to create chat service:")
 			}
 			openAIClient = chatService.GetOpenAIClient()
 
@@ -793,7 +793,7 @@ var ServerCmd = &cli.Command{
 		// If OpenAI chat enabled then initialize OpenAI service
 		if openaiEndpointEnabled {
 			//openai.SetupOpenAIEndpoints(cfg, routes, mcpServer)
-			log.Info().Msg("server: OpenAI endpoints enabled")
+			log.Info("server: OpenAI endpoints enabled")
 
 			service := openai.NewService(openAIClient, cfg.Chat.SystemPrompt)
 			routes.HandleFunc("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetModels)))
@@ -818,16 +818,16 @@ var ServerCmd = &cli.Command{
 			// Create regex to match tunnel domain (always wildcard)
 			tunnelDomainPattern := "^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(cfg.TunnelDomain, ".", "\\.", -1), "*") + "$"
 			tunnelDomainMatch = regexp.MustCompile(tunnelDomainPattern)
-			log.Debug().Msgf("Tunnel Domain Pattern: %s", tunnelDomainPattern)
+			log.Debug("Tunnel Domain Pattern:", "tunnelDomainPattern", tunnelDomainPattern)
 		}
 
 		// If have a wildcard domain or need tunnel routing, build domain-based routes
 		if wildcardDomain != "" || sameAddress {
 			if wildcardDomain != "" {
-				log.Debug().Msgf("Wildcard Domain: %s", wildcardDomain)
+				log.Debug("Wildcard Domain:", "wildcardDomain", wildcardDomain)
 			}
 			if sameAddress {
-				log.Debug().Msgf("Using domain routing for tunnel traffic (same listen address)")
+				log.Debug("Using domain routing for tunnel traffic (same listen address)")
 			}
 
 			// Remove the port from the wildcard domain
@@ -886,18 +886,18 @@ var ServerCmd = &cli.Command{
 
 		// If server should use TLS
 		if cfg.TLS.UseTLS {
-			log.Debug().Msg("server: using TLS")
+			log.Debug("server: using TLS")
 
 			// If have both a cert and key file, use them
 			certFile := cfg.TLS.CertFile
 			keyFile := cfg.TLS.KeyFile
 			if certFile != "" && keyFile != "" {
-				log.Info().Msgf("server: using cert file: %s", certFile)
-				log.Info().Msgf("server: using key file: %s", keyFile)
+				log.Info("server: using cert file:", "certFile", certFile)
+				log.Info("server: using key file:", "keyFile", keyFile)
 
 				serverTLSCert, err := tls.LoadX509KeyPair(certFile, keyFile)
 				if err != nil {
-					log.Fatal().Msgf("Error loading certificate and key file: %v", err)
+					log.Fatal("Error loading certificate and key file:", "err", err)
 				}
 
 				tlsConfig = &tls.Config{
@@ -905,7 +905,7 @@ var ServerCmd = &cli.Command{
 				}
 			} else {
 				// Otherwise generate a self-signed cert
-				log.Info().Msg("server: generating self-signed certificate")
+				log.Info("server: generating self-signed certificate")
 
 				// Build the list of domains to include in the cert
 				var sslDomains []string
@@ -913,7 +913,7 @@ var ServerCmd = &cli.Command{
 				serverURL := cfg.URL
 				u, err := url.Parse(serverURL)
 				if err != nil {
-					log.Fatal().Msg(err.Error())
+					log.Fatal(err.Error())
 				}
 				hostname := u.Host
 				if host, _, err := net.SplitHostPort(hostname); err == nil {
@@ -941,12 +941,12 @@ var ServerCmd = &cli.Command{
 
 				cert, key, err := util.GenerateCertificate(sslDomains, []net.IP{net.ParseIP("127.0.0.1")})
 				if err != nil {
-					log.Fatal().Msgf("Error generating certificate and key: %v", err)
+					log.Fatal("Error generating certificate and key:", "err", err)
 				}
 
 				serverTLSCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
 				if err != nil {
-					log.Fatal().Msgf("Error generating server TLS cert: %v", err)
+					log.Fatal("Error generating server TLS cert:", "err", err)
 				}
 
 				tlsConfig = &tls.Config{
@@ -981,11 +981,11 @@ var ServerCmd = &cli.Command{
 			for {
 				if cfg.TLS.UseTLS {
 					if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-						log.Error().Err(err).Msgf("server: web server")
+						log.WithError(err).Error("server: web server")
 					}
 				} else {
 					if err := server.ListenAndServe(); err != http.ErrServerClosed {
-						log.Error().Err(err).Msgf("server: web server")
+						log.WithError(err).Error("server: web server")
 					}
 				}
 			}
@@ -1032,7 +1032,7 @@ var ServerCmd = &cli.Command{
 		defer cancel()
 		server.Shutdown(ctx)
 		fmt.Print("\r")
-		log.Info().Msg("server: shutdown")
+		log.Info("server: shutdown")
 		return nil
 	},
 }
@@ -1044,7 +1044,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		var err error
 		hostname, err = os.Hostname()
 		if err != nil {
-			log.Fatal().Msgf("Error getting hostname: %v", err)
+			log.Fatal("Error getting hostname:", "err", err)
 		}
 		hostname = strings.Split(hostname, ".")[0]
 	}
@@ -1189,7 +1189,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	if serverCfg.Timezone == "" {
 		serverCfg.Timezone, _ = time.Now().Zone()
 	}
-	log.Info().Msgf("server: timezone: %s", serverCfg.Timezone)
+	log.Info("server: timezone:", "timezone", serverCfg.Timezone)
 
 	config.SetServerConfig(serverCfg)
 

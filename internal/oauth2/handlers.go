@@ -12,7 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/rest"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type TokenResponse struct {
@@ -88,7 +88,7 @@ func HandleGrant(w http.ResponseWriter, r *http.Request) {
 		authCodeStore := GetAuthCodeStore()
 		authCode, err := authCodeStore.CreateAuthCode(user.Id, clientId, redirectURI, scope)
 		if err != nil {
-			log.Error().Err(err).Msg("oauth2: failed to create auth code")
+			log.WithError(err).Error("oauth2: failed to create auth code")
 			http.Error(w, "server_error", http.StatusInternalServerError)
 			return
 		}
@@ -120,15 +120,14 @@ func HandleGrant(w http.ResponseWriter, r *http.Request) {
 // HandleToken handles the OAuth2 token endpoint
 func HandleToken(w http.ResponseWriter, r *http.Request) {
 	// Debug: Log request details
-	log.Debug().
-		Str("content_type", r.Header.Get("Content-Type")).
-		Str("content_length", r.Header.Get("Content-Length")).
-		Msg("oauth2: token request headers")
+	log.Debug("oauth2: token request headers",
+		"content_type", r.Header.Get("Content-Type"),
+		"content_length", r.Header.Get("Content-Length"))
 
 	// Parse form data first
 	err := r.ParseForm()
 	if err != nil {
-		log.Error().Err(err).Msg("oauth2: failed to parse form")
+		log.WithError(err).Error("oauth2: failed to parse form")
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{
 			Error:            "invalid_request",
 			ErrorDescription: "Failed to parse form data",
@@ -141,12 +140,11 @@ func HandleToken(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.FormValue("redirect_uri")
 
 	// Debug logging
-	log.Debug().
-		Str("grant_type", grantType).
-		Str("code", code).
-		Str("redirect_uri", redirectURI).
-		Interface("form", r.Form).
-		Msg("oauth2: token request parameters")
+	log.Debug("oauth2: token request parameters",
+		"grant_type", grantType,
+		"code", code,
+		"redirect_uri", redirectURI,
+		"form", r.Form)
 
 	// Validate grant type
 	switch grantType {
@@ -206,7 +204,7 @@ func handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	err := db.SaveToken(token)
 	if err != nil {
-		log.Error().Err(err).Msg("oauth2: failed to save token")
+		log.WithError(err).Error("oauth2: failed to save token")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{
 			Error: "server_error",
 		})

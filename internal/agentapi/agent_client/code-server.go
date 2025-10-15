@@ -12,7 +12,7 @@ import (
 
 	"github.com/paularlott/knot/internal/util"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func fetchCodeServer() error {
@@ -45,7 +45,7 @@ func fetchCodeServer() error {
 	}
 
 	// Get the latest version of code-server
-	log.Info().Msg("code-server: checking the latest version of code-server..")
+	log.Info("code-server: checking the latest version of code-server..")
 	resp, err := http.Get("https://api.github.com/repos/coder/code-server/releases/latest")
 	if err != nil {
 		return fmt.Errorf("failed to get latest version: %v", err)
@@ -63,17 +63,17 @@ func fetchCodeServer() error {
 	}
 	latestVersion := release.TagName
 	latestVersion = strings.Trim(latestVersion, "\",v ")
-	log.Info().Msgf("code-server: latest version of code-server is %s", latestVersion)
+	log.Info("code-server: latest version of code-server is", "latestVersion", latestVersion)
 
 	// Check if the latest version is already installed
 	codeServerPath := filepath.Join(home, ".local", "lib", "code-server-"+latestVersion)
 	if _, err := os.Stat(codeServerPath); !os.IsNotExist(err) {
-		log.Error().Msgf("code-server %s is already installed", latestVersion)
+		log.Error("code-server is already installed", "latestVersion", latestVersion)
 		return nil
 	}
 
 	// Download the latest version of code-server
-	log.Info().Msg("code-server: downloading code-server..")
+	log.Info("code-server: downloading code-server..")
 	downloadURL := fmt.Sprintf("https://github.com/coder/code-server/releases/download/v%s/code-server-%s-linux-%s.tar.gz", latestVersion, latestVersion, arch)
 	err = util.DownloadUnpackTgz(downloadURL, filepath.Join(home, ".local", "lib"))
 	if err != nil {
@@ -81,7 +81,7 @@ func fetchCodeServer() error {
 	}
 
 	// Move the code-server to the correct directory
-	log.Info().Msg("code-server: installing code-server..")
+	log.Info("code-server: installing code-server..")
 	if err := os.Rename(filepath.Join(home, ".local", "lib", "code-server-"+latestVersion+"-linux-"+arch), codeServerPath); err != nil {
 		return fmt.Errorf("failed to move code-server: %v", err)
 	}
@@ -96,14 +96,14 @@ func fetchCodeServer() error {
 	}
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(), "code-server-") && file.Name() != "code-server-"+latestVersion {
-			log.Printf("Removing old version: %s\n", file.Name())
+			log.Info("Removing old version", "file", file.Name())
 			if err := os.RemoveAll(filepath.Join(home, ".local", "lib", file.Name())); err != nil {
 				return fmt.Errorf("failed to remove old version: %v", err)
 			}
 		}
 	}
 
-	log.Info().Msgf("code-server: %s installed successfully", latestVersion)
+	log.Info("code-server: installed successfully", "latestVersion", latestVersion)
 	return nil
 }
 
@@ -111,32 +111,32 @@ func startCodeServer(port int) {
 	if port > 0 {
 		// Fetch the latest version of code-server
 		if err := fetchCodeServer(); err != nil {
-			log.Error().Msgf("code-server: %v", err)
+			log.WithError(err).Error("code-server:")
 			return
 		}
 
 		home, err := os.UserHomeDir()
 		if err != nil {
-			log.Error().Msgf("code-server: failed to get user home directory %v", err)
+			log.WithError(err).Error("code-server: failed to get user home directory")
 			return
 		}
 
 		// Start code-server
-		log.Info().Msg("code-server: starting...")
+		log.Info("code-server: starting...")
 		cmd := exec.Command(filepath.Join(home, ".local", "bin", "code-server"), "--disable-telemetry", "--auth", "none", "--bind-addr", fmt.Sprintf("127.0.0.1:%d", port))
 
 		// Redirect output to syslog
 		util.RedirectToSyslog(cmd)
 
 		if err := cmd.Start(); err != nil {
-			log.Error().Msgf("code-server: error starting: %v", err)
+			log.WithError(err).Error("code-server: error starting:")
 			return
 		}
 
 		// Run code-server in the background
 		go func() {
 			if err := cmd.Wait(); err != nil {
-				log.Error().Msgf("code-server: exited with error: %v", err)
+				log.WithError(err).Error("code-server: exited with error:")
 			}
 		}()
 	}

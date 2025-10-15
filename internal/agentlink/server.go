@@ -7,7 +7,7 @@ import (
 
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 const (
@@ -24,17 +24,17 @@ var (
 func StartCommandSocket(agentClientObj *agent_client.AgentClient) {
 	agentClient = agentClientObj
 
-	log.Info().Msg("agent: Starting command socket")
+	log.Info("agent: Starting command socket")
 
 	// Create the folder for the socket in the user's home directory
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatal().Err(err).Msg("agent: Failed to get home directory")
+		log.Fatal("agent: Failed to get home directory", "error", err)
 	}
 
 	err = os.MkdirAll(home+"/"+commandSocketPath, os.ModePerm)
 	if err != nil {
-		log.Fatal().Err(err).Msg("agent: Failed to create socket directory")
+		log.Fatal("agent: Failed to create socket directory", "error", err)
 	}
 
 	cancelContext, cancelFunc = context.WithCancel(context.Background())
@@ -44,19 +44,19 @@ func StartCommandSocket(agentClientObj *agent_client.AgentClient) {
 		os.Remove(socketPath) // Remove any existing socket
 		listener, err := net.Listen("unix", socketPath)
 		if err != nil {
-			log.Fatal().Err(err).Msg("agent: Failed to listen on socket")
+			log.Fatal("agent: Failed to listen on socket", "error", err)
 		}
 		os.Chmod(socketPath, 0700)
 		defer func() {
 			listener.Close()
 			os.Remove(socketPath)
-			log.Info().Msg("agent: Command socket listener stopped")
+			log.Info("agent: Command socket listener stopped")
 		}()
 
 		for {
 			select {
 			case <-cancelContext.Done():
-				log.Info().Msg("agent: Command socket listener stopped by context")
+				log.Info("agent: Command socket listener stopped by context")
 				return
 			default:
 				conn, err := listener.Accept()
@@ -64,7 +64,7 @@ func StartCommandSocket(agentClientObj *agent_client.AgentClient) {
 					if ne, ok := err.(net.Error); ok && ne.Timeout() {
 						continue // check context again
 					}
-					log.Error().Err(err).Msg("Failed to accept connection")
+					log.WithError(err).Error("Failed to accept connection")
 					continue
 				}
 
@@ -83,7 +83,7 @@ func handleCommandConnection(conn net.Conn) {
 
 	msg, err := receiveMsg(conn)
 	if err != nil {
-		log.Error().Err(err).Msg("agent: Failed to receive message")
+		log.WithError(err).Error("agent: Failed to receive message")
 		return
 	}
 

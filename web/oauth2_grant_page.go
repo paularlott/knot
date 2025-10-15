@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func HandleOAuth2GrantPage(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := newTemplate("oauth2_grant.tmpl")
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -29,6 +29,6 @@ func HandleOAuth2GrantPage(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 	}
 }

@@ -8,7 +8,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type TunnelType int
@@ -91,7 +91,7 @@ func (c *TunnelClient) ConnectAndServe() error {
 			return fmt.Errorf("failed to get tunnel server info: %w", err)
 		}
 
-		log.Info().Msgf("https://%s--%s%s -> %s://localhost:%d", user.Username, c.tunnelName, tunnelServerInfo.Domain, c.protocol, c.localPort)
+		log.Info("https://-- -> ://localhost:", "httpssss", user.Username, "value1", c.tunnelName, "slocalhostd", tunnelServerInfo.Domain, "value3", c.protocol, "value4", c.localPort)
 
 		// Add the tunnel servers to the list
 		c.serverListMutex.Lock()
@@ -115,7 +115,7 @@ func (c *TunnelClient) ConnectAndServe() error {
 				case <-ticker.C:
 					tunnelServerInfo, _, err := client.GetTunnelServerInfo(context.Background())
 					if err != nil {
-						log.Warn().Err(err).Msg("Failed to refresh tunnel server info")
+						log.WithError(err).Warn("Failed to refresh tunnel server info")
 						continue
 					}
 
@@ -123,20 +123,20 @@ func (c *TunnelClient) ConnectAndServe() error {
 					c.serverListMutex.Lock()
 					for _, server := range tunnelServerInfo.TunnelServers {
 						if _, exists := c.serverList[server]; !exists {
-							log.Debug().Msgf("Adding new tunnel server: %s", server)
+							log.Debug("Adding new tunnel server:", "server", server)
 							c.serverList[server] = newTunnelServer(c, server)
 							c.serverList[server].ConnectAndServe()
 						}
 					}
 					c.serverListMutex.Unlock()
 				case <-c.ctx.Done():
-					log.Debug().Msg("Stopping tunnel server list refresh")
+					log.Debug("Stopping tunnel server list refresh")
 					return
 				}
 			}
 		}()
 	} else {
-		log.Info().Msgf("%s:%d -> localhost:%d", c.spaceName, c.spacePort, c.localPort)
+		log.Info(": -> localhost:", "sd", c.spaceName, "value1", c.spacePort, "localhostd", c.localPort)
 
 		// Add the tunnel servers to the list
 		c.serverListMutex.Lock()

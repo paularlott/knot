@@ -6,12 +6,12 @@ import (
 	"github.com/paularlott/knot/internal/config"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (db *MySQLDriver) initialize() error {
 
-	log.Debug().Msg("db: creating users table")
+	log.Debug("db: creating users table")
 	_, err := db.connection.Exec(`CREATE TABLE IF NOT EXISTS users (
 user_id CHAR(36) PRIMARY KEY,
 username VARCHAR(64) UNIQUE,
@@ -41,7 +41,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	log.Debug().Msg("db: creating API tokens table")
+	log.Debug("db: creating API tokens table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS tokens (
 token_id CHAR(64) PRIMARY KEY,
 user_id CHAR(36),
@@ -57,7 +57,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	log.Debug().Msg("db: creating spaces table")
+	log.Debug("db: creating spaces table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS spaces (
 space_id CHAR(36) PRIMARY KEY,
 parent_space_id CHAR(36) DEFAULT '',
@@ -94,7 +94,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	log.Debug().Msg("db: creating templates table")
+	log.Debug("db: creating templates table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS templates (
 template_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
@@ -131,7 +131,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	log.Debug().Msg("db: creating groups table")
+	log.Debug("db: creating groups table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS groups (
 group_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
@@ -150,7 +150,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	log.Debug().Msg("db: creating template variables table")
+	log.Debug("db: creating template variables table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS templatevars (
 templatevar_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
@@ -171,7 +171,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	log.Debug().Msg("db: creating volumes table")
+	log.Debug("db: creating volumes table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS volumes (
 volume_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
@@ -191,7 +191,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	log.Debug().Msg("db: creating roles table")
+	log.Debug("db: creating roles table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS roles (
 role_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
@@ -207,7 +207,7 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
-	log.Debug().Msg("db: creating audit_log table")
+	log.Debug("db: creating audit_log table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
 audit_log_id bigint(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
 created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP,
@@ -225,7 +225,7 @@ INDEX created_at (created_at)
 		return err
 	}
 
-	log.Debug().Msg("db: creating configs table")
+	log.Debug("db: creating configs table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS configs (
 name VARCHAR(64) PRIMARY KEY,
 value MEDIUMTEXT
@@ -234,17 +234,17 @@ value MEDIUMTEXT
 		return err
 	}
 
-	log.Debug().Msg("db: MySQL is initialized")
+	log.Debug("db: MySQL is initialized")
 
 	// Add a task to clean up expired data
-	log.Debug().Msg("db: starting database GC")
+	log.Debug("db: starting database GC")
 	cfg := config.GetServerConfig()
 	go func() {
 		ticker := time.NewTicker(10 * time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
 		again:
-			log.Debug().Msg("db: running GC")
+			log.Debug("db: running GC")
 			now := time.Now().UTC()
 
 			_, err = db.connection.Exec("DELETE FROM tokens WHERE expires_after < ?", now)

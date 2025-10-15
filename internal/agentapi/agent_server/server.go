@@ -11,7 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 const (
@@ -31,7 +31,7 @@ type stopListItem struct {
 
 // Periodically check to see if the space has a schedule which requires it be stopped
 func checkSchedules() {
-	log.Info().Msg("agent: starting schedule checker")
+	log.Info("agent: starting schedule checker")
 
 	cfg := config.GetServerConfig()
 	go func() {
@@ -39,7 +39,7 @@ func checkSchedules() {
 		defer ticker.Stop()
 
 		for range ticker.C {
-			log.Debug().Msg("agent: checking schedules")
+			log.Debug("agent: checking schedules")
 
 			db := database.GetInstance()
 
@@ -67,7 +67,7 @@ func checkSchedules() {
 
 			// Stop sessions that need to be stopped
 			for _, item := range sessionStopList {
-				log.Info().Msgf("agent: stopping session %s due to schedule", item.session.Id)
+				log.Info("agent: stopping session  due to schedule", "session_id", item.session.Id)
 				service.GetContainerService().StopSpace(item.space)
 			}
 			sessionStopList = nil
@@ -75,7 +75,7 @@ func checkSchedules() {
 			// Look for spaces that need to be started
 			spaces, err := db.GetSpaces()
 			if err != nil {
-				log.Error().Msgf("agent: failed to get spaces: %v", err)
+				log.WithError(err).Error("agent: failed to get spaces:")
 				continue
 			}
 
@@ -87,11 +87,11 @@ func checkSchedules() {
 					}
 
 					if !template.IsManual() && template.ScheduleEnabled && template.AutoStart && template.AllowedBySchedule() {
-						log.Info().Msgf("agent: starting space %s due to schedule", space.Id)
+						log.Info("agent: starting space  due to schedule", "space_id", space.Id)
 
 						user, err := db.GetUser(space.UserId)
 						if err != nil {
-							log.Error().Err(err).Msgf("agent: GetUser")
+							log.WithError(err).Error("agent: GetUser")
 							continue
 						}
 
@@ -99,18 +99,18 @@ func checkSchedules() {
 							// Check the users quota has enough compute units
 							usage, err := database.GetUserUsage(user.Id, "")
 							if err != nil {
-								log.Error().Err(err).Msgf("agent: GetUserUsage")
+								log.WithError(err).Error("agent: GetUserUsage")
 								continue
 							}
 
 							userQuota, err := database.GetUserQuota(user)
 							if err != nil {
-								log.Error().Err(err).Msgf("agent: GetUserQuota")
+								log.WithError(err).Error("agent: GetUserQuota")
 								continue
 							}
 
 							if usage.ComputeUnits+template.ComputeUnits > userQuota.ComputeUnits {
-								log.Warn().Msgf("agent: user %s has insufficient compute units to start space %s", user.Username, space.Name)
+								log.Warn("agent: user  has insufficient compute units to start space", "username", user.Username, "space_name", space.Name)
 								continue
 							}
 						}
@@ -118,7 +118,7 @@ func checkSchedules() {
 						transport := service.GetTransport()
 						unlockToken := transport.LockResource(space.Id)
 						if unlockToken == "" {
-							log.Error().Msg("checkSchedules: failed to lock space")
+							log.Error("checkSchedules: failed to lock space")
 							continue
 						}
 						service.GetContainerService().StartSpace(space, template, user)
@@ -135,7 +135,7 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 	// Start the session garbage collector & schedule checker
 	checkSchedules()
 
-	log.Info().Msgf("server: listening for agents on: %s", listen)
+	log.Info("server: listening for agents on:", "listen", listen)
 
 	go func() {
 
@@ -149,7 +149,7 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 			listener, err = tls.Listen("tcp", listen, tlsConfig)
 		}
 		if err != nil {
-			log.Fatal().Msgf("Error starting agent listener: %v", err)
+			log.Fatal("Error starting agent listener:", "err", err)
 		}
 		defer listener.Close()
 
@@ -157,7 +157,7 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Error().Msgf("Error accepting connection: %v", err)
+				log.WithError(err).Error("Error accepting connection:")
 				continue
 			}
 

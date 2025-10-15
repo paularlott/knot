@@ -9,7 +9,7 @@ import (
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
@@ -19,7 +19,7 @@ func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
 	// Start a listener on the specified port
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		log.Error().Err(err).Msgf("agent: failed to create listener for port %d", port)
+		log.Error("agent: failed to create listener for port", "error", err, "port", port)
 		return
 	}
 	defer listener.Close()
@@ -29,7 +29,7 @@ func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
 		buf := make([]byte, 1)
 		_, err := stream.Read(buf)
 		if err != nil {
-			log.Debug().Msgf("agent: tunnel control stream closed: %v", err)
+			log.WithError(err).Debug("agent: tunnel control stream closed:")
 			cancel()
 		}
 	}()
@@ -55,21 +55,21 @@ func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
 			return
 
 		case err := <-errorChan:
-			log.Error().Err(err).Msgf("agent: error accepting connection on port %d", port)
+			log.Error("agent: error accepting connection on port", "error", err, "port", port)
 			continue
 
 		case clientConn := <-connectionChan:
 			// For each connection, open a new stream to the server
 			tunnelStream, err := s.muxSession.OpenStream()
 			if err != nil {
-				log.Error().Err(err).Msgf("agent: failed to open mux stream for tunnel")
+				log.WithError(err).Error("agent: failed to open mux stream for tunnel")
 				clientConn.Close()
 				continue
 			}
 
 			// Send tunnel connection notification
 			if err := msg.WriteCommand(tunnelStream, msg.CmdType(msg.CmdTunnelPortConnection)); err != nil {
-				log.Error().Err(err).Msgf("agent: error writing tunnel connection command")
+				log.WithError(err).Error("agent: error writing tunnel connection command")
 				tunnelStream.Close()
 				clientConn.Close()
 				continue
@@ -79,7 +79,7 @@ func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
 			if err := msg.WriteMessage(tunnelStream, &msg.TcpPort{
 				Port: port,
 			}); err != nil {
-				log.Error().Err(err).Msgf("agent: error writing tunnel port info")
+				log.WithError(err).Error("agent: error writing tunnel port info")
 				tunnelStream.Close()
 				clientConn.Close()
 				continue
@@ -87,7 +87,7 @@ func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
 
 			// Bidirectional copy
 			go func() {
-				defer log.Debug().Msgf("agent: closed tunnel between %s and %d", clientConn.RemoteAddr(), port)
+				defer log.Debug("agent: closed tunnel between  and", "tunnel", clientConn.RemoteAddr(), port)
 
 				var once sync.Once
 				closeBoth := func() {
@@ -95,7 +95,7 @@ func (s *agentServer) agentPortListenAndServe(stream net.Conn, port uint16) {
 					tunnelStream.Close()
 				}
 
-				log.Debug().Msgf("agent: established tunnel between %s and %d", clientConn.RemoteAddr(), port)
+				log.Debug("agent: established tunnel between  and", "tunnel", clientConn.RemoteAddr(), port)
 
 				// Copy from client to tunnel
 				go func() {

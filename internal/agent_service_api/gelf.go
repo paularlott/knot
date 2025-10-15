@@ -6,7 +6,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/util/rest"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type gelfMessage struct {
@@ -30,7 +30,7 @@ func handleGelf(w http.ResponseWriter, r *http.Request) {
 	// Decode the log message
 	var logMessage gelfMessage
 	if err := rest.DecodeRequestBody(w, r, &logMessage); err != nil {
-		log.Error().Msgf("service_api: failed to decode log message: %v", err)
+		log.WithError(err).Error("service_api: failed to decode log message:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log message"})
 		return
 	}
@@ -44,7 +44,7 @@ func handleGelf(w http.ResponseWriter, r *http.Request) {
 	} else if logMessage.Level == 7 {
 		level = msg.LogLevelDebug
 	} else {
-		log.Error().Msgf("service_api: invalid log level: %d", logMessage.Level)
+		log.Error("service_api: invalid log level:", "service_api", logMessage.Level)
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log level"})
 		return
 	}

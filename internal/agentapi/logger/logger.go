@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type MuxLogger struct {
@@ -15,7 +15,7 @@ func NewMuxLogger() *MuxLogger {
 }
 
 func (l *MuxLogger) Print(v ...interface{}) {
-	log.Info().Msgf("%v", v...)
+	log.Info(fmt.Sprint(v...))
 }
 
 func (l *MuxLogger) Printf(format string, v ...interface{}) {
@@ -26,9 +26,9 @@ func (l *MuxLogger) Printf(format string, v ...interface{}) {
 		return
 	}
 
-	log.Info().Msgf(format, v...)
+	log.Info(fmt.Sprintf(format, v...))
 }
 
 func (l *MuxLogger) Println(v ...interface{}) {
-	log.Info().Msgf("%v", v...)
+	log.Info(fmt.Sprint(v...))
 }

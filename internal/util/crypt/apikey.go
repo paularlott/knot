@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func GenerateAPIKey() (string, error) {
@@ -16,7 +16,7 @@ func GenerateAPIKey() (string, error) {
 
 	id, err := uuid.NewV7()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 	b = append(b, id[:16]...)
 

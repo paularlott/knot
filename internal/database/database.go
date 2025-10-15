@@ -12,7 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 var (
@@ -109,37 +109,37 @@ func initDrivers() {
 		// Initialize the main driver
 		if cfg.MySQL.Enabled {
 			// Connect to and use MySQL
-			log.Debug().Msg("db: MySQL enabled")
+			log.Debug("db: MySQL enabled")
 
 			dbInstance = &driver_mysql.MySQLDriver{}
 
 		} else if cfg.BadgerDB.Enabled {
 			// Connect to and use BadgerDB
-			log.Debug().Msg("db: BadgerDB enabled")
+			log.Debug("db: BadgerDB enabled")
 
 			dbInstance = &driver_badgerdb.BadgerDbDriver{}
 
 		} else if cfg.Redis.Enabled {
 			// Connect to and use Redis
-			log.Debug().Msg("db: Redis enabled")
+			log.Debug("db: Redis enabled")
 
 			dbInstance = &driver_redis.RedisDbDriver{}
 		} else {
 			// Fail with no database
-			log.Fatal().Msg("db: no database enabled")
+			log.Fatal("db: no database enabled")
 		}
 
 		// Initialize the database
 		err := dbInstance.Connect()
 		if err != nil {
-			log.Fatal().Err(err).Msg("db: failed to connect to database")
+			log.Fatal("db: failed to connect to database", "error", err)
 		} else {
-			log.Debug().Msg("db: connected to database")
+			log.Debug("db: connected to database")
 		}
 
 		// If database driver implements a session storage interface then use it
 		if dbInstance, ok := dbInstance.(SessionStorage); ok {
-			log.Debug().Msg("db: session storage using main database driver")
+			log.Debug("db: session storage using main database driver")
 			dbSessionInstance = dbInstance
 		} else {
 			// If redis is enabled then use it for session storage
@@ -148,9 +148,9 @@ func initDrivers() {
 				driver := &driver_redis.RedisDbDriver{}
 				err := driver.Connect()
 				if err != nil {
-					log.Debug().Msg("db: failed to connect to redis")
+					log.Debug("db: failed to connect to redis")
 				} else {
-					log.Debug().Msg("db: Using redis for session storage")
+					log.Debug("db: Using redis for session storage")
 
 					dbSessionInstance = driver
 				}
@@ -158,7 +158,7 @@ func initDrivers() {
 
 			// No driver so use memory
 			if dbSessionInstance == nil {
-				log.Debug().Msg("db: Using memory for session storage")
+				log.Debug("db: Using memory for session storage")
 
 				driver := &driver_memory.MemoryDbDriver{}
 				driver.Connect()
@@ -169,11 +169,11 @@ func initDrivers() {
 		// Generate a node ID if it doesn't exist
 		nodeId, err := dbInstance.GetCfgValue("node_id")
 		if err != nil || nodeId == nil {
-			log.Debug().Msg("db: node_id not found, generating a new one")
+			log.Debug("db: node_id not found, generating a new one")
 
 			u, err := uuid.NewV7()
 			if err != nil {
-				log.Fatal().Err(err).Msg("db: failed to generate node_id")
+				log.Fatal("db: failed to generate node_id", "error", err)
 			}
 
 			dbInstance.SaveCfgValue(&model.CfgValue{
@@ -181,7 +181,7 @@ func initDrivers() {
 				Value: u.String(),
 			})
 			if err != nil {
-				log.Fatal().Err(err).Msg("db: failed to save node_id")
+				log.Fatal("db: failed to save node_id", "error", err)
 			}
 		}
 	})

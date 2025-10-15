@@ -15,7 +15,7 @@ import (
 	"github.com/paularlott/knot/internal/syslogd"
 
 	"github.com/paularlott/cli"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 var AgentCmd = &cli.Command{
@@ -160,12 +160,12 @@ var AgentCmd = &cli.Command{
 
 		// Check address given and valid URL
 		if cfg.Endpoint == "" {
-			log.Fatal().Msg("server address is required")
+			log.Fatal("server address is required")
 		}
 
 		// Check the key is given
 		if len(cfg.SpaceID) != 36 {
-			log.Fatal().Msg("space-id is required and must be a valid space ID")
+			log.Fatal("space-id is required and must be a valid space ID")
 		}
 
 		// Open agent connection to the server
@@ -194,7 +194,7 @@ var AgentCmd = &cli.Command{
 		agentlink.StopCommandSocket()
 		agentClient.Shutdown()
 		fmt.Println("\r")
-		log.Info().Msg("agent: shutdown")
+		log.Info("agent: shutdown")
 
 		return nil
 	},

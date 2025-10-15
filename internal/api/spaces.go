@@ -17,7 +17,7 @@ import (
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +43,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		CheckZone:      false, // API doesn't filter by zone
 	})
 	if err != nil {
-		log.Error().Msgf("HandleGetSpaces: %s", err.Error())
+		log.WithError(err).Error("HandleGetSpaces:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -78,7 +78,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		// Get the user
 		u, err := db.GetUser(space.UserId)
 		if err != nil {
-			log.Error().Msgf("HandleGetSpaces: GetUser: %s", err.Error())
+			log.WithError(err).Error("HandleGetSpaces: GetUser:")
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -227,7 +227,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 
 	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		log.Error().Msgf("HandleCreateSpace: %s", err.Error())
+		log.WithError(err).Error("HandleCreateSpace:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -309,7 +309,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	transport := service.GetTransport()
 	unlockToken := transport.LockResource(spaceId)
 	if unlockToken == "" {
-		log.Error().Msg("HandleSpaceStart: failed to lock space")
+		log.Error("HandleSpaceStart: failed to lock space")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to lock space"})
 		return
 	}
@@ -321,7 +321,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceStart:")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -336,7 +336,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	if user.Id != space.UserId {
 		user, err = db.GetUser(space.UserId)
 		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			log.WithError(err).Error("HandleSpaceStart:")
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -357,7 +357,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	// Check the quota if this space is started
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceStart: get template %s", err.Error())
+		log.WithError(err).Error("HandleSpaceStart: get template")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -365,14 +365,14 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	if !cfg.LeafNode {
 		usage, err := database.GetUserUsage(user.Id, "")
 		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			log.WithError(err).Error("HandleSpaceStart:")
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		userQuota, err := database.GetUserQuota(user)
 		if err != nil {
-			log.Error().Msgf("HandleSpaceStart: %s", err.Error())
+			log.WithError(err).Error("HandleSpaceStart:")
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -414,7 +414,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceStop:")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -439,7 +439,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 
 	err = service.GetContainerService().StopSpace(space)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceStop:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -464,7 +464,7 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceStop: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceStop:")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -489,7 +489,7 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 
 	err = service.GetContainerService().RestartSpace(space)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceRestart: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceRestart:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -513,7 +513,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	spaceService := service.GetSpaceService()
 	space, err := spaceService.GetSpace(spaceId, user)
 	if err != nil {
-		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
+		log.WithError(err).Error("HandleUpdateSpace:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -521,7 +521,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.SpaceRequest{}
 	err = rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		log.Error().Msgf("HandleUpdateSpace: %s", err.Error())
+		log.WithError(err).Error("HandleUpdateSpace:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -651,7 +651,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.SpaceTransferRequest{}
 	err = rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceTransfer:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -670,7 +670,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceTransfer:")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -703,7 +703,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	// Load the new user
 	newUser, err := db.GetUser(request.UserId)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceTransfer:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -717,14 +717,14 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	// Check the user has space for the transfer
 	userQuota, err := database.GetUserQuota(newUser)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceTransfer:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	userUsage, err := database.GetUserUsage(newUser.Id, "")
 	if err != nil {
-		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceTransfer:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -737,7 +737,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	// Load the template
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceTransfer:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -786,7 +786,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		space.UpdatedAt = hlc.Now()
 		err = db.SaveSpace(space, []string{"Name", "UserId", "UpdatedAt"})
 		if err != nil {
-			log.Error().Msgf("HandleSpaceTransfer: %s", err.Error())
+			log.WithError(err).Error("HandleSpaceTransfer:")
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -824,7 +824,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.SpaceTransferRequest{}
 	err = rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceAddShare:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -843,7 +843,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceAddShare:")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -876,7 +876,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	// Load the new user
 	newUser, err := db.GetUser(request.UserId)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceAddShare:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -892,7 +892,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
 	if err != nil {
-		log.Error().Msgf("HandleSpaceAddShare: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceAddShare:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -934,7 +934,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
-		log.Error().Msgf("HandleSpaceRemoveShare: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceRemoveShare:")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -962,7 +962,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"SharedWithUserId", "UpdatedAt"})
 	if err != nil {
-		log.Error().Msgf("HandleSpaceRemoveShare: %s", err.Error())
+		log.WithError(err).Error("HandleSpaceRemoveShare:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}

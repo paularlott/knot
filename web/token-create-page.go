@@ -9,13 +9,13 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/validate"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := newTemplate("api-tokens_create_named.tmpl")
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -30,7 +30,7 @@ func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
 
 	name, err = url.PathUnescape(name)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -39,7 +39,7 @@ func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	err = db.SaveToken(token)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -51,6 +51,6 @@ func HandleTokenCreatePage(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 	}
 }

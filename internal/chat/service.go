@@ -13,8 +13,8 @@ import (
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/util/rest"
 
+	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/mcp"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -61,14 +61,14 @@ func (s *Service) GetOpenAIClient() *openai.Client {
 
 func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *model.User, w http.ResponseWriter, r *http.Request) error {
 	if len(messages) == 0 {
-		log.Warn().Str("user_id", user.Id).Msg("streamChat: No messages provided")
+		log.Warn("streamChat: No messages provided", "user_id", user.Id)
 		return nil
 	}
 
 	// Check if client disconnected before starting
 	select {
 	case <-ctx.Done():
-		log.Trace().Str("user_id", user.Id).Msg("streamChat: Client disconnected before processing")
+		log.Trace("streamChat: Client disconnected before processing", "user_id", user.Id)
 		return ctx.Err()
 	default:
 	}
@@ -93,7 +93,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 		ReasoningEffort: s.config.ReasoningEffort,
 	}
 
-	log.Debug().Str("user_id", user.Id).Str("model", s.config.Model).Msg("streamChat: Starting chat completion with tools")
+	log.Debug("streamChat: Starting chat completion with tools", "user_id", user.Id, "model", s.config.Model)
 
 	// Add user to context for MCP server
 	chatCtx := context.WithValue(ctx, "user", user)
@@ -127,7 +127,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 
 	// Check for errors after the loop - much cleaner!
 	if err := stream.Err(); err != nil {
-		log.Error().Err(err).Str("user_id", user.Id).Msg("streamChat: Chat completion with tools failed")
+		log.Error("streamChat: Chat completion with tools failed", "error", err, "user_id", user.Id)
 		sseWriter.WriteChunk(SSEEvent{
 			Type: "error",
 			Data: map[string]string{"error": s.formatUserFriendlyError(err)},
@@ -170,7 +170,7 @@ func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []openai.Messa
 func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	if user == nil {
-		log.Error().Msg("HandleChatStream: User not found in context")
+		log.Error("HandleChatStream: User not found in context")
 		rest.WriteResponse(http.StatusUnauthorized, w, r, map[string]string{
 			"error": "User not found",
 		})
@@ -179,7 +179,7 @@ func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Error().Err(err).Msg("HandleChatStream: Failed to decode request body")
+		log.WithError(err).Error("HandleChatStream: Failed to decode request body")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
 			"error": "Invalid request body",
 		})
@@ -187,14 +187,14 @@ func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(req.Messages) == 0 {
-		log.Error().Msg("HandleChatStream: No messages provided in request")
+		log.Error("HandleChatStream: No messages provided in request")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
 			"error": "No messages provided",
 		})
 		return
 	}
 
-	log.Debug().Str("user_id", user.Id).Int("message_count", len(req.Messages)).Msg("HandleChatStream: Starting chat stream")
+	log.Debug("HandleChatStream: Starting chat stream", "user_id", user.Id, "message_count", len(req.Messages))
 
 	s.streamChat(r.Context(), req.Messages, user, w, r)
 }

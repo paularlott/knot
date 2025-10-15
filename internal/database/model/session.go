@@ -8,7 +8,7 @@ import (
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/util/crypt"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 const (
@@ -38,7 +38,7 @@ func NewSession(r *http.Request, userId string) *Session {
 	// Strip off the port (ipv4 or ipv6)
 	ipOnly, _, err := net.SplitHostPort(ip)
 	if err != nil && err.(*net.AddrError).Err != "missing port in address" {
-		log.Fatal().Msgf("error parsing ip: %s", err)
+		log.Fatal("error parsing ip:", "err", err)
 	}
 	if ipOnly != "" {
 		ip = ipOnly
@@ -46,7 +46,7 @@ func NewSession(r *http.Request, userId string) *Session {
 
 	id, err := crypt.GenerateAPIKey()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	now := time.Now()

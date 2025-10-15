@@ -10,7 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type ApiUtilsUsers struct {
@@ -26,7 +26,7 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 	db := database.GetInstance()
 	cfg := config.GetServerConfig()
 
-	log.Debug().Msgf("delete user: Deleting user %s", toDelete.Id)
+	log.Debug("delete user: Deleting user", "delete", toDelete.Id)
 
 	// Stop all spaces and delete all volumes
 	spaces, err := db.GetSpacesForUser(toDelete.Id)
@@ -35,11 +35,11 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 	}
 
 	for _, space := range spaces {
-		log.Debug().Msgf("delete user: Deleting space %s", space.Id)
+		log.Debug("delete user: Deleting space", "space_id", space.Id)
 
 		// Skip spaces shared with the user but not owned by the user
 		if space.UserId == toDelete.Id && space.Zone == cfg.Zone {
-			log.Debug().Msgf("delete user: Deleting space %s", space.Id)
+			log.Debug("delete user: Deleting space", "space_id", space.Id)
 			service.GetContainerService().DeleteSpace(space)
 		}
 
@@ -52,7 +52,7 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 
 	// Delete the user
 	if !hasError {
-		log.Debug().Msgf("delete user: Deleting user %s from database", toDelete.Id)
+		log.Debug("delete user: Deleting user  from database", "delete", toDelete.Id)
 		toDelete.IsDeleted = true
 		toDelete.Active = false
 		toDelete.Username = toDelete.Id
@@ -104,12 +104,12 @@ func (auu *ApiUtilsUsers) RemoveUsersTokens(user *model.User) {
 func (auu *ApiUtilsUsers) UpdateSpacesSSHKey(user *model.User) {
 	db := database.GetInstance()
 
-	log.Debug().Msgf("Updating agent SSH key for user %s", user.Id)
+	log.Debug("Updating agent SSH key for user", "user", user.Id)
 
 	// Load the list of spaces for the user
 	spaces, err := db.GetSpacesForUser(user.Id)
 	if err != nil {
-		log.Debug().Msgf("Failed to get spaces for user %s: %s", user.Id, err)
+		log.Debug("Failed to get spaces for user :", "user", user.Id)
 		return
 	}
 
@@ -118,7 +118,7 @@ func (auu *ApiUtilsUsers) UpdateSpacesSSHKey(user *model.User) {
 		auu.UpdateSpaceSSHKeys(space, user)
 	}
 
-	log.Debug().Msgf("Finished updating agent SSH key for user %s", user.Id)
+	log.Debug("Finished updating agent SSH key for user", "user", user.Id)
 }
 
 func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.User) {
@@ -127,7 +127,7 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil || template == nil {
-		log.Debug().Msgf("Update SSH Keys: Failed to get template for space %s: %s", space.Id, err)
+		log.Debug("Update SSH Keys: Failed to get template for space :", "space_id", space.Id)
 		return
 	}
 
@@ -137,7 +137,7 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 		if agentState == nil {
 			// Silently ignore if space is on a different server
 			if space.Zone == "" || space.Zone == cfg.Zone {
-				log.Debug().Msgf("Update SSH Keys: Agent state not found for space %s", space.Id)
+				log.Debug("Update SSH Keys: Agent state not found for space", "space_id", space.Id)
 			}
 
 			return
@@ -177,9 +177,9 @@ func (auu *ApiUtilsUsers) UpdateSpaceSSHKeys(space *model.Space, user *model.Use
 				}
 			}
 
-			log.Debug().Msgf("Sending SSH public key to agent %s", space.Id)
+			log.Debug("Sending SSH public key to agent", "sending", space.Id)
 			if err := agentState.SendUpdateAuthorizedKeys(keys, usernames); err != nil {
-				log.Debug().Msgf("Failed to send SSH public key to agent: %s", err)
+				log.WithError(err).Debug("Failed to send SSH public key to agent:")
 			}
 		}
 	}

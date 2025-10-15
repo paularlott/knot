@@ -12,7 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func HandleRunCommandStream(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +68,7 @@ func HandleRunCommandStream(w http.ResponseWriter, r *http.Request) {
 	var request apiclient.RunCommandRequest
 	err = ws.ReadJSON(&request)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to read command request")
+		log.WithError(err).Error("Failed to read command request")
 		ws.WriteMessage(websocket.TextMessage, []byte("Error: Failed to read command request\r\n"))
 		return
 	}
@@ -94,7 +94,7 @@ func HandleRunCommandStream(w http.ResponseWriter, r *http.Request) {
 	// Send the command to the agent and get the response channel
 	responseChannel, err := agentSession.SendRunCommand(runCommandMsg)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to send run command to agent")
+		log.WithError(err).Error("Failed to send run command to agent")
 		ws.WriteMessage(websocket.TextMessage, []byte("Error: Failed to send command to agent\r\n"))
 		return
 	}
@@ -105,7 +105,7 @@ func HandleRunCommandStream(w http.ResponseWriter, r *http.Request) {
 		for {
 			_, _, err := ws.ReadMessage()
 			if err != nil {
-				log.Debug().Msgf("websocket closed: %s", err)
+				log.WithError(err).Debug("websocket closed:")
 				done <- true
 				return
 			}

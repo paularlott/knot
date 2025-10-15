@@ -8,7 +8,7 @@ import (
 	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 // Template Variable object
@@ -31,7 +31,7 @@ type TemplateVar struct {
 func NewTemplateVar(name string, zones []string, local bool, value string, protected bool, restricted bool, userId string) *TemplateVar {
 	id, err := uuid.NewV7()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	templateVar := &TemplateVar{
@@ -57,7 +57,7 @@ func (templateVar *TemplateVar) DecryptSetValue(text string) {
 		key := cfg.EncryptionKey
 
 		if key == "" {
-			log.Fatal().Msg("No encryption key set")
+			log.Fatal("No encryption key set")
 		}
 
 		templateVar.Value = crypt.DecryptB64(key, text)
@@ -70,7 +70,7 @@ func (templateVar *TemplateVar) GetValueEncrypted() string {
 		key := cfg.EncryptionKey
 
 		if key == "" {
-			log.Fatal().Msg("No encryption key set")
+			log.Fatal("No encryption key set")
 		}
 
 		return crypt.EncryptB64(key, templateVar.Value)

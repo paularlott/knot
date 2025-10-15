@@ -6,7 +6,7 @@ import (
 
 	"github.com/paularlott/knot/internal/util/crypt"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 const (
@@ -88,7 +88,7 @@ func (s *AuthCodeStore) cleanupExpired() {
 	for code, authCode := range s.codes {
 		if now.After(authCode.ExpiresAt) {
 			delete(s.codes, code)
-			log.Debug().Msgf("oauth2: cleaned up expired auth code")
+			log.Debug("oauth2: cleaned up expired auth code")
 		}
 	}
 }

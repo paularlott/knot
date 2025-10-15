@@ -3,7 +3,7 @@ package config
 import (
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/internal/dns"
-	"github.com/rs/zerolog"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type ServerConfig struct {
@@ -165,20 +165,8 @@ const CONFIG_FILE = "knot.toml"
 const CONFIG_DIR = "knot"
 
 func InitCommonConfig(cmd *cli.Command) {
-	switch cmd.GetString("log-level") {
-	case "trace":
-		zerolog.SetGlobalLevel(zerolog.TraceLevel)
-	case "debug":
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	case "info":
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	case "warn":
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	case "error":
-		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-	default:
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	}
+	logLevel := cmd.GetString("log-level")
+	log.Configure(logLevel, "console", nil)
 
 	dns.UpdateNameservers(cmd.GetStringSlice("nameservers"))
 }

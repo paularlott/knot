@@ -12,7 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/mcp"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 const MAX_TOOL_CALL_ITERATIONS = 20
@@ -192,7 +192,7 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 			// Stream single completion
 			finalResponse, err := c.streamSingleCompletion(ctx, req, responseChan)
 			if err != nil {
-				log.Error().Err(err).Int("iteration", iteration).Msg("Stream single completion failed")
+				log.Error("Stream single completion failed", "error", err, "iteration", iteration)
 				errorChan <- err
 				return
 			}
@@ -210,7 +210,7 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 			if toolHandler != nil {
 				for _, toolCall := range toolCalls {
 					if err := toolHandler.OnToolCall(toolCall); err != nil {
-						log.Error().Err(err).Str("tool_name", toolCall.Function.Name).Msg("Tool handler OnToolCall failed")
+						log.Error("Tool handler OnToolCall failed", "error", err, "tool_name", toolCall.Function.Name)
 						errorChan <- fmt.Errorf("tool handler error: %w", err)
 						return
 					}
@@ -231,14 +231,14 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 
 				result, err := c.executeToolCall(ctx, toolCall)
 				if err != nil {
-					log.Error().Err(err).Str("tool_name", toolCall.Function.Name).Msg("Tool execution failed")
+					log.Error("Tool execution failed", "error", err, "tool_name", toolCall.Function.Name)
 					result = fmt.Sprintf("Error: %s", err.Error())
 				}
 
 				// Notify handler of tool result
 				if toolHandler != nil {
 					if err := toolHandler.OnToolResult(toolCall.ID, toolCall.Function.Name, result); err != nil {
-						log.Error().Err(err).Str("tool_name", toolCall.Function.Name).Msg("Tool handler OnToolResult failed")
+						log.Error("Tool handler OnToolResult failed", "error", err, "tool_name", toolCall.Function.Name)
 						errorChan <- fmt.Errorf("tool handler error: %w", err)
 						return
 					}
@@ -458,7 +458,7 @@ func (c *Client) finalizeToolCalls(toolCallBuffer map[int]*ToolCall, argumentsBu
 		// Parse arguments if present
 		if argsStr := argumentsBuffer[index]; argsStr != "" && argsStr != "null" {
 			if err := json.Unmarshal([]byte(argsStr), &toolCall.Function.Arguments); err != nil {
-				log.Error().Err(err).Str("tool_name", toolCall.Function.Name).Msg("Failed to parse tool arguments")
+				log.Error("Failed to parse tool arguments", "error", err, "tool_name", toolCall.Function.Name)
 				toolCall.Function.Arguments = make(map[string]any)
 			}
 		} else {
@@ -498,7 +498,7 @@ func (c *Client) getAvailableTools(filter ToolFilter) ([]Tool, error) {
 			if params, ok := tool.InputSchema.(map[string]any); ok {
 				parameters = params
 			} else {
-				log.Warn().Str("tool_name", tool.Name).Msg("Tool InputSchema is not a map, using empty parameters")
+				log.Warn("Tool InputSchema is not a map, using empty parameters", "tool_name", tool.Name)
 				parameters = make(map[string]any)
 			}
 		} else {

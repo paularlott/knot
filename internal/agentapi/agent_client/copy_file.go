@@ -7,11 +7,11 @@ import (
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func handleCopyFileExecution(stream net.Conn, copyCmd msg.CopyFileMessage) {
-	log.Debug().Str("direction", copyCmd.Direction).Str("source", copyCmd.SourcePath).Str("dest", copyCmd.DestPath).Msg("agent: executing copy file")
+	log.Debug("agent: executing copy file", "direction", copyCmd.Direction, "source", copyCmd.SourcePath, "dest", copyCmd.DestPath)
 
 	var response msg.CopyFileResponse
 
@@ -25,11 +25,11 @@ func handleCopyFileExecution(stream net.Conn, copyCmd msg.CopyFileMessage) {
 	}
 
 	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.Error().Err(err).Msg("agent: failed to send copy file response")
+		log.WithError(err).Error("agent: failed to send copy file response")
 		return
 	}
 
-	log.Debug().Bool("success", response.Success).Str("error", response.Error).Msg("agent: copy file execution completed")
+	log.Debug("agent: copy file execution completed", "error", response.Error, "success", response.Success)
 }
 
 func handleCopyToSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
@@ -43,17 +43,17 @@ func handleCopyToSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
 	// Create directory if it doesn't exist
 	destDir := filepath.Dir(destPath)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
-		log.Error().Err(err).Str("dir", destDir).Msg("agent: failed to create directory")
+		log.Error("agent: failed to create directory", "error", err, "dir", destDir)
 		return msg.CopyFileResponse{Success: false, Error: "Failed to create directory: " + err.Error()}
 	}
 
 	// Write file content
 	if err := os.WriteFile(destPath, copyCmd.Content, 0644); err != nil {
-		log.Error().Err(err).Str("file", destPath).Msg("agent: failed to write file")
+		log.Error("agent: failed to write file", "error", err, "file", destPath)
 		return msg.CopyFileResponse{Success: false, Error: "Failed to write file: " + err.Error()}
 	}
 
-	log.Debug().Str("file", destPath).Int("bytes", len(copyCmd.Content)).Msg("agent: file written successfully")
+	log.Debug("agent: file written successfully", "file", destPath, "bytes", len(copyCmd.Content))
 	return msg.CopyFileResponse{Success: true}
 }
 
@@ -68,7 +68,7 @@ func handleCopyFromSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
 	// Read file content
 	content, err := os.ReadFile(sourcePath)
 	if err != nil {
-		log.Error().Err(err).Str("file", sourcePath).Msg("agent: failed to read file")
+		log.Error("agent: failed to read file", "error", err, "file", sourcePath)
 		if os.IsNotExist(err) {
 			return msg.CopyFileResponse{Success: false, Error: "File not found: " + sourcePath}
 		}
@@ -77,7 +77,7 @@ func handleCopyFromSpace(copyCmd msg.CopyFileMessage) msg.CopyFileResponse {
 
 	// Get file permissions for logging
 	if info, err := os.Stat(sourcePath); err == nil {
-		log.Debug().Str("file", sourcePath).Int("bytes", len(content)).Str("mode", info.Mode().String()).Msg("agent: file read successfully")
+		log.Debug("agent: file read successfully", "file", sourcePath, "bytes", len(content), "mode", info.Mode().String())
 	}
 
 	return msg.CopyFileResponse{Success: true, Content: content}

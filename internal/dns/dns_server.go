@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/miekg/dns"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type DNSServerConfig struct {
@@ -83,7 +83,7 @@ func (s *DNSServer) parseRecords() error {
 
 		parts := strings.Split(recordStr, "|")
 		if len(parts) < 3 {
-			log.Warn().Msgf("dns: Invalid DNS record: %s", recordStr)
+			log.Warn("dns: Invalid DNS record:", "recordStr", recordStr)
 			continue // Log and continue to the next record
 		}
 
@@ -111,14 +111,14 @@ func (s *DNSServer) parseRecords() error {
 
 		case "MX":
 			if len(parts) < 4 {
-				log.Warn().Msgf("dns: Invalid MX record: %s", recordStr)
+				log.Warn("dns: Invalid MX record:", "recordStr", recordStr)
 				continue
 			}
 			record.Target = parts[2]
 
 			var err error
 			if record.Priority, err = strconv.Atoi(parts[3]); err != nil {
-				log.Warn().Msgf("dns: Invalid MX priority in record: %s", recordStr)
+				log.Warn("dns: Invalid MX priority in record:", "recordStr", recordStr)
 				continue
 			}
 
@@ -131,22 +131,22 @@ func (s *DNSServer) parseRecords() error {
 
 		case "SRV":
 			if len(parts) < 6 {
-				log.Warn().Msgf("dns: Invalid SRV record: %s", recordStr)
+				log.Warn("dns: Invalid SRV record:", "recordStr", recordStr)
 				continue // Log and continue to the next record
 			}
 			record.Target = parts[2]
 
 			var err error
 			if record.Port, err = strconv.Atoi(parts[3]); err != nil {
-				log.Warn().Msgf("dns: Invalid SRV port in record: %s", recordStr)
+				log.Warn("dns: Invalid SRV port in record:", "recordStr", recordStr)
 				continue
 			}
 			if record.Priority, err = strconv.Atoi(parts[4]); err != nil {
-				log.Warn().Msgf("dns: Invalid SRV priority in record: %s", recordStr)
+				log.Warn("dns: Invalid SRV priority in record:", "recordStr", recordStr)
 				continue
 			}
 			if record.Weight, err = strconv.Atoi(parts[5]); err != nil {
-				log.Warn().Msgf("dns: Invalid SRV weight in record: %s", recordStr)
+				log.Warn("dns: Invalid SRV weight in record:", "recordStr", recordStr)
 				continue
 			}
 
@@ -158,7 +158,7 @@ func (s *DNSServer) parseRecords() error {
 			}
 
 		default:
-			log.Warn().Msgf("dns: unsupported record type: %s", record.Type)
+			log.Warn("dns: unsupported record type:", "record_type", record.Type)
 			continue
 		}
 
@@ -264,7 +264,7 @@ func (s *DNSServer) lookupRecordsWithDepth(name string, recordType string, depth
 	// Prevent infinite CNAME loops
 	const maxCNAMEDepth = 10
 	if depth > maxCNAMEDepth {
-		log.Warn().Msgf("dns: CNAME loop detected or depth exceeded for %s", name)
+		log.Warn("dns: CNAME loop detected or depth exceeded for", "name", name)
 		return nil, fmt.Errorf("CNAME loop detected or depth exceeded for %s", name)
 	}
 
@@ -334,17 +334,17 @@ func (s *DNSServer) Start() error {
 
 	// Start UDP server
 	go func() {
-		log.Info().Msgf("dns: Starting DNS server on %s (UDP)", s.config.ListenAddr)
+		log.Info("dns: Starting DNS server on (UDP)", s.config.ListenAddr)
 		if err := s.udpServer.ListenAndServe(); err != nil {
-			log.Error().Err(err).Msg("dns: UDP server failed")
+			log.WithError(err).Error("dns: UDP server failed")
 		}
 	}()
 
 	// Start TCP server
 	go func() {
-		log.Info().Msgf("dns: Starting DNS server on %s (TCP)", s.config.ListenAddr)
+		log.Info("dns: Starting DNS server on (TCP)", s.config.ListenAddr)
 		if err := s.tcpServer.ListenAndServe(); err != nil {
-			log.Error().Err(err).Msg("dns: TCP server failed")
+			log.WithError(err).Error("dns: TCP server failed")
 		}
 	}()
 
@@ -367,14 +367,14 @@ func (s *DNSServer) Stop() error {
 	if s.udpServer != nil {
 		udpErr = s.udpServer.Shutdown()
 		if udpErr != nil {
-			log.Error().Err(udpErr).Msg("dns: Failed to shutdown UDP DNS server")
+			log.Error("dns: Failed to shutdown UDP DNS server", "error", udpErr)
 		}
 	}
 
 	if s.tcpServer != nil {
 		tcpErr = s.tcpServer.Shutdown()
 		if tcpErr != nil {
-			log.Error().Err(tcpErr).Msg("dns: Failed to shutdown TCP DNS server")
+			log.Error("dns: Failed to shutdown TCP DNS server", "error", tcpErr)
 		}
 	}
 
@@ -382,7 +382,7 @@ func (s *DNSServer) Stop() error {
 	s.udpServer = nil
 	s.tcpServer = nil
 
-	log.Info().Msg("dns: server stopped")
+	log.Info("dns: server stopped")
 
 	// Return first error encountered, if any
 	if udpErr != nil {

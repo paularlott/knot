@@ -3,7 +3,7 @@ package msg
 import (
 	"net"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type AgentState struct {
@@ -25,7 +25,7 @@ func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, 
 	// Write the state command
 	err := WriteCommand(conn, CmdUpdateState)
 	if err != nil {
-		log.Error().Msgf("agent: writing state command: %v", err)
+		log.WithError(err).Error("agent: writing state command:")
 		return AgentStateReply{}, err
 	}
 
@@ -41,14 +41,14 @@ func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, 
 		VSCodeTunnelName: vscodeTunnelName,
 	})
 	if err != nil {
-		log.Error().Msgf("agent: writing state message: %v", err)
+		log.WithError(err).Error("agent: writing state message:")
 		return AgentStateReply{}, err
 	}
 
 	// Read the reply
 	var reply AgentStateReply
 	if err := ReadMessage(conn, &reply); err != nil {
-		log.Error().Msgf("agent: reading agent state reply: %v", err)
+		log.WithError(err).Error("agent: reading agent state reply:")
 		return AgentStateReply{}, err
 	}
 

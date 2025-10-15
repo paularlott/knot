@@ -8,7 +8,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/config"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 var agentClient *agent_client.AgentClient
@@ -17,7 +17,7 @@ func ListenAndServe(agent *agent_client.AgentClient) {
 	cfg := config.GetAgentConfig()
 	agentClient = agent
 
-	log.Debug().Msgf("service_api: starting agent service api on port %d", cfg.APIPort)
+	log.Debug("service_api: starting agent service api", "port", cfg.APIPort)
 
 	go func() {
 
@@ -35,7 +35,7 @@ func ListenAndServe(agent *agent_client.AgentClient) {
 		}
 
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
-			log.Fatal().Msgf("log sink: %v", err.Error())
+			log.WithError(err).Fatal("log sink")
 		}
 	}()
 }

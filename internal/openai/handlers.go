@@ -7,7 +7,7 @@ import (
 
 	"github.com/paularlott/knot/internal/util/rest"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type Service struct {
@@ -28,7 +28,7 @@ func (s *Service) HandleGetModels(w http.ResponseWriter, r *http.Request) {
 
 	models, err := s.client.GetModels(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("OpenAI: Failed to get models")
+		log.WithError(err).Error("OpenAI: Failed to get models")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, map[string]string{
 			"error": "Failed to get models",
 		})
@@ -44,7 +44,7 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 
 	var req ChatCompletionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Error().Err(err).Msg("OpenAI: Failed to decode chat completion request")
+		log.WithError(err).Error("OpenAI: Failed to decode chat completion request")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
 			"error": "Invalid request body",
 		})
@@ -65,7 +65,7 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 func (s *Service) handleNonStreamingChatCompletion(ctx context.Context, w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
 	response, err := s.client.ChatCompletion(ctx, req)
 	if err != nil {
-		log.Error().Err(err).Msg("OpenAI: Chat completion failed")
+		log.WithError(err).Error("OpenAI: Chat completion failed")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, map[string]string{
 			"error": "Chat completion failed",
 		})
@@ -84,7 +84,7 @@ func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.Resp
 	for stream.Next() {
 		response := stream.Current()
 		if err := streamWriter.WriteChunk(response); err != nil {
-			log.Error().Err(err).Msg("OpenAI: Failed to write streaming response")
+			log.WithError(err).Error("OpenAI: Failed to write streaming response")
 			return
 		}
 	}

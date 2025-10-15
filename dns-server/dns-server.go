@@ -12,16 +12,15 @@ import (
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/dns"
+	"github.com/paularlott/knot/internal/log"
 
 	"github.com/paularlott/cli"
 	cli_toml "github.com/paularlott/cli/toml"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC822})
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	// Logger will be configured with proper level from CLI flags
+	log.Configure("info", "console", os.Stderr)
 
 	var configFile = config.CONFIG_FILE
 
@@ -128,14 +127,14 @@ func main() {
 
 			dnsServer, err := dns.NewDNSServer(dnsServerCfg)
 			if err != nil {
-				log.Fatal().Err(err).Msg("Failed to create DNS server")
+				log.Fatal("Failed to create DNS server", "error", err)
 			}
 
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 			if err = dnsServer.Start(); err != nil {
-				log.Fatal().Err(err).Msg("Failed to start DNS server")
+				log.Fatal("Failed to start DNS server", "error", err)
 			}
 			defer dnsServer.Stop()
 

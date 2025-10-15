@@ -9,7 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/validate"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +37,7 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("terminal.tmpl")
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -65,6 +65,6 @@ func HandleTerminalPage(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 	}
 }

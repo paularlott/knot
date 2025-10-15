@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 // Template object
@@ -26,7 +26,7 @@ type Volume struct {
 func NewVolume(name string, definition string, userId string, platform string) *Volume {
 	id, err := uuid.NewV7()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	volume := &Volume{

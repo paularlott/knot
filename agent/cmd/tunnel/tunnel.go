@@ -12,7 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/paularlott/cli"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 var TunnelCmd = &cli.Command{
@@ -111,7 +111,7 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 			},
 		)
 		if err := client.ConnectAndServe(); err != nil {
-			log.Fatal().Err(err).Msg("Failed to create tunnel")
+			log.Fatal("Failed to create tunnel", "error", err)
 		}
 
 		// Wait for ctrl-c
@@ -127,7 +127,7 @@ The tunnel can be created to expose either an http or https endpoint, the name p
 		client.Shutdown()
 
 		fmt.Println("\r")
-		log.Info().Msg("Tunnel shutdown")
+		log.Info("Tunnel shutdown")
 
 		return nil
 	},

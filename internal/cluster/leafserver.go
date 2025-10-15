@@ -10,7 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) HandleLeafServer(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +25,7 @@ func (c *Cluster) HandleLeafServer(w http.ResponseWriter, r *http.Request) {
 
 	user, ok := r.Context().Value("user").(*model.User)
 	if !ok {
-		log.Error().Msg("cluster: error while getting user from context")
+		log.Error("cluster: error while getting user from context")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -33,7 +33,7 @@ func (c *Cluster) HandleLeafServer(w http.ResponseWriter, r *http.Request) {
 	// Upgrade to a websocket
 	ws := util.UpgradeToWS(w, r)
 	if ws == nil {
-		log.Error().Msg("cluster: error while upgrading to websocket")
+		log.Error("cluster: error while upgrading to websocket")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -43,12 +43,12 @@ func (c *Cluster) HandleLeafServer(w http.ResponseWriter, r *http.Request) {
 	register := &leafmsg.Register{}
 	msg, err := leafmsg.ReadMessage(ws)
 	if err != nil || msg.Type != leafmsg.MessageRegister {
-		log.Error().Msgf("cluster: error while reading message from leaf: %s", err)
+		log.WithError(err).Error("cluster: error while reading message from leaf:")
 		return
 	}
 
 	if err := msg.UnmarshalPayload(register); err != nil {
-		log.Error().Msgf("cluster: error while unmarshalling payload: %s", err)
+		log.WithError(err).Error("cluster: error while unmarshalling payload:")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -62,13 +62,13 @@ func (c *Cluster) HandleLeafServer(w http.ResponseWriter, r *http.Request) {
 	ourParts := strings.Split(build.Version, ".")
 	versionParts := strings.Split(register.LeafVersion, ".")
 	if len(ourParts) < 2 || len(versionParts) < 2 || ourParts[0] != versionParts[0] || ourParts[1] != versionParts[1] {
-		log.Error().Msgf("cluster: version mismatch, our version %s, leaf version %s", build.Version, register.LeafVersion)
+		log.Error("cluster: version mismatch, our version , leaf version", "version", build.Version, "version", register.LeafVersion)
 		response.Success = false
 		response.Error = "version mismatch"
 	}
 
 	if err := leafmsg.WriteMessage(ws, leafmsg.MessageRegister, response); err != nil {
-		log.Error().Msgf("cluster: error while sending leaf register response: %s", err)
+		log.WithError(err).Error("cluster: error while sending leaf register response:")
 		return
 	}
 
@@ -79,16 +79,16 @@ func (c *Cluster) HandleLeafServer(w http.ResponseWriter, r *http.Request) {
 	session := c.registerLeaf(ws, user, token, register.Zone)
 	defer c.unregisterLeaf(session)
 
-	log.Info().Str("zone", session.Zone).Msg("cluster: leaf registered")
+	log.Info("cluster: leaf registered", "zone", session.Zone)
 
 	// Enter the message processing loop
 	for {
 		msg, err := leafmsg.ReadMessage(ws)
 		if err != nil {
 			if !strings.Contains(err.Error(), "unexpected EOF") {
-				log.Error().Msgf("cluster: error while reading message from leaf: %s", err)
+				log.WithError(err).Error("cluster: error while reading message from leaf:")
 			} else {
-				log.Info().Str("zone", session.Zone).Msg("cluster: leaf disconnected")
+				log.Info("cluster: leaf disconnected", "zone", session.Zone)
 			}
 			return
 		}
@@ -97,7 +97,7 @@ func (c *Cluster) HandleLeafServer(w http.ResponseWriter, r *http.Request) {
 		case leafmsg.MessageFullSync:
 			go c.handleLeafFullSync(session)
 		default:
-			log.Error().Msgf("cluster: unknown message type from leaf %d", msg.Type)
+			log.Error("cluster: unknown message type from leaf", "type", msg.Type)
 		}
 	}
 }
@@ -107,21 +107,21 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 
 	groups, err := db.GetGroups()
 	if err != nil {
-		log.Error().Msgf("cluster: error while getting groups: %s", err)
+		log.WithError(err).Error("cluster: error while getting groups:")
 		return
 	}
 	session.SendMessage(leafmsg.MessageGossipGroup, &groups)
 
 	roles, err := db.GetRoles()
 	if err != nil {
-		log.Error().Msgf("cluster: error while getting roles: %s", err)
+		log.WithError(err).Error("cluster: error while getting roles:")
 		return
 	}
 	session.SendMessage(leafmsg.MessageGossipRole, &roles)
 
 	user, err := db.GetUser(session.user.Id)
 	if err != nil {
-		log.Error().Msgf("cluster: error while getting user %s: %s", session.user.Username, err)
+		log.Error("cluster: error while getting user :", "username", session.user.Username)
 		return
 	}
 
@@ -130,14 +130,14 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 
 	templates, err := db.GetTemplates()
 	if err != nil {
-		log.Error().Msgf("cluster: error while getting templates: %s", err)
+		log.WithError(err).Error("cluster: error while getting templates:")
 		return
 	}
 	session.SendMessage(leafmsg.MessageGossipTemplate, &templates)
 
 	templateVars, err := db.GetTemplateVars()
 	if err != nil {
-		log.Error().Msgf("cluster: error while getting template vars: %s", err)
+		log.WithError(err).Error("cluster: error while getting template vars:")
 		return
 	}
 

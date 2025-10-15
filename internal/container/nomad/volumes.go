@@ -5,7 +5,7 @@ import (
 
 	"github.com/paularlott/knot/internal/database/model"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (client *NomadClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
@@ -22,7 +22,7 @@ func (client *NomadClient) CreateVolume(vol *model.Volume, variables map[string]
 	}
 
 	// Display the name of the volume
-	log.Debug().Msgf("nomad: creating volume: %s", volumes.Volumes[0].Id)
+	log.Debug("nomad: creating volume:", "volume_id", volumes.Volumes[0].Id)
 
 	// Create the volume
 	switch volumes.Volumes[0].Type {
@@ -37,7 +37,7 @@ func (client *NomadClient) CreateVolume(vol *model.Volume, variables map[string]
 		return err
 	}
 
-	log.Debug().Msg("nomad: volumes created")
+	log.Debug("nomad: volumes created")
 
 	return nil
 }
@@ -56,7 +56,7 @@ func (client *NomadClient) DeleteVolume(vol *model.Volume, variables map[string]
 	}
 
 	// Display the name of the volume
-	log.Debug().Msgf("nomad: deleting volume: %s", volumes.Volumes[0].Name)
+	log.Debug("nomad: deleting volume:", "volume", volumes.Volumes[0].Name)
 
 	switch volumes.Volumes[0].Type {
 	case "csi":
@@ -78,7 +78,7 @@ func (client *NomadClient) DeleteVolume(vol *model.Volume, variables map[string]
 		return err
 	}
 
-	log.Debug().Msg("nomad: volume deleted")
+	log.Debug("nomad: volume deleted")
 
 	return nil
 }

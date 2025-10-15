@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func UpdateSSHConfig(sshConfig string, alias string) error {
@@ -17,7 +17,7 @@ func UpdateSSHConfig(sshConfig string, alias string) error {
 		alias = " (" + alias + ")"
 	}
 
-	log.Debug().Msg("Start updating .ssh/config")
+	log.Debug("Start updating .ssh/config")
 
 	// Get the users home directory
 	home, err := os.UserHomeDir()
@@ -60,7 +60,7 @@ func UpdateSSHConfig(sshConfig string, alias string) error {
 
 	// If new config given
 	if sshConfig != "" {
-		log.Debug().Msg("Adding ssh config to .ssh/config")
+		log.Debug("Adding ssh config to .ssh/config")
 
 		lines = append(lines, "#===KNOT-START"+alias+"===")
 		lines = append(lines, sshConfig)
@@ -78,7 +78,7 @@ func UpdateSSHConfig(sshConfig string, alias string) error {
 		file.WriteString(line + "\n")
 	}
 
-	log.Debug().Msg("Done updating .ssh/config")
+	log.Debug("Done updating .ssh/config")
 
 	return nil
 }

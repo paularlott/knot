@@ -13,7 +13,6 @@ import (
 	"github.com/paularlott/gossip/codec"
 	"github.com/paularlott/gossip/compression"
 	"github.com/paularlott/gossip/encryption"
-	"github.com/paularlott/gossip/examples/common"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/gossip/leader"
 	"github.com/paularlott/knot/build"
@@ -24,7 +23,7 @@ import (
 	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type Cluster struct {
@@ -63,12 +62,12 @@ func NewCluster(
 	cluster.config = gossipConfig
 
 	if advertiseAddr != "" {
-		log.Info().Msgf("cluster: enabling cluster mode on %s", advertiseAddr)
+		log.Info("cluster: enabling cluster mode on", "advertiseAddr", advertiseAddr)
 
 		db := database.GetInstance()
 		nodeId, err := db.GetCfgValue("node_id")
 		if err != nil || nodeId.Value == "" {
-			log.Fatal().Msg("server: node_id not set")
+			log.Fatal("server: node_id not set")
 		}
 
 		gossipConfig.NodeID = nodeId.Value
@@ -92,14 +91,14 @@ func NewCluster(
 
 			url, err := url.Parse(gossipConfig.AdvertiseAddr)
 			if err != nil {
-				log.Fatal().Msgf("cluster: failed to parse advertise URL %s: %s", gossipConfig.AdvertiseAddr, err.Error())
+				log.WithError(err).Fatal("cluster: failed to parse advertise URL :")
 			}
 
 			url.Path = "/cluster"
 			gossipConfig.AdvertiseAddr = url.String()
 		}
 
-		gossipConfig.Logger = common.NewZerologLogger(log.Logger)
+		gossipConfig.Logger = log.GetLogger().WithGroup("gossip")
 		gossipConfig.MsgCodec = codec.NewVmihailencoMsgpackCodec()
 
 		gossipConfig.ApplicationVersion = build.Version
@@ -114,7 +113,7 @@ func NewCluster(
 
 		cluster.gossipCluster, err = gossip.NewCluster(gossipConfig)
 		if err != nil {
-			log.Fatal().Msgf("cluster: failed to create gossip cluster: %s", err.Error())
+			log.WithError(err).Fatal("cluster: failed to create gossip cluster:")
 		}
 
 		// If using websockets then add the handler
@@ -192,7 +191,7 @@ func NewCluster(
 	}
 
 	if allowLeaf {
-		log.Info().Msg("cluster: enabling support for leaf nodes")
+		log.Info("cluster: enabling support for leaf nodes")
 
 		// Setup routes for leaf nodes
 		routes.HandleFunc("GET /cluster/leaf", middleware.ApiAuth(cluster.HandleLeafServer))
@@ -204,11 +203,11 @@ func NewCluster(
 		defer interval.Stop()
 
 		for range interval.C {
-			log.Debug().Msg("cluster: cleaning up resource locks")
+			log.Debug("cluster: cleaning up resource locks")
 			cluster.resourceLocksMux.Lock()
 			for id, lock := range cluster.resourceLocks {
 				if lock.ExpiresAfter.Before(time.Now().UTC()) {
-					log.Debug().Msgf("cluster: removing expired resource lock %s", id)
+					log.Debug("cluster: removing expired resource lock", "id", id)
 					delete(cluster.resourceLocks, id)
 				}
 			}
@@ -256,7 +255,7 @@ func (c *Cluster) manageElection() {
 	}
 
 	if nodesInZone >= 2 {
-		log.Info().Msgf("cluster: starting leader election with %d nodes in zone", nodesInZone)
+		log.Info("cluster: starting leader election with nodes in zone", "nodesInZone", nodesInZone)
 		c.election.Start()
 		c.electionRunning = true
 	}
@@ -264,7 +263,7 @@ func (c *Cluster) manageElection() {
 
 func (c *Cluster) Start(peers []string, originServer string, originToken string) {
 	if c.gossipCluster != nil {
-		log.Info().Msg("cluster: starting gossip cluster")
+		log.Info("cluster: starting gossip cluster")
 		c.gossipCluster.Start()
 
 		// Process the peers list, any that start with ws://, wss://, http:// or https:// need the path to be /cluster
@@ -272,7 +271,7 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 			if strings.HasPrefix(peer, "ws://") || strings.HasPrefix(peer, "wss://") || strings.HasPrefix(peer, "http://") || strings.HasPrefix(peer, "https://") {
 				url, err := url.Parse(peer)
 				if err != nil {
-					log.Fatal().Msgf("cluster: failed to parse peer URL %s: %s", peer, err.Error())
+					log.WithError(err).Fatal("cluster: failed to parse peer URL :")
 				}
 
 				url.Path = "/cluster"
@@ -282,62 +281,62 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 
 		// Join the initial peers
 		if err := c.gossipCluster.Join(peers); err != nil {
-			log.Fatal().Msgf("cluster: failed to join cluster: %s", err.Error())
+			log.WithError(err).Fatal("cluster: failed to join cluster:")
 		}
 
 		// If the cluster is bigger than us then trigger a full state sync
 		if c.gossipCluster.NumAliveNodes() > 1 {
 			go func() {
-				log.Info().Msg("cluster: starting full state sync")
+				log.Info("cluster: starting full state sync")
 
 				nodes := c.gossipCluster.GetCandidates()
 
 				// Try each node in order until we get a successful response
 				for _, node := range nodes {
 					if err := c.DoGroupFullSync(node); err != nil {
-						log.Error().Msgf("cluster: failed to sync groups with node %s: %s", node.ID, err.Error())
+						log.WithError(err).Error("cluster: failed to sync groups with node :")
 					}
 
 					if err := c.DoRoleFullSync(node); err != nil {
-						log.Error().Msgf("cluster: failed to sync roles with node %s: %s", node.ID, err.Error())
+						log.WithError(err).Error("cluster: failed to sync roles with node :")
 					}
 
 					if err := c.DoSpaceFullSync(node); err != nil {
-						log.Error().Msgf("cluster: failed to sync spaces with node %s: %s", node.ID, err.Error())
+						log.WithError(err).Error("cluster: failed to sync spaces with node :")
 					}
 
 					if err := c.DoTemplateFullSync(node); err != nil {
-						log.Error().Msgf("cluster: failed to sync templates with node %s: %s", node.ID, err.Error())
+						log.WithError(err).Error("cluster: failed to sync templates with node :")
 					}
 
 					if err := c.DoTemplateVarFullSync(node); err != nil {
-						log.Error().Msgf("cluster: failed to sync template vars with node %s: %s", node.ID, err.Error())
+						log.WithError(err).Error("cluster: failed to sync template vars with node :")
 					}
 
 					if err := c.DoUserFullSync(node); err != nil {
-						log.Error().Msgf("cluster: failed to sync users with node %s: %s", node.ID, err.Error())
+						log.WithError(err).Error("cluster: failed to sync users with node :")
 					}
 
 					if err := c.DoTokenFullSync(node); err != nil {
-						log.Error().Msgf("cluster: failed to sync tokens with node %s: %s", node.ID, err.Error())
+						log.WithError(err).Error("cluster: failed to sync tokens with node :")
 					}
 
 					if err := c.DoVolumeFullSync(node); err != nil {
-						log.Error().Msgf("cluster: failed to sync volumes with node %s: %s", node.ID, err.Error())
+						log.WithError(err).Error("cluster: failed to sync volumes with node :")
 					}
 
 					if err := c.DoResourceLockFullSync(node); err != nil {
-						log.Error().Msgf("cluster: failed to sync resource locks with node %s: %s", node.ID, err.Error())
+						log.WithError(err).Error("cluster: failed to sync resource locks with node :")
 					}
 
 					if c.sessionGossip {
 						if err := c.DoSessionFullSync(node); err != nil {
-							log.Error().Msgf("cluster: failed to sync sessions with node %s: %s", node.ID, err.Error())
+							log.WithError(err).Error("cluster: failed to sync sessions with node :")
 						}
 					}
 				}
 
-				log.Info().Msg("cluster: full state sync complete")
+				log.Info("cluster: full state sync complete")
 			}()
 		}
 
@@ -350,7 +349,7 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 
 func (c *Cluster) Stop() {
 	if c.gossipCluster != nil {
-		log.Info().Msg("cluster: stopping gossip cluster")
+		log.Info("cluster: stopping gossip cluster")
 
 		c.electionMux.Lock()
 		if c.electionRunning {
@@ -395,7 +394,7 @@ func (c *Cluster) GetTunnelServers() []string {
 func (c *Cluster) LockResource(resourceId string) string {
 	// If in cluster mode and not the leader then we have to ask the leader to lock the resource
 	if c.election != nil && c.electionRunning && !c.election.IsLeader() {
-		log.Debug().Msg("cluster: Asking leader to lock resource")
+		log.Debug("cluster: Asking leader to lock resource")
 
 		leaderNode := c.election.GetLeader()
 		if leaderNode != nil {
@@ -404,7 +403,7 @@ func (c *Cluster) LockResource(resourceId string) string {
 			}
 			response := &ResourceLockResponseMsg{}
 			if err := c.gossipCluster.SendToWithResponse(leaderNode, ResourceLockMsg, request, response); err != nil {
-				log.Error().Msgf("cluster: Failed to request resource lock from leader %s: %s", leaderNode.ID, err.Error())
+				log.WithError(err).Error("cluster: Failed to request resource lock from leader :")
 				return ""
 			}
 
@@ -440,7 +439,7 @@ func (c *Cluster) lockResourceLocally(resourceId string) string {
 func (c *Cluster) UnlockResource(resourceId, unlockToken string) {
 	// If in cluster mode and not the leader then we have to ask the leader to unlock the resource
 	if c.election != nil && c.electionRunning && !c.election.IsLeader() {
-		log.Debug().Msg("cluster: Asking leader to unlock resource")
+		log.Debug("cluster: Asking leader to unlock resource")
 
 		leaderNode := c.election.GetLeader()
 		if leaderNode != nil {
@@ -449,7 +448,7 @@ func (c *Cluster) UnlockResource(resourceId, unlockToken string) {
 				UnlockToken: unlockToken,
 			}
 			if err := c.gossipCluster.SendTo(leaderNode, ResourceUnlockMsg, request); err != nil {
-				log.Error().Msgf("cluster: Failed to request resource unlock from leader %s: %s", leaderNode.ID, err.Error())
+				log.WithError(err).Error("cluster: Failed to request resource unlock from leader :")
 			}
 
 			return
@@ -477,13 +476,13 @@ func (c *Cluster) handleResourceLock(sender *gossip.Node, packet *gossip.Packet)
 	// If the sender doesn't match our zone then ignore the request
 	cfg := config.GetServerConfig()
 	if sender.Metadata.GetString("zone") != cfg.Zone {
-		log.Debug().Msg("cluster: Ignoring resource lock request from a different zone")
+		log.Debug("cluster: Ignoring resource lock request from a different zone")
 		return nil, errors.New("resource lock request from different zone")
 	}
 
 	request := ResourceLockRequestMsg{}
 	if err := packet.Unmarshal(&request); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal resource lock request")
+		log.WithError(err).Error("cluster: Failed to unmarshal resource lock request")
 		return nil, err
 	}
 
@@ -499,13 +498,13 @@ func (c *Cluster) handleResourceUnlock(sender *gossip.Node, packet *gossip.Packe
 	// If the sender doesn't match our zone then ignore the request
 	cfg := config.GetServerConfig()
 	if sender.Metadata.GetString("zone") != cfg.Zone {
-		log.Debug().Msg("cluster: Ignoring resource unlock request from a different zone")
+		log.Debug("cluster: Ignoring resource unlock request from a different zone")
 		return errors.New("resource unlock request from different zone")
 	}
 
 	request := ResourceUnlockRequestMsg{}
 	if err := packet.Unmarshal(&request); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal resource lock request")
+		log.WithError(err).Error("cluster: Failed to unmarshal resource lock request")
 		return err
 	}
 

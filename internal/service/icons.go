@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/paularlott/knot/internal/config"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 
 	"github.com/BurntSushi/toml"
 )
@@ -74,26 +74,26 @@ func (s *IconService) loadIcons() {
 
 	iconFiles := cfg.UI.Icons
 	for _, iconFile := range iconFiles {
-		log.Info().Msgf("Loading icons from file: %s", iconFile)
+		log.Info("Loading icons from file:", "iconFile", iconFile)
 
 		// If file doesn't exist, skip it
 		_, err := os.Stat(iconFile)
 		if err != nil {
-			log.Warn().Msgf("Icon file %s does not exist, skipping", iconFile)
+			log.Warn("Icon file does not exist, skipping", "iconFile", iconFile)
 			continue
 		}
 
 		// Load the icons from the .toml file
 		file, err := os.Open(iconFile)
 		if err != nil {
-			log.Warn().Msgf("Failed to open icon file %s: %v", iconFile, err)
+			log.WithError(err).Warn("Failed to open icon file:", "iconFile", iconFile)
 			continue
 		}
 
 		// Read the data from the file
 		iconData, err := os.ReadFile(iconFile)
 		if err != nil {
-			log.Warn().Msgf("Failed to read icon file %s: %v", iconFile, err)
+			log.WithError(err).Warn("Failed to read icon file:", "iconFile", iconFile)
 			file.Close()
 			continue
 		}
@@ -102,7 +102,7 @@ func (s *IconService) loadIcons() {
 
 		var iconsFromFile IconList
 		if err := toml.Unmarshal(iconData, &iconsFromFile); err != nil {
-			log.Warn().Msgf("Failed to unmarshal icons from %s: %v", iconFile, err)
+			log.WithError(err).Warn("Failed to unmarshal icons from:", "iconFile", iconFile)
 			continue
 		}
 

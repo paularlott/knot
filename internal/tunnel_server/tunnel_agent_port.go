@@ -5,7 +5,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func TunnelAgentPort(agentSessionId string, port uint16, conn net.Conn) {
@@ -16,7 +16,7 @@ func TunnelAgentPort(agentSessionId string, port uint16, conn net.Conn) {
 	session, ok := tunnels[tunnelName]
 	tunnelMutex.RUnlock()
 	if !ok || session.tunnelType != PortTunnel {
-		log.Error().Msgf("tunnel: not found")
+		log.Error("tunnel: not found")
 		return
 	}
 

@@ -3,7 +3,7 @@ package msg
 import (
 	"net"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type SpaceNote struct {
@@ -14,7 +14,7 @@ func SendSpaceNote(conn net.Conn, note string) error {
 	// Write the state command
 	err := WriteCommand(conn, CmdUpdateSpaceNote)
 	if err != nil {
-		log.Error().Msgf("agent: writing update note command: %v", err)
+		log.WithError(err).Error("agent: writing update note command:")
 		return err
 	}
 
@@ -23,7 +23,7 @@ func SendSpaceNote(conn net.Conn, note string) error {
 		Note: note,
 	})
 	if err != nil {
-		log.Error().Msgf("agent: writing update note message: %v", err)
+		log.WithError(err).Error("agent: writing update note message:")
 		return err
 	}
 
@@ -34,7 +34,7 @@ func SendSpaceStop(conn net.Conn) error {
 	// Write the state command
 	err := WriteCommand(conn, CmdSpaceStop)
 	if err != nil {
-		log.Error().Msgf("agent: writing stop command: %v", err)
+		log.WithError(err).Error("agent: writing stop command:")
 		return err
 	}
 
@@ -45,7 +45,7 @@ func SendSpaceRestart(conn net.Conn) error {
 	// Write the state command
 	err := WriteCommand(conn, CmdSpaceRestart)
 	if err != nil {
-		log.Error().Msgf("agent: writing restart command: %v", err)
+		log.WithError(err).Error("agent: writing restart command:")
 		return err
 	}
 

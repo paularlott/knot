@@ -6,7 +6,7 @@ import (
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/util/crypt"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 const (
@@ -26,7 +26,7 @@ type Token struct {
 func NewToken(name string, userId string) *Token {
 	id, err := crypt.GenerateAPIKey()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	now := time.Now().UTC()

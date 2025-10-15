@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 // Group object
@@ -26,7 +26,7 @@ type Group struct {
 func NewGroup(name string, userId string, maxSpaces uint32, computeUnits uint32, storageUnits uint32, maxTunnels uint32) *Group {
 	id, err := uuid.NewV7()
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	group := &Group{

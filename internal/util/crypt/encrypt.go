@@ -6,7 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func CreateKey() string {
@@ -15,7 +15,7 @@ func CreateKey() string {
   bytes := make([]byte, 32)
   _, err := rand.Read(bytes)
   if err != nil {
-    log.Fatal().Msg(err.Error())
+    log.Fatal(err.Error())
   }
 
   for i, b := range bytes {
@@ -28,17 +28,17 @@ func CreateKey() string {
 func Encrypt(key string, text string) string {
   aes, err := aes.NewCipher([]byte(key))
   if err != nil {
-    log.Fatal().Msg(err.Error())
+    log.Fatal(err.Error())
   }
 
   gcm, err := cipher.NewGCM(aes)
   if err != nil {
-    log.Fatal().Msg(err.Error())
+    log.Fatal(err.Error())
   }
 
   nonce := make([]byte, gcm.NonceSize())
   if _, err = rand.Read(nonce); err != nil {
-    log.Fatal().Msg(err.Error())
+    log.Fatal(err.Error())
   }
 
   return string(gcm.Seal(nonce, nonce, []byte(text), nil))
@@ -52,19 +52,19 @@ func EncryptB64(key string, text string) string {
 func Decrypt(key string, text string) string {
   aes, err := aes.NewCipher([]byte(key))
   if err != nil {
-    log.Fatal().Msg(err.Error())
+    log.Fatal(err.Error())
   }
 
   gcm, err := cipher.NewGCM(aes)
   if err != nil {
-    log.Fatal().Msg(err.Error())
+    log.Fatal(err.Error())
   }
 
   nonceSize := gcm.NonceSize()
   nonce, ciphertext := []byte(text)[:nonceSize], []byte(text)[nonceSize:]
   plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
   if err != nil {
-    log.Fatal().Msg(err.Error())
+    log.Fatal(err.Error())
   }
 
   return string(plaintext)
@@ -73,7 +73,7 @@ func Decrypt(key string, text string) string {
 func DecryptB64(key string, text string) string {
   decoded, err := base64.StdEncoding.DecodeString(text)
   if err != nil {
-    log.Fatal().Msg(err.Error())
+    log.Fatal(err.Error())
   }
 
   if len(decoded) < 16 {

@@ -15,7 +15,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 const (
@@ -45,13 +45,13 @@ func newTunnelServer(client *TunnelClient, address string) *tunnelServer {
 
 func (ts *tunnelServer) ConnectAndServe() {
 	go func() {
-		log.Debug().Msgf("tunnel: connecting to tunnel server at %s", ts.address)
+		log.Debug("tunnel: connecting to tunnel server at", "server", ts.address)
 		for {
 		StartConnectionLoop:
 
 			// Check if the max connection attempts have been reached
 			if ts.connectionAttempts >= maxConnectionAttempts {
-				log.Error().Msgf("tunnel: maximum connection attempts reached for server %s, giving up", ts.address)
+				log.Error("tunnel: maximum connection attempts reached for server , giving up", "server", ts.address)
 
 				// Remove the server from the list of servers
 				ts.client.serverListMutex.Lock()
@@ -86,21 +86,21 @@ func (ts *tunnelServer) ConnectAndServe() {
 			if err != nil {
 				if response != nil {
 					if response.StatusCode == http.StatusUnauthorized {
-						log.Fatal().Msg("Failed to authenticate with server, check permissions")
+						log.Fatal("Failed to authenticate with server, check permissions")
 					} else if response.StatusCode == http.StatusNotFound {
 						if ts.client.tunnelType == WebTunnel {
-							log.Fatal().Msg("Server does not support tunnels")
+							log.Fatal("Server does not support tunnels")
 						} else {
-							log.Fatal().Msg("Unable to find space")
+							log.Fatal("Unable to find space")
 						}
 					} else if response.StatusCode == http.StatusForbidden {
-						log.Fatal().Msg("Tunnels are not available on your account")
+						log.Fatal("Tunnels are not available on your account")
 					} else if response.StatusCode == http.StatusServiceUnavailable {
-						log.Fatal().Msg("Tunnel limit reached")
+						log.Fatal("Tunnel limit reached")
 					}
 				}
 
-				log.Error().Msgf("Error while opening websocket: %s", err)
+				log.WithError(err).Error("Error while opening websocket:")
 				time.Sleep(connectRetryDelay)
 				ts.connectionAttempts++
 				continue
@@ -120,7 +120,7 @@ func (ts *tunnelServer) ConnectAndServe() {
 				//Logger:                 logger.NewMuxLogger(),
 			})
 			if err != nil {
-				log.Error().Msgf("Creating mux session: %v", err)
+				log.WithError(err).Error("Creating mux session:")
 				ws.Close()
 				time.Sleep(connectRetryDelay)
 				ts.connectionAttempts++
@@ -131,7 +131,7 @@ func (ts *tunnelServer) ConnectAndServe() {
 			for {
 				select {
 				case <-ts.ctx.Done():
-					log.Debug().Msgf("Tunnel server %s context cancelled, shutting down connection loop", ts.address)
+					log.Debug("Tunnel server  context cancelled, shutting down connection loop", "server", ts.address)
 					muxSession.Close()
 					ws.Close()
 					return
@@ -144,12 +144,12 @@ func (ts *tunnelServer) ConnectAndServe() {
 						ws.Close()
 
 						if ts.client.tunnelType == PortTunnel && err.Error() == "websocket: close 1006 (abnormal closure): unexpected EOF" {
-							log.Info().Msg("Agent disconnected")
+							log.Info("Agent disconnected")
 							ts.client.cancel()
 							return
 						}
 
-						log.Error().Msgf("Accepting connection: %v", err)
+						log.WithError(err).Error("Accepting connection:")
 
 						// Wait before trying again
 						time.Sleep(connectRetryDelay)
@@ -174,13 +174,13 @@ func (ts *tunnelServer) handleTunnelStream(stream net.Conn) {
 	buf := make([]byte, 1)
 	_, err := stream.Read(buf)
 	if err != nil {
-		log.Error().Msgf("Error reading from stream: %v", err)
+		log.WithError(err).Error("Error reading from stream:")
 		return
 	}
 
 	// If the byte is 0, then close the stream
 	if buf[0] == 0 {
-		log.Info().Msg("Received tunnel close request from server")
+		log.Info("Received tunnel close request from server")
 		ts.client.cancel()
 		return
 	}

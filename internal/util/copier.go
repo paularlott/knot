@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type copierConnections struct {
@@ -50,14 +50,14 @@ func (connections *copierConnections) Run() error {
       if err != nil && !os.IsTimeout(err) {
         unwrappedErr := errors.Unwrap(err)
         if err != io.EOF && unwrappedErr != nil && unwrappedErr.Error() != "use of closed network connection" {
-          log.Error().Msgf("copier: error reading from socket: %s", err.Error())
+          log.WithError(err).Error("copier: error reading from socket:")
         }
         return
       }
 
       // Write data to the websocket
       if err := connections.wsConnection.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
-        log.Error().Msgf("copier: error writing to websocket: %s", err.Error())
+        log.WithError(err).Error("copier: error writing to websocket:")
         return
       }
     }
@@ -73,12 +73,12 @@ func (connections *copierConnections) Run() error {
       if err != nil {
         unwrappedErr := errors.Unwrap(err)
         if unwrappedErr != nil && unwrappedErr.Error() != "use of closed network connection" {
-          log.Error().Msgf("copier: error reading from websocket: %s", err.Error())
+          log.WithError(err).Error("copier: error reading from websocket:")
         }
         return
       }
       if mt != websocket.BinaryMessage {
-        log.Error().Msg("copier: received unsupported websocket message type")
+        log.Error("copier: received unsupported websocket message type")
         return
       }
 
@@ -90,7 +90,7 @@ func (connections *copierConnections) Run() error {
       }
 
       if err != nil {
-        log.Error().Msgf("copier: error while writing to socket: %s", err.Error())
+        log.WithError(err).Error("copier: error while writing to socket:")
         return
       }
     }

@@ -7,7 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 // Very simple syslogd server to collect logs and pass them to the server
@@ -18,16 +18,16 @@ func StartSyslogd(agentClient *agent_client.AgentClient, syslogPort int) {
 	}
 	conn, err := net.ListenUDP("udp", &addr)
 	if err != nil {
-		log.Fatal().Msgf("syslogd: failed to set up UDP server: %v", err)
+		log.Fatal("syslogd: failed to set up UDP server:", "err", err)
 	}
 	defer conn.Close()
 
-	log.Info().Msgf("syslogd: server listening on port 514")
+	log.Info("syslogd: server listening on port 514")
 	buffer := make([]byte, 8192)
 	for {
 		n, _, err := conn.ReadFromUDP(buffer)
 		if err != nil {
-			log.Info().Msgf("syslogd: error reading from UDP: %v", err)
+			log.WithError(err).Info("syslogd: error reading from UDP:")
 			continue
 		}
 

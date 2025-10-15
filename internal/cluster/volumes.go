@@ -8,15 +8,15 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) handleVolumeFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	log.Debug().Msg("cluster: Received volume full sync request")
+	log.Debug("cluster: Received volume full sync request")
 
 	volumes := []*model.Volume{}
 	if err := packet.Unmarshal(&volumes); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal volume full sync request")
+		log.WithError(err).Error("cluster: Failed to unmarshal volume full sync request")
 		return nil, err
 	}
 
@@ -35,17 +35,17 @@ func (c *Cluster) handleVolumeFullSync(sender *gossip.Node, packet *gossip.Packe
 }
 
 func (c *Cluster) handleVolumeGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug().Msg("cluster: Received volume gossip request")
+	log.Debug("cluster: Received volume gossip request")
 
 	volumes := []*model.Volume{}
 	if err := packet.Unmarshal(&volumes); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal volume gossip request")
+		log.WithError(err).Error("cluster: Failed to unmarshal volume gossip request")
 		return err
 	}
 
 	// Merge the volumes with the local volumes
 	if err := c.mergeVolumes(volumes); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to merge volumes")
+		log.WithError(err).Error("cluster: Failed to merge volumes")
 		return err
 	}
 
@@ -54,7 +54,7 @@ func (c *Cluster) handleVolumeGossip(sender *gossip.Node, packet *gossip.Packet)
 
 func (c *Cluster) GossipVolume(volume *model.Volume) {
 	if c.gossipCluster != nil {
-		log.Debug().Msg("cluster: Gossipping volume")
+		log.Debug("cluster: Gossipping volume")
 
 		volumes := []*model.Volume{volume}
 		c.gossipCluster.Send(VolumeGossipMsg, &volumes)
@@ -77,7 +77,7 @@ func (c *Cluster) DoVolumeFullSync(node *gossip.Node) error {
 
 		// Merge the volumes with the local volumes
 		if err := c.mergeVolumes(volumes); err != nil {
-			log.Error().Err(err).Msg("cluster: Failed to merge volumes")
+			log.WithError(err).Error("cluster: Failed to merge volumes")
 			return err
 		}
 	}
@@ -87,7 +87,7 @@ func (c *Cluster) DoVolumeFullSync(node *gossip.Node) error {
 
 // Merges the volumes from a cluster member with the local volumes
 func (c *Cluster) mergeVolumes(volumes []*model.Volume) error {
-	log.Debug().Int("number_volumes", len(volumes)).Msg("cluster: Merging volumes")
+	log.Debug("cluster: Merging volumes", "number_volumes", len(volumes))
 
 	// Get the list of volumes in the system
 	db := database.GetInstance()
@@ -110,15 +110,15 @@ func (c *Cluster) mergeVolumes(volumes []*model.Volume) error {
 
 				// If the volume is deleted on the remote but not local then we need to stop it
 				if volume.IsDeleted && !localVolume.IsDeleted && localVolume.Active {
-					log.Debug().Str("name", volume.Name).Msg("cluster: Stopping deleted volume")
+					log.Debug("cluster: Stopping deleted volume", "name", volume.Name)
 
 					if err := service.GetContainerService().DeleteVolume(localVolume); err != nil {
-						log.Error().Err(err).Str("name", volume.Name).Msg("cluster: Failed to delete volume")
+						log.Error("cluster: Failed to delete volume", "error", err, "name", volume.Name)
 					}
 				}
 
 				if err := db.SaveVolume(volume, nil); err != nil {
-					log.Error().Err(err).Str("name", volume.Name).Msg("cluster: Failed to update volume")
+					log.Error("cluster: Failed to update volume", "error", err, "name", volume.Name)
 				}
 			}
 		} else if !volume.IsDeleted { // Changed from group.IsDeleted to volume.IsDeleted
@@ -138,7 +138,7 @@ func (c *Cluster) gossipVolumes() {
 	db := database.GetInstance()
 	volumes, err := db.GetVolumes()
 	if err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to get volumes")
+		log.WithError(err).Error("cluster: Failed to get volumes")
 		return
 	}
 
@@ -147,7 +147,7 @@ func (c *Cluster) gossipVolumes() {
 		return // No keys to send in this batch
 	}
 
-	log.Debug().Int("batch_size", batchSize).Int("total", len(volumes)).Msg("cluster: Gossipping volumes")
+	log.Debug("cluster: Gossipping volumes", "batch_size", batchSize, "total", len(volumes))
 
 	// Shuffle the volumes
 	rand.Shuffle(len(volumes), func(i, j int) {

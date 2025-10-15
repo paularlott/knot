@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 // HandleWebTunnel handles web tunnel requests for domain-based routing
@@ -28,7 +28,7 @@ func HandleWebTunnel(w http.ResponseWriter, r *http.Request) {
 	session, ok := tunnels[domainParts[0]]
 	tunnelMutex.RUnlock()
 	if !ok || session.tunnelType != WebTunnel {
-		log.Error().Str("host", r.Host).Str("path", r.URL.Path).Msgf("tunnel: not found %s", domainParts[0])
+		log.Error("tunnel: not found", "host", r.Host, "path", r.URL.Path, "domainParts0", domainParts[0])
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -60,7 +60,7 @@ func HandleWebTunnel(w http.ResponseWriter, r *http.Request) {
 
 // Start a web server to listen for connections to tunnels, the left most part of the domain is the <username>--<tunnel name>
 func ListenAndServe(listen string, tlsConfig *tls.Config) {
-	log.Info().Msgf("tunnel: listening on %s", listen)
+	log.Info("tunnel: listening on", "listen", listen)
 
 	go func() {
 		mux := http.NewServeMux()
@@ -74,7 +74,7 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 			}
 			err := server.ListenAndServeTLS("", "")
 			if err != nil {
-				log.Error().Err(err).Msg("tunnel: failed to start server")
+				log.WithError(err).Error("tunnel: failed to start server")
 			}
 		} else {
 			server := &http.Server{
@@ -83,7 +83,7 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 			}
 			err := server.ListenAndServe()
 			if err != nil {
-				log.Error().Err(err).Msg("tunnel: failed to start server")
+				log.WithError(err).Error("tunnel: failed to start server")
 			}
 		}
 	}()

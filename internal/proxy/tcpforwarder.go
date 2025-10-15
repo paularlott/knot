@@ -13,18 +13,18 @@ import (
 	"github.com/paularlott/knot/internal/wsconn"
 
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func RunTCPForwarderViaAgent(proxyServerURL, listen, space string, port int, token string, skipTLSVerify bool) {
-	log.Info().Msgf("tcp: connecting to agent via server at: %s", proxyServerURL)
+	log.Info("tcp: connecting to agent via server at:", "proxyServerURL", proxyServerURL)
 	forwardTCP(fmt.Sprintf("%s/proxy/spaces/%s/port/%d", proxyServerURL, space, port), token, listen, skipTLSVerify)
 }
 
 func forwardTCP(dialURL, token, listen string, skipTLSVerify bool) {
 	tcpConnection, err := net.Listen("tcp", listen)
 	if err != nil {
-		log.Fatal().Msgf("tcp: error while opening local port: %s", err.Error())
+		log.WithError(err).Fatal("tcp: error while opening local port:")
 	}
 	defer tcpConnection.Close()
 
@@ -39,7 +39,7 @@ func forwardTCP(dialURL, token, listen string, skipTLSVerify bool) {
 	for {
 		tcpConn, err := tcpConnection.Accept()
 		if err != nil {
-			log.Error().Msgf("tcp: could not accept the connection: %s", err.Error())
+			log.WithError(err).Error("tcp: could not accept the connection:")
 			continue
 		}
 
@@ -50,11 +50,11 @@ func forwardTCP(dialURL, token, listen string, skipTLSVerify bool) {
 		wsConn, response, err := dialer.Dial(dialURL, header)
 		if err != nil {
 			if response != nil && response.StatusCode == http.StatusUnauthorized {
-				log.Fatal().Msgf("tcp: %s", response.Status)
+				log.Fatal("tcp:", "tcp", response.Status)
 			} else if response != nil && response.StatusCode == http.StatusForbidden {
-				log.Fatal().Msgf("tcp: proxy of remote port is not allowed")
+				log.Fatal("tcp: proxy of remote port is not allowed")
 			} else {
-				log.Fatal().Msgf("tcp: error while dialing: %s", err.Error())
+				log.WithError(err).Fatal("tcp: error while dialing:")
 			}
 
 			tcpConn.Close()

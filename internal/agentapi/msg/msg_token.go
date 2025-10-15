@@ -3,7 +3,7 @@ package msg
 import (
 	"net"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type CreateTokenResponse struct {
@@ -15,7 +15,7 @@ func SendRequestToken(conn net.Conn) (string, string, error) {
 	// Write the state command
 	err := WriteCommand(conn, CmdCreateToken)
 	if err != nil {
-		log.Error().Msgf("agent: writing create token command: %v", err)
+		log.WithError(err).Error("agent: writing create token command:")
 		return "", "", err
 	}
 
@@ -23,7 +23,7 @@ func SendRequestToken(conn net.Conn) (string, string, error) {
 	var response CreateTokenResponse
 	err = ReadMessage(conn, &response)
 	if err != nil {
-		log.Error().Msgf("agent: reading create token response: %v", err)
+		log.WithError(err).Error("agent: reading create token response:")
 		return "", "", err
 	}
 

@@ -5,15 +5,15 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) handleAuditLogGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug().Msg("cluster: Received audit log gossip request")
+	log.Debug("cluster: Received audit log gossip request")
 
 	logs := []*model.AuditLogEntry{}
 	if err := packet.Unmarshal(&logs); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal audit log gossip request")
+		log.WithError(err).Error("cluster: Failed to unmarshal audit log gossip request")
 		return err
 	}
 
@@ -21,7 +21,7 @@ func (c *Cluster) handleAuditLogGossip(sender *gossip.Node, packet *gossip.Packe
 	db := database.GetInstance()
 	for _, logEntry := range logs {
 		if err := db.SaveAuditLog(logEntry); err != nil {
-			log.Error().Err(err).Msg("cluster: Failed to save audit log entry")
+			log.WithError(err).Error("cluster: Failed to save audit log entry")
 		}
 	}
 
@@ -30,7 +30,7 @@ func (c *Cluster) handleAuditLogGossip(sender *gossip.Node, packet *gossip.Packe
 
 func (c *Cluster) GossipAuditLog(entry *model.AuditLogEntry) {
 	if c.gossipCluster != nil {
-		log.Debug().Msg("cluster: Gossipping audit log")
+		log.Debug("cluster: Gossipping audit log")
 
 		entries := []*model.AuditLogEntry{entry}
 		c.gossipCluster.Send(AuditLogGossipMsg, &entries)

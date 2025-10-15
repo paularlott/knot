@@ -8,12 +8,12 @@ import (
 
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 	"gopkg.in/yaml.v3"
 )
 
 func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
-	log.Debug().Msg(c.DriverName + ": creating volume")
+	log.Debug(c.DriverName + ": creating volume")
 
 	// Parse the volume definition to fill out the knot variables
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
@@ -38,7 +38,7 @@ func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]inte
 	}
 
 	for volName, _ := range volInfo.Volumes {
-		log.Debug().Msgf(c.DriverName+": creating volume: %s", volName)
+		log.Debug(c.DriverName+": creating volume: %s", volName)
 
 		_, err := cli.VolumeCreate(context.Background(), volume.CreateOptions{Name: volName})
 		if err != nil {
@@ -46,13 +46,13 @@ func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]inte
 		}
 	}
 
-	log.Debug().Msg(c.DriverName + ": volume created")
+	log.Debug(c.DriverName + ": volume created")
 
 	return nil
 }
 
 func (c *DockerClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
-	log.Debug().Msg(c.DriverName + ": deleting volume")
+	log.Debug(c.DriverName + ": deleting volume")
 
 	// Parse the volume definition to fill out the knot variables
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
@@ -72,7 +72,7 @@ func (c *DockerClient) DeleteVolume(vol *model.Volume, variables map[string]inte
 	}
 
 	for volName, _ := range volInfo.Volumes {
-		log.Debug().Msgf(c.DriverName+": deleting volume: %s", volName)
+		log.Debug(c.DriverName+": deleting volume: %s", volName)
 
 		err := cli.VolumeRemove(context.Background(), volName, true)
 		if err != nil {
@@ -80,7 +80,7 @@ func (c *DockerClient) DeleteVolume(vol *model.Volume, variables map[string]inte
 		}
 	}
 
-	log.Debug().Msg(c.DriverName + ": volume deleted")
+	log.Debug(c.DriverName + ": volume deleted")
 
 	return nil
 }

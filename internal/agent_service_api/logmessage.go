@@ -7,7 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/util/rest"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type LogMessage struct {
@@ -22,7 +22,7 @@ func handleLogMessage(w http.ResponseWriter, r *http.Request) {
 	// Decode the log message
 	var logMessage LogMessage
 	if err := rest.DecodeRequestBody(w, r, &logMessage); err != nil {
-		log.Error().Msgf("service_api: failed to decode log message: %v", err)
+		log.WithError(err).Error("service_api: failed to decode log message:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log message"})
 		return
 	}
@@ -40,7 +40,7 @@ func handleLogMessage(w http.ResponseWriter, r *http.Request) {
 		level = msg.LogLevelError
 
 	default:
-		log.Error().Msgf("service_api: invalid log level: %s", logMessage.Level)
+		log.Error("service_api: invalid log level:", "service_api", logMessage.Level)
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log level"})
 		return
 	}

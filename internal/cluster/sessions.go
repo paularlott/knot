@@ -9,22 +9,22 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) handleSessionFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	log.Debug().Msg("cluster: Received session full sync request")
+	log.Debug("cluster: Received session full sync request")
 
 	// If the sender doesn't match our zone then ignore the request
 	cfg := config.GetServerConfig()
 	if sender.Metadata.GetString("zone") != cfg.Zone {
-		log.Debug().Msg("cluster: Ignoring session full sync request from a different zone")
+		log.Debug("cluster: Ignoring session full sync request from a different zone")
 		return []*model.Session{}, nil
 	}
 
 	sessions := []*model.Session{}
 	if err := packet.Unmarshal(&sessions); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal token full sync request")
+		log.WithError(err).Error("cluster: Failed to unmarshal token full sync request")
 		return nil, err
 	}
 
@@ -43,24 +43,24 @@ func (c *Cluster) handleSessionFullSync(sender *gossip.Node, packet *gossip.Pack
 }
 
 func (c *Cluster) handleSessionGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug().Msg("cluster: Received session gossip request")
+	log.Debug("cluster: Received session gossip request")
 
 	// If the sender doesn't match our zone then ignore the request
 	cfg := config.GetServerConfig()
 	if sender.Metadata.GetString("zone") != cfg.Zone {
-		log.Debug().Msg("cluster: Ignoring session gossip request from a different zone")
+		log.Debug("cluster: Ignoring session gossip request from a different zone")
 		return nil
 	}
 
 	sessions := []*model.Session{}
 	if err := packet.Unmarshal(&sessions); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal session gossip request")
+		log.WithError(err).Error("cluster: Failed to unmarshal session gossip request")
 		return err
 	}
 
 	// Merge the sessions with the local sessions
 	if err := c.mergeSessions(sessions); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to merge sessions")
+		log.WithError(err).Error("cluster: Failed to merge sessions")
 		return err
 	}
 
@@ -80,7 +80,7 @@ func (c *Cluster) DoSessionFullSync(node *gossip.Node) error {
 		// If the node doesn't match our zone then ignore the request
 		cfg := config.GetServerConfig()
 		if node.Metadata.GetString("zone") != cfg.Zone {
-			log.Debug().Msg("cluster: Ignoring session full sync with node from a different zone")
+			log.Debug("cluster: Ignoring session full sync with node from a different zone")
 			return nil
 		}
 
@@ -98,7 +98,7 @@ func (c *Cluster) DoSessionFullSync(node *gossip.Node) error {
 
 		// Merge the sessions with the local sessions
 		if err := c.mergeSessions(sessions); err != nil {
-			log.Error().Err(err).Msg("cluster: Failed to merge sessions")
+			log.WithError(err).Error("cluster: Failed to merge sessions")
 			return err
 		}
 	}
@@ -108,7 +108,7 @@ func (c *Cluster) DoSessionFullSync(node *gossip.Node) error {
 
 // Merges the sessions from a cluster member with the local sessions
 func (c *Cluster) mergeSessions(sessions []*model.Session) error {
-	log.Debug().Int("number_sessions", len(sessions)).Msg("cluster: Merging sessions")
+	log.Debug("cluster: Merging sessions", "number_sessions", len(sessions))
 
 	// Get the list of sessions in the system
 	db := database.GetSessionStorage()
@@ -129,7 +129,7 @@ func (c *Cluster) mergeSessions(sessions []*model.Session) error {
 			// If the remote session is newer than the local session then use it's data
 			if session.UpdatedAt.After(localSession.UpdatedAt) {
 				if err := db.SaveSession(session); err != nil {
-					log.Error().Err(err).Str("id", session.Id).Msg("cluster: Failed to update session")
+					log.Error("cluster: Failed to update session", "error", err, "id", session.Id)
 				}
 			}
 		} else if session.ExpiresAfter.After(time.Now().UTC()) && !session.IsDeleted {
@@ -153,7 +153,7 @@ func (c *Cluster) gossipSessions() {
 	db := database.GetSessionStorage()
 	sessions, err := db.GetSessions()
 	if err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to get sessions")
+		log.WithError(err).Error("cluster: Failed to get sessions")
 		return
 	}
 

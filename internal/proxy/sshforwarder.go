@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/util"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 
 	"github.com/gorilla/websocket"
 )
@@ -34,10 +34,10 @@ func forwardSSH(dialURL, token string, skipTLSVerify bool) error {
 		if response != nil {
 			switch response.StatusCode {
 			case http.StatusUnauthorized, http.StatusForbidden:
-				log.Error().Msgf("no permission to use SSH")
+				log.Error("no permission to use SSH")
 				return fmt.Errorf("no permission to use SSH")
 			case http.StatusNotFound:
-				log.Error().Msgf("space not found")
+				log.Error("space not found")
 				return fmt.Errorf("space not found")
 			}
 		}

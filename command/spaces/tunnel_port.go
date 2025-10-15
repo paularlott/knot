@@ -11,7 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/tunnel_server"
 
 	"github.com/paularlott/cli"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 var TunnelPortCmd = &cli.Command{
@@ -110,7 +110,7 @@ var TunnelPortCmd = &cli.Command{
 		client.Shutdown()
 
 		fmt.Println("\r")
-		log.Info().Msg("Tunnel shutdown")
+		log.Info("Tunnel shutdown")
 
 		return nil
 	},

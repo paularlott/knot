@@ -16,7 +16,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type tunnelSession struct {
@@ -39,7 +39,7 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 
 	// Check the user has permission to create a tunnel
 	if !user.HasPermission(model.PermissionUseTunnels) {
-		log.Error().Msgf("tunnel: user %s does not have permission to create tunnels", user.Username)
+		log.Error("tunnel: user  does not have permission to create tunnels", "username", user.Username)
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -67,14 +67,14 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 
 	// It a tunnel limit is set then check user has not exceeded it
 	if maxTunnels > 0 && CountUserTunnels(user.Id) >= maxTunnels {
-		log.Error().Msgf("tunnel: user %s has exceeded the maximum number of tunnels", user.Username)
+		log.Error("tunnel: user  has exceeded the maximum number of tunnels", "username", user.Username)
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 
 	tunnelName := r.PathValue("tunnel_name")
 	if !validate.Subdomain(tunnelName) {
-		log.Error().Msgf("tunnel: invalid tunnel name %s", tunnelName)
+		log.Error("tunnel: invalid tunnel name", "tunnelName", tunnelName)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -82,12 +82,12 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 	tunnelName = strings.ToLower(tunnelName)
 	webName := strings.ToLower(fmt.Sprintf("%s--%s", user.Username, tunnelName))
 
-	log.Info().Msgf("tunnel: new tunnel %s", webName)
+	log.Info("tunnel: new tunnel", "webName", webName)
 
 	// Upgrade to a websocket
 	ws := util.UpgradeToWS(w, r)
 	if ws == nil {
-		log.Error().Msg("tunnel: error while upgrading to websocket")
+		log.Error("tunnel: error while upgrading to websocket")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -114,7 +114,7 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 		Logger:                 logger.NewMuxLogger(),
 	})
 	if err != nil {
-		log.Error().Msgf("tunnel: creating mux session: %v", err)
+		log.WithError(err).Error("tunnel: creating mux session:")
 		w.WriteHeader(http.StatusInternalServerError)
 		ws.Close()
 		return
@@ -124,7 +124,7 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		<-session.muxSession.CloseChan()
 
-		log.Debug().Msgf("tunnel: detected connection closing %s", webName)
+		log.Debug("tunnel: detected connection closing", "webName", webName)
 
 		session.muxSession.Close()
 		session.ws.Close()
@@ -132,7 +132,7 @@ func HandleTunnel(w http.ResponseWriter, r *http.Request) {
 		tunnelMutex.Lock()
 		delete(tunnels, webName)
 		tunnelMutex.Unlock()
-		log.Info().Msgf("tunnel: closed %s", webName)
+		log.Info("tunnel: closed", "webName", webName)
 	}()
 
 	// Add the tunnel to the map so that traffic can route to it

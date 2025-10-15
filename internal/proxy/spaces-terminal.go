@@ -16,7 +16,7 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +101,7 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 	// Upgrade the connection to a websocket
 	conn := util.UpgradeToWS(w, r)
 	if conn == nil {
-		log.Error().Msg("error while upgrading to websocket")
+		log.Error("error while upgrading to websocket")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -112,11 +112,11 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 			buffer := make([]byte, 2048)
 			readLength, err := stream.Read(buffer)
 			if err != nil {
-				log.Error().Msgf("failed to read from terminal: %s", err)
+				log.WithError(err).Error("failed to read from terminal:")
 				return
 			}
 			if err := conn.WriteMessage(websocket.BinaryMessage, buffer[:readLength]); err != nil {
-				log.Error().Msgf("failed to send %v bytes to terminal", readLength)
+				log.Error("failed to send bytes to terminal", "readLength", readLength)
 				continue
 			}
 		}
@@ -128,7 +128,7 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			unwrappedErr := errors.Unwrap(err)
 			if unwrappedErr != nil && unwrappedErr.Error() != "use of closed network connection" {
-				log.Error().Msgf("error reading from websocket: %s", err.Error())
+				log.WithError(err).Error("error reading from websocket:")
 			}
 			return
 		}
@@ -138,7 +138,7 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 			data := make([]byte, 2048)
 			_, err = r.Read(data)
 			if err != nil {
-				log.Error().Msgf("failed to read data type from websocket: %s", err)
+				log.WithError(err).Error("failed to read data type from websocket:")
 				return
 			}
 
@@ -149,18 +149,18 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 					ttySize := &msg.TerminalWindowSize{}
 					resizeMessage := bytes.Trim(data[1:], " \n\r\t\x00\x01")
 					if err := json.Unmarshal(resizeMessage, ttySize); err != nil {
-						log.Error().Msgf("failed to unmarshal resize message '%s': %s", string(resizeMessage), err)
+						log.Error("failed to unmarshal resize message '':", "failed", string(resizeMessage), err)
 						continue
 					}
-					log.Debug().Msgf("resizing tty to use %v x %v", ttySize.Rows, ttySize.Cols)
+					log.Debug("resizing tty to use  x", "resizing", ttySize.Rows, "tty", ttySize.Cols)
 
 					if err := msg.WriteCommand(stream, msg.MSG_TERMINAL_RESIZE); err != nil {
-						log.Error().Msgf("error writing command to stream: %s", err)
+						log.WithError(err).Error("error writing command to stream:")
 						return
 					}
 
 					if err := msg.WriteMessage(stream, ttySize); err != nil {
-						log.Error().Msgf("error writing message to stream: %s", err)
+						log.WithError(err).Error("error writing message to stream:")
 						return
 					}
 				}
@@ -170,13 +170,13 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 			for {
 				n, err := r.Read(buffer)
 				if err != nil && err != io.EOF {
-					log.Error().Msgf("error reading from websocket: %s", err)
+					log.WithError(err).Error("error reading from websocket:")
 					return
 				}
 
 				if n > 0 {
 					if err := msg.WriteCommand(stream, msg.MSG_TERMINAL_DATA); err != nil {
-						log.Error().Msgf("error writing command to stream: %s", err)
+						log.WithError(err).Error("error writing command to stream:")
 						return
 					}
 
@@ -185,13 +185,13 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 					sizeBytes := make([]byte, 4)
 					binary.BigEndian.PutUint32(sizeBytes, payloadSize)
 					if _, err := stream.Write(sizeBytes); err != nil {
-						log.Error().Msgf("error writing size to stream: %s", err)
+						log.WithError(err).Error("error writing size to stream:")
 						return
 					}
 
 					// Write the buffer to the stream
 					if _, err := stream.Write(buffer[:n]); err != nil {
-						log.Error().Msgf("error writing buffer to stream: %s", err)
+						log.WithError(err).Error("error writing buffer to stream:")
 						return
 					}
 				}

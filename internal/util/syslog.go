@@ -7,14 +7,14 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func RedirectToSyslog(cmd *exec.Cmd) {
 	// Redirect output to syslog
 	sysLogger, err := syslog.New(syslog.LOG_INFO|syslog.LOG_USER, "code-server")
 	if err != nil {
-		log.Error().Msgf("code-server: error creating syslog writer: %v", err)
+		log.WithError(err).Error("code-server: error creating syslog writer:")
 
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

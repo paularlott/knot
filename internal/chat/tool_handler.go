@@ -1,9 +1,9 @@
 package chat
 
 import (
+	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/util/rest"
-	"github.com/rs/zerolog/log"
 )
 
 // WebChatToolHandler handles tool events for the web chat
@@ -20,7 +20,7 @@ func NewWebChatToolHandler(streamWriter *rest.StreamWriter) *WebChatToolHandler 
 func (h *WebChatToolHandler) OnToolCall(toolCall openai.ToolCall) error {
 	// Check if stream writer is still open before writing
 	if h.streamWriter == nil {
-		log.Debug().Str("tool_name", toolCall.Function.Name).Msg("Stream writer is nil, skipping tool call notification")
+		log.Debug("Stream writer is nil, skipping tool call notification", "tool_name", toolCall.Function.Name)
 		return nil
 	}
 
@@ -31,7 +31,7 @@ func (h *WebChatToolHandler) OnToolCall(toolCall openai.ToolCall) error {
 	})
 
 	if err != nil {
-		log.Debug().Err(err).Str("tool_name", toolCall.Function.Name).Msg("Failed to write tool call to stream (stream likely closed)")
+		log.Debug("Failed to write tool call to stream (stream likely closed)", "error", err, "tool_name", toolCall.Function.Name)
 		return nil // Don't propagate the error - just log it
 	}
 
@@ -41,7 +41,7 @@ func (h *WebChatToolHandler) OnToolCall(toolCall openai.ToolCall) error {
 func (h *WebChatToolHandler) OnToolResult(toolCallID, toolName, result string) error {
 	// Check if stream writer is still open before writing
 	if h.streamWriter == nil {
-		log.Debug().Str("tool_name", toolName).Msg("Stream writer is nil, skipping tool result notification")
+		log.Debug("Stream writer is nil, skipping tool result notification", "tool_name", toolName)
 		return nil
 	}
 
@@ -56,7 +56,7 @@ func (h *WebChatToolHandler) OnToolResult(toolCallID, toolName, result string) e
 	})
 
 	if err != nil {
-		log.Debug().Err(err).Str("tool_name", toolName).Msg("Failed to write tool result to stream (stream likely closed)")
+		log.Debug("Failed to write tool result to stream (stream likely closed)", "error", err, "tool_name", toolName)
 		return nil // Don't propagate the error - just log it
 	}
 

@@ -6,7 +6,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/util/rest"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type lokiPushRequest struct {
@@ -28,7 +28,7 @@ func handleLoki(w http.ResponseWriter, r *http.Request) {
 	// Decode the loki push request
 	var lokiPushRequest lokiPushRequest
 	if err := rest.DecodeRequestBody(w, r, &lokiPushRequest); err != nil {
-		log.Error().Msgf("service_api: failed to decode loki push request: %v", err)
+		log.WithError(err).Error("service_api: failed to decode loki push request:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid loki push request"})
 		return
 	}

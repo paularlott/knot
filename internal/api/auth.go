@@ -16,7 +16,7 @@ import (
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 
 	"golang.org/x/time/rate"
 )
@@ -160,7 +160,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		// Apply rate limiting by IP
 		ipLimiter := getIPLimiter(clientIP)
 		if !ipLimiter.Allow() {
-			log.Warn().Msgf("Rate limit exceeded for IP: %s", clientIP)
+			log.Warn("Rate limit exceeded for IP:", "clientIP", clientIP)
 			rest.WriteResponse(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
 			return
 		}
@@ -169,7 +169,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	// Apply rate limiting by email
 	emailLimiter := getEmailLimiter(request.Email)
 	if !emailLimiter.Allow() {
-		log.Warn().Msgf("Rate limit exceeded for email: %s", request.Email)
+		log.Warn("Rate limit exceeded for email:", "rate", request.Email)
 		rest.WriteResponse(http.StatusTooManyRequests, w, r, ErrorResponse{Error: "too many requests"})
 		return
 	}

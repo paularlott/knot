@@ -11,15 +11,15 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/audit"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) handleTemplateFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	log.Debug().Msg("cluster: Received template full sync request")
+	log.Debug("cluster: Received template full sync request")
 
 	templates := []*model.Template{}
 	if err := packet.Unmarshal(&templates); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal template full sync request")
+		log.WithError(err).Error("cluster: Failed to unmarshal template full sync request")
 		return nil, err
 	}
 
@@ -38,17 +38,17 @@ func (c *Cluster) handleTemplateFullSync(sender *gossip.Node, packet *gossip.Pac
 }
 
 func (c *Cluster) handleTemplateGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug().Msg("cluster: Received template gossip request")
+	log.Debug("cluster: Received template gossip request")
 
 	templates := []*model.Template{}
 	if err := packet.Unmarshal(&templates); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal template gossip request")
+		log.WithError(err).Error("cluster: Failed to unmarshal template gossip request")
 		return err
 	}
 
 	// Merge the templates with the local templates
 	if err := c.mergeTemplates(templates); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to merge templates")
+		log.WithError(err).Error("cluster: Failed to merge templates")
 		return err
 	}
 
@@ -62,14 +62,14 @@ func (c *Cluster) handleTemplateGossip(sender *gossip.Node, packet *gossip.Packe
 
 func (c *Cluster) GossipTemplate(template *model.Template) {
 	if c.gossipCluster != nil {
-		log.Debug().Msg("cluster: Gossipping template")
+		log.Debug("cluster: Gossipping template")
 
 		templates := []*model.Template{template}
 		c.gossipCluster.Send(TemplateGossipMsg, &templates)
 	}
 
 	if len(c.leafSessions) > 0 {
-		log.Debug().Msg("cluster: Updating template on leaf nodes")
+		log.Debug("cluster: Updating template on leaf nodes")
 
 		templates := []*model.Template{template}
 		c.sendToLeafNodes(leafmsg.MessageGossipTemplate, templates)
@@ -92,7 +92,7 @@ func (c *Cluster) DoTemplateFullSync(node *gossip.Node) error {
 
 		// Merge the templates with the local templates
 		if err := c.mergeTemplates(templates); err != nil {
-			log.Error().Err(err).Msg("cluster: Failed to merge templates")
+			log.WithError(err).Error("cluster: Failed to merge templates")
 			return err
 		}
 	}
@@ -102,7 +102,7 @@ func (c *Cluster) DoTemplateFullSync(node *gossip.Node) error {
 
 // Merges the templates from a cluster member with the local templates
 func (c *Cluster) mergeTemplates(templates []*model.Template) error {
-	log.Debug().Int("number_templates", len(templates)).Msg("cluster: Merging templates")
+	log.Debug("cluster: Merging templates", "number_templates", len(templates))
 
 	// Get the list of templates in the system
 	db := database.GetInstance()
@@ -129,7 +129,7 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 					// Get a list of the spaces using the template on this server
 					spaces, err := db.GetSpacesByTemplateId(template.Id)
 					if err != nil {
-						log.Error().Err(err).Msg("cluster: Failed to get spaces by template")
+						log.WithError(err).Error("cluster: Failed to get spaces by template")
 						continue
 					}
 
@@ -143,7 +143,7 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 
 					// If we have spaces using the template then we refute the template delete
 					if activeSpaces > 0 {
-						log.Error().Msg("cluster: Template is in use by spaces, cannot delete")
+						log.Error("cluster: Template is in use by spaces, cannot delete")
 						template.IsDeleted = false
 						template.Name = localTemplate.Name
 						template.UpdatedAt = localTemplate.UpdatedAt
@@ -161,12 +161,12 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 				}
 
 				if err := db.SaveTemplate(template, nil); err != nil {
-					log.Error().Err(err).Str("name", template.Name).Msg("cluster: Failed to update template")
+					log.Error("cluster: Failed to update template", "error", err, "name", template.Name)
 				}
 
 				if refuteDelete {
 					c.GossipTemplate(template)
-					log.Debug().Str("name", template.Name).Msg("cluster: Refuted template delete")
+					log.Debug("cluster: Refuted template delete", "name", template.Name)
 				}
 			}
 		} else if !template.IsDeleted {
@@ -190,7 +190,7 @@ func (c *Cluster) gossipTemplates() {
 	db := database.GetInstance()
 	templates, err := db.GetTemplates()
 	if err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to get templates")
+		log.WithError(err).Error("cluster: Failed to get templates")
 		return
 	}
 
@@ -202,7 +202,7 @@ func (c *Cluster) gossipTemplates() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(templates))
 		if batchSize > 0 {
-			log.Debug().Int("batch_size", batchSize).Int("total", len(templates)).Msg("cluster: Gossipping templates")
+			log.Debug("cluster: Gossipping templates", "batch_size", batchSize, "total", len(templates))
 			clusterTemplates := templates[:batchSize]
 			c.gossipCluster.Send(TemplateGossipMsg, &clusterTemplates)
 		}
@@ -211,7 +211,7 @@ func (c *Cluster) gossipTemplates() {
 	if len(c.leafSessions) > 0 {
 		batchSize := c.CalcLeafPayloadSize(len(templates))
 		if batchSize > 0 {
-			log.Debug().Int("batch_size", batchSize).Int("total", len(templates)).Msg("cluster: Templates to leaf nodes")
+			log.Debug("cluster: Templates to leaf nodes", "batch_size", batchSize, "total", len(templates))
 			leafTemplates := templates[:batchSize]
 			c.sendToLeafNodes(leafmsg.MessageGossipTemplate, &leafTemplates)
 		}

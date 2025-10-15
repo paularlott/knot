@@ -10,7 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/validate"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
@@ -18,7 +18,7 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("spaces.tmpl")
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -45,7 +45,7 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 	if userId != "" {
 		forUser, err := db.GetUser(userId)
 		if err != nil {
-			log.Error().Msg(err.Error())
+			log.Error(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -60,7 +60,7 @@ func HandleListSpaces(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 	}
 }
 
@@ -75,14 +75,14 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("spaces-create-edit.tmpl")
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -105,7 +105,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 
 	template, err := db.GetTemplate(templateId)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -115,7 +115,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 	if userId != "" {
 		forUser, err = db.GetUser(userId)
 		if err != nil {
-			log.Error().Msg(err.Error())
+			log.Error(err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -135,7 +135,7 @@ func HandleSpacesCreate(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 	}
 }
 
@@ -145,7 +145,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("spaces-create-edit.tmpl")
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -159,7 +159,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 
 	space, err := db.GetSpace(spaceId)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		showPageNotFound(w, r)
 		return
 	}
@@ -171,7 +171,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 
 	iconListJSON, err := json.Marshal(service.GetIconService().GetIcons())
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -181,7 +181,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 	data["preferredShell"] = ""
 	data["templateList"], err = getTemplateOptionList(user)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -190,7 +190,7 @@ func HandleSpacesEdit(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error(err.Error())
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -57,7 +57,7 @@ func NewClient() *AppleClient {
 }
 
 func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
-	log.Debug().Msgf(c.DriverName+": creating space job %s", space.Id)
+	log.Debug(c.DriverName+": creating space job %s", space.Id)
 
 	job, err := model.ResolveVariables(template.Job, template, space, user, variables)
 	if err != nil {
@@ -91,7 +91,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 	space.UpdatedAt = hlc.Now()
 	err = db.SaveSpace(space, []string{"IsPending", "IsDeployed", "IsDeleting", "TemplateHash", "UpdatedAt", "StartedAt"})
 	if err != nil {
-		log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
+		log.Error(c.DriverName+": creating space job %s error %s", space.Id, err)
 		return err
 	}
 
@@ -102,7 +102,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 			space.IsPending = false
 			space.UpdatedAt = hlc.Now()
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
-				log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
+				log.Error(c.DriverName+": creating space job %s error %s", space.Id, err)
 			}
 			service.GetTransport().GossipSpace(space)
 		}()
@@ -136,16 +136,16 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		args = append(args, spec.Image)
 		args = append(args, spec.Command...)
 
-		log.Debug().Msgf(c.DriverName+": running container %s", spec.ContainerName)
+		log.Debug(c.DriverName+": running container %s", spec.ContainerName)
 		cmd := exec.Command("container", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Error().Msgf(c.DriverName+": creating container %s, error: %s, output: %s", spec.ContainerName, err, string(output))
+			log.Error(c.DriverName+": creating container %s, error: %s, output: %s", spec.ContainerName, err, string(output))
 			return
 		}
 
 		containerID := strings.TrimSpace(string(output))
-		log.Debug().Msgf(c.DriverName+": container running %s, %s", spec.ContainerName, containerID)
+		log.Debug(c.DriverName+": container running %s, %s", spec.ContainerName, containerID)
 
 		db := database.GetInstance()
 		space.ContainerId = containerID
@@ -154,7 +154,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		space.UpdatedAt = hlc.Now()
 		err = db.SaveSpace(space, []string{"ContainerId", "IsPending", "IsDeployed", "UpdatedAt"})
 		if err != nil {
-			log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
+			log.Error(c.DriverName+": creating space job %s error %s", space.Id, err)
 			return
 		}
 		service.GetTransport().GossipSpace(space)
@@ -164,7 +164,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 }
 
 func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error {
-	log.Debug().Msgf(c.DriverName+": deleting space job %s, %s", space.Id, space.ContainerId)
+	log.Debug(c.DriverName+": deleting space job %s, %s", space.Id, space.ContainerId)
 
 	db := database.GetInstance()
 
@@ -182,17 +182,17 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 			space.IsPending = false
 			space.UpdatedAt = hlc.Now()
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
-				log.Error().Msgf(c.DriverName+": creating space job %s error %s", space.Id, err)
+				log.Error(c.DriverName+": creating space job %s error %s", space.Id, err)
 			}
 			service.GetTransport().GossipSpace(space)
 		}()
 
-		log.Debug().Msgf(c.DriverName+": stopping container %s", space.ContainerId)
+		log.Debug(c.DriverName+": stopping container %s", space.ContainerId)
 		cmd := exec.Command("container", "stop", space.ContainerId)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			if !strings.Contains(string(output), "not found") {
-				log.Error().Msgf(c.DriverName+": stopping container %s error %s, output: %s", space.ContainerId, err, string(output))
+				log.Error(c.DriverName+": stopping container %s error %s, output: %s", space.ContainerId, err, string(output))
 				return
 			}
 		}
@@ -205,13 +205,13 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 				if strings.Contains(string(output), "not found") {
 					break
 				}
-				log.Error().Msgf(c.DriverName+": inspecting container %s error %s", space.ContainerId, err)
+				log.Error(c.DriverName+": inspecting container %s error %s", space.ContainerId, err)
 				return
 			}
 
 			var inspectData []containerInspect
 			if err := json.Unmarshal(output, &inspectData); err != nil {
-				log.Error().Msgf(c.DriverName+": parsing inspect output %s error %s", space.ContainerId, err)
+				log.Error(c.DriverName+": parsing inspect output %s error %s", space.ContainerId, err)
 				return
 			}
 
@@ -220,20 +220,20 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 			}
 
 			if time.Now().After(timeout) {
-				log.Error().Msgf(c.DriverName+": timeout waiting for container %s to stop", space.ContainerId)
+				log.Error(c.DriverName+": timeout waiting for container %s to stop", space.ContainerId)
 				return
 			}
 
-			log.Debug().Msgf(c.DriverName+": waiting for container %s to stop", space.ContainerId)
+			log.Debug(c.DriverName+": waiting for container %s to stop", space.ContainerId)
 			time.Sleep(500 * time.Millisecond)
 		}
 
-		log.Debug().Msgf(c.DriverName+": removing container %s", space.ContainerId)
+		log.Debug(c.DriverName+": removing container %s", space.ContainerId)
 		cmd = exec.Command("container", "rm", space.ContainerId)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			if !strings.Contains(string(output), "not found") {
-				log.Error().Msgf(c.DriverName+": removing container %s error %s, output: %s", space.ContainerId, err, string(output))
+				log.Error(c.DriverName+": removing container %s error %s, output: %s", space.ContainerId, err, string(output))
 				return
 			}
 		}
@@ -243,7 +243,7 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		space.UpdatedAt = hlc.Now()
 		err = db.SaveSpace(space, []string{"IsPending", "IsDeployed", "UpdatedAt"})
 		if err != nil {
-			log.Error().Msgf(c.DriverName+": deleting space job %s error %s", space.Id, err)
+			log.Error(c.DriverName+": deleting space job %s error %s", space.Id, err)
 			return
 		}
 
@@ -270,11 +270,11 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 	}
 
 	if len(volInfo.Volumes) == 0 && len(space.VolumeData) == 0 {
-		log.Debug().Msg(c.DriverName + ": no volumes to create")
+		log.Debug(c.DriverName + ": no volumes to create")
 		return nil
 	}
 
-	log.Debug().Msg(c.DriverName + ": checking for required volumes")
+	log.Debug(c.DriverName + ": checking for required volumes")
 
 	db := database.GetInstance()
 
@@ -285,15 +285,15 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 	}()
 
 	for volName := range volInfo.Volumes {
-		log.Debug().Msgf(c.DriverName+": checking volume %s", volName)
+		log.Debug(c.DriverName+": checking volume %s", volName)
 
 		if _, ok := space.VolumeData[volName]; !ok {
-			log.Debug().Msgf(c.DriverName+": creating volume %s", volName)
+			log.Debug(c.DriverName+": creating volume %s", volName)
 
 			cmd := exec.Command("container", "volume", "create", volName)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				log.Error().Msgf(c.DriverName+": creating volume %s error %s, output: %s", volName, err, string(output))
+				log.Error(c.DriverName+": creating volume %s error %s, output: %s", volName, err, string(output))
 				return err
 			}
 
@@ -306,12 +306,12 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 
 	for volName := range space.VolumeData {
 		if _, ok := volInfo.Volumes[volName]; !ok {
-			log.Debug().Msgf(c.DriverName+": deleting volume %s", volName)
+			log.Debug(c.DriverName+": deleting volume %s", volName)
 
 			cmd := exec.Command("container", "volume", "rm", volName)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				log.Error().Msgf(c.DriverName+": deleting volume %s error %s, output: %s", volName, err, string(output))
+				log.Error(c.DriverName+": deleting volume %s error %s, output: %s", volName, err, string(output))
 				return err
 			}
 
@@ -319,7 +319,7 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 		}
 	}
 
-	log.Debug().Msg(c.DriverName + ": volumes checked")
+	log.Debug(c.DriverName + ": volumes checked")
 
 	return nil
 }
@@ -327,10 +327,10 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 	db := database.GetInstance()
 
-	log.Debug().Msg(c.DriverName + ": deleting volumes")
+	log.Debug(c.DriverName + ": deleting volumes")
 
 	if len(space.VolumeData) == 0 {
-		log.Debug().Msg(c.DriverName + ": no volumes to delete")
+		log.Debug(c.DriverName + ": no volumes to delete")
 		return nil
 	}
 
@@ -341,25 +341,25 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 	}()
 
 	for volName := range space.VolumeData {
-		log.Debug().Msgf(c.DriverName+": deleting volume %s", volName)
+		log.Debug(c.DriverName+": deleting volume %s", volName)
 
 		cmd := exec.Command("container", "volume", "rm", volName)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Error().Msgf(c.DriverName+": deleting volume %s error %s, output: %s", volName, err, string(output))
+			log.Error(c.DriverName+": deleting volume %s error %s, output: %s", volName, err, string(output))
 			return err
 		}
 
 		delete(space.VolumeData, volName)
 	}
 
-	log.Debug().Msg(c.DriverName + ": volumes deleted")
+	log.Debug(c.DriverName + ": volumes deleted")
 
 	return nil
 }
 
 func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
-	log.Debug().Msg(c.DriverName + ": creating volume")
+	log.Debug(c.DriverName + ": creating volume")
 
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
@@ -377,23 +377,23 @@ func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]inter
 	}
 
 	for volName := range volInfo.Volumes {
-		log.Debug().Msgf(c.DriverName+": creating volume: %s", volName)
+		log.Debug(c.DriverName+": creating volume: %s", volName)
 
 		cmd := exec.Command("container", "volume", "create", volName)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Error().Msgf(c.DriverName+": creating volume %s error %s, output: %s", volName, err, string(output))
+			log.Error(c.DriverName+": creating volume %s error %s, output: %s", volName, err, string(output))
 			return err
 		}
 	}
 
-	log.Debug().Msg(c.DriverName + ": volume created")
+	log.Debug(c.DriverName + ": volume created")
 
 	return nil
 }
 
 func (c *AppleClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
-	log.Debug().Msg(c.DriverName + ": deleting volume")
+	log.Debug(c.DriverName + ": deleting volume")
 
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
@@ -407,17 +407,17 @@ func (c *AppleClient) DeleteVolume(vol *model.Volume, variables map[string]inter
 	}
 
 	for volName := range volInfo.Volumes {
-		log.Debug().Msgf(c.DriverName+": deleting volume: %s", volName)
+		log.Debug(c.DriverName+": deleting volume: %s", volName)
 
 		cmd := exec.Command("container", "volume", "rm", volName)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Error().Msgf(c.DriverName+": deleting volume %s error %s, output: %s", volName, err, string(output))
+			log.Error(c.DriverName+": deleting volume %s error %s, output: %s", volName, err, string(output))
 			return err
 		}
 	}
 
-	log.Debug().Msg(c.DriverName + ": volume deleted")
+	log.Debug(c.DriverName + ": volume deleted")
 
 	return nil
 }

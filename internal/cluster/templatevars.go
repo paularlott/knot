@@ -8,15 +8,15 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) handleTemplateVarFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	log.Debug().Msg("cluster: Received template vars full sync request")
+	log.Debug("cluster: Received template vars full sync request")
 
 	templateVars := []*model.TemplateVar{}
 	if err := packet.Unmarshal(&templateVars); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal template vars full sync request")
+		log.WithError(err).Error("cluster: Failed to unmarshal template vars full sync request")
 		return nil, err
 	}
 
@@ -35,17 +35,17 @@ func (c *Cluster) handleTemplateVarFullSync(sender *gossip.Node, packet *gossip.
 }
 
 func (c *Cluster) handleTemplateVarGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug().Msg("cluster: Received template var gossip request")
+	log.Debug("cluster: Received template var gossip request")
 
 	templateVars := []*model.TemplateVar{}
 	if err := packet.Unmarshal(&templateVars); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to unmarshal template var gossip request")
+		log.WithError(err).Error("cluster: Failed to unmarshal template var gossip request")
 		return err
 	}
 
 	// Merge the template vars with the local template vars
 	if err := c.mergeTemplateVars(templateVars); err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to merge template vars")
+		log.WithError(err).Error("cluster: Failed to merge template vars")
 		return err
 	}
 
@@ -71,13 +71,13 @@ func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
 	}
 
 	if c.gossipCluster != nil {
-		log.Debug().Msg("cluster: Gossipping template var")
+		log.Debug("cluster: Gossipping template var")
 		templateVars := []*model.TemplateVar{varToGossip}
 		c.gossipCluster.Send(TemplateVarGossipMsg, &templateVars)
 	}
 
 	if len(c.leafSessions) > 0 {
-		log.Debug().Msg("cluster: Updating template var on leaf nodes")
+		log.Debug("cluster: Updating template var on leaf nodes")
 
 		// Only allow vars that have empty zones or explicitly mention leaf node zone
 		allowVar := len(templateVar.Zones) == 0
@@ -128,7 +128,7 @@ func (c *Cluster) DoTemplateVarFullSync(node *gossip.Node) error {
 
 		// Merge the template vars with the local template vars
 		if err := c.mergeTemplateVars(templateVars); err != nil {
-			log.Error().Err(err).Msg("cluster: Failed to merge template vars")
+			log.WithError(err).Error("cluster: Failed to merge template vars")
 			return err
 		}
 	}
@@ -138,7 +138,7 @@ func (c *Cluster) DoTemplateVarFullSync(node *gossip.Node) error {
 
 // Merges the template vars from a cluster member with the local template vars
 func (c *Cluster) mergeTemplateVars(templateVars []*model.TemplateVar) error {
-	log.Debug().Int("number_template_vars", len(templateVars)).Msg("cluster: Merging template vars")
+	log.Debug("cluster: Merging template vars", "number_template_vars", len(templateVars))
 
 	// Get the list of templates in the system
 	db := database.GetInstance()
@@ -158,7 +158,7 @@ func (c *Cluster) mergeTemplateVars(templateVars []*model.TemplateVar) error {
 		if localTemplateVar, ok := localTemplateVarsMap[templateVar.Id]; ok {
 			if templateVar.UpdatedAt.After(localTemplateVar.UpdatedAt) {
 				if err := db.SaveTemplateVar(templateVar); err != nil {
-					log.Error().Err(err).Str("name", templateVar.Name).Msg("cluster: Failed to update template var")
+					log.Error("cluster: Failed to update template var", "error", err, "name", templateVar.Name)
 				}
 			}
 		} else if !templateVar.IsDeleted {
@@ -182,7 +182,7 @@ func (c *Cluster) gossipTemplateVars() {
 	db := database.GetInstance()
 	templateVars, err := db.GetTemplateVars()
 	if err != nil {
-		log.Error().Err(err).Msg("cluster: Failed to get template variables")
+		log.WithError(err).Error("cluster: Failed to get template variables")
 		return
 	}
 
@@ -194,7 +194,7 @@ func (c *Cluster) gossipTemplateVars() {
 	if c.gossipCluster != nil {
 		batchSize := c.gossipCluster.CalcPayloadSize(len(templateVars))
 		if batchSize > 0 {
-			log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Gossipping template vars")
+			log.Debug("cluster: Gossipping template vars", "batch_size", batchSize, "total", len(templateVars))
 
 			// Get the 1st number of template vars up to the batch size & broadcast
 			clusterVars := templateVars[:batchSize]
@@ -213,7 +213,7 @@ func (c *Cluster) gossipTemplateVars() {
 	if len(c.leafSessions) > 0 {
 		batchSize := c.CalcLeafPayloadSize(len(templateVars))
 		if batchSize > 0 {
-			log.Debug().Int("batch_size", batchSize).Int("total", len(templateVars)).Msg("cluster: Template vars to leaf nodes")
+			log.Debug("cluster: Template vars to leaf nodes", "batch_size", batchSize, "total", len(templateVars))
 			leafVars := templateVars[:batchSize]
 			for _, templateVar := range leafVars {
 				// Only allow vars that have empty zones or explicitly mention leaf node zone

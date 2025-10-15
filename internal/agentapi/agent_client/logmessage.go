@@ -6,11 +6,11 @@ import (
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *AgentClient) initLogMessages() {
-	log.Debug().Msg("agent: initializing log message transport")
+	log.Debug("agent: initializing log message transport")
 
 	var err error
 
@@ -24,11 +24,11 @@ func (c *AgentClient) initLogMessages() {
 		for _, server := range c.serverList {
 			if server.muxSession != nil && !server.muxSession.IsClosed() {
 				if server.logConn == nil {
-					log.Debug().Msgf("agent: opening logging connection to %s", server.address)
+					log.Debug("agent: opening logging connection to", "agent", server.address)
 
 					server.logConn, err = server.muxSession.Open()
 					if err != nil {
-						log.Error().Err(err).Msgf("agent: failed to open mux session for server %s", server.address)
+						log.Error("agent: failed to open mux session for server", "server", server.address)
 						continue
 					}
 
@@ -50,7 +50,7 @@ func (c *AgentClient) initLogMessages() {
 			if server.logConn != nil {
 				err := msg.SendLogMessage(server.logConn, logMsg)
 				if err != nil {
-					log.Error().Err(err).Msgf("agent: failed to send log message to server %s", server.address)
+					log.Error("agent: failed to send log message to server", "server", server.address)
 					server.agentClient.logTempBuffer = append(server.agentClient.logTempBuffer, logMsg)
 					server.logConn.Close()
 					server.logConn = nil

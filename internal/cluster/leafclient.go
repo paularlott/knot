@@ -16,7 +16,7 @@ import (
 	"github.com/paularlott/knot/internal/middleware"
 
 	"github.com/gorilla/websocket"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 const (
@@ -25,41 +25,41 @@ const (
 )
 
 func (c *Cluster) runLeafClient(originServer, originToken string) {
-	log.Info().Msgf("cluster: starting link with origin server %s", originServer)
+	log.Info("cluster: starting link with origin server", "originServer", originServer)
 
 	// Remove all roles, groups, managed templates and managed template vars from the local database
 	// once the initial sync is complete they will be added and up to date
 	db := database.GetInstance()
 	roles, err := db.GetRoles()
 	if err != nil {
-		log.Error().Msgf("cluster: error while getting roles from database: %s", err)
+		log.WithError(err).Error("cluster: error while getting roles from database:")
 	} else {
 		for _, role := range roles {
 			if err := db.DeleteRole(role); err != nil {
-				log.Error().Msgf("cluster: error while deleting role %s from database: %s", role.Name, err)
+				log.Error("cluster: error while deleting role  from database:", "cluster", role.Name)
 			}
 		}
 	}
 
 	groups, err := db.GetGroups()
 	if err != nil {
-		log.Error().Msgf("cluster: error while getting groups from database: %s", err)
+		log.WithError(err).Error("cluster: error while getting groups from database:")
 	} else {
 		for _, group := range groups {
 			if err := db.DeleteGroup(group); err != nil {
-				log.Error().Msgf("cluster: error while deleting group %s from database: %s", group.Name, err)
+				log.Error("cluster: error while deleting group  from database:", "cluster", group.Name)
 			}
 		}
 	}
 
 	spaces, err := db.GetSpaces()
 	if err != nil {
-		log.Error().Msgf("cluster: error while getting spaces from database: %s", err)
+		log.WithError(err).Error("cluster: error while getting spaces from database:")
 	} else {
 		for _, space := range spaces {
 			if space.IsDeleted {
 				if err := db.DeleteSpace(space); err != nil {
-					log.Error().Msgf("cluster: error while deleting space %s from database: %s", space.Name, err)
+					log.Error("cluster: error while deleting space  from database:", "space_name", space.Name)
 				}
 			}
 		}
@@ -67,7 +67,7 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 
 	templates, err := db.GetTemplates()
 	if err != nil {
-		log.Error().Msgf("cluster: error while getting templates from database: %s", err)
+		log.WithError(err).Error("cluster: error while getting templates from database:")
 	} else {
 		for _, template := range templates {
 			if template.IsManaged {
@@ -82,7 +82,7 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 				}
 
 				if err := db.DeleteTemplate(template); err != nil {
-					log.Error().Msgf("cluster: error while deleting template %s from database: %s", template.Name, err)
+					log.Error("cluster: error while deleting template  from database:", "template", template.Name)
 				}
 			}
 		}
@@ -90,12 +90,12 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 
 	templateVars, err := db.GetTemplateVars()
 	if err != nil {
-		log.Error().Msgf("cluster: error while getting template vars from database: %s", err)
+		log.WithError(err).Error("cluster: error while getting template vars from database:")
 	} else {
 		for _, templateVar := range templateVars {
 			if templateVar.IsManaged {
 				if err := db.DeleteTemplateVar(templateVar); err != nil {
-					log.Error().Msgf("cluster: error while deleting template var %s from database: %s", templateVar.Name, err)
+					log.Error("cluster: error while deleting template var  from database:", "template", templateVar.Name)
 				}
 			}
 		}
@@ -115,7 +115,7 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 			}
 			wsUrl += "/cluster/leaf"
 
-			log.Debug().Msgf("cluster: connecting to %s", wsUrl)
+			log.Debug("cluster: connecting to", "wsUrl", wsUrl)
 
 			// Open the websocket
 			header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", originToken)}}
@@ -128,22 +128,22 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 			ws, response, err := dialer.Dial(wsUrl, header)
 			if err != nil {
 				if response != nil && response.StatusCode == http.StatusUnauthorized {
-					log.Fatal().Msg("cluster: failed to authenticate with origin server, check remote token")
+					log.Fatal("cluster: failed to authenticate with origin server, check remote token")
 				}
 
-				log.Error().Msgf("cluster: error while opening websocket: %s", err)
+				log.WithError(err).Error("cluster: error while opening websocket:")
 				time.Sleep(RECONNECT_DELAY)
 				continue
 			}
 
-			log.Info().Msg("cluster: registering with origin server")
+			log.Info("cluster: registering with origin server")
 
 			err = leafmsg.WriteMessage(ws, leafmsg.MessageRegister, &leafmsg.Register{
 				LeafVersion: build.Version,
 				Zone:        cfg.Zone,
 			})
 			if err != nil {
-				log.Error().Msgf("cluster: error while sending register message: %s", err)
+				log.WithError(err).Error("cluster: error while sending register message:")
 				ws.Close()
 				time.Sleep(RECONNECT_DELAY)
 				continue
@@ -151,7 +151,7 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 
 			msg, err := leafmsg.ReadMessage(ws)
 			if err != nil || msg.Type != leafmsg.MessageRegister {
-				log.Error().Msgf("cluster: error while reading register response: %s", err)
+				log.WithError(err).Error("cluster: error while reading register response:")
 				ws.Close()
 				time.Sleep(RECONNECT_DELAY)
 				continue
@@ -159,20 +159,20 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 
 			registerResponse := &leafmsg.RegisterResponse{}
 			if err := msg.UnmarshalPayload(registerResponse); err != nil {
-				log.Error().Msgf("cluster: error while unmarshalling register response: %s", err)
+				log.WithError(err).Error("cluster: error while unmarshalling register response:")
 				ws.Close()
 				time.Sleep(RECONNECT_DELAY)
 				continue
 			}
 			if !registerResponse.Success {
-				log.Fatal().Msgf("cluster: error while registering with origin server: %s", registerResponse.Error)
+				log.Fatal("cluster: error while registering with origin server", "error", registerResponse.Error)
 			}
 
 			// Request a full sync
 			if !fullSyncDone {
 				err = leafmsg.WriteMessage(ws, leafmsg.MessageFullSync, nil)
 				if err != nil {
-					log.Error().Msgf("cluster: error while sending full sync request: %s", err)
+					log.WithError(err).Error("cluster: error while sending full sync request:")
 					ws.Close()
 					time.Sleep(RECONNECT_DELAY)
 					continue
@@ -184,9 +184,9 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 				msg, err := leafmsg.ReadMessage(ws)
 				if err != nil {
 					if !strings.Contains(err.Error(), "unexpected EOF") {
-						log.Error().Msgf("cluster: error while reading message from origin server: %s", err)
+						log.WithError(err).Error("cluster: error while reading message from origin server:")
 					} else {
-						log.Info().Msg("cluster: lost connection to origin server")
+						log.Info("cluster: lost connection to origin server")
 					}
 					break
 				}
@@ -208,11 +208,11 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 					c.handleLeafGossipTemplateVar(msg)
 
 				case leafmsg.MessageFullSyncEnd:
-					log.Info().Msg("cluster: leaf full sync complete")
+					log.Info("cluster: leaf full sync complete")
 					fullSyncDone = true
 
 				default:
-					log.Error().Msgf("cluster: unknown message type from origin %d", msg.Type)
+					log.Error("cluster: unknown message type from origin", "type", msg.Type)
 				}
 			}
 
@@ -226,12 +226,12 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 func (c *Cluster) handleLeafGossipGroup(msg *leafmsg.Message) {
 	groups := []*model.Group{}
 	if err := msg.UnmarshalPayload(&groups); err != nil {
-		log.Error().Msgf("cluster: error while unmarshalling leaf group message: %s", err)
+		log.WithError(err).Error("cluster: error while unmarshalling leaf group message:")
 		return
 	}
 
 	if err := c.mergeGroups(groups); err != nil {
-		log.Error().Msgf("cluster: error while merging groups from leaf: %s", err)
+		log.WithError(err).Error("cluster: error while merging groups from leaf:")
 		return
 	}
 }
@@ -239,12 +239,12 @@ func (c *Cluster) handleLeafGossipGroup(msg *leafmsg.Message) {
 func (c *Cluster) handleLeafGossipRole(msg *leafmsg.Message) {
 	roles := []*model.Role{}
 	if err := msg.UnmarshalPayload(&roles); err != nil {
-		log.Error().Msgf("cluster: error while unmarshalling leaf role message: %s", err)
+		log.WithError(err).Error("cluster: error while unmarshalling leaf role message:")
 		return
 	}
 
 	if err := c.mergeRoles(roles); err != nil {
-		log.Error().Msgf("cluster: error while merging roles from leaf: %s", err)
+		log.WithError(err).Error("cluster: error while merging roles from leaf:")
 		return
 	}
 }
@@ -252,14 +252,14 @@ func (c *Cluster) handleLeafGossipRole(msg *leafmsg.Message) {
 func (c *Cluster) handleLeafGossipUser(msg *leafmsg.Message) {
 	users := []*model.User{}
 	if err := msg.UnmarshalPayload(&users); err != nil {
-		log.Error().Msgf("cluster: error while unmarshalling leaf user message: %s", err)
+		log.WithError(err).Error("cluster: error while unmarshalling leaf user message:")
 		return
 	}
 
 	db := database.GetInstance()
 	for _, user := range users {
 		if err := db.SaveUser(user, nil); err != nil {
-			log.Error().Err(err).Msgf("cluster: error while updating user %s from leaf", user.Username)
+			log.Error("cluster: error while updating user  from leaf", "username", user.Username)
 		}
 	}
 
@@ -272,7 +272,7 @@ func (c *Cluster) handleLeafGossipUser(msg *leafmsg.Message) {
 func (c *Cluster) handleLeafGossipTemplate(msg *leafmsg.Message) {
 	templates := []*model.Template{}
 	if err := msg.UnmarshalPayload(&templates); err != nil {
-		log.Error().Msgf("cluster: error while unmarshalling leaf template message: %s", err)
+		log.WithError(err).Error("cluster: error while unmarshalling leaf template message:")
 		return
 	}
 
@@ -282,7 +282,7 @@ func (c *Cluster) handleLeafGossipTemplate(msg *leafmsg.Message) {
 	}
 
 	if err := c.mergeTemplates(templates); err != nil {
-		log.Error().Msgf("cluster: error while merging templates from leaf: %s", err)
+		log.WithError(err).Error("cluster: error while merging templates from leaf:")
 		return
 	}
 }
@@ -290,7 +290,7 @@ func (c *Cluster) handleLeafGossipTemplate(msg *leafmsg.Message) {
 func (c *Cluster) handleLeafGossipTemplateVar(msg *leafmsg.Message) {
 	templateVars := []*model.TemplateVar{}
 	if err := msg.UnmarshalPayload(&templateVars); err != nil {
-		log.Error().Msgf("cluster: error while unmarshalling leaf template var message: %s", err)
+		log.WithError(err).Error("cluster: error while unmarshalling leaf template var message:")
 		return
 	}
 
@@ -300,7 +300,7 @@ func (c *Cluster) handleLeafGossipTemplateVar(msg *leafmsg.Message) {
 	}
 
 	if err := c.mergeTemplateVars(templateVars); err != nil {
-		log.Error().Msgf("cluster: error while merging template vars: %s", err)
+		log.WithError(err).Error("cluster: error while merging template vars:")
 		return
 	}
 

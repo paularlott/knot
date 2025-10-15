@@ -10,11 +10,11 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/util"
 
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
-	log.Debug().Str("command", runCmd.Command).Strs("args", runCmd.Args).Msg("agent: executing run command")
+	log.Debug("agent: executing run command", "command", runCmd.Command, "args", runCmd.Args)
 
 	if runCmd.Command == "" && len(runCmd.Args) == 0 {
 		response := msg.RunCommandResponse{Success: false, Error: "Empty command"}
@@ -31,7 +31,7 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 	parts = append(parts, runCmd.Args...)
 	shellCmd := strings.Join(parts, " ")
 
-	log.Debug().Str("final_shell_command", shellCmd).Msg("agent: constructed shell command")
+	log.Debug("agent: constructed shell command", "final_shell_command", shellCmd)
 
 	timeout := time.Duration(runCmd.Timeout) * time.Second
 	if timeout <= 0 {
@@ -48,7 +48,7 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 		return
 	}
 
-	log.Debug().Str("selected_shell", selectedShell).Msg("agent: using shell")
+	log.Debug("agent: using shell", "selected_shell", selectedShell)
 
 	// Use -c flag only (no login shell to avoid profile loading issues)
 	cmd := exec.CommandContext(ctx, selectedShell, "-c", shellCmd)
@@ -56,13 +56,13 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 		cmd.Dir = runCmd.Workdir
 	}
 
-	log.Debug().Str("shell", selectedShell).Str("shell_command", shellCmd).Str("workdir", runCmd.Workdir).Msg("agent: executing shell command")
+	log.Debug("agent: executing shell command", "shell", selectedShell, "shell_command", shellCmd, "workdir", runCmd.Workdir)
 
 	output, err := cmd.CombinedOutput()
 
-	log.Debug().Int("raw_output_bytes", len(output)).Str("raw_output", string(output)).Msg("agent: raw command output")
+	log.Debug("agent: raw command output", "raw_output_bytes", len(output), "raw_output", string(output))
 	if err != nil {
-		log.Error().Err(err).Msg("agent: command execution error")
+		log.WithError(err).Error("agent: command execution error")
 	}
 
 	response := msg.RunCommandResponse{Output: output}
@@ -78,12 +78,12 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 		response.Success = true
 	}
 
-	log.Debug().Str("shell", selectedShell).Str("command", shellCmd).Int("output_bytes", len(response.Output)).Bool("success", response.Success).Str("error", response.Error).Msg("agent: run command execution completed")
+	log.Debug("agent: run command execution completed", "shell", selectedShell, "command", shellCmd, "output_bytes", len(response.Output), "success", response.Success, "error", response.Error)
 
 	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.Error().Err(err).Msg("agent: failed to send run command response")
+		log.WithError(err).Error("agent: failed to send run command response")
 		return
 	}
 
-	log.Debug().Msg("agent: response sent successfully")
+	log.Debug("agent: response sent successfully")
 }

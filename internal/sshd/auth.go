@@ -6,7 +6,7 @@ import (
 	"github.com/paularlott/knot/internal/util"
 
 	"github.com/gliderlabs/ssh"
-	"github.com/rs/zerolog/log"
+	"github.com/paularlott/knot/internal/log"
 )
 
 var (
@@ -19,7 +19,7 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 
 	// If the github username is not empty, then download the keys from github
 	if len(githubUsernames) > 0 {
-		log.Debug().Msg("Downloading keys from GitHub")
+		log.Debug("Downloading keys from GitHub")
 		for _, githubUsername := range githubUsernames {
 			githubKeys, err := util.GetGitHubKeysArray(githubUsername)
 			if err != nil {
@@ -31,7 +31,7 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 	}
 
 	if len(keys) > 0 {
-		log.Debug().Msg("sshd: Adding key")
+		log.Debug("sshd: Adding key")
 		for _, key := range keys {
 			authKeys = append(authKeys, key)
 		}
@@ -45,7 +45,7 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 }
 
 func publicKeyHandler(ctx ssh.Context, key ssh.PublicKey) bool {
-	log.Debug().Msg("sshd: testing public key")
+	log.Debug("sshd: testing public key")
 
 	authorizedKeysMutex.RLock()
 	defer authorizedKeysMutex.RUnlock()
@@ -53,12 +53,12 @@ func publicKeyHandler(ctx ssh.Context, key ssh.PublicKey) bool {
 	for _, authorizedKey := range authorizedKeys {
 		parsedKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(authorizedKey))
 		if err == nil && ssh.KeysEqual(key, parsedKey) {
-			log.Debug().Msg("sshd: key found in authorized keys")
+			log.Debug("sshd: key found in authorized keys")
 			return true
 		}
 	}
 
-	log.Debug().Msg("sshd: key not found in authorized keys")
+	log.Debug("sshd: key not found in authorized keys")
 
 	return false
 }
