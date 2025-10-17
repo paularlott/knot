@@ -46,7 +46,8 @@ func HandlePageNotFound(next *http.ServeMux) http.Handler {
 }
 
 func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
-	log.Info("server: adding routes")
+	logger := log.WithGroup("server")
+	logger.Info("adding routes")
 
 	router.HandleFunc("GET /health", HandleHealthPage)
 
@@ -238,7 +239,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	// If download path set then enable serving of the download folder
 	downloadPath := cfg.DownloadPath
 	if downloadPath != "" {
-		log.Info("server: enabling download endpoint, source folder", "downloadPath", downloadPath)
+		logger.Info("enabling download endpoint, source folder", "downloadPath", downloadPath)
 
 		router.HandleFunc("GET /download/", func(w http.ResponseWriter, r *http.Request) {
 			filePath := r.URL.Path[len("/download/"):]

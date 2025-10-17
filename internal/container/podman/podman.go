@@ -3,6 +3,7 @@ package podman
 import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/docker"
+	"github.com/paularlott/knot/internal/log"
 )
 
 type PodmanClient struct {
@@ -14,6 +15,6 @@ func NewClient() *PodmanClient {
 
 	c := &PodmanClient{}
 	c.Host = cfg.Podman.Host
-	c.DriverName = "podman"
+	c.Logger = log.WithGroup("podman")
 	return c
 }

@@ -74,6 +74,8 @@ func HandleAuthorize(w http.ResponseWriter, r *http.Request) {
 
 // HandleGrant handles the OAuth2 grant approval
 func HandleGrant(w http.ResponseWriter, r *http.Request) {
+	logger := log.WithGroup("oauth2")
+
 	// Handle grant approval/denial
 	action := r.FormValue("action")
 	clientId := r.FormValue("client_id")
@@ -88,7 +90,7 @@ func HandleGrant(w http.ResponseWriter, r *http.Request) {
 		authCodeStore := GetAuthCodeStore()
 		authCode, err := authCodeStore.CreateAuthCode(user.Id, clientId, redirectURI, scope)
 		if err != nil {
-			log.WithError(err).Error("oauth2: failed to create auth code")
+			logger.WithError(err).Error("failed to create auth code")
 			http.Error(w, "server_error", http.StatusInternalServerError)
 			return
 		}
@@ -119,15 +121,17 @@ func HandleGrant(w http.ResponseWriter, r *http.Request) {
 
 // HandleToken handles the OAuth2 token endpoint
 func HandleToken(w http.ResponseWriter, r *http.Request) {
+	logger := log.WithGroup("oauth2")
+
 	// Debug: Log request details
-	log.Debug("oauth2: token request headers",
+	logger.Debug("token request headers",
 		"content_type", r.Header.Get("Content-Type"),
 		"content_length", r.Header.Get("Content-Length"))
 
 	// Parse form data first
 	err := r.ParseForm()
 	if err != nil {
-		log.WithError(err).Error("oauth2: failed to parse form")
+		logger.WithError(err).Error("failed to parse form")
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{
 			Error:            "invalid_request",
 			ErrorDescription: "Failed to parse form data",
@@ -140,7 +144,7 @@ func HandleToken(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.FormValue("redirect_uri")
 
 	// Debug logging
-	log.Debug("oauth2: token request parameters",
+	logger.Debug("token request parameters",
 		"grant_type", grantType,
 		"code", code,
 		"redirect_uri", redirectURI,
@@ -160,6 +164,8 @@ func HandleToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Request) {
+	logger := log.WithGroup("oauth2")
+
 	code := r.FormValue("code")
 	redirectURI := r.FormValue("redirect_uri")
 
@@ -204,7 +210,7 @@ func handleAuthorizationCodeGrant(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	err := db.SaveToken(token)
 	if err != nil {
-		log.WithError(err).Error("oauth2: failed to save token")
+		logger.WithError(err).Error("failed to save token")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{
 			Error: "server_error",
 		})

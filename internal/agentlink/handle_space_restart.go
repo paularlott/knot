@@ -9,7 +9,7 @@ import (
 func handleSpaceRestart(conn net.Conn, msg *CommandMsg) error {
 	err := agentClient.SendSpaceRestart()
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to send space restart")
+		log.WithError(err).Error("Failed to send space restart")
 		return err
 	}
 

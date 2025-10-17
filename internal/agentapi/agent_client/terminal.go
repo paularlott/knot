@@ -162,7 +162,7 @@ func runTerminal(conn net.Conn, tty *os.File) {
 		} else if cmdTypeBuf[0] == msg.MSG_TERMINAL_RESIZE {
 			var terminalResize msg.TerminalWindowSize
 			if err := msg.ReadMessage(conn, &terminalResize); err != nil {
-				log.WithError(err).Error("agent: reading terminal resize message:")
+				log.WithError(err).Error("reading terminal resize message:")
 				return
 			}
 

@@ -20,7 +20,7 @@ func DetectLocalContainerRuntime(preferences []string) string {
 
 	for _, runtime := range preferences {
 		if isRuntimeAvailable(runtime) {
-			log.Info("Detected local container runtime:", "runtime", runtime)
+			log.WithGroup("server").Info("detected local container runtime:", "runtime", runtime)
 			return runtime
 		}
 	}

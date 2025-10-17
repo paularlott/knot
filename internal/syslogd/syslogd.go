@@ -12,22 +12,24 @@ import (
 
 // Very simple syslogd server to collect logs and pass them to the server
 func StartSyslogd(agentClient *agent_client.AgentClient, syslogPort int) {
+	logger := log.WithGroup("syslogd")
+
 	addr := net.UDPAddr{
 		Port: syslogPort,
 		IP:   net.ParseIP("127.0.0.1"),
 	}
 	conn, err := net.ListenUDP("udp", &addr)
 	if err != nil {
-		log.Fatal("syslogd: failed to set up UDP server:", "err", err)
+		logger.Fatal("failed to set up UDP server:", "err", err)
 	}
 	defer conn.Close()
 
-	log.Info("syslogd: server listening on port 514")
+	logger.Info("server listening on port 514")
 	buffer := make([]byte, 8192)
 	for {
 		n, _, err := conn.ReadFromUDP(buffer)
 		if err != nil {
-			log.WithError(err).Info("syslogd: error reading from UDP:")
+			logger.WithError(err).Info("error reading from UDP:")
 			continue
 		}
 

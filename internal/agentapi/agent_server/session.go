@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/yamux"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/logger"
 )
 
 // Struct holding the state / registration information of an agent
@@ -23,6 +24,7 @@ type Session struct {
 	HasVSCodeTunnel  bool
 	VSCodeTunnelName string
 	MuxSession       *yamux.Session
+	logger           logger.Logger
 
 	// The log history
 	LogHistoryMutex *sync.RWMutex
@@ -38,6 +40,7 @@ func NewSession(spaceId string, version string) *Session {
 	return &Session{
 		Id:                spaceId,
 		Version:           version,
+		logger:            log.WithGroup("agent"),
 		HasCodeServer:     false,
 		SSHPort:           0,
 		VNCHttpPort:       0,
@@ -55,7 +58,7 @@ func NewSession(spaceId string, version string) *Session {
 func (s *Session) RegisterLogListener() (string, chan *msg.LogMessage) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		log.Error(err.Error())
+		s.logger.Error(err.Error())
 		return "", nil
 	}
 
@@ -112,7 +115,7 @@ func (s *Session) SendUpdateAuthorizedKeys(sshKeys []string, githubUsernames []s
 	// Write the update authorized keys command
 	err = msg.WriteCommand(conn, msg.CmdUpdateAuthorizedKeys)
 	if err != nil {
-		log.WithError(err).Error("agent: writing update authorized keys command:")
+		s.logger.WithError(err).Error("writing update authorized keys command:")
 		return err
 	}
 
@@ -122,7 +125,7 @@ func (s *Session) SendUpdateAuthorizedKeys(sshKeys []string, githubUsernames []s
 		GitHubUsernames: githubUsernames,
 	})
 	if err != nil {
-		log.WithError(err).Error("agent: writing update authorized keys message:")
+		s.logger.WithError(err).Error("writing update authorized keys message:")
 		return err
 	}
 
@@ -139,7 +142,7 @@ func (s *Session) SendUpdateShell(shell string) error {
 	// Write the update shell command
 	err = msg.WriteCommand(conn, msg.CmdUpdateShell)
 	if err != nil {
-		log.WithError(err).Error("agent: writing update shell command:")
+		s.logger.WithError(err).Error("writing update shell command:")
 		return err
 	}
 
@@ -148,7 +151,7 @@ func (s *Session) SendUpdateShell(shell string) error {
 		Shell: shell,
 	})
 	if err != nil {
-		log.WithError(err).Error("agent: writing update shell message:")
+		s.logger.WithError(err).Error("writing update shell message:")
 		return err
 	}
 
@@ -172,7 +175,7 @@ func (s *Session) SendRunCommand(runCmd *msg.RunCommandMessage) (chan *msg.RunCo
 		// Write the run command
 		err = msg.WriteCommand(conn, msg.CmdRunCommand)
 		if err != nil {
-			log.WithError(err).Error("agent: writing run command:")
+			s.logger.WithError(err).Error("writing run command:")
 			responseChannel <- &msg.RunCommandResponse{
 				Success: false,
 				Error:   "Failed to send command to agent",
@@ -183,7 +186,7 @@ func (s *Session) SendRunCommand(runCmd *msg.RunCommandMessage) (chan *msg.RunCo
 		// Write the run command message
 		err = msg.WriteMessage(conn, runCmd)
 		if err != nil {
-			log.WithError(err).Error("agent: writing run command message:")
+			s.logger.WithError(err).Error("writing run command message:")
 			responseChannel <- &msg.RunCommandResponse{
 				Success: false,
 				Error:   "Failed to send command message to agent",
@@ -195,7 +198,7 @@ func (s *Session) SendRunCommand(runCmd *msg.RunCommandMessage) (chan *msg.RunCo
 		var response msg.RunCommandResponse
 		err = msg.ReadMessage(conn, &response)
 		if err != nil {
-			log.WithError(err).Error("agent: reading run command response:")
+			s.logger.WithError(err).Error("reading run command response:")
 			responseChannel <- &msg.RunCommandResponse{
 				Success: false,
 				Error:   "Failed to read response from agent",
@@ -226,7 +229,7 @@ func (s *Session) SendCopyFile(copyCmd *msg.CopyFileMessage) (chan *msg.CopyFile
 		// Write the copy file command
 		err = msg.WriteCommand(conn, msg.CmdCopyFile)
 		if err != nil {
-			log.WithError(err).Error("agent: writing copy file command:")
+			s.logger.WithError(err).Error("writing copy file command:")
 			responseChannel <- &msg.CopyFileResponse{
 				Success: false,
 				Error:   "Failed to send command to agent",
@@ -237,7 +240,7 @@ func (s *Session) SendCopyFile(copyCmd *msg.CopyFileMessage) (chan *msg.CopyFile
 		// Write the copy file message
 		err = msg.WriteMessage(conn, copyCmd)
 		if err != nil {
-			log.WithError(err).Error("agent: writing copy file message:")
+			s.logger.WithError(err).Error("writing copy file message:")
 			responseChannel <- &msg.CopyFileResponse{
 				Success: false,
 				Error:   "Failed to send command message to agent",
@@ -249,7 +252,7 @@ func (s *Session) SendCopyFile(copyCmd *msg.CopyFileMessage) (chan *msg.CopyFile
 		var response msg.CopyFileResponse
 		err = msg.ReadMessage(conn, &response)
 		if err != nil {
-			log.WithError(err).Error("agent: reading copy file response:")
+			s.logger.WithError(err).Error("reading copy file response:")
 			responseChannel <- &msg.CopyFileResponse{
 				Success: false,
 				Error:   "Failed to read response from agent",

@@ -60,15 +60,17 @@ func (s *Service) GetOpenAIClient() *openai.Client {
 }
 
 func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *model.User, w http.ResponseWriter, r *http.Request) error {
+	logger := log.WithGroup("chat")
+
 	if len(messages) == 0 {
-		log.Warn("streamChat: No messages provided", "user_id", user.Id)
+		logger.Warn("No messages provided", "user_id", user.Id)
 		return nil
 	}
 
 	// Check if client disconnected before starting
 	select {
 	case <-ctx.Done():
-		log.Trace("streamChat: Client disconnected before processing", "user_id", user.Id)
+		logger.Trace("Client disconnected before processing", "user_id", user.Id)
 		return ctx.Err()
 	default:
 	}
@@ -93,7 +95,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 		ReasoningEffort: s.config.ReasoningEffort,
 	}
 
-	log.Debug("streamChat: Starting chat completion with tools", "user_id", user.Id, "model", s.config.Model)
+	logger.Debug("Starting chat completion with tools", "user_id", user.Id, "model", s.config.Model)
 
 	// Add user to context for MCP server
 	chatCtx := context.WithValue(ctx, "user", user)
@@ -127,7 +129,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 
 	// Check for errors after the loop - much cleaner!
 	if err := stream.Err(); err != nil {
-		log.Error("streamChat: Chat completion with tools failed", "error", err, "user_id", user.Id)
+		logger.Error("Chat completion with tools failed", "error", err, "user_id", user.Id)
 		sseWriter.WriteChunk(SSEEvent{
 			Type: "error",
 			Data: map[string]string{"error": s.formatUserFriendlyError(err)},
@@ -168,9 +170,11 @@ func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []openai.Messa
 }
 
 func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
+	logger := log.WithGroup("chat")
+
 	user := r.Context().Value("user").(*model.User)
 	if user == nil {
-		log.Error("HandleChatStream: User not found in context")
+		logger.Error("User not found in context")
 		rest.WriteResponse(http.StatusUnauthorized, w, r, map[string]string{
 			"error": "User not found",
 		})
@@ -179,7 +183,7 @@ func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.WithError(err).Error("HandleChatStream: Failed to decode request body")
+		logger.WithError(err).Error("Failed to decode request body")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
 			"error": "Invalid request body",
 		})
@@ -187,14 +191,14 @@ func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(req.Messages) == 0 {
-		log.Error("HandleChatStream: No messages provided in request")
+		logger.Error("No messages provided in request")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
 			"error": "No messages provided",
 		})
 		return
 	}
 
-	log.Debug("HandleChatStream: Starting chat stream", "user_id", user.Id, "message_count", len(req.Messages))
+	logger.Debug("Starting chat stream", "user_id", user.Id, "message_count", len(req.Messages))
 
 	s.streamChat(r.Context(), req.Messages, user, w, r)
 }
@@ -218,6 +222,8 @@ func (s *Service) formatUserFriendlyError(err error) string {
 		return "The AI service is currently busy. Please wait a moment and try again."
 	case strings.Contains(errStr, "401") || strings.Contains(errStr, "unauthorized"):
 		return "AI service authentication failed. Please contact your administrator."
+	case strings.Contains(errStr, "does not support tools"):
+		return "The AI model does not support tool calling. Please use a model that supports tools."
 	case strings.Contains(errStr, "400") || strings.Contains(errStr, "bad request"):
 		return "Invalid request sent to AI service. Please try rephrasing your message."
 	case strings.Contains(errStr, "500") || strings.Contains(errStr, "internal server error"):

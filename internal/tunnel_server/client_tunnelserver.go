@@ -16,6 +16,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/logger"
 )
 
 const (
@@ -29,6 +30,7 @@ type tunnelServer struct {
 	client             *TunnelClient
 	address            string
 	connectionAttempts int
+	logger             logger.Logger
 }
 
 func newTunnelServer(client *TunnelClient, address string) *tunnelServer {
@@ -40,18 +42,19 @@ func newTunnelServer(client *TunnelClient, address string) *tunnelServer {
 		connectionAttempts: 0,
 		ctx:                ctx,
 		cancel:             cancel,
+		logger:             log.WithGroup("tunnel"),
 	}
 }
 
 func (ts *tunnelServer) ConnectAndServe() {
 	go func() {
-		log.Debug("tunnel: connecting to tunnel server at", "server", ts.address)
+		ts.logger.Debug("connecting to tunnel server at", "server", ts.address)
 		for {
 		StartConnectionLoop:
 
 			// Check if the max connection attempts have been reached
 			if ts.connectionAttempts >= maxConnectionAttempts {
-				log.Error("tunnel: maximum connection attempts reached for server , giving up", "server", ts.address)
+				ts.logger.Error("maximum connection attempts reached for server , giving up", "server", ts.address)
 
 				// Remove the server from the list of servers
 				ts.client.serverListMutex.Lock()

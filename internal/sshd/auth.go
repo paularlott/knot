@@ -31,7 +31,7 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 	}
 
 	if len(keys) > 0 {
-		log.Debug("sshd: Adding key")
+		log.Debug("Adding key")
 		for _, key := range keys {
 			authKeys = append(authKeys, key)
 		}
@@ -45,7 +45,7 @@ func UpdateAuthorizedKeys(keys []string, githubUsernames []string) error {
 }
 
 func publicKeyHandler(ctx ssh.Context, key ssh.PublicKey) bool {
-	log.Debug("sshd: testing public key")
+	log.Debug("testing public key")
 
 	authorizedKeysMutex.RLock()
 	defer authorizedKeysMutex.RUnlock()
@@ -53,12 +53,12 @@ func publicKeyHandler(ctx ssh.Context, key ssh.PublicKey) bool {
 	for _, authorizedKey := range authorizedKeys {
 		parsedKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(authorizedKey))
 		if err == nil && ssh.KeysEqual(key, parsedKey) {
-			log.Debug("sshd: key found in authorized keys")
+			log.Debug("key found in authorized keys")
 			return true
 		}
 	}
 
-	log.Debug("sshd: key not found in authorized keys")
+	log.Debug("key not found in authorized keys")
 
 	return false
 }

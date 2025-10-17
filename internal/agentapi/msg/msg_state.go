@@ -22,10 +22,11 @@ type AgentStateReply struct {
 }
 
 func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string, hasVSCodeTunnel bool, vscodeTunnelName string) (AgentStateReply, error) {
+	logger := log.WithGroup("agent")
 	// Write the state command
 	err := WriteCommand(conn, CmdUpdateState)
 	if err != nil {
-		log.WithError(err).Error("agent: writing state command:")
+		logger.WithError(err).Error("writing state command")
 		return AgentStateReply{}, err
 	}
 
@@ -41,14 +42,14 @@ func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, 
 		VSCodeTunnelName: vscodeTunnelName,
 	})
 	if err != nil {
-		log.WithError(err).Error("agent: writing state message:")
+		logger.WithError(err).Error("writing state message")
 		return AgentStateReply{}, err
 	}
 
 	// Read the reply
 	var reply AgentStateReply
 	if err := ReadMessage(conn, &reply); err != nil {
-		log.WithError(err).Error("agent: reading agent state reply:")
+		logger.WithError(err).Error("reading agent state reply")
 		return AgentStateReply{}, err
 	}
 

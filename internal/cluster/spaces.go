@@ -7,16 +7,14 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
-
-	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) handleSpaceFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	log.Debug("cluster: Received space full sync request")
+	c.logger.Debug("Received space full sync request")
 
 	spaces := []*model.Space{}
 	if err := packet.Unmarshal(&spaces); err != nil {
-		log.WithError(err).Error("cluster: Failed to unmarshal space full sync request")
+		c.logger.WithError(err).Error("Failed to unmarshal space full sync request")
 		return nil, err
 	}
 
@@ -35,17 +33,17 @@ func (c *Cluster) handleSpaceFullSync(sender *gossip.Node, packet *gossip.Packet
 }
 
 func (c *Cluster) handleSpaceGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug("cluster: Received space gossip request")
+	c.logger.Debug("Received space gossip request")
 
 	spaces := []*model.Space{}
 	if err := packet.Unmarshal(&spaces); err != nil {
-		log.WithError(err).Error("cluster: Failed to unmarshal space gossip request")
+		c.logger.WithError(err).Error("Failed to unmarshal space gossip request")
 		return err
 	}
 
 	// Merge the spaces with the local spaces
 	if err := c.mergeSpaces(spaces); err != nil {
-		log.WithError(err).Error("cluster: Failed to merge spaces")
+		c.logger.WithError(err).Error("Failed to merge spaces")
 		return err
 	}
 
@@ -54,7 +52,7 @@ func (c *Cluster) handleSpaceGossip(sender *gossip.Node, packet *gossip.Packet) 
 
 func (c *Cluster) GossipSpace(space *model.Space) {
 	if c.gossipCluster != nil {
-		log.Debug("cluster: Gossipping space")
+		c.logger.Debug("Gossipping space")
 
 		spaces := []*model.Space{space}
 		c.gossipCluster.Send(SpaceGossipMsg, &spaces)
@@ -77,7 +75,7 @@ func (c *Cluster) DoSpaceFullSync(node *gossip.Node) error {
 
 		// Merge the spaces with the local spaces
 		if err := c.mergeSpaces(spaces); err != nil {
-			log.WithError(err).Error("cluster: Failed to merge spaces")
+			c.logger.WithError(err).Error("Failed to merge spaces")
 			return err
 		}
 	}
@@ -87,7 +85,7 @@ func (c *Cluster) DoSpaceFullSync(node *gossip.Node) error {
 
 // Merges the spaces from a cluster member with the local spaces
 func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
-	log.Debug("cluster: Merging spaces", "number_spaces", len(spaces))
+	c.logger.Debug("Merging spaces", "number_spaces", len(spaces))
 
 	// Get the list of spaces in the system
 	db := database.GetInstance()
@@ -108,14 +106,14 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 			// If the remote space is newer than the local space then use its data
 			if space.UpdatedAt.After(localSpace.UpdatedAt) {
 				if err := db.SaveSpace(space, []string{}); err != nil {
-					log.Error("cluster: Failed to update space", "error", err, "name", space.Name)
+					c.logger.Error("Failed to update space", "error", err, "name", space.Name)
 				}
 
 				//  If share user update the SSH keys
 				if space.SharedWithUserId != localSpace.SharedWithUserId {
 					user, err := db.GetUser(space.SharedWithUserId)
 					if err != nil {
-						log.Error("cluster: Failed to get user", "error", err, "name", space.Name)
+						c.logger.Error("Failed to get user", "error", err, "name", space.Name)
 						continue
 					}
 					service.GetUserService().UpdateSpaceSSHKeys(space, user)
@@ -138,7 +136,7 @@ func (c *Cluster) gossipSpaces() {
 	db := database.GetInstance()
 	spaces, err := db.GetSpaces()
 	if err != nil {
-		log.WithError(err).Error("cluster: Failed to get groups")
+		c.logger.WithError(err).Error("Failed to get groups")
 		return
 	}
 
@@ -147,7 +145,7 @@ func (c *Cluster) gossipSpaces() {
 		return // No keys to send in this batch
 	}
 
-	log.Debug("cluster: Gossipping spaces", "batch_size", batchSize, "total", len(spaces))
+	c.logger.Debug("Gossipping spaces", "batch_size", batchSize, "total", len(spaces))
 
 	// Shuffle the spaces
 	rand.Shuffle(len(spaces), func(i, j int) {

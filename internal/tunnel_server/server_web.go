@@ -16,6 +16,7 @@ import (
 
 // HandleWebTunnel handles web tunnel requests for domain-based routing
 func HandleWebTunnel(w http.ResponseWriter, r *http.Request) {
+	logger := log.WithGroup("tunnel")
 	// Split the domain into parts, 1st part is the tunnel name
 	domainParts := strings.Split(r.Host, ".")
 	if len(domainParts) < 1 {
@@ -28,7 +29,7 @@ func HandleWebTunnel(w http.ResponseWriter, r *http.Request) {
 	session, ok := tunnels[domainParts[0]]
 	tunnelMutex.RUnlock()
 	if !ok || session.tunnelType != WebTunnel {
-		log.Error("tunnel: not found", "host", r.Host, "path", r.URL.Path, "domainParts0", domainParts[0])
+		logger.Error("not found", "host", r.Host, "path", r.URL.Path, "domainParts0", domainParts[0])
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -60,7 +61,8 @@ func HandleWebTunnel(w http.ResponseWriter, r *http.Request) {
 
 // Start a web server to listen for connections to tunnels, the left most part of the domain is the <username>--<tunnel name>
 func ListenAndServe(listen string, tlsConfig *tls.Config) {
-	log.Info("tunnel: listening on", "listen", listen)
+	logger := log.WithGroup("tunnel")
+	logger.Info("listening on", "listen", listen)
 
 	go func() {
 		mux := http.NewServeMux()
@@ -74,7 +76,7 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 			}
 			err := server.ListenAndServeTLS("", "")
 			if err != nil {
-				log.WithError(err).Error("tunnel: failed to start server")
+				logger.WithError(err).Error("failed to start server")
 			}
 		} else {
 			server := &http.Server{
@@ -83,7 +85,7 @@ func ListenAndServe(listen string, tlsConfig *tls.Config) {
 			}
 			err := server.ListenAndServe()
 			if err != nil {
-				log.WithError(err).Error("tunnel: failed to start server")
+				logger.WithError(err).Error("failed to start server")
 			}
 		}
 	}()

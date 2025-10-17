@@ -11,10 +11,11 @@ type SpaceNote struct {
 }
 
 func SendSpaceNote(conn net.Conn, note string) error {
+	logger := log.WithGroup("agent")
 	// Write the state command
 	err := WriteCommand(conn, CmdUpdateSpaceNote)
 	if err != nil {
-		log.WithError(err).Error("agent: writing update note command:")
+		logger.WithError(err).Error("writing update note command")
 		return err
 	}
 
@@ -23,7 +24,7 @@ func SendSpaceNote(conn net.Conn, note string) error {
 		Note: note,
 	})
 	if err != nil {
-		log.WithError(err).Error("agent: writing update note message:")
+		logger.WithError(err).Error("writing update note message")
 		return err
 	}
 
@@ -31,10 +32,11 @@ func SendSpaceNote(conn net.Conn, note string) error {
 }
 
 func SendSpaceStop(conn net.Conn) error {
+	logger := log.WithGroup("agent")
 	// Write the state command
 	err := WriteCommand(conn, CmdSpaceStop)
 	if err != nil {
-		log.WithError(err).Error("agent: writing stop command:")
+		logger.WithError(err).Error("writing stop command")
 		return err
 	}
 
@@ -42,10 +44,11 @@ func SendSpaceStop(conn net.Conn) error {
 }
 
 func SendSpaceRestart(conn net.Conn) error {
+	logger := log.WithGroup("agent")
 	// Write the state command
 	err := WriteCommand(conn, CmdSpaceRestart)
 	if err != nil {
-		log.WithError(err).Error("agent: writing restart command:")
+		logger.WithError(err).Error("writing restart command")
 		return err
 	}
 

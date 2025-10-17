@@ -96,7 +96,8 @@ var (
 )
 
 func SetRoleCache(roles []*Role) {
-	log.Info("server: loading roles to cache")
+	logger := log.WithGroup("server")
+	logger.Info("loading roles to cache")
 
 	// Create the admin role
 	adminTime := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)

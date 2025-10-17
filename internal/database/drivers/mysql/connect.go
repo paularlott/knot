@@ -7,6 +7,7 @@ import (
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/dns"
+	"github.com/paularlott/logger"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/paularlott/knot/internal/log"
@@ -20,11 +21,12 @@ const (
 
 type MySQLDriver struct {
 	connection *sql.DB
+	logger     logger.Logger
 }
 
 // Performs the real connection to the database, we use this to reconnect if the database moves to a new server etc.
 func (db *MySQLDriver) realConnect() error {
-	log.Debug("db: connecting to MySQL")
+	db.logger.Debug("connecting to MySQL")
 
 	cfg := config.GetServerConfig()
 	host := cfg.MySQL.Host
@@ -36,9 +38,9 @@ func (db *MySQLDriver) realConnect() error {
 			hostPort, err := dns.LookupSRV(host[4:])
 			if err != nil {
 				if i == 9 {
-					log.Fatal("db: failed to lookup SRV record for MySQL database aborting after 10 attempts", "error", err)
+					db.logger.Fatal("failed to lookup SRV record for MySQL database aborting after 10 attempts", "error", err)
 				} else {
-					log.WithError(err).Error("db: failed to lookup SRV record for MySQL database")
+					db.logger.WithError(err).Error("failed to lookup SRV record for MySQL database")
 				}
 				time.Sleep(3 * time.Second)
 				continue
@@ -64,20 +66,21 @@ func (db *MySQLDriver) realConnect() error {
 		db.connection.SetMaxOpenConns(cfg.MySQL.ConnectionMaxOpen)
 		db.connection.SetMaxIdleConns(cfg.MySQL.ConnectionMaxIdle)
 
-		log.Debug("db: connected to MySQL")
+		db.logger.Debug("connected to MySQL")
 	} else {
-		log.WithError(err).Error("db: failed to connect to MySQL")
+		db.logger.WithError(err).Error("failed to connect to MySQL")
 	}
 
 	return err
 }
 
 func (db *MySQLDriver) Connect() error {
+	db.logger = log.WithGroup("db")
 	err := db.realConnect()
 	if err == nil {
 		err := db.initialize()
 		if err != nil {
-			log.Fatal("db: failed to initialize MySQL database", "error", err)
+			db.logger.Fatal("failed to initialize MySQL database", "error", err)
 		}
 	}
 
@@ -87,12 +90,12 @@ func (db *MySQLDriver) Connect() error {
 		defer internal.Stop()
 
 		for range internal.C {
-			log.Debug("db: testing MySQL connection")
+			db.logger.Debug("testing MySQL connection")
 
 			// Ping the database
 			err := db.connection.Ping()
 			if err != nil {
-				log.WithError(err).Error("db: failed to ping MySQL database")
+				db.logger.WithError(err).Error("failed to ping MySQL database")
 				db.connection.Close()
 
 				// Attempt to reconnect
@@ -107,7 +110,7 @@ func (db *MySQLDriver) Connect() error {
 		defer intervalTimer.Stop()
 
 		for range intervalTimer.C {
-			log.Debug("db: running garbage collector")
+			db.logger.Debug("running garbage collector")
 
 			before := time.Now().UTC()
 			before = before.Add(-garbageMaxAge)
@@ -115,49 +118,49 @@ func (db *MySQLDriver) Connect() error {
 			// Remove old groups
 			_, err := db.connection.Exec("DELETE FROM groups WHERE is_deleted > 0 AND updated_at < ?", before)
 			if err != nil {
-				log.WithError(err).Error("db: failed to delete old groups")
+				db.logger.WithError(err).Error("failed to delete old groups")
 			}
 
 			// Remove old roles
 			_, err = db.connection.Exec("DELETE FROM roles WHERE is_deleted > 0 AND updated_at < ?", before)
 			if err != nil {
-				log.WithError(err).Error("db: failed to delete old roles")
+				db.logger.WithError(err).Error("failed to delete old roles")
 			}
 
 			// Remove old spaces
 			_, err = db.connection.Exec("DELETE FROM spaces WHERE is_deleted > 0 AND updated_at < ?", before)
 			if err != nil {
-				log.WithError(err).Error("db: failed to delete old spaces")
+				db.logger.WithError(err).Error("failed to delete old spaces")
 			}
 
 			// Remove old templates
 			_, err = db.connection.Exec("DELETE FROM templates WHERE is_deleted > 0 AND updated_at < ?", before)
 			if err != nil {
-				log.WithError(err).Error("db: failed to delete old templates")
+				db.logger.WithError(err).Error("failed to delete old templates")
 			}
 
 			// Remove old template vars
 			_, err = db.connection.Exec("DELETE FROM templatevars WHERE is_deleted > 0 AND updated_at < ?", before)
 			if err != nil {
-				log.WithError(err).Error("db: failed to delete old template vars")
+				db.logger.WithError(err).Error("failed to delete old template vars")
 			}
 
 			// Remove old users
 			_, err = db.connection.Exec("DELETE FROM users WHERE is_deleted > 0 AND updated_at < ?", before)
 			if err != nil {
-				log.WithError(err).Error("db: failed to delete old users")
+				db.logger.WithError(err).Error("failed to delete old users")
 			}
 
 			// Remove old tokens
 			_, err = db.connection.Exec("DELETE FROM tokens WHERE is_deleted > 0 AND updated_at < ?", before)
 			if err != nil {
-				log.WithError(err).Error("db: failed to delete old tokens")
+				db.logger.WithError(err).Error("failed to delete old tokens")
 			}
 
 			// Remove old volumes
 			_, err = db.connection.Exec("DELETE FROM volumes WHERE is_deleted > 0 AND updated_at < ?", before)
 			if err != nil {
-				log.WithError(err).Error("db: failed to delete old volumes")
+				db.logger.WithError(err).Error("failed to delete old volumes")
 			}
 		}
 	}()

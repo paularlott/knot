@@ -9,7 +9,7 @@ import (
 func handleConnect(conn net.Conn, msg *CommandMsg) error {
 	server, token, err := agentClient.SendRequestToken()
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to send request token")
+		log.WithError(err).Error("Failed to send request token")
 		return err
 	}
 
@@ -21,7 +21,7 @@ func handleConnect(conn net.Conn, msg *CommandMsg) error {
 
 	err = sendMsg(conn, CommandNil, &response)
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to send response")
+		log.WithError(err).Error("Failed to send response")
 		return err
 	}
 

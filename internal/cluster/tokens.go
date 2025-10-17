@@ -6,16 +6,14 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-
-	"github.com/paularlott/knot/internal/log"
 )
 
 func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	log.Debug("cluster: Received token full sync request")
+	c.logger.Debug("Received token full sync request")
 
 	tokens := []*model.Token{}
 	if err := packet.Unmarshal(&tokens); err != nil {
-		log.WithError(err).Error("cluster: Failed to unmarshal token full sync request")
+		c.logger.WithError(err).Error("Failed to unmarshal token full sync request")
 		return nil, err
 	}
 
@@ -34,17 +32,17 @@ func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet
 }
 
 func (c *Cluster) handleTokenGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug("cluster: Received token gossip request")
+	c.logger.Debug("Received token gossip request")
 
 	tokens := []*model.Token{}
 	if err := packet.Unmarshal(&tokens); err != nil {
-		log.WithError(err).Error("cluster: Failed to unmarshal token gossip request")
+		c.logger.WithError(err).Error("Failed to unmarshal token gossip request")
 		return err
 	}
 
 	// Merge the tokens with the local tokens
 	if err := c.mergeTokens(tokens); err != nil {
-		log.WithError(err).Error("cluster: Failed to merge tokens")
+		c.logger.WithError(err).Error("Failed to merge tokens")
 		return err
 	}
 
@@ -75,7 +73,7 @@ func (c *Cluster) DoTokenFullSync(node *gossip.Node) error {
 
 		// Merge the tokens with the local tokens
 		if err := c.mergeTokens(tokens); err != nil {
-			log.WithError(err).Error("cluster: Failed to merge tokens")
+			c.logger.WithError(err).Error("Failed to merge tokens")
 			return err
 		}
 	}
@@ -85,7 +83,7 @@ func (c *Cluster) DoTokenFullSync(node *gossip.Node) error {
 
 // Merges the tokens from a cluster member with the local tokens
 func (c *Cluster) mergeTokens(tokens []*model.Token) error {
-	log.Debug("cluster: Merging tokens", "number_tokens", len(tokens))
+	c.logger.Debug("Merging tokens", "number_tokens", len(tokens))
 
 	// Get the list of tokens in the system
 	db := database.GetInstance()
@@ -106,7 +104,7 @@ func (c *Cluster) mergeTokens(tokens []*model.Token) error {
 			// If the remote token is newer than the local token then use it's data
 			if token.UpdatedAt.After(localToken.UpdatedAt) {
 				if err := db.SaveToken(token); err != nil {
-					log.Error("cluster: Failed to update token", "error", err, "name", token.Name)
+					c.logger.Error("Failed to update token", "error", err, "name", token.Name)
 				}
 			}
 		} else if !token.IsDeleted {
@@ -130,7 +128,7 @@ func (c *Cluster) gossipTokens() {
 	db := database.GetInstance()
 	tokens, err := db.GetTokens()
 	if err != nil {
-		log.WithError(err).Error("cluster: Failed to get tokens")
+		c.logger.WithError(err).Error("Failed to get tokens")
 		return
 	}
 

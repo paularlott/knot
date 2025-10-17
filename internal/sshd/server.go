@@ -20,22 +20,23 @@ var (
 )
 
 func ListenAndServe(port int, privateKeyPEM string) {
-	log.Info("sshd: starting on port", "port", port)
+	logger := log.WithGroup("sshd")
+	logger.Info("starting on port", "port", port)
 
 	// Generate a new private key if one is not provided
 	if privateKeyPEM == "" {
-		log.Info("sshd: generating new private key")
+		logger.Info("generating new private key")
 
 		var err error
 		privateKeyPEM, err = GenerateEd25519PrivateKey()
 		if err != nil {
-			log.Fatal("sshd: failed to generate private key:", "err", err)
+			logger.Fatal("failed to generate private key:", "err", err)
 		}
 	}
 
 	signer, err := gossh.ParsePrivateKey([]byte(privateKeyPEM))
 	if err != nil {
-		log.Fatal("sshd: failed to parse SSH private key:", "err", err)
+		logger.Fatal("failed to parse SSH private key:", "err", err)
 	}
 
 	ssh_server := ssh.Server{
@@ -53,17 +54,18 @@ func ListenAndServe(port int, privateKeyPEM string) {
 			"direct-tcpip": ssh.DirectTCPIPHandler,
 		},
 		LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
-			log.Debug("sshd: local port forwarding requested", "dhost", dhost, "dport", dport)
+			logger.Debug("local port forwarding requested", "dhost", dhost, "dport", dport)
 			return true
 		}),
 	}
 
 	go func() {
-		log.Fatal("ssh:", "ssh", ssh_server.ListenAndServe())
+		logger.Fatal("ssh server error", "err", ssh_server.ListenAndServe())
 	}()
 }
 
 func defaultHandler(s ssh.Session) {
+	logger := log.WithGroup("sshd")
 	ptyReq, winCh, isPty := s.Pty()
 	if isPty {
 
@@ -75,12 +77,12 @@ func defaultHandler(s ssh.Session) {
 		// Check requested shell exists, if not find one
 		selectedShell := util.CheckShells(preferredShell)
 		if selectedShell == "" {
-			log.Error("sshd: no valid shell found")
+			logger.Error("no valid shell found")
 			s.Exit(1)
 			return
 		}
 
-		log.Debug("sshd: starting shell", "selectedShell", selectedShell)
+		logger.Debug("starting shell", "selectedShell", selectedShell)
 
 		var cmd *exec.Cmd
 		var tty *os.File
@@ -94,7 +96,7 @@ func defaultHandler(s ssh.Session) {
 		if ssh.AgentRequested(s) {
 			l, err := ssh.NewAgentListener()
 			if err != nil {
-				log.WithError(err).Error("sshd: Failed to open listener for agent forwarding")
+				logger.WithError(err).Error("Failed to open listener for agent forwarding")
 			}
 			defer l.Close()
 			go ssh.ForwardAgentConnections(l, s)
@@ -103,7 +105,7 @@ func defaultHandler(s ssh.Session) {
 		}
 
 		if tty, err = pty.Start(cmd); err != nil {
-			log.WithError(err).Error("sshd: Failed to start PTY")
+			logger.WithError(err).Error("Failed to start PTY")
 			s.Exit(1)
 			return
 		}
@@ -132,7 +134,7 @@ func defaultHandler(s ssh.Session) {
 			io.Copy(s, stderr)    // forward errors
 			cmd.Wait()
 		} else {
-			log.Error("sshd: no command provided")
+			logger.Error("no command provided")
 			io.WriteString(s, "No command provided.\n")
 			s.Exit(1)
 		}

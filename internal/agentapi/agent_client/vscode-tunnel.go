@@ -13,6 +13,8 @@ import (
 )
 
 func fetchVSCode() error {
+	logger := log.WithGroup("vscode")
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get user home directory: %v", err)
@@ -20,7 +22,7 @@ func fetchVSCode() error {
 
 	// Test if code is already installed
 	if _, err := os.Stat(filepath.Join(home, ".local", "bin", "code")); !os.IsNotExist(err) {
-		log.Info("vscode: Visual Studio Code is already installed")
+		logger.Info("Visual Studio Code is already installed")
 		return nil
 	}
 
@@ -42,7 +44,7 @@ func fetchVSCode() error {
 		return fmt.Errorf("unsupported architecture: '%s'", runtime.GOARCH)
 	}
 
-	log.Info("vscode: downloading Visual Studio Code..")
+	logger.Info("downloading Visual Studio Code..")
 	err = util.DownloadUnpackTgz(
 		"https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-"+arch,
 		filepath.Join(home, ".local", "bin"),
@@ -51,31 +53,33 @@ func fetchVSCode() error {
 		return fmt.Errorf("failed to download vscode: %v", err)
 	}
 
-	log.Info("vscode: Visual Studio Code installed")
+	logger.Info("Visual Studio Code installed")
 
 	return nil
 }
 
 func startVSCodeTunnel(name string) {
+	logger := log.WithGroup("vscode")
+
 	if name == "" {
 		return
 	}
 
 	if err := fetchVSCode(); err != nil {
-		log.WithError(err).Error("vscode:")
+		logger.WithError(err).Error("error fetching vscode")
 		return
 	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.WithError(err).Error("vscode: failed to get user home directory")
+		logger.WithError(err).Error("failed to get user home directory")
 		return
 	}
 
 	codeBin := filepath.Join(home, ".local", "bin", "code")
 
 	// Start code-server
-	log.Info("vscode: starting...")
+	logger.Info("starting...")
 	cmd := exec.Command(
 		"screen",
 		"-dmS",
@@ -89,14 +93,14 @@ func startVSCodeTunnel(name string) {
 	util.RedirectToSyslog(cmd)
 
 	if err := cmd.Start(); err != nil {
-		log.WithError(err).Error("vscode: error starting:")
+		logger.WithError(err).Error("error starting:")
 		return
 	}
 
 	// Run code-server in the background
 	go func() {
 		if err := cmd.Wait(); err != nil {
-			log.WithError(err).Error("vscode: exited with error:")
+			logger.WithError(err).Error("exited with error:")
 		}
 	}()
 }

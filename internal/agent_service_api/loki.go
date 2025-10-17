@@ -28,7 +28,7 @@ func handleLoki(w http.ResponseWriter, r *http.Request) {
 	// Decode the loki push request
 	var lokiPushRequest lokiPushRequest
 	if err := rest.DecodeRequestBody(w, r, &lokiPushRequest); err != nil {
-		log.WithError(err).Error("service_api: failed to decode loki push request:")
+		log.WithError(err).Error("failed to decode loki push request:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid loki push request"})
 		return
 	}

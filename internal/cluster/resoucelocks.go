@@ -7,8 +7,6 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
-
-	"github.com/paularlott/knot/internal/log"
 )
 
 const (
@@ -38,18 +36,18 @@ type ResourceLock struct {
 }
 
 func (c *Cluster) handleResourceLockFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
-	log.Debug("cluster: Received resource lock full sync request")
+	c.logger.Debug("Received resource lock full sync request")
 
 	// If the sender doesn't match our zone then ignore the request
 	cfg := config.GetServerConfig()
 	if sender.Metadata.GetString("zone") != cfg.Zone {
-		log.Debug("cluster: Ignoring resource lock full sync request from a different zone")
+		c.logger.Debug("Ignoring resource lock full sync request from a different zone")
 		return []*ResourceLock{}, nil
 	}
 
 	resourceLocks := []*ResourceLock{}
 	if err := packet.Unmarshal(&resourceLocks); err != nil {
-		log.WithError(err).Error("cluster: Failed to unmarshal resource lock full sync request")
+		c.logger.WithError(err).Error("Failed to unmarshal resource lock full sync request")
 		return nil, err
 	}
 
@@ -69,24 +67,24 @@ func (c *Cluster) handleResourceLockFullSync(sender *gossip.Node, packet *gossip
 }
 
 func (c *Cluster) handleResourceLockGossip(sender *gossip.Node, packet *gossip.Packet) error {
-	log.Debug("cluster: Received resource lock gossip request")
+	c.logger.Debug("Received resource lock gossip request")
 
 	// If the sender doesn't match our zone then ignore the request
 	cfg := config.GetServerConfig()
 	if sender.Metadata.GetString("zone") != cfg.Zone {
-		log.Debug("cluster: Ignoring resource lock gossip request from a different zone")
+		c.logger.Debug("Ignoring resource lock gossip request from a different zone")
 		return nil
 	}
 
 	resourceLocks := []*ResourceLock{}
 	if err := packet.Unmarshal(&resourceLocks); err != nil {
-		log.WithError(err).Error("cluster: Failed to unmarshal resource lock gossip request")
+		c.logger.WithError(err).Error("Failed to unmarshal resource lock gossip request")
 		return err
 	}
 
 	// Merge the resource locks with the local resource locks
 	if err := c.mergeResourceLocks(resourceLocks); err != nil {
-		log.WithError(err).Error("cluster: Failed to merge resource locks")
+		c.logger.WithError(err).Error("Failed to merge resource locks")
 		return err
 	}
 
@@ -106,7 +104,7 @@ func (c *Cluster) DoResourceLockFullSync(node *gossip.Node) error {
 		// If the node doesn't match our zone then ignore the request
 		cfg := config.GetServerConfig()
 		if node.Metadata.GetString("zone") != cfg.Zone {
-			log.Debug("cluster: Ignoring resource lock full sync with node from a different zone")
+			c.logger.Debug("Ignoring resource lock full sync with node from a different zone")
 			return nil
 		}
 
@@ -125,7 +123,7 @@ func (c *Cluster) DoResourceLockFullSync(node *gossip.Node) error {
 
 		// Merge the resource locks with the local resource locks
 		if err := c.mergeResourceLocks(resourceLocks); err != nil {
-			log.WithError(err).Error("cluster: Failed to merge resource locks")
+			c.logger.WithError(err).Error("Failed to merge resource locks")
 			return err
 		}
 	}
@@ -135,7 +133,7 @@ func (c *Cluster) DoResourceLockFullSync(node *gossip.Node) error {
 
 // Merges the resource locks from a cluster member with the local resource locks
 func (c *Cluster) mergeResourceLocks(resourceLocks []*ResourceLock) error {
-	log.Debug("cluster: Merging resource locks", "number_resource_locks", len(resourceLocks))
+	c.logger.Debug("Merging resource locks", "number_resource_locks", len(resourceLocks))
 
 	c.resourceLocksMux.Lock()
 	defer c.resourceLocksMux.Unlock()

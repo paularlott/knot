@@ -18,6 +18,7 @@ import (
 )
 
 func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
+	logger := log.WithGroup("agent")
 	user := r.Context().Value("user").(*model.User)
 
 	// Check if the user has permission to view logs
@@ -48,7 +49,7 @@ func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := newTemplate("log.tmpl")
 	if err != nil {
-		log.Error(err.Error())
+		logger.Error(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -69,11 +70,12 @@ func HandleLogsPage(w http.ResponseWriter, r *http.Request) {
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		log.Error(err.Error())
+		logger.Error(err.Error())
 	}
 }
 
 func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
+	logger := log.WithGroup("agent")
 	user := r.Context().Value("user").(*model.User)
 
 	// Check if the user has permission to view logs
@@ -132,7 +134,7 @@ func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 		for {
 			_, _, err := ws.ReadMessage()
 			if err != nil {
-				log.WithError(err).Debug("websocket closed:")
+				logger.WithError(err).Debug("websocket closed")
 				agentSession.UnregisterLogListener(listenerId)
 				return
 			}
@@ -143,7 +145,7 @@ func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 	agentSession.LogHistoryMutex.RLock()
 	for _, logMessage := range agentSession.LogHistory {
 		if err := writeLogMessage(ws, logMessage, location); err != nil {
-			log.WithError(err).Error("agent: error writing message:")
+			logger.WithError(err).Error("error writing message")
 			agentSession.LogHistoryMutex.RUnlock()
 			return
 		}
@@ -163,7 +165,7 @@ func HandleLogsStream(w http.ResponseWriter, r *http.Request) {
 
 		// Write the log message to the websocket
 		if err := writeLogMessage(ws, logMessage, location); err != nil {
-			log.WithError(err).Error("agent: error writing message:")
+			logger.WithError(err).Error("error writing message")
 			return
 		}
 	}

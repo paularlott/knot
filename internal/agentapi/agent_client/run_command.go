@@ -14,7 +14,7 @@ import (
 )
 
 func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
-	log.Debug("agent: executing run command", "command", runCmd.Command, "args", runCmd.Args)
+	log.Debug("executing run command", "command", runCmd.Command, "args", runCmd.Args)
 
 	if runCmd.Command == "" && len(runCmd.Args) == 0 {
 		response := msg.RunCommandResponse{Success: false, Error: "Empty command"}
@@ -31,7 +31,7 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 	parts = append(parts, runCmd.Args...)
 	shellCmd := strings.Join(parts, " ")
 
-	log.Debug("agent: constructed shell command", "final_shell_command", shellCmd)
+	log.Debug("constructed shell command", "final_shell_command", shellCmd)
 
 	timeout := time.Duration(runCmd.Timeout) * time.Second
 	if timeout <= 0 {
@@ -48,7 +48,7 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 		return
 	}
 
-	log.Debug("agent: using shell", "selected_shell", selectedShell)
+	log.Debug("using shell", "selected_shell", selectedShell)
 
 	// Use -c flag only (no login shell to avoid profile loading issues)
 	cmd := exec.CommandContext(ctx, selectedShell, "-c", shellCmd)
@@ -56,13 +56,13 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 		cmd.Dir = runCmd.Workdir
 	}
 
-	log.Debug("agent: executing shell command", "shell", selectedShell, "shell_command", shellCmd, "workdir", runCmd.Workdir)
+	log.Debug("executing shell command", "shell", selectedShell, "shell_command", shellCmd, "workdir", runCmd.Workdir)
 
 	output, err := cmd.CombinedOutput()
 
-	log.Debug("agent: raw command output", "raw_output_bytes", len(output), "raw_output", string(output))
+	log.Debug("raw command output", "raw_output_bytes", len(output), "raw_output", string(output))
 	if err != nil {
-		log.WithError(err).Error("agent: command execution error")
+		log.WithError(err).Error("command execution error")
 	}
 
 	response := msg.RunCommandResponse{Output: output}
@@ -78,12 +78,12 @@ func handleRunCommandExecution(stream net.Conn, runCmd msg.RunCommandMessage) {
 		response.Success = true
 	}
 
-	log.Debug("agent: run command execution completed", "shell", selectedShell, "command", shellCmd, "output_bytes", len(response.Output), "success", response.Success, "error", response.Error)
+	log.Debug("run command execution completed", "shell", selectedShell, "command", shellCmd, "output_bytes", len(response.Output), "success", response.Success, "error", response.Error)
 
 	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("agent: failed to send run command response")
+		log.WithError(err).Error("failed to send run command response")
 		return
 	}
 
-	log.Debug("agent: response sent successfully")
+	log.Debug("response sent successfully")
 }

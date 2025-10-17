@@ -8,12 +8,11 @@ import (
 
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
-	"github.com/paularlott/knot/internal/log"
 	"gopkg.in/yaml.v3"
 )
 
 func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
-	log.Debug(c.DriverName + ": creating volume")
+	c.Logger.Debug("creating volume")
 
 	// Parse the volume definition to fill out the knot variables
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
@@ -38,7 +37,7 @@ func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]inte
 	}
 
 	for volName, _ := range volInfo.Volumes {
-		log.Debug(c.DriverName+": creating volume: %s", volName)
+		c.Logger.Debug("creating volume:", "volname", volName)
 
 		_, err := cli.VolumeCreate(context.Background(), volume.CreateOptions{Name: volName})
 		if err != nil {
@@ -46,13 +45,13 @@ func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]inte
 		}
 	}
 
-	log.Debug(c.DriverName + ": volume created")
+	c.Logger.Debug("volume created")
 
 	return nil
 }
 
 func (c *DockerClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
-	log.Debug(c.DriverName + ": deleting volume")
+	c.Logger.Debug("deleting volume")
 
 	// Parse the volume definition to fill out the knot variables
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
@@ -72,7 +71,7 @@ func (c *DockerClient) DeleteVolume(vol *model.Volume, variables map[string]inte
 	}
 
 	for volName, _ := range volInfo.Volumes {
-		log.Debug(c.DriverName+": deleting volume: %s", volName)
+		c.Logger.Debug("deleting volume:", "volname", volName)
 
 		err := cli.VolumeRemove(context.Background(), volName, true)
 		if err != nil {
@@ -80,7 +79,7 @@ func (c *DockerClient) DeleteVolume(vol *model.Volume, variables map[string]inte
 		}
 	}
 
-	log.Debug(c.DriverName + ": volume deleted")
+	c.Logger.Debug("volume deleted")
 
 	return nil
 }

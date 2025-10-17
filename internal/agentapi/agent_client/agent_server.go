@@ -59,7 +59,7 @@ func (s *agentServer) ConnectAndServe() {
 
 			// Check if the max connection attempts have been reached
 			if s.connectionAttempts >= maxConnectionAttempts {
-				log.Error("agent: maximum connection attempts reached for server , giving up", "server", s.address)
+				log.Error("maximum connection attempts reached for server , giving up", "server", s.address)
 
 				// Remove the server from the list of servers
 				s.agentClient.serverListMutex.Lock()
@@ -67,7 +67,7 @@ func (s *agentServer) ConnectAndServe() {
 
 				// If there's no more servers in the list then inject the default server
 				if len(s.agentClient.serverList) == 0 {
-					log.Info("agent: no more servers available, restarting with server", "server", s.agentClient.defaultServerAddress)
+					log.Info("no more servers available, restarting with server", "server", s.agentClient.defaultServerAddress)
 
 					connection := NewAgentServer(s.agentClient.defaultServerAddress, s.spaceId, s.agentClient)
 					s.agentClient.serverList[s.agentClient.defaultServerAddress] = connection
@@ -83,7 +83,7 @@ func (s *agentServer) ConnectAndServe() {
 			if strings.HasPrefix(s.address, "srv+") {
 				hostIPs, err := dns.LookupSRV(s.address[4:])
 				if err != nil || len(hostIPs) == 0 {
-					log.WithError(err).Error("agent: resolving SRV record:")
+					log.WithError(err).Error("resolving SRV record:")
 					time.Sleep(connectRetryDelay)
 					s.connectionAttempts++
 					continue
@@ -91,7 +91,7 @@ func (s *agentServer) ConnectAndServe() {
 
 				serverAddr = hostIPs[0].String()
 			}
-			log.Info("agent: connecting to server:", "serverAddr", serverAddr)
+			log.Info("connecting to server:", "serverAddr", serverAddr)
 
 			var err error
 
@@ -114,7 +114,7 @@ func (s *agentServer) ConnectAndServe() {
 				s.conn, err = dialer.Dial("tcp", serverAddr)
 			}
 			if err != nil {
-				log.WithError(err).Error("agent: connecting to server:")
+				log.WithError(err).Error("connecting to server:")
 				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
 				continue
@@ -126,7 +126,7 @@ func (s *agentServer) ConnectAndServe() {
 				Version: build.Version,
 			})
 			if err != nil {
-				log.WithError(err).Error("agent: sending register message:")
+				log.WithError(err).Error("sending register message:")
 				s.conn.Close()
 				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
@@ -137,7 +137,7 @@ func (s *agentServer) ConnectAndServe() {
 			var response msg.RegisterResponse
 			err = msg.ReadMessage(s.conn, &response)
 			if err != nil {
-				log.WithError(err).Error("agent: decoding register response:")
+				log.WithError(err).Error("decoding register response:")
 				s.conn.Close()
 				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
@@ -146,21 +146,21 @@ func (s *agentServer) ConnectAndServe() {
 
 			// If get a freeze then spin here as server going to reboot
 			if response.Freeze {
-				log.Info("agent: server is going to reboot, waiting for it to start...")
+				log.Info("server is going to reboot, waiting for it to start...")
 				time.Sleep(40 * time.Second)
 				continue
 			}
 
 			// If registration rejected, log and exit
 			if !response.Success {
-				log.Error("agent: registration rejected")
+				log.Error("registration rejected")
 				s.conn.Close()
 				time.Sleep(connectRetryDelay)
 				s.connectionAttempts++
 				continue
 			}
 
-			log.Info("agent: registered with server", "server", serverAddr, "version", response.Version)
+			log.Info("registered with server", "server", serverAddr, "version", response.Version)
 
 			// If 1st registration then start the ssh server if required
 			s.agentClient.firstRegistrationMutex.Lock()
@@ -185,7 +185,7 @@ func (s *agentServer) ConnectAndServe() {
 						sshd.ListenAndServe(s.agentClient.sshPort, response.SSHHostSigner)
 						s.agentClient.usingInternalSSH = true
 					} else {
-						log.Info("agent: using external ssh server on port", "port", s.agentClient.sshPort)
+						log.Info("using external ssh server on port", "port", s.agentClient.sshPort)
 						conn.Close()
 					}
 				}
@@ -209,12 +209,12 @@ func (s *agentServer) ConnectAndServe() {
 			// Update the authorized keys file & shell
 			if s.agentClient.usingInternalSSH {
 				if err := sshd.UpdateAuthorizedKeys(response.SSHKeys, response.GitHubUsernames); err != nil {
-					log.WithError(err).Error("agent: updating internal SSH server keys:")
+					log.WithError(err).Error("updating internal SSH server keys:")
 				}
 				sshd.SetShell(response.Shell)
 			} else if cfg.UpdateAuthorizedKeys && s.agentClient.withSSH {
 				if err := util.UpdateAuthorizedKeys(response.SSHKeys, response.GitHubUsernames); err != nil {
-					log.WithError(err).Error("agent: updating authorized keys:")
+					log.WithError(err).Error("updating authorized keys:")
 				}
 			}
 
@@ -231,7 +231,7 @@ func (s *agentServer) ConnectAndServe() {
 				//Logger:                 logger.NewMuxLogger(),
 			})
 			if err != nil {
-				log.WithError(err).Error("agent: creating mux session:")
+				log.WithError(err).Error("creating mux session:")
 				s.conn.Close()
 				s.conn = nil
 				time.Sleep(connectRetryDelay)
@@ -245,7 +245,7 @@ func (s *agentServer) ConnectAndServe() {
 			for {
 				select {
 				case <-s.ctx.Done():
-					log.Info("agent: context cancelled, shutting down connection to server:", "server", s.address)
+					log.Info("context cancelled, shutting down connection to server:", "server", s.address)
 					if s.reportingConn != nil {
 						s.reportingConn.Close()
 						s.reportingConn = nil
@@ -263,7 +263,7 @@ func (s *agentServer) ConnectAndServe() {
 					// Accept a new connection
 					stream, err := s.muxSession.Accept()
 					if err != nil {
-						log.WithError(err).Error("agent: accepting connection:")
+						log.WithError(err).Error("accepting connection:")
 
 						// In the case of errors, destroy the session and start over
 						if s.reportingConn != nil {
@@ -331,7 +331,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 	// Read the command
 	cmd, err := msg.ReadCommand(stream)
 	if err != nil {
-		log.WithError(err).Error("agent: reading command:")
+		log.WithError(err).Error("reading command:")
 		return
 	}
 
@@ -341,13 +341,13 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			Payload: "pong",
 		})
 		if err != nil {
-			log.WithError(err).Error("agent: sending pong:")
+			log.WithError(err).Error("sending pong:")
 		}
 
 	case byte(msg.CmdUpdateAuthorizedKeys):
 		var updateAuthorizedKeys msg.UpdateAuthorizedKeys
 		if err := msg.ReadMessage(stream, &updateAuthorizedKeys); err != nil {
-			log.WithError(err).Error("agent: reading update authorized keys message:")
+			log.WithError(err).Error("reading update authorized keys message:")
 			return
 		}
 
@@ -359,11 +359,11 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 
 			if s.agentClient.usingInternalSSH {
 				if err := sshd.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
-					log.WithError(err).Error("agent: updating internal SSH server keys:")
+					log.WithError(err).Error("updating internal SSH server keys:")
 				}
 			} else if cfg.UpdateAuthorizedKeys && s.agentClient.withSSH {
 				if err := util.UpdateAuthorizedKeys(updateAuthorizedKeys.SSHKeys, updateAuthorizedKeys.GitHubUsernames); err != nil {
-					log.WithError(err).Error("agent: updating authorized keys:")
+					log.WithError(err).Error("updating authorized keys:")
 				}
 			}
 		}
@@ -372,7 +372,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 	case byte(msg.CmdUpdateShell):
 		var updateShell msg.UpdateShell
 		if err := msg.ReadMessage(stream, &updateShell); err != nil {
-			log.WithError(err).Error("agent: reading update shell message:")
+			log.WithError(err).Error("reading update shell message:")
 			return
 		}
 
@@ -383,7 +383,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 	case byte(msg.CmdTerminal):
 		var terminal msg.Terminal
 		if err := msg.ReadMessage(stream, &terminal); err != nil {
-			log.WithError(err).Error("agent: reading terminal message:")
+			log.WithError(err).Error("reading terminal message:")
 			return
 		}
 
@@ -404,7 +404,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 	case byte(msg.CmdProxyTCPPort):
 		var tcpPort msg.TcpPort
 		if err := msg.ReadMessage(stream, &tcpPort); err != nil {
-			log.WithError(err).Error("agent: reading tcp port message:")
+			log.WithError(err).Error("reading tcp port message:")
 			return
 		}
 
@@ -412,7 +412,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		   		_, okTcp := tcpPortMap[fmt.Sprintf("%d", tcpPort.Port)]
 		   		_, okHttp := httpPortMap[fmt.Sprintf("%d", tcpPort.Port)]
 		   		if !okTcp && !okHttp {
-		   			log.Error("agent: tcp port  is not allowed", "port", tcpPort.Port)
+		   			log.Error("tcp port  is not allowed", "port", tcpPort.Port)
 		   			return
 		   		} */
 
@@ -426,7 +426,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 	case byte(msg.CmdProxyHTTP):
 		var httpPort msg.HttpPort
 		if err := msg.ReadMessage(stream, &httpPort); err != nil {
-			log.WithError(err).Error("agent: reading tcp port message:")
+			log.WithError(err).Error("reading tcp port message:")
 			return
 		}
 
@@ -436,13 +436,13 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		} else if _, ok := s.agentClient.httpsPortMap[fmt.Sprintf("%d", httpPort.Port)]; ok {
 			ProxyTcpTls(stream, fmt.Sprintf("%d", httpPort.Port), httpPort.ServerName, true)
 		} else {
-			log.Error("agent: http port  is not allowed", "port", httpPort.Port)
+			log.Error("http port  is not allowed", "port", httpPort.Port)
 		}
 
 	case byte(msg.CmdTunnelPort):
 		var reversePort msg.TcpPort
 		if err := msg.ReadMessage(stream, &reversePort); err != nil {
-			log.WithError(err).Error("agent: reading reverse port message:")
+			log.WithError(err).Error("reading reverse port message:")
 			return
 		}
 
@@ -451,7 +451,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 	case byte(msg.CmdRunCommand):
 		var runCmd msg.RunCommandMessage
 		if err := msg.ReadMessage(stream, &runCmd); err != nil {
-			log.WithError(err).Error("agent: reading run command message:")
+			log.WithError(err).Error("reading run command message:")
 			return
 		}
 
@@ -462,7 +462,7 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 	case byte(msg.CmdCopyFile):
 		var copyCmd msg.CopyFileMessage
 		if err := msg.ReadMessage(stream, &copyCmd); err != nil {
-			log.WithError(err).Error("agent: reading copy file message:")
+			log.WithError(err).Error("reading copy file message:")
 			return
 		}
 
@@ -471,6 +471,6 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		}
 
 	default:
-		log.Error("agent: unknown command:", "cmd", cmd)
+		log.Error("unknown command:", "cmd", cmd)
 	}
 }

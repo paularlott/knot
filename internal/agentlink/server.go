@@ -24,17 +24,17 @@ var (
 func StartCommandSocket(agentClientObj *agent_client.AgentClient) {
 	agentClient = agentClientObj
 
-	log.Info("agent: Starting command socket")
+	log.Info("Starting command socket")
 
 	// Create the folder for the socket in the user's home directory
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatal("agent: Failed to get home directory", "error", err)
+		log.Fatal("Failed to get home directory", "error", err)
 	}
 
 	err = os.MkdirAll(home+"/"+commandSocketPath, os.ModePerm)
 	if err != nil {
-		log.Fatal("agent: Failed to create socket directory", "error", err)
+		log.Fatal("Failed to create socket directory", "error", err)
 	}
 
 	cancelContext, cancelFunc = context.WithCancel(context.Background())
@@ -44,19 +44,19 @@ func StartCommandSocket(agentClientObj *agent_client.AgentClient) {
 		os.Remove(socketPath) // Remove any existing socket
 		listener, err := net.Listen("unix", socketPath)
 		if err != nil {
-			log.Fatal("agent: Failed to listen on socket", "error", err)
+			log.Fatal("Failed to listen on socket", "error", err)
 		}
 		os.Chmod(socketPath, 0700)
 		defer func() {
 			listener.Close()
 			os.Remove(socketPath)
-			log.Info("agent: Command socket listener stopped")
+			log.Info("Command socket listener stopped")
 		}()
 
 		for {
 			select {
 			case <-cancelContext.Done():
-				log.Info("agent: Command socket listener stopped by context")
+				log.Info("Command socket listener stopped by context")
 				return
 			default:
 				conn, err := listener.Accept()
@@ -83,7 +83,7 @@ func handleCommandConnection(conn net.Conn) {
 
 	msg, err := receiveMsg(conn)
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to receive message")
+		log.WithError(err).Error("Failed to receive message")
 		return
 	}
 

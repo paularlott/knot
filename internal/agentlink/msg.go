@@ -39,20 +39,20 @@ func sendMsg(conn net.Conn, commandType CommandType, payload interface{}) error 
 
 	msg.Payload, err = msgpack.Marshal(payload)
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to marshal message")
+		log.WithError(err).Error("Failed to marshal message")
 		return err
 	}
 
 	// Encode the message
 	data, err := msgpack.Marshal(msg)
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to marshal message")
+		log.WithError(err).Error("Failed to marshal message")
 		return err
 	}
 
 	deadline := time.Now().Add(3 * time.Second)
 	if err := conn.SetWriteDeadline(deadline); err != nil {
-		log.WithError(err).Error("agent: Failed to set write deadline")
+		log.WithError(err).Error("Failed to set write deadline")
 		return err
 	}
 
@@ -62,13 +62,13 @@ func sendMsg(conn net.Conn, commandType CommandType, payload interface{}) error 
 
 	_, err = conn.Write(lenBuf)
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to write message length to socket")
+		log.WithError(err).Error("Failed to write message length to socket")
 		return err
 	}
 
 	_, err = conn.Write(data)
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to write message to socket")
+		log.WithError(err).Error("Failed to write message to socket")
 		return err
 	}
 
@@ -80,14 +80,14 @@ func receiveMsg(conn net.Conn) (*CommandMsg, error) {
 
 	deadline := time.Now().Add(3 * time.Second)
 	if err := conn.SetReadDeadline(deadline); err != nil {
-		log.WithError(err).Error("agent: Failed to set read deadline")
+		log.WithError(err).Error("Failed to set read deadline")
 		return nil, err
 	}
 
 	// Read response length
 	_, err := io.ReadFull(conn, lenBuf)
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to read response length")
+		log.WithError(err).Error("Failed to read response length")
 		return nil, err
 	}
 
@@ -98,14 +98,14 @@ func receiveMsg(conn net.Conn) (*CommandMsg, error) {
 	buffer := make([]byte, msgLen)
 	_, err = io.ReadFull(conn, buffer)
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to read response")
+		log.WithError(err).Error("Failed to read response")
 		return nil, err
 	}
 
 	var msg CommandMsg
 	err = msgpack.Unmarshal(buffer, &msg)
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to unmarshal message")
+		log.WithError(err).Error("Failed to unmarshal message")
 		return nil, err
 	}
 
@@ -115,7 +115,7 @@ func receiveMsg(conn net.Conn) (*CommandMsg, error) {
 func SendWithResponseMsg(commandType CommandType, payload interface{}, response interface{}) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatal("agent: Failed to get home directory", "error", err)
+		log.Fatal("Failed to get home directory", "error", err)
 	}
 
 	// Check socket path exists

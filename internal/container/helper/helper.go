@@ -261,13 +261,14 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 
 func (h *Helper) DeleteSpace(space *model.Space) {
 	go func() {
-		log.Info("DeleteSpace: deleting", "space_id", space.Id)
+		logger := log.WithGroup("server")
+		logger.Info("deleting space", "space_id", space.Id)
 
 		db := database.GetInstance()
 
 		template, err := db.GetTemplate(space.TemplateId)
 		if err != nil {
-			log.WithError(err).Error("DeleteSpace: load template")
+			logger.WithError(err).Error("load template")
 
 			space.IsDeleting = false
 			space.UpdatedAt = hlc.Now()
@@ -280,7 +281,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 		if !template.IsManual() {
 			containerClient, err := h.createClient(template.Platform)
 			if err != nil {
-				log.WithError(err).Error("DeleteSpace: failed to create container client")
+				logger.WithError(err).Error("failed to create container client")
 
 				space.IsDeleting = false
 				space.UpdatedAt = hlc.Now()
@@ -293,7 +294,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			if space.IsDeployed {
 				err = containerClient.DeleteSpaceJob(space, nil)
 				if err != nil {
-					log.WithError(err).Error("DeleteSpace: delete space job")
+					logger.WithError(err).Error("delete space job")
 					space.IsDeleting = false
 					space.UpdatedAt = hlc.Now()
 					db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
@@ -305,7 +306,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			// Delete volumes on failure we log the error and revert the space to not deleting
 			err = containerClient.DeleteSpaceVolumes(space)
 			if err != nil {
-				log.WithError(err).Error("DeleteSpace")
+				logger.WithError(err).Error("delete space volumes")
 
 				space.IsDeleting = false
 				space.UpdatedAt = hlc.Now()
@@ -321,7 +322,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 		space.UpdatedAt = hlc.Now()
 		err = db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt", "Name"})
 		if err != nil {
-			log.WithError(err).Error("DeleteSpace")
+			logger.WithError(err).Error("delete space")
 			return
 		}
 
@@ -330,19 +331,20 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 		// Delete the agent state if present
 		agent_server.RemoveSession(space.Id)
 
-		log.Info("DeleteSpace: deleted", "space_id", space.Id)
+		logger.Info("deleted space", "space_id", space.Id)
 	}()
 }
 
 // Clean up spaces in broken states during boot
 func (h *Helper) CleanupOnBoot() {
-	log.Info("server: cleaning spaces...")
+	logger := log.WithGroup("server")
+	logger.Info("cleaning spaces...")
 
 	db := database.GetInstance()
 	cfg := config.GetServerConfig()
 	spaces, err := db.GetSpaces()
 	if err != nil {
-		log.WithError(err).Fatal("server: failed to get spaces:")
+		logger.WithError(err).Fatal("failed to get spaces")
 	} else {
 		for _, space := range spaces {
 			// If space is deleted or not in this zone then ignore it
@@ -352,16 +354,16 @@ func (h *Helper) CleanupOnBoot() {
 
 			// If the space is deleting then ask it to delete again
 			if space.IsDeleting {
-				log.Info("server: found space  pending delete, restarting delete...", "space_name", space.Name)
+				logger.Info("found space  pending delete, restarting delete...", "space_name", space.Name)
 				h.DeleteSpace(space)
 			} else if space.IsPending {
 				// If starting then ask for start
 				if !space.IsDeployed {
-					log.Info("server: found space  pending start, starting...", "space_name", space.Name)
+					logger.Info("found space  pending start, starting...", "space_name", space.Name)
 
 					user, err := db.GetUser(space.UserId)
 					if err != nil {
-						log.WithError(err).Error("server: failed to get user from space, stopping the space...")
+						logger.WithError(err).Error("failed to get user from space, stopping the space...")
 						space.IsDeployed = true
 						h.StopSpace(space)
 						continue
@@ -369,7 +371,7 @@ func (h *Helper) CleanupOnBoot() {
 
 					template, err := db.GetTemplate(space.TemplateId)
 					if err != nil {
-						log.WithError(err).Error("server: failed to get template from space, stopping the space...")
+						logger.WithError(err).Error("failed to get template from space, stopping the space...")
 						space.IsDeployed = true
 						h.StopSpace(space)
 						continue
@@ -377,12 +379,12 @@ func (h *Helper) CleanupOnBoot() {
 
 					h.StartSpace(space, template, user)
 				} else {
-					log.Info("server: found space  pending stop, stopping...", "space_name", space.Name)
+					logger.Info("found space  pending stop, stopping...", "space_name", space.Name)
 					h.StopSpace(space)
 				}
 			}
 		}
 	}
 
-	log.Info("server: finished cleaning spaces...")
+	logger.Info("finished cleaning spaces...")
 }

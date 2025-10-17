@@ -22,7 +22,7 @@ func handleLogMessage(w http.ResponseWriter, r *http.Request) {
 	// Decode the log message
 	var logMessage LogMessage
 	if err := rest.DecodeRequestBody(w, r, &logMessage); err != nil {
-		log.WithError(err).Error("service_api: failed to decode log message:")
+		log.WithError(err).Error("failed to decode log message:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log message"})
 		return
 	}
@@ -40,7 +40,7 @@ func handleLogMessage(w http.ResponseWriter, r *http.Request) {
 		level = msg.LogLevelError
 
 	default:
-		log.Error("service_api: invalid log level:", "service_api", logMessage.Level)
+		log.Error("invalid log level:", "service_api", logMessage.Level)
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log level"})
 		return
 	}

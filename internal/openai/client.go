@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/util/rest"
 
-	"github.com/paularlott/mcp"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/mcp"
 )
 
 const MAX_TOOL_CALL_ITERATIONS = 20
@@ -42,6 +42,11 @@ type ToolFilter func(toolName string) bool
 func New(config Config, mcpServer MCPServer) (*Client, error) {
 	if config.BaseURL == "" {
 		config.BaseURL = "https://api.openai.com/v1/"
+	}
+
+	// Ensure BaseURL has a trailing slash for proper URL resolution
+	if !strings.HasSuffix(config.BaseURL, "/") {
+		config.BaseURL = config.BaseURL + "/"
 	}
 
 	if config.Timeout == 0 {
@@ -157,6 +162,8 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest) 
 // StreamChatCompletion performs a streaming chat completion with automatic tool processing
 // Returns a channel of pure OpenAI ChatCompletionResponse chunks
 func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionRequest) *ChatStream {
+	logger := log.WithGroup("openai")
+
 	responseChan := make(chan ChatCompletionResponse, 50)
 	errorChan := make(chan error, 1)
 
@@ -192,7 +199,7 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 			// Stream single completion
 			finalResponse, err := c.streamSingleCompletion(ctx, req, responseChan)
 			if err != nil {
-				log.Error("Stream single completion failed", "error", err, "iteration", iteration)
+				logger.Error("stream single completion failed", "error", err, "iteration", iteration)
 				errorChan <- err
 				return
 			}
@@ -210,7 +217,7 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 			if toolHandler != nil {
 				for _, toolCall := range toolCalls {
 					if err := toolHandler.OnToolCall(toolCall); err != nil {
-						log.Error("Tool handler OnToolCall failed", "error", err, "tool_name", toolCall.Function.Name)
+						logger.Error("tool handler OnToolCall failed", "error", err, "tool_name", toolCall.Function.Name)
 						errorChan <- fmt.Errorf("tool handler error: %w", err)
 						return
 					}
@@ -231,14 +238,14 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 
 				result, err := c.executeToolCall(ctx, toolCall)
 				if err != nil {
-					log.Error("Tool execution failed", "error", err, "tool_name", toolCall.Function.Name)
+					logger.Error("tool execution failed", "error", err, "tool_name", toolCall.Function.Name)
 					result = fmt.Sprintf("Error: %s", err.Error())
 				}
 
 				// Notify handler of tool result
 				if toolHandler != nil {
 					if err := toolHandler.OnToolResult(toolCall.ID, toolCall.Function.Name, result); err != nil {
-						log.Error("Tool handler OnToolResult failed", "error", err, "tool_name", toolCall.Function.Name)
+						logger.Error("tool handler OnToolResult failed", "error", err, "tool_name", toolCall.Function.Name)
 						errorChan <- fmt.Errorf("tool handler error: %w", err)
 						return
 					}

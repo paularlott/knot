@@ -156,6 +156,7 @@ var AgentCmd = &cli.Command{
 		space.SpaceRestartCmd,
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
+		logger := log.WithGroup("agent")
 		cfg := buildAgentConfig(cmd)
 
 		// Check address given and valid URL
@@ -194,7 +195,7 @@ var AgentCmd = &cli.Command{
 		agentlink.StopCommandSocket()
 		agentClient.Shutdown()
 		fmt.Println("\r")
-		log.Info("agent: shutdown")
+		logger.Info("shutdown")
 
 		return nil
 	},

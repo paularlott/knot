@@ -9,6 +9,7 @@ import (
 )
 
 func TunnelAgentPort(agentSessionId string, port uint16, conn net.Conn) {
+	logger := log.WithGroup("tunnel")
 	tunnelName := fmt.Sprintf("--%s:%d", agentSessionId, port)
 
 	// Get the tunnel session
@@ -16,7 +17,7 @@ func TunnelAgentPort(agentSessionId string, port uint16, conn net.Conn) {
 	session, ok := tunnels[tunnelName]
 	tunnelMutex.RUnlock()
 	if !ok || session.tunnelType != PortTunnel {
-		log.Error("tunnel: not found")
+		logger.Error("not found")
 		return
 	}
 

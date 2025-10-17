@@ -6,8 +6,6 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/internal/database/model"
-
-	"github.com/paularlott/knot/internal/log"
 )
 
 type hostVolCreateResponse struct {
@@ -19,7 +17,7 @@ type hostCreateResponse struct {
 }
 
 func (client *NomadClient) CreateHostVolume(volume *model.CSIVolume) (string, error) {
-	log.Debug("nomad: creating host volume", "volume_id", volume.Id)
+	client.logger.Debug("creating host volume", "volume_id", volume.Id)
 
 	// Convert CSI volume to Nomad host volume structure
 	hostVolume := map[string]interface{}{
@@ -71,7 +69,7 @@ func (client *NomadClient) CreateHostVolume(volume *model.CSIVolume) (string, er
 	var response hostCreateResponse
 	_, err := client.httpClient.Put(context.Background(), "/v1/volume/host/create", &vol, &response, http.StatusOK)
 	if err != nil {
-		log.Debug("nomad: creating host volume , error:", "volume_id", volume.Id)
+		client.logger.Debug("creating host volume , error:", "volume_id", volume.Id)
 		return "", err
 	}
 
@@ -79,10 +77,10 @@ func (client *NomadClient) CreateHostVolume(volume *model.CSIVolume) (string, er
 }
 
 func (client *NomadClient) DeleteHostVolume(id string, namespace string) error {
-	log.Debug("nomad: deleting host volume", "id", id)
+	client.logger.Debug("deleting host volume", "id", id)
 	code, err := client.httpClient.Delete(context.Background(), fmt.Sprintf("/v1/volume/host/%s/delete?namespace=%s", id, namespace), nil, nil, http.StatusOK)
 	if err != nil && code != http.StatusNotFound {
-		log.Debug("nomad: deleting csi volume, error:, code:", "id", id, "err", err, "code", code)
+		client.logger.Debug("deleting csi volume, error:, code:", "id", id, "err", err, "code", code)
 		return err
 	}
 

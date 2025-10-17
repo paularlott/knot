@@ -12,10 +12,11 @@ type CreateTokenResponse struct {
 }
 
 func SendRequestToken(conn net.Conn) (string, string, error) {
+	logger := log.WithGroup("agent")
 	// Write the state command
 	err := WriteCommand(conn, CmdCreateToken)
 	if err != nil {
-		log.WithError(err).Error("agent: writing create token command:")
+		logger.WithError(err).Error("writing create token command")
 		return "", "", err
 	}
 
@@ -23,7 +24,7 @@ func SendRequestToken(conn net.Conn) (string, string, error) {
 	var response CreateTokenResponse
 	err = ReadMessage(conn, &response)
 	if err != nil {
-		log.WithError(err).Error("agent: reading create token response:")
+		logger.WithError(err).Error("reading create token response")
 		return "", "", err
 	}
 

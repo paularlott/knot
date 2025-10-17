@@ -30,7 +30,7 @@ func (c *AgentClient) reportState() {
 	// Path to vscode binary
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatal("agent: failed to get user home directory", "error", err)
+		log.Fatal("failed to get user home directory", "error", err)
 	}
 
 	codeBin := filepath.Join(homeDir, ".local", "bin", "code")
@@ -63,7 +63,7 @@ func (c *AgentClient) reportState() {
 			address := fmt.Sprintf("http://127.0.0.1:%d", codeServerPort)
 			client, err := rest.NewClient(address, "", cfg.TLS.SkipVerify)
 			if err != nil {
-				log.WithError(err).Error("agent: failed to create rest client for code-server")
+				log.WithError(err).Error("failed to create rest client for code-server")
 			} else {
 				statusCode, _ := client.Get(context.Background(), "/healthz", nil)
 				if statusCode == http.StatusOK {
@@ -98,7 +98,7 @@ func (c *AgentClient) reportState() {
 			screenCmd := exec.Command("screen", "-ls")
 			output, err := screenCmd.Output()
 			if err != nil {
-				log.WithError(err).Error("agent: failed to list screen sessions")
+				log.WithError(err).Error("failed to list screen sessions")
 			} else if strings.Contains(string(output), vscodeTunnelScreen) {
 				hasVSCodeTunnel = true
 
@@ -106,13 +106,13 @@ func (c *AgentClient) reportState() {
 				tunnelCmd := exec.Command(codeBin, "tunnel", "status")
 				output, err := tunnelCmd.Output()
 				if err != nil {
-					log.WithError(err).Error("agent: failed to get vscode tunnel status")
+					log.WithError(err).Error("failed to get vscode tunnel status")
 				} else {
 					// Unmarshal the JSON response
 					var tunnelStatus map[string]interface{}
 					err := json.Unmarshal(output, &tunnelStatus)
 					if err != nil {
-						log.WithError(err).Error("agent: failed to unmarshal vscode tunnel status")
+						log.WithError(err).Error("failed to unmarshal vscode tunnel status")
 					} else {
 						if tunnel, ok := tunnelStatus["tunnel"].(map[string]interface{}); ok {
 							// If tunnel is connected then get the name
@@ -125,7 +125,7 @@ func (c *AgentClient) reportState() {
 			}
 		}
 
-		log.Trace("agent: state to server",
+		log.Trace("state to server",
 			"SSH Port", sshAlivePort,
 			"Code Server Port", codeServerAlive,
 			"VNC Http Port", vncAliveHttpPort,
@@ -141,18 +141,18 @@ func (c *AgentClient) reportState() {
 		for _, server := range c.serverList {
 			if server.muxSession != nil && !server.muxSession.IsClosed() {
 				if server.reportingConn == nil {
-					log.Debug("agent: opening reporting connection to", "agent", server.address)
+					log.Debug("opening reporting connection to", "agent", server.address)
 
 					server.reportingConn, err = server.muxSession.Open()
 					if err != nil {
-						log.Error("agent: failed to open mux session for server", "server", server.address)
+						log.Error("failed to open mux session for server", "server", server.address)
 						continue
 					}
 				}
 
 				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName)
 				if err != nil {
-					log.Error("agent: failed to send state to server", "server", server.address)
+					log.Error("failed to send state to server", "server", server.address)
 				} else {
 					// Add any new servers to the new servers list
 					for _, reportedServer := range reply.Endpoints {
@@ -169,7 +169,7 @@ func (c *AgentClient) reportState() {
 
 		// If we have new servers, update the server list
 		if len(newServers) > 0 {
-			log.Info("agent: discovered new servers:", "newServers", newServers)
+			log.Info("discovered new servers:", "newServers", newServers)
 			c.serverListMutex.Lock()
 			for _, newServer := range newServers {
 				connection := NewAgentServer(newServer, c.spaceId, c)

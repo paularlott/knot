@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/paularlott/knot/internal/agentapi/logger"
+	agentlogger "github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util"
@@ -17,16 +17,17 @@ import (
 )
 
 func HandleCreatePortTunnel(w http.ResponseWriter, r *http.Request, muxSession *yamux.Session, agentSessionId string, port uint16, space *model.Space, user *model.User) error {
+	logger := log.WithGroup("tunnel")
 	var err error
 
 	tunnelName := fmt.Sprintf("--%s:%d", agentSessionId, port)
 
-	log.Info("tunnel: new tunnel :", "tunnel_name", space.Name)
+	logger.Info("new tunnel :", "tunnel_name", space.Name)
 
 	// Upgrade to a websocket
 	ws := util.UpgradeToWS(w, r)
 	if ws == nil {
-		log.Error("tunnel: error while upgrading to websocket")
+		logger.Error("error while upgrading to websocket")
 		w.WriteHeader(http.StatusInternalServerError)
 		return fmt.Errorf("error while upgrading to websocket")
 	}
@@ -50,10 +51,10 @@ func HandleCreatePortTunnel(w http.ResponseWriter, r *http.Request, muxSession *
 		StreamCloseTimeout:     3 * time.Minute,
 		StreamOpenTimeout:      3 * time.Second,
 		LogOutput:              nil,
-		Logger:                 logger.NewMuxLogger(),
+		Logger:                 agentlogger.NewMuxLogger(),
 	})
 	if err != nil {
-		log.WithError(err).Error("tunnel: creating mux session:")
+		logger.WithError(err).Error("creating mux session:")
 		w.WriteHeader(http.StatusInternalServerError)
 		ws.Close()
 		return err
@@ -65,7 +66,7 @@ func HandleCreatePortTunnel(w http.ResponseWriter, r *http.Request, muxSession *
 	tunnelMutex.Unlock()
 
 	defer func() {
-		log.Debug("tunnel: detected connection closing :", "tunnel_name", space.Name)
+		logger.Debug("detected connection closing :", "tunnel_name", space.Name)
 
 		session.muxSession.Close()
 		session.ws.Close()
@@ -74,7 +75,7 @@ func HandleCreatePortTunnel(w http.ResponseWriter, r *http.Request, muxSession *
 		tunnelMutex.Lock()
 		delete(tunnels, tunnelName)
 		tunnelMutex.Unlock()
-		log.Info("tunnel: closed :", "tunnel_name", space.Name)
+		logger.Info("closed :", "tunnel_name", space.Name)
 	}()
 
 	// Open a new stream to the agent, we hold the stream open to keep the session locked to this server
@@ -108,7 +109,7 @@ func HandleCreatePortTunnel(w http.ResponseWriter, r *http.Request, muxSession *
 		buf := make([]byte, 1)
 		_, err := stream.Read(buf)
 		if err != nil {
-			log.WithError(err).Debug("tunnel: control stream closed:")
+			logger.WithError(err).Debug("control stream closed:")
 			session.muxSession.Close()
 			cancel()
 		}

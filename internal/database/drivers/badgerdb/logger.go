@@ -4,27 +4,32 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/logger"
 )
 
 // Replace the logger built into badger with our own
-type badgerdbLog struct{}
+type badgerdbLog struct {
+	logger logger.Logger
+}
 
 func badgerdbLogger() *badgerdbLog {
-	return &badgerdbLog{}
+	return &badgerdbLog{
+		logger: log.WithGroup("db"),
+	}
 }
 
 func (l *badgerdbLog) Errorf(f string, v ...interface{}) {
-	log.Error(fmt.Sprintf("BadgerDB: "+f, v...))
+	l.logger.Error(fmt.Sprintf(f, v...))
 }
 
 func (l *badgerdbLog) Warningf(f string, v ...interface{}) {
-	log.Warn(fmt.Sprintf("BadgerDB: "+f, v...))
+	l.logger.Warn(fmt.Sprintf(f, v...))
 }
 
 func (l *badgerdbLog) Infof(f string, v ...interface{}) {
-	log.Info(fmt.Sprintf("BadgerDB: "+f, v...))
+	l.logger.Info(fmt.Sprintf(f, v...))
 }
 
 func (l *badgerdbLog) Debugf(f string, v ...interface{}) {
-	log.Debug(fmt.Sprintf("BadgerDB: "+f, v...))
+	l.logger.Debug(fmt.Sprintf(f, v...))
 }

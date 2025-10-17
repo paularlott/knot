@@ -17,14 +17,16 @@ import (
 )
 
 func RunTCPForwarderViaAgent(proxyServerURL, listen, space string, port int, token string, skipTLSVerify bool) {
-	log.Info("tcp: connecting to agent via server at:", "proxyServerURL", proxyServerURL)
+	logger := log.WithGroup("tcp")
+	logger.Info("connecting to agent via server at", "proxyServerURL", proxyServerURL)
 	forwardTCP(fmt.Sprintf("%s/proxy/spaces/%s/port/%d", proxyServerURL, space, port), token, listen, skipTLSVerify)
 }
 
 func forwardTCP(dialURL, token, listen string, skipTLSVerify bool) {
+	logger := log.WithGroup("tcp")
 	tcpConnection, err := net.Listen("tcp", listen)
 	if err != nil {
-		log.WithError(err).Fatal("tcp: error while opening local port:")
+		logger.WithError(err).Fatal("error while opening local port")
 	}
 	defer tcpConnection.Close()
 
@@ -39,7 +41,7 @@ func forwardTCP(dialURL, token, listen string, skipTLSVerify bool) {
 	for {
 		tcpConn, err := tcpConnection.Accept()
 		if err != nil {
-			log.WithError(err).Error("tcp: could not accept the connection:")
+			logger.WithError(err).Error("could not accept the connection:")
 			continue
 		}
 
@@ -50,11 +52,11 @@ func forwardTCP(dialURL, token, listen string, skipTLSVerify bool) {
 		wsConn, response, err := dialer.Dial(dialURL, header)
 		if err != nil {
 			if response != nil && response.StatusCode == http.StatusUnauthorized {
-				log.Fatal("tcp:", "tcp", response.Status)
+				logger.Fatal("tcp", response.Status)
 			} else if response != nil && response.StatusCode == http.StatusForbidden {
-				log.Fatal("tcp: proxy of remote port is not allowed")
+				logger.Fatal("proxy of remote port is not allowed")
 			} else {
-				log.WithError(err).Fatal("tcp: error while dialing:")
+				logger.WithError(err).Fatal("error while dialing:")
 			}
 
 			tcpConn.Close()

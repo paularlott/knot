@@ -44,7 +44,7 @@ func (s *leafSession) SendMessage(msgType leafmsg.MessageType, payload interface
 func (c *Cluster) registerLeaf(ws *websocket.Conn, user *model.User, token *model.Token, zone string) *leafSession {
 	newSessionId, err := uuid.NewV7()
 	if err != nil {
-		log.Fatal("origin: failed to create leaf ID:", "err", err)
+		c.logger.Fatal("failed to create leaf ID:", "err", err)
 	}
 
 	c.leafSessionMux.Lock()

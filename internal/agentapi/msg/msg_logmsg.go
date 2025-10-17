@@ -23,17 +23,18 @@ type LogMessage struct {
 }
 
 func SendLogMessage(conn net.Conn, message *LogMessage) error {
+	logger := log.WithGroup("agent")
 	// Write the command
 	err := WriteCommand(conn, CmdLogMessage)
 	if err != nil {
-		log.WithError(err).Error("agent: writing state command:")
+		logger.WithError(err).Error("writing state command")
 		return err
 	}
 
 	// Write the message
 	err = WriteMessage(conn, message)
 	if err != nil {
-		log.WithError(err).Error("agent: writing state message:")
+		logger.WithError(err).Error("writing state message")
 		return err
 	}
 

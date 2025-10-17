@@ -13,7 +13,7 @@ import (
 func ProxyTcp(stream net.Conn, port string) {
 	conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%s", port))
 	if err != nil {
-		log.WithError(err).Error("agent: failed to connect to code server")
+		log.WithError(err).Error("failed to connect to code server")
 		return
 	}
 	defer conn.Close()
@@ -41,7 +41,7 @@ func ProxyTcpTls(stream net.Conn, port, serverName string, skipTLSVerify bool) {
 		ServerName:         serverName,
 	})
 	if err != nil {
-		log.WithError(err).Error("agent: failed to connect to code server")
+		log.WithError(err).Error("failed to connect to code server")
 		return
 	}
 	defer conn.Close()

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/build"
-	"github.com/paularlott/knot/internal/agentapi/logger"
+	agentlogger "github.com/paularlott/knot/internal/agentapi/logger"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
@@ -25,12 +25,13 @@ const (
 )
 
 func handleAgentConnection(conn net.Conn) {
+	logger := log.WithGroup("agent")
 	defer conn.Close()
 
 	// New connection therefore we just wait for the registration message
 	var registerMsg msg.Register
 	if err := msg.ReadMessage(conn, &registerMsg); err != nil {
-		log.WithError(err).Error("Error reading register message:")
+		logger.WithError(err).Error("Error reading register message:")
 		return
 	}
 
@@ -55,7 +56,7 @@ func handleAgentConnection(conn net.Conn) {
 
 		// Ping the old agent, if it fails then delete and allow the new agent to register
 		if session.Ping() {
-			log.Error("Agent already registered:", "agent", registerMsg.SpaceId)
+			logger.Error("Agent already registered:", "agent", registerMsg.SpaceId)
 			msg.WriteMessage(conn, &response)
 			return
 		}
@@ -69,14 +70,14 @@ func handleAgentConnection(conn net.Conn) {
 	// Load the space from the database
 	space, err := db.GetSpace(registerMsg.SpaceId)
 	if err != nil {
-		log.Error("agent: unknown space:", "space", registerMsg.SpaceId)
+		logger.Error("unknown space:", "space", registerMsg.SpaceId)
 		msg.WriteMessage(conn, &response)
 		return
 	}
 
 	// Check the version of the agent
 	if !compareVersionMajorMinor(registerMsg.Version, build.Version) {
-		log.Info("agent: version mismatch, restarting space", "agent_version", registerMsg.Version, "expected_version", build.Version)
+		logger.Info("version mismatch, restarting space", "agent_version", registerMsg.Version, "expected_version", build.Version)
 
 		// Ask the agent to freeze while we reboot it
 		response.Freeze = true
@@ -92,7 +93,7 @@ func handleAgentConnection(conn net.Conn) {
 	// Load the template from the database
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
-		log.Error("agent: unknown template:", "template", space.TemplateId)
+		logger.Error("unknown template:", "template", space.TemplateId)
 		msg.WriteMessage(conn, &response)
 		return
 	}
@@ -100,7 +101,7 @@ func handleAgentConnection(conn net.Conn) {
 	// Load the user that owns the space
 	user, err := db.GetUser(space.UserId)
 	if err != nil {
-		log.Error("agent: unknown user:", "agent", space.UserId)
+		logger.Error("unknown user:", "agent", space.UserId)
 		msg.WriteMessage(conn, &response)
 		return
 	}
@@ -144,7 +145,7 @@ func handleAgentConnection(conn net.Conn) {
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
-		log.WithError(err).Error("Error writing register response:")
+		logger.WithError(err).Error("Error writing register response:")
 		return
 	}
 
@@ -158,10 +159,10 @@ func handleAgentConnection(conn net.Conn) {
 		StreamCloseTimeout:     3 * time.Minute,
 		StreamOpenTimeout:      3 * time.Second,
 		LogOutput:              nil,
-		Logger:                 logger.NewMuxLogger(),
+		Logger:                 agentlogger.NewMuxLogger(),
 	})
 	if err != nil {
-		log.WithError(err).Error("agent: creating mux session:")
+		logger.WithError(err).Error("creating mux session:")
 		return
 	}
 
@@ -170,12 +171,12 @@ func handleAgentConnection(conn net.Conn) {
 		space.UpdatedAt = hlc.Now()
 		space.StartedAt = time.Now().UTC()
 		if err := db.SaveSpace(space, []string{"UpdatedAt", "StartedAt"}); err != nil {
-			log.WithError(err).Error("agent: updating space start time:")
+			logger.WithError(err).Error("updating space start time:")
 			return
 		}
 	}
 
-	log.Debug("agent: session created...", "space_name", space.Name)
+	logger.Debug("session created", "space_name", space.Name)
 
 	// Loop forever waiting for connections on the mux session
 	for {
@@ -185,11 +186,11 @@ func handleAgentConnection(conn net.Conn) {
 
 			// If error is session shutdown
 			if err == yamux.ErrSessionShutdown {
-				log.Info("agent: session shutdown:", "session_id", session.Id)
+				logger.Info("session shutdown:", "session_id", session.Id)
 				return
 			}
 
-			log.WithError(err).Error("agent: accepting connection:")
+			logger.WithError(err).Error("accepting connection:")
 			return
 		}
 
@@ -206,7 +207,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 		// Read the command
 		cmd, err := msg.ReadCommand(stream)
 		if err != nil {
-			log.WithError(err).Error("agent: session reading command:")
+			log.WithError(err).Error("session reading command:")
 			return
 		}
 
@@ -216,7 +217,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			// Read the state message
 			var state msg.AgentState
 			if err := msg.ReadMessage(stream, &state); err != nil {
-				log.WithError(err).Error("agent: reading state message:")
+				log.WithError(err).Error("reading state message:")
 				return
 			}
 
@@ -237,14 +238,14 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				Endpoints: service.GetTransport().GetAgentEndpoints(),
 			}
 			if err := msg.WriteMessage(stream, &reply); err != nil {
-				log.WithError(err).Error("agent: writing agent state reply:")
+				log.WithError(err).Error("writing agent state reply:")
 				return
 			}
 
 		case byte(msg.CmdLogMessage):
 			var logMsg msg.LogMessage
 			if err := msg.ReadMessage(stream, &logMsg); err != nil {
-				log.WithError(err).Error("agent: reading log message:")
+				log.WithError(err).Error("reading log message:")
 				return
 			}
 
@@ -268,7 +269,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 		case byte(msg.CmdUpdateSpaceNote):
 			var spaceNote msg.SpaceNote
 			if err := msg.ReadMessage(stream, &spaceNote); err != nil {
-				log.WithError(err).Error("agent: reading space note message:")
+				log.WithError(err).Error("reading space note message:")
 				return
 			}
 
@@ -276,7 +277,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			db := database.GetInstance()
 			space, err := db.GetSpace(session.Id)
 			if err != nil {
-				log.Error("agent: unknown space:", "agent", session.Id)
+				log.Error("unknown space:", "agent", session.Id)
 				return
 			}
 
@@ -284,7 +285,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			space.Note = spaceNote.Note
 			space.UpdatedAt = hlc.Now()
 			if err := db.SaveSpace(space, []string{"Note", "UpdatedAt"}); err != nil {
-				log.WithError(err).Error("agent: updating space note:")
+				log.WithError(err).Error("updating space note:")
 				return
 			}
 
@@ -300,7 +301,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 		case byte(msg.CmdTunnelPortConnection):
 			var reversePort msg.TcpPort
 			if err := msg.ReadMessage(stream, &reversePort); err != nil {
-				log.WithError(err).Error("agent: reading reverse port message:")
+				log.WithError(err).Error("reading reverse port message:")
 				return
 			}
 
@@ -312,7 +313,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			db := database.GetInstance()
 			space, err := db.GetSpace(session.Id)
 			if err != nil {
-				log.Error("agent: unknown space:", "agent", session.Id)
+				log.Error("unknown space:", "agent", session.Id)
 				return
 			}
 
@@ -326,7 +327,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			db := database.GetInstance()
 			space, err := db.GetSpace(session.Id)
 			if err != nil {
-				log.Error("agent: unknown space:", "agent", session.Id)
+				log.Error("unknown space:", "agent", session.Id)
 				return
 			}
 
@@ -344,7 +345,7 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			return // Single shot command so done
 
 		default:
-			log.Error("agent: unknown command from agent:", "cmd", cmd)
+			log.Error("unknown command from agent:", "cmd", cmd)
 			return
 		}
 	}
@@ -356,7 +357,7 @@ func handleCreateToken(stream net.Conn, session *Session) {
 	// Load the space from the database so we can get the user id
 	space, err := db.GetSpace(session.Id)
 	if err != nil {
-		log.Error("agent: unknown space:", "agent", session.Id)
+		log.Error("unknown space:", "agent", session.Id)
 		return
 	}
 
@@ -366,7 +367,7 @@ func handleCreateToken(stream net.Conn, session *Session) {
 	// Get the users tokens
 	tokens, err := db.GetTokensForUser(space.UserId)
 	if err != nil {
-		log.WithError(err).Error("agent: getting tokens for user:")
+		log.WithError(err).Error("getting tokens for user:")
 		return
 	}
 
@@ -383,7 +384,7 @@ func handleCreateToken(stream net.Conn, session *Session) {
 		token = model.NewToken(AGENT_TOKEN_DESCRIPTION, space.UserId)
 		err := db.SaveToken(token)
 		if err != nil {
-			log.WithError(err).Error("agent: saving token:")
+			log.WithError(err).Error("saving token:")
 			return
 		}
 		service.GetTransport().GossipToken(token)
@@ -395,7 +396,7 @@ func handleCreateToken(stream net.Conn, session *Session) {
 		Token:  token.Id,
 	}
 	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("agent: writing create token response:")
+		log.WithError(err).Error("writing create token response:")
 		return
 	}
 }
@@ -404,16 +405,16 @@ func handleRunCommand(stream net.Conn, session *Session) {
 	// Read the run command message
 	var runCmd msg.RunCommandMessage
 	if err := msg.ReadMessage(stream, &runCmd); err != nil {
-		log.WithError(err).Error("agent: reading run command message:")
+		log.WithError(err).Error("reading run command message:")
 		return
 	}
 
-	log.Info("agent: forwarding run command to agent", "command", runCmd.Command, "space_id", session.Id)
+	log.Info("forwarding run command to agent", "command", runCmd.Command, "space_id", session.Id)
 
 	// Open a new connection to the agent to send the run command
 	agentConn, err := session.MuxSession.Open()
 	if err != nil {
-		log.WithError(err).Error("agent: opening connection to agent:")
+		log.WithError(err).Error("opening connection to agent:")
 		response := msg.RunCommandResponse{
 			Success: false,
 			Error:   "Failed to connect to agent",
@@ -425,7 +426,7 @@ func handleRunCommand(stream net.Conn, session *Session) {
 
 	// Send the run command to the agent
 	if err := msg.WriteCommand(agentConn, msg.CmdRunCommand); err != nil {
-		log.WithError(err).Error("agent: writing run command to agent:")
+		log.WithError(err).Error("writing run command to agent:")
 		response := msg.RunCommandResponse{
 			Success: false,
 			Error:   "Failed to send command to agent",
@@ -435,7 +436,7 @@ func handleRunCommand(stream net.Conn, session *Session) {
 	}
 
 	if err := msg.WriteMessage(agentConn, &runCmd); err != nil {
-		log.WithError(err).Error("agent: writing run command message to agent:")
+		log.WithError(err).Error("writing run command message to agent:")
 		response := msg.RunCommandResponse{
 			Success: false,
 			Error:   "Failed to send command message to agent",
@@ -447,7 +448,7 @@ func handleRunCommand(stream net.Conn, session *Session) {
 	// Read the response from the agent
 	var response msg.RunCommandResponse
 	if err := msg.ReadMessage(agentConn, &response); err != nil {
-		log.WithError(err).Error("agent: reading run command response from agent:")
+		log.WithError(err).Error("reading run command response from agent:")
 		response = msg.RunCommandResponse{
 			Success: false,
 			Error:   "Failed to read response from agent",
@@ -456,27 +457,27 @@ func handleRunCommand(stream net.Conn, session *Session) {
 
 	// Forward the response back to the client
 	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("agent: writing run command response to client:")
+		log.WithError(err).Error("writing run command response to client:")
 		return
 	}
 
-	log.Info("agent: run command completed", "command", runCmd.Command, "space_id", session.Id, "success", response.Success)
+	log.Info("run command completed", "command", runCmd.Command, "space_id", session.Id, "success", response.Success)
 }
 
 func handleCopyFile(stream net.Conn, session *Session) {
 	// Read the copy file message
 	var copyCmd msg.CopyFileMessage
 	if err := msg.ReadMessage(stream, &copyCmd); err != nil {
-		log.WithError(err).Error("agent: reading copy file message:")
+		log.WithError(err).Error("reading copy file message:")
 		return
 	}
 
-	log.Info("agent: forwarding copy file to agent", "direction", copyCmd.Direction, "source", copyCmd.SourcePath, "dest", copyCmd.DestPath, "space_id", session.Id)
+	log.Info("forwarding copy file to agent", "direction", copyCmd.Direction, "source", copyCmd.SourcePath, "dest", copyCmd.DestPath, "space_id", session.Id)
 
 	// Open a new connection to the agent to send the copy file command
 	agentConn, err := session.MuxSession.Open()
 	if err != nil {
-		log.WithError(err).Error("agent: opening connection to agent:")
+		log.WithError(err).Error("opening connection to agent:")
 		response := msg.CopyFileResponse{
 			Success: false,
 			Error:   "Failed to connect to agent",
@@ -488,7 +489,7 @@ func handleCopyFile(stream net.Conn, session *Session) {
 
 	// Send the copy file command to the agent
 	if err := msg.WriteCommand(agentConn, msg.CmdCopyFile); err != nil {
-		log.WithError(err).Error("agent: writing copy file command to agent:")
+		log.WithError(err).Error("writing copy file command to agent:")
 		response := msg.CopyFileResponse{
 			Success: false,
 			Error:   "Failed to send command to agent",
@@ -498,7 +499,7 @@ func handleCopyFile(stream net.Conn, session *Session) {
 	}
 
 	if err := msg.WriteMessage(agentConn, &copyCmd); err != nil {
-		log.WithError(err).Error("agent: writing copy file message to agent:")
+		log.WithError(err).Error("writing copy file message to agent:")
 		response := msg.CopyFileResponse{
 			Success: false,
 			Error:   "Failed to send command message to agent",
@@ -510,7 +511,7 @@ func handleCopyFile(stream net.Conn, session *Session) {
 	// Read the response from the agent
 	var response msg.CopyFileResponse
 	if err := msg.ReadMessage(agentConn, &response); err != nil {
-		log.WithError(err).Error("agent: reading copy file response from agent:")
+		log.WithError(err).Error("reading copy file response from agent:")
 		response = msg.CopyFileResponse{
 			Success: false,
 			Error:   "Failed to read response from agent",
@@ -519,11 +520,11 @@ func handleCopyFile(stream net.Conn, session *Session) {
 
 	// Forward the response back to the client
 	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("agent: writing copy file response to client:")
+		log.WithError(err).Error("writing copy file response to client:")
 		return
 	}
 
-	log.Info("agent: copy file completed", "direction", copyCmd.Direction, "space_id", session.Id, "success", response.Success)
+	log.Info("copy file completed", "direction", copyCmd.Direction, "space_id", session.Id, "success", response.Success)
 }
 
 func compareVersionMajorMinor(version1, version2 string) bool {

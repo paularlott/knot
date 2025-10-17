@@ -17,7 +17,7 @@ func ListenAndServe(agent *agent_client.AgentClient) {
 	cfg := config.GetAgentConfig()
 	agentClient = agent
 
-	log.Debug("service_api: starting agent service api", "port", cfg.APIPort)
+	log.Debug("starting agent service api", "port", cfg.APIPort)
 
 	go func() {
 

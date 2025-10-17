@@ -38,8 +38,8 @@ import (
 	"github.com/paularlott/knot/web"
 
 	"github.com/paularlott/cli"
-	"github.com/paularlott/mcp"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/mcp"
 )
 
 var ServerCmd = &cli.Command{
@@ -673,17 +673,18 @@ var ServerCmd = &cli.Command{
 		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
+		logger := log.WithGroup("server")
 		cfg := buildServerConfig(cmd)
 
 		listen := util.FixListenAddress(cfg.Listen)
 
 		// If agent address not given then don't start
 		if cfg.AgentEndpoint == "" {
-			log.Fatal("server: agent endpoint not given")
+			logger.Fatal("agent endpoint not given")
 		}
 
-		log.Info("server: starting knot version:", "version", build.Version)
-		log.Info("server: starting on:", "listen", listen)
+		logger.Info("starting knot version", "version", build.Version)
+		logger.Info("starting on", "listen", listen)
 
 		// Initialize the API helpers
 		service.SetUserService(api_utils.NewApiUtilsUsers())
@@ -695,7 +696,7 @@ var ServerCmd = &cli.Command{
 		// Load roles into memory cache
 		roles, err := database.GetInstance().GetRoles()
 		if err != nil {
-			log.WithError(err).Fatal("server: failed to get roles:")
+			log.WithError(err).Fatal("failed to get roles:")
 		}
 		model.SetRoleCache(roles)
 
@@ -739,15 +740,15 @@ var ServerCmd = &cli.Command{
 			log.Fatal(err.Error())
 		}
 
-		log.Debug("Host:", "host", u.Host)
+		logger.Debug("Host", "host", u.Host)
 
 		var tunnelServerUrl *url.URL = nil
 		if cfg.TunnelServer != "" && cfg.ListenTunnel != "" {
 			tunnelServerUrl, err = url.Parse(cfg.TunnelServer)
 			if err != nil {
-				log.Fatal("Error parsing tunnel server URL:", "err", err)
+				logger.WithError(err).Fatal("error parsing tunnel server URL:")
 			}
-			log.Debug("Tunnel Server URL:", "tunnel", tunnelServerUrl.Host)
+			logger.Debug("tunnel Server URL", "tunnel", tunnelServerUrl.Host)
 		}
 
 		// Create the application routes
@@ -766,21 +767,21 @@ var ServerCmd = &cli.Command{
 		if mcpEnabled || chatEnabled || openaiEndpointEnabled {
 			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled)
 			if !mcpEnabled {
-				log.Debug("server: MCP chat-only mode")
+				logger.Debug("MCP chat-only mode")
 			} else {
-				log.Info("server: MCP server enabled")
+				logger.Info("MCP server enabled")
 			}
 		}
 
 		// If AI chat enabled then initialize chat service
 		var openAIClient *openai.Client
 		if chatEnabled || openaiEndpointEnabled {
-			log.Info("server: AI chat enabled")
+			logger.Info("AI chat enabled")
 
 			// Initialize chat service with config
 			chatService, err := chat.NewService(cfg.Chat, mcpServer)
 			if err != nil {
-				log.WithError(err).Fatal("server: failed to create chat service:")
+				logger.WithError(err).Fatal("failed to create chat service:")
 			}
 			openAIClient = chatService.GetOpenAIClient()
 
@@ -793,7 +794,7 @@ var ServerCmd = &cli.Command{
 		// If OpenAI chat enabled then initialize OpenAI service
 		if openaiEndpointEnabled {
 			//openai.SetupOpenAIEndpoints(cfg, routes, mcpServer)
-			log.Info("server: OpenAI endpoints enabled")
+			logger.Info("OpenAI endpoints enabled")
 
 			service := openai.NewService(openAIClient, cfg.Chat.SystemPrompt)
 			routes.HandleFunc("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetModels)))
@@ -818,16 +819,16 @@ var ServerCmd = &cli.Command{
 			// Create regex to match tunnel domain (always wildcard)
 			tunnelDomainPattern := "^[a-zA-Z0-9-]+" + strings.TrimLeft(strings.Replace(cfg.TunnelDomain, ".", "\\.", -1), "*") + "$"
 			tunnelDomainMatch = regexp.MustCompile(tunnelDomainPattern)
-			log.Debug("Tunnel Domain Pattern:", "tunnelDomainPattern", tunnelDomainPattern)
+			logger.Debug("tunnel domain pattern", "tunnelDomainPattern", tunnelDomainPattern)
 		}
 
 		// If have a wildcard domain or need tunnel routing, build domain-based routes
 		if wildcardDomain != "" || sameAddress {
 			if wildcardDomain != "" {
-				log.Debug("Wildcard Domain:", "wildcardDomain", wildcardDomain)
+				logger.Debug("wildcard domain", "wildcardDomain", wildcardDomain)
 			}
 			if sameAddress {
-				log.Debug("Using domain routing for tunnel traffic (same listen address)")
+				logger.Debug("using domain routing for tunnel traffic (same listen address)")
 			}
 
 			// Remove the port from the wildcard domain
@@ -886,18 +887,18 @@ var ServerCmd = &cli.Command{
 
 		// If server should use TLS
 		if cfg.TLS.UseTLS {
-			log.Debug("server: using TLS")
+			logger.Debug("using TLS")
 
 			// If have both a cert and key file, use them
 			certFile := cfg.TLS.CertFile
 			keyFile := cfg.TLS.KeyFile
 			if certFile != "" && keyFile != "" {
-				log.Info("server: using cert file:", "certFile", certFile)
-				log.Info("server: using key file:", "keyFile", keyFile)
+				logger.Info("using cert file", "certFile", certFile)
+				logger.Info("using key file", "keyFile", keyFile)
 
 				serverTLSCert, err := tls.LoadX509KeyPair(certFile, keyFile)
 				if err != nil {
-					log.Fatal("Error loading certificate and key file:", "err", err)
+					logger.WithError(err).Fatal("Error loading certificate and key file")
 				}
 
 				tlsConfig = &tls.Config{
@@ -905,7 +906,7 @@ var ServerCmd = &cli.Command{
 				}
 			} else {
 				// Otherwise generate a self-signed cert
-				log.Info("server: generating self-signed certificate")
+				logger.Info("generating self-signed certificate")
 
 				// Build the list of domains to include in the cert
 				var sslDomains []string
@@ -913,7 +914,7 @@ var ServerCmd = &cli.Command{
 				serverURL := cfg.URL
 				u, err := url.Parse(serverURL)
 				if err != nil {
-					log.Fatal(err.Error())
+					logger.Fatal(err.Error())
 				}
 				hostname := u.Host
 				if host, _, err := net.SplitHostPort(hostname); err == nil {
@@ -941,12 +942,12 @@ var ServerCmd = &cli.Command{
 
 				cert, key, err := util.GenerateCertificate(sslDomains, []net.IP{net.ParseIP("127.0.0.1")})
 				if err != nil {
-					log.Fatal("Error generating certificate and key:", "err", err)
+					logger.WithError(err).Fatal("error generating certificate and key")
 				}
 
 				serverTLSCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
 				if err != nil {
-					log.Fatal("Error generating server TLS cert:", "err", err)
+					logger.WithError(err).Fatal("error generating server TLS cert")
 				}
 
 				tlsConfig = &tls.Config{
@@ -981,11 +982,11 @@ var ServerCmd = &cli.Command{
 			for {
 				if cfg.TLS.UseTLS {
 					if err := server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
-						log.WithError(err).Error("server: web server")
+						logger.WithError(err).Error("web server")
 					}
 				} else {
 					if err := server.ListenAndServe(); err != http.ErrServerClosed {
-						log.WithError(err).Error("server: web server")
+						logger.WithError(err).Error("web server")
 					}
 				}
 			}
@@ -1032,12 +1033,14 @@ var ServerCmd = &cli.Command{
 		defer cancel()
 		server.Shutdown(ctx)
 		fmt.Print("\r")
-		log.Info("server: shutdown")
+		logger.Info("shutdown")
 		return nil
 	},
 }
 
 func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
+	logger := log.WithGroup("server")
+
 	// Get the hostname with fallback logic
 	hostname := os.Getenv("NOMAD_DC")
 	if hostname == "" {
@@ -1189,7 +1192,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	if serverCfg.Timezone == "" {
 		serverCfg.Timezone, _ = time.Now().Zone()
 	}
-	log.Info("server: timezone:", "timezone", serverCfg.Timezone)
+	logger.Info("timezone", "timezone", serverCfg.Timezone)
 
 	config.SetServerConfig(serverCfg)
 

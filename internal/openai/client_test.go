@@ -58,6 +58,14 @@ func TestNew(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "base URL without trailing slash gets one added",
+			config: Config{
+				APIKey:  "test-key",
+				BaseURL: "https://api.openai.com/v1",
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -248,5 +256,76 @@ func TestClient_FinalizeToolCalls(t *testing.T) {
 
 	if location, ok := toolCalls[0].Function.Arguments["location"]; !ok || location != "New York" {
 		t.Errorf("Expected location argument 'New York', got %v", location)
+	}
+}
+
+func TestBaseURLTrailingSlash(t *testing.T) {
+	tests := []struct {
+		name       string
+		inputURL   string
+		expectPath string
+	}{
+		{
+			name:       "URL with trailing slash unchanged",
+			inputURL:   "http://example.com/v1/",
+			expectPath: "/v1/chat/completions",
+		},
+		{
+			name:       "URL without trailing slash gets one added",
+			inputURL:   "http://example.com/v1",
+			expectPath: "/v1/chat/completions",
+		},
+		{
+			name:       "localhost URL without trailing slash",
+			inputURL:   "http://localhost:11434/v1",
+			expectPath: "/v1/chat/completions",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mock server to capture the actual request path
+			var capturedPath string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedPath = r.URL.Path
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"test"}}]}`))
+			}))
+			defer server.Close()
+
+			// Create client with the input URL structure
+			config := Config{
+				APIKey:  "test-key",
+				BaseURL: tt.inputURL,
+				Timeout: 5 * time.Second,
+			}
+
+			// Replace the base domain with our test server
+			config.BaseURL = strings.Replace(config.BaseURL, "http://example.com", server.URL, 1)
+			config.BaseURL = strings.Replace(config.BaseURL, "http://localhost:11434", server.URL, 1)
+
+			client, err := New(config, nil)
+			if err != nil {
+				t.Fatalf("Failed to create client: %v", err)
+			}
+
+			// Make a request to verify URL resolution
+			ctx := context.Background()
+			req := ChatCompletionRequest{
+				Model: "test-model",
+				Messages: []Message{
+					{Role: "user"},
+				},
+			}
+			req.Messages[0].SetContentAsString("test")
+
+			_, _ = client.nonStreamingChatCompletion(ctx, req)
+
+			// Verify the path was correctly resolved
+			if capturedPath != tt.expectPath {
+				t.Errorf("Expected path %s, got %s", tt.expectPath, capturedPath)
+			}
+		})
 	}
 }

@@ -296,6 +296,8 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
+	logger := log.WithGroup("server")
+
 	var err error
 	var space *model.Space
 
@@ -309,7 +311,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	transport := service.GetTransport()
 	unlockToken := transport.LockResource(spaceId)
 	if unlockToken == "" {
-		log.Error("HandleSpaceStart: failed to lock space")
+		logger.Error("failed to lock space")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to lock space"})
 		return
 	}
@@ -321,7 +323,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
-		log.WithError(err).Error("HandleSpaceStart:")
+		logger.WithError(err).Error("get space failed")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -336,7 +338,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	if user.Id != space.UserId {
 		user, err = db.GetUser(space.UserId)
 		if err != nil {
-			log.WithError(err).Error("HandleSpaceStart:")
+			logger.WithError(err).Error("get user failed")
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
@@ -357,7 +359,7 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	// Check the quota if this space is started
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
-		log.WithError(err).Error("HandleSpaceStart: get template")
+		logger.WithError(err).Error("get template")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -365,14 +367,14 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	if !cfg.LeafNode {
 		usage, err := database.GetUserUsage(user.Id, "")
 		if err != nil {
-			log.WithError(err).Error("HandleSpaceStart:")
+			logger.WithError(err).Error("get user usage failed")
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
 
 		userQuota, err := database.GetUserQuota(user)
 		if err != nil {
-			log.WithError(err).Error("HandleSpaceStart:")
+			logger.WithError(err).Error("get user quota failed")
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}

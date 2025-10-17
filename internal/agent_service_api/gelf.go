@@ -30,7 +30,7 @@ func handleGelf(w http.ResponseWriter, r *http.Request) {
 	// Decode the log message
 	var logMessage gelfMessage
 	if err := rest.DecodeRequestBody(w, r, &logMessage); err != nil {
-		log.WithError(err).Error("service_api: failed to decode log message:")
+		log.WithError(err).Error("failed to decode log message:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log message"})
 		return
 	}
@@ -44,7 +44,7 @@ func handleGelf(w http.ResponseWriter, r *http.Request) {
 	} else if logMessage.Level == 7 {
 		level = msg.LogLevelDebug
 	} else {
-		log.Error("service_api: invalid log level:", "service_api", logMessage.Level)
+		log.Error("invalid log level:", "service_api", logMessage.Level)
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{"error": "invalid log level"})
 		return
 	}

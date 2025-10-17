@@ -88,7 +88,7 @@ func (s *AuthCodeStore) cleanupExpired() {
 	for code, authCode := range s.codes {
 		if now.After(authCode.ExpiresAt) {
 			delete(s.codes, code)
-			log.Debug("oauth2: cleaned up expired auth code")
+			log.Debug("cleaned up expired auth code")
 		}
 	}
 }

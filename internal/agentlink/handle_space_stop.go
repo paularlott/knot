@@ -9,7 +9,7 @@ import (
 func handleSpaceStop(conn net.Conn, msg *CommandMsg) error {
 	err := agentClient.SendSpaceStop()
 	if err != nil {
-		log.WithError(err).Error("agent: Failed to send space stop")
+		log.WithError(err).Error("Failed to send space stop")
 		return err
 	}
 

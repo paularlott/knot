@@ -146,6 +146,16 @@ func TestService_FormatUserFriendlyError(t *testing.T) {
 			contains: "authentication failed",
 		},
 		{
+			name:     "model does not support tools",
+			err:      &mockError{msg: `streaming failed: unexpected status code: 400: {"error":{"message":"hf.co/unsloth/LFM2-8B-A1B-GGUF:Q4_K_M does not support tools","type":"api_error","param":null,"code":null}}`},
+			contains: "does not support tool calling",
+		},
+		{
+			name:     "generic 400 error",
+			err:      &mockError{msg: "400 bad request"},
+			contains: "Invalid request",
+		},
+		{
 			name:     "MCP error",
 			err:      &mockError{msg: "MCP tool failed"},
 			contains: "MCP tool failed",

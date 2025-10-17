@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/internal/database/model"
-
-	"github.com/paularlott/knot/internal/log"
 )
 
 func (client *NomadClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
@@ -22,7 +20,7 @@ func (client *NomadClient) CreateVolume(vol *model.Volume, variables map[string]
 	}
 
 	// Display the name of the volume
-	log.Debug("nomad: creating volume:", "volume_id", volumes.Volumes[0].Id)
+	client.logger.Debug("creating volume:", "volume_id", volumes.Volumes[0].Id)
 
 	// Create the volume
 	switch volumes.Volumes[0].Type {
@@ -37,7 +35,7 @@ func (client *NomadClient) CreateVolume(vol *model.Volume, variables map[string]
 		return err
 	}
 
-	log.Debug("nomad: volumes created")
+	client.logger.Debug("volumes created")
 
 	return nil
 }
@@ -56,7 +54,7 @@ func (client *NomadClient) DeleteVolume(vol *model.Volume, variables map[string]
 	}
 
 	// Display the name of the volume
-	log.Debug("nomad: deleting volume:", "volume", volumes.Volumes[0].Name)
+	client.logger.Debug("deleting volume:", "volume", volumes.Volumes[0].Name)
 
 	switch volumes.Volumes[0].Type {
 	case "csi":
@@ -78,7 +76,7 @@ func (client *NomadClient) DeleteVolume(vol *model.Volume, variables map[string]
 		return err
 	}
 
-	log.Debug("nomad: volume deleted")
+	client.logger.Debug("volume deleted")
 
 	return nil
 }

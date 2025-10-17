@@ -16,7 +16,8 @@ type MemoryDbDriver struct {
 }
 
 func (db *MemoryDbDriver) Connect() {
-	log.Debug("db: starting memory driver")
+	logger := log.WithGroup("db")
+	logger.Debug("starting memory driver")
 
 	// Initialize the mutexes and maps
 	db.sessionMutex = &sync.RWMutex{}
@@ -24,19 +25,19 @@ func (db *MemoryDbDriver) Connect() {
 	db.sessionsByUserId = make(map[string][]*model.Session)
 
 	// Add a task to clean up expired sessions
-	log.Debug("db: starting session GC")
+	logger.Debug("starting session GC")
 	go func() {
 		ticker := time.NewTicker(15 * time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
-			log.Debug("db: running GC")
+			logger.Debug("running GC")
 			now := time.Now().UTC()
 
 			// Sweep sessions
 			db.sessionMutex.Lock()
 			for id, session := range db.sessions {
 				if session.ExpiresAfter.Before(now) {
-					log.Debug("db: removing session " + session.Id)
+					logger.Debug("removing session " + session.Id)
 
 					delete(db.sessions, id)
 					for i, s := range db.sessionsByUserId[session.UserId] {
