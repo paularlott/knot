@@ -21,16 +21,16 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.68
 	github.com/paularlott/cli v0.4.0
-	github.com/paularlott/gossip v0.8.6
+	github.com/paularlott/gossip v0.9.0
 	github.com/paularlott/logger v0.2.0
 	github.com/paularlott/mcp v0.1.0
 	github.com/pkg/sftp v1.13.9
-	github.com/redis/go-redis/v9 v9.14.0
+	github.com/redis/go-redis/v9 v9.14.1
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.43.0
-	golang.org/x/exp v0.0.0-20251009144603-d2f985daa21b
+	golang.org/x/exp v0.0.0-20251017212417-90e834f514db
 	golang.org/x/net v0.46.0
 	golang.org/x/term v0.36.0
 	golang.org/x/time v0.14.0
