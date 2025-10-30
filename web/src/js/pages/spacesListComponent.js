@@ -77,8 +77,6 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       templates: [],
       groups: [],
       searchTerm: '',
-      showAll: Alpine.$persist(false).as('template-selector-show-all').using(sessionStorage),
-      showInactive: Alpine.$persist(false).as('template-selector-show-inactive').using(sessionStorage),
     },
 
     async init() {
@@ -593,24 +591,20 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         // Only show active templates
         let showRow = template.active;
 
-        // Zone filtering (unless showAll)
-        if (!this.templateSelector.showAll) {
-          const zones = template.zones || [];
-          if (zones.length > 0) {
-            // Hide if any !zone matches the current zone
-            const hasNegation = zones.some(z => z.startsWith('!') && z.substring(1) === zone);
-            if (hasNegation) {
-              showRow = false;
-            } else {
-              // If there are any non-negated zones, show only if one matches
-              const positiveZones = zones.filter(z => !z.startsWith('!'));
-              if (positiveZones.length > 0) {
-                const hasZone = positiveZones.includes(zone);
-                showRow = showRow && hasZone;
-              }
+        const zones = template.zones || [];
+        if (zones.length > 0) {
+          // Hide if any !zone matches the current zone
+          const hasNegation = zones.some(z => z.startsWith('!') && z.substring(1) === zone);
+          if (hasNegation) {
+            showRow = false;
+          } else {
+            // If there are any non-negated zones, show only if one matches
+            const positiveZones = zones.filter(z => !z.startsWith('!'));
+            if (positiveZones.length > 0) {
+              const hasZone = positiveZones.includes(zone);
+              showRow = showRow && hasZone;
             }
           }
-          // If zones is empty, showRow remains unchanged (no restriction)
         }
 
         // Search term filtering
