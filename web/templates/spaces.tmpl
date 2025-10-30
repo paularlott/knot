@@ -82,12 +82,12 @@
 
       </div>
       <div>
-        <a href="/templates" class="btn-primary flex items-center mt-1">
+        <button @click.prevent="openTemplateSelector" type="button" class="btn-primary flex items-center mt-1">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2">
             <path fill-rule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clip-rule="evenodd" />
           </svg>
           New Space
-        </a>
+        </button>
       </div>
     </form>
 
@@ -96,7 +96,7 @@
 
       <template x-if="!loading && (!visibleSpaces && !searchTerm.length && showLocalOnly)">
         <div class="w-full max-w-lg mx-auto p-4 bg-white border border-gray-200 rounded-lg shadow-lg dark:border-gray-700 dark:bg-gray-800">
-            <div class="text-center text-gray-500 dark:text-gray-400">No spaces found.<br />Get started by selecting a <a href="/templates" class="text-blue-500 hover:underline dark:text-blue-400">template</a>.</div>
+            <div class="text-center text-gray-500 dark:text-gray-400">No spaces found.<br />Get started by <button @click.prevent="openTemplateSelector" class="text-blue-500 hover:underline dark:text-blue-400">selecting a template</button>.</div>
         </div>
       </template>
 
@@ -605,7 +605,7 @@
       </div>
 
       <!-- Modal choose user -->
-      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" @click.self="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" @click.self="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
         <!-- Modal Dialog -->
         <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-visible rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -667,7 +667,7 @@
       </div>
 
       <!-- Modal -->
-      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false; deleteConfirm.space.deleting = false" @click.self="deleteConfirm.show = false; deleteConfirm.space.deleting = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false; deleteConfirm.space.deleting = false" @click.self="deleteConfirm.show = false; deleteConfirm.space.deleting = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
         <!-- Modal Dialog -->
         <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -701,7 +701,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="ceaseShareConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="ceaseShareConfirm.show" @keydown.esc.window="ceaseShareConfirm.show = false" @click.self="ceaseShareConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+      <div x-cloak x-show="ceaseShareConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="ceaseShareConfirm.show" @keydown.esc.window="ceaseShareConfirm.show = false" @click.self="ceaseShareConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
         <!-- Modal Dialog -->
         <div x-show="ceaseShareConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -732,7 +732,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="quotaComputeLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaComputeLimit.show" @keydown.esc.window="quotaComputeLimit.show = false" @click.self="quotaComputeLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+      <div x-cloak x-show="quotaComputeLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaComputeLimit.show" @keydown.esc.window="quotaComputeLimit.show = false" @click.self="quotaComputeLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
         <!-- Modal Dialog -->
         <div x-show="quotaComputeLimit.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -771,7 +771,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="quotaStorageLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaStorageLimit.show" @keydown.esc.window="quotaStorageLimit.show = false" @click.self="quotaStorageLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+      <div x-cloak x-show="quotaStorageLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaStorageLimit.show" @keydown.esc.window="quotaStorageLimit.show = false" @click.self="quotaStorageLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
         <!-- Modal Dialog -->
         <div x-show="quotaStorageLimit.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -811,7 +811,7 @@
       </div>
 
 
-      <div x-cloak x-show="badScheduleShow" x-transition.opacity.duration.200ms x-trap.inert.noscroll="badScheduleShow" @keydown.esc.window="badScheduleShow = false" @click.self="badScheduleShow = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+      <div x-cloak x-show="badScheduleShow" x-transition.opacity.duration.200ms x-trap.inert.noscroll="badScheduleShow" @keydown.esc.window="badScheduleShow = false" @click.self="badScheduleShow = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
         <!-- Modal Dialog -->
         <div x-show="badScheduleShow" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -839,7 +839,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="spaceDesc.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceDesc.show" @keydown.esc.window="spaceDesc.show = false" @click.self="spaceDesc.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+      <div x-cloak x-show="spaceDesc.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceDesc.show" @keydown.esc.window="spaceDesc.show = false" @click.self="spaceDesc.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
         <!-- Modal Dialog -->
         <div x-show="spaceDesc.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -875,8 +875,98 @@
         </div>
       </div>
 
+      <!-- Modal: Template Selector -->
+      <div x-cloak x-show="templateSelector.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="templateSelector.show" @keydown.esc.window="templateSelector.show = false" @click.self="templateSelector.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
+        <!-- Modal Dialog -->
+        <div x-show="templateSelector.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-6xl w-full flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+          <!-- Dialog Header -->
+          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
+            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Select a Template</h3>
+            <button @click="templateSelector.show = false" aria-label="close modal" class="cursor-pointer outline-0">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <!-- Dialog Body -->
+          <div class="px-4 py-4 overflow-y-auto max-h-[70vh]">
+            <!-- Search and Filter -->
+            <div class="mb-4 flex gap-2">
+              <div class="flex-grow">
+                <input type="search" class="form-field bg-white w-full" placeholder="Search templates..." x-model="templateSelector.searchTerm" x-on:input="templateSearchChanged" x-ref="templateSearchInput">
+              </div>
+              <div x-data class="flex gap-2">
+                {{ if .permissionManageTemplates }}
+                <button @click.prevent="$refs.filterPanel.toggle" class="text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+                  </svg> <span class="sr-only">Filter</span>
+                </button>
+
+                <div x-ref="filterPanel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.filterPanel.close" @keydown.window.escape="$refs.filterPanel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" x-cloak>
+                  <div class="mb-4 mt-2">
+                    <label class="flex items-center cursor-pointer mb-2">
+                      <input type="checkbox" class="sr-only peer" value="1" @change="templateSearchChanged" :checked="templateSelector.showAll" x-model="templateSelector.showAll">
+                      <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                      <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show All Zones</span>
+                    </label>
+                  </div>
+                  <div class="mb-2">
+                    <label class="flex items-center cursor-pointer mb-2">
+                      <input type="checkbox" class="sr-only peer" value="1" @change="templateSearchChanged" :checked="templateSelector.showInactive" x-model="templateSelector.showInactive">
+                      <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+                      <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Show Inactive</span>
+                    </label>
+                  </div>
+                </div>
+                {{ end }}
+              </div>
+            </div>
+
+            <!-- Template List -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <template x-for="t in templateSelector.templates" :key="t.template_id">
+                <template x-if="!t.searchHide">
+                  <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors" @click="createSpaceFromTemplate(t.template_id)">
+                    <div class="flex items-start gap-4">
+                      <img x-show="t.icon_url && t.icon_url_exists" :src="t.icon_url" alt="Icon" class="size-12 flex-shrink-0" />
+
+                      <div class="flex-grow min-w-0">
+                        <div class="flex items-start justify-between gap-2">
+                          <div class="flex-grow min-w-0">
+                            <h4 class="text-base font-semibold text-gray-900 dark:text-white truncate" x-text="t.name"></h4>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 line-clamp-2" x-text="t.description"></p>
+                          </div>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2 mt-2">
+                          <span x-show="t.platform == 'docker'" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Docker</span>
+                          <span x-show="t.platform == 'podman'" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Podman</span>
+                          <span x-show="t.platform == 'apple'" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Apple</span>
+                          <span x-show="t.platform == 'container'" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Container</span>
+                          <span x-show="t.platform == 'nomad'" class="inline-block bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Nomad</span>
+                          <span x-show="t.platform == 'manual'" class="inline-block bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">Manual</span>
+
+                          <span class="text-xs text-gray-500 dark:text-gray-400">
+                            <span class="font-medium">Compute:</span> <span x-text="t.compute_units"></span>
+                          </span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">
+                            <span class="font-medium">Storage:</span> <span x-text="t.storage_units"></span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </div>
 </main>
 {{ end }}
+
