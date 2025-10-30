@@ -130,12 +130,13 @@ func (c *Cluster) mergeSessions(sessions []*model.Session) error {
 					c.logger.Error("Failed to update session", "error", err, "id", session.Id)
 				}
 			}
-		} else if session.ExpiresAfter.After(time.Now().UTC()) && !session.IsDeleted {
-			// If the session doesn't exist, create it unless it's deleted on the remote node
+		} else if session.ExpiresAfter.After(time.Now().UTC()) {
+			// If the session doesn't exist locally and hasn't expired, create it (even if deleted) to prevent resurrection
 			if err := db.SaveSession(session); err != nil {
-				return err
+				c.logger.Error("Failed to save session", "error", err, "id", session.Id, "is_deleted", session.IsDeleted)
 			}
 		}
+		// Note: We don't save expired sessions since they're already obsolete
 	}
 
 	return nil

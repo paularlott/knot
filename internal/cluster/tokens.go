@@ -107,10 +107,10 @@ func (c *Cluster) mergeTokens(tokens []*model.Token) error {
 					c.logger.Error("Failed to update token", "error", err, "name", token.Name)
 				}
 			}
-		} else if !token.IsDeleted {
-			// If the token doesn't exist, create it unless it's deleted on the remote node
+		} else {
+			// If the token doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveToken(token); err != nil {
-				return err
+				c.logger.Error("Failed to save token", "error", err, "name", token.Name, "is_deleted", token.IsDeleted)
 			}
 		}
 	}

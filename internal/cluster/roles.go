@@ -127,12 +127,13 @@ func (c *Cluster) mergeRoles(roles []*model.Role) error {
 					model.SaveRoleToCache(role)
 				}
 			}
-		} else if !role.IsDeleted {
-			// If the role doesn't exist, create it unless it's deleted on the remote node
+		} else {
+			// If the role doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveRole(role); err != nil {
-				return err
+				c.logger.Error("Failed to save role", "error", err, "name", role.Name, "is_deleted", role.IsDeleted)
+			} else if !role.IsDeleted {
+				model.SaveRoleToCache(role)
 			}
-			model.SaveRoleToCache(role)
 		}
 	}
 

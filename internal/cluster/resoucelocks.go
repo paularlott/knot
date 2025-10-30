@@ -148,10 +148,11 @@ func (c *Cluster) mergeResourceLocks(resourceLocks []*ResourceLock) error {
 				c.resourceLocks[lock.Id].ExpiresAfter = lock.ExpiresAfter
 				c.resourceLocks[lock.Id].UpdatedAt = lock.UpdatedAt
 			}
-		} else if lock.ExpiresAfter.After(time.Now().UTC()) && !lock.IsDeleted {
-			// If the lock doesn't exist, create it unless it's deleted on the remote node
+		} else if lock.ExpiresAfter.After(time.Now().UTC()) {
+			// If the lock doesn't exist locally and hasn't expired, create it (even if deleted) to prevent resurrection
 			c.resourceLocks[lock.Id] = lock
 		}
+		// Note: We don't save expired locks since they're already obsolete
 	}
 
 	return nil

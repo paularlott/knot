@@ -119,10 +119,10 @@ func (c *Cluster) mergeVolumes(volumes []*model.Volume) error {
 					c.logger.Error("Failed to update volume", "error", err, "name", volume.Name)
 				}
 			}
-		} else if !volume.IsDeleted { // Changed from group.IsDeleted to volume.IsDeleted
-			// If the volume doesn't exist, create it unless it's deleted on the remote node
-			if err := db.SaveVolume(volume, nil); err != nil { // Changed from db.SaveGroup to db.SaveVolume
-				return err
+		} else {
+			// If the volume doesn't exist locally, create it (even if deleted) to prevent resurrection
+			if err := db.SaveVolume(volume, nil); err != nil {
+				c.logger.Error("Failed to save volume", "error", err, "name", volume.Name, "is_deleted", volume.IsDeleted)
 			}
 		}
 	}

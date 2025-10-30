@@ -167,10 +167,10 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 					c.logger.Debug("Refuted template delete", "name", template.Name)
 				}
 			}
-		} else if !template.IsDeleted {
-			// If the template doesn't exist, create it unless it's deleted on the remote node
+		} else {
+			// If the template doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveTemplate(template, nil); err != nil {
-				return err
+				c.logger.Error("Failed to save template", "error", err, "name", template.Name, "is_deleted", template.IsDeleted)
 			}
 		}
 	}

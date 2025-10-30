@@ -142,15 +142,14 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 					service.GetUserService().UpdateUserSpaces(user)
 				}
 			}
-		} else if !user.IsDeleted {
-			// If the user doesn't exist, create it unless it's deleted on the remote node
+		} else {
+			// If the user doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveUser(user, []string{}); err != nil {
-				c.logger.Error("Failed to create user", "error", err, "name", user.Username)
-				return err
+				c.logger.Error("Failed to save user", "error", err, "name", user.Username, "is_deleted", user.IsDeleted)
+			} else if !user.IsDeleted {
+				// Make sure we move to has users mode only if user is not deleted
+				middleware.HasUsers = true
 			}
-
-			// Make sure we move to has users mode
-			middleware.HasUsers = true
 		}
 	}
 

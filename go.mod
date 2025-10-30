@@ -2,7 +2,7 @@ module github.com/paularlott/knot
 
 go 1.25.3
 
-//replace github.com/paularlott/gossip => ../gossip/
+replace github.com/paularlott/gossip => ../gossip/
 
 //replace github.com/paularlott/cli => ../cli/
 
@@ -20,17 +20,17 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.68
-	github.com/paularlott/cli v0.4.0
+	github.com/paularlott/cli v0.5.0
 	github.com/paularlott/gossip v0.9.0
 	github.com/paularlott/logger v0.2.0
 	github.com/paularlott/mcp v0.1.0
-	github.com/pkg/sftp v1.13.9
-	github.com/redis/go-redis/v9 v9.14.1
+	github.com/pkg/sftp v1.13.10
+	github.com/redis/go-redis/v9 v9.16.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
 	golang.org/x/crypto v0.43.0
-	golang.org/x/exp v0.0.0-20251017212417-90e834f514db
+	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546
 	golang.org/x/net v0.46.0
 	golang.org/x/term v0.36.0
 	golang.org/x/time v0.14.0
@@ -60,7 +60,7 @@ require (
 	github.com/google/flatbuffers v25.9.23+incompatible // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.25.1 // indirect
 	github.com/hashicorp/go-msgpack/v2 v2.1.5 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/compress v1.18.1 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect

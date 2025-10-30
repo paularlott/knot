@@ -159,10 +159,10 @@ func (c *Cluster) mergeTemplateVars(templateVars []*model.TemplateVar) error {
 					c.logger.Error("Failed to update template var", "error", err, "name", templateVar.Name)
 				}
 			}
-		} else if !templateVar.IsDeleted {
-			// If the template doesn't exist, create it unless it's deleted on the remote node
+		} else {
+			// If the template var doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveTemplateVar(templateVar); err != nil {
-				return err
+				c.logger.Error("Failed to save template var", "error", err, "name", templateVar.Name, "is_deleted", templateVar.IsDeleted)
 			}
 		}
 	}
