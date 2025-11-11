@@ -194,8 +194,6 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /templates/edit/{template_id}", middleware.WebAuth(checkPermissionManageTemplates(HandleTemplateEdit)))
 
 	router.HandleFunc("GET /variables", middleware.WebAuth(checkPermissionManageVariables(HandleSimplePage)))
-	router.HandleFunc("GET /variables/create", middleware.WebAuth(checkPermissionManageVariables(HandleTemplateVarCreate)))
-	router.HandleFunc("GET /variables/edit/{templatevar_id}", middleware.WebAuth(checkPermissionManageVariables(HandleTemplateVarEdit)))
 
 	router.HandleFunc("GET /users", middleware.WebAuth(checkPermissionManageUsers(HandleSimplePage)))
 	router.HandleFunc("GET /users/create", middleware.WebAuth(checkPermissionManageUsers(HandleUserCreate)))
