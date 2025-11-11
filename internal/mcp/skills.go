@@ -22,45 +22,45 @@ var (
 	nomadSpec string
 )
 
-type RecipeInfo struct {
+type SkillInfo struct {
 	Filename    string `json:"filename"`
 	Description string `json:"description"`
 }
 
-func recipes(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+func skills(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 	cfg := config.GetServerConfig()
 	filename := req.StringOr("filename", "")
 
 	if filename == "" {
-		return listRecipes(cfg.RecipesPath)
+		return listSkills(cfg.SkillsPath)
 	}
-	return getRecipeContent(cfg.RecipesPath, filename)
+	return getSkillContent(cfg.SkillsPath, filename)
 }
 
-func listRecipes(recipesPath string) (*mcp.ToolResponse, error) {
-	var recipes []RecipeInfo
+func listSkills(skillsPath string) (*mcp.ToolResponse, error) {
+	var skills []SkillInfo
 	var message string
 
-	// Add user recipes if directory exists and is configured
-	if recipesPath != "" {
-		if _, err := os.Stat(recipesPath); err == nil {
-			userRecipes, err := scanUserRecipes(recipesPath)
+	// Add user skills if directory exists and is configured
+	if skillsPath != "" {
+		if _, err := os.Stat(skillsPath); err == nil {
+			userSkills, err := scanUserSkills(skillsPath)
 			if err != nil {
-				return nil, fmt.Errorf("error scanning recipes directory: %v", err)
+				return nil, fmt.Errorf("error scanning skills directory: %v", err)
 			}
-			recipes = append(recipes, userRecipes...)
+			skills = append(skills, userSkills...)
 		}
 	} else {
-		message = "Recipes path not configured - showing built-in specs only"
+		message = "Skills path not configured - showing built-in specs only"
 	}
 
 	// Always add internal specs (but skip if user file with same name exists)
-	recipes = addInternalSpecs(recipes)
+	skills = addInternalSpecs(skills)
 
 	result := map[string]interface{}{
-		"action":  "list",
-		"count":   len(recipes),
-		"recipes": recipes,
+		"action": "list",
+		"count":  len(skills),
+		"skills": skills,
 	}
 
 	if message != "" {
@@ -73,16 +73,16 @@ func listRecipes(recipesPath string) (*mcp.ToolResponse, error) {
 	), nil
 }
 
-func getRecipeContent(recipesPath, filename string) (*mcp.ToolResponse, error) {
+func getSkillContent(skillsPath, filename string) (*mcp.ToolResponse, error) {
 	var content string
 	var err error
 
-	// Try to read from user recipes directory first (if configured and exists)
-	if recipesPath != "" {
-		if _, statErr := os.Stat(recipesPath); statErr == nil {
-			content, err = readUserRecipe(recipesPath, filename)
+	// Try to read from user skills directory first (if configured and exists)
+	if skillsPath != "" {
+		if _, statErr := os.Stat(skillsPath); statErr == nil {
+			content, err = readUserSkill(skillsPath, filename)
 			if err == nil {
-				// Successfully read user recipe
+				// Successfully read user skill
 				return createContentResponse(filename, content), nil
 			}
 			// If file not found, continue to check internal specs
@@ -99,16 +99,16 @@ func getRecipeContent(recipesPath, filename string) (*mcp.ToolResponse, error) {
 	}
 
 	// File not found anywhere
-	if recipesPath == "" {
-		return nil, fmt.Errorf("recipe file not found: %s (recipes path not configured). Available built-in specs: nomad-spec.md, local-container-spec.md. Use recipes() without filename to list all available recipes", filename)
+	if skillsPath == "" {
+		return nil, fmt.Errorf("skill file not found: %s (skills path not configured). Available built-in specs: nomad-spec.md, local-container-spec.md. Use skills() without filename to list all available skills", filename)
 	}
-	return nil, fmt.Errorf("recipe file not found: %s. Use recipes() without filename to list all available recipes", filename)
+	return nil, fmt.Errorf("skill file not found: %s. Use skills() without filename to list all available skills", filename)
 }
 
-func scanUserRecipes(recipesPath string) ([]RecipeInfo, error) {
-	var recipes []RecipeInfo
+func scanUserSkills(skillsPath string) ([]SkillInfo, error) {
+	var skills []SkillInfo
 
-	err := filepath.Walk(recipesPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(skillsPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -123,8 +123,8 @@ func scanUserRecipes(recipesPath string) ([]RecipeInfo, error) {
 			return nil
 		}
 
-		// Get relative path from recipes directory
-		relPath, err := filepath.Rel(recipesPath, path)
+		// Get relative path from skills directory
+		relPath, err := filepath.Rel(skillsPath, path)
 		if err != nil {
 			return err
 		}
@@ -135,7 +135,7 @@ func scanUserRecipes(recipesPath string) ([]RecipeInfo, error) {
 			description = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 		}
 
-		recipes = append(recipes, RecipeInfo{
+		skills = append(skills, SkillInfo{
 			Filename:    relPath,
 			Description: description,
 		})
@@ -143,13 +143,13 @@ func scanUserRecipes(recipesPath string) ([]RecipeInfo, error) {
 		return nil
 	})
 
-	return recipes, err
+	return skills, err
 }
 
-func readUserRecipe(recipesPath, filename string) (string, error) {
+func readUserSkill(skillsPath, filename string) (string, error) {
 	// Security checks
 	if filepath.IsAbs(filename) {
-		return "", fmt.Errorf("filename must be relative to recipes directory")
+		return "", fmt.Errorf("filename must be relative to skills directory")
 	}
 
 	cleanPath := filepath.Clean(filename)
@@ -157,12 +157,12 @@ func readUserRecipe(recipesPath, filename string) (string, error) {
 		return "", fmt.Errorf("invalid filename: directory traversal not allowed")
 	}
 
-	fullPath := filepath.Join(recipesPath, cleanPath)
+	fullPath := filepath.Join(skillsPath, cleanPath)
 
-	// Ensure the resolved path is still within the recipes directory
-	absRecipesPath, err := filepath.Abs(recipesPath)
+	// Ensure the resolved path is still within the skills directory
+	absSkillsPath, err := filepath.Abs(skillsPath)
 	if err != nil {
-		return "", fmt.Errorf("error resolving recipes path: %v", err)
+		return "", fmt.Errorf("error resolving skills path: %v", err)
 	}
 
 	absFullPath, err := filepath.Abs(fullPath)
@@ -170,8 +170,8 @@ func readUserRecipe(recipesPath, filename string) (string, error) {
 		return "", fmt.Errorf("error resolving file path: %v", err)
 	}
 
-	if !strings.HasPrefix(absFullPath, absRecipesPath) {
-		return "", fmt.Errorf("file path outside recipes directory")
+	if !strings.HasPrefix(absFullPath, absSkillsPath) {
+		return "", fmt.Errorf("file path outside skills directory")
 	}
 
 	// Read file content
@@ -205,7 +205,7 @@ func getInternalSpec(filename string) string {
 	}
 }
 
-func addInternalSpecs(recipes []RecipeInfo) []RecipeInfo {
+func addInternalSpecs(skills []SkillInfo) []SkillInfo {
 	internalSpecs := map[string]string{
 		"nomad-spec.md":           nomadSpec,
 		"local-container-spec.md": localContainerSpec,
@@ -214,8 +214,8 @@ func addInternalSpecs(recipes []RecipeInfo) []RecipeInfo {
 	for filename, content := range internalSpecs {
 		// Check if this spec is already in the list (user override)
 		found := false
-		for _, recipe := range recipes {
-			if recipe.Filename == filename {
+		for _, skill := range skills {
+			if skill.Filename == filename {
 				found = true
 				break
 			}
@@ -228,14 +228,14 @@ func addInternalSpecs(recipes []RecipeInfo) []RecipeInfo {
 				title = strings.TrimSuffix(filename, filepath.Ext(filename))
 			}
 
-			recipes = append(recipes, RecipeInfo{
+			skills = append(skills, SkillInfo{
 				Filename:    filename,
 				Description: title,
 			})
 		}
 	}
 
-	return recipes
+	return skills
 }
 
 func extractDescription(filePath string) string {

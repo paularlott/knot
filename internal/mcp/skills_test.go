@@ -9,21 +9,21 @@ import (
 	"github.com/paularlott/mcp"
 )
 
-func TestRecipesWithoutPath(t *testing.T) {
-	// Set up a test config without recipes path
+func TestSkillsWithoutPath(t *testing.T) {
+	// Set up a test config without skills path
 	cfg := &config.ServerConfig{
-		RecipesPath: "",
+		SkillsPath: "",
 	}
 	config.SetServerConfig(cfg)
 
-	// Create a mock request for listing recipes
+	// Create a mock request for listing skills
 	req := &mcp.ToolRequest{}
 
-	// Call the recipes function
+	// Call the skills function
 	ctx := context.Background()
-	response, err := recipes(ctx, req)
+	response, err := skills(ctx, req)
 	if err != nil {
-		t.Fatalf("recipes returned error when it should return empty list: %v", err)
+		t.Fatalf("skills returned error when it should return empty list: %v", err)
 	}
 
 	// Parse the response
@@ -42,16 +42,16 @@ func TestRecipesWithoutPath(t *testing.T) {
 		t.Errorf("Expected count to be 2, got %v", result["count"])
 	}
 
-	recipes, ok := result["recipes"].([]interface{})
+	skills, ok := result["skills"].([]interface{})
 	if !ok {
-		t.Errorf("Expected recipes to be an array, got %T", result["recipes"])
+		t.Errorf("Expected skills to be an array, got %T", result["skills"])
 	}
 
-	if len(recipes) != 2 {
-		t.Errorf("Expected 2 internal specs, got %d items", len(recipes))
+	if len(skills) != 2 {
+		t.Errorf("Expected 2 internal specs, got %d items", len(skills))
 	}
 
-	if result["message"] != "Recipes path not configured - showing built-in specs only" {
+	if result["message"] != "Skills path not configured - showing built-in specs only" {
 		t.Errorf("Expected message about path not configured, got %v", result["message"])
 	}
 }
