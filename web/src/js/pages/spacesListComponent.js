@@ -78,6 +78,14 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       groups: [],
       searchTerm: '',
     },
+    spaceFormModal: {
+      show: false,
+      isEdit: false,
+      spaceId: '',
+      templateId: '',
+      forUserId: '',
+      forUserUsername: '',
+    },
 
     async init() {
       if(this.canManageSpaces || this.canTransferSpaces || this.canShareSpaces) {
@@ -352,7 +360,13 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       });
     },
     editSpace(spaceId) {
-      window.location.href = `/spaces/edit/${spaceId}`;
+      const space = this.spaces.find(s => s.space_id === spaceId);
+      this.spaceFormModal.isEdit = true;
+      this.spaceFormModal.spaceId = spaceId;
+      this.spaceFormModal.templateId = space.template_id;
+      this.spaceFormModal.forUserId = space.user_id;
+      this.spaceFormModal.forUserUsername = space.username;
+      this.spaceFormModal.show = true;
     },
     openWindowForPort(spaceUsername, spaceId, spaceName, port) {
       popup.openPortWindow(spaceId, wildcardDomain, spaceUsername === '' ? username : spaceUsername, spaceName, port);
@@ -618,7 +632,13 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       });
     },
     createSpaceFromTemplate(templateId) {
-      window.location.href = `/spaces/create/${templateId}`;
+      this.templateSelector.show = false;
+      this.spaceFormModal.isEdit = false;
+      this.spaceFormModal.spaceId = '';
+      this.spaceFormModal.templateId = templateId;
+      this.spaceFormModal.forUserId = this.forUserId;
+      this.spaceFormModal.forUserUsername = this.forUsername;
+      this.spaceFormModal.show = true;
     },
     getDayOfWeek(day) {
       return ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][day];

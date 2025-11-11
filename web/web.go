@@ -168,6 +168,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	})
 
 	// Group routes that require authentication
+	router.HandleFunc("GET /api/icons", middleware.WebAuth(HandleGetIcons))
 	router.HandleFunc("GET /clients", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /sessions", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /space-quota-reached", middleware.WebAuth(HandleSimplePage))
@@ -420,6 +421,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"username":                  user.Username,
 		"user_id":                   user.Id,
 		"user_email":                user.Email,
+		"preferredShell":            user.PreferredShell,
 		"user_email_md5":            fmt.Sprintf("%x", md5.Sum([]byte(user.Email))),
 		"withDownloads":             withDownloads,
 		"hideSupportLinks":          cfg.UI.HideSupportLinks,
