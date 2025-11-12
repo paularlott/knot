@@ -21,7 +21,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
       protected: false,
     },
     loading: true,
-    buttonLabel: isEdit ? 'Update' : 'Create Variable',
+    buttonLabel: isEdit ? 'Save Changes' : 'Create Variable',
     isEdit,
     stayOnPage: true,
     nameValid: true,

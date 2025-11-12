@@ -39,7 +39,7 @@ window.createTokenForm = function() {
         })
         .then((response) => {
           if (response.status === 201) {
-            window.location.href = '/api-tokens';
+            self.$dispatch('close-token-form');
           } else {
             self.$dispatch('show-alert', { msg: "Failed to create API token", type: 'error' });
           }

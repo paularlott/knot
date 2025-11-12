@@ -18,6 +18,11 @@ window.groupListComponent = function() {
         name: '',
       }
     },
+    groupFormModal: {
+      show: false,
+      isEdit: false,
+      groupId: '',
+    },
     groups: [],
     searchTerm: Alpine.$persist('').as('group-search-term').using(sessionStorage),
 
@@ -55,8 +60,18 @@ window.groupListComponent = function() {
         // Don't logout on network errors - Safari closes connections aggressively
       });
     },
+    createGroup() {
+      this.groupFormModal.isEdit = false;
+      this.groupFormModal.groupId = '';
+      this.groupFormModal.show = true;
+    },
     editGroup(groupId) {
-      window.location.href = `/groups/edit/${groupId}`;
+      this.groupFormModal.isEdit = true;
+      this.groupFormModal.groupId = groupId;
+      this.groupFormModal.show = true;
+    },
+    loadGroups() {
+      this.getGroups();
     },
     async deleteGroup(groupId) {
       const self = this;

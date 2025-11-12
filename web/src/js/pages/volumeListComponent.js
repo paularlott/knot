@@ -11,6 +11,11 @@ window.volumeListComponent = function() {
 
   return {
     loading: true,
+    volumeFormModal: {
+      show: false,
+      isEdit: false,
+      volumeId: ''
+    },
     deleteConfirm: {
       show: false,
       volume: {
@@ -30,6 +35,11 @@ window.volumeListComponent = function() {
 
     async init() {
       await this.getVolumes();
+
+      window.addEventListener('close-volume-form', () => {
+        this.volumeFormModal.show = false;
+        this.getVolumes();
+      });
 
       // Start a timer to look for updates
       setInterval(async () => {
@@ -64,8 +74,15 @@ window.volumeListComponent = function() {
         // Don't logout on network errors - Safari closes connections aggressively
       });
     },
+    createVolume() {
+      this.volumeFormModal.isEdit = false;
+      this.volumeFormModal.volumeId = '';
+      this.volumeFormModal.show = true;
+    },
     editVolume(volumeId) {
-      window.location.href = `/volumes/edit/${volumeId}`;
+      this.volumeFormModal.isEdit = true;
+      this.volumeFormModal.volumeId = volumeId;
+      this.volumeFormModal.show = true;
     },
     async deleteVolume(volumeId) {
       const self = this;

@@ -9,7 +9,7 @@ window.userRolesForm = function(isEdit, roleId) {
       permissions: []
     },
     loading: true,
-    buttonLabel: isEdit ? 'Update' : 'Create Role',
+    buttonLabel: isEdit ? 'Save Changes' : 'Create Role',
     nameValid: true,
     isEdit,
     stayOnPage: true,
@@ -86,14 +86,11 @@ window.userRolesForm = function(isEdit, roleId) {
         })
         .then((response) => {
           if (response.status === 200) {
-            if(this.stayOnPage) {
-              self.$dispatch('show-alert', { msg: "Role Updated", type: 'success' });
-            } else {
-              window.location.href = '/roles';
-            }
+            self.$dispatch('show-alert', { msg: "Role Updated", type: 'success' });
+            self.$dispatch('close-role-form');
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Role Created", type: 'success' });
-            window.location.href = '/roles';
+            self.$dispatch('close-role-form');
           } else {
             response.json().then((d) => {
               self.$dispatch('show-alert', { msg: `Failed to update the role, ${d.error}`, type: 'error' });

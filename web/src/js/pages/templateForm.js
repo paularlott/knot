@@ -10,10 +10,9 @@ import 'ace-builds/src-noconflict/theme-github';
 import 'ace-builds/src-noconflict/theme-github_dark';
 import 'ace-builds/src-noconflict/ext-searchbox';
 
-window.templateForm = function(isEdit, templateId) {
-  focus.Element('input[name="name"]');
-
+window.templateForm = function(isEdit, templateId, isDuplicate = false) {
   return {
+    iconList: [],
     formData: {
       name: "",
       description: "",
@@ -76,8 +75,7 @@ window.templateForm = function(isEdit, templateId) {
     },
     loading: true,
     isEdit,
-    stayOnPage: true,
-    buttonLabel: isEdit ? 'Update' : 'Create Template',
+    buttonLabel: isEdit ? 'Save Changes' : 'Create Template',
     nameValid: true,
     jobValid: true,
     volValid: true,
@@ -92,6 +90,16 @@ window.templateForm = function(isEdit, templateId) {
     showPlatformWarning: false,
 
     async initData() {
+      const iconsResponse = await fetch('/api/icons', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (iconsResponse.status === 200) {
+        const icons = await iconsResponse.json();
+        this.iconList.push(...icons);
+      }
+
       for (let hour = 0; hour < 24; hour++) {
         for (let minute = 0; minute < 60; minute += 15) {
           const period = hour < 12 || hour === 24 ? 'am' : 'pm';
@@ -157,8 +165,8 @@ window.templateForm = function(isEdit, templateId) {
           });
         }
 
-        // If this is edit and duplicate then change to add
-        if (window.location.hash === '#duplicate') {
+        // If this is duplicate then change to create mode
+        if (isDuplicate) {
           this.formData.name = `Copy of ${this.formData.name}`;
           this.isEdit = isEdit = false;
           this.buttonLabel = 'Create Template';
@@ -302,9 +310,7 @@ window.templateForm = function(isEdit, templateId) {
         return;
       }
 
-      if(this.stayOnPage) {
-        this.buttonLabel = this.isEdit ? 'Updating template...' : 'Create template...'
-      }
+      this.buttonLabel = this.isEdit ? 'Updating template...' : 'Create template...'
       this.loading = true;
 
       const data = {
@@ -341,16 +347,11 @@ window.templateForm = function(isEdit, templateId) {
         })
         .then((response) => {
           if (response.status === 200) {
-
-            if(!this.stayOnPage) {
-              window.location.href = '/templates';
-              return;
-            }
-
             self.$dispatch('show-alert', { msg: "Template updated", type: 'success' });
+            self.$dispatch('close-template-form');
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Template created", type: 'success' });
-            window.location.href = '/templates';
+            self.$dispatch('close-template-form');
           } else {
             response.json().then((d) => {
               self.$dispatch('show-alert', { msg: `Failed to update the template, ${d.error}`, type: 'error' });

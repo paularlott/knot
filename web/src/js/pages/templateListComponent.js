@@ -36,6 +36,12 @@ window.templateListComponent = function(canManageSpaces, zone) {
     canManageSpaces,
     users: [],
     searchTerm: Alpine.$persist('').as('template-search-term').using(sessionStorage),
+    templateFormModal: {
+      show: false,
+      isEdit: false,
+      templateId: '',
+      isDuplicate: false
+    },
     spaceFormModal: {
       show: false,
       isEdit: false,
@@ -47,6 +53,18 @@ window.templateListComponent = function(canManageSpaces, zone) {
 
     async init() {
       await this.getTemplates();
+
+      window.addEventListener('close-template-form', () => {
+        this.templateFormModal.show = false;
+        this.getTemplates();
+      });
+
+      window.addEventListener('message', (event) => {
+        if (event.data === 'close-template-form') {
+          this.templateFormModal.show = false;
+          this.getTemplates();
+        }
+      });
 
       // Start a timer to look for updates
       setInterval(async () => {
@@ -141,11 +159,23 @@ window.templateListComponent = function(canManageSpaces, zone) {
         return false;
       }
     },
+    createTemplate() {
+      this.templateFormModal.isEdit = false;
+      this.templateFormModal.templateId = '';
+      this.templateFormModal.isDuplicate = false;
+      this.templateFormModal.show = true;
+    },
     editTemplate(templateId) {
-      window.location.href = `/templates/edit/${templateId}`;
+      this.templateFormModal.isEdit = true;
+      this.templateFormModal.templateId = templateId;
+      this.templateFormModal.isDuplicate = false;
+      this.templateFormModal.show = true;
     },
     duplicateTemplate(templateId) {
-      window.location.href = `/templates/edit/${templateId}#duplicate`;
+      this.templateFormModal.isEdit = true;
+      this.templateFormModal.isDuplicate = true;
+      this.templateFormModal.templateId = templateId;
+      this.templateFormModal.show = true;
     },
     createSpaceFromTemplate(templateId) {
       this.spaceFormModal.isEdit = false;
