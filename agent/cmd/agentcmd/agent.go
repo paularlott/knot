@@ -154,6 +154,12 @@ var agentServerCmd = &cli.Command{
 		logger := log.WithGroup("agent")
 		cfg := buildAgentConfig(cmd)
 
+		// Check if agent is already running by pinging it
+		if agentlink.IsAgentRunning() {
+			fmt.Println("Agent is already running")
+			return nil
+		}
+
 		// Check address given and valid URL
 		if cfg.Endpoint == "" {
 			log.Fatal("server address is required")
