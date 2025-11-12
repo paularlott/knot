@@ -24,6 +24,7 @@ const (
 	CmdLogMessage
 	CmdUpdateShell
 	CmdUpdateSpaceNote
+	CmdUpdateSpaceVar
 	CmdCreateToken
 	CmdTunnelPort
 	CmdTunnelPortConnection

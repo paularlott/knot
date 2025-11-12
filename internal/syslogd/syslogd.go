@@ -24,7 +24,7 @@ func StartSyslogd(agentClient *agent_client.AgentClient, syslogPort int) {
 	}
 	defer conn.Close()
 
-	logger.Info("server listening on port 514")
+	logger.Info("server listening on port", "port", syslogPort)
 	buffer := make([]byte, 8192)
 	for {
 		n, _, err := conn.ReadFromUDP(buffer)

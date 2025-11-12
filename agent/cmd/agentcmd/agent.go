@@ -152,6 +152,7 @@ var AgentCmd = &cli.Command{
 	},
 	Commands: []*cli.Command{
 		space.SpaceNoteCmd,
+		space.SpaceVarCmd,
 		space.SpaceShutdownCmd,
 		space.SpaceRestartCmd,
 	},
