@@ -18,6 +18,7 @@ const (
 	CommandConnect
 	CommandSpaceNote
 	CommandSpaceVar
+	CommandSpaceGetVar
 	CommandSpaceStop
 	CommandSpaceRestart
 )

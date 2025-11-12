@@ -336,6 +336,42 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			// Single shot command so done
 			return
 
+		case byte(msg.CmdGetSpaceVar):
+			var spaceGetVar msg.SpaceGetVar
+			if err := msg.ReadMessage(stream, &spaceGetVar); err != nil {
+				log.WithError(err).Error("reading space get var message:")
+				return
+			}
+
+			// Load the space from the database
+			db := database.GetInstance()
+			space, err := db.GetSpace(session.Id)
+			if err != nil {
+				log.Error("unknown space:", "agent", session.Id)
+				return
+			}
+
+			// Find the custom field
+			value := ""
+			for i := range space.CustomFields {
+				if space.CustomFields[i].Name == spaceGetVar.Name {
+					value = space.CustomFields[i].Value
+					break
+				}
+			}
+
+			// Send response
+			response := msg.SpaceGetVarResponse{
+				Value: value,
+			}
+			if err := msg.WriteMessage(stream, &response); err != nil {
+				log.WithError(err).Error("writing get var response:")
+				return
+			}
+
+			// Single shot command so done
+			return
+
 		case byte(msg.CmdCreateToken):
 			handleCreateToken(stream, session)
 			return // Single shot command so done

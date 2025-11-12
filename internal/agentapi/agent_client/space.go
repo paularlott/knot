@@ -69,6 +69,34 @@ func (c *AgentClient) SendSpaceVar(name, value string) error {
 	return errors.Join(errs...)
 }
 
+func (c *AgentClient) SendSpaceGetVar(name string) (string, error) {
+	c.serverListMutex.RLock()
+	defer c.serverListMutex.RUnlock()
+
+	var errs []error
+
+	for _, server := range c.serverList {
+		if server.muxSession != nil && !server.muxSession.IsClosed() {
+			conn, err := server.muxSession.Open()
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to open mux session for server %v: %w", server, err))
+				continue
+			}
+			defer conn.Close()
+
+			value, err := msg.SendSpaceGetVar(conn, name)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to get space var from server %v: %w", server, err))
+				continue
+			}
+
+			return value, nil
+		}
+	}
+
+	return "", errors.Join(errs...)
+}
+
 func (c *AgentClient) SendSpaceStop() error {
 	c.serverListMutex.RLock()
 	defer c.serverListMutex.RUnlock()

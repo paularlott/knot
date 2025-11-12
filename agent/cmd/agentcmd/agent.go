@@ -241,6 +241,7 @@ var AgentCmd = &cli.Command{
 		agentServerCmd,
 		space.SpaceNoteCmd,
 		space.SpaceVarCmd,
+		space.SpaceGetVarCmd,
 		space.SpaceShutdownCmd,
 		space.SpaceRestartCmd,
 	},
