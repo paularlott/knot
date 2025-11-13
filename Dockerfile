@@ -1,6 +1,6 @@
 ARG DOCKER_HUB
 
-FROM --platform=${BUILDPLATFORM} ${DOCKER_HUB}library/golang:1.25.2-alpine AS builder
+FROM --platform=${BUILDPLATFORM} ${DOCKER_HUB}library/golang:1.25.4-alpine AS builder
 
 # Set build arguments
 ARG TARGETPLATFORM
