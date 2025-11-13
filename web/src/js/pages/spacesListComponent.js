@@ -72,6 +72,20 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     showSharedOnly:Alpine.$persist(false).as('spaceFilterSharedOnly').using(sessionStorage),
     showSharedWithMeOnly:Alpine.$persist(false).as('spaceFilterSharedWithMeOnly').using(sessionStorage),
     action: 'stop', // 'stop' or 'restart'
+    templateSelector: {
+      show: false,
+      templates: [],
+      groups: [],
+      searchTerm: '',
+    },
+    spaceFormModal: {
+      show: false,
+      isEdit: false,
+      spaceId: '',
+      templateId: '',
+      forUserId: '',
+      forUserUsername: '',
+    },
 
     async init() {
       if(this.canManageSpaces || this.canTransferSpaces || this.canShareSpaces) {
@@ -346,7 +360,13 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       });
     },
     editSpace(spaceId) {
-      window.location.href = `/spaces/edit/${spaceId}`;
+      const space = this.spaces.find(s => s.space_id === spaceId);
+      this.spaceFormModal.isEdit = true;
+      this.spaceFormModal.spaceId = spaceId;
+      this.spaceFormModal.templateId = space.template_id;
+      this.spaceFormModal.forUserId = space.user_id;
+      this.spaceFormModal.forUserUsername = space.username;
+      this.spaceFormModal.show = true;
     },
     openWindowForPort(spaceUsername, spaceId, spaceName, port) {
       popup.openPortWindow(spaceId, wildcardDomain, spaceUsername === '' ? username : spaceUsername, spaceName, port);
@@ -515,6 +535,124 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     },
     setAction(act) {
       this.action = act;
+    },
+    async openTemplateSelector() {
+      this.templateSelector.show = true;
+      await this.getTemplatesForSelector();
+      // Focus the search input after modal transition
+      this.$nextTick(() => {
+        this.$refs.templateSearchInput?.focus();
+      });
+    },
+    async getTemplatesForSelector() {
+      // Fetch groups
+      await fetch('/api/groups', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((groupsList) => {
+            this.templateSelector.groups = groupsList.groups;
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+          return;
+        }
+      }).catch(() => {
+        // Don't logout on network errors
+        return;
+      });
+
+      // Fetch templates
+      await fetch('/api/templates', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).then((response) => {
+        if (response.status === 200) {
+          response.json().then((templateList) => {
+            this.templateSelector.templates = templateList.templates;
+
+            this.templateSelector.templates.forEach(template => {
+              template.icon_url_exists = this.imageExists(template.icon_url);
+
+              // Convert group IDs to names
+              template.group_names = [];
+              template.groups.forEach(groupId => {
+                this.templateSelector.groups.forEach(group => {
+                  if (group.group_id === groupId) {
+                    template.group_names.push(group.name);
+                  }
+                });
+              });
+            });
+
+            // Apply search filter
+            this.templateSearchChanged();
+          });
+        } else if (response.status === 401) {
+          window.location.href = '/logout';
+        }
+      }).catch(() => {
+        // Don't logout on network errors
+      });
+    },
+    templateSearchChanged() {
+      const term = this.templateSelector.searchTerm.toLowerCase();
+
+      this.templateSelector.templates.forEach(template => {
+        // Only show active templates
+        let showRow = template.active;
+
+        const zones = template.zones || [];
+        if (zones.length > 0) {
+          // Hide if any !zone matches the current zone
+          const hasNegation = zones.some(z => z.startsWith('!') && z.substring(1) === zone);
+          if (hasNegation) {
+            showRow = false;
+          } else {
+            // If there are any non-negated zones, show only if one matches
+            const positiveZones = zones.filter(z => !z.startsWith('!'));
+            if (positiveZones.length > 0) {
+              const hasZone = positiveZones.includes(zone);
+              showRow = showRow && hasZone;
+            }
+          }
+        }
+
+        // Search term filtering
+        if (term.length > 0) {
+          const inName = template.name.toLowerCase().includes(term);
+          const inDesc = template.description.toLowerCase().includes(term);
+          showRow = showRow && (inName || inDesc);
+        }
+
+        template.searchHide = !showRow;
+      });
+    },
+    createSpaceFromTemplate(templateId) {
+      this.templateSelector.show = false;
+      this.spaceFormModal.isEdit = false;
+      this.spaceFormModal.spaceId = '';
+      this.spaceFormModal.templateId = templateId;
+      this.spaceFormModal.forUserId = this.forUserId;
+      this.spaceFormModal.forUserUsername = this.forUsername;
+      this.spaceFormModal.show = true;
+    },
+    getDayOfWeek(day) {
+      return ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][day];
+    },
+    getMaxUptime(maxUptime, maxUptimeUnit) {
+      let maxUptimeString = '';
+      if(maxUptimeUnit === 'minute') {
+        maxUptimeString = `${maxUptime} minute${maxUptime > 1 ? 's' : ''}`;
+      } else if(maxUptimeUnit === 'hour') {
+        maxUptimeString = `${maxUptime} hour${maxUptime > 1 ? 's' : ''}`;
+      } else if(maxUptimeUnit === 'day') {
+        maxUptimeString = `${maxUptime} day${maxUptime > 1 ? 's' : ''}`;
+      }
+      return maxUptimeString;
     }
   };
 }

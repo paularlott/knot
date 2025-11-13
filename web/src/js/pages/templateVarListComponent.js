@@ -18,6 +18,11 @@ window.templateVarListComponent = function() {
         name: '',
       }
     },
+    variableFormModal: {
+      show: false,
+      isEdit: false,
+      templateVarId: '',
+    },
     variables: [],
     searchTerm: Alpine.$persist('').as('var-search-term').using(sessionStorage),
 
@@ -56,8 +61,18 @@ window.templateVarListComponent = function() {
         // Don't logout on network errors - Safari closes connections aggressively
       });
     },
-    editTemplateVar(templateVarId) {
-      window.location.href = `/variables/edit/${templateVarId}`;
+    createVariable() {
+      this.variableFormModal.isEdit = false;
+      this.variableFormModal.templateVarId = '';
+      this.variableFormModal.show = true;
+    },
+    editVariable(templateVarId) {
+      this.variableFormModal.isEdit = true;
+      this.variableFormModal.templateVarId = templateVarId;
+      this.variableFormModal.show = true;
+    },
+    loadVariables() {
+      this.getTemplateVars();
     },
     async deleteTemplateVar(templateVarId) {
       const self = this;
@@ -82,7 +97,7 @@ window.templateVarListComponent = function() {
     searchChanged() {
       const term = this.searchTerm.toLowerCase();
 
-      // For all variabkes if name contains the term show; else hide
+      // For all variables if name contains the term show; else hide
       this.variables.forEach(v => {
         if(term.length === 0) {
           v.searchHide = false;

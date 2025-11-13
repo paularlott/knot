@@ -61,12 +61,23 @@ func DownloadUnpackTgz(downloadURL string, destDir string) error {
 			file.Close()
 		case tar.TypeSymlink:
 			if isRel(header.Linkname, destDir) {
+				// Ensure that the symlink itself is created within destDir after evaluating symlinks.
+				ok, err := isPathWithinRoot(target, destDir)
+				if err != nil {
+					return fmt.Errorf("error resolving symlink destination: %v", err)
+				}
+				if !ok {
+					return fmt.Errorf("symlink destination escapes extraction root: %s", target)
+				}
 				if err := os.Symlink(header.Linkname, target); err != nil {
 					return fmt.Errorf("failed to create symlink: %v", err)
 				}
 			}
 		case tar.TypeLink:
-			linkTarget := filepath.Join(destDir, header.Linkname)
+			linkTarget, err := sanitizeExtractPath(header.Linkname, destDir)
+			if err != nil {
+				return fmt.Errorf("invalid hard link target path: %v", err)
+			}
 			if err := os.Link(linkTarget, target); err != nil {
 				return fmt.Errorf("failed to create hard link: %v", err)
 			}
@@ -76,6 +87,35 @@ func DownloadUnpackTgz(downloadURL string, destDir string) error {
 	}
 
 	return nil
+}
+
+// isPathWithinRoot checks that the fully resolved path (with all symlinks in parent directories evaluated)
+// is still within the specified root directory.
+func isPathWithinRoot(path, root string) (bool, error) {
+	parent := filepath.Dir(path)
+	// Evaluate symlinks in parent path
+	resolvedParent, err := filepath.EvalSymlinks(parent)
+	if err != nil {
+		// If the directory does not exist yet, fallback to checking absolute path
+		resolvedParent = parent
+	}
+	finalPath := filepath.Join(resolvedParent, filepath.Base(path))
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return false, fmt.Errorf("cannot evaluate root: %v", err)
+	}
+	absFinal, err := filepath.Abs(finalPath)
+	if err != nil {
+		return false, fmt.Errorf("cannot evaluate path: %v", err)
+	}
+	rel, err := filepath.Rel(absRoot, absFinal)
+	if err != nil {
+		return false, nil
+	}
+	if strings.HasPrefix(filepath.Clean(rel), "..") {
+		return false, nil
+	}
+	return true, nil
 }
 
 // isRel checks if the candidate path is a relative path within the target directory.

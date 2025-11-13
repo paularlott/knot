@@ -3,6 +3,7 @@ import { focus } from '../focus.js';
 
 window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, forUserUsername, templateId) {
   return {
+    iconList: [],
     formData: {
       name: "",
       description: "",
@@ -21,8 +22,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     },
     isManual: false,
     loading: true,
-    buttonLabel: isEdit ? 'Update' : 'Create Space',
-    buttonLabelWorking: isEdit ? 'Updating...' : 'Creating...',
+    buttonLabel: isEdit ? 'Save Changes' : 'Create Space',
+    buttonLabelWorking: isEdit ? 'Saving...' : 'Creating...',
     nameValid: true,
     addressValid: true,
     forUsername: forUserUsername,
@@ -41,6 +42,16 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     },
 
     async initData() {
+      const iconsResponse = await fetch('/api/icons', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (iconsResponse.status === 200) {
+        const icons = await iconsResponse.json();
+        this.iconList.push(...icons);
+      }
+
       focus.Element('input[name="name"]');
 
       if(isEdit) {
@@ -147,6 +158,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       const self = this;
 
       self.saving = true;
+      self.stayOnPage = false;
       err = !this.checkName() || err;
       err = !this.checkDesc() || err;
 
@@ -182,11 +194,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         })
         .then((response) => {
           if (response.status === 200) {
-            if(this.stayOnPage) {
-              self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
-            } else {
-              window.location.href = '/spaces';
-            }
+            self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
+            self.$dispatch('close-space-form');
           } else if (response.status === 201) {
 
             // If start on create
@@ -208,11 +217,12 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
                 }).catch((error) => {
                   self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
                 }).finally(() => {
+                  self.$dispatch('close-space-form');
                   window.location.href = '/spaces';
                 })
               });
             } else {
-              window.location.href = '/spaces';
+              self.$dispatch('close-space-form');
             }
           } else if (response.status === 507) {
             self.quotaStorageLimitShow = true;

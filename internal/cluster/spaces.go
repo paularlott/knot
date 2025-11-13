@@ -119,10 +119,10 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 					service.GetUserService().UpdateSpaceSSHKeys(space, user)
 				}
 			}
-		} else if !space.IsDeleted {
-			// If the space doesn't exist, create it unless it's deleted on the remote node
+		} else {
+			// If the space doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveSpace(space, []string{}); err != nil {
-				return err
+				c.logger.Error("Failed to save space", "error", err, "name", space.Name, "is_deleted", space.IsDeleted)
 			}
 		}
 	}

@@ -2,6 +2,7 @@ package driver_redis
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
@@ -18,10 +19,26 @@ const (
 	garbageMaxAge       = 3 * 24 * time.Hour
 )
 
+// redisLogger adapts our logger to Redis's logging interface
+type redisLogger struct {
+	logGroup logger.Logger
+}
+
+func newRedisLogger() *redisLogger {
+	return &redisLogger{
+		logGroup: log.WithGroup("redis"),
+	}
+}
+
+func (l *redisLogger) Printf(ctx context.Context, format string, v ...interface{}) {
+	l.logGroup.Debug(fmt.Sprintf(format, v...))
+}
+
 type RedisDbDriver struct {
-	prefix     string
-	connection redis.UniversalClient
-	logger     logger.Logger
+	prefix      string
+	connection  redis.UniversalClient
+	logger      logger.Logger
+	redisLogger *redisLogger
 }
 
 func convertRedisError(err error) error {
@@ -76,12 +93,14 @@ func (db *RedisDbDriver) realConnect() {
 		DB:         cfg.Redis.DB,
 		MasterName: cfg.Redis.MasterName,
 	})
+	redis.SetLogger(db.redisLogger)
 
 	db.logger.Debug("connected to Redis")
 }
 
 func (db *RedisDbDriver) Connect() error {
 	db.logger = log.WithGroup("db")
+	db.redisLogger = newRedisLogger()
 
 	// If prefix doesn't end with : append it
 	cfg := config.GetServerConfig()

@@ -10,6 +10,19 @@ type SpaceNote struct {
 	Note string
 }
 
+type SpaceVar struct {
+	Name  string
+	Value string
+}
+
+type SpaceGetVar struct {
+	Name string
+}
+
+type SpaceGetVarResponse struct {
+	Value string
+}
+
 func SendSpaceNote(conn net.Conn, note string) error {
 	logger := log.WithGroup("agent")
 	// Write the state command
@@ -53,4 +66,55 @@ func SendSpaceRestart(conn net.Conn) error {
 	}
 
 	return nil
+}
+
+func SendSpaceVar(conn net.Conn, name, value string) error {
+	logger := log.WithGroup("agent")
+	// Write the command
+	err := WriteCommand(conn, CmdUpdateSpaceVar)
+	if err != nil {
+		logger.WithError(err).Error("writing update var command")
+		return err
+	}
+
+	// Write the message
+	err = WriteMessage(conn, &SpaceVar{
+		Name:  name,
+		Value: value,
+	})
+	if err != nil {
+		logger.WithError(err).Error("writing update var message")
+		return err
+	}
+
+	return nil
+}
+
+func SendSpaceGetVar(conn net.Conn, name string) (string, error) {
+	logger := log.WithGroup("agent")
+	// Write the command
+	err := WriteCommand(conn, CmdGetSpaceVar)
+	if err != nil {
+		logger.WithError(err).Error("writing get var command")
+		return "", err
+	}
+
+	// Write the message
+	err = WriteMessage(conn, &SpaceGetVar{
+		Name: name,
+	})
+	if err != nil {
+		logger.WithError(err).Error("writing get var message")
+		return "", err
+	}
+
+	// Read the response
+	var response SpaceGetVarResponse
+	err = ReadMessage(conn, &response)
+	if err != nil {
+		logger.WithError(err).Error("reading get var response")
+		return "", err
+	}
+
+	return response.Value, nil
 }

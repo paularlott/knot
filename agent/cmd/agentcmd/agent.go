@@ -18,8 +18,8 @@ import (
 	"github.com/paularlott/knot/internal/log"
 )
 
-var AgentCmd = &cli.Command{
-	Name:        "agent",
+var agentServerCmd = &cli.Command{
+	Name:        "start",
 	Usage:       "Start the knot agent",
 	Description: `Start the knot agent and connect to the host server.`,
 	Flags: []cli.Flag{
@@ -150,14 +150,15 @@ var AgentCmd = &cli.Command{
 			DefaultValue: true,
 		},
 	},
-	Commands: []*cli.Command{
-		space.SpaceNoteCmd,
-		space.SpaceShutdownCmd,
-		space.SpaceRestartCmd,
-	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		logger := log.WithGroup("agent")
 		cfg := buildAgentConfig(cmd)
+
+		// Check if agent is already running by pinging it
+		if agentlink.IsAgentRunning() {
+			fmt.Println("Agent is already running")
+			return nil
+		}
 
 		// Check address given and valid URL
 		if cfg.Endpoint == "" {
@@ -230,4 +231,18 @@ func buildAgentConfig(cmd *cli.Command) *config.AgentConfig {
 	config.SetAgentConfig(agentCfg)
 
 	return agentCfg
+}
+
+var AgentCmd = &cli.Command{
+	Name:        "agent",
+	Usage:       "Knot agent",
+	Description: `Knot agent commands.`,
+	Commands: []*cli.Command{
+		agentServerCmd,
+		space.SpaceNoteCmd,
+		space.SpaceVarCmd,
+		space.SpaceGetVarCmd,
+		space.SpaceShutdownCmd,
+		space.SpaceRestartCmd,
+	},
 }

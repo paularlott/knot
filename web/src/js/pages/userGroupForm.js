@@ -12,7 +12,7 @@ window.userGroupForm = function(isEdit, groupId) {
       max_tunnels: 0,
     },
     loading: true,
-    buttonLabel: isEdit ? 'Update' : 'Create Group',
+    buttonLabel: isEdit ? 'Save Changes' : 'Create Group',
     nameValid: true,
     maxSpacesValid: true,
     computeUnitsValid: true,
@@ -101,14 +101,11 @@ window.userGroupForm = function(isEdit, groupId) {
         })
         .then((response) => {
           if (response.status === 200) {
-            if(this.stayOnPage) {
-              self.$dispatch('show-alert', { msg: "Group Updated", type: 'success' });
-            } else {
-              window.location.href = '/groups';
-            }
+            self.$dispatch('show-alert', { msg: "Group Updated", type: 'success' });
+            self.$dispatch('close-group-form');
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Group Created", type: 'success' });
-            window.location.href = '/groups';
+            self.$dispatch('close-group-form');
           } else {
             response.json().then((d) => {
               self.$dispatch('show-alert', { msg: `Failed to update the group, ${d.error}`, type: 'error' });

@@ -168,6 +168,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	})
 
 	// Group routes that require authentication
+	router.HandleFunc("GET /api/icons", middleware.WebAuth(HandleGetIcons))
 	router.HandleFunc("GET /clients", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /sessions", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /space-quota-reached", middleware.WebAuth(HandleSimplePage))
@@ -179,7 +180,6 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /terminal/{space_id}/{vsc}", middleware.WebAuth(HandleTerminalPage))
 
 	router.HandleFunc("GET /api-tokens", middleware.WebAuth(HandleSimplePage))
-	router.HandleFunc("GET /api-tokens/create", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /api-tokens/create/{token_name}", middleware.WebAuth(HandleTokenCreatePage))
 
 	router.HandleFunc("GET /spaces", middleware.WebAuth(HandleListSpaces))
@@ -189,28 +189,16 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /spaces/edit/{space_id}", middleware.WebAuth(checkPermissionUseManageSpaces(HandleSpacesEdit)))
 
 	router.HandleFunc("GET /templates", middleware.WebAuth(HandleSimplePage))
-	router.HandleFunc("GET /templates/create", middleware.WebAuth(checkPermissionManageTemplates(HandleTemplateCreate)))
-	router.HandleFunc("GET /templates/edit/{template_id}", middleware.WebAuth(checkPermissionManageTemplates(HandleTemplateEdit)))
 
 	router.HandleFunc("GET /variables", middleware.WebAuth(checkPermissionManageVariables(HandleSimplePage)))
-	router.HandleFunc("GET /variables/create", middleware.WebAuth(checkPermissionManageVariables(HandleTemplateVarCreate)))
-	router.HandleFunc("GET /variables/edit/{templatevar_id}", middleware.WebAuth(checkPermissionManageVariables(HandleTemplateVarEdit)))
 
 	router.HandleFunc("GET /users", middleware.WebAuth(checkPermissionManageUsers(HandleSimplePage)))
-	router.HandleFunc("GET /users/create", middleware.WebAuth(checkPermissionManageUsers(HandleUserCreate)))
-	router.HandleFunc("GET /users/edit/{user_id}", middleware.WebAuth(checkPermissionManageUsers(HandleUserEdit)))
 
 	router.HandleFunc("GET /groups", middleware.WebAuth(checkPermissionManageGroups(HandleSimplePage)))
-	router.HandleFunc("GET /groups/create", middleware.WebAuth(checkPermissionManageGroups(HandleGroupCreate)))
-	router.HandleFunc("GET /groups/edit/{group_id}", middleware.WebAuth(checkPermissionManageGroups(HandleGroupEdit)))
 
 	router.HandleFunc("GET /roles", middleware.WebAuth(checkPermissionManageRoles(HandleSimplePage)))
-	router.HandleFunc("GET /roles/create", middleware.WebAuth(checkPermissionManageRoles(HandleRoleCreate)))
-	router.HandleFunc("GET /roles/edit/{role_id}", middleware.WebAuth(checkPermissionManageRoles(HandleRoleEdit)))
 
 	router.HandleFunc("GET /volumes", middleware.WebAuth(checkPermissionManageVolumes(HandleSimplePage)))
-	router.HandleFunc("GET /volumes/create", middleware.WebAuth(checkPermissionManageVolumes(HandleVolumeCreate)))
-	router.HandleFunc("GET /volumes/edit/{volume_id}", middleware.WebAuth(checkPermissionManageVolumes(HandleVolumeEdit)))
 
 	router.HandleFunc("GET /logs/{space_id}", middleware.WebAuth(HandleLogsPage))
 
@@ -420,6 +408,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"username":                  user.Username,
 		"user_id":                   user.Id,
 		"user_email":                user.Email,
+		"preferredShell":            user.PreferredShell,
 		"user_email_md5":            fmt.Sprintf("%x", md5.Sum([]byte(user.Email))),
 		"withDownloads":             withDownloads,
 		"hideSupportLinks":          cfg.UI.HideSupportLinks,

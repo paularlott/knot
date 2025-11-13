@@ -36,9 +36,35 @@ window.templateListComponent = function(canManageSpaces, zone) {
     canManageSpaces,
     users: [],
     searchTerm: Alpine.$persist('').as('template-search-term').using(sessionStorage),
+    templateFormModal: {
+      show: false,
+      isEdit: false,
+      templateId: '',
+      isDuplicate: false
+    },
+    spaceFormModal: {
+      show: false,
+      isEdit: false,
+      spaceId: '',
+      templateId: '',
+      forUserId: '',
+      forUserUsername: '',
+    },
 
     async init() {
       await this.getTemplates();
+
+      window.addEventListener('close-template-form', () => {
+        this.templateFormModal.show = false;
+        this.getTemplates();
+      });
+
+      window.addEventListener('message', (event) => {
+        if (event.data === 'close-template-form') {
+          this.templateFormModal.show = false;
+          this.getTemplates();
+        }
+      });
 
       // Start a timer to look for updates
       setInterval(async () => {
@@ -133,14 +159,31 @@ window.templateListComponent = function(canManageSpaces, zone) {
         return false;
       }
     },
+    createTemplate() {
+      this.templateFormModal.isEdit = false;
+      this.templateFormModal.templateId = '';
+      this.templateFormModal.isDuplicate = false;
+      this.templateFormModal.show = true;
+    },
     editTemplate(templateId) {
-      window.location.href = `/templates/edit/${templateId}`;
+      this.templateFormModal.isEdit = true;
+      this.templateFormModal.templateId = templateId;
+      this.templateFormModal.isDuplicate = false;
+      this.templateFormModal.show = true;
     },
     duplicateTemplate(templateId) {
-      window.location.href = `/templates/edit/${templateId}#duplicate`;
+      this.templateFormModal.isEdit = true;
+      this.templateFormModal.isDuplicate = true;
+      this.templateFormModal.templateId = templateId;
+      this.templateFormModal.show = true;
     },
     createSpaceFromTemplate(templateId) {
-      window.location.href = `/spaces/create/${templateId}`;
+      this.spaceFormModal.isEdit = false;
+      this.spaceFormModal.spaceId = '';
+      this.spaceFormModal.templateId = templateId;
+      this.spaceFormModal.forUserId = '';
+      this.spaceFormModal.forUserUsername = '';
+      this.spaceFormModal.show = true;
     },
     async deleteTemplate(templateId) {
       const self = this;
@@ -179,11 +222,17 @@ window.templateListComponent = function(canManageSpaces, zone) {
         if (response.status === 200) {
           response.json().then((templates) => {
 
-            // If the selected template is in the list then created
+            // If the selected template is in the list then create
             const template = templates.templates.find(t => t.template_id === this.chooseUser.template.template_id);
             if(template) {
               this.chooseUser.show = false;
-              window.location.href = `/spaces/create/${this.chooseUser.template.template_id}/${this.chooseUser.forUserId}`;
+              const user = this.users.find(u => u.user_id === this.chooseUser.forUserId);
+              this.spaceFormModal.isEdit = false;
+              this.spaceFormModal.spaceId = '';
+              this.spaceFormModal.templateId = this.chooseUser.template.template_id;
+              this.spaceFormModal.forUserId = this.chooseUser.forUserId;
+              this.spaceFormModal.forUserUsername = user ? user.username : '';
+              this.spaceFormModal.show = true;
             } else {
               this.chooseUser.invalidTemplate = true;
             }

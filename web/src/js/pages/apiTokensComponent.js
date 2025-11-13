@@ -12,6 +12,14 @@ window.apiTokensComponent = function() {
   return {
     loading: true,
     tokens: [],
+    tokenFormModal: {
+      show: false
+    },
+    formData: {
+      name: "",
+    },
+    buttonLabel: 'Create Token',
+    nameValid: true,
     deleteConfirm: {
       show: false,
       token: {
@@ -23,6 +31,19 @@ window.apiTokensComponent = function() {
 
     async init() {
       await this.getTokens();
+
+      this.$watch('tokenFormModal.show', (value) => {
+        if (!value) {
+          this.formData.name = '';
+          this.nameValid = true;
+          this.buttonLabel = 'Create Token';
+        }
+      });
+
+      window.addEventListener('close-token-form', () => {
+        this.tokenFormModal.show = false;
+        this.getTokens();
+      });
 
       // Start a timer to look for updates
       setInterval(async () => {
@@ -85,6 +106,50 @@ window.apiTokensComponent = function() {
     async copyToClipboard(text) {
       await navigator.clipboard.writeText(text);
       this.$dispatch('show-alert', { msg: "Copied to clipboard", type: 'success' });
+    },
+    createToken() {
+      this.tokenFormModal.show = true;
+    },
+    checkName() {
+      this.nameValid = this.formData.name.length > 0 && this.formData.name.length < 255;
+      return this.nameValid;
+    },
+    async submitTokenForm() {
+      let err = !this.checkName();
+      if(err) {
+        return;
+      }
+
+      this.buttonLabel = 'Creating token...';
+      this.loading = true;
+
+      const data = {
+        name: this.formData.name,
+      };
+
+      await fetch('/api/tokens', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then((response) => {
+        if (response.status === 201) {
+          this.$dispatch('show-alert', { msg: "Token created", type: 'success' });
+          this.tokenFormModal.show = false;
+          this.getTokens();
+        } else {
+          this.$dispatch('show-alert', { msg: "Failed to create API token", type: 'error' });
+        }
+      })
+      .catch((error) => {
+        this.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
+      })
+      .finally(() => {
+        this.buttonLabel = 'Create Token';
+        this.loading = false;
+      });
     },
   };
 }

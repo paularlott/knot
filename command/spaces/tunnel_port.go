@@ -16,8 +16,8 @@ import (
 
 var TunnelPortCmd = &cli.Command{
 	Name:        "tunnel",
-	Usage:       "<space> <listen> <port>",
-	Description: `Open a tunnel between a port inside a space and a port on the local machine.`,
+	Usage:       "Tunnel a port to the local machine",
+	Description: `Open a tunnel from a port inside a space to a port on the local machine.`,
 	Arguments: []cli.Argument{
 		&cli.StringArg{
 			Name:     "space",

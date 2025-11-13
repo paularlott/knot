@@ -1,17 +1,5 @@
-{{ template "layout-base.tmpl" . }}
-
-{{ define "pageTitle" }}{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}{{ end }}
-
-{{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8">
-  <div class="grid grid-cols-1 px-4 pt-6 lg:grid-cols-4 gap-2 xl:gap-4" x-data="templateForm({{ .isEdit }}, '{{ .templateId }}')" x-init="initData">
-
-    <div class="mb-4 col-span-full xl:mb-2">
-      <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">{{ if .isEdit }}Edit Template{{ else }}Create Template{{ end }}</h1>
-    </div>
-
-    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
-
+{{ define "template-form-content" }}
+<div x-data="templateForm(templateFormModal.isEdit, templateFormModal.templateId, templateFormModal.isDuplicate || false)" x-init="initData">
       {{ template "loading" . }}
       <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
         <div>
@@ -27,23 +15,19 @@
             </div>
           </div>
         </div>
-        <div x-data="autocompleterIcon({{ .iconList }})" data-parent-var-group="formData" data-parent-variable="icon_url" @refresh-autocompleter.window="refresh()" class="mt-2">
+        <div x-data="autocompleterIcon(iconList)" data-parent-var-group="formData" data-parent-variable="icon_url" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
           <label for="icon_url" class="form-label">Template Icon</label>
           <div class="flex items-center">
             <img x-show="formData.icon_url.length" :src="formData.icon_url" alt="Icon" class="size-10 mr-2">
             <div class="relative w-full max-w-sm">
-              <input x-model="search" class="form-field" type="search" placeholder="Search icons..."
-                @focus="handleFocus()"
-                @blur.debounce.200ms="showList = false"
-                @keydown="handleKeydown($event)"
-                x-ref="searchInput" spellcheck="false" autocomplete="off">
-                <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-120 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+              <input x-model="search" class="form-field" type="search" placeholder="Search icons..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+              <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
                 <ul class="list-none">
                   <template x-for="(option, index) in filteredOptions" :key="index">
-                  <li @click="selectOption(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
-                    <img x-show="option.url.length" :src="option.url" alt="Icon" class="size-10 mr-2">
-                    <div x-text="option.description + ' (' + option.source + ')'"></div>
-                  </li>
+                    <li @click="selectOption(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
+                      <img x-show="option.url.length" :src="option.url" alt="Icon" class="size-10 mr-2">
+                      <div x-text="option.description + ' (' + option.source + ')'"></div>
+                    </li>
                   </template>
                 </ul>
               </div>
@@ -78,7 +62,7 @@
               </div>
               </label>
             </template>
-            
+
             <!-- Local Container split button -->
             <div class="relative inline-flex" x-data="{ open: false, isLocalContainer() { return ['docker', 'podman', 'apple', 'container'].includes(formData.platform); } }">
               <label class="relative group">
@@ -342,42 +326,11 @@
           </label>
         </div>
 
-        <button type="submit" class="btn-primary mr-2" :value="buttonLabel" x-text="buttonLabel" :disabled="loading" x-on:click="stayOnPage=true"></button>
-        <button x-show="isEdit" class="btn-primary" type="submit" :disabled="loading" x-on:click="stayOnPage=false">Save</button>
+        <div class="flex justify-end gap-2 pt-4 border-t border-neutral-300 dark:border-gray-700">
+          <button type="button" @click="templateFormModal.show = false" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-gray-700">Cancel</button>
+          <button type="submit" class="btn-primary" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></button>
+        </div>
 
       </form>
-
-    </div>
-
-    <div x-cloak x-show="showPlatformWarning" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showPlatformWarning" @keydown.esc.window="showPlatformWarning = false" @click.self="showPlatformWarning = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-30 flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="defaultModalTitle">
-      <!-- Modal Dialog -->
-      <div x-show="showPlatformWarning" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
-        <!-- Dialog Header -->
-        <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-          <div class="flex items-center justify-center rounded-full bg-yellow-500/20 text-yellow-500 p-1">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-            </svg>
-          </div>
-          <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Platform Changed</h3>
-          <button @click="showPlatformWarning = false" aria-label="close modal" class="cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <!-- Dialog Body -->
-        <div class="px-4 py-4 text-center">
-          <p>Changing the platform that the template is using may have unintended consequences including loss of data.</p>
-          <p>Only proceed if you are sure about the changes you are making.</p>
-        </div>
-        <!-- Dialog Footer -->
-        <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
-            <button @click="showPlatformWarning = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Dismiss</button>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</main>
+</div>
 {{ end }}

@@ -10,6 +10,19 @@ type SpaceNoteRequest struct {
 	Note string `json:"note" msgpack:"note"`
 }
 
+type SpaceVarRequest struct {
+	Name  string `json:"name" msgpack:"name"`
+	Value string `json:"value" msgpack:"value"`
+}
+
+type SpaceGetVarRequest struct {
+	Name string `json:"name" msgpack:"name"`
+}
+
+type SpaceGetVarResponse struct {
+	Value string `json:"value" msgpack:"value"`
+}
+
 type RunCommandRequest struct {
 	Command string `json:"command" msgpack:"command"`
 	Timeout int    `json:"timeout" msgpack:"timeout"`

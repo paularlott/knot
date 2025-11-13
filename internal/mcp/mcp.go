@@ -17,21 +17,21 @@ func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Ser
 
 CRITICAL TEMPLATE CREATION WORKFLOW:
 When user asks to create/update a template, you MUST follow this exact sequence:
-1. FIRST: Call recipes(filename='<platform>-spec.md') where platform is nomad, docker, or podman
+1. FIRST: Call skills(filename='<platform>-spec.md') where platform is nomad, docker, or podman
 2. SECOND: Use the specification from step 1 as your guide to construct the job definition
 3. THIRD: Call create_template or update_template with the properly formatted job
 
 EXAMPLE: For "create a nomad template":
-1. Call recipes(filename='nomad-spec.md')
+1. Call skills(filename='nomad-spec.md')
 2. Follow the nomad specification format from the response
 3. Create the template with proper nomad job syntax
 
 SPACE OPERATIONS:
-- When user asks to create spaces or environments, check recipes() first for guidance
-- Follow recipe instructions when available
+- When user asks to create spaces or environments, check skills() first for guidance
+- Follow skill instructions when available
 
 NEVER create templates or spaces unless explicitly requested.
-NEVER skip the recipes() call when creating/updating templates.`)
+NEVER skip the skills() call when creating/updating templates.`)
 
 	if enableWebEndpoint {
 		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(server.HandleRequest)))
@@ -87,7 +87,7 @@ NEVER skip the recipes() call when creating/updating templates.`)
 		listTemplates,
 	)
 	server.RegisterTool(
-		mcp.NewTool("create_template", "Create a new space template. MANDATORY: Before calling this, you MUST first call recipes(filename='<platform>-spec.md') to get the platform specification and use it as your guide for the job definition.",
+		mcp.NewTool("create_template", "Create a new space template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide for the job definition.",
 			mcp.String("name", "Template name", mcp.Required()),
 			mcp.String("platform", "Platform type ('manual', 'docker', 'podman', or 'nomad')", mcp.Required()),
 			mcp.String("job", "Job specification (not required for manual platform)"),
@@ -122,7 +122,7 @@ NEVER skip the recipes() call when creating/updating templates.`)
 		createTemplate,
 	)
 	server.RegisterTool(
-		mcp.NewTool("update_template", "Update an existing template. MANDATORY: Before calling this, you MUST first call recipes(filename='<platform>-spec.md') to get the platform specification and use it as your guide.",
+		mcp.NewTool("update_template", "Update an existing template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide.",
 			mcp.String("template_name", "Name of the template to update", mcp.Required()),
 			mcp.String("name", "New template name"),
 			mcp.String("platform", "Platform: 'manual', 'docker', 'podman', or 'nomad'"),
@@ -433,20 +433,20 @@ NEVER skip the recipes() call when creating/updating templates.`)
 		listIcons,
 	)
 
-	// Recipes/Knowledge base
+	// Skills/Knowledge base
 	server.RegisterTool(
-		mcp.NewTool("recipes", "Access knowledge base/recipes for guides and best practices. Call without filename to list all, or with filename for specific content. First call recipes() to see what's available - don't assume filenames. Standard recipes: nomad-spec.md, local-container-spec.md (covers docker, podman, and apple containers).",
-			mcp.String("filename", "Recipe filename to retrieve. Omit to list all recipes."),
+		mcp.NewTool("skills", "Access knowledge base/skills for guides and best practices. Call without filename to list all, or with filename for specific content. First call skills() to see what's available - don't assume filenames. Standard skills: nomad-spec.md, local-container-spec.md (covers docker, podman, and apple containers).",
+			mcp.String("filename", "Skill filename to retrieve. Omit to list all skills."),
 			mcp.Output(
-				mcp.ObjectArray("recipes", "Array of available recipes",
-					mcp.String("filename", "Filename of the recipe"),
-					mcp.String("description", "Description of the recipe"),
+				mcp.ObjectArray("skills", "Array of available skills",
+					mcp.String("filename", "Filename of the skill"),
+					mcp.String("description", "Description of the skill"),
 				),
-				mcp.String("filename", "Filename of the recipe"),
-				mcp.String("content", "Content of the recipe when fetching a specific filename"),
+				mcp.String("filename", "Filename of the skill"),
+				mcp.String("content", "Content of the skill when fetching a specific filename"),
 			),
 		),
-		recipes,
+		skills,
 	)
 
 	return server
@@ -486,11 +486,11 @@ func ToolFilter(user *model.User) openai.ToolFilter {
 			return user.HasPermission(model.PermissionManageGroups) ||
 				user.HasPermission(model.PermissionManageTemplates) // Template managers need to see groups for restrictions
 
-		// Icons and recipes - generally available to all users with basic permissions
+		// Icons and skills - generally available to all users with basic permissions
 		case "list_icons":
 			return user.HasPermission(model.PermissionUseSpaces) ||
 				user.HasPermission(model.PermissionManageTemplates)
-		case "recipes":
+		case "skills":
 			return user.HasPermission(model.PermissionUseSpaces) ||
 				user.HasPermission(model.PermissionManageTemplates)
 

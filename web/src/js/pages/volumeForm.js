@@ -18,11 +18,10 @@ window.volumeForm = function(isEdit, volumeId) {
       platform: 'nomad',
     },
     loading: true,
-    buttonLabel: isEdit ? 'Update' : 'Create Volume',
+    buttonLabel: isEdit ? 'Save Changes' : 'Create Volume',
     nameValid: true,
     volValid: true,
     isEdit,
-    stayOnPage: true,
     showPlatformWarning: false,
 
     async initData() {
@@ -101,9 +100,7 @@ window.volumeForm = function(isEdit, volumeId) {
         return;
       }
 
-      if(this.stayOnPage) {
-        this.buttonLabel = isEdit ? 'Updating volume...' : 'Create volume...'
-      }
+      this.buttonLabel = isEdit ? 'Updating volume...' : 'Create volume...'
       this.loading = true;
 
       const data = {
@@ -121,14 +118,11 @@ window.volumeForm = function(isEdit, volumeId) {
         })
         .then((response) => {
           if (response.status === 200) {
-            if(self.stayOnPage) {
-              self.$dispatch('show-alert', { msg: "Volume updated", type: 'success' });
-            } else {
-              window.location.href = '/volumes';
-            }
+            self.$dispatch('show-alert', { msg: "Volume updated", type: 'success' });
+            self.$dispatch('close-volume-form');
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Volume created", type: 'success' });
-            window.location.href = '/volumes';
+            self.$dispatch('close-volume-form');
           } else {
             response.json().then((d) => {
               self.$dispatch('show-alert', { msg: `Failed to update the volume, ${d.error}`, type: 'error' });
@@ -139,7 +133,7 @@ window.volumeForm = function(isEdit, volumeId) {
           self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update' : 'Create Volume';
+          this.buttonLabel = isEdit ? 'Save Changes' : 'Create Volume';
           this.loading = false;
         })
     },

@@ -11,6 +11,11 @@ window.userListComponent = function() {
 
   return {
     loading: true,
+    userFormModal: {
+      show: false,
+      isEdit: false,
+      userId: ''
+    },
     deleteConfirm: {
       show: false,
       user: {
@@ -32,6 +37,11 @@ window.userListComponent = function() {
 
     async init() {
       await this.getUsers();
+
+      window.addEventListener('close-user-form', () => {
+        this.userFormModal.show = false;
+        this.getUsers();
+      });
 
       // Start a timer to look for updates
       setInterval(async () => {
@@ -127,8 +137,15 @@ window.userListComponent = function() {
         // Don't logout on network errors - Safari closes connections aggressively
       });
     },
+    createUser() {
+      this.userFormModal.isEdit = false;
+      this.userFormModal.userId = '';
+      this.userFormModal.show = true;
+    },
     editUser(userId) {
-      window.location.href = `/users/edit/${userId}`;
+      this.userFormModal.isEdit = true;
+      this.userFormModal.userId = userId;
+      this.userFormModal.show = true;
     },
     userSpaces(userId) {
       window.location.href = `/spaces/${userId}`;

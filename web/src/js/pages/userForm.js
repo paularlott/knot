@@ -28,8 +28,7 @@ window.userForm = function(isEdit, userId, isProfile) {
     },
     last_login_at: "",
     loading: true,
-    buttonLabel: isEdit ? 'Update' : `Create ${entity}`,
-    stayOnPage: true,
+    buttonLabel: isEdit ? 'Save Changes' : `Create ${entity}`,
     isEdit,
     usernameValid: true,
     emailValid: true,
@@ -194,9 +193,7 @@ window.userForm = function(isEdit, userId, isProfile) {
         return;
       }
 
-      if(this.stayOnPage) {
-        this.buttonLabel = `${isEdit ? 'Updating' : 'Creating'} ${entity}...`;
-      }
+      this.buttonLabel = `${isEdit ? 'Updating' : 'Creating'} ${entity}...`;
 
       const data = {
         username: this.formData.username,
@@ -225,13 +222,15 @@ window.userForm = function(isEdit, userId, isProfile) {
         })
         .then((response) => {
           if (response.status === 200) {
-            if(this.stayOnPage) {
-              self.$dispatch('show-alert', { msg: `${entity} updated`, type: 'success' });
+            self.$dispatch('show-alert', { msg: `${entity} updated`, type: 'success' });
+            if(isProfile) {
+              window.location.href = '/';
             } else {
-              window.location.href = isProfile ? '/' : '/users';
+              self.$dispatch('close-user-form');
             }
           } else if (response.status === 201) {
-            window.location.href = '/users';
+            self.$dispatch('show-alert', { msg: `${entity} created`, type: 'success' });
+            self.$dispatch('close-user-form');
           } else {
             response.json().then((d) => {
               self.$dispatch('show-alert', { msg: `${isEdit ? "Failed to update user, " : "Failed to create user, "} ${d.error}`, type: 'error' });
@@ -242,7 +241,7 @@ window.userForm = function(isEdit, userId, isProfile) {
           self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update' : `Create ${entity}`;
+          this.buttonLabel = isEdit ? 'Save Changes' : `Create ${entity}`;
         })
     },
     resetTOTP() {

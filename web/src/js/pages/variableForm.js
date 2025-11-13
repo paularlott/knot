@@ -21,7 +21,7 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
       protected: false,
     },
     loading: true,
-    buttonLabel: isEdit ? 'Update' : 'Create Variable',
+    buttonLabel: isEdit ? 'Save Changes' : 'Create Variable',
     isEdit,
     stayOnPage: true,
     nameValid: true,
@@ -157,14 +157,11 @@ window.variableForm = function(isEdit, templateVarId, isLeafServer) {
         })
         .then((response) => {
           if (response.status === 200) {
-            if(self.stayOnPage) {
-              self.$dispatch('show-alert', { msg: "Variable updated", type: 'success' });
-            } else {
-              window.location.href = '/variables';
-            }
+            self.$dispatch('show-alert', { msg: "Variable updated", type: 'success' });
+            self.$dispatch('close-variable-form');
           } else if (response.status === 201) {
             self.$dispatch('show-alert', { msg: "Variable created", type: 'success' });
-            window.location.href = '/variables';
+            self.$dispatch('close-variable-form');
           } else {
             response.json().then((d) => {
               self.$dispatch('show-alert', { msg: `Failed to update the variable, ${d.error}`, type: 'error' });

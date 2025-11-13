@@ -197,10 +197,10 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "",
 		},
 		&cli.StringFlag{
-			Name:         "recipes-path",
-			Usage:        "The path to the recipes/knowledgebase directory for MCP access.",
-			ConfigPath:   []string{"server.recipes_path"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_RECIPES_PATH"},
+			Name:         "skills-path",
+			Usage:        "The path to the skills/knowledgebase directory for MCP access.",
+			ConfigPath:   []string{"server.skills_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SKILLS_PATH"},
 			DefaultValue: "",
 		},
 
@@ -1069,7 +1069,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		AgentPath:          cmd.GetString("agent-path"),
 		PrivateFilesPath:   cmd.GetString("private-files-path"),
 		PublicFilesPath:    cmd.GetString("public-files-path"),
-		RecipesPath:        cmd.GetString("recipes-path"),
+		SkillsPath:         cmd.GetString("skills-path"),
 		DownloadPath:       cmd.GetString("download-path"),
 		DisableSpaceCreate: cmd.GetBool("disable-space-create"),
 		ListenTunnel:       cmd.GetString("listen-tunnel"),

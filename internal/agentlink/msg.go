@@ -17,6 +17,8 @@ const (
 	CommandNil CommandType = iota
 	CommandConnect
 	CommandSpaceNote
+	CommandSpaceVar
+	CommandSpaceGetVar
 	CommandSpaceStop
 	CommandSpaceRestart
 )
@@ -110,6 +112,46 @@ func receiveMsg(conn net.Conn) (*CommandMsg, error) {
 	}
 
 	return &msg, nil
+}
+
+func IsAgentRunning() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+
+	socketPath := home + "/" + commandSocketPath + "/" + commandSocket
+	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
+		return false
+	}
+
+	conn, err := net.Dial("unix", socketPath)
+	if err != nil {
+		os.Remove(socketPath)
+		return false
+	}
+	defer conn.Close()
+
+	err = sendMsg(conn, CommandConnect, nil)
+	if err != nil {
+		os.Remove(socketPath)
+		return false
+	}
+
+	var response ConnectResponse
+	msgRec, err := receiveMsg(conn)
+	if err != nil {
+		os.Remove(socketPath)
+		return false
+	}
+
+	err = msgRec.Unmarshal(&response)
+	if err != nil {
+		os.Remove(socketPath)
+		return false
+	}
+
+	return response.Success
 }
 
 func SendWithResponseMsg(commandType CommandType, payload interface{}, response interface{}) error {

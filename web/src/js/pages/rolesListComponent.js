@@ -18,6 +18,11 @@ window.rolesListComponent = function() {
         name: '',
       }
     },
+    roleFormModal: {
+      show: false,
+      isEdit: false,
+      roleId: '',
+    },
     roles: [],
     searchTerm: Alpine.$persist('').as('role-search-term').using(sessionStorage),
 
@@ -56,8 +61,18 @@ window.rolesListComponent = function() {
         // Don't logout on network errors - Safari closes connections aggressively
       });
     },
+    createRole() {
+      this.roleFormModal.isEdit = false;
+      this.roleFormModal.roleId = '';
+      this.roleFormModal.show = true;
+    },
     editRole(roleId) {
-      window.location.href = `/roles/edit/${roleId}`;
+      this.roleFormModal.isEdit = true;
+      this.roleFormModal.roleId = roleId;
+      this.roleFormModal.show = true;
+    },
+    loadRoles() {
+      this.getRoles();
     },
     async deleteRole(roleId) {
       const self = this;
