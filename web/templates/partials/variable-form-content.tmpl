@@ -8,9 +8,9 @@
       <div x-show="!nameValid" class="error-message" x-cloak>Variable name can only contain the letters a - Z, 0 - 9 and _, max 64 characters.</div>
     </div>
     <div>
-      <label for="job" class="form-label">Value</label>
-      <div :class="{'form-field-error': !valueValid, 'editor-wrap': true}">
-        <textarea name="value" id="value"></textarea>
+      <label class="form-label">Value</label>
+      <div :class="{'form-field-error': !valueValid, 'editor-wrap': true}" id="value">
+        <textarea name="value"></textarea>
       </div>
       <div x-show="!valueValid" class="error-message" x-cloak>Value must be less than 10MB.</div>
     </div>

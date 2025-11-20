@@ -8,7 +8,7 @@
           <div x-show="!nameValid" class="error-message" x-cloak>Template name can be a max 64 characters.</div>
         </div>
         <div>
-          <label for="description" class="form-label">Description</label>
+          <label class="form-label">Description</label>
           <div class="short-editor">
             <div class="editor-wrap">
               <textarea name="description" class="form-field" id="description" placeholder="Description"></textarea>
@@ -20,7 +20,7 @@
           <div class="flex items-center">
             <img x-show="formData.icon_url.length" :src="formData.icon_url" alt="Icon" class="size-10 mr-2">
             <div class="relative w-full max-w-sm">
-              <input x-model="search" class="form-field" type="search" placeholder="Search icons..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+              <input id="icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
               <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
                 <ul class="list-none">
                   <template x-for="(option, index) in filteredOptions" :key="index">
@@ -83,6 +83,7 @@
                 type="button"
                 @click="open = !open"
                 @click.away="open = false"
+                aria-label="Select container platform"
                 class="px-2 py-2 rounded-r-lg text-sm font-medium border-l transition-colors duration-200 ease-in-out"
                 :class="isLocalContainer() ? 'bg-blue-600 text-white border-blue-700 dark:border-blue-500 hover:bg-blue-500' : 'bg-transparent text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-200 hover:dark:bg-gray-600'"
               >
@@ -130,7 +131,7 @@
           </div>
         </div>
         <div x-show="formData.platform != 'manual'" x-cloak>
-          <label for="job" class="form-label"><span x-show="!isLocalContainer()">Nomad Job (HCL)</span><span x-show="isLocalContainer()">Container Specification (YAML)</span></label>
+          <label class="form-label"><span x-show="!isLocalContainer()">Nomad Job (HCL)</span><span x-show="isLocalContainer()">Container Specification (YAML)</span></label>
           <div class="large-editor">
             <div :class="{'form-field-error': !jobValid, 'editor-wrap': true}">
               <textarea name="job" class="form-field" id="job"></textarea>
@@ -139,7 +140,7 @@
           </div>
         </div>
         <div x-show="formData.platform != 'manual'" x-cloak>
-          <label for="vol" class="form-label">Volume Definition (YAML)</label>
+          <label class="form-label">Volume Definition (YAML)</label>
           <div class="mid-editor">
             <div :class="{'form-field-error': !volValid, 'editor-wrap': true}">
               <textarea name="vol" class="form-field" id="vol"></textarea>
@@ -163,9 +164,9 @@
         {{ end }}
 
         <div x-show="formData.platform != 'manual'" x-cloak>
-          <label class="form-label">Maximum Uptime</label>
+          <label for="uptime_unit" class="form-label">Maximum Uptime</label>
           <div class="flex grid-cols-2 gap-2">
-            <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" id="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}">
+            <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" id="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}" aria-label="Maximum uptime value">
             <select class="form-field pr-10 w-auto" name="uptime_unit" id="uptime_unit" x-model="formData.max_uptime_unit" x-on:change="checkUptime()" :class="{'form-field-error': !uptimeValid}">
               <option value="disabled">No Limit</option>
               <option value="minute">Minutes</option>

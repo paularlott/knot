@@ -22,7 +22,7 @@
               <span x-text="formData.platform === 'docker' ? 'Docker' : formData.platform === 'podman' ? 'Podman' : formData.platform === 'apple' ? 'Apple' : 'Local Container'"></span>
             </div>
           </label>
-          <button type="button" @click="open = !open" @click.away="open = false" class="px-2 py-2 rounded-r-lg text-sm font-medium border-l transition-colors duration-200 ease-in-out" :class="isLocalContainer() ? 'bg-blue-600 text-white border-blue-700 dark:border-blue-500 hover:bg-blue-500' : 'bg-transparent text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-200 hover:dark:bg-gray-600'">
+          <button type="button" @click="open = !open" @click.away="open = false" aria-label="Select container platform" class="px-2 py-2 rounded-r-lg text-sm font-medium border-l transition-colors duration-200 ease-in-out" :class="isLocalContainer() ? 'bg-blue-600 text-white border-blue-700 dark:border-blue-500 hover:bg-blue-500' : 'bg-transparent text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-200 hover:dark:bg-gray-600'">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" >
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
@@ -39,9 +39,9 @@
       </div>
     </div>
     <div>
-      <label for="vol" class="form-label">Volume Definition (YAML)</label>
-      <div :class="{'form-field-error': !volValid, 'editor-wrap': true}">
-        <textarea name="vol" id="vol"></textarea>
+      <label class="form-label">Volume Definition (YAML)</label>
+      <div :class="{'form-field-error': !volValid, 'editor-wrap': true}" id="vol">
+        <textarea name="vol"></textarea>
       </div>
       <div x-show="!volValid" class="error-message" x-cloak>Volume definition must be valid YAML.</div>
     </div>
