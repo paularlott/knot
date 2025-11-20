@@ -4,13 +4,13 @@
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
     <div>
       <label for="name" class="form-label">Space Name</label>
-      <input type="text" class="form-field" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" x-model="formData.name">
+      <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Space name" x-model="formData.name">
       <div x-show="!nameValid" class="error-message" x-cloak>Space names can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
     </div>
     <div>
       <label for="desc" class="form-label">Description</label>
       <div :class="{'form-field-error': !descValid, 'editor-wrap': true}">
-        <textarea name="desc" class="form-field" x-model="formData.description"></textarea>
+        <textarea name="desc" id="desc" class="form-field" x-model="formData.description"></textarea>
       </div>
       <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
     </div>
@@ -64,7 +64,7 @@
     </div>
     <div>
       <label for="shell" class="form-label">Terminal Shell</label>
-      <select class="form-field" name="shell" x-model="formData.shell">
+      <select class="form-field" name="shell" id="shell" x-model="formData.shell">
         <option value="bash">Bash</option>
         <option value="zsh">Zsh</option>
         <option value="fish">fish</option>
@@ -87,7 +87,7 @@
     </div>
     <div x-show="spaceFormModal.isEdit && formData.created_at_formatted" x-cloak>
       <label for="created_at" class="form-label">Created</label>
-      <input type="text" class="form-field bg-gray-50 dark:bg-gray-700 cursor-not-allowed" name="created_at" :value="formatCreatedAt()" readonly tabindex="-1">
+      <input type="text" class="form-field bg-gray-50 dark:bg-gray-700 cursor-not-allowed" name="created_at" id="created_at" :value="formatCreatedAt()" readonly tabindex="-1">
       <div class="description">The date and time when this space was originally created.</div>
     </div>
     <div x-cloak x-show="!spaceFormModal.isEdit && !isManual">

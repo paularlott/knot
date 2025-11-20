@@ -4,7 +4,7 @@
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
     <div>
       <label for="name" class="form-label">Name</label>
-      <input type="text" name="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Role name" x-model="formData.name">
+      <input type="text" name="name" id="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Role name" x-model="formData.name">
       <div x-show="!nameValid" class="error-message" x-cloak>Role name can be a max 64 characters.</div>
     </div>
     <div>
@@ -20,7 +20,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
             <template x-for="(perm, index) in perms" :key="perm.id">
               <label class="flex items-center cursor-pointer mb-2">
-                <input type="checkbox" class="sr-only peer" :id="'group-' + group + '-' + index" name="permissions[]" :value="perm.id" :checked="formData.permissions.includes(perm.id)" @change="togglePermission(perm.id)">
+                <input type="checkbox" class="sr-only peer" :id="'group-' + group + '-' + index" name="permissions[]" id="permissions[]" :value="perm.id" :checked="formData.permissions.includes(perm.id)" @change="togglePermission(perm.id)">
                 <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="perm.name"></span>
               </label>

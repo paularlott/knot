@@ -4,7 +4,7 @@
       <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
         <div>
           <label for="name" class="form-label">Name</label>
-          <input type="text" class="form-field" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Template name" x-model="formData.name">
+          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Template name" x-model="formData.name">
           <div x-show="!nameValid" class="error-message" x-cloak>Template name can be a max 64 characters.</div>
         </div>
         <div>
@@ -150,13 +150,13 @@
         {{ if not .isLeafNode }}
         <div x-show="formData.platform != 'manual'" x-clock>
           <label for="compute_units" class="form-label">Compute Units</label>
-          <input type="number" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
+          <input type="number" class="form-field" name="compute_units" id="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
           <p class="description">The number of compute units (CPU, GPU, RAM, etc.) this template uses.<br />Compute units only count against the users limits when a space created from the template is running.</p>
           <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
         </div>
         <div x-show="formData.platform != 'manual'" x-clock>
           <label for="storage_units" class="form-label">Storage Units</label>
-          <input type="number" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
+          <input type="number" class="form-field" name="storage_units" id="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
           <p class="description">The number of storage units this template uses.<br />Once a space is created and started the storage units are counted against the user.</p>
           <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
         </div>
@@ -165,8 +165,8 @@
         <div x-show="formData.platform != 'manual'" x-cloak>
           <label class="form-label">Maximum Uptime</label>
           <div class="flex grid-cols-2 gap-2">
-            <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}">
-            <select class="form-field pr-10 w-auto" name="uptime_unit" x-model="formData.max_uptime_unit" x-on:change="checkUptime()" :class="{'form-field-error': !uptimeValid}">
+            <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" id="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}">
+            <select class="form-field pr-10 w-auto" name="uptime_unit" id="uptime_unit" x-model="formData.max_uptime_unit" x-on:change="checkUptime()" :class="{'form-field-error': !uptimeValid}">
               <option value="disabled">No Limit</option>
               <option value="minute">Minutes</option>
               <option value="hour">Hours</option>
@@ -203,14 +203,14 @@
                 </label>
               </div>
               <div class="col-span-1">
-                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" name="user" x-model="formData.schedule[index % 7].from">
+                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" name="user" id="user" x-model="formData.schedule[index % 7].from">
                   <template x-for="hour in fromHours" :key="hour">
                     <option x-text="hour" :value="hour" x-bind:selected="hour == formData.schedule[index % 7].from"></option>
                   </template>
                 </select>
               </div>
               <div class="col-span-1">
-                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" name="user" x-model="formData.schedule[index % 7].to">
+                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" name="user" id="user" x-model="formData.schedule[index % 7].to">
                   <template x-for="hour in toHours" :key="hour">
                     <option x-text="hour" :value="hour" x-bind:selected="hour == formData.schedule[index % 7].to"></option>
                   </template>
@@ -309,7 +309,7 @@
             <label class="form-label">Restrict to Groups</label>
             <template x-for="(group, index) in groups" :key="index">
               <label class="flex items-center cursor-pointer mb-2">
-                <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
+                <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" id="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
                 <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="group.name"></span>
               </label>

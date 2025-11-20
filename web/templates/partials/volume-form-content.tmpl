@@ -4,20 +4,20 @@
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
     <div>
       <label for="name" class="form-label">Name</label>
-      <input type="text" class="form-field" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Volume name" x-model="formData.name">
+      <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Volume name" x-model="formData.name">
       <div x-show="!nameValid" class="error-message" x-cloak>Volume name can be a max 64 characters.</div>
     </div>
     <div class="mb-4">
       <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Platform</label>
       <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
         <label class="relative">
-          <input type="radio" name="platform" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="volumeFormModal.isEdit" @change="showPlatformWarning = true">
-          <input type="radio" name="platform" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="!volumeFormModal.isEdit">
+          <input type="radio" name="platform" id="platform" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="volumeFormModal.isEdit" @change="showPlatformWarning = true">
+          <input type="radio" name="platform" id="platform" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="!volumeFormModal.isEdit">
           <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium peer-checked:bg-blue-600 peer-checked:text-white peer-focus:ring-2 peer-focus:ring-blue-300 transition-colors duration-200 ease-in-out text-gray-700 dark:text-gray-200 peer-checked:dark:text-white hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">Nomad</div>
         </label>
         <div class="relative inline-flex" x-data="{ open: false, isLocalContainer() { return ['docker', 'podman', 'apple', 'container'].includes(formData.platform); } }">
           <label class="relative group">
-            <input type="radio" name="platform" :value="isLocalContainer() ? formData.platform : 'container'" :checked="isLocalContainer()" @change="if (!isLocalContainer()) formData.platform = 'container'; if (volumeFormModal.isEdit) showPlatformWarning = true" class="sr-only peer">
+            <input type="radio" name="platform" id="platform" :value="isLocalContainer() ? formData.platform : 'container'" :checked="isLocalContainer()" @change="if (!isLocalContainer()) formData.platform = 'container'; if (volumeFormModal.isEdit) showPlatformWarning = true" class="sr-only peer">
             <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-l-lg text-sm font-medium transition-colors duration-200 ease-in-out" :class="isLocalContainer() ? 'bg-blue-600 text-white peer-focus:ring-2 peer-focus:ring-blue-300 group-hover:bg-blue-500' : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-200 group-hover:dark:bg-gray-600'">
               <span x-text="formData.platform === 'docker' ? 'Docker' : formData.platform === 'podman' ? 'Podman' : formData.platform === 'apple' ? 'Apple' : 'Local Container'"></span>
             </div>
