@@ -15,7 +15,7 @@
   <form class="mt-8 mb-0 space-y-6" action="#" action="" method="POST" @submit.prevent="submitData">
     <div>
       <label for="email" class="form-label">Email</label>
-      <input type="email" name="email" class="form-field" placeholder="name@company.com" required="" x-on:keyup.debounce.500ms="checkEmail()" x-model="formData.email" :class="{'form-field-error': !emailValid}">
+      <input type="email" name="email" id="email" class="form-field" placeholder="name@company.com" required="" x-on:keyup.debounce.500ms="checkEmail()" x-model="formData.email" :class="{'form-field-error': !emailValid}">
       <div class="error-message" x-show="!emailValid" x-cloak>Enter a valid email address.</div>
     </div>
     <div>
