@@ -68,6 +68,11 @@ type CustomFieldValue struct {
 	Value string `json:"value"`
 }
 
+type SetCustomFieldRequest struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 type SpaceDefinition struct {
 	UserId             string                       `json:"user_id"`
 	TemplateId         string                       `json:"template_id"`
@@ -126,6 +131,20 @@ func (c *ApiClient) GetSpace(ctx context.Context, spaceId string) (*SpaceDefinit
 
 func (c *ApiClient) UpdateSpace(ctx context.Context, spaceId string, space *SpaceRequest) (int, error) {
 	code, err := c.httpClient.Put(ctx, "/api/spaces/"+spaceId, space, nil, 200)
+	if err != nil {
+		return code, err
+	}
+
+	return code, nil
+}
+
+func (c *ApiClient) SetSpaceCustomField(ctx context.Context, spaceId string, fieldName string, fieldValue string) (int, error) {
+	request := &SetCustomFieldRequest{
+		Name:  fieldName,
+		Value: fieldValue,
+	}
+
+	code, err := c.httpClient.Put(ctx, "/api/spaces/"+spaceId+"/custom-field", request, nil, 200)
 	if err != nil {
 		return code, err
 	}

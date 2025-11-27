@@ -185,6 +185,56 @@ func (s *SpaceService) UpdateSpace(space *model.Space, user *model.User) error {
 	return nil
 }
 
+// SetSpaceCustomField sets or updates a single custom field on a space
+func (s *SpaceService) SetSpaceCustomField(spaceId string, fieldName string, fieldValue string, user *model.User) error {
+	// Validate permissions
+	if !user.HasPermission(model.PermissionUseSpaces) && !user.HasPermission(model.PermissionManageSpaces) {
+		return fmt.Errorf("no permission to manage or use spaces")
+	}
+
+	// Get existing space to check ownership and zone
+	space, err := s.GetSpace(spaceId, user)
+	if err != nil {
+		return err
+	}
+
+	cfg := config.GetServerConfig()
+	if space.Zone != "" && space.Zone != cfg.Zone {
+		return fmt.Errorf("space not on this server")
+	}
+
+	// Update or add the custom field
+	fieldFound := false
+	for i, field := range space.CustomFields {
+		if field.Name == fieldName {
+			space.CustomFields[i].Value = fieldValue
+			fieldFound = true
+			break
+		}
+	}
+
+	if !fieldFound {
+		space.CustomFields = append(space.CustomFields, model.SpaceCustomField{
+			Name:  fieldName,
+			Value: fieldValue,
+		})
+	}
+
+	// Update metadata
+	space.UpdatedAt = hlc.Now()
+
+	// Save to database
+	db := database.GetInstance()
+	if err := db.SaveSpace(space, []string{"CustomFields", "UpdatedAt"}); err != nil {
+		return fmt.Errorf("failed to save space: %v", err)
+	}
+
+	// Gossip the space
+	GetTransport().GossipSpace(space)
+
+	return nil
+}
+
 // DeleteSpace marks a space as deleted with validation
 func (s *SpaceService) DeleteSpace(spaceId string, user *model.User) error {
 	// Validate permissions

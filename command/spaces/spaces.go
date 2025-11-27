@@ -52,5 +52,6 @@ var SpacesCmd = &cli.Command{
 		RunCmd,
 		CopyCmd,
 		TunnelPortCmd,
+		SetFieldCmd,
 	},
 }

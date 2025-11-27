@@ -1224,6 +1224,40 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
+  /api/spaces/{space_id}/custom-field:
+    put:
+      summary: Set a Custom Field
+      description: Set or update a custom field value on a space.
+      operationId: setSpaceCustomField
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space to update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetCustomFieldRequest'
+      responses:
+        '200':
+          description: Custom field set successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
   /api/spaces/{space_id}/transfer:
     post:
       summary: Transfer a Space
@@ -3399,6 +3433,19 @@ components:
           type: string
           format: uuid
           description: The ID of the user to transfer the space to.
+
+    SetCustomFieldRequest:
+      type: object
+      required:
+        - name
+        - value
+      properties:
+        name:
+          type: string
+          description: The name of the custom field to set.
+        value:
+          type: string
+          description: The value to set for the custom field.
 
     TunnelServerInfo:
       type: object

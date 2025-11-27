@@ -583,6 +583,60 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func HandleSetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
+	var user *model.User = nil
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
+	if r.Context().Value("user") != nil {
+		user = r.Context().Value("user").(*model.User)
+	}
+
+	request := apiclient.SetCustomFieldRequest{}
+	err := rest.DecodeRequestBody(w, r, &request)
+	if err != nil {
+		log.WithError(err).Error("HandleSetSpaceCustomField:")
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	spaceService := service.GetSpaceService()
+	err = spaceService.SetSpaceCustomField(spaceId, request.Name, request.Value, user)
+	if err != nil {
+		log.WithError(err).Error("HandleSetSpaceCustomField:")
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Get the space for audit logging
+	space, _ := spaceService.GetSpace(spaceId, user)
+	spaceName := spaceId
+	if space != nil {
+		spaceName = space.Name
+	}
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventSpaceUpdate,
+		fmt.Sprintf("Set custom field '%s' on space %s", request.Name, spaceName),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"space_id":        spaceId,
+			"space_name":      spaceName,
+			"field_name":      request.Name,
+		},
+	)
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	userId := r.PathValue("user_id")
