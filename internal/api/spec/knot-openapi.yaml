@@ -1258,6 +1258,44 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
+  /api/spaces/{space_id}/custom-field/{field_name}:
+    get:
+      summary: Get a Custom Field
+      description: Get a custom field value from a space.
+      operationId: getSpaceCustomField
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+        - name: field_name
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The name of the custom field to retrieve.
+      responses:
+        '200':
+          description: Custom field retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetCustomFieldResponse'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
   /api/spaces/{space_id}/transfer:
     post:
       summary: Transfer a Space
@@ -2254,6 +2292,10 @@ components:
           type: string
           example: 1.0.0
           description: The server version string.
+        zone:
+          type: string
+          example: default
+          description: The server zone name.
 
     AuditLogEntry:
       type: object
@@ -3446,6 +3488,16 @@ components:
         value:
           type: string
           description: The value to set for the custom field.
+
+    GetCustomFieldResponse:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the custom field.
+        value:
+          type: string
+          description: The value of the custom field.
 
     TunnelServerInfo:
       type: object

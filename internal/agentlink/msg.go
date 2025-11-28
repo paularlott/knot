@@ -17,8 +17,8 @@ const (
 	CommandNil CommandType = iota
 	CommandConnect
 	CommandSpaceNote
-	CommandSpaceVar
-	CommandSpaceGetVar
+	CommandSpaceSetField
+	CommandSpaceGetField
 	CommandSpaceStop
 	CommandSpaceRestart
 )

@@ -8,18 +8,19 @@ import (
 type PingResponse struct {
 	Status  bool   `json:"status"`
 	Version string `json:"version"`
+	Zone    string `json:"zone"`
 }
 
-func (c *ApiClient) Ping(ctx context.Context) (string, error) {
-	ping := PingResponse{}
-	statusCode, err := c.httpClient.Get(ctx, "/api/ping", &ping)
+func (c *ApiClient) Ping(ctx context.Context) (*PingResponse, error) {
+	ping := &PingResponse{}
+	statusCode, err := c.httpClient.Get(ctx, "/api/ping", ping)
 	if statusCode > 0 {
 		if statusCode == 401 {
-			return "", errors.New("unauthorized")
+			return nil, errors.New("unauthorized")
 		} else if statusCode != 200 {
-			return "", errors.New("invalid status code")
+			return nil, errors.New("invalid status code")
 		}
 	}
 
-	return ping.Version, err
+	return ping, err
 }

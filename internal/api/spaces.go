@@ -637,6 +637,39 @@ func HandleSetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func HandleGetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
+	var user *model.User = nil
+	spaceId := r.PathValue("space_id")
+	fieldName := r.PathValue("field_name")
+
+	if !validate.UUID(spaceId) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
+	if fieldName == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Field name is required"})
+		return
+	}
+
+	if r.Context().Value("user") != nil {
+		user = r.Context().Value("user").(*model.User)
+	}
+
+	spaceService := service.GetSpaceService()
+	value, err := spaceService.GetSpaceCustomField(spaceId, fieldName, user)
+	if err != nil {
+		log.WithError(err).Error("HandleGetSpaceCustomField:")
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.GetCustomFieldResponse{
+		Name:  fieldName,
+		Value: value,
+	})
+}
+
 func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	userId := r.PathValue("user_id")

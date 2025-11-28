@@ -240,8 +240,8 @@ var AgentCmd = &cli.Command{
 	Commands: []*cli.Command{
 		agentServerCmd,
 		space.SpaceNoteCmd,
-		space.SpaceVarCmd,
-		space.SpaceGetVarCmd,
+		space.SpaceSetFieldCmd,
+		space.SpaceGetFieldCmd,
 		space.SpaceShutdownCmd,
 		space.SpaceRestartCmd,
 	},
