@@ -9,14 +9,14 @@ import (
 	"github.com/paularlott/cli"
 )
 
-var SpaceVarCmd = &cli.Command{
-	Name:        "set-var",
-	Usage:       "Set a Variable",
-	Description: "Set a custom field variable value for the space.",
+var SpaceSetFieldCmd = &cli.Command{
+	Name:        "set-field",
+	Usage:       "Set a Custom Field",
+	Description: "Set a custom field value for the space.",
 	Arguments: []cli.Argument{
 		&cli.StringArg{
 			Name:     "name",
-			Usage:    "The name of the variable to set",
+			Usage:    "The name of the custom field to set",
 			Required: true,
 		},
 		&cli.StringArg{
@@ -27,17 +27,17 @@ var SpaceVarCmd = &cli.Command{
 	},
 	MaxArgs: cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
-		varRequest := agentlink.SpaceVarRequest{
+		varRequest := agentlink.SpaceFieldRequest{
 			Name:  cmd.GetStringArg("name"),
 			Value: cmd.GetStringArg("value"),
 		}
 
-		err := agentlink.SendWithResponseMsg(agentlink.CommandSpaceVar, &varRequest, nil)
+		err := agentlink.SendWithResponseMsg(agentlink.CommandSpaceSetField, &varRequest, nil)
 		if err != nil {
-			return fmt.Errorf("error setting space variable: %w", err)
+			return fmt.Errorf("error setting custom field: %w", err)
 		}
 
-		fmt.Println("Space variable set.")
+		fmt.Println("Custom field set.")
 		return nil
 	},
 }

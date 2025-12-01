@@ -15,11 +15,11 @@
       <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-data>
         <div>
           <label for="name" class="form-label">Token Name</label>
-          <input type="text" name="name" class="form-field" value="{{ .TokenName | html }}" readonly="readonly">
+          <input type="text" id="name" name="name" class="form-field" value="{{ .TokenName | html }}" readonly="readonly">
         </div>
         <div>
           <label for="token" class="form-label">Token</label>
-          <input type="text" name="token" class="form-field cursor-pointer" value="{{ .TokenId | html }}" readonly="readonly" @click.debounce.750="await navigator.clipboard.writeText('{{ .TokenId | html }}'); $dispatch('show-alert', { msg: 'Copied to clipboard', type: 'success' })">
+          <input type="text" id="token" name="token" class="form-field cursor-pointer" value="{{ .TokenId | html }}" readonly="readonly" @click.debounce.750="await navigator.clipboard.writeText('{{ .TokenId | html }}'); $dispatch('show-alert', { msg: 'Copied to clipboard', type: 'success' })">
         </div>
       </form>
 

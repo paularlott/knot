@@ -10,16 +10,16 @@ type SpaceNoteRequest struct {
 	Note string `json:"note" msgpack:"note"`
 }
 
-type SpaceVarRequest struct {
+type SpaceFieldRequest struct {
 	Name  string `json:"name" msgpack:"name"`
 	Value string `json:"value" msgpack:"value"`
 }
 
-type SpaceGetVarRequest struct {
+type SpaceGetFieldRequest struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-type SpaceGetVarResponse struct {
+type SpaceGetFieldResponse struct {
 	Value string `json:"value" msgpack:"value"`
 }
 

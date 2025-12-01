@@ -6,17 +6,17 @@ import (
 	"github.com/paularlott/knot/internal/log"
 )
 
-func handleSpaceVar(conn net.Conn, msg *CommandMsg) error {
-	var varReq SpaceVarRequest
+func handleSpaceSetField(conn net.Conn, msg *CommandMsg) error {
+	var varReq SpaceFieldRequest
 	err := msg.Unmarshal(&varReq)
 	if err != nil {
-		log.WithError(err).Error("Failed to unmarshal space var")
+		log.WithError(err).Error("Failed to unmarshal space field")
 		return err
 	}
 
 	err = agentClient.SendSpaceVar(varReq.Name, varReq.Value)
 	if err != nil {
-		log.WithError(err).Error("Failed to send space var")
+		log.WithError(err).Error("Failed to send space field")
 		return err
 	}
 

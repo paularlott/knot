@@ -26,6 +26,14 @@ var ListCmd = &cli.Command{
 			os.Exit(1)
 		}
 
+		// Get the server zone
+		pingResponse, err := client.Ping(context.Background())
+		if err != nil {
+			fmt.Println("Error getting server info:", err)
+			os.Exit(1)
+		}
+		zone := pingResponse.Zone
+
 		// Get the current user
 		user, err := client.WhoAmI(context.Background())
 		if err != nil {
@@ -41,6 +49,11 @@ var ListCmd = &cli.Command{
 
 		data := [][]string{{"Name", "Template", "Zone", "Status", "Ports"}}
 		for _, space := range spaces.Spaces {
+			// Filter by zone - only show spaces in the current zone or with no zone (skip if zone is blank)
+			if zone != "" && space.Zone != "" && space.Zone != zone {
+				continue
+			}
+
 			status := ""
 			ports := make([]string, 0)
 

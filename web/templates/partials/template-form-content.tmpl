@@ -4,11 +4,11 @@
       <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
         <div>
           <label for="name" class="form-label">Name</label>
-          <input type="text" class="form-field" name="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Template name" x-model="formData.name">
+          <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Template name" x-model="formData.name">
           <div x-show="!nameValid" class="error-message" x-cloak>Template name can be a max 64 characters.</div>
         </div>
         <div>
-          <label for="description" class="form-label">Description</label>
+          <label class="form-label">Description</label>
           <div class="short-editor">
             <div class="editor-wrap">
               <textarea name="description" class="form-field" id="description" placeholder="Description"></textarea>
@@ -20,7 +20,7 @@
           <div class="flex items-center">
             <img x-show="formData.icon_url.length" :src="formData.icon_url" alt="Icon" class="size-10 mr-2">
             <div class="relative w-full max-w-sm">
-              <input x-model="search" class="form-field" type="search" placeholder="Search icons..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+              <input id="icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
               <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
                 <ul class="list-none">
                   <template x-for="(option, index) in filteredOptions" :key="index">
@@ -33,7 +33,7 @@
               </div>
             </div>
             <div class="cursor-pointer ml-2 text-gray-900 dark:text-white" @click="clear()" x-show="formData.icon_url.length" title="Clear Icon">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
             </div>
@@ -83,10 +83,11 @@
                 type="button"
                 @click="open = !open"
                 @click.away="open = false"
+                aria-label="Select container platform"
                 class="px-2 py-2 rounded-r-lg text-sm font-medium border-l transition-colors duration-200 ease-in-out"
                 :class="isLocalContainer() ? 'bg-blue-600 text-white border-blue-700 dark:border-blue-500 hover:bg-blue-500' : 'bg-transparent text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-200 hover:dark:bg-gray-600'"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" >
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
               </button>
@@ -130,7 +131,7 @@
           </div>
         </div>
         <div x-show="formData.platform != 'manual'" x-cloak>
-          <label for="job" class="form-label"><span x-show="!isLocalContainer()">Nomad Job (HCL)</span><span x-show="isLocalContainer()">Container Specification (YAML)</span></label>
+          <label class="form-label"><span x-show="!isLocalContainer()">Nomad Job (HCL)</span><span x-show="isLocalContainer()">Container Specification (YAML)</span></label>
           <div class="large-editor">
             <div :class="{'form-field-error': !jobValid, 'editor-wrap': true}">
               <textarea name="job" class="form-field" id="job"></textarea>
@@ -139,7 +140,7 @@
           </div>
         </div>
         <div x-show="formData.platform != 'manual'" x-cloak>
-          <label for="vol" class="form-label">Volume Definition (YAML)</label>
+          <label class="form-label">Volume Definition (YAML)</label>
           <div class="mid-editor">
             <div :class="{'form-field-error': !volValid, 'editor-wrap': true}">
               <textarea name="vol" class="form-field" id="vol"></textarea>
@@ -150,23 +151,23 @@
         {{ if not .isLeafNode }}
         <div x-show="formData.platform != 'manual'" x-clock>
           <label for="compute_units" class="form-label">Compute Units</label>
-          <input type="number" class="form-field" name="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
+          <input type="number" class="form-field" name="compute_units" id="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
           <p class="description">The number of compute units (CPU, GPU, RAM, etc.) this template uses.<br />Compute units only count against the users limits when a space created from the template is running.</p>
           <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
         </div>
         <div x-show="formData.platform != 'manual'" x-clock>
           <label for="storage_units" class="form-label">Storage Units</label>
-          <input type="number" class="form-field" name="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
+          <input type="number" class="form-field" name="storage_units" id="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
           <p class="description">The number of storage units this template uses.<br />Once a space is created and started the storage units are counted against the user.</p>
           <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
         </div>
         {{ end }}
 
         <div x-show="formData.platform != 'manual'" x-cloak>
-          <label class="form-label">Maximum Uptime</label>
+          <label for="uptime_unit" class="form-label">Maximum Uptime</label>
           <div class="flex grid-cols-2 gap-2">
-            <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}">
-            <select class="form-field pr-10 w-auto" name="uptime_unit" x-model="formData.max_uptime_unit" x-on:change="checkUptime()" :class="{'form-field-error': !uptimeValid}">
+            <input x-cloak x-show="formData.max_uptime_unit != 'disabled'" type="number" class="form-field w-full max-w-1/4" name="uptime" id="uptime" x-model="formData.max_uptime" min="0" x-on:keyup.debounce.500ms="checkUptime()" :class="{'form-field-error': !uptimeValid}" aria-label="Maximum uptime value">
+            <select class="form-field pr-10 w-auto" name="uptime_unit" id="uptime_unit" x-model="formData.max_uptime_unit" x-on:change="checkUptime()" :class="{'form-field-error': !uptimeValid}">
               <option value="disabled">No Limit</option>
               <option value="minute">Minutes</option>
               <option value="hour">Hours</option>
@@ -203,14 +204,14 @@
                 </label>
               </div>
               <div class="col-span-1">
-                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" name="user" x-model="formData.schedule[index % 7].from">
+                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" name="user" id="user" x-model="formData.schedule[index % 7].from">
                   <template x-for="hour in fromHours" :key="hour">
                     <option x-text="hour" :value="hour" x-bind:selected="hour == formData.schedule[index % 7].from"></option>
                   </template>
                 </select>
               </div>
               <div class="col-span-1">
-                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" name="user" x-model="formData.schedule[index % 7].to">
+                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" name="user" id="user" x-model="formData.schedule[index % 7].to">
                   <template x-for="hour in toHours" :key="hour">
                     <option x-text="hour" :value="hour" x-bind:selected="hour == formData.schedule[index % 7].to"></option>
                   </template>
@@ -226,7 +227,7 @@
           <div class="flex items-center mb-1">
             <label class="form-label mb-0 mr-2">Limit to Zones</label>
             <button type="button" x-on:click="addZone()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               <span class="sr-only">Add</span>
@@ -237,7 +238,7 @@
               <div class="flex items-center">
                 <input type="text" class="form-field mr-2" x-model="formData.zones[index]" x-on:keyup.debounce.500ms="checkZone(index)" :class="{'form-field-error': !zoneValid[index]}" placeholder="Zone Name">
                 <button type="button" x-on:click="removeZone(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
                     <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                   </svg> <span class="sr-only">Remove</span>
                 </button>
@@ -253,7 +254,7 @@
           <div class="flex items-center mb-1">
             <label class="form-label mb-0 mr-2">Custom Fields</label>
             <button type="button" x-on:click="addField()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               <span class="sr-only">Add</span>
@@ -265,7 +266,7 @@
                 <input type="text" class="form-field mr-2 max-w-xs" x-model="formData.custom_fields[index].name" x-on:keyup.debounce.500ms="checkCustomField(index)" :class="{'form-field-error': !customFieldValid[index]}" placeholder="Variable Name">
                 <input type="text" class="form-field mr-2" x-model="formData.custom_fields[index].description" x-on:keyup.debounce.500ms="checkCustomField(index)" :class="{'form-field-error': !customFieldValid[index]}" placeholder="Field Label / Description">
                 <button type="button" x-on:click="removeField(index)" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
                     <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                   </svg> <span class="sr-only">Remove</span>
                 </button>
@@ -309,7 +310,7 @@
             <label class="form-label">Restrict to Groups</label>
             <template x-for="(group, index) in groups" :key="index">
               <label class="flex items-center cursor-pointer mb-2">
-                <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
+                <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" id="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
                 <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
                 <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="group.name"></span>
               </label>

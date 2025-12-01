@@ -185,6 +185,124 @@ func (s *SpaceService) UpdateSpace(space *model.Space, user *model.User) error {
 	return nil
 }
 
+// GetSpaceCustomField retrieves a single custom field value from a space
+func (s *SpaceService) GetSpaceCustomField(spaceId string, fieldName string, user *model.User) (string, error) {
+	// Validate permissions
+	if !user.HasPermission(model.PermissionUseSpaces) && !user.HasPermission(model.PermissionManageSpaces) {
+		return "", fmt.Errorf("no permission to manage or use spaces")
+	}
+
+	// Get existing space to check ownership and zone
+	space, err := s.GetSpace(spaceId, user)
+	if err != nil {
+		return "", err
+	}
+
+	cfg := config.GetServerConfig()
+	if space.Zone != "" && space.Zone != cfg.Zone {
+		return "", fmt.Errorf("space not on this server")
+	}
+
+	// Get the template to check if field is defined
+	db := database.GetInstance()
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		return "", fmt.Errorf("failed to get template: %v", err)
+	}
+
+	// Check if field is defined in template
+	fieldDefined := false
+	for _, field := range template.CustomFields {
+		if field.Name == fieldName {
+			fieldDefined = true
+			break
+		}
+	}
+
+	if !fieldDefined {
+		return "", fmt.Errorf("custom field '%s' not defined in template", fieldName)
+	}
+
+	// Find and return the custom field value from space (return empty string if not set)
+	for _, field := range space.CustomFields {
+		if field.Name == fieldName {
+			return field.Value, nil
+		}
+	}
+
+	// Field is defined in template but not set in space - return empty string
+	return "", nil
+}
+
+// SetSpaceCustomField sets or updates a single custom field on a space
+func (s *SpaceService) SetSpaceCustomField(spaceId string, fieldName string, fieldValue string, user *model.User) error {
+	// Validate permissions
+	if !user.HasPermission(model.PermissionUseSpaces) && !user.HasPermission(model.PermissionManageSpaces) {
+		return fmt.Errorf("no permission to manage or use spaces")
+	}
+
+	// Get existing space to check ownership and zone
+	space, err := s.GetSpace(spaceId, user)
+	if err != nil {
+		return err
+	}
+
+	cfg := config.GetServerConfig()
+	if space.Zone != "" && space.Zone != cfg.Zone {
+		return fmt.Errorf("space not on this server")
+	}
+
+	// Get the template to check if field is defined
+	db := database.GetInstance()
+	template, err := db.GetTemplate(space.TemplateId)
+	if err != nil {
+		return fmt.Errorf("failed to get template: %v", err)
+	}
+
+	// Check if field is defined in template
+	fieldDefined := false
+	for _, field := range template.CustomFields {
+		if field.Name == fieldName {
+			fieldDefined = true
+			break
+		}
+	}
+
+	if !fieldDefined {
+		return fmt.Errorf("custom field '%s' not defined in template", fieldName)
+	}
+
+	// Update or add the custom field
+	fieldFound := false
+	for i, field := range space.CustomFields {
+		if field.Name == fieldName {
+			space.CustomFields[i].Value = fieldValue
+			fieldFound = true
+			break
+		}
+	}
+
+	if !fieldFound {
+		space.CustomFields = append(space.CustomFields, model.SpaceCustomField{
+			Name:  fieldName,
+			Value: fieldValue,
+		})
+	}
+
+	// Update metadata
+	space.UpdatedAt = hlc.Now()
+
+	// Save to database
+	if err := db.SaveSpace(space, []string{"CustomFields", "UpdatedAt"}); err != nil {
+		return fmt.Errorf("failed to save space: %v", err)
+	}
+
+	// Gossip the space
+	GetTransport().GossipSpace(space)
+
+	return nil
+}
+
 // DeleteSpace marks a space as deleted with validation
 func (s *SpaceService) DeleteSpace(spaceId string, user *model.User) error {
 	// Validate permissions

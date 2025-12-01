@@ -10,38 +10,32 @@ import (
 	"github.com/paularlott/cli"
 )
 
-var DeleteCmd = &cli.Command{
-	Name:        "delete",
-	Usage:       "Delete a space",
-	Description: "Delete a stopped space, all data will be lost.",
+var SetFieldCmd = &cli.Command{
+	Name:        "set-field",
+	Usage:       "Set a custom field on a space",
+	Description: "Set or update a custom field value on an existing space.",
 	Arguments: []cli.Argument{
 		&cli.StringArg{
 			Name:     "space",
-			Usage:    "The name of the new space to create",
+			Usage:    "The name of the space to update",
+			Required: true,
+		},
+		&cli.StringArg{
+			Name:     "field",
+			Usage:    "The name of the custom field to set",
+			Required: true,
+		},
+		&cli.StringArg{
+			Name:     "value",
+			Usage:    "The value to set for the custom field",
 			Required: true,
 		},
 	},
 	MaxArgs: cli.NoArgs,
-	Flags: []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "force",
-			Aliases: []string{"f"},
-			Usage:   "Skip confirmation prompt.",
-		},
-	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		spaceName := cmd.GetStringArg("space")
-
-		// Prompt the user to confirm the deletion unless --force is set
-		if !cmd.GetBool("force") {
-			var confirm string
-			fmt.Printf("Are you sure you want to delete the space %s and all data? (yes/no): ", spaceName)
-			fmt.Scanln(&confirm)
-			if confirm != "yes" {
-				fmt.Println("Deletion cancelled.")
-				return nil
-			}
-		}
+		fieldName := cmd.GetStringArg("field")
+		fieldValue := cmd.GetStringArg("value")
 
 		alias := cmd.GetString("alias")
 		cfg := config.GetServerAddr(alias, cmd)
@@ -53,8 +47,7 @@ var DeleteCmd = &cli.Command{
 		// Get the current user
 		user, err := client.WhoAmI(context.Background())
 		if err != nil {
-			fmt.Println("Error getting user: ", err)
-			return nil
+			return fmt.Errorf("Error getting user: %w", err)
 		}
 
 		// Get a list of available spaces
@@ -76,13 +69,13 @@ var DeleteCmd = &cli.Command{
 			return fmt.Errorf("Space not found: %s", spaceName)
 		}
 
-		// Delete the space
-		_, err = client.DeleteSpace(context.Background(), spaceId)
+		// Set the custom field using the dedicated endpoint
+		_, err = client.SetSpaceCustomField(context.Background(), spaceId, fieldName, fieldValue)
 		if err != nil {
-			return fmt.Errorf("Error deleting space: %w", err)
+			return fmt.Errorf("Error setting custom field: %w", err)
 		}
 
-		fmt.Println("Space deleting: ", spaceName)
+		fmt.Printf("Custom field '%s' set to '%s' on space '%s'\n", fieldName, fieldValue, spaceName)
 		return nil
 	},
 }

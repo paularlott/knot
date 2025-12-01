@@ -309,7 +309,28 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				return
 			}
 
-			// Find and update the custom field if it exists
+			// Get the template to validate field name
+			template, err := db.GetTemplate(space.TemplateId)
+			if err != nil {
+				log.WithError(err).Error("failed to get template:")
+				return
+			}
+
+			// Check if field is defined in template
+			fieldDefined := false
+			for _, field := range template.CustomFields {
+				if field.Name == spaceVar.Name {
+					fieldDefined = true
+					break
+				}
+			}
+
+			if !fieldDefined {
+				log.Error("custom field not defined in template:", "name", spaceVar.Name)
+				return
+			}
+
+			// Find and update the custom field if it exists, or add it
 			found := false
 			for i := range space.CustomFields {
 				if space.CustomFields[i].Name == spaceVar.Name {
@@ -320,8 +341,10 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			}
 
 			if !found {
-				log.Error("custom field not found:", "name", spaceVar.Name)
-				return
+				space.CustomFields = append(space.CustomFields, model.SpaceCustomField{
+					Name:  spaceVar.Name,
+					Value: spaceVar.Value,
+				})
 			}
 
 			// Save the space
@@ -351,7 +374,28 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				return
 			}
 
-			// Find the custom field
+			// Get the template to validate field name
+			template, err := db.GetTemplate(space.TemplateId)
+			if err != nil {
+				log.WithError(err).Error("failed to get template:")
+				return
+			}
+
+			// Check if field is defined in template
+			fieldDefined := false
+			for _, field := range template.CustomFields {
+				if field.Name == spaceGetVar.Name {
+					fieldDefined = true
+					break
+				}
+			}
+
+			if !fieldDefined {
+				log.Error("custom field not defined in template:", "name", spaceGetVar.Name)
+				return
+			}
+
+			// Find the custom field value (empty string if not set)
 			value := ""
 			for i := range space.CustomFields {
 				if space.CustomFields[i].Name == spaceGetVar.Name {

@@ -64,7 +64,8 @@ var PingCmd = &cli.Command{
 		}
 
 		fmt.Println("\nServer is healthy")
-		fmt.Println("Version: ", version)
+		fmt.Println("Version: ", version.Version)
+		fmt.Println("Zone: ", version.Zone)
 
 		return nil
 	},
