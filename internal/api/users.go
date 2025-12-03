@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
@@ -99,6 +100,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipUser(userNew)
+	sse.PublishUsersChanged()
 
 	newUserId = userNew.Id
 
@@ -456,6 +458,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipUser(user)
+	sse.PublishUsersChanged()
 
 	// Update the user's spaces, ssh keys or stop spaces
 	go service.GetUserService().UpdateUserSpaces(user)

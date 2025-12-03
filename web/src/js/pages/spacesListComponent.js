@@ -116,10 +116,21 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
       this.getSpaces();
 
-      // Start a timer to look for new spaces periodically
-      setInterval(async () => {
-        await this.getSpaces();
-      }, 1000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        // Listen for any space events (created, updated, deleted, state changes)
+        window.sseClient.subscribe('space:*', (payload, eventType) => {
+          // Only refresh if the space is for the current user filter or all users
+          if (this.forUserId === '' || this.forUserId === payload?.user_id || payload?.user_id === userId) {
+            this.getSpaces();
+          }
+        });
+
+        // Listen for template changes - spaces may have update_available change
+        window.sseClient.subscribe('templates:changed', () => {
+          this.getSpaces();
+        });
+      }
     },
     userSearchReset() {
       this.forUserId = userId;

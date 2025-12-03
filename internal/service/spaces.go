@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/validate"
 )
 
@@ -132,8 +133,9 @@ func (s *SpaceService) CreateSpace(space *model.Space, user *model.User) error {
 		return fmt.Errorf("failed to save space: %v", err)
 	}
 
-	// Gossip the space
+	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
+	sse.PublishSpaceCreated(space.Id, space.UserId)
 
 	return nil
 }
@@ -179,8 +181,9 @@ func (s *SpaceService) UpdateSpace(space *model.Space, user *model.User) error {
 		return fmt.Errorf("failed to save space: %v", err)
 	}
 
-	// Gossip the space
+	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
+	sse.PublishSpaceUpdated(space.Id, space.UserId)
 
 	return nil
 }
@@ -297,8 +300,9 @@ func (s *SpaceService) SetSpaceCustomField(spaceId string, fieldName string, fie
 		return fmt.Errorf("failed to save space: %v", err)
 	}
 
-	// Gossip the space
+	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
+	sse.PublishSpaceUpdated(space.Id, space.UserId)
 
 	return nil
 }
@@ -332,8 +336,9 @@ func (s *SpaceService) DeleteSpace(spaceId string, user *model.User) error {
 		return fmt.Errorf("failed to delete space: %v", err)
 	}
 
-	// Gossip the space
+	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
+	sse.PublishSpaceDeleted(space.Id, space.UserId)
 
 	return nil
 }

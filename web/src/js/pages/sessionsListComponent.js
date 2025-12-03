@@ -12,10 +12,12 @@ window.sessionsListComponent = function() {
     async init() {
       await this.getSessions();
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getSessions();
-      }, 3000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        window.sseClient.subscribe('sessions:changed', () => {
+          this.getSessions();
+        });
+      }
     },
 
     async getSessions() {

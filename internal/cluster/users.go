@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 func (c *Cluster) handleUserFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
@@ -152,6 +153,8 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 			}
 		}
 	}
+
+	sse.PublishUsersChanged()
 
 	return nil
 }

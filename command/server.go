@@ -31,6 +31,7 @@ import (
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/systemprompt"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
@@ -692,6 +693,9 @@ var ServerCmd = &cli.Command{
 
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()
+
+		// Start the SSE hub for real-time updates
+		sse.GetHub().Start()
 
 		// Load roles into memory cache
 		roles, err := database.GetInstance().GetRoles()

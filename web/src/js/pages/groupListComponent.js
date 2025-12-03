@@ -29,10 +29,12 @@ window.groupListComponent = function() {
     async init() {
       await this.getGroups();
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getGroups();
-      }, 3000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        window.sseClient.subscribe('groups:changed', () => {
+          this.getGroups();
+        });
+      }
     },
 
     async getGroups() {

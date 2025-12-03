@@ -6,10 +6,12 @@ window.tunnelsListComponent = function() {
     async init() {
       await this.getTunnels();
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getTunnels();
-      }, 3000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        window.sseClient.subscribe('tunnels:changed', () => {
+          this.getTunnels();
+        });
+      }
     },
 
     async getTunnels() {

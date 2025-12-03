@@ -29,10 +29,12 @@ window.rolesListComponent = function() {
     async init() {
       await this.getRoles();
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getRoles();
-      }, 3000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        window.sseClient.subscribe('roles:changed', () => {
+          this.getRoles();
+        });
+      }
     },
 
     async getRoles() {

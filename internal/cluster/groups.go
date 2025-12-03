@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/cluster/leafmsg"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 func (c *Cluster) handleGroupFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
@@ -128,6 +129,8 @@ func (c *Cluster) mergeGroups(groups []*model.Group) error {
 			}
 		}
 	}
+
+	sse.PublishGroupsChanged()
 
 	return nil
 }

@@ -8,10 +8,12 @@ window.auditLogComponent = function() {
     async init() {
       await this.getAuditLogs();
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getAuditLogs();
-      }, 3000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        window.sseClient.subscribe('auditlogs:changed', () => {
+          this.getAuditLogs();
+        });
+      }
     },
 
     async getAuditLogs() {

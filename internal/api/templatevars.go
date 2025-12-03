@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -105,6 +106,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipTemplateVar(templateVar)
+	sse.PublishTemplateVarsChanged()
 
 	audit.Log(
 		user.Username,
@@ -181,6 +183,7 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipTemplateVar(templateVar)
+	sse.PublishTemplateVarsChanged()
 
 	id = templateVar.Id
 
@@ -233,6 +236,7 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipTemplateVar(templateVar)
+	sse.PublishTemplateVarsChanged()
 
 	audit.Log(
 		user.Username,

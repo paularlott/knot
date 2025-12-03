@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 func (c *Cluster) handleSpaceFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
@@ -125,6 +126,12 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 				c.logger.Error("Failed to save space", "error", err, "name", space.Name, "is_deleted", space.IsDeleted)
 			}
 		}
+	}
+
+	// Notify SSE clients of space changes
+	// Since spaces are merged individually, we use a generic update event
+	for _, space := range spaces {
+		sse.PublishSpaceUpdated(space.Id, space.UserId)
 	}
 
 	return nil

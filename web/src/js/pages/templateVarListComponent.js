@@ -29,10 +29,12 @@ window.templateVarListComponent = function() {
     async init() {
       await this.getTemplateVars();
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getTemplateVars();
-      }, 3000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        window.sseClient.subscribe('templatevars:changed', () => {
+          this.getTemplateVars();
+        });
+      }
     },
 
     async getTemplateVars() {

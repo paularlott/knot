@@ -66,10 +66,12 @@ window.templateListComponent = function(canManageSpaces, zone) {
         }
       });
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getTemplates();
-      }, 3000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        window.sseClient.subscribe('templates:changed', () => {
+          this.getTemplates();
+        });
+      }
     },
 
     async getTemplates() {

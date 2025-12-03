@@ -289,10 +289,12 @@ window.usageComponent = function(userId) {
 
       await this.getUsage();
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getUsage();
-      }, 3000);
+      // Subscribe to SSE for real-time updates when spaces change
+      if (window.sseClient) {
+        window.sseClient.subscribe('space:*', () => {
+          this.getUsage();
+        });
+      }
     },
 
     async getUsage() {

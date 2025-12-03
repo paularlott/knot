@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
@@ -114,6 +115,8 @@ func (c *Cluster) mergeTokens(tokens []*model.Token) error {
 			}
 		}
 	}
+
+	sse.PublishTokensChanged()
 
 	return nil
 }

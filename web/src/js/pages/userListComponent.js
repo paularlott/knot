@@ -43,10 +43,12 @@ window.userListComponent = function() {
         this.getUsers();
       });
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getUsers();
-      }, 3000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        window.sseClient.subscribe('users:changed', () => {
+          this.getUsers();
+        });
+      }
     },
 
     async getUsers() {

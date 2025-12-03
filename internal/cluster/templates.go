@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 )
 
@@ -174,6 +175,9 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 			}
 		}
 	}
+
+	// Notify SSE clients of template changes
+	sse.PublishTemplatesChanged()
 
 	return nil
 }

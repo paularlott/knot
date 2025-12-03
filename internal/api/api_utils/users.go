@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 
 	"github.com/paularlott/knot/internal/log"
 )
@@ -64,6 +65,7 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		}
 
 		service.GetTransport().GossipUser(toDelete)
+		sse.PublishUsersChanged()
 		auu.RemoveUsersSessions(toDelete)
 		auu.RemoveUsersTokens(toDelete)
 	}

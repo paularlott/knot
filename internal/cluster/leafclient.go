@@ -14,6 +14,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
 	"github.com/paularlott/knot/internal/middleware"
+	"github.com/paularlott/knot/internal/sse"
 
 	"github.com/gorilla/websocket"
 )
@@ -266,6 +267,9 @@ func (c *Cluster) handleLeafGossipUser(msg *leafmsg.Message) {
 	if len(users) > 0 {
 		middleware.HasUsers = true
 	}
+
+	// Notify SSE clients of user changes
+	sse.PublishUsersChanged()
 }
 
 func (c *Cluster) handleLeafGossipTemplate(msg *leafmsg.Message) {

@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -103,6 +104,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipVolume(volume)
+	sse.PublishVolumesChanged()
 
 	audit.Log(
 		user.Username,
@@ -154,6 +156,7 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipVolume(volume)
+	sse.PublishVolumesChanged()
 
 	audit.Log(
 		user.Username,
@@ -208,6 +211,7 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipVolume(volume)
+	sse.PublishVolumesChanged()
 
 	user := r.Context().Value("user").(*model.User)
 	audit.Log(
@@ -304,6 +308,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
 	db.SaveVolume(volume, []string{"Active", "Zone", "UpdatedAt", "UpdatedUserId"})
 	service.GetTransport().GossipVolume(volume)
+	sse.PublishVolumesChanged()
 
 	rest.WriteResponse(http.StatusOK, w, r, &apiclient.StartVolumeResponse{
 		Status: true,
@@ -356,6 +361,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
 	db.SaveVolume(volume, []string{"Active", "Zone", "UpdatedAt", "UpdatedUserId"})
 	service.GetTransport().GossipVolume(volume)
+	sse.PublishVolumesChanged()
 
 	w.WriteHeader(http.StatusOK)
 }

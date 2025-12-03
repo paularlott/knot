@@ -45,10 +45,12 @@ window.apiTokensComponent = function() {
         this.getTokens();
       });
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getTokens();
-      }, 3000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        window.sseClient.subscribe('tokens:changed', () => {
+          this.getTokens();
+        });
+      }
     },
 
     async getTokens() {

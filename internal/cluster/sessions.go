@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 func (c *Cluster) handleSessionFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
@@ -129,6 +130,11 @@ func (c *Cluster) mergeSessions(sessions []*model.Session) error {
 				if err := db.SaveSession(session); err != nil {
 					c.logger.Error("Failed to update session", "error", err, "id", session.Id)
 				}
+
+				// If the session is now deleted, invalidate it via SSE
+				if session.IsDeleted && !localSession.IsDeleted {
+					sse.GetHub().InvalidateSession(session.Id)
+				}
 			}
 		} else if session.ExpiresAfter.After(time.Now().UTC()) {
 			// If the session doesn't exist locally and hasn't expired, create it (even if deleted) to prevent resurrection
@@ -138,6 +144,8 @@ func (c *Cluster) mergeSessions(sessions []*model.Session) error {
 		}
 		// Note: We don't save expired sessions since they're already obsolete
 	}
+
+	sse.PublishSessionsChanged()
 
 	return nil
 }

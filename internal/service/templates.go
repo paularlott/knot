@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/validate"
 )
 
@@ -108,8 +109,9 @@ func (s *TemplateService) CreateTemplate(template *model.Template, user *model.U
 		return fmt.Errorf("failed to save template: %v", err)
 	}
 
-	// Gossip the template
+	// Gossip the template and notify SSE clients
 	GetTransport().GossipTemplate(template)
+	sse.PublishTemplatesChanged()
 
 	return nil
 }
@@ -152,8 +154,9 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 		return fmt.Errorf("failed to save template: %v", err)
 	}
 
-	// Gossip the template
+	// Gossip the template and notify SSE clients
 	GetTransport().GossipTemplate(template)
+	sse.PublishTemplatesChanged()
 
 	return nil
 }
@@ -201,8 +204,9 @@ func (s *TemplateService) DeleteTemplate(templateId string, user *model.User) er
 		return fmt.Errorf("failed to delete template: %v", err)
 	}
 
-	// Gossip the template
+	// Gossip the template and notify SSE clients
 	GetTransport().GossipTemplate(template)
+	sse.PublishTemplatesChanged()
 
 	return nil
 }
