@@ -118,7 +118,7 @@ func (s *SpaceService) CreateSpace(space *model.Space, user *model.User) error {
 
 	// Check quotas if not on leaf node
 	if !cfg.LeafNode {
-		if err := s.CheckUserQuotas(user.Id, template); err != nil {
+		if err := s.CheckUserQuotas(user, template); err != nil {
 			return err
 		}
 	}
@@ -362,13 +362,13 @@ func (s *SpaceService) validateSpaceInput(name, description, shell string, altNa
 }
 
 // checkUserQuotas validates user quotas for space creation
-func (s *SpaceService) CheckUserQuotas(userId string, template *model.Template) error {
-	usage, err := database.GetUserUsage(userId, "")
+func (s *SpaceService) CheckUserQuotas(user *model.User, template *model.Template) error {
+	usage, err := database.GetUserUsage(user.Id, "")
 	if err != nil {
 		return fmt.Errorf("failed to check user usage: %v", err)
 	}
 
-	userQuota, err := database.GetUserQuota(&model.User{Id: userId})
+	userQuota, err := database.GetUserQuota(user)
 	if err != nil {
 		return fmt.Errorf("failed to check user quota: %v", err)
 	}

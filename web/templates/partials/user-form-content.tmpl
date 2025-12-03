@@ -1,6 +1,7 @@
 {{ define "user-form-content" }}
+<div x-data="userForm(userFormModal.isEdit, userFormModal.userId, {{ .isProfile }})" x-init="initUsers">
 <div class="grid gap-4" :class="userFormModal.isEdit ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'">
-  <div x-data="userForm(userFormModal.isEdit, userFormModal.userId, {{ .isProfile }})" x-init="initUsers">
+  <div>
       {{ template "loading" . }}
       <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
         <div>
@@ -153,7 +154,7 @@
     </div>
   </template>
 </div>
-<div class="mt-4 flex justify-end gap-2 pt-4 border-t border-neutral-300 dark:border-gray-700" x-data="userForm(userFormModal.isEdit, userFormModal.userId, {{ .isProfile }})" x-init="initUsers">
+<div class="mt-4 flex justify-end gap-2 pt-4 border-t border-neutral-300 dark:border-gray-700">
   {{ if not .isProfile }}
   <button type="button" @click="userFormModal.show = false" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-gray-700">Cancel</button>
   {{ end }}
@@ -167,5 +168,6 @@
   {{ end }}
 
   <button type="submit" @click="submitData" class="btn-primary" :value="buttonLabel" x-text="buttonLabel"></button>
+</div>
 </div>
 {{ end }}
