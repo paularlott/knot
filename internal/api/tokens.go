@@ -68,7 +68,7 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipToken(token)
-	sse.PublishTokensChanged()
+	sse.PublishTokensChanged("")
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -100,7 +100,7 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipToken(token)
-	sse.PublishTokensChanged()
+	sse.PublishTokensChanged("")
 
 	// Return the Token ID
 	rest.WriteResponse(http.StatusCreated, w, r, apiclient.CreateTokenResponse{

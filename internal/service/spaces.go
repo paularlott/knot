@@ -135,7 +135,7 @@ func (s *SpaceService) CreateSpace(space *model.Space, user *model.User) error {
 
 	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
-	sse.PublishSpaceCreated(space.Id, space.UserId)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	return nil
 }
@@ -183,7 +183,7 @@ func (s *SpaceService) UpdateSpace(space *model.Space, user *model.User) error {
 
 	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
-	sse.PublishSpaceUpdated(space.Id, space.UserId)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	return nil
 }
@@ -302,7 +302,7 @@ func (s *SpaceService) SetSpaceCustomField(spaceId string, fieldName string, fie
 
 	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
-	sse.PublishSpaceUpdated(space.Id, space.UserId)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	return nil
 }

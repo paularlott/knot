@@ -29,31 +29,48 @@ window.groupListComponent = function() {
     async init() {
       await this.getGroups();
 
-      // Subscribe to SSE for real-time updates instead of polling
+      // Subscribe to SSE for real-time updates
       if (window.sseClient) {
-        window.sseClient.subscribe('groups:changed', () => {
-          this.getGroups();
+        window.sseClient.subscribe('groups:changed', (payload) => {
+          if (payload?.id) this.getGroups(payload.id);
+        });
+
+        window.sseClient.subscribe('groups:deleted', (payload) => {
+          this.groups = this.groups.filter(g => g.group_id !== payload?.id);
+          this.searchChanged();
         });
       }
     },
 
-    async getGroups() {
-      await fetch('/api/groups', {
+    async getGroups(groupId) {
+      const url = groupId ? `/api/groups/${groupId}` : '/api/groups';
+      await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
         }
       }).then((response) => {
         if (response.status === 200) {
-          response.json().then((groupList) => {
-            this.groups = groupList.groups;
+          response.json().then((data) => {
+            const groupList = groupId ? [data] : data.groups;
+
+            groupList.forEach(group => {
+              group.showIdPopup = false;
+              const index = this.groups.findIndex(g => g.group_id === group.group_id);
+              if (index >= 0) {
+                this.groups[index] = group;
+              } else {
+                this.groups.push(group);
+              }
+            });
+
+            this.groups.sort((a, b) => {
+              return a.name.localeCompare(b.name);
+            });
 
             // Apply search filter
             this.searchChanged();
 
             this.loading = false;
-            this.groups.forEach(group => {
-              group.showIdPopup = false;
-            });
           });
         } else if (response.status === 401) {
           window.location.href = '/logout';

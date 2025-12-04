@@ -269,7 +269,7 @@ func (c *Cluster) handleLeafGossipUser(msg *leafmsg.Message) {
 	}
 
 	// Notify SSE clients of user changes
-	sse.PublishUsersChanged()
+	sse.PublishUsersChanged("")
 }
 
 func (c *Cluster) handleLeafGossipTemplate(msg *leafmsg.Message) {

@@ -102,7 +102,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 
 	model.SaveRoleToCache(role)
 	service.GetTransport().GossipRole(role)
-	sse.PublishRolesChanged()
+	sse.PublishRolesChanged(role.Id)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -132,7 +132,7 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 
 	model.SaveRoleToCache(role)
 	service.GetTransport().GossipRole(role)
-	sse.PublishRolesChanged()
+	sse.PublishRolesChanged(role.Id)
 
 	audit.Log(
 		user.Username,
@@ -207,7 +207,7 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 
 	model.DeleteRoleFromCache(roleId)
 	service.GetTransport().GossipRole(role)
-	sse.PublishRolesChanged()
+	sse.PublishRolesDeleted(role.Id)
 
 	w.WriteHeader(http.StatusOK)
 }

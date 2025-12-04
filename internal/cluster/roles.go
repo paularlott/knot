@@ -124,8 +124,10 @@ func (c *Cluster) mergeRoles(roles []*model.Role) error {
 
 				if role.IsDeleted {
 					model.DeleteRoleFromCache(role.Id)
+					sse.PublishRolesDeleted(role.Id)
 				} else {
 					model.SaveRoleToCache(role)
+					sse.PublishRolesChanged(role.Id)
 				}
 			}
 		} else {
@@ -135,10 +137,12 @@ func (c *Cluster) mergeRoles(roles []*model.Role) error {
 			} else if !role.IsDeleted {
 				model.SaveRoleToCache(role)
 			}
+
+			if !role.IsDeleted {
+				sse.PublishRolesChanged(role.Id)
+			}
 		}
 	}
-
-	sse.PublishRolesChanged()
 
 	return nil
 }

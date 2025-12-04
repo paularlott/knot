@@ -100,7 +100,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipUser(userNew)
-	sse.PublishUsersChanged()
+	sse.PublishUsersChanged(userNew.Id)
 
 	newUserId = userNew.Id
 
@@ -372,7 +372,12 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.ServicePassword = request.ServicePassword
 	}
 
+	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
+
 	if activeUser.HasPermission(model.PermissionManageUsers) {
+		user.Username = request.Username
+		saveFields = append(saveFields, "Username")
+
 		if !validate.IsNumber(int(request.MaxSpaces), 0, 10000) {
 			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
 			return
@@ -413,7 +418,6 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.UpdatedAt = hlc.Now()
-	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
 
 	if request.ServicePassword != "" {
 		saveFields = append(saveFields, "ServicePassword")
@@ -458,7 +462,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipUser(user)
-	sse.PublishUsersChanged()
+	sse.PublishUsersChanged(user.Id)
 
 	// Update the user's spaces, ssh keys or stop spaces
 	go service.GetUserService().UpdateUserSpaces(user)

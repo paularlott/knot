@@ -54,6 +54,7 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 	}
 
 	data := &apiclient.TemplateDetails{
+		TemplateId:       template.Id,
 		Name:             template.Name,
 		Description:      template.Description,
 		Job:              template.Job,

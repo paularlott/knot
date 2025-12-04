@@ -43,15 +43,20 @@ window.userListComponent = function() {
         this.getUsers();
       });
 
-      // Subscribe to SSE for real-time updates instead of polling
+      // Subscribe to SSE for real-time updates
       if (window.sseClient) {
-        window.sseClient.subscribe('users:changed', () => {
-          this.getUsers();
+        window.sseClient.subscribe('users:changed', (payload) => {
+          if (payload?.id) this.getUsers(payload.id);
+        });
+
+        window.sseClient.subscribe('users:deleted', (payload) => {
+          this.users = this.users.filter(u => u.user_id !== payload?.id);
+          this.searchChanged();
         });
       }
     },
 
-    async getUsers() {
+    async getUsers(userId) {
       await fetch('/api/roles', {
         headers: {
           'Content-Type': 'application/json'
@@ -88,17 +93,18 @@ window.userListComponent = function() {
         return;
       });
 
-      await fetch('/api/users', {
+      const url = userId ? `/api/users/${userId}` : '/api/users';
+      await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
         }
       }).then((response) => {
         if (response.status === 200) {
-          response.json().then((usersList) => {
-            this.users = usersList.users;
+          response.json().then((data) => {
+            const usersList = userId ? [data] : data.users;
 
             this.loading = false;
-            this.users.forEach(user => {
+            usersList.forEach(user => {
 
               // Make last_login_at human readable data time in the browser's timezone
               if (user.last_login_at) {
@@ -127,6 +133,17 @@ window.userListComponent = function() {
                   }
                 });
               });
+
+              const index = this.users.findIndex(u => u.user_id === user.user_id);
+              if (index >= 0) {
+                this.users[index] = user;
+              } else {
+                this.users.push(user);
+              }
+            });
+
+            this.users.sort((a, b) => {
+              return a.username.localeCompare(b.username);
             });
 
             // Apply search filter

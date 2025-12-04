@@ -122,7 +122,7 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 	}
 
 	service.GetTransport().GossipSpace(space)
-	sse.PublishSpaceStateChanged(space.Id, space.UserId)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	// Revert the pending status if the deploy fails
 	var deployFailed = true
@@ -133,7 +133,7 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 			space.UpdatedAt = hlc.Now()
 			db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
 			service.GetTransport().GossipSpace(space)
-			sse.PublishSpaceStateChanged(space.Id, space.UserId)
+			sse.PublishSpaceChanged(space.Id, space.UserId)
 		}
 	}()
 
@@ -190,7 +190,7 @@ func (h *Helper) StopSpace(space *model.Space) error {
 		return err
 	}
 	service.GetTransport().GossipSpace(space)
-	sse.PublishSpaceStateChanged(space.Id, space.UserId)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	containerClient, err := h.createClient(template.Platform)
 	if err != nil {
@@ -205,7 +205,7 @@ func (h *Helper) StopSpace(space *model.Space) error {
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceStateChanged(space.Id, space.UserId)
+		sse.PublishSpaceChanged(space.Id, space.UserId)
 
 		log.WithError(err).Error("StopSpace: failed to delete space")
 		return err
@@ -232,7 +232,7 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 		return err
 	}
 	service.GetTransport().GossipSpace(space)
-	sse.PublishSpaceStateChanged(space.Id, space.UserId)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	// Get the user from the space
 	user, err := db.GetUser(space.UserId)
@@ -257,7 +257,7 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"IsPending", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceStateChanged(space.Id, space.UserId)
+		sse.PublishSpaceChanged(space.Id, space.UserId)
 
 		log.WithError(err).Error("RestartSpace: failed to delete space")
 		return err
@@ -281,7 +281,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 			space.UpdatedAt = hlc.Now()
 			db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 			service.GetTransport().GossipSpace(space)
-			sse.PublishSpaceStateChanged(space.Id, space.UserId)
+			sse.PublishSpaceChanged(space.Id, space.UserId)
 			return
 		}
 
@@ -295,7 +295,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 				space.UpdatedAt = hlc.Now()
 				db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 				service.GetTransport().GossipSpace(space)
-				sse.PublishSpaceStateChanged(space.Id, space.UserId)
+				sse.PublishSpaceChanged(space.Id, space.UserId)
 				return
 			}
 
@@ -308,7 +308,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 					space.UpdatedAt = hlc.Now()
 					db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 					service.GetTransport().GossipSpace(space)
-					sse.PublishSpaceStateChanged(space.Id, space.UserId)
+					sse.PublishSpaceChanged(space.Id, space.UserId)
 					return
 				}
 			}
@@ -322,7 +322,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 				space.UpdatedAt = hlc.Now()
 				db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
 				service.GetTransport().GossipSpace(space)
-				sse.PublishSpaceStateChanged(space.Id, space.UserId)
+				sse.PublishSpaceChanged(space.Id, space.UserId)
 				return
 			}
 		}

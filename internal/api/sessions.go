@@ -86,7 +86,7 @@ func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 	sse.GetHub().InvalidateSession(sessionId)
 
 	// Notify other users viewing the sessions list
-	sse.PublishSessionsChanged()
+	sse.PublishSessionsChanged(sessionId)
 
 	w.WriteHeader(http.StatusOK)
 }

@@ -17,6 +17,11 @@ window.sessionsListComponent = function() {
         window.sseClient.subscribe('sessions:changed', () => {
           this.getSessions();
         });
+
+        window.sseClient.subscribe('sessions:deleted', (payload) => {
+          this.sessions = this.sessions.filter(x => x.session_id !== payload?.id);
+          this.searchChanged();
+        });
       }
     },
 

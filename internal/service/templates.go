@@ -111,7 +111,7 @@ func (s *TemplateService) CreateTemplate(template *model.Template, user *model.U
 
 	// Gossip the template and notify SSE clients
 	GetTransport().GossipTemplate(template)
-	sse.PublishTemplatesChanged()
+	sse.PublishTemplatesChanged(template.Id)
 
 	return nil
 }
@@ -156,7 +156,7 @@ func (s *TemplateService) UpdateTemplate(template *model.Template, user *model.U
 
 	// Gossip the template and notify SSE clients
 	GetTransport().GossipTemplate(template)
-	sse.PublishTemplatesChanged()
+	sse.PublishTemplatesChanged(template.Id)
 
 	return nil
 }
@@ -206,7 +206,7 @@ func (s *TemplateService) DeleteTemplate(templateId string, user *model.User) er
 
 	// Gossip the template and notify SSE clients
 	GetTransport().GossipTemplate(template)
-	sse.PublishTemplatesChanged()
+	sse.PublishTemplatesDeleted(template.Id)
 
 	return nil
 }

@@ -100,7 +100,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 	}
 
 	service.GetTransport().GossipSpace(space)
-	sse.PublishSpaceStateChanged(space.Id, space.UserId)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
 		defer func() {
@@ -110,7 +110,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 				c.logger.Error("creating space job error", "space_id", space.Id)
 			}
 			service.GetTransport().GossipSpace(space)
-			sse.PublishSpaceStateChanged(space.Id, space.UserId)
+			sse.PublishSpaceChanged(space.Id, space.UserId)
 		}()
 
 		args := []string{"run", "-d", "--name", spec.ContainerName}
@@ -164,7 +164,7 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 			return
 		}
 		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceStateChanged(space.Id, space.UserId)
+		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
 	return nil
@@ -183,7 +183,7 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 	}
 
 	service.GetTransport().GossipSpace(space)
-	sse.PublishSpaceStateChanged(space.Id, space.UserId)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
 		defer func() {
@@ -193,7 +193,7 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 				c.logger.Error("creating space job error", "space_id", space.Id)
 			}
 			service.GetTransport().GossipSpace(space)
-			sse.PublishSpaceStateChanged(space.Id, space.UserId)
+			sse.PublishSpaceChanged(space.Id, space.UserId)
 		}()
 
 		c.logger.Debug("stopping container", "space_containerid", space.ContainerId)
@@ -257,7 +257,7 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		}
 
 		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceStateChanged(space.Id, space.UserId)
+		sse.PublishSpaceChanged(space.Id, space.UserId)
 
 		if onStopped != nil {
 			onStopped()
@@ -292,7 +292,7 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceUpdated(space.Id, space.UserId)
+		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
 	for volName := range volInfo.Volumes {
@@ -349,7 +349,7 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceUpdated(space.Id, space.UserId)
+		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
 	for volName := range space.VolumeData {

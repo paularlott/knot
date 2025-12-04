@@ -8,24 +8,31 @@ import (
 // EventType represents the type of SSE event
 type EventType string
 
-// Generic change events for infrequently changing data
+// Resource change events - *:changed for creates/updates, *:deleted for deletions
 const (
 	EventGroupsChanged       EventType = "groups:changed"
+	EventGroupsDeleted       EventType = "groups:deleted"
 	EventRolesChanged        EventType = "roles:changed"
+	EventRolesDeleted        EventType = "roles:deleted"
 	EventTemplatesChanged    EventType = "templates:changed"
+	EventTemplatesDeleted    EventType = "templates:deleted"
 	EventTemplateVarsChanged EventType = "templatevars:changed"
+	EventTemplateVarsDeleted EventType = "templatevars:deleted"
 	EventUsersChanged        EventType = "users:changed"
+	EventUsersDeleted        EventType = "users:deleted"
 	EventTokensChanged       EventType = "tokens:changed"
+	EventTokensDeleted       EventType = "tokens:deleted"
 	EventVolumesChanged      EventType = "volumes:changed"
+	EventVolumesDeleted      EventType = "volumes:deleted"
 	EventSessionsChanged     EventType = "sessions:changed"
+	EventSessionsDeleted     EventType = "sessions:deleted"
 	EventTunnelsChanged      EventType = "tunnels:changed"
+	EventTunnelsDeleted      EventType = "tunnels:deleted"
 	EventAuditLogsChanged    EventType = "auditlogs:changed"
 
-	// Space-specific events for frequently changing data
-	EventSpaceCreated EventType = "space:created"
-	EventSpaceUpdated EventType = "space:updated"
+	// Space events for frequently changing data
+	EventSpaceChanged EventType = "space:changed"
 	EventSpaceDeleted EventType = "space:deleted"
-	EventSpaceState   EventType = "space:state"
 
 	// Authentication events
 	EventAuthRequired EventType = "auth:required"
@@ -37,10 +44,12 @@ type Event struct {
 	Payload interface{} `json:"payload,omitempty"`
 }
 
-// SpaceEventPayload contains data for space-specific events
-type SpaceEventPayload struct {
-	SpaceId string `json:"space_id"`
-	UserId  string `json:"user_id,omitempty"`
+// ResourcePayload contains data for resource-specific events
+type ResourcePayload struct {
+	Id               string `json:"id"`
+	UserId           string `json:"user_id,omitempty"`
+	SharedWithUserId string `json:"shared_with_user_id,omitempty"`
+	PreviousUserId   string `json:"previous_user_id,omitempty"`
 }
 
 // Client represents a connected SSE client

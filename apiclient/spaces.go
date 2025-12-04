@@ -79,10 +79,17 @@ type GetCustomFieldResponse struct {
 }
 
 type SpaceDefinition struct {
+	SpaceId            string                       `json:"space_id"`
 	UserId             string                       `json:"user_id"`
 	TemplateId         string                       `json:"template_id"`
+	SharedUserId       string                       `json:"shared_user_id"`
+	SharedUsername     string                       `json:"shared_username"`
 	Name               string                       `json:"name"`
 	Description        string                       `json:"description"`
+	Note               string                       `json:"note"`
+	TemplateName       string                       `json:"template_name"`
+	Username           string                       `json:"username"`
+	Platform           string                       `json:"platform"`
 	Shell              string                       `json:"shell"`
 	Zone               string                       `json:"zone"`
 	AltNames           []string                     `json:"alt_names"`
@@ -95,6 +102,17 @@ type SpaceDefinition struct {
 	CreatedAtFormatted string                       `json:"created_at_formatted"`
 	IconURL            string                       `json:"icon_url"`
 	CustomFields       []CustomFieldValue           `json:"custom_fields"`
+	HasCodeServer      bool                         `json:"has_code_server"`
+	HasSSH             bool                         `json:"has_ssh"`
+	HasTerminal        bool                         `json:"has_terminal"`
+	HasHttpVNC         bool                         `json:"has_http_vnc"`
+	HasState           bool                         `json:"has_state"`
+	TcpPorts           map[string]string            `json:"tcp_ports"`
+	HttpPorts          map[string]string            `json:"http_ports"`
+	UpdateAvailable    bool                         `json:"update_available"`
+	HasVSCodeTunnel    bool                         `json:"has_vscode_tunnel"`
+	VSCodeTunnel       string                       `json:"vscode_tunnel_name"`
+	IsRemote           bool                         `json:"is_remote"`
 }
 
 type RunCommandRequest struct {

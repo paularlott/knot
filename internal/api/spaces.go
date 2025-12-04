@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -764,8 +765,8 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If user doesn't own the space then 404
-	if space.UserId != user.Id {
+	// If user doesn't own the space and doesn't have transfer permission then 404
+	if space.UserId != user.Id && !user.HasPermission(model.PermissionTransferSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
@@ -882,6 +883,9 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 
 		service.GetTransport().GossipSpace(space)
 
+		// Publish SSE event with both old and new user IDs
+		sse.PublishSpaceChanged(space.Id, space.UserId, "", user.Id)
+
 		audit.Log(
 			user.Username,
 			model.AuditActorTypeUser,
@@ -989,6 +993,9 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipSpace(space)
 	service.GetUserService().UpdateSpaceSSHKeys(space, user)
 
+	// Publish SSE event for both owner and shared user
+	sse.PublishSpaceChanged(space.Id, space.UserId, space.SharedWithUserId)
+
 	audit.Log(
 		user.Username,
 		model.AuditActorTypeUser,
@@ -1046,6 +1053,9 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Store the previously shared user ID before clearing
+	previousSharedUserId := space.SharedWithUserId
+
 	// Unshare the space
 	space.SharedWithUserId = ""
 	space.UpdatedAt = hlc.Now()
@@ -1058,6 +1068,9 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 
 	service.GetTransport().GossipSpace(space)
 	service.GetUserService().UpdateSpaceSSHKeys(space, user)
+
+	// Publish SSE event with previous shared user ID so they can remove it from their list
+	sse.PublishSpaceChanged(space.Id, space.UserId, "", previousSharedUserId)
 
 	audit.Log(
 		user.Username,

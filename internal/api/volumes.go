@@ -104,7 +104,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipVolume(volume)
-	sse.PublishVolumesChanged()
+	sse.PublishVolumesChanged(volume.Id)
 
 	audit.Log(
 		user.Username,
@@ -156,7 +156,7 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipVolume(volume)
-	sse.PublishVolumesChanged()
+	sse.PublishVolumesChanged(volume.Id)
 
 	audit.Log(
 		user.Username,
@@ -211,7 +211,7 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipVolume(volume)
-	sse.PublishVolumesChanged()
+	sse.PublishVolumesDeleted(volume.Id)
 
 	user := r.Context().Value("user").(*model.User)
 	audit.Log(
@@ -246,6 +246,7 @@ func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := apiclient.VolumeDefinition{
+		VolumeId:   volume.Id,
 		Name:       volume.Name,
 		Definition: volume.Definition,
 		Active:     volume.Active,
@@ -308,7 +309,7 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
 	db.SaveVolume(volume, []string{"Active", "Zone", "UpdatedAt", "UpdatedUserId"})
 	service.GetTransport().GossipVolume(volume)
-	sse.PublishVolumesChanged()
+	sse.PublishVolumesChanged(volume.Id)
 
 	rest.WriteResponse(http.StatusOK, w, r, &apiclient.StartVolumeResponse{
 		Status: true,
@@ -361,7 +362,7 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 	volume.UpdatedUserId = r.Context().Value("user").(*model.User).Id
 	db.SaveVolume(volume, []string{"Active", "Zone", "UpdatedAt", "UpdatedUserId"})
 	service.GetTransport().GossipVolume(volume)
-	sse.PublishVolumesChanged()
+	sse.PublishVolumesChanged(volume.Id)
 
 	w.WriteHeader(http.StatusOK)
 }

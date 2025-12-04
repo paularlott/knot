@@ -11,6 +11,11 @@ window.tunnelsListComponent = function() {
         window.sseClient.subscribe('tunnels:changed', () => {
           this.getTunnels();
         });
+
+        window.sseClient.subscribe('tunnels:deleted', (payload) => {
+          this.tunnels = this.tunnels.filter(x => x.tunnel_id !== payload?.id);
+          this.searchChanged();
+        });
       }
     },
 

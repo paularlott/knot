@@ -95,6 +95,7 @@ type TemplateDetailsDay struct {
 }
 
 type TemplateDetails struct {
+	TemplateId       string               `json:"template_id"`
 	Name             string               `json:"name"`
 	Job              string               `json:"job"`
 	Description      string               `json:"description"`

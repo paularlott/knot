@@ -33,7 +33,7 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 			client.logger.Error("saving space  error", "space_id", space.Id)
 		}
 		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceUpdated(space.Id, space.UserId)
+		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
 	client.logger.Debug("checking for required volumes")
@@ -128,7 +128,7 @@ func (client *NomadClient) DeleteSpaceVolumes(space *model.Space) error {
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
 		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceUpdated(space.Id, space.UserId)
+		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
 	// For all volumes in the space delete them
@@ -204,7 +204,7 @@ func (client *NomadClient) CreateSpaceJob(user *model.User, template *model.Temp
 	}
 
 	service.GetTransport().GossipSpace(space)
-	sse.PublishSpaceStateChanged(space.Id, space.UserId)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 	client.MonitorJobState(space, nil)
 
 	return nil
@@ -231,7 +231,7 @@ func (client *NomadClient) DeleteSpaceJob(space *model.Space, onStopped func()) 
 	}
 
 	service.GetTransport().GossipSpace(space)
-	sse.PublishSpaceStateChanged(space.Id, space.UserId)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 	client.MonitorJobState(space, onStopped)
 
 	return nil
@@ -281,7 +281,7 @@ func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 			client.logger.Error("updating space job  error", "space", space.ContainerId)
 		}
 		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceStateChanged(space.Id, space.UserId)
+		sse.PublishSpaceChanged(space.Id, space.UserId)
 
 		if onDone != nil {
 			onDone()

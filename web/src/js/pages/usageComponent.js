@@ -291,7 +291,11 @@ window.usageComponent = function(userId) {
 
       // Subscribe to SSE for real-time updates when spaces change
       if (window.sseClient) {
-        window.sseClient.subscribe('space:*', () => {
+        window.sseClient.subscribe('space:changed', () => {
+          this.getUsage();
+        });
+
+        window.sseClient.subscribe('space:deleted', () => {
           this.getUsage();
         });
       }

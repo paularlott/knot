@@ -50,6 +50,11 @@ window.apiTokensComponent = function() {
         window.sseClient.subscribe('tokens:changed', () => {
           this.getTokens();
         });
+
+        window.sseClient.subscribe('tokens:deleted', (payload) => {
+          this.tokens = this.tokens.filter(t => t.token_id !== payload?.id);
+          this.searchChanged();
+        });
       }
     },
 

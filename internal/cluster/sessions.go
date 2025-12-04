@@ -135,17 +135,25 @@ func (c *Cluster) mergeSessions(sessions []*model.Session) error {
 				if session.IsDeleted && !localSession.IsDeleted {
 					sse.GetHub().InvalidateSession(session.Id)
 				}
+
+				if session.IsDeleted {
+					sse.PublishSessionsDeleted(session.Id)
+				} else {
+					sse.PublishSessionsChanged(session.Id)
+				}
 			}
 		} else if session.ExpiresAfter.After(time.Now().UTC()) {
 			// If the session doesn't exist locally and hasn't expired, create it (even if deleted) to prevent resurrection
 			if err := db.SaveSession(session); err != nil {
 				c.logger.Error("Failed to save session", "error", err, "id", session.Id, "is_deleted", session.IsDeleted)
 			}
+
+			if !session.IsDeleted {
+				sse.PublishSessionsChanged(session.Id)
+			}
 		}
 		// Note: We don't save expired sessions since they're already obsolete
 	}
-
-	sse.PublishSessionsChanged()
 
 	return nil
 }

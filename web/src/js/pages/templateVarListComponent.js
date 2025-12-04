@@ -31,24 +31,39 @@ window.templateVarListComponent = function() {
 
       // Subscribe to SSE for real-time updates instead of polling
       if (window.sseClient) {
-        window.sseClient.subscribe('templatevars:changed', () => {
-          this.getTemplateVars();
+        window.sseClient.subscribe('templatevars:changed', (payload) => {
+          if (payload?.id) this.getTemplateVars(payload.id);
+        });
+
+        window.sseClient.subscribe('templatevars:deleted', (payload) => {
+          this.variables = this.variables.filter(x => x.templatevar_id !== payload?.id);
+          this.searchChanged();
         });
       }
     },
 
-    async getTemplateVars() {
-      await fetch('/api/templatevars', {
+    async getTemplateVars(templateVarId) {
+      const url = templateVarId ? `/api/templatevars/${templateVarId}` : '/api/templatevars';
+      await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
         }
       }).then((response) => {
         if (response.status === 200) {
-          response.json().then((variableList) => {
-            this.variables = variableList.variables;
-
-            this.variables.forEach(variable => {
+          response.json().then((data) => {
+            const variableList = templateVarId ? [data] : data.variables;
+            variableList.forEach(variable => {
               variable.showIdPopup = false;
+              const index = this.variables.findIndex(v => v.templatevar_id === variable.templatevar_id);
+              if (index >= 0) {
+                this.variables[index] = variable;
+              } else {
+                this.variables.push(variable);
+              }
+            });
+
+            this.variables.sort((a, b) => {
+              return a.name.localeCompare(b.name);
             });
 
             // Apply search filter

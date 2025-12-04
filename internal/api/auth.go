@@ -243,7 +243,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	service.GetTransport().GossipSession(session)
-	sse.PublishSessionsChanged()
+	sse.PublishSessionsChanged("")
 
 	// Only create the cookie for web auth
 	if r.URL.Path == "/api/auth/web" {

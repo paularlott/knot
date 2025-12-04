@@ -121,16 +121,24 @@ func (c *Cluster) mergeGroups(groups []*model.Group) error {
 				if err := db.SaveGroup(group); err != nil {
 					c.logger.Error("Failed to update group", "error", err, "name", group.Name)
 				}
+
+				if group.IsDeleted {
+					sse.PublishGroupsDeleted(group.Id)
+				} else {
+					sse.PublishGroupsChanged(group.Id)
+				}
 			}
 		} else {
 			// If the group doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveGroup(group); err != nil {
 				c.logger.Error("Failed to save group", "error", err, "name", group.Name, "is_deleted", group.IsDeleted)
 			}
+
+			if !group.IsDeleted {
+				sse.PublishGroupsChanged(group.Id)
+			}
 		}
 	}
-
-	sse.PublishGroupsChanged()
 
 	return nil
 }

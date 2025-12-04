@@ -65,7 +65,7 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		}
 
 		service.GetTransport().GossipUser(toDelete)
-		sse.PublishUsersChanged()
+		sse.PublishUsersDeleted(toDelete.Id)
 		auu.RemoveUsersSessions(toDelete)
 		auu.RemoveUsersTokens(toDelete)
 	}

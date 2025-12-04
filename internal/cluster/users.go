@@ -142,6 +142,12 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 				} else {
 					service.GetUserService().UpdateUserSpaces(user)
 				}
+
+				if user.IsDeleted {
+					sse.PublishUsersDeleted(user.Id)
+				} else {
+					sse.PublishUsersChanged(user.Id)
+				}
 			}
 		} else {
 			// If the user doesn't exist locally, create it (even if deleted) to prevent resurrection
@@ -150,11 +156,10 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 			} else if !user.IsDeleted {
 				// Make sure we move to has users mode only if user is not deleted
 				middleware.HasUsers = true
+				sse.PublishUsersChanged(user.Id)
 			}
 		}
 	}
-
-	sse.PublishUsersChanged()
 
 	return nil
 }

@@ -119,19 +119,23 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 					}
 					service.GetUserService().UpdateSpaceSSHKeys(space, user)
 				}
+
+				if space.IsDeleted {
+					sse.PublishSpaceDeleted(space.Id, space.UserId)
+				} else {
+					sse.PublishSpaceChanged(space.Id, space.UserId)
+				}
 			}
 		} else {
 			// If the space doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveSpace(space, []string{}); err != nil {
 				c.logger.Error("Failed to save space", "error", err, "name", space.Name, "is_deleted", space.IsDeleted)
 			}
-		}
-	}
 
-	// Notify SSE clients of space changes
-	// Since spaces are merged individually, we use a generic update event
-	for _, space := range spaces {
-		sse.PublishSpaceUpdated(space.Id, space.UserId)
+			if !space.IsDeleted {
+				sse.PublishSpaceChanged(space.Id, space.UserId)
+			}
+		}
 	}
 
 	return nil

@@ -106,7 +106,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipTemplateVar(templateVar)
-	sse.PublishTemplateVarsChanged()
+	sse.PublishTemplateVarsChanged(templateVar.Id)
 
 	audit.Log(
 		user.Username,
@@ -183,9 +183,9 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipTemplateVar(templateVar)
-	sse.PublishTemplateVarsChanged()
 
 	id = templateVar.Id
+	sse.PublishTemplateVarsChanged(id)
 
 	audit.Log(
 		user.Username,
@@ -236,7 +236,7 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipTemplateVar(templateVar)
-	sse.PublishTemplateVarsChanged()
+	sse.PublishTemplateVarsDeleted(templateVar.Id)
 
 	audit.Log(
 		user.Username,
@@ -283,6 +283,7 @@ func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := &apiclient.TemplateVarValue{
+		Id:         templateVar.Id,
 		Name:       templateVar.Name,
 		Value:      val,
 		Zones:      templateVar.Zones,
