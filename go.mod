@@ -1,6 +1,6 @@
 module github.com/paularlott/knot
 
-go 1.25.4
+go 1.25.5
 
 //replace github.com/paularlott/gossip => ../gossip/
 
