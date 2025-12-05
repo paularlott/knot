@@ -53,6 +53,16 @@ window.userListComponent = function() {
           this.users = this.users.filter(u => u.user_id !== payload?.id);
           this.searchChanged();
         });
+
+        window.sseClient.subscribe('space:changed', (payload) => {
+          // Refresh user data when their spaces change
+          if (payload?.user_id) this.getUsers(payload.user_id);
+        });
+
+        window.sseClient.subscribe('space:deleted', (payload) => {
+          // Refresh user data when their spaces are deleted
+          if (payload?.user_id) this.getUsers(payload.user_id);
+        });
       }
     },
 
