@@ -70,6 +70,8 @@ type Hub struct {
 	register chan *Client
 	// Channel for unregistering clients
 	unregister chan *Client
+	// Channel for shutdown signal
+	shutdown chan struct{}
 	// Mutex for thread-safe operations
 	mu sync.RWMutex
 }
@@ -88,6 +90,7 @@ func GetHub() *Hub {
 			broadcast:  make(chan *Event, 256),
 			register:   make(chan *Client),
 			unregister: make(chan *Client),
+			shutdown:   make(chan struct{}),
 		}
 	})
 	return globalHub
@@ -106,6 +109,15 @@ func (h *Hub) Start() {
 func (h *Hub) run() {
 	for {
 		select {
+		case <-h.shutdown:
+			// Close all client connections
+			h.mu.Lock()
+			for client := range h.clients {
+				delete(h.clients, client)
+				close(client.send)
+			}
+			h.mu.Unlock()
+			return
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client] = true
@@ -218,4 +230,12 @@ func (h *Hub) ClientCount() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return len(h.clients)
+}
+
+// Shutdown closes all client connections and stops the hub
+func (h *Hub) Shutdown() {
+	if hubStarted {
+		close(h.shutdown)
+		hubStarted = false
+	}
 }
