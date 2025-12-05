@@ -2,13 +2,11 @@ package openai
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/knot/internal/log"
@@ -40,9 +38,14 @@ type (
 
 // Re-export functions from mcp/openai
 var (
-	WithToolHandler        = mcpopenai.WithToolHandler
-	ToolHandlerFromContext = mcpopenai.ToolHandlerFromContext
-	NewChatStream          = mcpopenai.NewChatStream
+	WithToolHandler                 = mcpopenai.WithToolHandler
+	ToolHandlerFromContext          = mcpopenai.ToolHandlerFromContext
+	NewChatStream                   = mcpopenai.NewChatStream
+	BuildToolResultMessage          = mcpopenai.BuildToolResultMessage
+	BuildAssistantToolCallMessage   = mcpopenai.BuildAssistantToolCallMessage
+	NewStreamingToolCallAccumulator = mcpopenai.NewStreamingToolCallAccumulator
+	NewMaxToolIterationsError       = mcpopenai.NewMaxToolIterationsError
+	ExtractToolResult               = mcpopenai.ExtractToolResult
 )
 
 // MCPServer interface for MCP server operations
@@ -152,7 +155,10 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest) 
 		}
 
 		// Add assistant message to conversation
-		currentMessages = append(currentMessages, message)
+		currentMessages = append(currentMessages, BuildAssistantToolCallMessage(
+			message.GetContentAsString(),
+			toolCalls,
+		))
 
 		// Execute tools and add results
 		for _, toolCall := range toolCalls {
@@ -175,16 +181,11 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest) 
 			}
 
 			// Add tool result to conversation
-			toolResultMessage := Message{
-				Role:       "tool",
-				ToolCallID: toolCall.ID,
-			}
-			toolResultMessage.SetContentAsString(result)
-			currentMessages = append(currentMessages, toolResultMessage)
+			currentMessages = append(currentMessages, BuildToolResultMessage(toolCall.ID, result))
 		}
 	}
 
-	return nil, fmt.Errorf("maximum tool call iterations (%d) reached", MAX_TOOL_CALL_ITERATIONS)
+	return nil, NewMaxToolIterationsError(MAX_TOOL_CALL_ITERATIONS)
 }
 
 // StreamChatCompletion performs a streaming chat completion with automatic tool processing
@@ -253,7 +254,10 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 			}
 
 			// Add assistant message to conversation
-			currentMessages = append(currentMessages, message)
+			currentMessages = append(currentMessages, BuildAssistantToolCallMessage(
+				message.GetContentAsString(),
+				toolCalls,
+			))
 
 			// Execute tools and add results
 			for _, toolCall := range toolCalls {
@@ -280,16 +284,11 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 				}
 
 				// Add tool result to conversation
-				toolResultMessage := Message{
-					Role:       "tool",
-					ToolCallID: toolCall.ID,
-				}
-				toolResultMessage.SetContentAsString(result)
-				currentMessages = append(currentMessages, toolResultMessage)
+				currentMessages = append(currentMessages, BuildToolResultMessage(toolCall.ID, result))
 			}
 		}
 
-		errorChan <- fmt.Errorf("maximum tool call iterations (%d) reached", MAX_TOOL_CALL_ITERATIONS)
+		errorChan <- NewMaxToolIterationsError(MAX_TOOL_CALL_ITERATIONS)
 	}()
 
 	return NewChatStream(ctx, responseChan, errorChan)
@@ -310,12 +309,10 @@ func (c *Client) nonStreamingChatCompletion(ctx context.Context, req ChatComplet
 // streamSingleCompletion handles a single streaming completion
 func (c *Client) streamSingleCompletion(ctx context.Context, req ChatCompletionRequest, responseChan chan<- ChatCompletionResponse) (*ChatCompletionResponse, error) {
 	var finalResponse *ChatCompletionResponse
-	var toolCalls []ToolCall
 	var assistantContent strings.Builder
 
-	// Stream state for accumulating tool calls
-	toolCallBuffer := make(map[int]*ToolCall)
-	argumentsBuffer := make(map[int]string)
+	// Use streaming accumulator for tool calls
+	toolAccumulator := NewStreamingToolCallAccumulator()
 
 	err := rest.StreamData(
 		c.restClient,
@@ -329,7 +326,7 @@ func (c *Client) streamSingleCompletion(ctx context.Context, req ChatCompletionR
 			}
 
 			// Process the chunk for internal state first
-			shouldStop, err := c.processStreamChunk(response, toolCallBuffer, argumentsBuffer, &assistantContent)
+			shouldStop, err := c.processStreamChunk(response, toolAccumulator, &assistantContent)
 			if err != nil {
 				return true, err
 			}
@@ -351,8 +348,8 @@ func (c *Client) streamSingleCompletion(ctx context.Context, req ChatCompletionR
 
 			// Check if we should stop streaming
 			if shouldStop {
-				// Finalize tool calls
-				toolCalls = c.finalizeToolCalls(toolCallBuffer, argumentsBuffer)
+				// Finalize tool calls using accumulator
+				toolCalls := toolAccumulator.Finalize()
 
 				// Create final response
 				finishReason := ""
@@ -360,11 +357,7 @@ func (c *Client) streamSingleCompletion(ctx context.Context, req ChatCompletionR
 					finishReason = response.Choices[0].FinishReason
 				}
 
-				finalMessage := Message{
-					Role:      "assistant",
-					ToolCalls: toolCalls,
-				}
-				finalMessage.SetContentAsString(assistantContent.String())
+				finalMessage := BuildAssistantToolCallMessage(assistantContent.String(), toolCalls)
 
 				finalResponse = &ChatCompletionResponse{
 					ID:      response.ID,
@@ -394,67 +387,25 @@ func (c *Client) streamSingleCompletion(ctx context.Context, req ChatCompletionR
 }
 
 // processStreamChunk processes a single streaming chunk
-func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolCallBuffer map[int]*ToolCall, argumentsBuffer map[int]string, assistantContent *strings.Builder) (bool, error) {
+func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolAccumulator *mcpopenai.StreamingToolCallAccumulator, assistantContent *strings.Builder) (bool, error) {
 	if len(response.Choices) == 0 {
 		return false, nil
 	}
 
 	choice := response.Choices[0]
 
-	// Handle tool calls - ID generation is needed regardless of MCP server
-	if len(choice.Delta.ToolCalls) > 0 {
-		for i, deltaCall := range choice.Delta.ToolCalls {
-			index := deltaCall.Index
-
-			// Only initialize buffer if MCP server is available
-			if c.mcpServer != nil {
-				if toolCallBuffer[index] == nil {
-					toolCallBuffer[index] = &ToolCall{
-						Index:    index,
-						Function: ToolCallFunction{Arguments: make(map[string]any)},
-					}
-					argumentsBuffer[index] = ""
+	// Handle tool calls using the accumulator with ID callback
+	if len(choice.Delta.ToolCalls) > 0 && c.mcpServer != nil {
+		// Use callback to update response with generated IDs
+		toolAccumulator.ProcessDeltaWithIDCallback(choice.Delta, func(index int, id string) {
+			// Update the response chunk with the generated ID so it's forwarded to clients
+			for i := range choice.Delta.ToolCalls {
+				if choice.Delta.ToolCalls[i].Index == index {
+					response.Choices[0].Delta.ToolCalls[i].ID = id
+					break
 				}
 			}
-
-			// Generate ID if missing
-			if deltaCall.ID == "" {
-				// Generate a fallback ID if none provided by the LLM
-				var generatedID string
-				if id, err := uuid.NewV7(); err == nil {
-					generatedID = id.String()
-				} else {
-					// Fallback to a simple ID if UUID generation fails
-					generatedID = fmt.Sprintf("call_%d_%d", time.Now().UnixNano(), index)
-				}
-
-				// Update the response chunk with the generated ID
-				choice.Delta.ToolCalls[i].ID = generatedID
-
-				// Also update buffer if MCP server is available
-				if c.mcpServer != nil && toolCallBuffer[index] != nil {
-					toolCallBuffer[index].ID = generatedID
-				}
-			} else {
-				// Store existing ID in buffer if MCP server is available
-				if c.mcpServer != nil && toolCallBuffer[index] != nil {
-					toolCallBuffer[index].ID = deltaCall.ID
-				}
-			}
-
-			// Only process other tool call data if MCP server is available
-			if c.mcpServer != nil && toolCallBuffer[index] != nil {
-				if deltaCall.Type != "" {
-					toolCallBuffer[index].Type = deltaCall.Type
-				}
-				if deltaCall.Function.Name != "" {
-					toolCallBuffer[index].Function.Name = deltaCall.Function.Name
-				}
-				if deltaCall.Function.Arguments != "" {
-					argumentsBuffer[index] += deltaCall.Function.Arguments
-				}
-			}
-		}
+		})
 	}
 
 	// Handle content
@@ -468,40 +419,6 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolCallBu
 	}
 
 	return false, nil
-}
-
-// finalizeToolCalls converts buffered tool calls to final format
-func (c *Client) finalizeToolCalls(toolCallBuffer map[int]*ToolCall, argumentsBuffer map[int]string) []ToolCall {
-	if c.mcpServer == nil || len(toolCallBuffer) == 0 {
-		return nil
-	}
-
-	toolCalls := make([]ToolCall, 0, len(toolCallBuffer))
-
-	for index, toolCall := range toolCallBuffer {
-		if toolCall == nil || toolCall.Function.Name == "" {
-			continue
-		}
-
-		// Parse arguments if present
-		if argsStr := argumentsBuffer[index]; argsStr != "" && argsStr != "null" {
-			if err := json.Unmarshal([]byte(argsStr), &toolCall.Function.Arguments); err != nil {
-				log.Error("Failed to parse tool arguments", "error", err, "tool_name", toolCall.Function.Name)
-				toolCall.Function.Arguments = make(map[string]any)
-			}
-		} else {
-			toolCall.Function.Arguments = make(map[string]any)
-		}
-
-		// Ensure ID is set
-		if toolCall.ID == "" {
-			toolCall.ID = fmt.Sprintf("call_%d", index)
-		}
-
-		toolCalls = append(toolCalls, *toolCall)
-	}
-
-	return toolCalls
 }
 
 // getAvailableTools returns the list of available tools from MCP server
@@ -557,21 +474,7 @@ func (c *Client) executeToolCall(ctx context.Context, toolCall ToolCall) (string
 		return "", fmt.Errorf("MCP tool call failed: %w", err)
 	}
 
-	// Priority 1: Structured content
-	if response.StructuredContent != nil {
-		jsonBytes, err := json.Marshal(response.StructuredContent)
-		if err != nil {
-			return "", fmt.Errorf("failed to serialize structured tool response: %w", err)
-		}
-		return string(jsonBytes), nil
-	}
-
-	// Priority 2: Text content
-	for _, content := range response.Content {
-		if content.Type == "text" {
-			return content.Text, nil
-		}
-	}
-
-	return "Tool executed successfully", nil
+	// Use shared ExtractToolResult helper
+	result, _ := ExtractToolResult(response)
+	return result, nil
 }
