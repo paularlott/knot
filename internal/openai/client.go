@@ -13,9 +13,37 @@ import (
 
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/mcp"
+	mcpopenai "github.com/paularlott/mcp/openai"
 )
 
 const MAX_TOOL_CALL_ITERATIONS = 20
+
+// Re-export types from mcp/openai for convenience
+type (
+	ChatCompletionRequest  = mcpopenai.ChatCompletionRequest
+	ChatCompletionResponse = mcpopenai.ChatCompletionResponse
+	Message                = mcpopenai.Message
+	Choice                 = mcpopenai.Choice
+	Delta                  = mcpopenai.Delta
+	Tool                   = mcpopenai.Tool
+	ToolFunction           = mcpopenai.ToolFunction
+	ToolCall               = mcpopenai.ToolCall
+	ToolCallFunction       = mcpopenai.ToolCallFunction
+	DeltaToolCall          = mcpopenai.DeltaToolCall
+	DeltaFunction          = mcpopenai.DeltaFunction
+	ModelsResponse         = mcpopenai.ModelsResponse
+	Model                  = mcpopenai.Model
+	Usage                  = mcpopenai.Usage
+	ChatStream             = mcpopenai.ChatStream
+	ToolHandler            = mcpopenai.ToolHandler
+)
+
+// Re-export functions from mcp/openai
+var (
+	WithToolHandler        = mcpopenai.WithToolHandler
+	ToolHandlerFromContext = mcpopenai.ToolHandlerFromContext
+	NewChatStream          = mcpopenai.NewChatStream
+)
 
 // MCPServer interface for MCP server operations
 type MCPServer interface {
@@ -94,7 +122,7 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest) 
 		req.Tools = tools
 	}
 
-	toolHandler := toolHandlerFromContext(ctx)
+	toolHandler := ToolHandlerFromContext(ctx)
 
 	// Multi-turn tool processing loop if MCP server is available
 	for iteration := 0; iteration < MAX_TOOL_CALL_ITERATIONS; iteration++ {
@@ -189,7 +217,7 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 			}
 		}
 
-		toolHandler := toolHandlerFromContext(ctx)
+		toolHandler := ToolHandlerFromContext(ctx)
 
 		// Multi-turn tool processing loop if MCP server is available
 		for iteration := 0; iteration < MAX_TOOL_CALL_ITERATIONS; iteration++ {
@@ -264,14 +292,7 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 		errorChan <- fmt.Errorf("maximum tool call iterations (%d) reached", MAX_TOOL_CALL_ITERATIONS)
 	}()
 
-	return &ChatStream{
-		responseChan: responseChan,
-		errorChan:    errorChan,
-		ctx:          ctx,
-		current:      nil,
-		err:          nil,
-		done:         false,
-	}
+	return NewChatStream(ctx, responseChan, errorChan)
 }
 
 // nonStreamingChatCompletion handles non-streaming chat completion
