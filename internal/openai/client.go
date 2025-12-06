@@ -34,6 +34,7 @@ type (
 	Usage                  = mcpopenai.Usage
 	ChatStream             = mcpopenai.ChatStream
 	ToolHandler            = mcpopenai.ToolHandler
+	ToolFilter             = mcpopenai.ToolFilter
 )
 
 // Re-export functions from mcp/openai
@@ -46,6 +47,10 @@ var (
 	NewStreamingToolCallAccumulator = mcpopenai.NewStreamingToolCallAccumulator
 	NewMaxToolIterationsError       = mcpopenai.NewMaxToolIterationsError
 	ExtractToolResult               = mcpopenai.ExtractToolResult
+	MCPToolsToOpenAI                = mcpopenai.MCPToolsToOpenAI
+	MCPToolsToOpenAIFiltered        = mcpopenai.MCPToolsToOpenAIFiltered
+	ExecuteToolCalls                = mcpopenai.ExecuteToolCalls
+	GenerateToolCallID              = mcpopenai.GenerateToolCallID
 )
 
 // MCPServer interface for MCP server operations
@@ -66,8 +71,6 @@ type Config struct {
 	BaseURL string
 	Timeout time.Duration
 }
-
-type ToolFilter func(toolName string) bool
 
 // New creates a new OpenAI client
 func New(config Config, mcpServer MCPServer) (*Client, error) {
@@ -118,11 +121,7 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest) 
 
 	// Add tools if MCP server is available
 	if c.mcpServer != nil {
-		tools, err := c.getAvailableTools(nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get available tools: %w", err)
-		}
-		req.Tools = tools
+		req.Tools = MCPToolsToOpenAI(c.mcpServer.ListTools())
 	}
 
 	toolHandler := ToolHandlerFromContext(ctx)
@@ -160,29 +159,30 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatCompletionRequest) 
 			toolCalls,
 		))
 
-		// Execute tools and add results
-		for _, toolCall := range toolCalls {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			default:
-			}
-
-			result, err := c.executeToolCall(ctx, toolCall)
+		// Execute tools using shared helper
+		toolResults, err := ExecuteToolCalls(toolCalls, func(name string, args map[string]any) (string, error) {
+			response, err := c.mcpServer.CallTool(ctx, name, args)
 			if err != nil {
-				result = fmt.Sprintf("Error: %s", err.Error())
+				return "", err
 			}
+			result, _ := ExtractToolResult(response)
+			return result, nil
+		}, false)
+		if err != nil {
+			return nil, err
+		}
 
-			// Notify handler of tool result
-			if toolHandler != nil {
-				if err := toolHandler.OnToolResult(toolCall.ID, toolCall.Function.Name, result); err != nil {
+		// Notify handler of tool results
+		if toolHandler != nil {
+			for i, toolCall := range toolCalls {
+				if err := toolHandler.OnToolResult(toolCall.ID, toolCall.Function.Name, toolResults[i].Content.(string)); err != nil {
 					return nil, fmt.Errorf("tool handler error: %w", err)
 				}
 			}
-
-			// Add tool result to conversation
-			currentMessages = append(currentMessages, BuildToolResultMessage(toolCall.ID, result))
 		}
+
+		// Add tool results to conversation
+		currentMessages = append(currentMessages, toolResults...)
 	}
 
 	return nil, NewMaxToolIterationsError(MAX_TOOL_CALL_ITERATIONS)
@@ -208,11 +208,7 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 
 		// Add tools if MCP server is available
 		if c.mcpServer != nil {
-			tools, err := c.getAvailableTools(nil)
-			if err != nil {
-				errorChan <- fmt.Errorf("failed to get available tools: %w", err)
-				return
-			}
+			tools := MCPToolsToOpenAI(c.mcpServer.ListTools())
 			if len(tools) > 0 {
 				req.Tools = tools
 			}
@@ -259,33 +255,34 @@ func (c *Client) StreamChatCompletion(ctx context.Context, req ChatCompletionReq
 				toolCalls,
 			))
 
-			// Execute tools and add results
-			for _, toolCall := range toolCalls {
-				select {
-				case <-ctx.Done():
-					errorChan <- ctx.Err()
-					return
-				default:
-				}
-
-				result, err := c.executeToolCall(ctx, toolCall)
+			// Execute tools using shared helper
+			toolResults, err := ExecuteToolCalls(toolCalls, func(name string, args map[string]any) (string, error) {
+				response, err := c.mcpServer.CallTool(ctx, name, args)
 				if err != nil {
-					logger.Error("tool execution failed", "error", err, "tool_name", toolCall.Function.Name)
-					result = fmt.Sprintf("Error: %s", err.Error())
+					return "", err
 				}
+				result, _ := ExtractToolResult(response)
+				return result, nil
+			}, false)
+			if err != nil {
+				logger.Error("tool execution failed", "error", err)
+				errorChan <- err
+				return
+			}
 
-				// Notify handler of tool result
-				if toolHandler != nil {
-					if err := toolHandler.OnToolResult(toolCall.ID, toolCall.Function.Name, result); err != nil {
+			// Notify handler of tool results
+			if toolHandler != nil {
+				for i, toolCall := range toolCalls {
+					if err := toolHandler.OnToolResult(toolCall.ID, toolCall.Function.Name, toolResults[i].Content.(string)); err != nil {
 						logger.Error("tool handler OnToolResult failed", "error", err, "tool_name", toolCall.Function.Name)
 						errorChan <- fmt.Errorf("tool handler error: %w", err)
 						return
 					}
 				}
-
-				// Add tool result to conversation
-				currentMessages = append(currentMessages, BuildToolResultMessage(toolCall.ID, result))
 			}
+
+			// Add tool results to conversation
+			currentMessages = append(currentMessages, toolResults...)
 		}
 
 		errorChan <- NewMaxToolIterationsError(MAX_TOOL_CALL_ITERATIONS)
@@ -421,60 +418,4 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolAccumu
 	return false, nil
 }
 
-// getAvailableTools returns the list of available tools from MCP server
-func (c *Client) getAvailableTools(filter ToolFilter) ([]Tool, error) {
-	if c.mcpServer == nil {
-		return []Tool{}, nil
-	}
 
-	// Get tools directly from MCP server
-	tools := c.mcpServer.ListTools()
-	var openAITools []Tool
-
-	for _, tool := range tools {
-		// Apply filter if provided
-		if filter != nil && !filter(tool.Name) {
-			continue // Skip this tool if filter rejects it
-		}
-
-		// Safely convert InputSchema to map[string]any
-		var parameters map[string]any
-		if tool.InputSchema != nil {
-			if params, ok := tool.InputSchema.(map[string]any); ok {
-				parameters = params
-			} else {
-				log.Warn("Tool InputSchema is not a map, using empty parameters", "tool_name", tool.Name)
-				parameters = make(map[string]any)
-			}
-		} else {
-			parameters = make(map[string]any)
-		}
-
-		openAITools = append(openAITools, Tool{
-			Type: "function",
-			Function: ToolFunction{
-				Name:        tool.Name,
-				Description: tool.Description,
-				Parameters:  parameters,
-			},
-		})
-	}
-
-	return openAITools, nil
-}
-
-// executeToolCall executes a single tool call using the MCP server
-func (c *Client) executeToolCall(ctx context.Context, toolCall ToolCall) (string, error) {
-	if c.mcpServer == nil {
-		return "", fmt.Errorf("MCP server not configured")
-	}
-
-	response, err := c.mcpServer.CallTool(ctx, toolCall.Function.Name, toolCall.Function.Arguments)
-	if err != nil {
-		return "", fmt.Errorf("MCP tool call failed: %w", err)
-	}
-
-	// Use shared ExtractToolResult helper
-	result, _ := ExtractToolResult(response)
-	return result, nil
-}

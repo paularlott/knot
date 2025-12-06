@@ -6,7 +6,7 @@ go 1.25.5
 
 //replace github.com/paularlott/cli => ../cli/
 
-//replace github.com/paularlott/mcp => ../mcp/
+replace github.com/paularlott/mcp => ../mcp/
 
 require (
 	github.com/BurntSushi/toml v1.5.0

@@ -105,8 +105,6 @@ github.com/paularlott/gossip v0.10.0 h1:NYaLEI9lUrLSE6ZTW+BBCSD0/aW8qh5V9Jzc+XyB
 github.com/paularlott/gossip v0.10.0/go.mod h1:6SQJAV1wiWoa+RHNdjV6yzwYGe091ZTwWwNmoowE36E=
 github.com/paularlott/logger v0.2.0 h1:MeidFgqStotTd3XdJvibxLYRg8nDrFZqTzu0vfQSVV4=
 github.com/paularlott/logger v0.2.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
-github.com/paularlott/mcp v0.4.0 h1:6rBkTcrQXXuATHmaNU2d72g+N/iqrFNkIosMPSMycS8=
-github.com/paularlott/mcp v0.4.0/go.mod h1:wlrwOiwE1L2jIS35Sb4Q1mVL96pj27sRnG2ZWjz7aD4=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.13.10 h1:+5FbKNTe5Z9aspU88DPIKJ9z2KZoaGCu6Sr6kKR/5mU=
