@@ -6,7 +6,7 @@ go 1.25.5
 
 //replace github.com/paularlott/cli => ../cli/
 
-replace github.com/paularlott/mcp => ../mcp/
+//replace github.com/paularlott/mcp => ../mcp/
 
 require (
 	github.com/BurntSushi/toml v1.5.0
@@ -23,7 +23,7 @@ require (
 	github.com/paularlott/cli v0.5.0
 	github.com/paularlott/gossip v0.10.0
 	github.com/paularlott/logger v0.2.0
-	github.com/paularlott/mcp v0.4.0
+	github.com/paularlott/mcp v0.5.0
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/vmihailenco/msgpack/v5 v5.4.1
