@@ -312,6 +312,7 @@ window.chatComponent = function () {
     historyIndex: -1,
     partialMessage: '',
     abortController: null,
+    userHasScrolled: false,
 
     formatContent(content) {
       return processMarkdown(content);
@@ -393,6 +394,7 @@ window.chatComponent = function () {
 
       this.isLoading = true;
       this.abortController = new AbortController();
+      this.userHasScrolled = false; // Reset for new response
       this.scrollToBottom();
 
       // Add assistant message placeholder
@@ -540,12 +542,28 @@ window.chatComponent = function () {
     },
 
     scrollToBottom() {
+      if (this.userHasScrolled) return; // Don't auto-scroll if user has scrolled
+      
       this.$nextTick(() => {
         const container = this.$refs.messagesContainer;
         if (container) {
           container.scrollTop = container.scrollHeight;
         }
       });
+    },
+
+    handleScroll(event) {
+      const container = event.target;
+      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+      
+      // If user scrolls up, disable auto-scroll
+      if (!isAtBottom && this.isLoading) {
+        this.userHasScrolled = true;
+      }
+      // If user scrolls back to bottom, re-enable auto-scroll
+      else if (isAtBottom) {
+        this.userHasScrolled = false;
+      }
     },
 
     focusInput() {
@@ -664,6 +682,7 @@ window.chatComponent = function () {
       this.$watch('isOpen', (isOpen) => {
         if (isOpen) {
           setTimeout(() => {
+            this.userHasScrolled = false; // Reset when opening
             this.scrollToBottom();
             this.focusInput();
           }, 100);
