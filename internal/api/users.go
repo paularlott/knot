@@ -157,28 +157,49 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the users quota
+	quota, err := database.GetUserQuota(user)
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Get the users usage
+	cfg := config.GetServerConfig()
+	usage, err := database.GetUserUsage(user.Id, cfg.Zone)
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
 	// Build a json array of data to return to the client
 	userData := apiclient.UserResponse{
-		Id:              user.Id,
-		Username:        user.Username,
-		Email:           user.Email,
-		ServicePassword: user.ServicePassword,
-		Roles:           user.Roles,
-		Groups:          user.Groups,
-		Active:          user.Active,
-		MaxSpaces:       user.MaxSpaces,
-		ComputeUnits:    user.ComputeUnits,
-		StorageUnits:    user.StorageUnits,
-		MaxTunnels:      user.MaxTunnels,
-		SSHPublicKey:    user.SSHPublicKey,
-		GitHubUsername:  user.GitHubUsername,
-		PreferredShell:  user.PreferredShell,
-		TOTPSecret:      user.TOTPSecret,
-		Timezone:        user.Timezone,
-		Current:         activeUser != nil && user.Id == activeUser.Id,
-		LastLoginAt:     nil,
-		CreatedAt:       user.CreatedAt.UTC(),
-		UpdatedAt:       user.UpdatedAt.Time().UTC(),
+		Id:                         user.Id,
+		Username:                   user.Username,
+		Email:                      user.Email,
+		ServicePassword:            user.ServicePassword,
+		Roles:                      user.Roles,
+		Groups:                     user.Groups,
+		Active:                     user.Active,
+		MaxSpaces:                  quota.MaxSpaces,
+		ComputeUnits:               quota.ComputeUnits,
+		StorageUnits:               quota.StorageUnits,
+		MaxTunnels:                 quota.MaxTunnels,
+		SSHPublicKey:               user.SSHPublicKey,
+		GitHubUsername:             user.GitHubUsername,
+		PreferredShell:             user.PreferredShell,
+		TOTPSecret:                 user.TOTPSecret,
+		Timezone:                   user.Timezone,
+		Current:                    activeUser != nil && user.Id == activeUser.Id,
+		LastLoginAt:                nil,
+		CreatedAt:                  user.CreatedAt.UTC(),
+		UpdatedAt:                  user.UpdatedAt.Time().UTC(),
+		NumberSpaces:               usage.NumberSpaces,
+		NumberSpacesDeployed:       usage.NumberSpacesDeployed,
+		NumberSpacesDeployedInZone: usage.NumberSpacesDeployedInZone,
+		UsedComputeUnits:           usage.ComputeUnits,
+		UsedStorageUnits:           usage.StorageUnits,
+		UsedTunnels:                tunnel_server.CountUserTunnels(user.Id),
 	}
 
 	if user.LastLoginAt != nil {

@@ -3454,6 +3454,27 @@ components:
         totp_secret:
           type: string
           description: The TOTP secret for the user.
+        number_spaces:
+          type: integer
+          description: The number of spaces the user has
+        number_spaces_deployed:
+          type: integer
+          description: The number of spaces the user has deployed currently
+        number_spaces_deployed_in_zone:
+          type: integer
+          description: The number of spaces the user has deployed currently within the zone.
+        used_compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the user has used.
+        used_storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has used.
+        used_tunnels:
+          type: integer
+          format: uint32
+          description: The number of tunnels the user has active.
 
     VolumeInfo:
       type: object
