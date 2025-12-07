@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -108,6 +109,7 @@ func HandleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipGroup(group)
+	sse.PublishGroupsChanged(group.Id)
 
 	audit.Log(
 		user.Username,
@@ -166,6 +168,7 @@ func HandleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipGroup(group)
+	sse.PublishGroupsChanged(group.Id)
 
 	audit.Log(
 		user.Username,
@@ -216,6 +219,7 @@ func HandleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipGroup(group)
+	sse.PublishGroupsDeleted(group.Id)
 
 	audit.Log(
 		user.Username,

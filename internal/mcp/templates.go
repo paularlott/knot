@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/api/api_utils"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -55,6 +56,10 @@ func getTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, 
 		return nil, err
 	}
 
+	if data.CustomFields == nil {
+		data.CustomFields = []apiclient.CustomFieldDef{}
+	}
+
 	return mcp.NewToolResponseMulti(
 		mcp.NewToolResponseJSON(data),
 		mcp.NewToolResponseStructured(data),
@@ -97,7 +102,7 @@ func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 			}
 		}
 
-		result = append(result, Template{
+		t := Template{
 			ID:              template.Id,
 			Name:            template.Name,
 			Description:     template.Description,
@@ -112,7 +117,13 @@ func listTemplates(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse
 			CustomFields:    template.CustomFields,
 			MaxUptime:       template.MaxUptime,
 			MaxUptimeUnit:   template.MaxUptimeUnit,
-		})
+		}
+
+		if t.CustomFields == nil {
+			t.CustomFields = []model.TemplateCustomField{}
+		}
+
+		result = append(result, t)
 	}
 
 	templateList := TemplateList{Templates: result}

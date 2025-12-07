@@ -6,6 +6,7 @@ import (
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 func (c *Cluster) handleTokenFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
@@ -106,11 +107,21 @@ func (c *Cluster) mergeTokens(tokens []*model.Token) error {
 				if err := db.SaveToken(token); err != nil {
 					c.logger.Error("Failed to update token", "error", err, "name", token.Name)
 				}
+
+				if token.IsDeleted {
+					sse.PublishTokensDeleted(token.Id)
+				} else {
+					sse.PublishTokensChanged(token.Id)
+				}
 			}
 		} else {
 			// If the token doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveToken(token); err != nil {
 				c.logger.Error("Failed to save token", "error", err, "name", token.Name, "is_deleted", token.IsDeleted)
+			}
+
+			if !token.IsDeleted {
+				sse.PublishTokensChanged(token.Id)
 			}
 		}
 	}

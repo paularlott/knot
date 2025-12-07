@@ -10,6 +10,9 @@ import {} from './components/autocompleter.js';
 
 import md5 from 'crypto-js/md5';
 
+// SSE client for real-time updates
+import './sse.js';
+
 import './pages/initialUserForm.js';
 import './pages/loginUserForm.js';
 import './pages/userGroupForm.js';

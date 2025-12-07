@@ -18,6 +18,7 @@ type VolumeInfoList struct {
 }
 
 type VolumeDefinition struct {
+	VolumeId   string `json:"volume_id"`
 	Name       string `json:"name"`
 	Definition string `json:"definition"`
 	Zone       string `json:"zone"`

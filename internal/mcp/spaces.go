@@ -120,6 +120,10 @@ func getSpace(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, err
 		CustomFields: data.CustomFields,
 	}
 
+	if result.CustomFields == nil {
+		result.CustomFields = make([]apiclient.CustomFieldValue, 0)
+	}
+
 	if result.AltNames == nil {
 		result.AltNames = make([]string, 0)
 	}
@@ -200,6 +204,10 @@ func listSpaces(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, e
 			SSH:          sshAvailable,
 			WebTerminal:  webTerminal,
 			CustomFields: space.CustomFields,
+		}
+
+		if s.CustomFields == nil {
+			s.CustomFields = make([]model.SpaceCustomField, 0)
 		}
 
 		if space.SharedWithUserId != "" {

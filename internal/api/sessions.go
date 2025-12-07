@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 )
@@ -80,6 +81,12 @@ func HandleDeleteSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	service.GetTransport().GossipSession(session)
+
+	// Notify the SSE client for this session to logout
+	sse.GetHub().InvalidateSession(sessionId)
+
+	// Notify other users viewing the sessions list
+	sse.PublishSessionsChanged(sessionId)
 
 	w.WriteHeader(http.StatusOK)
 }

@@ -29,30 +29,48 @@ window.rolesListComponent = function() {
     async init() {
       await this.getRoles();
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getRoles();
-      }, 3000);
+      // Subscribe to SSE for real-time updates
+      if (window.sseClient) {
+        window.sseClient.subscribe('roles:changed', (payload) => {
+          if (payload?.id) this.getRoles(payload.id);
+        });
+
+        window.sseClient.subscribe('roles:deleted', (payload) => {
+          this.roles = this.roles.filter(x => x.role_id !== payload?.id);
+          this.searchChanged();
+        });
+      }
     },
 
-    async getRoles() {
-      await fetch('/api/roles', {
+    async getRoles(roleId) {
+      const url = roleId ? `/api/roles/${roleId}` : '/api/roles';
+      await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
         }
       }).then((response) => {
         if (response.status === 200) {
-          response.json().then((roleList) => {
-            roleList.roles.sort((a, b) => (a.name > b.name) ? 1 : -1);
-            this.roles = roleList.roles
+          response.json().then((data) => {
+            const roleList = roleId ? [data] : data.roles;
+
+            roleList.forEach(role => {
+              role.showIdPopup = false;
+              const index = this.roles.findIndex(r => r.role_id === role.role_id);
+              if (index >= 0) {
+                this.roles[index] = role;
+              } else {
+                this.roles.push(role);
+              }
+            });
+
+            this.roles.sort((a, b) => {
+              return a.name.localeCompare(b.name);
+            });
 
             // Apply search filter
             this.searchChanged();
 
             this.loading = false;
-            this.roles.forEach(role => {
-              role.showIdPopup = false;
-            });
           });
         } else if (response.status === 401) {
           window.location.href = '/logout';

@@ -4,6 +4,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 func Log(actor, actorType, event, details string, properties *map[string]interface{}) error {
@@ -12,5 +13,9 @@ func Log(actor, actorType, event, details string, properties *map[string]interfa
 	if transport != nil {
 		transport.GossipAuditLog(entry)
 	}
-	return database.GetInstance().SaveAuditLog(entry)
+	err := database.GetInstance().SaveAuditLog(entry)
+	if err == nil {
+		sse.PublishAuditLogsChanged()
+	}
+	return err
 }

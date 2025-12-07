@@ -55,7 +55,8 @@
     <!-- Messages -->
     <div
       class="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300"
-      x-ref="messagesContainer">
+      x-ref="messagesContainer"
+      @scroll="handleScroll($event)">
       <!-- Empty state -->
       <div x-show="messages.length === 0" class="flex flex-col items-center justify-center h-full text-center py-12">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">knot assistant</h3>

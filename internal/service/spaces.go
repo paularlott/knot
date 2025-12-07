@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/validate"
 )
 
@@ -118,7 +119,7 @@ func (s *SpaceService) CreateSpace(space *model.Space, user *model.User) error {
 
 	// Check quotas if not on leaf node
 	if !cfg.LeafNode {
-		if err := s.CheckUserQuotas(user.Id, template); err != nil {
+		if err := s.CheckUserQuotas(user, template); err != nil {
 			return err
 		}
 	}
@@ -132,8 +133,9 @@ func (s *SpaceService) CreateSpace(space *model.Space, user *model.User) error {
 		return fmt.Errorf("failed to save space: %v", err)
 	}
 
-	// Gossip the space
+	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	return nil
 }
@@ -179,8 +181,9 @@ func (s *SpaceService) UpdateSpace(space *model.Space, user *model.User) error {
 		return fmt.Errorf("failed to save space: %v", err)
 	}
 
-	// Gossip the space
+	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	return nil
 }
@@ -297,8 +300,9 @@ func (s *SpaceService) SetSpaceCustomField(spaceId string, fieldName string, fie
 		return fmt.Errorf("failed to save space: %v", err)
 	}
 
-	// Gossip the space
+	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
+	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	return nil
 }
@@ -332,8 +336,9 @@ func (s *SpaceService) DeleteSpace(spaceId string, user *model.User) error {
 		return fmt.Errorf("failed to delete space: %v", err)
 	}
 
-	// Gossip the space
+	// Gossip the space and notify SSE clients
 	GetTransport().GossipSpace(space)
+	sse.PublishSpaceDeleted(space.Id, space.UserId)
 
 	return nil
 }
@@ -362,13 +367,13 @@ func (s *SpaceService) validateSpaceInput(name, description, shell string, altNa
 }
 
 // checkUserQuotas validates user quotas for space creation
-func (s *SpaceService) CheckUserQuotas(userId string, template *model.Template) error {
-	usage, err := database.GetUserUsage(userId, "")
+func (s *SpaceService) CheckUserQuotas(user *model.User, template *model.Template) error {
+	usage, err := database.GetUserUsage(user.Id, "")
 	if err != nil {
 		return fmt.Errorf("failed to check user usage: %v", err)
 	}
 
-	userQuota, err := database.GetUserQuota(&model.User{Id: userId})
+	userQuota, err := database.GetUserQuota(user)
 	if err != nil {
 		return fmt.Errorf("failed to check user quota: %v", err)
 	}

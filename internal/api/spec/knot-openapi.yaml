@@ -2562,6 +2562,10 @@ components:
     SpaceDefinition:
       type: object
       properties:
+        space_id:
+          type: string
+          format: uuid
+          description: The ID of the space.
         user_id:
           type: string
           format: uuid
@@ -2570,12 +2574,30 @@ components:
           type: string
           format: uuid
           description: The ID of the template the space was created from.
+        shared_user_id:
+          type: string
+          description: The ID of the user the space is shared with (empty if not shared).
+        shared_username:
+          type: string
+          description: The username of the user the space is shared with (empty if not shared).
         name:
           type: string
           description: The name of the space.
         description:
           type: string
           description: The description of the space.
+        note:
+          type: string
+          description: The note for the space.
+        template_name:
+          type: string
+          description: The name of the template the space was created from.
+        username:
+          type: string
+          description: The username of the space owner.
+        platform:
+          type: string
+          description: The container platform the space runs on.
         shell:
           type: string
           enum: [bash, zsh, fish, sh]
@@ -2623,6 +2645,40 @@ components:
           items:
             $ref: '#/components/schemas/CustomFieldValue'
           description: The values for the custom fields.
+        has_code_server:
+          type: boolean
+          description: Whether the space has code server enabled.
+        has_ssh:
+          type: boolean
+          description: Whether the space has SSH enabled.
+        has_terminal:
+          type: boolean
+          description: Whether the space has terminal access enabled.
+        has_http_vnc:
+          type: boolean
+          description: Whether the space has HTTP VNC enabled.
+        has_state:
+          type: boolean
+          description: Whether the space has active agent state.
+        tcp_ports:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of TCP port names to port numbers.
+        http_ports:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of HTTP port names to URLs.
+        has_vscode_tunnel:
+          type: boolean
+          description: Whether the space has VS Code tunnel enabled.
+        vscode_tunnel_name:
+          type: string
+          description: The VS Code tunnel name.
+        is_remote:
+          type: boolean
+          description: Whether the space is on a remote zone.
 
     TemplateInfo:
       type: object
@@ -2903,6 +2959,10 @@ components:
     TemplateDetails:
       type: object
       properties:
+        template_id:
+          type: string
+          format: uuid
+          description: The ID of the template.
         name:
           type: string
           description: The name of the template.
@@ -3394,6 +3454,27 @@ components:
         totp_secret:
           type: string
           description: The TOTP secret for the user.
+        number_spaces:
+          type: integer
+          description: The number of spaces the user has
+        number_spaces_deployed:
+          type: integer
+          description: The number of spaces the user has deployed currently
+        number_spaces_deployed_in_zone:
+          type: integer
+          description: The number of spaces the user has deployed currently within the zone.
+        used_compute_units:
+          type: integer
+          format: uint32
+          description: The number of compute units the user has used.
+        used_storage_units:
+          type: integer
+          format: uint32
+          description: The number of storage units the user has used.
+        used_tunnels:
+          type: integer
+          format: uint32
+          description: The number of tunnels the user has active.
 
     VolumeInfo:
       type: object
@@ -3449,6 +3530,10 @@ components:
     VolumeDefinition:
       type: object
       properties:
+        volume_id:
+          type: string
+          format: uuid
+          description: The ID of the volume.
         name:
           type: string
           maxLength: 64

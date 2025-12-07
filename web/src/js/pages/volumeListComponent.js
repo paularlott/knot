@@ -41,25 +41,43 @@ window.volumeListComponent = function() {
         this.getVolumes();
       });
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getVolumes();
-      }, 3000);
+      // Subscribe to SSE for real-time updates instead of polling
+      if (window.sseClient) {
+        window.sseClient.subscribe('volumes:changed', (payload) => {
+          if (payload?.id) this.getVolumes(payload.id);
+        });
+
+        window.sseClient.subscribe('volumes:deleted', (payload) => {
+          this.volumes = this.volumes.filter(v => v.volume_id !== payload?.id);
+          this.searchChanged();
+        });
+      }
     },
 
-    async getVolumes() {
-      await fetch('/api/volumes', {
+    async getVolumes(volumeId) {
+      const url = volumeId ? `/api/volumes/${volumeId}` : '/api/volumes';
+      await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
         }
       }).then((response) => {
         if (response.status === 200) {
-          response.json().then((volList) => {
-            this.volumes = volList.volumes;
+          response.json().then((data) => {
+            const volList = volumeId ? [data] : data.volumes;
 
-            this.volumes.forEach(volume => {
+            volList.forEach(volume => {
               volume.starting = false;
               volume.stopping = false;
+              const index = this.volumes.findIndex(v => v.volume_id === volume.volume_id);
+              if (index >= 0) {
+                this.volumes[index] = volume;
+              } else {
+                this.volumes.push(volume);
+              }
+            });
+
+            this.volumes.sort((a, b) => {
+              return a.name.localeCompare(b.name);
             });
 
             // Apply search filter

@@ -116,10 +116,32 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
       this.getSpaces();
 
-      // Start a timer to look for new spaces periodically
-      setInterval(async () => {
-        await this.getSpaces();
-      }, 1000);
+      // Subscribe to SSE for real-time updates
+      if (window.sseClient) {
+        window.sseClient.subscribe('space:changed', (payload) => {
+          // Check if space was unshared or transferred away from the user we're viewing
+          if (this.forUserId !== '' && this.forUserId === payload?.previous_user_id) {
+            // Remove the space from the list
+            this.spaces = this.spaces.filter(s => s.space_id !== payload?.id);
+            this.searchChanged();
+          }
+          // Check if we should fetch/update the space
+          if (this.forUserId === '' || this.forUserId === payload?.user_id || payload?.user_id === userId || this.forUserId === payload?.shared_with_user_id) {
+            this.getSpaces(payload?.id);
+          }
+        });
+
+        window.sseClient.subscribe('space:deleted', (payload) => {
+          if (this.forUserId === '' || this.forUserId === payload?.user_id || payload?.user_id === userId) {
+            this.spaces = this.spaces.filter(s => s.space_id !== payload?.id);
+            this.searchChanged();
+          }
+        });
+
+        window.sseClient.subscribe('templates:changed', () => {
+          this.getSpaces();
+        });
+      }
     },
     userSearchReset() {
       this.forUserId = userId;
@@ -140,8 +162,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
       this.spaces = [];
       this.getSpaces();
     },
-    async getSpaces() {
-      await fetch(`/api/spaces?user_id=${this.forUserId}`, {
+    async getSpaces(spaceId) {
+      const url = spaceId ? `/api/spaces/${spaceId}` : `/api/spaces?user_id=${this.forUserId}`;
+      await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -149,8 +172,9 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         if(response.status === 200) {
           let spacesAdded = false;
 
-          response.json().then((spacesList) => {
-            spacesList.spaces.forEach(space => {
+          response.json().then((data) => {
+            const spacesList = spaceId ? [data] : data.spaces;
+            spacesList.forEach(space => {
               // If this space isn't in this.spaces then add it
               const existing = this.spaces.find(s => s.space_id === space.space_id);
               if(!existing) {
@@ -211,12 +235,14 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               });
             }
 
-            // Look through the list of spaces and remove any that are not in the spacesList
-            this.spaces.forEach((space, index) => {
-              if(!spacesList.spaces.find(s => s.space_id === space.space_id)) {
-                this.spaces.splice(index, 1);
-              }
-            });
+            // Only remove spaces when fetching all (not single space)
+            if (!spaceId) {
+              this.spaces.forEach((space, index) => {
+                if(!spacesList.find(s => s.space_id === space.space_id)) {
+                  this.spaces.splice(index, 1);
+                }
+              });
+            }
 
             // Apply search filter
             this.searchChanged();

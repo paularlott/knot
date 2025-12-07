@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
@@ -99,6 +100,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipUser(userNew)
+	sse.PublishUsersChanged(userNew.Id)
 
 	newUserId = userNew.Id
 
@@ -155,28 +157,49 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the users quota
+	quota, err := database.GetUserQuota(user)
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Get the users usage
+	cfg := config.GetServerConfig()
+	usage, err := database.GetUserUsage(user.Id, cfg.Zone)
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
 	// Build a json array of data to return to the client
 	userData := apiclient.UserResponse{
-		Id:              user.Id,
-		Username:        user.Username,
-		Email:           user.Email,
-		ServicePassword: user.ServicePassword,
-		Roles:           user.Roles,
-		Groups:          user.Groups,
-		Active:          user.Active,
-		MaxSpaces:       user.MaxSpaces,
-		ComputeUnits:    user.ComputeUnits,
-		StorageUnits:    user.StorageUnits,
-		MaxTunnels:      user.MaxTunnels,
-		SSHPublicKey:    user.SSHPublicKey,
-		GitHubUsername:  user.GitHubUsername,
-		PreferredShell:  user.PreferredShell,
-		TOTPSecret:      user.TOTPSecret,
-		Timezone:        user.Timezone,
-		Current:         activeUser != nil && user.Id == activeUser.Id,
-		LastLoginAt:     nil,
-		CreatedAt:       user.CreatedAt.UTC(),
-		UpdatedAt:       user.UpdatedAt.Time().UTC(),
+		Id:                         user.Id,
+		Username:                   user.Username,
+		Email:                      user.Email,
+		ServicePassword:            user.ServicePassword,
+		Roles:                      user.Roles,
+		Groups:                     user.Groups,
+		Active:                     user.Active,
+		MaxSpaces:                  quota.MaxSpaces,
+		ComputeUnits:               quota.ComputeUnits,
+		StorageUnits:               quota.StorageUnits,
+		MaxTunnels:                 quota.MaxTunnels,
+		SSHPublicKey:               user.SSHPublicKey,
+		GitHubUsername:             user.GitHubUsername,
+		PreferredShell:             user.PreferredShell,
+		TOTPSecret:                 user.TOTPSecret,
+		Timezone:                   user.Timezone,
+		Current:                    activeUser != nil && user.Id == activeUser.Id,
+		LastLoginAt:                nil,
+		CreatedAt:                  user.CreatedAt.UTC(),
+		UpdatedAt:                  user.UpdatedAt.Time().UTC(),
+		NumberSpaces:               usage.NumberSpaces,
+		NumberSpacesDeployed:       usage.NumberSpacesDeployed,
+		NumberSpacesDeployedInZone: usage.NumberSpacesDeployedInZone,
+		UsedComputeUnits:           usage.ComputeUnits,
+		UsedStorageUnits:           usage.StorageUnits,
+		UsedTunnels:                tunnel_server.CountUserTunnels(user.Id),
 	}
 
 	if user.LastLoginAt != nil {
@@ -370,7 +393,12 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		user.ServicePassword = request.ServicePassword
 	}
 
+	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
+
 	if activeUser.HasPermission(model.PermissionManageUsers) {
+		user.Username = request.Username
+		saveFields = append(saveFields, "Username")
+
 		if !validate.IsNumber(int(request.MaxSpaces), 0, 10000) {
 			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid max spaces"})
 			return
@@ -411,7 +439,6 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.UpdatedAt = hlc.Now()
-	saveFields := []string{"Email", "SSHPublicKey", "GitHubUsername", "PreferredShell", "Timezone", "TOTPSecret", "Active", "Roles", "Groups", "MaxSpaces", "ComputeUnits", "StorageUnits", "MaxTunnels", "UpdatedAt"}
 
 	if request.ServicePassword != "" {
 		saveFields = append(saveFields, "ServicePassword")
@@ -456,6 +483,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipUser(user)
+	sse.PublishUsersChanged(user.Id)
 
 	// Update the user's spaces, ssh keys or stop spaces
 	go service.GetUserService().UpdateUserSpaces(user)
