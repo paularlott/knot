@@ -11,13 +11,15 @@ class SSEClient {
     this.listeners = new Map();
     this.connected = false;
     this.reconnecting = false;
+    this.autoConnectEnabled = false; // Track if auto-connect should be enabled
+    this.hasActiveSubscriptions = false; // Track if there are any active subscriptions
   }
 
   /**
    * Connect to the SSE endpoint
    */
   connect() {
-    if (this.eventSource) {
+    if (this.eventSource || !this.autoConnectEnabled) {
       return;
     }
 
@@ -100,6 +102,11 @@ class SSEClient {
       this.eventSource = null;
     }
 
+    // Don't reconnect if auto-connect is disabled or no active subscriptions
+    if (!this.autoConnectEnabled || !this.hasActiveSubscriptions) {
+      return;
+    }
+
     if (this.reconnecting) {
       return;
     }
@@ -127,6 +134,15 @@ class SSEClient {
     }
     this.listeners.get(eventType).push(callback);
 
+    // Enable auto-connect and mark as having active subscriptions
+    this.autoConnectEnabled = true;
+    this.hasActiveSubscriptions = true;
+
+    // Connect if not already connected
+    if (!this.eventSource && !this.reconnecting) {
+      this.connect();
+    }
+
     // Return unsubscribe function
     return () => this.unsubscribe(eventType, callback);
   }
@@ -144,6 +160,29 @@ class SSEClient {
         listeners.splice(index, 1);
       }
     }
+
+    // Check if we have any remaining listeners
+    this.updateSubscriptionState();
+  }
+
+  /**
+   * Update subscription state based on current listeners
+   */
+  updateSubscriptionState() {
+    let hasAnyListeners = false;
+    this.listeners.forEach(callbacks => {
+      if (callbacks.length > 0) {
+        hasAnyListeners = true;
+      }
+    });
+
+    this.hasActiveSubscriptions = hasAnyListeners;
+
+    // If no more subscriptions, disconnect
+    if (!hasAnyListeners && this.eventSource) {
+      console.log('No more SSE subscriptions, disconnecting');
+      this.disconnect();
+    }
   }
 
   /**
@@ -156,6 +195,7 @@ class SSEClient {
     }
     this.connected = false;
     this.reconnecting = false;
+    this.autoConnectEnabled = false; // Reset auto-connect flag when manually disconnected
   }
 
   /**
@@ -169,11 +209,6 @@ class SSEClient {
 
 // Create global singleton instance
 window.sseClient = new SSEClient();
-
-// Auto-connect when the page loads
-document.addEventListener('DOMContentLoaded', () => {
-  window.sseClient.connect();
-});
 
 // Export for module usage if needed
 export { SSEClient };
