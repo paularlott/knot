@@ -1,6 +1,7 @@
 package nomad
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -241,8 +242,20 @@ func (client *NomadClient) MonitorJobState(space *model.Space, onDone func()) {
 	go func() {
 		client.logger.Info("watching job  status for change", "nomad", space.ContainerId)
 
+		// Create context with timeout for monitoring
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
 		for {
-			code, data, err := client.ReadJob(space.ContainerId, space.NomadNamespace)
+			// Check if context has been cancelled
+			select {
+			case <-ctx.Done():
+				client.logger.Warn("job monitoring cancelled due to timeout", "space_id", space.Id, "nomad_job", space.ContainerId)
+				return
+			default:
+			}
+
+			code, data, err := client.ReadJob(ctx, space.ContainerId, space.NomadNamespace)
 			if err != nil && code != 404 {
 				client.logger.WithError(err).Error("reading space job error", "space", space.ContainerId)
 			} else {

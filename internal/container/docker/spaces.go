@@ -195,6 +195,9 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 
 	// launch the container in a go routing to avoid blocking
 	go func() {
+		// Create context with timeout for container operations
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
 
 		// Clean up on exit
 		defer func() {
@@ -229,9 +232,17 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			authStr = base64.URLEncoding.EncodeToString(encodedJSON)
 		}
 
+		// Check if context has been cancelled before pulling the image
+		select {
+		case <-ctx.Done():
+			c.Logger.Warn("image pull cancelled due to timeout", "space_id", space.Id, "image", spec.Image)
+			return
+		default:
+		}
+
 		// Pull the container
 		c.Logger.Debug("pulling image", "spec_image", spec.Image)
-		reader, err := cli.ImagePull(context.Background(), spec.Image, image.PullOptions{
+		reader, err := cli.ImagePull(ctx, spec.Image, image.PullOptions{
 			RegistryAuth: authStr,
 		})
 		if err != nil {
@@ -245,10 +256,18 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		}()
 		io.Copy(os.Stdout, reader)
 
+		// Check if context has been cancelled before creating the container
+		select {
+		case <-ctx.Done():
+			c.Logger.Warn("container creation cancelled due to timeout", "space_id", space.Id, "container_name", spec.ContainerName)
+			return
+		default:
+		}
+
 		// Create the container
 		c.Logger.Debug("creating container", "spec_containername", spec.ContainerName)
 		resp, err := cli.ContainerCreate(
-			context.Background(),
+			ctx,
 			containerConfig,
 			hostConfig,
 			nil,
@@ -260,12 +279,22 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			return
 		}
 
+		// Check context again before starting the container
+		select {
+		case <-ctx.Done():
+			c.Logger.Warn("container start cancelled due to timeout", "space_id", space.Id, "container_id", resp.ID)
+			// Clean up the created container
+			cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{})
+			return
+		default:
+		}
+
 		// Start the container
 		c.Logger.Debug("starting container,", "spec_containername", spec.ContainerName, "resp_id", resp.ID)
-		err = cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{})
+		err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
 		if err != nil {
 			// Failed to start the container so remove it
-			cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{})
+			cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{})
 
 			c.Logger.Error("starting container,, error:", "spec_containername", spec.ContainerName, "resp_id", resp.ID)
 			return
@@ -308,6 +337,10 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 
 	// Run the delete in a go routine to avoid blocking
 	go func() {
+		// Create context with timeout for container operations
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
 		// Clean up on exit
 		defer func() {
 			space.IsPending = false
@@ -326,9 +359,17 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 			return
 		}
 
+		// Check if context has been cancelled before stopping the container
+		select {
+		case <-ctx.Done():
+			c.Logger.Warn("container stop cancelled due to timeout", "space_id", space.Id, "container_id", space.ContainerId)
+			return
+		default:
+		}
+
 		// Stop the container
 		c.Logger.Debug("stopping container", "space_containerid", space.ContainerId)
-		err = cli.ContainerStop(context.Background(), space.ContainerId, container.StopOptions{})
+		err = cli.ContainerStop(ctx, space.ContainerId, container.StopOptions{})
 		if err != nil {
 			if !strings.Contains(err.Error(), "No such container") {
 				c.Logger.Error("stopping container error", "space_containerid", space.ContainerId)
@@ -339,7 +380,15 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 		// Wait for the container to be stopped (max 30s)
 		timeout := time.Now().Add(30 * time.Second)
 		for {
-			inspect, err := cli.ContainerInspect(context.Background(), space.ContainerId)
+			// Check if context has been cancelled
+			select {
+			case <-ctx.Done():
+				c.Logger.Warn("container stop cancelled due to timeout", "space_containerid", space.ContainerId)
+				return
+			default:
+			}
+
+			inspect, err := cli.ContainerInspect(ctx, space.ContainerId)
 			if err != nil {
 				if strings.Contains(err.Error(), "No such container") {
 					break // container is gone
@@ -358,9 +407,17 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 			time.Sleep(500 * time.Millisecond)
 		}
 
+		// Check if context has been cancelled before removing the container
+		select {
+		case <-ctx.Done():
+			c.Logger.Warn("container removal cancelled due to timeout", "space_id", space.Id, "container_id", space.ContainerId)
+			return
+		default:
+		}
+
 		// Remove the container
 		c.Logger.Debug("removing container", "space_containerid", space.ContainerId)
-		err = cli.ContainerRemove(context.Background(), space.ContainerId, container.RemoveOptions{})
+		err = cli.ContainerRemove(ctx, space.ContainerId, container.RemoveOptions{})
 		if err != nil {
 			if !strings.Contains(err.Error(), "No such container") {
 				c.Logger.Error("removing container error", "space_containerid", space.ContainerId)

@@ -1,6 +1,7 @@
 package apple
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -103,6 +104,10 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
+		// Create context with timeout for container operations
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
 		defer func() {
 			space.IsPending = false
 			space.UpdatedAt = hlc.Now()
@@ -142,8 +147,16 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		args = append(args, spec.Image)
 		args = append(args, spec.Command...)
 
+		// Check if context has been cancelled before running the command
+		select {
+		case <-ctx.Done():
+			c.logger.Warn("container creation cancelled due to timeout", "space_id", space.Id, "container_name", spec.ContainerName)
+			return
+		default:
+		}
+
 		c.logger.Debug("running container", "spec_containername", spec.ContainerName)
-		cmd := exec.Command("container", args...)
+		cmd := exec.CommandContext(ctx, "container", args...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			c.logger.Error("creating container, error:, output:", "spec_containername", spec.ContainerName, "output", string(output))
@@ -186,6 +199,10 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 	sse.PublishSpaceChanged(space.Id, space.UserId)
 
 	go func() {
+		// Create context with timeout for container operations
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
 		defer func() {
 			space.IsPending = false
 			space.UpdatedAt = hlc.Now()
@@ -196,8 +213,16 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 			sse.PublishSpaceChanged(space.Id, space.UserId)
 		}()
 
+		// Check if context has been cancelled before stopping the container
+		select {
+		case <-ctx.Done():
+			c.logger.Warn("container stop cancelled due to timeout", "space_id", space.Id, "container_id", space.ContainerId)
+			return
+		default:
+		}
+
 		c.logger.Debug("stopping container", "space_containerid", space.ContainerId)
-		cmd := exec.Command("container", "stop", space.ContainerId)
+		cmd := exec.CommandContext(ctx, "container", "stop", space.ContainerId)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			if !strings.Contains(string(output), "not found") {
@@ -208,7 +233,15 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 
 		timeout := time.Now().Add(30 * time.Second)
 		for {
-			cmd := exec.Command("container", "inspect", space.ContainerId)
+			// Check if context has been cancelled
+			select {
+			case <-ctx.Done():
+				c.logger.Warn("container stop cancelled due to timeout", "space_containerid", space.ContainerId)
+				return
+			default:
+			}
+
+			cmd := exec.CommandContext(ctx, "container", "inspect", space.ContainerId)
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				if strings.Contains(string(output), "not found") {
@@ -237,8 +270,16 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 			time.Sleep(500 * time.Millisecond)
 		}
 
+		// Check if context has been cancelled before removing the container
+		select {
+		case <-ctx.Done():
+			c.logger.Warn("container removal cancelled due to timeout", "space_id", space.Id, "container_id", space.ContainerId)
+			return
+		default:
+		}
+
 		c.logger.Debug("removing container", "space_containerid", space.ContainerId)
-		cmd = exec.Command("container", "rm", space.ContainerId)
+		cmd = exec.CommandContext(ctx, "container", "rm", space.ContainerId)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			if !strings.Contains(string(output), "not found") {

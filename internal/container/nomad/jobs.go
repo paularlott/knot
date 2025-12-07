@@ -63,11 +63,11 @@ func (client *NomadClient) DeleteJob(jobId string, namespace string) (map[string
 	return response, nil
 }
 
-func (client *NomadClient) ReadJob(jobId string, namespace string) (int, map[string]interface{}, error) {
+func (client *NomadClient) ReadJob(ctx context.Context, jobId string, namespace string) (int, map[string]interface{}, error) {
 	var response = make(map[string]interface{})
 
 	code, err := client.httpClient.Get(
-		context.Background(),
+		ctx,
 		fmt.Sprintf("/v1/job/%s?namespace=%s", jobId, namespace),
 		&response,
 	)
