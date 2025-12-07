@@ -3,6 +3,7 @@ package apiclient
 import "context"
 
 type TemplateVarValue struct {
+	Id         string   `json:"templatevar_id"`
 	Name       string   `json:"name"`
 	Zones      []string `json:"zones"`
 	Local      bool     `json:"local"`

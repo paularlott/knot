@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 )
 
@@ -166,11 +167,21 @@ func (c *Cluster) mergeTemplates(templates []*model.Template) error {
 					c.GossipTemplate(template)
 					c.logger.Debug("Refuted template delete", "name", template.Name)
 				}
+
+				if template.IsDeleted {
+					sse.PublishTemplatesDeleted(template.Id)
+				} else {
+					sse.PublishTemplatesChanged(template.Id)
+				}
 			}
 		} else {
 			// If the template doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveTemplate(template, nil); err != nil {
 				c.logger.Error("Failed to save template", "error", err, "name", template.Name, "is_deleted", template.IsDeleted)
+			}
+
+			if !template.IsDeleted {
+				sse.PublishTemplatesChanged(template.Id)
 			}
 		}
 	}

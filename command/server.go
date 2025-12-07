@@ -31,6 +31,7 @@ import (
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/systemprompt"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
@@ -693,6 +694,9 @@ var ServerCmd = &cli.Command{
 		// Initialize the middleware, test if users are present
 		middleware.Initialize()
 
+		// Start the SSE hub for real-time updates
+		sse.GetHub().Start()
+
 		// Load roles into memory cache
 		roles, err := database.GetInstance().GetRoles()
 		if err != nil {
@@ -967,6 +971,9 @@ var ServerCmd = &cli.Command{
 		)
 		service.SetTransport(cluster)
 
+		// Create a cancellable context for the server to enable fast shutdown of SSE connections
+		serverCtx, serverCancel := context.WithCancel(context.Background())
+
 		// Run the http server
 		server := &http.Server{
 			Addr:              listen,
@@ -976,6 +983,9 @@ var ServerCmd = &cli.Command{
 			IdleTimeout:       120 * time.Second,
 			ReadHeaderTimeout: 10 * time.Second,
 			TLSConfig:         tlsConfig,
+			BaseContext: func(l net.Listener) context.Context {
+				return serverCtx
+			},
 		}
 
 		go func() {
@@ -1026,12 +1036,24 @@ var ServerCmd = &cli.Command{
 		// Block until we receive our signal.
 		<-c
 
-		// Shutdown the server cluster
+		// Cancel the server context to immediately close all SSE connections
+		serverCancel()
+
+		// Shutdown SSE hub to close all browser connections immediately
+		sse.GetHub().Shutdown()
+
+		// Shutdown the HTTP server with a short timeout
+		// If graceful shutdown takes too long, the timeout will force it
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := server.Shutdown(ctx); err != nil {
+			// Force close if graceful shutdown fails
+			server.Close()
+		}
+		cancel()
+
+		// Then shutdown the server cluster
 		cluster.Stop()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		server.Shutdown(ctx)
 		fmt.Print("\r")
 		logger.Info("shutdown")
 		return nil

@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
@@ -101,6 +102,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 
 	model.SaveRoleToCache(role)
 	service.GetTransport().GossipRole(role)
+	sse.PublishRolesChanged(role.Id)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -130,6 +132,7 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 
 	model.SaveRoleToCache(role)
 	service.GetTransport().GossipRole(role)
+	sse.PublishRolesChanged(role.Id)
 
 	audit.Log(
 		user.Username,
@@ -204,6 +207,7 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 
 	model.DeleteRoleFromCache(roleId)
 	service.GetTransport().GossipRole(role)
+	sse.PublishRolesDeleted(role.Id)
 
 	w.WriteHeader(http.StatusOK)
 }

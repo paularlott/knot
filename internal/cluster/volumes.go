@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 func (c *Cluster) handleVolumeFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
@@ -118,11 +119,21 @@ func (c *Cluster) mergeVolumes(volumes []*model.Volume) error {
 				if err := db.SaveVolume(volume, nil); err != nil {
 					c.logger.Error("Failed to update volume", "error", err, "name", volume.Name)
 				}
+
+				if volume.IsDeleted {
+					sse.PublishVolumesDeleted(volume.Id)
+				} else {
+					sse.PublishVolumesChanged(volume.Id)
+				}
 			}
 		} else {
 			// If the volume doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveVolume(volume, nil); err != nil {
 				c.logger.Error("Failed to save volume", "error", err, "name", volume.Name, "is_deleted", volume.IsDeleted)
+			}
+
+			if !volume.IsDeleted {
+				sse.PublishVolumesChanged(volume.Id)
 			}
 		}
 	}

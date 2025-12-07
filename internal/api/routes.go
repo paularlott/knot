@@ -99,6 +99,9 @@ func ApiRoutes(router *http.ServeMux) {
 	// Cluster Information
 	router.HandleFunc("GET /api/cluster-info", middleware.ApiAuth(middleware.ApiPermissionViewClusterInfo(HandleGetClusterInfo)))
 
+	// Server-Sent Events for real-time updates
+	router.HandleFunc("GET /api/events", HandleSSE)
+
 	// Unauthenticated routes
 	router.HandleFunc("POST /api/auth", HandleAuthorization)
 	router.HandleFunc("POST /api/auth/web", HandleAuthorization)

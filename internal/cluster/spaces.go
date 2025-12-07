@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 func (c *Cluster) handleSpaceFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
@@ -118,11 +119,21 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 					}
 					service.GetUserService().UpdateSpaceSSHKeys(space, user)
 				}
+
+				if space.IsDeleted {
+					sse.PublishSpaceDeleted(space.Id, space.UserId)
+				} else {
+					sse.PublishSpaceChanged(space.Id, space.UserId)
+				}
 			}
 		} else {
 			// If the space doesn't exist locally, create it (even if deleted) to prevent resurrection
 			if err := db.SaveSpace(space, []string{}); err != nil {
 				c.logger.Error("Failed to save space", "error", err, "name", space.Name, "is_deleted", space.IsDeleted)
+			}
+
+			if !space.IsDeleted {
+				sse.PublishSpaceChanged(space.Id, space.UserId)
 			}
 		}
 	}

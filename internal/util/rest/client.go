@@ -16,6 +16,7 @@ import (
 	"github.com/paularlott/knot/build"
 
 	"github.com/vmihailenco/msgpack/v5"
+	"golang.org/x/net/http2"
 )
 
 const (
@@ -61,7 +62,12 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClie
 		MaxIdleConns:        32 * 2,
 		MaxIdleConnsPerHost: 32,
 		IdleConnTimeout:     30 * time.Second,
-		//DisableCompression:  true,
+		ForceAttemptHTTP2:   true,
+	}
+
+	// Configure HTTP/2 support on the transport
+	if err := http2.ConfigureTransport(restClient.HTTPClient.Transport.(*http.Transport)); err != nil {
+		return nil, fmt.Errorf("failed to configure HTTP/2: %w", err)
 	}
 
 	return restClient, nil

@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 )
 
 func (c *Cluster) handleUserFullSync(sender *gossip.Node, packet *gossip.Packet) (interface{}, error) {
@@ -141,6 +142,12 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 				} else {
 					service.GetUserService().UpdateUserSpaces(user)
 				}
+
+				if user.IsDeleted {
+					sse.PublishUsersDeleted(user.Id)
+				} else {
+					sse.PublishUsersChanged(user.Id)
+				}
 			}
 		} else {
 			// If the user doesn't exist locally, create it (even if deleted) to prevent resurrection
@@ -149,6 +156,7 @@ func (c *Cluster) mergeUsers(users []*model.User) error {
 			} else if !user.IsDeleted {
 				// Make sure we move to has users mode only if user is not deleted
 				middleware.HasUsers = true
+				sse.PublishUsersChanged(user.Id)
 			}
 		}
 	}

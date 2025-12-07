@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 )
@@ -67,6 +68,7 @@ func HandleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipToken(token)
+	sse.PublishTokensChanged("")
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -98,6 +100,7 @@ func HandleCreateToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	service.GetTransport().GossipToken(token)
+	sse.PublishTokensChanged("")
 
 	// Return the Token ID
 	rest.WriteResponse(http.StatusCreated, w, r, apiclient.CreateTokenResponse{

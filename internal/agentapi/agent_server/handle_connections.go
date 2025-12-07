@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/tunnel_server"
 
 	"github.com/hashicorp/yamux"
@@ -223,6 +224,16 @@ func handleAgentSession(stream net.Conn, session *Session) {
 
 			// Get the session and update the state
 			if session != nil {
+				// Check if state actually changed
+				stateChanged := session.HasCodeServer != state.HasCodeServer ||
+					session.SSHPort != state.SSHPort ||
+					session.VNCHttpPort != state.VNCHttpPort ||
+					session.HasTerminal != state.HasTerminal ||
+					session.HasVSCodeTunnel != state.HasVSCodeTunnel ||
+					session.VSCodeTunnelName != state.VSCodeTunnelName ||
+					!mapsEqual(session.TcpPorts, state.TcpPorts) ||
+					!mapsEqual(session.HttpPorts, state.HttpPorts)
+
 				session.HasCodeServer = state.HasCodeServer
 				session.SSHPort = state.SSHPort
 				session.VNCHttpPort = state.VNCHttpPort
@@ -231,6 +242,15 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HttpPorts = state.HttpPorts
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel
 				session.VSCodeTunnelName = state.VSCodeTunnelName
+
+				// Only send SSE event if state actually changed
+				if stateChanged {
+					db := database.GetInstance()
+					space, err := db.GetSpace(session.Id)
+					if err == nil {
+						sse.PublishSpaceChanged(space.Id, space.UserId)
+					}
+				}
 			}
 
 			// Return the list of agent server endpoints
@@ -669,5 +689,17 @@ func compareVersionMajorMinor(version1, version2 string) bool {
 		return false
 	}
 
+	return true
+}
+
+func mapsEqual(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, v := range a {
+		if b[k] != v {
+			return false
+		}
+	}
 	return true
 }

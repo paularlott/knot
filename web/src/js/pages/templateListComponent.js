@@ -66,13 +66,20 @@ window.templateListComponent = function(canManageSpaces, zone) {
         }
       });
 
-      // Start a timer to look for updates
-      setInterval(async () => {
-        await this.getTemplates();
-      }, 3000);
+      // Subscribe to SSE for real-time updates
+      if (window.sseClient) {
+        window.sseClient.subscribe('templates:changed', (payload) => {
+          this.getTemplates(payload?.id);
+        });
+
+        window.sseClient.subscribe('templates:deleted', (payload) => {
+          this.templates = this.templates.filter(t => t.template_id !== payload?.id);
+          this.searchChanged();
+        });
+      }
     },
 
-    async getTemplates() {
+    async getTemplates(templateId) {
       if(this.canManageSpaces) {
         await fetch('/api/users?state=active', {
           headers: {
@@ -111,16 +118,17 @@ window.templateListComponent = function(canManageSpaces, zone) {
         return;
       });
 
-      await fetch('/api/templates', {
+      const url = templateId ? `/api/templates/${templateId}` : '/api/templates';
+      await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
         }
       }).then((response) => {
         if (response.status === 200) {
-          response.json().then((templateList) => {
-            this.templates = templateList.templates;
+          response.json().then((data) => {
+            const templateList = templateId ? [data] : data.templates;
 
-            this.templates.forEach(template => {
+            templateList.forEach(template => {
               template.showIdPopup = false;
               template.icon_url_exists = this.imageExists(template.icon_url);
 
@@ -133,6 +141,18 @@ window.templateListComponent = function(canManageSpaces, zone) {
                   }
                 });
               });
+
+              // Update or add template
+              const index = this.templates.findIndex(t => t.template_id === template.template_id);
+              if (index >= 0) {
+                this.templates[index] = template;
+              } else {
+                this.templates.push(template);
+              }
+            });
+
+            this.templates.sort((a, b) => {
+              return a.name.localeCompare(b.name);
             });
 
             // Apply search filter

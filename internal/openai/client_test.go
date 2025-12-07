@@ -220,30 +220,37 @@ func TestClient_StreamChatCompletion_Basic(t *testing.T) {
 	}
 }
 
-func TestClient_FinalizeToolCalls(t *testing.T) {
-	// Create a mock MCP server so tool calls are processed
-	mcpServer := &mockMCPServer{
-		tools: []mcp.MCPTool{},
-	}
-	client := &Client{mcpServer: mcpServer}
+func TestStreamingToolCallAccumulator(t *testing.T) {
+	// Test that the shared StreamingToolCallAccumulator works correctly
+	accumulator := NewStreamingToolCallAccumulator()
 
-	toolCallBuffer := map[int]*ToolCall{
-		0: {
-			Index: 0,
-			ID:    "call_1",
-			Type:  "function",
-			Function: ToolCallFunction{
-				Name:      "get_weather",
-				Arguments: make(map[string]any),
+	// Simulate streaming deltas for a tool call
+	accumulator.ProcessDelta(Delta{
+		ToolCalls: []DeltaToolCall{
+			{
+				Index: 0,
+				ID:    "call_1",
+				Type:  "function",
+				Function: DeltaFunction{
+					Name:      "get_weather",
+					Arguments: `{"location":`,
+				},
 			},
 		},
-	}
+	})
 
-	argumentsBuffer := map[int]string{
-		0: `{"location": "New York"}`,
-	}
+	accumulator.ProcessDelta(Delta{
+		ToolCalls: []DeltaToolCall{
+			{
+				Index: 0,
+				Function: DeltaFunction{
+					Arguments: ` "New York"}`,
+				},
+			},
+		},
+	})
 
-	toolCalls := client.finalizeToolCalls(toolCallBuffer, argumentsBuffer)
+	toolCalls := accumulator.Finalize()
 
 	if len(toolCalls) != 1 {
 		t.Errorf("Expected 1 tool call, got %d", len(toolCalls))

@@ -11,12 +11,13 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/totp"
 	"github.com/paularlott/knot/internal/util/audit"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
-	"github.com/paularlott/knot/internal/log"
 
 	"golang.org/x/time/rate"
 )
@@ -242,6 +243,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	service.GetTransport().GossipSession(session)
+	sse.PublishSessionsChanged("")
 
 	// Only create the cookie for web auth
 	if r.URL.Path == "/api/auth/web" {
