@@ -169,7 +169,11 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           'Content-Type': 'application/json'
         }
       }).then((response) => {
-        if(response.status === 200) {
+        if(response.status === 404 && spaceId) {
+          // Space not found (deleted), remove from list
+          this.spaces = this.spaces.filter(s => s.space_id !== spaceId);
+          this.searchChanged();
+        } else if(response.status === 200) {
           let spacesAdded = false;
 
           response.json().then((data) => {
@@ -194,7 +198,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
                 existing.shared_user_id = space.shared_user_id;
                 existing.shared_username = space.shared_username;
-                existing.name = space.name;
+                // Don't update name if space is deleting (backend changes name to ID during deletion)
+                if (!space.is_deleting) {
+                  existing.name = space.name;
+                }
                 existing.description = space.description;
                 existing.platform = space.platform;
                 existing.note = space.note;
