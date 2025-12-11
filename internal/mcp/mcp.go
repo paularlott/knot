@@ -9,37 +9,123 @@ import (
 	"github.com/paularlott/knot/internal/openai"
 
 	"github.com/paularlott/mcp"
+	"github.com/paularlott/mcp/discovery"
 )
 
 func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Server {
 	server := mcp.NewServer("knot-mcp-server", build.Version)
 	server.SetInstructions(`These tools manage spaces, templates, and other resources.
 
+This server uses FULL tool discovery to minimize context usage. ALL tools are discoverable via tool_search.
+
+CRITICAL RULES:
+- ALL tools MUST be accessed via tool_search → execute_tool pattern
+- NO tools can be called directly
+- ALWAYS search for tools first, then execute them
+
+WORKFLOW FOR EVERY OPERATION:
+1. tool_search(query="<operation description>")
+2. execute_tool(name="<tool_name>", arguments={...})
+
+COMMON OPERATIONS:
+- List spaces: tool_search(query="list spaces") → execute_tool(name="list_spaces")
+- Start space: tool_search(query="start space") → execute_tool(name="start_space")
+- Stop space: tool_search(query="stop space") → execute_tool(name="stop_space")
+- Create template: tool_search(query="create template") → find tool → execute_tool
+- List users: tool_search(query="list users") → find tool → execute_tool
+
 CRITICAL TEMPLATE CREATION WORKFLOW:
 When user asks to create/update a template, you MUST follow this exact sequence:
-1. FIRST: Call skills(filename='<platform>-spec.md') where platform is nomad, docker, or podman
-2. SECOND: Use the specification from step 1 as your guide to construct the job definition
-3. THIRD: Call create_template or update_template with the properly formatted job
+1. FIRST: tool_search(query="create template") to find the create_template tool
+2. SECOND: Call skills(filename='<platform>-spec.md') where platform is nomad, docker, or podman
+3. THIRD: Use the specification from step 2 as your guide to construct the job definition
+4. FOURTH: execute_tool(name="create_template", arguments={...}) with the properly formatted job
 
 EXAMPLE: For "create a nomad template":
-1. Call skills(filename='nomad-spec.md')
-2. Follow the nomad specification format from the response
-3. Create the template with proper nomad job syntax
+1. tool_search(query="create template") → finds create_template
+2. Call skills(filename='nomad-spec.md')
+3. Follow the nomad specification format from the response
+4. execute_tool(name="create_template", arguments={...})
 
-SPACE OPERATIONS:
-- When user asks to create spaces or environments, check skills() first for guidance
-- Follow skill instructions when available
-
-NEVER create templates or spaces unless explicitly requested.
-NEVER skip the skills() call when creating/updating templates.`)
+REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_tool for ALL operations.`)
 
 	if enableWebEndpoint {
-		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(server.HandleRequest)))
+		// Create handler with request-scoped support for tool discovery
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// The authentication middleware has already run and set the user in the context
+			// Tool discovery will work with the existing context and user permissions
+
+			// Handle the MCP request with tool discovery support
+			server.HandleRequest(w, r)
+		})
+
+		// Apply authentication middleware
+		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(handler.ServeHTTP)))
 	}
 
+	// Create a tool registry for discoverable tools
+	registry := discovery.NewToolRegistry()
+
+	// =========================================================================
+	// Register ALL tools in discovery registry
+	// =========================================================================
+
+	// Spaces - All space operations
+	registry.RegisterTool(
+		mcp.NewTool("list_spaces", "List all spaces for current user with status and sharing details.",
+			mcp.Output(
+				mcp.ObjectArray("spaces", "Array of available spaces and their status",
+					mcp.String("id", "Space ID"),
+					mcp.String("name", "Space name"),
+					mcp.String("state", "Space state (stopped, running, pending, deleting)"),
+					mcp.String("description", "Space description"),
+					mcp.String("note", "Space note"),
+					mcp.String("zone", "Zone name"),
+					mcp.String("platform", "Platform type"),
+					mcp.StringArray("web_ports", "Web port mappings"),
+					mcp.StringArray("tcp_ports", "TCP port mappings"),
+					mcp.Boolean("ssh", "SSH access available"),
+					mcp.Boolean("web_terminal", "Web terminal access available"),
+					mcp.ObjectArray("custom_fields", "The list of custom fields and their values",
+						mcp.String("name", "Custom field name"),
+						mcp.String("value", "Custom field value"),
+					),
+					mcp.Object("shared_with", "User ID the space is shared with if any",
+						mcp.String("user_id", "User ID"),
+						mcp.String("username", "Username"),
+						mcp.String("email", "Email"),
+					),
+				),
+			),
+		),
+		listSpaces,
+		"spaces", "list", "environments", "development", "deploy", "instances",
+	)
+	registry.RegisterTool(
+		mcp.NewTool("start_space", "Start a space.",
+			mcp.String("space_name", "Name of the space to start", mcp.Required()),
+		),
+		startSpace,
+		"start", "space", "run", "launch", "activate", "environment",
+	)
+	registry.RegisterTool(
+		mcp.NewTool("stop_space", "Stop a space.",
+			mcp.String("space_name", "Name of the space to stop", mcp.Required()),
+		),
+		stopSpace,
+		"stop", "space", "shutdown", "halt", "deactivate", "environment",
+	)
+	registry.RegisterTool(
+		mcp.NewTool("restart_space", "Restart a space.",
+			mcp.String("space_name", "Name of the space to restart", mcp.Required()),
+		),
+		restartSpace,
+		"restart", "space", "reboot", "reload", "environment",
+	)
+
 	// Groups
-	server.RegisterTool(
-		mcp.NewTool("list_groups", "List all user groups. Use to find group IDs for template restrictions.",
+	registry.RegisterTool(
+		mcp.NewTool("list_groups", "List all user groups. Use to find group IDs for template restrictions and user management.",
 			mcp.Output(
 				mcp.ObjectArray("groups", "Array of available groups",
 					mcp.String("id", "Group ID"),
@@ -52,13 +138,14 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		listGroups,
+		"groups", "users", "permissions", "restrictions", "rbac", "access", "team", "organization",
 	)
 
 	// Templates
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("list_templates", "List all space templates. Use to find template IDs or check existing templates.",
 			mcp.Boolean("show_all", "Show template from all zones (default: false)"),
-			mcp.Boolean("show_inactive", "Show inactive tmplates (default: false)"),
+			mcp.Boolean("show_inactive", "Show inactive templates (default: false)"),
 			mcp.Output(
 				mcp.ObjectArray("templates", "Array of available templates",
 					mcp.String("id", "Template ID"),
@@ -85,8 +172,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		listTemplates,
+		"templates", "list", "blueprint", "definition", "docker", "nomad", "podman", "platform", "job", "specification",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("create_template", "Create a new space template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide for the job definition.",
 			mcp.String("name", "Template name", mcp.Required()),
 			mcp.String("platform", "Platform type ('manual', 'docker', 'podman', or 'nomad')", mcp.Required()),
@@ -120,8 +208,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		createTemplate,
+		"create", "template", "new", "docker", "nomad", "podman", "platform", "job", "specification", "blueprint",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("update_template", "Update an existing template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide.",
 			mcp.String("template_name", "Name of the template to update", mcp.Required()),
 			mcp.String("name", "New template name"),
@@ -158,8 +247,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		updateTemplate,
+		"update", "template", "modify", "edit", "docker", "nomad", "podman", "platform", "job", "specification", "blueprint",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("get_template", "Get detailed template information including configuration and job specification.",
 			mcp.String("template_name", "Template name to retrieve", mcp.Required()),
 			mcp.Output(
@@ -199,8 +289,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		getTemplate,
+		"get", "template", "view", "details", "configuration", "docker", "nomad", "podman", "platform", "job", "specification",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("delete_template", "Permanently delete a template. Cannot be undone.",
 			mcp.String("template_name", "Template name to delete"),
 			mcp.Output(
@@ -208,39 +299,11 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		deleteTemplate,
+		"delete", "template", "remove", "destroy", "blueprint", "platform",
 	)
 
-	// Spaces
-	server.RegisterTool(
-		mcp.NewTool("list_spaces", "List all spaces for current user with status and sharing details.",
-			mcp.Output(
-				mcp.ObjectArray("spaces", "Array of available spaces and their status",
-					mcp.String("id", "Space ID"),
-					mcp.String("name", "Space name"),
-					mcp.String("state", "Space state (stopped, running, pending, deleting)"),
-					mcp.String("description", "Space description"),
-					mcp.String("note", "Space note"),
-					mcp.String("zone", "Zone name"),
-					mcp.String("platform", "Platform type"),
-					mcp.StringArray("web_ports", "Web port mappings"),
-					mcp.StringArray("tcp_ports", "TCP port mappings"),
-					mcp.Boolean("ssh", "SSH access available"),
-					mcp.Boolean("web_terminal", "Web terminal access available"),
-					mcp.ObjectArray("custom_fields", "The list of custom fields and their values",
-						mcp.String("name", "Custom field name"),
-						mcp.String("value", "Custom field value"),
-					),
-					mcp.Object("shared_with", "User ID the space is shared with if any",
-						mcp.String("user_id", "User ID"),
-						mcp.String("username", "Username"),
-						mcp.String("email", "Email"),
-					),
-				),
-			),
-		),
-		listSpaces,
-	)
-	server.RegisterTool(
+	// Additional space management tools
+	registry.RegisterTool(
 		mcp.NewTool("get_space", "Get detailed space information including configuration and status.",
 			mcp.String("space_name", "Name of the space to retrieve", mcp.Required()),
 			mcp.Output(
@@ -265,8 +328,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		getSpace,
+		"get", "space", "details", "information", "configuration", "environment",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("run_command", "Execute a command in a running space and return results.",
 			mcp.String("space_name", "Name of the space to run command in", mcp.Required()),
 			mcp.String("command", "Command to execute", mcp.Required()),
@@ -280,8 +344,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		runCommand,
+		"run", "execute", "command", "shell", "terminal", "bash", "sh", "script", "output",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("read_file", "Read file contents from a running space.",
 			mcp.String("space_name", "Name of the space to read the file from", mcp.Required()),
 			mcp.String("file_path", "File path in the space of the file to read", mcp.Required()),
@@ -294,8 +359,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		readFile,
+		"read", "file", "content", "view", "open", "cat", "text", "document",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("write_file", "Write content to a file in a running space.",
 			mcp.String("space_name", "Name of the space to write to", mcp.Required()),
 			mcp.String("file_path", "File path in the space of the file to write", mcp.Required()),
@@ -309,26 +375,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		writeFile,
+		"write", "file", "create", "save", "edit", "content", "text", "document",
 	)
-	server.RegisterTool(
-		mcp.NewTool("start_space", "Start a space.",
-			mcp.String("space_name", "Name of the space to start", mcp.Required()),
-		),
-		startSpace,
-	)
-	server.RegisterTool(
-		mcp.NewTool("stop_space", "Stop a space.",
-			mcp.String("space_name", "Name of the space to stop", mcp.Required()),
-		),
-		stopSpace,
-	)
-	server.RegisterTool(
-		mcp.NewTool("restart_space", "Restart a space.",
-			mcp.String("space_name", "Name of the space to restart", mcp.Required()),
-		),
-		restartSpace,
-	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("share_space", "Share a space with another user. Use list_users to find user ID if not provided.",
 			mcp.String("space_name", "Name of the space to share", mcp.Required()),
 			mcp.String("user_id", "User ID to share the space with", mcp.Required()),
@@ -337,8 +386,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		shareSpace,
+		"share", "space", "grant", "access", "collaborate", "permissions",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("stop_sharing_space", "Stop sharing a space.",
 			mcp.String("space_name", "Name of the space to stop sharing", mcp.Required()),
 			mcp.Output(
@@ -346,8 +396,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		stopSharingSpace,
+		"stop", "sharing", "revoke", "access", "permissions", "private",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("transfer_space", "Transfer space ownership to another user. Use list_users to find user ID if not provided.",
 			mcp.String("space_name", "Name of the space to transfer", mcp.Required()),
 			mcp.String("user_id", "User ID to transfer to", mcp.Required()),
@@ -356,8 +407,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		transferSpace,
+		"transfer", "space", "ownership", "give", "assign",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("create_space", "Create a new development space. ONLY use when explicitly asked to create a space. Spaces are created stopped - use start_space to run them.",
 			mcp.String("name", "Name of the space", mcp.Required()),
 			mcp.String("template_name", "Template name to use", mcp.Required()),
@@ -374,8 +426,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		createSpace,
+		"create", "space", "new", "environment", "development", "deploy", "instance",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("update_space", "Update an existing space.",
 			mcp.String("space_name", "Name of the space to update", mcp.Required()),
 			mcp.String("name", "New space name"),
@@ -392,8 +445,9 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		updateSpace,
+		"update", "space", "modify", "edit", "configure",
 	)
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("delete_space", "Permanently delete a space and all its data. Cannot be undone.",
 			mcp.String("space_name", "Name of the space to delete", mcp.Required()),
 			mcp.Output(
@@ -401,10 +455,11 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		deleteSpace,
+		"delete", "space", "remove", "destroy", "clean",
 	)
 
 	// Users
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("list_users", "List all users details (id, username, email, active, groups). Use to find user IDs for sharing or transfers.",
 			mcp.Output(
 				mcp.ObjectArray("users", "Array of users within the system",
@@ -417,10 +472,11 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		listUsers,
+		"users", "list", "accounts", "people", "team", "directory",
 	)
 
 	// Icons
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("list_icons", "List all available icons with descriptions and URLs. Use to find icon URLs for templates or spaces.",
 			mcp.Output(
 				mcp.ObjectArray("icons", "Array of available icons",
@@ -431,10 +487,11 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		listIcons,
+		"icons", "list", "images", "visuals", "graphics", "symbols",
 	)
 
 	// Skills/Knowledge base
-	server.RegisterTool(
+	registry.RegisterTool(
 		mcp.NewTool("skills", "Access knowledge base/skills for guides and best practices. Call without filename to list all, or with filename for specific content. First call skills() to see what's available - don't assume filenames. Standard skills: nomad-spec.md, local-container-spec.md (covers docker, podman, and apple containers).",
 			mcp.String("filename", "Skill filename to retrieve. Omit to list all skills."),
 			mcp.Output(
@@ -447,7 +504,13 @@ NEVER skip the skills() call when creating/updating templates.`)
 			),
 		),
 		skills,
+		"skills", "knowledge", "guides", "documentation", "specs", "specifications", "nomad", "docker", "podman", "container",
 	)
+
+	// =========================================================================
+	// Attach registry to server (registers tool_search, execute_tool)
+	// =========================================================================
+	registry.Attach(server)
 
 	return server
 }
