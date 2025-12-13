@@ -53,7 +53,17 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		// Create handler with request-scoped support for tool discovery
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// The authentication middleware has already run and set the user in the context
-			// Tool discovery will work with the existing context and user permissions
+			user := r.Context().Value("user").(*model.User)
+
+			// Add script tools as request-scoped provider
+			if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
+				scriptRegistry := discovery.NewToolRegistry()
+				registerScriptTools(scriptRegistry, user)
+
+				// Add as request provider
+				ctx := discovery.WithRequestProviders(r.Context(), scriptRegistry)
+				r = r.WithContext(ctx)
+			}
 
 			// Handle the MCP request with tool discovery support
 			server.HandleRequest(w, r)
