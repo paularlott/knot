@@ -23,7 +23,7 @@ func ExecuteScriptWithMCP(script *model.Script, libraries map[string]string, mcp
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	env, err := NewScriptlingEnv(nil, libraries)
+	env, err := NewMCPScriptlingEnv(libraries, mcpParams)
 	if err != nil {
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}
@@ -62,7 +62,7 @@ func ExecuteScriptLocally(script *model.Script, libraries map[string]string, arg
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	env, err := NewScriptlingEnv(args, libraries)
+	env, err := NewRemoteScriptlingEnv(args, libraries)
 	if err != nil {
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}
