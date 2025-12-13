@@ -63,6 +63,10 @@ window.userListComponent = function() {
           // Refresh user data when their spaces are deleted
           if (payload?.user_id) this.getUsers(payload.user_id);
         });
+
+        window.sseClient.subscribe('reconnected', () => {
+          this.getUsers();
+        });
       }
     },
 

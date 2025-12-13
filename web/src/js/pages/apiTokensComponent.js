@@ -55,6 +55,10 @@ window.apiTokensComponent = function() {
           this.tokens = this.tokens.filter(t => t.token_id !== payload?.id);
           this.searchChanged();
         });
+
+        window.sseClient.subscribe('reconnected', () => {
+          this.getTokens();
+        });
       }
     },
 

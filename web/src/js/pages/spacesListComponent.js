@@ -141,6 +141,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         window.sseClient.subscribe('templates:changed', () => {
           this.getSpaces();
         });
+
+        window.sseClient.subscribe('reconnected', () => {
+          this.getSpaces();
+        });
       }
     },
     userSearchReset() {
