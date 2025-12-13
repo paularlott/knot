@@ -172,6 +172,7 @@ var agentServerCmd = &cli.Command{
 
 		// Open agent connection to the server
 		agentClient := agent_client.NewAgentClient(cfg.Endpoint, cfg.SpaceID)
+		agent_client.SetAgentClient(agentClient)
 		agentClient.ConnectAndServe()
 
 		// Start the syslog server if enabled

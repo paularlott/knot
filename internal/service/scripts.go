@@ -14,7 +14,7 @@ func ExecuteScriptInSpace(space *model.Space, script *model.Script, libraries ma
 	return ExecuteScriptLocally(script, libraries, args)
 }
 
-func ExecuteScriptWithMCP(script *model.Script, libraries map[string]string, mcpParams map[string]string) (string, error) {
+func ExecuteScriptWithMCP(script *model.Script, libraries map[string]string, mcpParams map[string]string, user *model.User) (string, error) {
 	timeout := time.Duration(script.Timeout) * time.Second
 	if script.Timeout == 0 {
 		timeout = 60 * time.Second
@@ -23,7 +23,7 @@ func ExecuteScriptWithMCP(script *model.Script, libraries map[string]string, mcp
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	env, err := NewMCPScriptlingEnv(libraries, mcpParams)
+	env, err := NewMCPScriptlingEnv(libraries, mcpParams, user)
 	if err != nil {
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}
@@ -62,7 +62,7 @@ func ExecuteScriptLocally(script *model.Script, libraries map[string]string, arg
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	env, err := NewRemoteScriptlingEnv(args, libraries)
+	env, err := NewRemoteScriptlingEnv(args, libraries, nil, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}

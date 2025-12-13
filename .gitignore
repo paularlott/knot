@@ -10,6 +10,7 @@
 /.knot*.toml
 /.parcel-cache
 /.task
+/knot
 /knot-server.nomad
 /web/public_html/api-docs/*
 !/web/public_html/api-docs/.gitignore

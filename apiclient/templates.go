@@ -1,6 +1,9 @@
 package apiclient
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type CustomFieldDef struct {
 	Name        string `json:"name"`
@@ -163,4 +166,18 @@ func (c *ApiClient) GetTemplate(ctx context.Context, templateId string) (*Templa
 	}
 
 	return response, code, nil
+}
+
+func (c *ApiClient) GetTemplateByName(ctx context.Context, name string) (*TemplateDetails, error) {
+	templates, _, err := c.GetTemplates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range templates.Templates {
+		if t.Name == name {
+			template, _, err := c.GetTemplate(ctx, t.Id)
+			return template, err
+		}
+	}
+	return nil, fmt.Errorf("template not found: %s", name)
 }

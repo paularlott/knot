@@ -22,6 +22,7 @@ Knot provides three distinct scriptling execution environments, each tailored fo
 - **os** - Operating system interface
 - **pathlib** - Filesystem path operations
 - **sys** - System-specific parameters (argv)
+- **spaces** - Space management operations (via API)
 
 ### Database Libraries
 - All library scripts from the database (filtered by user groups)
@@ -56,6 +57,7 @@ import mylib  # Loads mylib.py from current directory
 - **requests** - HTTP client library
 - **secrets** - Secure random number generation
 - **htmlparser** - HTML parsing and manipulation
+- **spaces** - Space management operations (via internal API)
 
 ### Special Libraries
 - **mcp** - MCP-specific functions with access to tool parameters
@@ -90,6 +92,7 @@ import mylib  # Loads mylib.py from current directory
 - **os** - Operating system interface
 - **pathlib** - Filesystem path operations
 - **sys** - System-specific parameters (argv)
+- **spaces** - Space management operations (via API)
 
 ### Database Libraries
 - All library scripts from the database (filtered by user groups)
@@ -118,6 +121,7 @@ knot spaces run myspace myscript arg1 arg2
 | os | ✓ | ✗ | ✓ |
 | pathlib | ✓ | ✗ | ✓ |
 | sys | ✓ | ✗ | ✓ |
+| spaces | ✓ | ✓ | ✓ |
 | mcp | ✗ | ✓ | ✗ |
 | Database libs | ✓ | ✓ | ✓ |
 | On-demand .py | ✓ | ✗ | ✗ |
@@ -143,3 +147,9 @@ knot spaces run myspace myscript arg1 arg2
 - Full capabilities within container
 - No access to host filesystem
 - Libraries must be pre-defined in database
+
+---
+
+## Additional Documentation
+
+- [Spaces Library Reference](scriptling-spaces-library.md) - Complete documentation for the `spaces` library

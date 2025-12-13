@@ -60,6 +60,8 @@ func registerScriptTools(registry *discovery.ToolRegistry, user *model.User) {
 // executeScriptTool creates a handler for executing a script
 func executeScriptTool(script *model.Script) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+		user := ctx.Value("user").(*model.User)
+
 		// Extract parameters
 		mcpParams := make(map[string]string)
 
@@ -78,7 +80,7 @@ func executeScriptTool(script *model.Script) mcp.ToolHandler {
 		}
 
 		// Execute script locally
-		result, err := executeScriptWithEnv(script, mcpParams)
+		result, err := executeScriptWithEnv(script, mcpParams, user)
 		if err != nil {
 			return mcp.NewToolResponseText(fmt.Sprintf("Error: %s", err.Error())), nil
 		}
@@ -88,7 +90,7 @@ func executeScriptTool(script *model.Script) mcp.ToolHandler {
 }
 
 // executeScriptWithEnv executes a script with MCP parameters
-func executeScriptWithEnv(script *model.Script, mcpParams map[string]string) (string, error) {
+func executeScriptWithEnv(script *model.Script, mcpParams map[string]string, user *model.User) (string, error) {
 	db := database.GetInstance()
 
 	// Get all library scripts
@@ -103,5 +105,5 @@ func executeScriptWithEnv(script *model.Script, mcpParams map[string]string) (st
 		}
 	}
 
-	return service.ExecuteScriptWithMCP(script, libraries, mcpParams)
+	return service.ExecuteScriptWithMCP(script, libraries, mcpParams, user)
 }

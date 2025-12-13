@@ -7,10 +7,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
 )
+
+var agentClient *AgentClient
+
+func SetAgentClient(client *AgentClient) {
+	agentClient = client
+}
 
 func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 	log.Debug("executing script", "timeout", execMsg.Timeout)
@@ -23,7 +30,23 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	env, err := service.NewRemoteScriptlingEnv(execMsg.Arguments, execMsg.Libraries)
+	var client *apiclient.ApiClient
+	var userId string
+
+	if agentClient != nil {
+		server, token, err := agentClient.SendRequestToken()
+		if err == nil {
+			client, err = apiclient.NewClient(server, token, true)
+			if err == nil {
+				user, err := client.WhoAmI(ctx)
+				if err == nil {
+					userId = user.Id
+				}
+			}
+		}
+	}
+
+	env, err := service.NewRemoteScriptlingEnv(execMsg.Arguments, execMsg.Libraries, client, userId)
 	if err != nil {
 		response := msg.ExecuteScriptResponse{
 			Success: false,

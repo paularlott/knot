@@ -71,7 +71,12 @@ var RunScriptCmd = &cli.Command{
 			scriptContent = scriptObj.Content
 		}
 
-		output, err := service.RunScript(ctx, scriptContent, args, libraries)
+		user, err := client.WhoAmI(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get user: %w", err)
+		}
+
+		output, err := service.RunScript(ctx, scriptContent, args, libraries, client, user.Id)
 		if err != nil {
 			return fmt.Errorf("script execution failed: %w", err)
 		}

@@ -4,15 +4,18 @@ import (
 	"context"
 	"os"
 
+	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/database/model"
+	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/extlibs"
 	"github.com/paularlott/scriptling/stdlib"
 )
 
 // NewLocalScriptlingEnv creates a scriptling environment for local execution on desktop/agent
-// Libraries: All database libraries, stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys
+// Libraries: All database libraries, stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, spaces
 // On-demand loading: Enabled for disk-based .py files
-func NewLocalScriptlingEnv(argv []string, libraries map[string]string) (*scriptling.Scriptling, error) {
+func NewLocalScriptlingEnv(argv []string, libraries map[string]string, client *apiclient.ApiClient, userId string) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
 	stdlib.RegisterAll(env)
 	extlibs.RegisterRequestsLibrary(env)
@@ -25,6 +28,10 @@ func NewLocalScriptlingEnv(argv []string, libraries map[string]string) (*scriptl
 	env.EnableOutputCapture()
 
 	registerScriptLibraries(env, libraries)
+
+	if client != nil && userId != "" {
+		env.RegisterLibrary("spaces", knotscriptling.GetSpacesLibrary(client, userId))
+	}
 
 	env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
 		filename := libName + ".py"
@@ -40,9 +47,9 @@ func NewLocalScriptlingEnv(argv []string, libraries map[string]string) (*scriptl
 }
 
 // NewMCPScriptlingEnv creates a scriptling environment for MCP tool execution
-// Libraries: All database libraries, MCP library, stdlib, requests, secrets, htmlparser
+// Libraries: All database libraries, MCP library, stdlib, requests, secrets, htmlparser, spaces
 // On-demand loading: Disabled
-func NewMCPScriptlingEnv(libraries map[string]string, mcpParams map[string]string) (*scriptling.Scriptling, error) {
+func NewMCPScriptlingEnv(libraries map[string]string, mcpParams map[string]string, user *model.User) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
 	stdlib.RegisterAll(env)
 	extlibs.RegisterRequestsLibrary(env)
@@ -52,13 +59,17 @@ func NewMCPScriptlingEnv(libraries map[string]string, mcpParams map[string]strin
 
 	registerScriptLibraries(env, libraries)
 
+	if user != nil {
+		env.RegisterLibrary("spaces", knotscriptling.GetSpacesMCPLibrary(user, GetSpaceService(), GetContainerService(), nil, ExecuteScriptInSpace))
+	}
+
 	return env, nil
 }
 
 // NewRemoteScriptlingEnv creates a scriptling environment for remote execution in spaces
-// Libraries: All database libraries, stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys
+// Libraries: All database libraries, stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, spaces
 // On-demand loading: Disabled
-func NewRemoteScriptlingEnv(argv []string, libraries map[string]string) (*scriptling.Scriptling, error) {
+func NewRemoteScriptlingEnv(argv []string, libraries map[string]string, client *apiclient.ApiClient, userId string) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
 	stdlib.RegisterAll(env)
 	extlibs.RegisterRequestsLibrary(env)
@@ -71,6 +82,10 @@ func NewRemoteScriptlingEnv(argv []string, libraries map[string]string) (*script
 	env.EnableOutputCapture()
 
 	registerScriptLibraries(env, libraries)
+
+	if client != nil && userId != "" {
+		env.RegisterLibrary("spaces", knotscriptling.GetSpacesLibrary(client, userId))
+	}
 
 	extlibs.RegisterSysLibrary(env, argv)
 	return env, nil
@@ -86,8 +101,8 @@ func registerScriptLibraries(env *scriptling.Scriptling, libraries map[string]st
 }
 
 // RunScript executes a script with local environment
-func RunScript(ctx context.Context, scriptContent string, argv []string, libraries map[string]string) (string, error) {
-	env, err := NewLocalScriptlingEnv(argv, libraries)
+func RunScript(ctx context.Context, scriptContent string, argv []string, libraries map[string]string, client *apiclient.ApiClient, userId string) (string, error) {
+	env, err := NewLocalScriptlingEnv(argv, libraries, client, userId)
 	if err != nil {
 		return "", err
 	}
@@ -107,3 +122,7 @@ func RunScript(ctx context.Context, scriptContent string, argv []string, librari
 
 	return output, nil
 }
+
+
+
+

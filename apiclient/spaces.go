@@ -235,3 +235,22 @@ func (c *ApiClient) GetSpaceByName(ctx context.Context, spaceName string) (*Spac
 	}
 	return nil, fmt.Errorf("space not found")
 }
+
+func (c *ApiClient) RunCommand(ctx context.Context, spaceId string, request *RunCommandRequest) (string, error) {
+	var response struct {
+		Output  string `json:"output"`
+		Success bool   `json:"success"`
+		Error   string `json:"error"`
+	}
+
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/run-command", request, &response, 200)
+	if err != nil {
+		return "", err
+	}
+
+	if !response.Success {
+		return response.Output, fmt.Errorf("%s", response.Error)
+	}
+
+	return response.Output, nil
+}
