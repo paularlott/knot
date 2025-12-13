@@ -13,6 +13,10 @@ window.auditLogComponent = function() {
         window.sseClient.subscribe('auditlogs:changed', () => {
           this.getAuditLogs();
         });
+
+        window.sseClient.subscribe('reconnected', () => {
+          this.getAuditLogs();
+        });
       }
     },
 

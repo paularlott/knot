@@ -76,6 +76,10 @@ window.templateListComponent = function(canManageSpaces, zone) {
           this.templates = this.templates.filter(t => t.template_id !== payload?.id);
           this.searchChanged();
         });
+
+        window.sseClient.subscribe('reconnected', () => {
+          this.getTemplates();
+        });
       }
     },
 

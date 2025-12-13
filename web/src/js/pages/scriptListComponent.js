@@ -37,6 +37,10 @@ window.scriptListComponent = function() {
           this.scripts = this.scripts.filter(x => x.script_id !== payload?.id);
           this.searchChanged();
         });
+
+        window.sseClient.subscribe('reconnected', () => {
+          this.getScripts();
+        });
       }
     },
 

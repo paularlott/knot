@@ -39,6 +39,10 @@ window.groupListComponent = function() {
           this.groups = this.groups.filter(g => g.group_id !== payload?.id);
           this.searchChanged();
         });
+
+        window.sseClient.subscribe('reconnected', () => {
+          this.getGroups();
+        });
       }
     },
 

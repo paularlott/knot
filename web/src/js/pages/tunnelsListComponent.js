@@ -16,6 +16,10 @@ window.tunnelsListComponent = function() {
           this.tunnels = this.tunnels.filter(x => x.tunnel_id !== payload?.id);
           this.searchChanged();
         });
+
+        window.sseClient.subscribe('reconnected', () => {
+          this.getTunnels();
+        });
       }
     },
 
