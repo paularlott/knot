@@ -34,6 +34,9 @@ tags:
   - name: Users
     description: |
       These operations are for working with users.
+  - name: Scripts
+    description: |
+      Operations for working with scripts and MCP tools.
 paths:
   $ref: './chat.yaml#/paths'
 
@@ -2065,6 +2068,217 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
+  /api/scripts:
+    get:
+      summary: List Scripts
+      description: Get a list of all scripts accessible to the user.
+      tags:
+        - Scripts
+      operationId: listScripts
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  scripts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScriptInfo'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+    post:
+      summary: Create Script
+      description: Create a new script.
+      tags:
+        - Scripts
+      operationId: createScript
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScriptCreateRequest'
+      responses:
+        '201':
+          description: Script created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  id:
+                    type: string
+                    format: uuid
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
+  /api/scripts/{script_id}:
+    get:
+      summary: Get Script
+      description: Get details of a specific script.
+      tags:
+        - Scripts
+      operationId: getScript
+      parameters:
+        - in: path
+          name: script_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the script.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScriptDetails'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+    put:
+      summary: Update Script
+      description: Update an existing script.
+      tags:
+        - Scripts
+      operationId: updateScript
+      parameters:
+        - in: path
+          name: script_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the script.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScriptUpdateRequest'
+      responses:
+        '200':
+          description: Script updated successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+    delete:
+      summary: Delete Script
+      description: Delete a script.
+      tags:
+        - Scripts
+      operationId: deleteScript
+      parameters:
+        - in: path
+          name: script_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the script.
+      responses:
+        '200':
+          description: Script deleted successfully
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/scripts/{script_id}/execute:
+    post:
+      summary: Execute Script
+      description: Execute a script in a specific space.
+      tags:
+        - Scripts
+      operationId: executeScript
+      parameters:
+        - in: path
+          name: space_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the space.
+        - in: path
+          name: script_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the script.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                arguments:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of arguments to pass to the script
+      responses:
+        '200':
+          description: Script executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  output:
+                    type: string
+                    description: Script output
+                  error:
+                    type: string
+                    description: Error message if execution failed
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
   /api/ping:
     get:
       tags:
@@ -3599,6 +3813,127 @@ components:
             format: address
           example: ["https://server1.example.com", "https://server2.example.com"]
           description: A list of tunnel servers. If this list is present then these servers should be used for the tunnel connections.
+
+    ScriptInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+        active:
+          type: boolean
+        script_type:
+          type: string
+          enum: [script, lib, tool]
+        timeout:
+          type: integer
+
+    ScriptDetails:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        content:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+        active:
+          type: boolean
+        script_type:
+          type: string
+          enum: [script, lib, tool]
+        mcp_input_schema_toml:
+          type: string
+          description: TOML schema definition for MCP tool parameters
+        mcp_keywords:
+          type: array
+          items:
+            type: string
+          description: Keywords for MCP tool discovery
+        timeout:
+          type: integer
+
+    ScriptCreateRequest:
+      type: object
+      required:
+        - name
+        - content
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        content:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+        active:
+          type: boolean
+          default: true
+        script_type:
+          type: string
+          enum: [script, lib, tool]
+          default: script
+        mcp_input_schema_toml:
+          type: string
+        mcp_keywords:
+          type: array
+          items:
+            type: string
+        timeout:
+          type: integer
+          default: 0
+
+    ScriptUpdateRequest:
+      type: object
+      required:
+        - name
+        - content
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        content:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+        active:
+          type: boolean
+        script_type:
+          type: string
+          enum: [script, lib, tool]
+        mcp_input_schema_toml:
+          type: string
+        mcp_keywords:
+          type: array
+          items:
+            type: string
+        timeout:
+          type: integer
 
   responses:
     bad-request:
