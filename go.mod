@@ -8,6 +8,8 @@ go 1.25.5
 
 //replace github.com/paularlott/mcp => ../mcp/
 
+replace github.com/paularlott/scriptling => ../scriptling/
+
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/creack/pty v1.1.24
@@ -22,7 +24,7 @@ require (
 	github.com/miekg/dns v1.1.68
 	github.com/paularlott/cli v0.6.0
 	github.com/paularlott/gossip v0.11.0
-	github.com/paularlott/logger v0.2.0
+	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.6.2
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.2
@@ -68,6 +70,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
+	github.com/paularlott/scriptling v0.0.0-20251212103323-3d44c228129a // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/shamaton/msgpack/v2 v2.4.0 // indirect

@@ -1,0 +1,100 @@
+{{ define "script-form-content" }}
+<div x-data="scriptForm(scriptFormModal.isEdit, scriptFormModal.scriptId)" x-init="initData()">
+  {{ template "loading" . }}
+  <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label for="name" class="form-label">Name</label>
+        <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="script_name" x-model="formData.name">
+        <div x-show="!nameValid" class="error-message" x-cloak>Name can only contain letters, numbers and _, max 64 characters.</div>
+      </div>
+      <div>
+        <label for="timeout" class="form-label">Timeout (seconds)</label>
+        <input type="text" class="form-field" name="timeout" id="timeout" placeholder="Server default" x-model="formData.timeout" @input="formData.timeout = formData.timeout.replace(/[^0-9]/g, '')">
+        <div class="description">Leave blank or 0 to use server default timeout.</div>
+      </div>
+    </div>
+
+    <div>
+      <label for="description" class="form-label">Description</label>
+      <input type="text" class="form-field" name="description" id="description" placeholder="What this script does" x-model="formData.description">
+    </div>
+
+    <div class="mb-4">
+      <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Script Type</label>
+      <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
+        <template x-for="type in [{value: 'script', label: 'Script'}, {value: 'lib', label: 'Library'}, {value: 'tool', label: 'MCP Tool'}]" :key="type.value">
+          <label class="relative">
+            <input
+              type="radio"
+              name="script_type"
+              :value="type.value"
+              x-model="formData.script_type"
+              class="sr-only peer"
+            >
+            <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
+              peer-checked:bg-blue-600 peer-checked:text-white
+              peer-focus:ring-2 peer-focus:ring-blue-300
+              transition-colors duration-200 ease-in-out
+              text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+              hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">
+              <span x-text="type.label"></span>
+            </div>
+          </label>
+        </template>
+      </div>
+      <div class="description mt-2">Script: executable, Library: reusable code, MCP Tool: AI assistant integration.</div>
+    </div>
+
+    <div x-show="formData.script_type === 'tool'" x-cloak>
+      <div class="mb-4">
+        <label for="mcp_keywords" class="form-label">MCP Keywords (comma-separated)</label>
+        <input type="text" class="form-field" name="mcp_keywords" id="mcp_keywords" placeholder="keyword1, keyword2" x-model="mcpKeywordsStr">
+        <div class="description">Keywords help AI assistants discover this tool.</div>
+      </div>
+      <div>
+        <label class="form-label">MCP Input Schema (TOML)</label>
+        <div class="mid-editor">
+          <div class="editor-wrap" id="mcp_schema"></div>
+        </div>
+        <div class="description">Define tool parameters in TOML format.</div>
+      </div>
+    </div>
+
+    <div>
+      <label class="form-label">Script</label>
+      <div class="large-editor">
+        <div :class="{'form-field-error': !contentValid, 'editor-wrap': true}" id="content"></div>
+      </div>
+      <div x-show="!contentValid" class="error-message" x-cloak>Content must be less than 4MB.</div>
+    </div>
+
+    {{ if .permissionManageScripts }}
+    <div class="max-w-md" x-show="availableGroups.length" x-cloak>
+      <label class="form-label">Restrict to Groups</label>
+      <template x-for="(group, index) in availableGroups" :key="index">
+        <label class="flex items-center cursor-pointer mb-2">
+          <input type="checkbox" class="sr-only peer" :id="'group-' + index" name="groups[]" id="groups[]" :value="group.group_id" :checked="formData.groups.includes(group.group_id)" @change="toggleGroup(group.group_id)">
+          <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+          <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300" x-text="group.name"></span>
+        </label>
+      </template>
+    </div>
+    {{ end }}
+
+    <div>
+      <label class="inline-flex items-center mb-5 cursor-pointer">
+        <input type="checkbox" name="active" id="active" x-model="formData.active" class="sr-only peer">
+        <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+        <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Active</span>
+      </label>
+      <div class="description">Only active scripts can be executed.</div>
+    </div>
+
+    <div class="flex justify-end gap-2 pt-4 border-t border-neutral-300 dark:border-gray-700">
+      <button type="button" @click="scriptFormModal.show = false" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-gray-700">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="loading" x-text="buttonLabel"></button>
+    </div>
+  </form>
+</div>
+{{ end }}

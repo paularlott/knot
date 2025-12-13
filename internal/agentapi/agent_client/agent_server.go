@@ -470,6 +470,15 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			handleCopyFileExecution(stream, copyCmd)
 		}
 
+	case byte(msg.CmdExecuteScript):
+		var execMsg msg.ExecuteScriptMessage
+		if err := msg.ReadMessage(stream, &execMsg); err != nil {
+			log.WithError(err).Error("reading execute script message:")
+			return
+		}
+
+		handleExecuteScript(stream, execMsg)
+
 	default:
 		log.Error("unknown command:", "cmd", cmd)
 	}

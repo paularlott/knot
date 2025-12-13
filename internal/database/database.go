@@ -57,6 +57,13 @@ type DbDriver interface {
 	GetTemplate(id string) (*model.Template, error)
 	GetTemplates() ([]*model.Template, error)
 
+	// Scripts
+	SaveScript(script *model.Script, updateFields []string) error
+	DeleteScript(script *model.Script) error
+	GetScript(id string) (*model.Script, error)
+	GetScripts() ([]*model.Script, error)
+	GetScriptByName(name string) (*model.Script, error)
+
 	// Groups
 	SaveGroup(group *model.Group) error
 	DeleteGroup(group *model.Group) error

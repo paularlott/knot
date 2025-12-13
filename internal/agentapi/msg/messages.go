@@ -33,6 +33,7 @@ const (
 	CmdSpaceRestart
 	CmdRunCommand
 	CmdCopyFile
+	CmdExecuteScript
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

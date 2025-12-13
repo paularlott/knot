@@ -86,3 +86,15 @@ func checkPermissionManageRoles(next http.HandlerFunc) http.HandlerFunc {
 func checkPermissionViewClusterInfo(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionClusterInfo)
 }
+
+func checkPermissionManageOrExecuteScripts(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionManageScripts) && !user.HasPermission(model.PermissionExecuteScripts) {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}

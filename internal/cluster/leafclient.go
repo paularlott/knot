@@ -207,6 +207,9 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 				case leafmsg.MessageGossipTemplateVar:
 					c.handleLeafGossipTemplateVar(msg)
 
+				case leafmsg.MessageGossipScript:
+					c.handleLeafGossipScript(msg)
+
 				case leafmsg.MessageFullSyncEnd:
 					c.logger.Info("leaf full sync complete")
 					fullSyncDone = true
@@ -312,5 +315,18 @@ func (c *Cluster) handleLeafGossipTemplateVar(msg *leafmsg.Message) {
 		if templateVar.Restricted {
 			database.GetInstance().DeleteTemplateVar(templateVar)
 		}
+	}
+}
+
+func (c *Cluster) handleLeafGossipScript(msg *leafmsg.Message) {
+	scripts := []*model.Script{}
+	if err := msg.UnmarshalPayload(&scripts); err != nil {
+		c.logger.WithError(err).Error("error while unmarshalling leaf script message:")
+		return
+	}
+
+	if err := c.mergeScripts(scripts); err != nil {
+		c.logger.WithError(err).Error("error while merging scripts from leaf:")
+		return
 	}
 }

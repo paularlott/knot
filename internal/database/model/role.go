@@ -34,6 +34,8 @@ const (
 	PermissionCopyFiles              // Can copy files to/from spaces
 	PermissionUseMCPServer           // Can use MCP server
 	PermissionUseWebAssistant        // Can use web-based AI assistant
+	PermissionManageScripts          // Can Manage Scripts
+	PermissionExecuteScripts         // Can Execute Scripts
 )
 
 type PermissionName struct {
@@ -58,6 +60,9 @@ var PermissionNames = []PermissionName{
 
 	{PermissionUseMCPServer, "AI Tools", "Use MCP Server"},
 	{PermissionUseWebAssistant, "AI Tools", "Use Web Assistant"},
+
+	{PermissionManageScripts, "Scripting", "Manage Scripts"},
+	{PermissionExecuteScripts, "Scripting", "Execute Scripts"},
 
 	{PermissionUseSpaces, "Space Operations", "Use Spaces"},
 	{PermissionShareSpaces, "Space Operations", "Share Spaces"},
@@ -128,6 +133,8 @@ func SetRoleCache(roles []*Role) {
 			PermissionCopyFiles,
 			PermissionUseMCPServer,
 			PermissionUseWebAssistant,
+			PermissionManageScripts,
+			PermissionExecuteScripts,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

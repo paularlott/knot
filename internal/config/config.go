@@ -30,6 +30,7 @@ type ServerConfig struct {
 	AuthIPRateLimiting        bool
 	LocalContainerRuntime     string
 	LocalContainerRuntimePref []string
+	MaxScriptExecutionTime    int
 	Origin                    OriginConfig
 	TOTP                      TOTPConfig
 	UI                        UIConfig

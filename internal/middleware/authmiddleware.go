@@ -308,6 +308,15 @@ func ApiPermissionUseWebAssistant(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionUseWebAssistant, "No permission to use web assistant")
 }
 
+func ApiPermissionManageScripts(next http.HandlerFunc) http.HandlerFunc {
+	cfg := config.GetServerConfig()
+	if cfg.LeafNode {
+		return next
+	}
+
+	return checkPermission(next, model.PermissionManageScripts, "No permission to manage scripts")
+}
+
 func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.WithGroup("auth")

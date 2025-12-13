@@ -115,6 +115,22 @@ func PublishVolumesDeleted(volumeId string) {
 	})
 }
 
+// PublishScriptsChanged notifies clients that a script has changed
+func PublishScriptsChanged(scriptId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventScriptsChanged,
+		Payload: ResourcePayload{Id: scriptId},
+	})
+}
+
+// PublishScriptsDeleted notifies clients that a script was deleted
+func PublishScriptsDeleted(scriptId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventScriptsDeleted,
+		Payload: ResourcePayload{Id: scriptId},
+	})
+}
+
 // PublishSessionsChanged notifies clients that a session has changed
 func PublishSessionsChanged(sessionId string) {
 	GetHub().Broadcast(&Event{

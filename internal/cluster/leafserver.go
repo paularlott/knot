@@ -159,5 +159,12 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 	}
 	session.SendMessage(leafmsg.MessageGossipTemplateVar, &templateVars)
 
+	scripts, err := db.GetScripts()
+	if err != nil {
+		c.logger.WithError(err).Error("error while getting scripts:")
+		return
+	}
+	session.SendMessage(leafmsg.MessageGossipScript, &scripts)
+
 	session.SendMessage(leafmsg.MessageFullSyncEnd, nil)
 }

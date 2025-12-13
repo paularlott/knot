@@ -105,8 +105,12 @@ github.com/paularlott/gossip v0.11.0 h1:pQrfZI9UwcghfzK0zuxPJO6tRph6cPtURdbn8whC
 github.com/paularlott/gossip v0.11.0/go.mod h1:6SQJAV1wiWoa+RHNdjV6yzwYGe091ZTwWwNmoowE36E=
 github.com/paularlott/logger v0.2.0 h1:MeidFgqStotTd3XdJvibxLYRg8nDrFZqTzu0vfQSVV4=
 github.com/paularlott/logger v0.2.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
+github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7ng=
+github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
 github.com/paularlott/mcp v0.6.2 h1:eRPh+E3hHNOiEr4In4D74v5qcWxNKaZRsJ9PyzYVoCg=
 github.com/paularlott/mcp v0.6.2/go.mod h1:wlrwOiwE1L2jIS35Sb4Q1mVL96pj27sRnG2ZWjz7aD4=
+github.com/paularlott/scriptling v0.0.0-20251212103323-3d44c228129a h1:eYVb+t4cFo/tuhAepXJH3LUiykAcUz5fCoLsRM3cuEM=
+github.com/paularlott/scriptling v0.0.0-20251212103323-3d44c228129a/go.mod h1:v8t8g31EXKYS1TRBJnNlOONyF7iPwV7iAwzLQz6TTBM=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.13.10 h1:+5FbKNTe5Z9aspU88DPIKJ9z2KZoaGCu6Sr6kKR/5mU=

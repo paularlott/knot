@@ -2,6 +2,7 @@ package apiclient
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
@@ -219,4 +220,18 @@ func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId st
 	}
 
 	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/transfer", request, nil, 200)
+}
+
+func (c *ApiClient) GetSpaceByName(ctx context.Context, spaceName string) (*SpaceDefinition, error) {
+	spaces, _, err := c.GetSpaces(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range spaces.Spaces {
+		if s.Name == spaceName {
+			space, _, err := c.GetSpace(ctx, s.Id)
+			return space, err
+		}
+	}
+	return nil, fmt.Errorf("space not found")
 }

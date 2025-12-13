@@ -169,6 +169,13 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_RETENTION"},
 			DefaultValue: 90,
 		},
+		&cli.IntFlag{
+			Name:         "max-script-execution-time",
+			Usage:        "The default maximum script execution time in seconds.",
+			ConfigPath:   []string{"server.max_script_execution_time"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MAX_SCRIPT_EXECUTION_TIME"},
+			DefaultValue: 60,
+		},
 		&cli.BoolFlag{
 			Name:         "disable-space-create",
 			Usage:        "Disable the ability to create spaces.",
@@ -1100,9 +1107,10 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		TerminalWebGL:      cmd.GetBool("terminal-webgl"),
 		EncryptionKey:      cmd.GetString("encrypt"),
 		Zone:               zone,
-		Timezone:           cmd.GetString("timezone"),
-		LeafNode:           cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
-		AuthIPRateLimiting: cmd.GetBool("auth-ip-rate-limiting"),
+		Timezone:               cmd.GetString("timezone"),
+		LeafNode:               cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
+		AuthIPRateLimiting:     cmd.GetBool("auth-ip-rate-limiting"),
+		MaxScriptExecutionTime: cmd.GetInt("max-script-execution-time"),
 		Origin: config.OriginConfig{
 			Server: cmd.GetString("origin-server"),
 			Token:  cmd.GetString("origin-token"),
