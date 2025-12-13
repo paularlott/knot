@@ -87,6 +87,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			commands_admin.AdminCmd,
 			command_chat.ChatCmd,
 			command_tunnel.TunnelCmd,
+			agentcmd.RunScriptCmd,
 			command.ServerCmd,
 			command.PingCmd,
 			command.ScaffoldCmd,

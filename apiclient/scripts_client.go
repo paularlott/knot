@@ -47,3 +47,20 @@ func (c *ApiClient) ExecuteScript(ctx context.Context, spaceId, scriptId string,
 	}
 	return resp.Output, nil
 }
+
+func (c *ApiClient) GetScriptLibraries(ctx context.Context) (map[string]string, error) {
+	scripts, err := c.GetScripts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	libraries := make(map[string]string)
+	for _, s := range scripts.Scripts {
+		if s.ScriptType == "lib" {
+			script, err := c.GetScript(ctx, s.Id)
+			if err == nil {
+				libraries[s.Name] = script.Content
+			}
+		}
+	}
+	return libraries, nil
+}

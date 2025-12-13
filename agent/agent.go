@@ -74,6 +74,7 @@ The agent connects environments to the knot server.`,
 			agentcmd.AgentCmd,
 			command_chat.ChatCmd,
 			command_tunnel.TunnelCmd,
+			agentcmd.RunScriptCmd,
 		},
 		PreRun: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			config.InitCommonConfig(cmd)

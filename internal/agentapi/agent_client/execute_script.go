@@ -23,7 +23,7 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	env, err := service.NewScriptlingEnv(execMsg.Arguments, execMsg.Libraries)
+	env, err := service.NewScriptlingEnvWithDiskLibraries(execMsg.Arguments, execMsg.Libraries)
 	if err != nil {
 		response := msg.ExecuteScriptResponse{
 			Success: false,
