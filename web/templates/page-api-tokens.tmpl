@@ -107,7 +107,7 @@
     </div>
 
     <!-- Modal create token -->
-    <div x-cloak x-show="tokenFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="tokenFormModal.show" @keydown.esc.window="tokenFormModal.show = false" @click.self="tokenFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="tokenModalTitle">
+    <div x-cloak x-show="tokenFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="tokenFormModal.show" @keydown.esc.window="tokenFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="tokenModalTitle">
       <div x-show="tokenFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-2xl w-full flex-col overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl max-h-[90vh]">
         <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
           <h3 id="tokenModalTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Create API Token</h3>
