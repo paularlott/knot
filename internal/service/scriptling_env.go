@@ -53,8 +53,8 @@ func NewLocalScriptlingEnv(argv []string, libraries map[string]string, client *a
 	}
 
 	if client != nil && userId != "" {
-		// Register AI library - it will use OpenAI client if available, otherwise API calls to the server
-		env.RegisterLibrary("ai", knotscriptling.GetAILibrary(client, userId, GetOpenAIClient()))
+		// Register AI library - uses API calls to the server
+		env.RegisterLibrary("ai", knotscriptling.GetAILibrary(client, userId))
 	}
 
 	env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
@@ -117,8 +117,8 @@ func NewRemoteScriptlingEnv(argv []string, libraries map[string]string, client *
 	}
 
 	if client != nil && userId != "" {
-		// Register AI library - it will use OpenAI client if available, otherwise API calls to the server
-		env.RegisterLibrary("ai", knotscriptling.GetAILibrary(client, userId, GetOpenAIClient()))
+		// Register AI library - uses API calls to the server
+		env.RegisterLibrary("ai", knotscriptling.GetAILibrary(client, userId))
 	}
 
 	extlibs.RegisterSysLibrary(env, argv)

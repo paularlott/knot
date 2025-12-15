@@ -1,12 +1,8 @@
 package scriptling
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -33,11 +29,11 @@ type ChatCompletionResponse struct {
 }
 
 // GetAILibrary returns the AI helper library for scriptling (local/remote environments)
-func GetAILibrary(client *apiclient.ApiClient, userId string, openaiClient *openai.Client) *object.Library {
+func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
 	functions := map[string]*object.Builtin{
 		"completion": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return aiCompletion(ctx, client, userId, openaiClient, kwargs, args...)
+				return aiCompletion(ctx, client, userId, kwargs, args...)
 			},
 			HelpText: "completion(messages) - Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys.",
 		},
@@ -60,23 +56,20 @@ func GetAIMCPLibrary(openaiClient *openai.Client) *object.Library {
 	return object.NewLibrary(functions, nil, "AI completion functions")
 }
 
-func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId string, openaiClient *openai.Client, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) < 1 {
 		return &object.Error{Message: "completion() requires messages array"}
 	}
 
-	// Check if API client is available
 	if client == nil {
 		return &object.Error{Message: "AI completion not available - API client not configured"}
 	}
 
-	// Get messages from first argument
 	messagesList, ok := args[0].(*object.List)
 	if !ok {
 		return &object.Error{Message: "completion() first argument must be a list of messages"}
 	}
 
-	// Convert scriptling messages to API format with timestamps
 	messages := make([]ChatMessage, 0, len(messagesList.Elements))
 	for i, msgObj := range messagesList.Elements {
 		msgDict, ok := msgObj.(*object.Dict)
@@ -84,9 +77,7 @@ func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId strin
 			return &object.Error{Message: fmt.Sprintf("message %d must be a dict with 'role' and 'content' keys", i)}
 		}
 
-		// Extract role
-		role := ""
-		content := ""
+		role, content := "", ""
 		for _, pair := range msgDict.Pairs {
 			key := pair.Key.(*object.String).Value
 			if key == "role" {
@@ -100,11 +91,8 @@ func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId strin
 			}
 		}
 
-		if role == "" {
-			return &object.Error{Message: fmt.Sprintf("message %d missing 'role' key", i)}
-		}
-		if content == "" {
-			return &object.Error{Message: fmt.Sprintf("message %d missing 'content' key", i)}
+		if role == "" || content == "" {
+			return &object.Error{Message: fmt.Sprintf("message %d missing 'role' or 'content' key", i)}
 		}
 
 		messages = append(messages, ChatMessage{
@@ -140,62 +128,20 @@ func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId strin
 	return &object.String{Value: response.Content}
 }
 
-// makeLocalChatCompletion makes a direct HTTP call to the local server for AI completion
-// This is used by MCP tools running within the server context
-func makeLocalChatCompletion(ctx context.Context, req ChatCompletionRequest, userID string) (*ChatCompletionResponse, error) {
-	// Create JSON request body
-	jsonBody, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Create HTTP request to local server
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", "http://localhost:8080/api/chat/completion", bytes.NewReader(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Set headers
-	httpReq.Header.Set("Content-Type", "application/json")
-	if userID != "" {
-		httpReq.Header.Set("X-User-ID", userID)
-	}
-
-	// Make the request
-	client := &http.Client{}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("HTTP request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	// Parse response
-	var response ChatCompletionResponse
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return &response, nil
-}
-
 func aiCompletionMCP(ctx context.Context, openaiClient *openai.Client, kwargs map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) < 1 {
 		return &object.Error{Message: "completion() requires messages array"}
 	}
 
-	// Get messages from first argument
+	if openaiClient == nil {
+		return &object.Error{Message: "AI completion not available - OpenAI client not configured"}
+	}
+
 	messagesList, ok := args[0].(*object.List)
 	if !ok {
 		return &object.Error{Message: "completion() first argument must be a list of messages"}
 	}
 
-	// Convert to OpenAI message format
 	openaiMessages := make([]openai.Message, 0, len(messagesList.Elements))
 	for i, msgObj := range messagesList.Elements {
 		msgDict, ok := msgObj.(*object.Dict)
@@ -203,9 +149,7 @@ func aiCompletionMCP(ctx context.Context, openaiClient *openai.Client, kwargs ma
 			return &object.Error{Message: fmt.Sprintf("message %d must be a dict with 'role' and 'content' keys", i)}
 		}
 
-		// Extract role and content
-		role := ""
-		content := ""
+		role, content := "", ""
 		for _, pair := range msgDict.Pairs {
 			key := pair.Key.(*object.String).Value
 			if key == "role" {
@@ -219,22 +163,14 @@ func aiCompletionMCP(ctx context.Context, openaiClient *openai.Client, kwargs ma
 			}
 		}
 
-		if role == "" {
-			return &object.Error{Message: fmt.Sprintf("message %d missing 'role' key", i)}
-		}
-		if content == "" {
-			return &object.Error{Message: fmt.Sprintf("message %d missing 'content' key", i)}
+		if role == "" || content == "" {
+			return &object.Error{Message: fmt.Sprintf("message %d missing 'role' or 'content' key", i)}
 		}
 
 		openaiMessages = append(openaiMessages, openai.Message{
 			Role:    role,
 			Content: content,
 		})
-	}
-
-	// Check OpenAI client
-	if openaiClient == nil {
-		return &object.Error{Message: "AI completion not available - OpenAI client not configured"}
 	}
 
 	// Create independent context for AI completion to prevent script timeout from canceling AI operations
