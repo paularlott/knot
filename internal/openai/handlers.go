@@ -91,27 +91,17 @@ func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.Resp
 	streamWriter.WriteEnd()
 }
 
-// replaceSystemPrompt strips existing system messages and adds our system prompt
+// replaceSystemPrompt checks for existing system messages and injects system prompt only if none present
 func (s *Service) replaceSystemPrompt(messages []Message) []Message {
-	if s.systemPrompt == "" {
+	if s.systemPrompt == "" || (len(messages) > 0 && messages[0].Role == "system") {
 		return messages
 	}
 
-	// Filter out existing system messages
-	var filteredMessages []Message
-	for _, msg := range messages {
-		if msg.Role != "system" {
-			filteredMessages = append(filteredMessages, msg)
-		}
-	}
-
-	// Add our system prompt at the beginning
 	systemMessage := Message{Role: "system"}
 	systemMessage.SetContentAsString(s.systemPrompt)
 
-	result := make([]Message, 0, len(filteredMessages)+1)
+	result := make([]Message, 0, len(messages)+1)
 	result = append(result, systemMessage)
-	result = append(result, filteredMessages...)
-
+	result = append(result, messages...)
 	return result
 }

@@ -145,8 +145,11 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []openai.Message {
 	openAIMessages := make([]openai.Message, 0, len(messages)+1)
 
-	// Add system prompt (always first)
-	if s.config.SystemPrompt != "" {
+	// Check if first message is a system message
+	hasSystemMessage := len(messages) > 0 && messages[0].Role == "system"
+
+	// Add system prompt only if no system message is present
+	if !hasSystemMessage && s.config.SystemPrompt != "" {
 		systemMessage := openai.Message{
 			Role: "system",
 		}
@@ -154,17 +157,15 @@ func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []openai.Messa
 		openAIMessages = append(openAIMessages, systemMessage)
 	}
 
-	// Convert chat messages, skipping any existing system messages from history
+	// Convert all messages (including any system messages from input)
 	for _, msg := range messages {
-		if msg.Role != "system" {
-			openAIMessage := openai.Message{
-				Role:       msg.Role,
-				ToolCalls:  msg.ToolCalls,
-				ToolCallID: msg.ToolCallID,
-			}
-			openAIMessage.SetContentAsString(msg.Content)
-			openAIMessages = append(openAIMessages, openAIMessage)
+		openAIMessage := openai.Message{
+			Role:       msg.Role,
+			ToolCalls:  msg.ToolCalls,
+			ToolCallID: msg.ToolCallID,
 		}
+		openAIMessage.SetContentAsString(msg.Content)
+		openAIMessages = append(openAIMessages, openAIMessage)
 	}
 
 	return openAIMessages

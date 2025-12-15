@@ -31,6 +31,10 @@ Get an AI completion from a list of messages.
 **Returns:**
 - `string`: The AI's response content
 
+**System Messages:**
+- If you include a `system` role message in your messages, it will be used as the system prompt
+- If no `system` message is provided, the server's configured system prompt will be used automatically
+
 **Example:**
 ```python
 import ai
@@ -41,6 +45,14 @@ messages = [
 ]
 response = ai.completion(messages)
 print(response)  # "The capital of France is Paris."
+
+# With custom system prompt
+messages = [
+    {"role": "system", "content": "You are a helpful geography expert."},
+    {"role": "user", "content": "What is the capital of France?"}
+]
+response = ai.completion(messages)
+print(response)  # Uses your custom system prompt
 ```
 
 ## Implementation Details
