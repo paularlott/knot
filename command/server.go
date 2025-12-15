@@ -174,7 +174,7 @@ var ServerCmd = &cli.Command{
 			Usage:        "The default maximum script execution time in seconds.",
 			ConfigPath:   []string{"server.max_script_execution_time"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MAX_SCRIPT_EXECUTION_TIME"},
-			DefaultValue: 60,
+			DefaultValue: 120,
 		},
 		&cli.BoolFlag{
 			Name:         "disable-space-create",
@@ -796,9 +796,18 @@ var ServerCmd = &cli.Command{
 			}
 			openAIClient = chatService.GetOpenAIClient()
 
+			// Set OpenAI client for scriptling environments
+			service.SetOpenAIClient(openAIClient)
+
+			// Set chat service for MCP tools
+			if mcpServer != nil {
+				internal_mcp.SetChatService(chatService)
+			}
+
 			// API endpoint for chat
 			if chatEnabled {
 				routes.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
+				routes.HandleFunc("POST /api/chat/completion", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatCompletion)))
 			}
 		}
 
@@ -1088,25 +1097,25 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	}
 
 	serverCfg := &config.ServerConfig{
-		Listen:             cmd.GetString("listen"),
-		ListenAgent:        cmd.GetString("listen-agent"),
-		URL:                cmd.GetString("url"),
-		AgentEndpoint:      cmd.GetString("agent-endpoint"),
-		WildcardDomain:     cmd.GetString("wildcard-domain"),
-		HTMLPath:           cmd.GetString("html-path"),
-		TemplatePath:       cmd.GetString("template-path"),
-		AgentPath:          cmd.GetString("agent-path"),
-		PrivateFilesPath:   cmd.GetString("private-files-path"),
-		PublicFilesPath:    cmd.GetString("public-files-path"),
-		SkillsPath:         cmd.GetString("skills-path"),
-		DownloadPath:       cmd.GetString("download-path"),
-		DisableSpaceCreate: cmd.GetBool("disable-space-create"),
-		ListenTunnel:       cmd.GetString("listen-tunnel"),
-		TunnelDomain:       cmd.GetString("tunnel-domain"),
-		TunnelServer:       cmd.GetString("tunnel-server"),
-		TerminalWebGL:      cmd.GetBool("terminal-webgl"),
-		EncryptionKey:      cmd.GetString("encrypt"),
-		Zone:               zone,
+		Listen:                 cmd.GetString("listen"),
+		ListenAgent:            cmd.GetString("listen-agent"),
+		URL:                    cmd.GetString("url"),
+		AgentEndpoint:          cmd.GetString("agent-endpoint"),
+		WildcardDomain:         cmd.GetString("wildcard-domain"),
+		HTMLPath:               cmd.GetString("html-path"),
+		TemplatePath:           cmd.GetString("template-path"),
+		AgentPath:              cmd.GetString("agent-path"),
+		PrivateFilesPath:       cmd.GetString("private-files-path"),
+		PublicFilesPath:        cmd.GetString("public-files-path"),
+		SkillsPath:             cmd.GetString("skills-path"),
+		DownloadPath:           cmd.GetString("download-path"),
+		DisableSpaceCreate:     cmd.GetBool("disable-space-create"),
+		ListenTunnel:           cmd.GetString("listen-tunnel"),
+		TunnelDomain:           cmd.GetString("tunnel-domain"),
+		TunnelServer:           cmd.GetString("tunnel-server"),
+		TerminalWebGL:          cmd.GetBool("terminal-webgl"),
+		EncryptionKey:          cmd.GetString("encrypt"),
+		Zone:                   zone,
 		Timezone:               cmd.GetString("timezone"),
 		LeafNode:               cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
 		AuthIPRateLimiting:     cmd.GetBool("auth-ip-rate-limiting"),

@@ -3,6 +3,7 @@ package scripts
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -33,6 +34,8 @@ var runCmd = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("failed to create API client: %w", err)
 		}
+		// Set 5-minute timeout to support AI operations with tool calling
+		client.SetTimeout(5 * time.Minute)
 
 		space, err := client.GetSpaceByName(ctx, cmd.GetStringArg("space-name"))
 		if err != nil {

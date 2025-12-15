@@ -17,11 +17,14 @@ func ExecuteScriptInSpace(space *model.Space, script *model.Script, libraries ma
 func ExecuteScriptWithMCP(script *model.Script, libraries map[string]string, mcpParams map[string]string, user *model.User) (string, error) {
 	timeout := time.Duration(script.Timeout) * time.Second
 	if script.Timeout == 0 {
-		timeout = 60 * time.Second
+		timeout = 300 * time.Second // 5 minutes to allow for AI operations with tool calling
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
+	// Add user to context for MCP tools
+	ctx = context.WithValue(ctx, "user", user)
 
 	env, err := NewMCPScriptlingEnv(libraries, mcpParams, user)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
@@ -51,6 +52,8 @@ var RunScriptCmd = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("failed to create API client: %w", err)
 		}
+		// Set 5-minute timeout to support AI operations with tool calling
+		client.SetTimeout(5 * time.Minute)
 
 		libraries, err = client.GetScriptLibraries(ctx)
 		if err != nil {

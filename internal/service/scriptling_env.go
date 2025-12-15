@@ -3,17 +3,36 @@ package service
 import (
 	"context"
 	"os"
+	"sync"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/openai"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/extlibs"
 	"github.com/paularlott/scriptling/stdlib"
 )
 
+var (
+	openaiClient     *openai.Client
+	openaiClientOnce sync.Once
+)
+
+// SetOpenAIClient sets the global OpenAI client for scriptling environments
+func SetOpenAIClient(client *openai.Client) {
+	openaiClientOnce.Do(func() {
+		openaiClient = client
+	})
+}
+
+// GetOpenAIClient returns the global OpenAI client
+func GetOpenAIClient() *openai.Client {
+	return openaiClient
+}
+
 // NewLocalScriptlingEnv creates a scriptling environment for local execution on desktop/agent
-// Libraries: All database libraries, stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, spaces
+// Libraries: All database libraries, stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, spaces, ai
 // On-demand loading: Enabled for disk-based .py files
 func NewLocalScriptlingEnv(argv []string, libraries map[string]string, client *apiclient.ApiClient, userId string) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
@@ -33,6 +52,11 @@ func NewLocalScriptlingEnv(argv []string, libraries map[string]string, client *a
 		env.RegisterLibrary("spaces", knotscriptling.GetSpacesLibrary(client, userId))
 	}
 
+	if client != nil && userId != "" {
+		// Register AI library - uses API calls to the server
+		env.RegisterLibrary("ai", knotscriptling.GetAILibrary(client, userId))
+	}
+
 	env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
 		filename := libName + ".py"
 		content, err := os.ReadFile(filename)
@@ -47,7 +71,7 @@ func NewLocalScriptlingEnv(argv []string, libraries map[string]string, client *a
 }
 
 // NewMCPScriptlingEnv creates a scriptling environment for MCP tool execution
-// Libraries: All database libraries, MCP library, stdlib, requests, secrets, htmlparser, spaces
+// Libraries: All database libraries, MCP library, stdlib, requests, secrets, htmlparser, spaces, ai
 // On-demand loading: Disabled
 func NewMCPScriptlingEnv(libraries map[string]string, mcpParams map[string]string, user *model.User) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
@@ -63,11 +87,16 @@ func NewMCPScriptlingEnv(libraries map[string]string, mcpParams map[string]strin
 		env.RegisterLibrary("spaces", knotscriptling.GetSpacesMCPLibrary(user, GetSpaceService(), GetContainerService(), nil, ExecuteScriptInSpace))
 	}
 
+	if GetOpenAIClient() != nil && user != nil {
+		// For MCP, we use the special MCP library that calls through MCP server
+		env.RegisterLibrary("ai", knotscriptling.GetAIMCPLibrary(GetOpenAIClient()))
+	}
+
 	return env, nil
 }
 
 // NewRemoteScriptlingEnv creates a scriptling environment for remote execution in spaces
-// Libraries: All database libraries, stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, spaces
+// Libraries: All database libraries, stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, spaces, ai
 // On-demand loading: Disabled
 func NewRemoteScriptlingEnv(argv []string, libraries map[string]string, client *apiclient.ApiClient, userId string) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
@@ -85,6 +114,11 @@ func NewRemoteScriptlingEnv(argv []string, libraries map[string]string, client *
 
 	if client != nil && userId != "" {
 		env.RegisterLibrary("spaces", knotscriptling.GetSpacesLibrary(client, userId))
+	}
+
+	if client != nil && userId != "" {
+		// Register AI library - uses API calls to the server
+		env.RegisterLibrary("ai", knotscriptling.GetAILibrary(client, userId))
 	}
 
 	extlibs.RegisterSysLibrary(env, argv)
