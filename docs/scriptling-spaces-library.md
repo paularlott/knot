@@ -2,6 +2,22 @@
 
 The `spaces` library provides functions to manage development spaces programmatically from within scriptling scripts. This library is available in all three scriptling execution environments (Local, MCP, and Remote), with the implementation automatically adapting to the environment.
 
+## Available Functions
+
+- `start(name)` - Start a space
+- `stop(name)` - Stop a space
+- `restart(name)` - Restart a space
+- `is_running(name)` - Check if a space is running
+- `list()` - List all spaces
+- `create(name, template_name, description='', shell='bash')` - Create a new space
+- `delete(name)` - Delete a space
+- `get_field(name, field)` - Get a custom field value
+- `set_field(name, field, value)` - Set a custom field value
+- `get_description(name)` - Get space description
+- `set_description(name, description)` - Set space description
+- `run_script(space_name, script_name, *args)` - Execute a script in a space
+- `run(space_name, command, args=[], timeout=30, workdir='')` - Execute a command in a space
+
 ## Availability
 
 | Environment | Available | Implementation |
@@ -370,3 +386,70 @@ Operations will fail with permission errors if the user lacks the required permi
 - The `is_running()` function checks the `IsDeployed` status of the space
 - In Local and Remote environments, operations use the API client and require valid authentication
 - In MCP environment, operations use internal services directly for better performance
+
+
+---
+
+### run_script(space_name, script_name, *args)
+
+Execute a script in a space.
+
+**Parameters:**
+- `space_name` (string): The name of the space
+- `script_name` (string): The name of the script to execute
+- `*args` (strings, optional): Additional arguments to pass to the script
+
+**Returns:**
+- String containing the script output
+- Raises error if space or script not found, or execution fails
+
+**Example:**
+```python
+import spaces
+
+# Execute script without arguments
+output = spaces.run_script("my-dev-space", "deploy-script")
+print(output)
+
+# Execute script with arguments
+output = spaces.run_script("my-dev-space", "build-script", "production", "v1.2.3")
+print(output)
+```
+
+---
+
+### run(space_name, command, args=[], timeout=30, workdir='')
+
+Execute a command in a space.
+
+**Parameters:**
+- `space_name` (string): The name of the space
+- `command` (string): The command to execute
+- `args` (list, optional): List of command arguments (default: [])
+- `timeout` (int, optional): Timeout in seconds (default: 30)
+- `workdir` (string, optional): Working directory for command execution (default: '')
+
+**Returns:**
+- String containing the command output
+- Raises error if space not found, command fails, or execution times out
+
+**Example:**
+```python
+import spaces
+
+# Simple command
+output = spaces.run("my-dev-space", "ls", args=["-la", "/home"])
+print(output)
+
+# Command with timeout and workdir
+output = spaces.run(
+    "my-dev-space",
+    "npm",
+    args=["install"],
+    timeout=120,
+    workdir="/app"
+)
+print(output)
+```
+
+---

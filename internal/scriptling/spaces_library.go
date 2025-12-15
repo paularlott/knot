@@ -77,17 +77,17 @@ func GetSpacesLibrary(client *apiclient.ApiClient, userId string) *object.Librar
 			},
 			HelpText: "list() - List all spaces for the current user",
 		},
-		"exec_script": {
+		"run_script": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
 				return spaceExecScript(ctx, client, userId, args...)
 			},
-			HelpText: "exec_script(space_name, script_name, *args) - Execute a script in a space",
+			HelpText: "run_script(space_name, script_name, *args) - Execute a script in a space",
 		},
-		"exec_command": {
+		"run": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
 				return spaceExecCommand(ctx, client, userId, kwargs, args...)
 			},
-			HelpText: "exec_command(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space",
+			HelpText: "run(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space",
 		},
 	}
 
@@ -372,7 +372,7 @@ func spaceList(ctx context.Context, client *apiclient.ApiClient, userId string, 
 
 func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
 	if len(args) < 2 {
-		return &object.Error{Message: "exec_script() requires space name and script name"}
+		return &object.Error{Message: "run_script() requires space name and script name"}
 	}
 
 	spaceName := args[0].(*object.String).Value
@@ -403,7 +403,7 @@ func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId st
 
 func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) < 2 {
-		return &object.Error{Message: "exec_command() requires space name and command"}
+		return &object.Error{Message: "run() requires space name and command"}
 	}
 
 	spaceName := args[0].(*object.String).Value

@@ -110,20 +110,17 @@ func GetSpacesMCPLibrary(
 			},
 			HelpText: "list() - List all spaces for the current user",
 		},
-		"exec_script": {
+		"run_script": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
 				return spaceMCPExecScript(ctx, user, executeScriptInSpace, args...)
 			},
-			HelpText: "exec_script(space_name, script_name, *args) - Execute a script in a space",
+			HelpText: "run_script(space_name, script_name, *args) - Execute a script in a space",
 		},
-		"exec_command": {
+		"run": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				if getAgentSession == nil {
-					return &object.Error{Message: "exec_command not available in this environment"}
-				}
 				return spaceMCPExecCommand(ctx, user, getAgentSession, kwargs, args...)
 			},
-			HelpText: "exec_command(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space",
+			HelpText: "run(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space",
 		},
 	}
 
@@ -424,7 +421,7 @@ func spaceMCPList(ctx context.Context, user *model.User, args ...object.Object) 
 
 func spaceMCPExecScript(ctx context.Context, user *model.User, executeScriptInSpace func(*model.Space, *model.Script, map[string]string, []string) (string, error), args ...object.Object) object.Object {
 	if len(args) < 2 {
-		return &object.Error{Message: "exec_script() requires space name and script name"}
+		return &object.Error{Message: "run_script() requires space name and script name"}
 	}
 
 	spaceName := args[0].(*object.String).Value
@@ -485,7 +482,7 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, executeScriptInSp
 
 func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, kwargs map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) < 2 {
-		return &object.Error{Message: "exec_command() requires space name and command"}
+		return &object.Error{Message: "run() requires space name and command"}
 	}
 
 	spaceName := args[0].(*object.String).Value
@@ -544,9 +541,12 @@ func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession 
 		workdir = workdirObj.(*object.String).Value
 	}
 
-	session := getAgentSession(spaceId)
+	var session AgentSession
+	if getAgentSession != nil {
+		session = getAgentSession(spaceId)
+	}
 	if session == nil {
-		return &object.Error{Message: "agent session not found for space"}
+		return &object.Error{Message: "space is not running or agent session not available"}
 	}
 
 	runCmd := &msg.RunCommandMessage{
