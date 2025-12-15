@@ -51,6 +51,46 @@ paths:
                 $ref: 'knot-openapi.yaml#/components/schemas/error'
       security: [BearerAuth: []]
 
+  /api/chat/completion:
+    post:
+      tags:
+        - Chat
+      summary: Chat Completion
+      description: Get a complete chat completion response from an AI assistant in a single request (non-streaming).
+      operationId: chatCompletion
+      parameters:
+        - name: X-Knot-Api-Version
+          in: header
+          required: false
+          schema:
+            type: string
+            default: "2025-03-10"
+          description: API version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Successful completion response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionResponse'
+        '400':
+          $ref: 'knot-openapi.yaml#/components/responses/bad-request'
+        '401':
+          $ref: 'knot-openapi.yaml#/components/responses/unauthorized'
+        '503':
+          description: Chat service not configured
+          content:
+            application/json:
+              schema:
+                $ref: 'knot-openapi.yaml#/components/schemas/error'
+      security: [BearerAuth: []]
+
 components:
   schemas:
     ChatRequest:
@@ -90,6 +130,15 @@ components:
         - role
         - content
         - timestamp
+
+    ChatCompletionResponse:
+      type: object
+      properties:
+        content:
+          type: string
+          description: The complete AI response content
+      required:
+        - content
 
     ToolCall:
       type: object

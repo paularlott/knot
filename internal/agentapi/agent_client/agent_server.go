@@ -225,7 +225,7 @@ func (s *agentServer) ConnectAndServe() {
 				KeepAliveInterval:      30 * time.Second,
 				ConnectionWriteTimeout: 2 * time.Second,
 				MaxStreamWindowSize:    256 * 1024,
-				StreamCloseTimeout:     3 * time.Minute,
+				StreamCloseTimeout:     6 * time.Minute,
 				StreamOpenTimeout:      3 * time.Second,
 				LogOutput:              io.Discard,
 				//Logger:                 logger.NewMuxLogger(),

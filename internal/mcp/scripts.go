@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
+	"github.com/paularlott/knot/internal/chat"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
@@ -12,6 +15,18 @@ import (
 	"github.com/paularlott/mcp"
 	"github.com/paularlott/mcp/discovery"
 )
+
+var chatService *chat.Service
+
+// SetChatService sets the global chat service for MCP tools
+func SetChatService(cs *chat.Service) {
+	chatService = cs
+}
+
+// getChatService returns the global chat service
+func getChatService() *chat.Service {
+	return chatService
+}
 
 // registerScriptTools registers all script-based tools for a user
 func registerScriptTools(registry *discovery.ToolRegistry, user *model.User) {
@@ -83,6 +98,35 @@ func executeScriptTool(script *model.Script) mcp.ToolHandler {
 		result, err := executeScriptWithEnv(script, mcpParams, user)
 		if err != nil {
 			return mcp.NewToolResponseText(fmt.Sprintf("Error: %s", err.Error())), nil
+		}
+
+		// Check if the result contains an AI completion request
+		if strings.HasPrefix(result, "__AI_COMPLETION_REQUEST__:") {
+			// Extract the messages
+			messagesJSON := strings.TrimPrefix(result, "__AI_COMPLETION_REQUEST__:")
+			var messages []map[string]string
+			if err := json.Unmarshal([]byte(messagesJSON), &messages); err == nil {
+				// Try to get chat service and complete the request
+				if chatService := getChatService(); chatService != nil {
+					// Convert to chat message format
+					chatMessages := make([]chat.ChatMessage, 0, len(messages))
+					for _, msg := range messages {
+						chatMessages = append(chatMessages, chat.ChatMessage{
+							Role:      msg["role"],
+							Content:   msg["content"],
+							Timestamp: time.Now().Unix(),
+						})
+					}
+
+					// Get completion
+					response, err := chatService.ChatCompletion(ctx, chatMessages, user)
+					if err != nil {
+						return mcp.NewToolResponseText(fmt.Sprintf("AI completion failed: %s", err.Error())), nil
+					}
+					return mcp.NewToolResponseText(response.Content), nil
+				}
+			}
+			return mcp.NewToolResponseText("AI completion not available in MCP environment"), nil
 		}
 
 		return mcp.NewToolResponseText(result), nil

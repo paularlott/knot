@@ -1,6 +1,8 @@
 package agent_server
 
 import (
+	"time"
+
 	"github.com/paularlott/knot/internal/agentapi/msg"
 )
 
@@ -37,7 +39,7 @@ func (s *Session) SendExecuteScript(execMsg *msg.ExecuteScriptMessage) (chan *ms
 		}
 
 		var response msg.ExecuteScriptResponse
-		err = msg.ReadMessage(conn, &response)
+		err = msg.ReadMessageWithTimeout(conn, &response, 6*time.Minute)
 		if err != nil {
 			s.logger.WithError(err).Error("reading execute script response:")
 			responseChannel <- &msg.ExecuteScriptResponse{

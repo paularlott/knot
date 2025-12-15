@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -203,6 +204,104 @@ func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
 	s.streamChat(r.Context(), req.Messages, user, w, r)
 }
 
+// ChatCompletion performs a non-streaming chat completion
+func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, user *model.User) (*ChatCompletionResponse, error) {
+	logger := log.WithGroup("chat")
+
+	if len(messages) == 0 {
+		logger.Warn("No messages provided", "user_id", user.Id)
+		return &ChatCompletionResponse{
+			Content: "",
+		}, nil
+	}
+
+	// Convert messages to OpenAI format
+	openAIMessages := s.convertMessagesToOpenAI(messages)
+
+	// Create request
+	req := openai.ChatCompletionRequest{
+		Model:           s.config.Model,
+		Messages:        openAIMessages,
+		MaxTokens:       s.config.MaxTokens,
+		Temperature:     s.config.Temperature,
+		ReasoningEffort: s.config.ReasoningEffort,
+	}
+
+	logger.Debug("Starting chat completion with tools", "user_id", user.Id, "model", s.config.Model)
+
+	// Add user to context for MCP server
+	chatCtx := context.WithValue(ctx, "user", user)
+
+	// Use the OpenAI client's non-streaming completion
+	response, err := s.openaiClient.ChatCompletion(chatCtx, req)
+	if err != nil {
+		logger.Error("Chat completion failed", "error", err, "user_id", user.Id)
+		return nil, err
+	}
+
+	// Extract content
+	content := ""
+	if len(response.Choices) > 0 {
+		content = response.Choices[0].Message.GetContentAsString()
+	}
+
+	// Strip think tags for consistency with streaming
+	content = stripThinkTags(content)
+
+	return &ChatCompletionResponse{
+		Content: content,
+	}, nil
+}
+
+// ChatCompletionResponse represents the response from non-streaming chat completion
+type ChatCompletionResponse struct {
+	Content string `json:"content"`
+}
+
+// HandleChatCompletion handles non-streaming chat completion requests
+func (s *Service) HandleChatCompletion(w http.ResponseWriter, r *http.Request) {
+	logger := log.WithGroup("chat")
+
+	user := r.Context().Value("user").(*model.User)
+	if user == nil {
+		logger.Error("User not found in context")
+		rest.WriteResponse(http.StatusUnauthorized, w, r, map[string]string{
+			"error": "User not found",
+		})
+		return
+	}
+
+	var req ChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.WithError(err).Error("Failed to decode request body")
+		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
+			"error": "Invalid request body",
+		})
+		return
+	}
+
+	if len(req.Messages) == 0 {
+		logger.Error("No messages provided in request")
+		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
+			"error": "No messages provided",
+		})
+		return
+	}
+
+	logger.Debug("Starting chat completion", "user_id", user.Id, "message_count", len(req.Messages))
+
+	response, err := s.ChatCompletion(r.Context(), req.Messages, user)
+	if err != nil {
+		logger.Error("Chat completion failed", "error", err, "user_id", user.Id)
+		rest.WriteResponse(http.StatusInternalServerError, w, r, map[string]string{
+			"error": s.formatUserFriendlyError(err),
+		})
+		return
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, response)
+}
+
 // formatUserFriendlyError converts technical errors to user-friendly messages
 func (s *Service) formatUserFriendlyError(err error) string {
 	if err == nil {
@@ -315,4 +414,11 @@ func (s *Service) handleDoneStream(streamState *streamState, sseWriter *rest.Str
 		Type: "done",
 		Data: nil,
 	})
+}
+
+// stripThinkTags removes </think>...</think> tags from content to prevent LLM template errors
+func stripThinkTags(content string) string {
+	// Use regex to remove think tags and their content
+	re := regexp.MustCompile(`</think>[\s\S]*?</think>`)
+	return strings.TrimSpace(re.ReplaceAllString(content, ""))
 }

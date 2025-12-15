@@ -24,7 +24,7 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 
 	timeout := time.Duration(execMsg.Timeout) * time.Second
 	if timeout <= 0 {
-		timeout = 60 * time.Second
+		timeout = 120 * time.Second
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -38,6 +38,7 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 		if err == nil {
 			client, err = apiclient.NewClient(server, token, true)
 			if err == nil {
+				client.SetTimeout(6 * time.Minute)
 				user, err := client.WhoAmI(ctx)
 				if err == nil {
 					userId = user.Id
