@@ -808,6 +808,13 @@ var ServerCmd = &cli.Command{
 			if chatEnabled {
 				routes.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
 				routes.HandleFunc("POST /api/chat/completion", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatCompletion)))
+
+				// Register chat tool endpoints if MCP server is available
+				if mcpServer != nil {
+					// Apply MCP server context middleware
+					routes.Handle("GET /api/chat/tools", middleware.MCPServerContext(mcpServer)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(api.HandleListTools))))
+					routes.Handle("POST /api/chat/tools/call", middleware.MCPServerContext(mcpServer)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(api.HandleCallTool))))
+				}
 			}
 		}
 

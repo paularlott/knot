@@ -28,6 +28,24 @@ type ChatCompletionResponse struct {
 	Content string `json:"content"`
 }
 
+// Tool represents a tool and its parameters
+type Tool struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Parameters  map[string]interface{} `json:"parameters"`
+}
+
+// ToolCallRequest represents a tool call request
+type ToolCallRequest struct {
+	Name      string                 `json:"name"`
+	Arguments map[string]interface{} `json:"arguments"`
+}
+
+// ToolCallResponse represents a tool call response
+type ToolCallResponse struct {
+	Content interface{} `json:"content"`
+}
+
 // GetAILibrary returns the AI helper library for scriptling (local/remote environments)
 func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
 	functions := map[string]*object.Builtin{
@@ -36,6 +54,18 @@ func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
 				return aiCompletion(ctx, client, userId, kwargs, args...)
 			},
 			HelpText: "completion(messages) - Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys.",
+		},
+		"list_tools": {
+			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+				return aiListTools(ctx, client, kwargs, args...)
+			},
+			HelpText: "list_tools() - Get list of available tools and their parameters.",
+		},
+		"call_tool": {
+			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+				return aiCallTool(ctx, client, kwargs, args...)
+			},
+			HelpText: "call_tool(name, arguments) - Call a tool directly without AI. Arguments should be a dict.",
 		},
 	}
 
@@ -50,6 +80,18 @@ func GetAIMCPLibrary(openaiClient *openai.Client) *object.Library {
 				return aiCompletionMCP(ctx, openaiClient, kwargs, args...)
 			},
 			HelpText: "completion(messages) - Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys.",
+		},
+		"list_tools": {
+			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+				return aiListToolsMCP(ctx, openaiClient, kwargs, args...)
+			},
+			HelpText: "list_tools() - Get list of available MCP tools and their parameters.",
+		},
+		"call_tool": {
+			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+				return aiCallToolMCP(ctx, openaiClient, kwargs, args...)
+			},
+			HelpText: "call_tool(name, arguments) - Call an MCP tool directly without AI. Arguments should be a dict.",
 		},
 	}
 
@@ -203,4 +245,257 @@ func aiCompletionMCP(ctx context.Context, openaiClient *openai.Client, kwargs ma
 
 	content := response.Choices[0].Message.GetContentAsString()
 	return &object.String{Value: content}
+}
+
+// aiListTools fetches available tools via API for local/remote environments
+func aiListTools(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
+	if client == nil {
+		return &object.Error{Message: "AI tools not available - API client not configured"}
+	}
+
+	// Create independent context for tool listing to prevent script timeout
+	aiCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Call API to get tools
+	var tools []Tool
+	_, err := client.Do(aiCtx, "GET", "api/chat/tools", nil, &tools)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to list tools: %v", err)
+		return &object.Error{Message: errMsg}
+	}
+
+	// Convert to scriptling objects
+	toolList := make([]object.Object, 0, len(tools))
+	for _, tool := range tools {
+		toolDict := &object.Dict{
+			Pairs: map[string]object.DictPair{
+				"name": {
+					Key:   &object.String{Value: "name"},
+					Value: &object.String{Value: tool.Name},
+				},
+				"description": {
+					Key:   &object.String{Value: "description"},
+					Value: &object.String{Value: tool.Description},
+				},
+				"parameters": {
+					Key:   &object.String{Value: "parameters"},
+					Value: convertToScriptlingObject(tool.Parameters),
+				},
+			},
+		}
+		toolList = append(toolList, toolDict)
+	}
+
+	return &object.List{Elements: toolList}
+}
+
+// aiCallTool calls a tool via API for local/remote environments
+func aiCallTool(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
+	if len(args) < 2 {
+		return &object.Error{Message: "call_tool() requires tool name and arguments"}
+	}
+
+	if client == nil {
+		return &object.Error{Message: "AI tools not available - API client not configured"}
+	}
+
+	// Get tool name
+	toolNameStr, ok := args[0].(*object.String)
+	if !ok {
+		return &object.Error{Message: "call_tool() first argument must be a string (tool name)"}
+	}
+	toolName := toolNameStr.Value
+
+	// Get arguments
+	argsDict, ok := args[1].(*object.Dict)
+	if !ok {
+		return &object.Error{Message: "call_tool() second argument must be a dict (arguments)"}
+	}
+
+	// Convert arguments to map
+	arguments := make(map[string]interface{})
+	for _, pair := range argsDict.Pairs {
+		key := pair.Key.(*object.String).Value
+		arguments[key] = convertFromScriptlingObject(pair.Value)
+	}
+
+	// Create request
+	req := ToolCallRequest{
+		Name:      toolName,
+		Arguments: arguments,
+	}
+
+	// Create independent context for tool call to prevent script timeout
+	aiCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	// Call API to execute tool
+	var response ToolCallResponse
+	_, err := client.Do(aiCtx, "POST", "api/chat/tools/call", req, &response)
+	if err != nil {
+		errMsg := fmt.Sprintf("Tool call failed: %v", err)
+		return &object.Error{Message: errMsg}
+	}
+
+	return convertToScriptlingObject(response.Content)
+}
+
+// aiListToolsMCP fetches available tools directly from MCP server
+func aiListToolsMCP(ctx context.Context, openaiClient *openai.Client, kwargs map[string]object.Object, args ...object.Object) object.Object {
+	if openaiClient == nil {
+		return &object.Error{Message: "AI tools not available - OpenAI client not configured"}
+	}
+
+	// Create independent context for tool listing
+	aiCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Copy user from original context if it exists
+	if user := ctx.Value("user"); user != nil {
+		aiCtx = context.WithValue(aiCtx, "user", user)
+	}
+
+	// Get tools from MCP server
+	mcpTools := openaiClient.GetMCPServer().ListTools()
+
+	// Convert to scriptling objects
+	toolList := make([]object.Object, 0, len(mcpTools))
+	for _, tool := range mcpTools {
+		toolDict := &object.Dict{
+			Pairs: map[string]object.DictPair{
+				"name": {
+					Key:   &object.String{Value: "name"},
+					Value: &object.String{Value: tool.Name},
+				},
+				"description": {
+					Key:   &object.String{Value: "description"},
+					Value: &object.String{Value: tool.Description},
+				},
+				"parameters": {
+					Key:   &object.String{Value: "parameters"},
+					Value: convertToScriptlingObject(tool.InputSchema),
+				},
+			},
+		}
+		toolList = append(toolList, toolDict)
+	}
+
+	return &object.List{Elements: toolList}
+}
+
+// aiCallToolMCP calls a tool directly on MCP server
+func aiCallToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs map[string]object.Object, args ...object.Object) object.Object {
+	if len(args) < 2 {
+		return &object.Error{Message: "call_tool() requires tool name and arguments"}
+	}
+
+	if openaiClient == nil {
+		return &object.Error{Message: "AI tools not available - OpenAI client not configured"}
+	}
+
+	// Get tool name
+	toolNameStr, ok := args[0].(*object.String)
+	if !ok {
+		return &object.Error{Message: "call_tool() first argument must be a string (tool name)"}
+	}
+	toolName := toolNameStr.Value
+
+	// Get arguments
+	argsDict, ok := args[1].(*object.Dict)
+	if !ok {
+		return &object.Error{Message: "call_tool() second argument must be a dict (arguments)"}
+	}
+
+	// Convert arguments to map
+	arguments := make(map[string]any)
+	for _, pair := range argsDict.Pairs {
+		key := pair.Key.(*object.String).Value
+		arguments[key] = convertFromScriptlingObject(pair.Value)
+	}
+
+	// Create independent context for tool call
+	aiCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	// Copy user from original context if it exists
+	if user := ctx.Value("user"); user != nil {
+		aiCtx = context.WithValue(aiCtx, "user", user)
+	}
+
+	// Call tool on MCP server
+	response, err := openaiClient.GetMCPServer().CallTool(aiCtx, toolName, arguments)
+	if err != nil {
+		errMsg := fmt.Sprintf("Tool call failed: %v", err)
+		return &object.Error{Message: errMsg}
+	}
+
+	return convertToScriptlingObject(response.Content)
+}
+
+// Helper functions to convert between scriptling objects and Go types
+
+func convertToScriptlingObject(v interface{}) object.Object {
+	switch val := v.(type) {
+	case string:
+		return &object.String{Value: val}
+	case int:
+		return &object.Integer{Value: int64(val)}
+	case int64:
+		return &object.Integer{Value: val}
+	case float64:
+		return &object.Float{Value: val}
+	case bool:
+		return &object.Boolean{Value: val}
+	case map[string]interface{}:
+		pairs := make(map[string]object.DictPair, len(val))
+		for k, v := range val {
+			pairs[k] = object.DictPair{
+				Key:   &object.String{Value: k},
+				Value: convertToScriptlingObject(v),
+			}
+		}
+		return &object.Dict{Pairs: pairs}
+	case []interface{}:
+		elements := make([]object.Object, 0, len(val))
+		for _, v := range val {
+			elements = append(elements, convertToScriptlingObject(v))
+		}
+		return &object.List{Elements: elements}
+	case nil:
+		return &object.Null{}
+	default:
+		// For other types, convert to string representation
+		return &object.String{Value: fmt.Sprintf("%v", val)}
+	}
+}
+
+func convertFromScriptlingObject(obj object.Object) interface{} {
+	switch o := obj.(type) {
+	case *object.String:
+		return o.Value
+	case *object.Integer:
+		return o.Value
+	case *object.Float:
+		return o.Value
+	case *object.Boolean:
+		return o.Value
+	case *object.Null:
+		return nil
+	case *object.Dict:
+		result := make(map[string]interface{})
+		for _, pair := range o.Pairs {
+			key := pair.Key.(*object.String).Value
+			result[key] = convertFromScriptlingObject(pair.Value)
+		}
+		return result
+	case *object.List:
+		result := make([]interface{}, 0, len(o.Elements))
+		for _, elem := range o.Elements {
+			result = append(result, convertFromScriptlingObject(elem))
+		}
+		return result
+	default:
+		return nil
+	}
 }

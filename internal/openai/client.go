@@ -418,4 +418,9 @@ func (c *Client) processStreamChunk(response *ChatCompletionResponse, toolAccumu
 	return false, nil
 }
 
+// GetMCPServer returns the MCP server instance
+func (c *Client) GetMCPServer() MCPServer {
+	return c.mcpServer
+}
+
 

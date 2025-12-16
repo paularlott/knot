@@ -91,6 +91,80 @@ paths:
                 $ref: 'knot-openapi.yaml#/components/schemas/error'
       security: [BearerAuth: []]
 
+  /api/chat/tools:
+    get:
+      tags:
+        - Chat
+      summary: List Available Tools
+      description: Get a list of all available MCP tools and their parameters.
+      operationId: listTools
+      parameters:
+        - name: X-Knot-Api-Version
+          in: header
+          required: false
+          schema:
+            type: string
+            default: "2025-03-10"
+          description: API version
+      responses:
+        '200':
+          description: Successful response with tool list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tool'
+        '401':
+          $ref: 'knot-openapi.yaml#/components/responses/unauthorized'
+        '500':
+          description: MCP server not available
+          content:
+            application/json:
+              schema:
+                $ref: 'knot-openapi.yaml#/components/schemas/error'
+      security: [BearerAuth: []]
+
+  /api/chat/tools/call:
+    post:
+      tags:
+        - Chat
+      summary: Call Tool Directly
+      description: Execute a tool directly without AI intervention.
+      operationId: callTool
+      parameters:
+        - name: X-Knot-Api-Version
+          in: header
+          required: false
+          schema:
+            type: string
+            default: "2025-03-10"
+          description: API version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolCallRequest'
+      responses:
+        '200':
+          description: Successful tool execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolCallResponse'
+        '400':
+          $ref: 'knot-openapi.yaml#/components/responses/bad-request'
+        '401':
+          $ref: 'knot-openapi.yaml#/components/responses/unauthorized'
+        '500':
+          description: Tool execution failed
+          content:
+            application/json:
+              schema:
+                $ref: 'knot-openapi.yaml#/components/schemas/error'
+      security: [BearerAuth: []]
+
 components:
   schemas:
     ChatRequest:
@@ -172,3 +246,48 @@ components:
           description: Arguments to pass to the function
       required:
         - name
+
+    Tool:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the tool
+        description:
+          type: string
+          description: Description of what the tool does
+        parameters:
+          type: object
+          additionalProperties: true
+          description: JSON Schema describing the tool's parameters
+      required:
+        - name
+        - description
+        - parameters
+
+    ToolCallRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the tool to call
+        arguments:
+          type: object
+          additionalProperties: true
+          description: Arguments to pass to the tool
+      required:
+        - name
+
+    ToolCallResponse:
+      type: object
+      properties:
+        content:
+          description: The result content from the tool call
+          oneOf:
+            - type: string
+            - type: object
+            - type: array
+            - type: number
+            - type: boolean
+      required:
+        - content
