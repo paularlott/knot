@@ -337,7 +337,7 @@ func (s *DNSServer) Start() error {
 
 	// Start UDP server
 	go func() {
-		s.logger.Info("Starting DNS server on (UDP)", s.config.ListenAddr)
+		s.logger.Info("Starting DNS server on (UDP)", "address", s.config.ListenAddr)
 		if err := s.udpServer.ListenAndServe(); err != nil {
 			s.logger.WithError(err).Error("UDP server failed")
 		}
@@ -345,7 +345,7 @@ func (s *DNSServer) Start() error {
 
 	// Start TCP server
 	go func() {
-		s.logger.Info("Starting DNS server on (TCP)", s.config.ListenAddr)
+		s.logger.Info("Starting DNS server on (TCP)", "address", s.config.ListenAddr)
 		if err := s.tcpServer.ListenAndServe(); err != nil {
 			s.logger.WithError(err).Error("TCP server failed")
 		}

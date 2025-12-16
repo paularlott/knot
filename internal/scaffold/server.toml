@@ -52,6 +52,27 @@ db = 0
 addr = "http://127.0.0.1:4646"
 token = ""
 
+# MCP (Model Context Protocol) server
+[server.mcp]
+enabled = false
+
+# Remote MCP servers (optional)
+# Uncomment and configure to connect to external MCP servers
+# [[server.mcp.remote_servers]]
+#   namespace = "ai"
+#   url = "https://ai.example.com/mcp"
+#   token = "your-bearer-token"
+#
+# [[server.mcp.remote_servers]]
+#   namespace = "data"
+#   url = "https://data.example.com/mcp"
+#   token = "your-data-service-bearer-token"
+#
+# [[server.mcp.remote_servers]]
+#   namespace = "deploy"
+#   url = "https://deploy.example.com/mcp"
+#   token = "your-deployment-service-bearer-token"
+
 # [server.cluster]
 # advertise_addr = "https://knot.example.com/"
 # key = "VF9hmdXZyzNF3rcP6M0P" # knot genkey

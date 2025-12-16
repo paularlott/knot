@@ -129,8 +129,15 @@ type NomadConfig struct {
 	Token string
 }
 
+type MCPRemoteServerConfig struct {
+	Namespace string `toml:"namespace"`
+	URL       string `toml:"url"`
+	Token     string `toml:"token"`
+}
+
 type MCPConfig struct {
-	Enabled bool
+	Enabled        bool                     `toml:"enabled"`
+	RemoteServers  []MCPRemoteServerConfig  `toml:"remote_servers"`
 }
 
 type ChatConfig struct {

@@ -1,29 +1,51 @@
 # Scriptling AI Library
 
-The AI library provides scriptling scripts with access to AI completion functionality through the server's chat API. It works seamlessly across local, remote, and MCP environments.
+The `ai` library provides AI completion functionality with access to MCP tools for scriptling scripts. This library is available in all three scriptling execution environments (Local, MCP, and Remote), with the implementation automatically adapting to the environment.
+
+## Available Functions
+
+- `completion(messages)` - Get an AI completion from a list of messages
+- `list_tools()` - Get a list of all available MCP tools and their parameters
+- `call_tool(name, arguments)` - Call a tool directly without AI intervention
 
 ## Availability
 
-The AI library is available in all scriptling environments when the server has AI chat enabled (when OpenAI API credentials are configured).
+| Environment | Available | Implementation |
+|-------------|-----------|----------------|
+| Local       | ✓         | API Client     |
+| MCP         | ✓         | Direct MCP     |
+| Remote      | ✓         | API Client     |
 
-- **Local scripts**: Available when run via agents or desktop CLI - uses REST API
-- **Remote scripts**: Available when run in spaces - uses REST API
-- **MCP scripts**: Available when run as MCP tools - uses MCP server directly
+## Usage
 
-## API Endpoints
+```python
+import ai
 
-The server provides the following chat-related endpoints:
+# Get all available tools
+tools = ai.list_tools()
+for tool in tools:
+    print(f"Tool: {tool['name']} - {tool['description']}")
 
-- `/api/chat/stream` - Streaming chat completion (used by web UI and agent chat command)
-- `/api/chat/completion` - Non-streaming chat completion with automatic tool calling (used by scriptling AI library)
-- `/api/chat/tools` - Lists available MCP tools (used by `ai.list_tools()`)
-- `/api/chat/tools/call` - Executes a tool directly (used by `ai.call_tool()` - advanced usage)
+# Use AI completion with automatic tool usage
+messages = [
+    {"role": "user", "content": "What spaces do I have and what's their status?"}
+]
+response = ai.completion(messages)
+print(response)
+
+# Call a tool directly
+response = ai.call_tool("execute_tool", {
+    "name": "list_spaces",
+    "arguments": {}
+})
+print(response)
+```
 
 ## Functions
 
-### `ai.completion(messages)`
+### completion(messages)
 
-Get an AI completion from a list of messages.
+Get an AI completion from a list of messages. The AI will automatically have access to all MCP tools and can use them during the conversation.
 
 **Parameters:**
 - `messages` (list): List of message objects, each containing:
@@ -33,15 +55,50 @@ Get an AI completion from a list of messages.
 **Returns:**
 - `string`: The AI's response content
 
-### `ai.list_tools()`
+**System Messages:**
+- If you include a `system` role message in your messages, it will be used as the system prompt
+- If no `system` message is provided, the server's configured system prompt will be used automatically
 
-Get a list of all available MCP tools and their parameters.
+**Example:**
+```python
+import ai
+
+# Simple completion
+messages = [
+    {"role": "user", "content": "What is the capital of France?"}
+]
+response = ai.completion(messages)
+print(response)  # "The capital of France is Paris."
+
+# With custom system prompt
+messages = [
+    {"role": "system", "content": "You are a helpful geography expert."},
+    {"role": "user", "content": "What is the capital of France?"}
+]
+response = ai.completion(messages)
+print(response)  # Uses your custom system prompt
+
+# Example with automatic tool usage
+messages = [
+    {"role": "user", "content": "Check what spaces I have and start any that are stopped"}
+]
+response = ai.completion(messages)
+print(response)
+# AI might respond: "I found 3 spaces. 'dev-space' was stopped so I started it for you.
+# The other two ('web-space' and 'test-space') are already running."
+```
+
+---
+
+### list_tools()
+
+Get a list of all available MCP tools and their parameters, including tools from remote MCP servers if configured.
 
 **Parameters:** None
 
 **Returns:**
 - `list`: List of tool objects, each containing:
-  - `name` (string): The tool's name
+  - `name` (string): The tool's name (remote tools have namespace prefix like `ai/generate-text`)
   - `description` (string): Description of what the tool does
   - `parameters` (object): JSON Schema describing the tool's parameters
 
@@ -58,11 +115,29 @@ for tool in tools:
     print(f"Description: {tool['description']}")
     print(f"Parameters: {tool['parameters']}")
     print("---")
+
+# Separate local and remote tools
+local_tools = []
+remote_tools = []
+
+for tool in tools:
+    if '/' in tool['name']:
+        parts = tool['name'].split('/', 1)
+        remote_tools.append((parts[0], parts[1], tool['description']))
+    else:
+        local_tools.append((tool['name'], tool['description']))
+
+print(f"Local tools: {len(local_tools)}")
+print(f"Remote tools: {len(remote_tools)}")
 ```
 
-### `ai.call_tool(name, arguments)`
+---
 
-Call a tool directly without AI intervention.
+### call_tool(name, arguments)
+
+Call a tool directly without AI intervention. For most use cases, it's better to use the dedicated libraries (like `spaces`, `commands`) or let the AI automatically use tools during completion.
+
+**Important:** The MCP server uses a discovery pattern. Only `tool_search` and `execute_tool` are directly callable. Other tools must first be discovered using `tool_search`, then executed using `execute_tool`.
 
 **Parameters:**
 - `name` (string): Name of the tool to call
@@ -71,11 +146,7 @@ Call a tool directly without AI intervention.
 **Returns:**
 - `any`: The tool's response content (type depends on the tool)
 
-**Note:** For most use cases, it's better to use the dedicated libraries (like `spaces`, `commands`) or let the AI automatically use tools during completion rather than calling tools directly.
-
-**Important:** The MCP server uses a discovery pattern. Only `tool_search` and `execute_tool` are directly callable. Other tools must first be discovered using `tool_search`, then executed using `execute_tool`.
-
-**Examples:**
+**Example:**
 ```python
 import ai
 
@@ -100,34 +171,17 @@ print("Spaces:", space_results)
 start_result = ai.call_tool("execute_tool", {
     "name": "start_space",
     "arguments": {
-        "space_id": "your-space-id"
+        "space_name": "your-space-name"
     }
 })
 print("Start result:", start_result)
-```
 
-**System Messages:**
-- If you include a `system` role message in your messages, it will be used as the system prompt
-- If no `system` message is provided, the server's configured system prompt will be used automatically
-
-**Example:**
-```python
-import ai
-
-# Simple completion
-messages = [
-    {"role": "user", "content": "What is the capital of France?"}
-]
-response = ai.completion(messages)
-print(response)  # "The capital of France is Paris."
-
-# With custom system prompt
-messages = [
-    {"role": "system", "content": "You are a helpful geography expert."},
-    {"role": "user", "content": "What is the capital of France?"}
-]
-response = ai.completion(messages)
-print(response)  # Uses your custom system prompt
+# Call a remote tool directly (if configured)
+ai_response = ai.call_tool("ai/generate-text", {
+    "prompt": "Write a Python hello world function",
+    "max_tokens": 50
+})
+print(ai_response)
 ```
 
 ## Implementation Details
@@ -145,16 +199,21 @@ print(response)  # Uses your custom system prompt
 - **ai.call_tool()**: Calls MCP server's CallTool() method directly
 - No API calls needed - direct server communication
 
-## Tool Calling
+## Tool Categories
 
-When using AI completion through the server, the AI automatically has access to all MCP tools and can use them during conversations:
+### Local Tools
+- **Space Management**: List, start, stop, create, and delete spaces
+- **File Operations**: Read, write, and manage files
+- **Command Execution**: Run commands in spaces
+- **System Information**: Get system status and information
+- **Template Management**: Create, update, and manage deployment templates
+- **User and Group Management**: Manage users and access control
 
-- **Automatic Tool Discovery**: The AI knows what tools are available and their capabilities
-- **Contextual Tool Usage**: The AI will use appropriate tools based on your requests without you needing to specify them
-- **Tool Results in Response**: Tool outputs are incorporated into the AI's response
-- **Transparent Execution**: The AI explains what tools it used and why
+### Remote Tools (if configured)
+- Tools from external MCP servers with namespace prefixes (e.g., `ai/generate-text`, `data/query`)
+- These are automatically discovered and available alongside local tools
 
-### MCP Tool Discovery Pattern
+## MCP Tool Discovery Pattern
 
 The MCP server uses a discovery pattern where:
 1. **tool_search**: Search for tools based on keywords and descriptions
@@ -166,41 +225,15 @@ When using `ai.call_tool()` directly, you must follow this pattern:
 
 When using `ai.completion()`, the AI handles this discovery automatically.
 
-### Available Tool Categories
-- **Space Management**: List, start, stop, create, and delete spaces
-- **File Operations**: Read, write, and manage files
-- **Command Execution**: Run commands in spaces
-- **System Information**: Get system status and information
-- **Template Management**: Create, update, and manage deployment templates
-- **User and Group Management**: Manage users and access control
-
-### Example of Automatic Tool Usage
-
-```python
-import ai
-
-# The AI will automatically use tools to gather information
-messages = [
-    {"role": "user", "content": "Check what spaces I have and start any that are stopped"}
-]
-
-response = ai.completion(messages)
-print(response)
-# AI might respond: "I found 3 spaces. 'dev-space' was stopped so I started it for you.
-# The other two ('web-space' and 'test-space') are already running."
-```
-
-This automatic tool calling happens seamlessly - you just ask what you want to accomplish, and the AI figures out which tools to use.
-
 ## Error Handling
 
 If the AI library is not available, it will return an appropriate error message:
 - Local/Remote: "AI completion not available - API client not configured"
 - MCP: "AI completion in MCP environment should be handled through MCP server tools"
 
-## Complete Example
+## Complete Examples
 
-### Using AI with Automatic Tool Calling
+### Example 1: AI-Assisted Space Management
 
 ```python
 import ai
@@ -230,78 +263,53 @@ def manage_spaces_with_ai():
 manage_spaces_with_ai()
 ```
 
-### Using Libraries Directly
-
-```python
-import spaces
-
-def manage_spaces_programmatically():
-    """Direct programmatic space management using the spaces library"""
-
-    # List all spaces
-    spaces_list = spaces.list()
-    print("Available spaces:")
-    for space in spaces_list:
-        print(f"  - {space['name']}: {space['state']}")
-
-    # Find stopped spaces
-    stopped_spaces = [s for s in spaces_list if s['state'] == 'stopped']
-
-    if stopped_spaces:
-        # Start the first stopped space
-        space_name = stopped_spaces[0]['name']
-        print(f"\nStarting space: {space_name}")
-        result = spaces.start(space_name)
-        print("Start result:", result)
-    else:
-        print("\nNo stopped spaces found")
-
-# Execute the programmatic management
-manage_spaces_programmatically()
-```
-
-### Combined AI and Direct Control
+### Example 2: Using Remote Tools with Local Tools
 
 ```python
 import ai
-import spaces
 
-def intelligent_space_management():
-    """Combine AI guidance with direct control"""
+def generate_and_deploy_code():
+    """Generate code using remote AI tools and deploy using local tools"""
 
-    # Get space information directly
-    spaces_list = spaces.list()
-    stopped_spaces = [s for s in spaces_list if s['state'] == 'stopped']
-
-    if not stopped_spaces:
-        print("All spaces are running!")
-        return
-
-    # Use AI to decide what to do
     messages = [
-        {"role": "system", "content": "You are a space management expert. Analyze the situation and provide recommendations."},
-        {"role": "user", "content": f"I have {len(stopped_spaces)} stopped spaces: {[s['name'] for s in stopped_spaces]}. Should I start them? Why or why not?"}
+        {"role": "user", "content": "Generate a Python web server script and save it to my web-dev space"}
     ]
 
-    advice = ai.completion(messages)
-    print("AI Advice:", advice)
-
-    # Based on AI advice, take action
-    if "start" in advice.lower() and "yes" in advice.lower():
-        for space in stopped_spaces[:1]:  # Start just the first one as example
-            print(f"\nStarting space: {space['name']}")
-            result = spaces.start(space['name'])
-            print("Result:", result)
-    else:
-        print("\nFollowing AI advice - not starting spaces")
-
-# Execute the intelligent management
-intelligent_space_management()
+    response = ai.completion(messages)
+    print(response)
+    # AI might:
+    # 1. Use ai/generate-text (remote tool) to create the Python script
+    # 2. Use write_file (local tool) to save it to the specified space
 ```
 
-In these examples, the AI will:
-1. Automatically use MCP tools during completion when appropriate
-2. Provide intelligent analysis and recommendations
-3. Guide programmatic actions based on context
+### Example 3: Direct Tool Discovery and Usage
 
-The AI has access to all MCP tools through the server, so it can take actions based on your requests while keeping you informed of what it's doing.
+```python
+import ai
+
+def explore_and_use_tools():
+    """Discover available tools and use them directly"""
+
+    # List all tools
+    tools = ai.list_tools()
+    print(f"Found {len(tools)} tools")
+
+    # Search for specific functionality
+    search_result = ai.call_tool("tool_search", {
+        "query": "create new space"
+    })
+
+    # Extract tool name from search results
+    if 'results' in search_result and search_result['results']:
+        tool_name = search_result['results'][0]['name']
+
+        # Use the discovered tool
+        result = ai.call_tool("execute_tool", {
+            "name": tool_name,
+            "arguments": {
+                "name": "my-new-space",
+                "template_name": "python-dev"
+            }
+        })
+        print("Created space:", result)
+```

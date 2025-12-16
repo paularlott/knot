@@ -2,9 +2,12 @@ package mcp
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/paularlott/knot/build"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/openai"
 
@@ -12,7 +15,7 @@ import (
 	"github.com/paularlott/mcp/discovery"
 )
 
-func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool) *mcp.Server {
+func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfig *config.MCPConfig) *mcp.Server {
 	server := mcp.NewServer("knot-mcp-server", build.Version)
 	server.SetInstructions(`These tools manage spaces, templates, and other resources.
 
@@ -516,6 +519,37 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		skills,
 		"skills", "knowledge", "guides", "documentation", "specs", "specifications", "nomad", "docker", "podman", "container",
 	)
+
+	// =========================================================================
+	// Register remote MCP servers if configured
+	// =========================================================================
+	if mcpConfig != nil && len(mcpConfig.RemoteServers) > 0 {
+		for _, remoteServer := range mcpConfig.RemoteServers {
+			// Create auth provider
+			authProvider := CreateAuthProvider(remoteServer)
+			if authProvider == nil {
+				continue // Skip if auth provider creation failed
+			}
+
+			// Register remote server
+			server.RegisterRemoteServer(remoteServer.URL, remoteServer.Namespace, authProvider)
+			log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
+
+			// Test if we can list tools from the remote server
+			tools := server.ListTools()
+			remoteToolCount := 0
+			for _, tool := range tools {
+				if strings.Contains(tool.Name, remoteServer.Namespace+"/") {
+					remoteToolCount++
+				}
+			}
+			log.WithGroup("mcp").Info("Remote server tool count", "namespace", remoteServer.Namespace, "count", remoteToolCount)
+		}
+
+		// Log total tools after registration
+		totalTools := server.ListTools()
+		log.WithGroup("mcp").Info("Total tools after remote registration", "count", len(totalTools))
+	}
 
 	// =========================================================================
 	// Attach registry to server (registers tool_search, execute_tool)

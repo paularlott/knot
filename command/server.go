@@ -776,7 +776,7 @@ var ServerCmd = &cli.Command{
 		openaiEndpointEnabled := cmd.GetBool("chat-openai-endpoints")
 
 		if mcpEnabled || chatEnabled || openaiEndpointEnabled {
-			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled)
+			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, &cfg.MCP)
 			if !mcpEnabled {
 				logger.Debug("MCP chat-only mode")
 			} else {
@@ -1196,9 +1196,35 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			AgentUseTLS: cmd.GetBool("agent-use-tls"),
 			SkipVerify:  cmd.GetBool("tls-skip-verify"),
 		},
-		MCP: config.MCPConfig{
-			Enabled: cmd.GetBool("mcp-enabled"),
-		},
+		MCP: func() config.MCPConfig {
+			mcpConfig := config.MCPConfig{
+				Enabled: cmd.GetBool("mcp-enabled"),
+			}
+
+			// Load remote servers from TOML configuration
+			if cmd.ConfigFile.FileUsed() != "" {
+				typedConfig := cli.NewTypedConfigFile(cmd.ConfigFile)
+				if remoteServers := typedConfig.GetObjectSlice("server.mcp.remote_servers"); remoteServers != nil {
+					for _, server := range remoteServers {
+						if server, ok := server.(interface{ GetString(string) string }); ok {
+							remoteServer := config.MCPRemoteServerConfig{}
+							if ns := server.GetString("namespace"); ns != "" {
+								remoteServer.Namespace = ns
+							}
+							if url := server.GetString("url"); url != "" {
+								remoteServer.URL = url
+							}
+							if token := server.GetString("token"); token != "" {
+								remoteServer.Token = token
+							}
+							mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
+						}
+					}
+				}
+			}
+
+			return mcpConfig
+		}(),
 		Chat: config.ChatConfig{
 			Enabled:          cmd.GetBool("chat-enabled"),
 			OpenAIAPIKey:     cmd.GetString("chat-openai-api-key"),
