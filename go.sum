@@ -4,6 +4,8 @@ github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c h1:udKWzYgxTojEK
 github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/BurntSushi/toml v1.5.0 h1:W5quZX/G/csjUnuI8SUYlsHs9M38FC7znL0lIO+DvMg=
 github.com/BurntSushi/toml v1.5.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
+github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=
+github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
@@ -113,6 +115,8 @@ github.com/paularlott/mcp v0.6.3 h1:qNjfRMSDr3pnt0IlI8xGDui0nQZAwjyrxvYa2IaJBSk=
 github.com/paularlott/mcp v0.6.3/go.mod h1:3+zKx8GaNHy5tjI1MBOgbflWTfV1eKGKziNc6Xn0pQI=
 github.com/paularlott/mcp v0.6.5 h1:5kVx9NnTQU8MK5HwBxRYBOh0H4ehLO309RV0AgO1I38=
 github.com/paularlott/mcp v0.6.5/go.mod h1:3+zKx8GaNHy5tjI1MBOgbflWTfV1eKGKziNc6Xn0pQI=
+github.com/paularlott/mcp v0.6.6 h1:V3YEDVZ5xrggCxE68QbqDuOuzt/i6kNQztFbzlzjl8U=
+github.com/paularlott/mcp v0.6.6/go.mod h1:3+zKx8GaNHy5tjI1MBOgbflWTfV1eKGKziNc6Xn0pQI=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.13.10 h1:+5FbKNTe5Z9aspU88DPIKJ9z2KZoaGCu6Sr6kKR/5mU=
