@@ -13,7 +13,7 @@ replace github.com/paularlott/scriptling => ../scriptling/
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/creack/pty v1.1.24
-	github.com/dgraph-io/badger/v4 v4.8.0
+	github.com/dgraph-io/badger/v4 v4.9.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/gliderlabs/ssh v0.3.8
@@ -21,12 +21,12 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
-	github.com/miekg/dns v1.1.68
+	github.com/miekg/dns v1.1.69
 	github.com/paularlott/cli v0.6.0
 	github.com/paularlott/gossip v0.11.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.6.3
-	github.com/paularlott/scriptling v0.0.0-20251212103323-3d44c228129a
+	github.com/paularlott/mcp v0.6.5
+	github.com/paularlott/scriptling v0.0.0-20251213112516-e39fc4cc9d10
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/vmihailenco/msgpack/v5 v5.4.1
@@ -92,6 +92,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
 	google.golang.org/grpc v1.71.0 // indirect
-	google.golang.org/protobuf v1.36.10 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
 )

@@ -62,16 +62,19 @@ enabled = false
 #   namespace = "ai"
 #   url = "https://ai.example.com/mcp"
 #   token = "your-bearer-token"
+#   hidden = false  # Set to true to hide tools from ListTools (callable but not listed)
 #
 # [[server.mcp.remote_servers]]
 #   namespace = "data"
 #   url = "https://data.example.com/mcp"
 #   token = "your-data-service-bearer-token"
+#   hidden = false
 #
 # [[server.mcp.remote_servers]]
-#   namespace = "deploy"
-#   url = "https://deploy.example.com/mcp"
-#   token = "your-deployment-service-bearer-token"
+#   namespace = "internal"
+#   url = "https://internal.example.com/mcp"
+#   token = "your-internal-service-bearer-token"
+#   hidden = true  # Hidden tools - callable from scripts but not listed
 
 # [server.cluster]
 # advertise_addr = "https://knot.example.com/"

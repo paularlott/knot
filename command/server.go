@@ -1206,7 +1206,10 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 				typedConfig := cli.NewTypedConfigFile(cmd.ConfigFile)
 				if remoteServers := typedConfig.GetObjectSlice("server.mcp.remote_servers"); remoteServers != nil {
 					for _, server := range remoteServers {
-						if server, ok := server.(interface{ GetString(string) string }); ok {
+						if server, ok := server.(interface {
+							GetString(string) string
+							GetBool(string) bool
+						}); ok {
 							remoteServer := config.MCPRemoteServerConfig{}
 							if ns := server.GetString("namespace"); ns != "" {
 								remoteServer.Namespace = ns
@@ -1217,6 +1220,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 							if token := server.GetString("token"); token != "" {
 								remoteServer.Token = token
 							}
+							remoteServer.Hidden = server.GetBool("hidden")
 							mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
 						}
 					}

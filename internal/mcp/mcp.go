@@ -532,12 +532,21 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 			}
 
 			// Register remote server
-			err := server.RegisterRemoteServer(remoteServer.URL, remoteServer.Namespace, authProvider)
+			var err error
+			if remoteServer.Hidden {
+				err = server.RegisterRemoteServerHidden(remoteServer.URL, remoteServer.Namespace, authProvider)
+			} else {
+				err = server.RegisterRemoteServer(remoteServer.URL, remoteServer.Namespace, authProvider)
+			}
 			if err != nil {
 				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "error", err)
 				continue
 			}
-			log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
+			if remoteServer.Hidden {
+				log.WithGroup("mcp").Info("Registered remote MCP server (hidden tools)", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
+			} else {
+				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
+			}
 
 			// Test if we can list tools from the remote server
 			tools := server.ListTools()

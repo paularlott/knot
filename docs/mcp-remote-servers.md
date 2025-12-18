@@ -14,11 +14,19 @@ Remote MCP servers are configured in the `knot.toml` configuration file under th
     namespace = "ai"
     url = "https://ai.example.com/mcp"
     token = "your-bearer-token"
+    hidden = false  # Set to true to hide tools from ListTools
 
   [[server.mcp.remote_servers]]
     namespace = "data"
     url = "https://data.example.com/mcp"
     token = "your-bearer-token"
+    hidden = false
+
+  [[server.mcp.remote_servers]]
+    namespace = "internal"
+    url = "https://internal.example.com/mcp"
+    token = "your-internal-bearer-token"
+    hidden = true  # Tools callable but not listed
 ```
 
 ### Configuration Fields
@@ -26,6 +34,7 @@ Remote MCP servers are configured in the `knot.toml` configuration file under th
 - **namespace**: The namespace prefix for tools from this server (e.g., tools will appear as `ai/generate-text`)
 - **url**: The full URL of the remote MCP server endpoint
 - **token**: Bearer token for authentication
+- **hidden**: Optional boolean (default: false). When true, tools are callable but not listed in `ListTools` responses. Useful for internal tools that should only be used from scripts.
 
 ## How It Works
 
@@ -42,6 +51,16 @@ Tools from remote servers are prefixed with their namespace to avoid conflicts:
 
 - Local tools: `list_spaces`, `create_template`, etc.
 - Remote tools: `ai/generate-text`, `data/query`, etc.
+
+### Hidden Tools
+
+Remote servers can be configured with `hidden = true` to make their tools callable but not visible in tool listings. This is useful for:
+
+- **Internal/utility tools**: Tools that should only be called from scripts, not directly by AI
+- **Reducing context**: Keeping tool lists concise while still allowing script access
+- **Security**: Hiding sensitive internal APIs from external visibility
+
+Hidden tools can still be called using `mcp.call_tool()` in scripts, but won't appear in `mcp.list_tools()` responses.
 
 ### Authentication
 
@@ -64,6 +83,12 @@ for tool in tools:
 response = mcp.call_tool("ai/generate-text", {
     "prompt": "Write a Python function",
     "max_tokens": 100
+})
+print(response)
+
+# Call a hidden tool (not listed but callable)
+response = mcp.call_tool("internal/process-data", {
+    "data_id": "12345"
 })
 print(response)
 
