@@ -31,8 +31,8 @@ func ExecuteScriptWithMCP(script *model.Script, libraries map[string]string, mcp
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}
 
-	// Register MCP library with parameters
-	mcpLib := scriptling.GetMCPLibrary(mcpParams)
+	// Register MCP library with parameters and tool access
+	mcpLib := scriptling.GetMCPLibrary(mcpParams, GetOpenAIClient())
 	env.RegisterLibrary("mcp", mcpLib)
 
 	result, err := env.EvalWithContext(ctx, script.Content)

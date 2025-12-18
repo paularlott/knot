@@ -57,6 +57,11 @@ func NewLocalScriptlingEnv(argv []string, libraries map[string]string, client *a
 		env.RegisterLibrary("ai", knotscriptling.GetAILibrary(client, userId))
 	}
 
+	if client != nil {
+		// Register MCP tools library - uses API calls to the server
+		env.RegisterLibrary("mcp", knotscriptling.GetMCPToolsLibrary(client))
+	}
+
 	env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
 		filename := libName + ".py"
 		content, err := os.ReadFile(filename)
@@ -92,6 +97,9 @@ func NewMCPScriptlingEnv(libraries map[string]string, mcpParams map[string]strin
 		env.RegisterLibrary("ai", knotscriptling.GetAIMCPLibrary(GetOpenAIClient()))
 	}
 
+	// Note: mcp library is registered in scripts.go with GetMCPLibrary() which includes
+	// both parameter access functions and tool functions
+
 	return env, nil
 }
 
@@ -119,6 +127,11 @@ func NewRemoteScriptlingEnv(argv []string, libraries map[string]string, client *
 	if client != nil && userId != "" {
 		// Register AI library - uses API calls to the server
 		env.RegisterLibrary("ai", knotscriptling.GetAILibrary(client, userId))
+	}
+
+	if client != nil {
+		// Register MCP tools library - uses API calls to the server
+		env.RegisterLibrary("mcp", knotscriptling.GetMCPToolsLibrary(client))
 	}
 
 	extlibs.RegisterSysLibrary(env, argv)
@@ -156,7 +169,3 @@ func RunScript(ctx context.Context, scriptContent string, argv []string, librari
 
 	return output, nil
 }
-
-
-
-

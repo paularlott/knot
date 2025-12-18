@@ -52,16 +52,16 @@ Remote servers use Bearer token authentication. The token is configured in the T
 ### In Scriptling Scripts
 
 ```python
-import ai
+import mcp
 
 # List all available tools (including remote ones)
-tools = ai.list_tools()
+tools = mcp.list_tools()
 for tool in tools:
     print(f"Tool: {tool['name']}")
     # Tools will include both local (list_spaces) and remote (ai/generate-text)
 
 # Call a remote tool directly
-response = ai.call_tool("ai/generate-text", {
+response = mcp.call_tool("ai/generate-text", {
     "prompt": "Write a Python function",
     "max_tokens": 100
 })

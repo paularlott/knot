@@ -55,18 +55,6 @@ func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
 			},
 			HelpText: "completion(messages) - Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys.",
 		},
-		"list_tools": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return aiListTools(ctx, client, kwargs, args...)
-			},
-			HelpText: "list_tools() - Get list of available tools and their parameters.",
-		},
-		"call_tool": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return aiCallTool(ctx, client, kwargs, args...)
-			},
-			HelpText: "call_tool(name, arguments) - Call a tool directly without AI. Arguments should be a dict.",
-		},
 	}
 
 	return object.NewLibrary(functions, nil, "AI completion functions")
@@ -80,18 +68,6 @@ func GetAIMCPLibrary(openaiClient *openai.Client) *object.Library {
 				return aiCompletionMCP(ctx, openaiClient, kwargs, args...)
 			},
 			HelpText: "completion(messages) - Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys.",
-		},
-		"list_tools": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return aiListToolsMCP(ctx, openaiClient, kwargs, args...)
-			},
-			HelpText: "list_tools() - Get list of available MCP tools and their parameters.",
-		},
-		"call_tool": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return aiCallToolMCP(ctx, openaiClient, kwargs, args...)
-			},
-			HelpText: "call_tool(name, arguments) - Call an MCP tool directly without AI. Arguments should be a dict.",
 		},
 	}
 

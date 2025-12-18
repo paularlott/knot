@@ -532,7 +532,11 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 			}
 
 			// Register remote server
-			server.RegisterRemoteServer(remoteServer.URL, remoteServer.Namespace, authProvider)
+			err := server.RegisterRemoteServer(remoteServer.URL, remoteServer.Namespace, authProvider)
+			if err != nil {
+				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "error", err)
+				continue
+			}
 			log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
 
 			// Test if we can list tools from the remote server
@@ -543,7 +547,11 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 					remoteToolCount++
 				}
 			}
-			log.WithGroup("mcp").Info("Remote server tool count", "namespace", remoteServer.Namespace, "count", remoteToolCount)
+			if remoteToolCount == 0 {
+				log.WithGroup("mcp").Warn("No tools loaded from remote MCP server (may be unreachable or have auth issues)", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
+			} else {
+				log.WithGroup("mcp").Info("Remote server tool count", "namespace", remoteServer.Namespace, "count", remoteToolCount)
+			}
 		}
 
 		// Log total tools after registration
