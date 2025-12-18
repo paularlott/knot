@@ -12,8 +12,10 @@ import (
 	"github.com/paularlott/scriptling/object"
 )
 
-// GetMCPLibrary returns the MCP helper library for scriptling (used by MCP tool scripts)
-// This provides parameter access functions for tool scripts plus MCP tool access functions
+// GetMCPLibrary returns the MCP helper library for scriptling (used by MCP tool scripts running within the same server)
+// This provides:
+// - Parameter access functions (get, return_*) for MCP tool scripts
+// - Tool access functions that use direct MCP server access (no API calls)
 func GetMCPLibrary(mcpParams map[string]string, openaiClient *openai.Client) *object.Library {
 	functions := map[string]*object.Builtin{
 		"get": {
@@ -69,8 +71,8 @@ func GetMCPLibrary(mcpParams map[string]string, openaiClient *openai.Client) *ob
 	return object.NewLibrary(functions, nil, "MCP helper functions for tool scripts")
 }
 
-// GetMCPToolsLibrary returns the MCP tools library for scriptling (local/remote environments)
-// This provides functions to list and call MCP tools via API
+// GetMCPToolsLibrary returns the MCP tools library for scriptling (used in local/remote environments)
+// This provides only tool access functions that communicate with the server via API calls
 func GetMCPToolsLibrary(client *apiclient.ApiClient) *object.Library {
 	functions := map[string]*object.Builtin{
 		"list_tools": {
@@ -94,38 +96,6 @@ func GetMCPToolsLibrary(client *apiclient.ApiClient) *object.Library {
 		"execute_tool": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
 				return mcpExecuteTool(ctx, client, kwargs, args...)
-			},
-			HelpText: "execute_tool(name, arguments[, namespace]) - Execute a discovered tool. Arguments should be a dict.",
-		},
-	}
-
-	return object.NewLibrary(functions, nil, "MCP tool functions")
-}
-
-// GetMCPToolsMCPLibrary returns the MCP tools library for MCP environment (uses MCP server directly)
-func GetMCPToolsMCPLibrary(openaiClient *openai.Client) *object.Library {
-	functions := map[string]*object.Builtin{
-		"list_tools": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpListToolsMCP(ctx, openaiClient, kwargs, args...)
-			},
-			HelpText: "list_tools() - Get list of available MCP tools and their parameters.",
-		},
-		"call_tool": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpCallToolMCP(ctx, openaiClient, kwargs, args...)
-			},
-			HelpText: "call_tool(name, arguments) - Call an MCP tool directly. Arguments should be a dict.",
-		},
-		"tool_search": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpToolSearchMCP(ctx, openaiClient, kwargs, args...)
-			},
-			HelpText: "tool_search(query[, namespace]) - Search for tools by keyword. Returns list of matching tools.",
-		},
-		"execute_tool": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpExecuteToolMCP(ctx, openaiClient, kwargs, args...)
 			},
 			HelpText: "execute_tool(name, arguments[, namespace]) - Execute a discovered tool. Arguments should be a dict.",
 		},
