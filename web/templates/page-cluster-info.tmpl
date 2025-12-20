@@ -17,20 +17,42 @@
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
           <thead class="bg-gray-100 dark:bg-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Id</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Address</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">State</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Metadata</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Details</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden sm:table-cell">Address</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden sm:table-cell">State</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden sm:table-cell">Metadata</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
             <template x-if="nodes.length > 0">
               <template x-for="node in nodes" :key="node.id">
                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-600/10">
-                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200 text-sm" x-text="node.id"></td>
-                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="node.address"></td>
-                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200" x-text="node.state"></td>
-                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200">
+                  <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
+                    <div class="text-sm font-semibold text-gray-900 dark:text-white" x-text="node.id"></div>
+                    <div class="sm:hidden mt-2 space-y-1">
+                      <div class="text-sm">
+                        <span class="font-medium">Address:</span>
+                        <span x-text="node.address" class="text-gray-600 dark:text-gray-300"></span>
+                      </div>
+                      <div class="text-sm">
+                        <span class="font-medium">State:</span>
+                        <span x-text="node.state" class="text-gray-600 dark:text-gray-300"></span>
+                      </div>
+                      <template x-if="node.metadata">
+                        <div class="text-sm">
+                          <span class="font-medium">Metadata:</span>
+                          <div class="ml-2 mt-1">
+                            <template x-for="(value, key) in node.metadata" :key="key">
+                              <div class="text-xs text-gray-500 dark:text-gray-400" x-text="`${key}: ${value}`"></div>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200 hidden sm:table-cell" x-text="node.address"></td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200 hidden sm:table-cell" x-text="node.state"></td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-700 dark:text-gray-200 hidden sm:table-cell">
                     <template x-if="node.metadata">
                       <template x-for="(value, key) in node.metadata" :key="key">
                         <div class="text-sm text-gray-500 dark:text-gray-400" x-text="`${key}: ${value}`"></div>
