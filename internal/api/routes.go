@@ -68,6 +68,7 @@ func ApiRoutes(router *http.ServeMux) {
 	// Templates
 	router.HandleFunc("GET /api/templates", middleware.ApiAuth(HandleGetTemplates))
 	router.HandleFunc("GET /api/templates/{template_id}", middleware.ApiAuth(HandleGetTemplate))
+	router.HandleFunc("GET /api/templates/{template_id}/nodes", middleware.ApiAuth(HandleGetTemplateNodes))
 	router.HandleFunc("POST /api/templates", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleCreateTemplate)))
 	router.HandleFunc("PUT /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleUpdateTemplate)))
 	router.HandleFunc("DELETE /api/templates/{template_id}", middleware.ApiAuth(middleware.ApiPermissionManageTemplates(HandleDeleteTemplate)))
@@ -98,6 +99,7 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Cluster Information
 	router.HandleFunc("GET /api/cluster-info", middleware.ApiAuth(middleware.ApiPermissionViewClusterInfo(HandleGetClusterInfo)))
+	router.HandleFunc("GET /api/cluster/node", HandleGetClusterNode)
 
 	// Server-Sent Events for real-time updates
 	router.HandleFunc("GET /api/events", HandleSSE)

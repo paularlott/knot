@@ -183,6 +183,11 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           response.json().then((data) => {
             const spacesList = spaceId ? [data] : data.spaces;
             spacesList.forEach(space => {
+              // Skip spaces that are deleting and have id = name (already deleted)
+              if (space.is_deleting && space.space_id === space.name) {
+                return;
+              }
+
               // If this space isn't in this.spaces then add it
               const existing = this.spaces.find(s => s.space_id === space.space_id);
               if(!existing) {
@@ -195,6 +200,13 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               }
               // Else update the sharing information
               else {
+                // If space is now deleted (is_deleting && id === name), remove it
+                if (space.is_deleting && space.space_id === space.name) {
+                  this.spaces = this.spaces.filter(s => s.space_id !== space.space_id);
+                  this.searchChanged();
+                  return;
+                }
+
                 // If is_deployed changing state then treat as added
                 if(existing.is_deployed !== space.is_deployed) {
                   spacesAdded = true;
@@ -210,6 +222,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.platform = space.platform;
                 existing.note = space.note;
                 existing.zone = space.zone;
+                existing.node_hostname = space.node_hostname;
                 existing.has_code_server = space.has_code_server;
                 existing.has_ssh = space.has_ssh;
                 existing.has_terminal = space.has_terminal;

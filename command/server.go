@@ -128,6 +128,12 @@ var ServerCmd = &cli.Command{
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_ZONE"},
 		},
 		&cli.StringFlag{
+			Name:       "hostname",
+			Usage:      "The hostname to advertise to other servers (defaults to system hostname).",
+			ConfigPath: []string{"server.hostname"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_HOSTNAME"},
+		},
+		&cli.StringFlag{
 			Name:         "html-path",
 			Usage:        "The optional path to the html files to serve.",
 			ConfigPath:   []string{"server.html_path"},
@@ -1072,14 +1078,17 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	logger := log.WithGroup("server")
 
 	// Get the hostname with fallback logic
-	hostname := os.Getenv("NOMAD_DC")
+	hostname := cmd.GetString("hostname")
 	if hostname == "" {
-		var err error
-		hostname, err = os.Hostname()
-		if err != nil {
-			log.Fatal("Error getting hostname:", "err", err)
+		hostname = os.Getenv("NOMAD_DC")
+		if hostname == "" {
+			var err error
+			hostname, err = os.Hostname()
+			if err != nil {
+				log.Fatal("Error getting hostname:", "err", err)
+			}
+			hostname = strings.Split(hostname, ".")[0]
 		}
-		hostname = strings.Split(hostname, ".")[0]
 	}
 
 	// Use hostname as default for zone if not set
@@ -1108,6 +1117,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		TerminalWebGL:      cmd.GetBool("terminal-webgl"),
 		EncryptionKey:      cmd.GetString("encrypt"),
 		Zone:               zone,
+		Hostname:           hostname,
 		Timezone:           cmd.GetString("timezone"),
 		LeafNode:           cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
 		AuthIPRateLimiting: cmd.GetBool("auth-ip-rate-limiting"),

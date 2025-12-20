@@ -14,6 +14,16 @@
       </div>
       <div x-show="!descValid" class="error-message" x-cloak>Description must be less than 64K characters.</div>
     </div>
+    <div x-show="!spaceFormModal.isEdit && availableNodes.length > 0" x-cloak>
+      <label for="node" class="form-label">Node</label>
+      <select class="form-field" name="node" id="node" x-model="formData.selected_node_id" :disabled="availableNodes.length === 1">
+        <option value="">Auto-select</option>
+        <template x-for="node in availableNodes" :key="node.node_id">
+          <option :value="node.node_id" x-text="node.hostname"></option>
+        </template>
+      </select>
+      <div class="description">The node where this space will run. Auto-select chooses the node with the least load.</div>
+    </div>
     <div x-data="autocompleterIcon(iconList)" data-parent-var-group="formData" data-parent-variable="icon_url" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
       <label for="icon_url" class="form-label">Icon</label>
       <div class="flex items-center">

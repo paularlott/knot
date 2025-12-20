@@ -73,6 +73,7 @@ type Space struct {
 	Description      string             `json:"description" db:"description" msgpack:"description"`
 	Note             string             `json:"note" db:"note" msgpack:"note"`
 	Zone             string             `json:"zone" db:"zone" msgpack:"zone"`
+	NodeId           string             `json:"node_id,omitempty" db:"node_id" msgpack:"node_id,omitempty"`
 	Shell            string             `json:"shell" db:"shell" msgpack:"shell"`
 	TemplateHash     string             `json:"template_hash" db:"template_hash" msgpack:"template_hash"`
 	NomadNamespace   string             `json:"nomad_namespace" db:"nomad_namespace" msgpack:"nomad_namespace"`
