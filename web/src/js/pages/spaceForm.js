@@ -223,6 +223,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
             self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
             self.$dispatch('close-space-form');
           } else if (response.status === 201) {
+            self.$dispatch('close-space-form');
 
             // If start on create
             if (this.startOnCreate) {
@@ -246,8 +247,6 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
                   self.$dispatch('close-space-form');
                 })
               });
-            } else {
-              self.$dispatch('close-space-form');
             }
           } else if (response.status === 507) {
             self.quotaStorageLimitShow = true;
