@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/container/docker"
 	"github.com/paularlott/knot/internal/container/nomad"
 	"github.com/paularlott/knot/internal/container/podman"
+	"github.com/paularlott/knot/internal/container/runtime"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -31,7 +32,7 @@ func (h *Helper) createClient(platform string) (container.ContainerManager, erro
 	// Map "container" to detected runtime
 	if platform == model.PlatformContainer {
 		cfg := config.GetServerConfig()
-		platform = cfg.LocalContainerRuntime
+		platform = runtime.DetectLocalContainerRuntime(cfg.LocalContainerRuntimePref)
 		if platform == "" {
 			return nil, fmt.Errorf("no local container runtime detected")
 		}

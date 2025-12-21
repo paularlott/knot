@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
 )
@@ -61,13 +60,4 @@ func isRuntimeAvailable(runtime string) bool {
 	cmd = exec.CommandContext(ctx, cmd.Args[0], cmd.Args[1:]...)
 	err := cmd.Run()
 	return err == nil
-}
-
-// GetDetectedRuntime returns the detected runtime from config
-func GetDetectedRuntime() string {
-	cfg := config.GetServerConfig()
-	if cfg == nil {
-		return ""
-	}
-	return cfg.LocalContainerRuntime
 }

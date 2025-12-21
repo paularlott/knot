@@ -22,7 +22,6 @@ import (
 	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
-	"github.com/paularlott/knot/internal/container/runtime"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
@@ -1235,9 +1234,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	logger.Info("timezone", "timezone", serverCfg.Timezone)
 
 	config.SetServerConfig(serverCfg)
-
-	// Detect local container runtime
-	serverCfg.LocalContainerRuntime = runtime.DetectLocalContainerRuntime(serverCfg.LocalContainerRuntimePref)
 
 	return serverCfg
 }

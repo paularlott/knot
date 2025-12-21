@@ -321,11 +321,11 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 	}
 
 	if len(volInfo.Volumes) == 0 && len(space.VolumeData) == 0 {
-		log.Debug(c.DriverName + ": no volumes to create")
+		c.logger.Debug("no volumes to create")
 		return nil
 	}
 
-	log.Debug(c.DriverName + ": checking for required volumes")
+	c.logger.Debug("checking for required volumes")
 
 	db := database.GetInstance()
 
@@ -371,7 +371,7 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 		}
 	}
 
-	log.Debug(c.DriverName + ": volumes checked")
+	c.logger.Debug("volumes checked")
 
 	return nil
 }
@@ -379,10 +379,10 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 	db := database.GetInstance()
 
-	log.Debug(c.DriverName + ": deleting volumes")
+	c.logger.Debug("deleting volumes")
 
 	if len(space.VolumeData) == 0 {
-		log.Debug(c.DriverName + ": no volumes to delete")
+		c.logger.Debug("no volumes to delete")
 		return nil
 	}
 
@@ -406,13 +406,13 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 		delete(space.VolumeData, volName)
 	}
 
-	log.Debug(c.DriverName + ": volumes deleted")
+	c.logger.Debug("volumes deleted")
 
 	return nil
 }
 
 func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
-	log.Debug(c.DriverName + ": creating volume")
+	c.logger.Debug("creating volume")
 
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
@@ -440,13 +440,13 @@ func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]inter
 		}
 	}
 
-	log.Debug(c.DriverName + ": volume created")
+	c.logger.Debug("volume created")
 
 	return nil
 }
 
 func (c *AppleClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
-	log.Debug(c.DriverName + ": deleting volume")
+	c.logger.Debug("deleting volume")
 
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
@@ -470,7 +470,7 @@ func (c *AppleClient) DeleteVolume(vol *model.Volume, variables map[string]inter
 		}
 	}
 
-	log.Debug(c.DriverName + ": volume deleted")
+	c.logger.Debug("volume deleted")
 
 	return nil
 }
