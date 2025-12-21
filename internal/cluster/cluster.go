@@ -101,7 +101,7 @@ func NewCluster(
 			gossipConfig.AdvertiseAddr = url.String()
 		}
 
-		gossipConfig.Logger = log.GetLogger().WithGroup("gossip")
+		gossipConfig.Logger = log.GetLogger()
 		gossipConfig.MsgCodec = codec.NewVmihailencoMsgpackCodec()
 
 		gossipConfig.ApplicationVersion = build.Version
