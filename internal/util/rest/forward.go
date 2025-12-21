@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
@@ -37,7 +36,6 @@ func getForwardClient() *RESTClient {
 
 // ForwardToNode forwards an HTTP request to another node in the cluster
 func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error {
-	cfg := config.GetServerConfig()
 	transport := service.GetTransport()
 
 	// Get the node from gossip
@@ -79,8 +77,12 @@ func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error 
 		return err
 	}
 
-	// Set cluster authentication header
-	req.Header.Set("X-Cluster-Key", cfg.Cluster.Key)
+	// Forward all headers from original request
+	for key, values := range r.Header {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
 
 	// Forward request using shared HTTP client
 	client := getForwardClient()
