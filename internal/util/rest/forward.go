@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
@@ -14,6 +15,25 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
 )
+
+var (
+	forwardClient     *RESTClient
+	forwardClientOnce sync.Once
+)
+
+// getForwardClient returns a shared REST client for forwarding requests
+func getForwardClient() *RESTClient {
+	forwardClientOnce.Do(func() {
+		// Create client with insecureSkipVerify=true for internal cluster communication
+		client, err := NewClient("http://localhost", "", true)
+		if err != nil {
+			log.Fatal("failed to create forward client: ", err)
+		}
+		client.SetTimeout(30 * time.Second)
+		forwardClient = client
+	})
+	return forwardClient
+}
 
 // ForwardToNode forwards an HTTP request to another node in the cluster
 func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error {
@@ -50,7 +70,7 @@ func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error 
 		r.Body.Close()
 	}
 
-	// Create forwarded request
+	// Create forwarded request using shared REST client
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -59,22 +79,12 @@ func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error 
 		return err
 	}
 
-	// Copy headers
-	for key, values := range r.Header {
-		for _, value := range values {
-			req.Header.Add(key, value)
-		}
-	}
-
-	// Add cluster authentication
+	// Set cluster authentication header
 	req.Header.Set("X-Cluster-Key", cfg.Cluster.Key)
 
-	// Forward request
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	resp, err := client.Do(req)
+	// Forward request using shared HTTP client
+	client := getForwardClient()
+	resp, err := client.HTTPClient.Do(req)
 	if err != nil {
 		log.WithError(err).Error("failed to forward request to node")
 		return err
