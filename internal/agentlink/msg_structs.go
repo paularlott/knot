@@ -33,3 +33,23 @@ type RunCommandResponse struct {
 	Success bool   `json:"success" msgpack:"success"`
 	Error   string `json:"error" msgpack:"error"`
 }
+
+type ForwardPortRequest struct {
+	LocalPort  uint16 `json:"local_port" msgpack:"local_port"`
+	Space      string `json:"space" msgpack:"space"`
+	RemotePort uint16 `json:"remote_port" msgpack:"remote_port"`
+}
+
+type PortForwardInfo struct {
+	LocalPort  uint16 `json:"local_port" msgpack:"local_port"`
+	Space      string `json:"space" msgpack:"space"`
+	RemotePort uint16 `json:"remote_port" msgpack:"remote_port"`
+}
+
+type ListPortForwardsResponse struct {
+	Forwards []PortForwardInfo `json:"forwards" msgpack:"forwards"`
+}
+
+type StopPortForwardRequest struct {
+	LocalPort uint16 `json:"local_port" msgpack:"local_port"`
+}

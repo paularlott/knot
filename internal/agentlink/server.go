@@ -105,5 +105,14 @@ func handleCommandConnection(conn net.Conn) {
 
 	case CommandSpaceRestart:
 		handleSpaceRestart(conn, msg)
+
+	case CommandForwardPort:
+		handleForwardPort(conn, msg)
+
+	case CommandListPortForwards:
+		handleListPortForwards(conn, msg)
+
+	case CommandStopPortForward:
+		handleStopPortForward(conn, msg)
 	}
 }
