@@ -788,6 +788,9 @@ var ServerCmd = &cli.Command{
 			} else {
 				logger.Info("MCP server enabled")
 			}
+
+			// Set the appropriate system prompt based on native tools setting
+			systemprompt.SetDefaultSystemPrompt(nativeTools)
 		}
 
 		// If AI chat enabled then initialize chat service
@@ -1206,8 +1209,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		},
 		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
 	}
-
-	serverCfg.Chat.SystemPrompt = systemprompt.GetSystemPrompt(serverCfg.Chat.SystemPromptFile)
 
 	// If tunnel domain doesn't start with a . then prefix it, strip leading * if present
 	if serverCfg.TunnelDomain != "" {
