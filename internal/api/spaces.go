@@ -479,15 +479,7 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		if err := rest.ForwardToNode(w, r, nodeId); err != nil {
 			// If forwarding fails, allow stop to proceed (node might be dead)
 			log.WithError(err).Warn("failed to forward stop request, proceeding locally")
-		} else {
-			return
 		}
-	}
-
-	space, err = db.GetSpace(spaceId)
-	if err != nil {
-		log.WithError(err).Error("HandleSpaceStop:")
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -536,7 +528,7 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
-		log.WithError(err).Error("HandleSpaceStop:")
+		log.WithError(err).Error("HandleSpaceRestart")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -551,7 +543,7 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
-		log.WithError(err).Error("HandleSpaceStop:")
+		log.WithError(err).Error("HandleSpaceRestart")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
