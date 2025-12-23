@@ -19,7 +19,7 @@
       <select class="form-field" name="node" id="node" x-model="formData.selected_node_id" :disabled="availableNodes.length === 1">
         <option value="">Auto-select</option>
         <template x-for="node in availableNodes" :key="node.node_id">
-          <option :value="node.node_id" x-text="node.hostname"></option>
+          <option :value="node.node_id" x-text="formatNodeLabel(node)"></option>
         </template>
       </select>
       <div class="description">The node where this space will run. Auto-select chooses the node with the least load.</div>

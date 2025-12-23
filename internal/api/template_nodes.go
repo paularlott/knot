@@ -14,8 +14,10 @@ import (
 )
 
 type AvailableNode struct {
-	NodeId   string `json:"node_id"`
-	Hostname string `json:"hostname"`
+	NodeId        string `json:"node_id"`
+	Hostname      string `json:"hostname"`
+	RunningSpaces int    `json:"running_spaces"`
+	TotalSpaces   int    `json:"total_spaces"`
 }
 
 func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
@@ -36,11 +38,25 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 
 	cfg := config.GetServerConfig()
 	transport := service.GetTransport()
-	
+
 	nodeIdCfg, _ := db.GetCfgValue("node_id")
 	localNodeId := ""
 	if nodeIdCfg != nil {
 		localNodeId = nodeIdCfg.Value
+	}
+
+	// Get all spaces for counting
+	spaces, _ := db.GetSpaces()
+	spaceCounts := make(map[string][2]int) // [running, total]
+	for _, space := range spaces {
+		if space.NodeId != "" && !space.IsDeleted {
+			counts := spaceCounts[space.NodeId]
+			counts[1]++ // total
+			if space.IsDeployed {
+				counts[0]++ // running
+			}
+			spaceCounts[space.NodeId] = counts
+		}
 	}
 
 	var nodes []AvailableNode
@@ -49,9 +65,12 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 	if peers == nil {
 		// Single server mode
 		if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimes()) {
+			counts := spaceCounts[localNodeId]
 			nodes = append(nodes, AvailableNode{
-				NodeId:   localNodeId,
-				Hostname: cfg.Hostname,
+				NodeId:        localNodeId,
+				Hostname:      cfg.Hostname,
+				RunningSpaces: counts[0],
+				TotalSpaces:   counts[1],
 			})
 		}
 	} else {
@@ -67,7 +86,7 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 			nodeId := peer.ID.String()
 			var runtimes []string
 			var hostname string
-			
+
 			if nodeId == localNodeId {
 				runtimes = runtime.DetectAllAvailableRuntimes()
 				hostname = cfg.Hostname
@@ -77,9 +96,12 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if hasRequiredRuntime(template, runtimes) {
+				counts := spaceCounts[nodeId]
 				nodes = append(nodes, AvailableNode{
-					NodeId:   nodeId,
-					Hostname: hostname,
+					NodeId:        nodeId,
+					Hostname:      hostname,
+					RunningSpaces: counts[0],
+					TotalSpaces:   counts[1],
 				})
 			}
 		}

@@ -44,6 +44,13 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       return this.formData.created_at_formatted || '';
     },
 
+    formatNodeLabel(node) {
+      if (node.total_spaces === 0) {
+        return node.hostname;
+      }
+      return `${node.hostname} (${node.running_spaces} running / ${node.total_spaces} total)`;
+    },
+
     async initData() {
       const iconsResponse = await fetch('/api/icons', {
         headers: {
