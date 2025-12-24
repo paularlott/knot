@@ -372,7 +372,10 @@ func (c *Cluster) Nodes() []*gossip.Node {
 }
 
 func (c *Cluster) GetNodeByIDString(id string) *gossip.Node {
-	return c.gossipCluster.GetNodeByIDString(id)
+	if c.gossipCluster != nil {
+		return c.gossipCluster.GetNodeByIDString(id)
+	}
+	return nil
 }
 
 // This is a duplicate of the gossip payload size calculation, however when gossip isn't running we still need this for sending to leaf nodes

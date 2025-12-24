@@ -79,12 +79,17 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		// Get node hostname if node_id is set
 		if space.NodeId != "" {
 			transport := service.GetTransport()
-			node := transport.GetNodeByIDString(space.NodeId)
-			if node != nil {
-				s.NodeHostname = node.Metadata.GetString("hostname")
-			}
-			if s.NodeHostname == "" {
-				s.NodeHostname = "Offline Remote Node"
+			if transport != nil {
+				node := transport.GetNodeByIDString(space.NodeId)
+				if node != nil {
+					s.NodeHostname = node.Metadata.GetString("hostname")
+				}
+				if s.NodeHostname == "" {
+					s.NodeHostname = "Offline Remote Node"
+				}
+			} else {
+				// Leaf mode - all nodes are local
+				s.NodeHostname = cfg.Hostname
 			}
 		}
 

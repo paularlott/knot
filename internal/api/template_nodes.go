@@ -22,7 +22,7 @@ type AvailableNode struct {
 
 func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 	templateId := r.PathValue("template_id")
-	
+
 	db := database.GetInstance()
 	template, err := db.GetTemplate(templateId)
 	if err != nil || template == nil {
@@ -62,49 +62,54 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 	var nodes []AvailableNode
 	peers := transport.Nodes()
 
-	if peers == nil {
-		// Single server mode
-		if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)) {
-			counts := spaceCounts[localNodeId]
-			nodes = append(nodes, AvailableNode{
-				NodeId:        localNodeId,
-				Hostname:      cfg.Hostname,
-				RunningSpaces: counts[0],
-				TotalSpaces:   counts[1],
-			})
-		}
-	} else {
-		// Cluster mode
-		for _, peer := range peers {
-			if peer.Metadata.GetString("zone") != cfg.Zone {
-				continue
-			}
-			if peer.GetObservedState() != gossip.NodeAlive {
-				continue
-			}
-
-			nodeId := peer.ID.String()
-			var runtimes []string
-			var hostname string
-
-			if nodeId == localNodeId {
-				runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
-				hostname = cfg.Hostname
-			} else {
-				runtimes = cluster.QueryNodeRuntimes(peer.AdvertisedAddr(), cfg.Cluster.Key)
-				hostname = peer.Metadata.GetString("hostname")
-			}
-
-			if hasRequiredRuntime(template, runtimes) {
-				counts := spaceCounts[nodeId]
+	// In leaf mode, return empty nodes - the backend will auto-select the local node
+	if !cfg.LeafNode {
+		if peers == nil {
+			// Single server mode
+			if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)) {
+				counts := spaceCounts[localNodeId]
 				nodes = append(nodes, AvailableNode{
-					NodeId:        nodeId,
-					Hostname:      hostname,
+					NodeId:        localNodeId,
+					Hostname:      cfg.Hostname,
 					RunningSpaces: counts[0],
 					TotalSpaces:   counts[1],
 				})
 			}
+		} else {
+			// Cluster mode
+			for _, peer := range peers {
+				if peer.Metadata.GetString("zone") != cfg.Zone {
+					continue
+				}
+				if peer.GetObservedState() != gossip.NodeAlive {
+					continue
+				}
+
+				nodeId := peer.ID.String()
+				var runtimes []string
+				var hostname string
+
+				if nodeId == localNodeId {
+					runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
+					hostname = cfg.Hostname
+				} else {
+					runtimes = cluster.QueryNodeRuntimes(peer.AdvertisedAddr(), cfg.Cluster.Key)
+					hostname = peer.Metadata.GetString("hostname")
+				}
+
+				if hasRequiredRuntime(template, runtimes) {
+					counts := spaceCounts[nodeId]
+					nodes = append(nodes, AvailableNode{
+						NodeId:        nodeId,
+						Hostname:      hostname,
+						RunningSpaces: counts[0],
+						TotalSpaces:   counts[1],
+					})
+				}
+			}
 		}
+	} else {
+		nodes = []AvailableNode{}
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, nodes)
