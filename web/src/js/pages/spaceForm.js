@@ -45,9 +45,6 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     },
 
     formatNodeLabel(node) {
-      if (node.total_spaces === 0) {
-        return node.hostname;
-      }
       return `${node.hostname} (${node.running_spaces} running / ${node.total_spaces} total)`;
     },
 
