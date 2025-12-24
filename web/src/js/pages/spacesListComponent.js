@@ -1,6 +1,20 @@
 import Alpine from 'alpinejs';
 import { popup } from '../popup.js';
 
+// Debounce function to limit rapid calls
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const context = this;
+    const later = () => {
+      clearTimeout(timeout);
+      func.apply(context, args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, zone, canTransferSpaces, canShareSpaces) {
 
   document.addEventListener('keydown', (e) => {
@@ -15,6 +29,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     loading: true,
     spaces: [],
     visibleSpaces: 0,
+    // Debounced version of getSpaces for SSE events (500ms debounce)
+    debouncedGetSpaces: debounce(function(spaceId) {
+      this.getSpaces(spaceId);
+    }, 500),
     deleteConfirm: {
       show: false,
       space: {
@@ -127,7 +145,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           }
           // Check if we should fetch/update the space
           if (this.forUserId === '' || this.forUserId === payload?.user_id || payload?.user_id === userId || this.forUserId === payload?.shared_with_user_id) {
-            this.getSpaces(payload?.id);
+            this.debouncedGetSpaces(payload?.id);
           }
         });
 

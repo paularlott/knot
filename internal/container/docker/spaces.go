@@ -199,6 +199,7 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
+		succeeded := false
 		// Clean up on exit
 		defer func() {
 			space.IsPending = false
@@ -206,8 +207,14 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 				c.Logger.Error("creating space job error", "space_id", space.Id)
 			}
-			service.GetTransport().GossipSpace(space)
-			sse.PublishSpaceChanged(space.Id, space.UserId)
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSpace(space)
+			}
+			// Only publish SSE event if we didn't succeed (error/timeout paths)
+			// Success path publishes its own event with IsDeployed=true
+			if !succeeded {
+				sse.PublishSpaceChanged(space.Id, space.UserId)
+			}
 		}()
 
 		// Create a Docker client
@@ -313,7 +320,10 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			c.Logger.Error("creating space job error", "space_id", space.Id)
 			return
 		}
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
+		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
@@ -341,6 +351,7 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
+		succeeded := false
 		// Clean up on exit
 		defer func() {
 			space.IsPending = false
@@ -349,8 +360,14 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 				c.Logger.Error("creating space job error", "space_id", space.Id)
 			}
 
-			service.GetTransport().GossipSpace(space)
-			sse.PublishSpaceChanged(space.Id, space.UserId)
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSpace(space)
+			}
+			// Only publish SSE event if we didn't succeed (error/timeout paths)
+			// Success path publishes its own event with IsDeployed=false
+			if !succeeded {
+				sse.PublishSpaceChanged(space.Id, space.UserId)
+			}
 		}()
 
 		cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(c.Host))
@@ -434,7 +451,10 @@ func (c *DockerClient) DeleteSpaceJob(space *model.Space, onStopped func()) erro
 			return
 		}
 
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
+		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 
 		if onStopped != nil {
@@ -473,11 +493,34 @@ func (c *DockerClient) CreateSpaceVolumes(user *model.User, template *model.Temp
 
 	db := database.GetInstance()
 
+	// Store initial volume data to detect changes
+	initialVolumeData := make(map[string]model.SpaceVolume)
+	for k, v := range space.VolumeData {
+		initialVolumeData[k] = v
+	}
+
 	defer func() {
-		space.UpdatedAt = hlc.Now()
-		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
-		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceChanged(space.Id, space.UserId)
+		// Only save and publish if volumes actually changed
+		volumesChanged := false
+		if len(initialVolumeData) != len(space.VolumeData) {
+			volumesChanged = true
+		} else {
+			for k, v := range space.VolumeData {
+				if initialV, ok := initialVolumeData[k]; !ok || v != initialV {
+					volumesChanged = true
+					break
+				}
+			}
+		}
+
+		if volumesChanged {
+			space.UpdatedAt = hlc.Now()
+			db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSpace(space)
+			}
+			sse.PublishSpaceChanged(space.Id, space.UserId)
+		}
 	}()
 
 	// Find the volumes that are defined but not yet created in the space and create them

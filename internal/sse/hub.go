@@ -140,13 +140,8 @@ func (h *Hub) run() {
 				select {
 				case client.send <- data:
 				default:
-					// Client buffer is full, remove them
-					h.mu.RUnlock()
-					h.mu.Lock()
-					delete(h.clients, client)
-					close(client.send)
-					h.mu.Unlock()
-					h.mu.RLock()
+					// Client buffer is full, skip this client for this event
+					// Don't disconnect them - they'll catch up on the next event
 				}
 			}
 			h.mu.RUnlock()
@@ -159,7 +154,7 @@ func (h *Hub) NewClient(userId, sessionId string) *Client {
 	client := &Client{
 		userId:    userId,
 		sessionId: sessionId,
-		send:      make(chan []byte, 64),
+		send:      make(chan []byte, 500),
 		hub:       h,
 	}
 	h.register <- client

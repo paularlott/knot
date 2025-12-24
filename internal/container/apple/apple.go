@@ -108,14 +108,21 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
+		succeeded := false
 		defer func() {
 			space.IsPending = false
 			space.UpdatedAt = hlc.Now()
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 				c.logger.Error("creating space job error", "space_id", space.Id)
 			}
-			service.GetTransport().GossipSpace(space)
-			sse.PublishSpaceChanged(space.Id, space.UserId)
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSpace(space)
+			}
+			// Only publish SSE event if we didn't succeed (error/timeout paths)
+			// Success path publishes its own event with IsDeployed=true
+			if !succeeded {
+				sse.PublishSpaceChanged(space.Id, space.UserId)
+			}
 		}()
 
 		args := []string{"run", "-d", "--name", spec.ContainerName}
@@ -176,7 +183,10 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 			c.logger.Error("creating space job error", "space_id", space.Id)
 			return
 		}
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
+		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
@@ -203,14 +213,21 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
+		succeeded := false
 		defer func() {
 			space.IsPending = false
 			space.UpdatedAt = hlc.Now()
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 				c.logger.Error("creating space job error", "space_id", space.Id)
 			}
-			service.GetTransport().GossipSpace(space)
-			sse.PublishSpaceChanged(space.Id, space.UserId)
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSpace(space)
+			}
+			// Only publish SSE event if we didn't succeed (error/timeout paths)
+			// Success path publishes its own event with IsDeployed=false
+			if !succeeded {
+				sse.PublishSpaceChanged(space.Id, space.UserId)
+			}
 		}()
 
 		// Check if context has been cancelled before stopping the container
@@ -297,7 +314,10 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 			return
 		}
 
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
+		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 
 		if onStopped != nil {
@@ -329,11 +349,34 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 
 	db := database.GetInstance()
 
+	// Store initial volume data to detect changes
+	initialVolumeData := make(map[string]model.SpaceVolume)
+	for k, v := range space.VolumeData {
+		initialVolumeData[k] = v
+	}
+
 	defer func() {
-		space.UpdatedAt = hlc.Now()
-		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
-		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceChanged(space.Id, space.UserId)
+		// Only save and publish if volumes actually changed
+		volumesChanged := false
+		if len(initialVolumeData) != len(space.VolumeData) {
+			volumesChanged = true
+		} else {
+			for k, v := range space.VolumeData {
+				if initialV, ok := initialVolumeData[k]; !ok || v != initialV {
+					volumesChanged = true
+					break
+				}
+			}
+		}
+
+		if volumesChanged {
+			space.UpdatedAt = hlc.Now()
+			db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSpace(space)
+			}
+			sse.PublishSpaceChanged(space.Id, space.UserId)
+		}
 	}()
 
 	for volName := range volInfo.Volumes {
