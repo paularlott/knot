@@ -41,7 +41,7 @@ func HandleGetClusterNode(w http.ResponseWriter, r *http.Request) {
 		ApiEndpoint:     cfg.URL,
 		AllocatedSpaces: allocated,
 		RunningSpaces:   running,
-		Runtimes:        runtime.DetectAllAvailableRuntimes(),
+		Runtimes:        runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref),
 	})
 }
 
@@ -66,7 +66,7 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 		var runtimes []string
 		var hostname string
 		if nodeId == localNodeId {
-			runtimes = runtime.DetectAllAvailableRuntimes()
+			runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
 			hostname = cfg.Hostname
 		} else {
 			nodeInfo := cluster.QueryNodeInfo(p.AdvertisedAddr(), cfg.Cluster.Key)

@@ -29,9 +29,15 @@ func DetectLocalContainerRuntime(preferences []string) string {
 }
 
 // DetectAllAvailableRuntimes returns all available container runtimes that are running
-func DetectAllAvailableRuntimes() []string {
+// Only runtimes listed in preferences are checked
+func DetectAllAvailableRuntimes(preferences []string) []string {
+	// Default preference order if none specified
+	if len(preferences) == 0 {
+		preferences = []string{model.PlatformDocker, model.PlatformPodman, model.PlatformApple}
+	}
+
 	runtimes := []string{}
-	for _, rt := range []string{model.PlatformDocker, model.PlatformPodman, model.PlatformApple} {
+	for _, rt := range preferences {
 		if isRuntimeAvailable(rt) {
 			runtimes = append(runtimes, rt)
 		}

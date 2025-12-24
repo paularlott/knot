@@ -64,7 +64,7 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 
 	if peers == nil {
 		// Single server mode
-		if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimes()) {
+		if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)) {
 			counts := spaceCounts[localNodeId]
 			nodes = append(nodes, AvailableNode{
 				NodeId:        localNodeId,
@@ -88,7 +88,7 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 			var hostname string
 
 			if nodeId == localNodeId {
-				runtimes = runtime.DetectAllAvailableRuntimes()
+				runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
 				hostname = cfg.Hostname
 			} else {
 				runtimes = cluster.QueryNodeRuntimes(peer.AdvertisedAddr(), cfg.Cluster.Key)

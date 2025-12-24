@@ -68,7 +68,7 @@ func SelectNodeForSpace(template *model.Template, selectedNodeId string) (string
 
 	if peers == nil {
 		// Single server mode - check if local node has required runtime
-		if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimes()) {
+		if hasRequiredRuntime(template, runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)) {
 			candidate := spaceCounts[localNodeId]
 			if candidate == nil {
 				candidate = &nodeCandidate{nodeId: localNodeId}
@@ -89,7 +89,7 @@ func SelectNodeForSpace(template *model.Template, selectedNodeId string) (string
 			nodeId := peer.ID.String()
 			var runtimes []string
 			if nodeId == localNodeId {
-				runtimes = runtime.DetectAllAvailableRuntimes()
+				runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
 			} else {
 				// Query remote node for runtimes
 				runtimes = cluster.QueryNodeRuntimes(peer.AdvertisedAddr(), cfg.Cluster.Key)
