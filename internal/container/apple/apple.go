@@ -441,7 +441,7 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 
 		cmd := exec.Command("container", "volume", "rm", volName)
 		output, err := cmd.CombinedOutput()
-		if err != nil {
+		if err != nil && !strings.Contains(string(output), "not found") {
 			c.logger.Error("deleting volume error, output:", "volname", volName, "output", string(output))
 			return err
 		}
@@ -507,7 +507,7 @@ func (c *AppleClient) DeleteVolume(vol *model.Volume, variables map[string]inter
 
 		cmd := exec.Command("container", "volume", "rm", volName)
 		output, err := cmd.CombinedOutput()
-		if err != nil {
+		if err != nil && !strings.Contains(string(output), "not found") {
 			c.logger.Error("deleting volume error, output:", "volname", volName, "output", string(output))
 			return err
 		}

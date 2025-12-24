@@ -332,19 +332,10 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 				}
 			}
 
-			// Delete volumes on failure we log the error and revert the space to not deleting
+			// Delete volumes, log errors but don't fail the space deletion
 			err = containerClient.DeleteSpaceVolumes(space)
 			if err != nil {
 				logger.WithError(err).Error("delete space volumes")
-
-				space.IsDeleting = false
-				space.UpdatedAt = hlc.Now()
-				db.SaveSpace(space, []string{"IsDeleting", "UpdatedAt"})
-				if transport := service.GetTransport(); transport != nil {
-					transport.GossipSpace(space)
-				}
-				sse.PublishSpaceChanged(space.Id, space.UserId)
-				return
 			}
 		}
 

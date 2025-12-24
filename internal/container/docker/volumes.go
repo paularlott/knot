@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/paularlott/knot/internal/database/model"
 
@@ -74,7 +75,7 @@ func (c *DockerClient) DeleteVolume(vol *model.Volume, variables map[string]inte
 		c.Logger.Debug("deleting volume:", "volname", volName)
 
 		err := cli.VolumeRemove(context.Background(), volName, true)
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), "No such volume") {
 			return err
 		}
 	}

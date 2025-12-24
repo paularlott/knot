@@ -590,7 +590,7 @@ func (c *DockerClient) DeleteSpaceVolumes(space *model.Space) error {
 		c.Logger.Debug("deleting volume", "volname", volName)
 
 		err := cli.VolumeRemove(context.Background(), volName, true)
-		if err != nil {
+		if err != nil && !strings.Contains(err.Error(), "No such volume") {
 			return err
 		}
 
