@@ -57,11 +57,8 @@ func (c *Cluster) handleSessionGossip(sender *gossip.Node, packet *gossip.Packet
 		return err
 	}
 
-	// Merge the sessions with the local sessions
-	if err := c.mergeSessions(sessions); err != nil {
-		c.logger.WithError(err).Error("Failed to merge sessions")
-		return err
-	}
+	// Merge the sessions in the background
+	go c.mergeSessions(sessions)
 
 	return nil
 }

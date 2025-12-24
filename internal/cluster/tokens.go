@@ -41,11 +41,8 @@ func (c *Cluster) handleTokenGossip(sender *gossip.Node, packet *gossip.Packet) 
 		return err
 	}
 
-	// Merge the tokens with the local tokens
-	if err := c.mergeTokens(tokens); err != nil {
-		c.logger.WithError(err).Error("Failed to merge tokens")
-		return err
-	}
+	// Merge the tokens in the background
+	go c.mergeTokens(tokens)
 
 	return nil
 }

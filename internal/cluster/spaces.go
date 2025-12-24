@@ -42,11 +42,8 @@ func (c *Cluster) handleSpaceGossip(sender *gossip.Node, packet *gossip.Packet) 
 		return err
 	}
 
-	// Merge the spaces with the local spaces
-	if err := c.mergeSpaces(spaces); err != nil {
-		c.logger.WithError(err).Error("Failed to merge spaces")
-		return err
-	}
+	// Merge the spaces in the background
+	go c.mergeSpaces(spaces)
 
 	return nil
 }

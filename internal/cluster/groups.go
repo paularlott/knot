@@ -42,16 +42,17 @@ func (c *Cluster) handleGroupGossip(sender *gossip.Node, packet *gossip.Packet) 
 		return err
 	}
 
-	// Merge the groups with the local groups
-	if err := c.mergeGroups(groups); err != nil {
-		c.logger.WithError(err).Error("Failed to merge groups")
-		return err
-	}
+	// Merge the groups in the background
+	go func() {
+		if err := c.mergeGroups(groups); err != nil {
+			c.logger.WithError(err).Error("Failed to merge groups")
+		}
 
-	// Forward to any leaf nodes
-	if len(c.leafSessions) > 0 {
-		c.sendToLeafNodes(leafmsg.MessageGossipGroup, &groups)
-	}
+		// Forward to any leaf nodes
+		if len(c.leafSessions) > 0 {
+			c.sendToLeafNodes(leafmsg.MessageGossipGroup, &groups)
+		}
+	}()
 
 	return nil
 }
