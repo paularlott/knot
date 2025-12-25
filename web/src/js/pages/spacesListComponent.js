@@ -200,6 +200,8 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           // Space not found (deleted), remove from list
           this.spaces = this.spaces.filter(s => s.space_id !== spaceId);
           this.searchChanged();
+        } else if(response.status === 503 && spaceId) {
+          // Space temporarily unavailable, ignore (will be updated via SSE)
         } else if(response.status === 200) {
           let spacesAdded = false;
 
@@ -334,7 +336,6 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               self.$dispatch('show-alert', { msg: `Space could not be started: ${data.error}`, type: 'error' });
             }
           });
-          self.getSpaces(spaceId);
         } else if(response.status === 507) {
           response.json().then((data) => {
             // If compute units exceeded then show the dialog
@@ -352,20 +353,17 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               self.$dispatch('show-alert', { msg: "Space could not be as it has exceeded quota limits.", type: 'error' });
             }
           });
-          self.getSpaces(spaceId);
         } else {
           response.json().then((data) => {
             self.$dispatch('show-alert', { msg: `Space could not be started: ${data.error}`, type: 'error' });
           }).catch(() => {
             self.$dispatch('show-alert', { msg: `Space could not be started`, type: 'error' });
           });
-          self.getSpaces(spaceId);
         }
       }).catch((error) => {
         self.$dispatch('show-alert', { msg: `Space could not be started: ${error}`, type: 'error' });
-        self.getSpaces(spaceId);
       }).finally(() => {
-        self.getSpaces();
+        self.getSpaces(spaceId);
       });
     },
     async stopSpace(spaceId) {
