@@ -1,4 +1,4 @@
-package rest
+package service
 
 import (
 	"bytes"
@@ -12,19 +12,19 @@ import (
 
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/log"
-	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/util/rest"
 )
 
 var (
-	forwardClient     *RESTClient
+	forwardClient     *rest.RESTClient
 	forwardClientOnce sync.Once
 )
 
 // getForwardClient returns a shared REST client for forwarding requests
-func getForwardClient() *RESTClient {
+func getForwardClient() *rest.RESTClient {
 	forwardClientOnce.Do(func() {
 		// Create client with insecureSkipVerify=true for internal cluster communication
-		client, err := NewClient("http://localhost", "", true)
+		client, err := rest.NewClient("http://localhost", "", true)
 		if err != nil {
 			log.Fatal("failed to create forward client: ", err)
 		}
@@ -36,7 +36,7 @@ func getForwardClient() *RESTClient {
 
 // ForwardToNode forwards an HTTP request to another node in the cluster
 func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error {
-	transport := service.GetTransport()
+	transport := GetTransport()
 
 	// Get the node from gossip
 	nodes := transport.Nodes()

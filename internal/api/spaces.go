@@ -195,8 +195,8 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	spaceName := space.Name
 
 	// Check if request should be forwarded to another node
-	if shouldForward, nodeId := rest.ShouldForwardToNode(space.NodeId); shouldForward {
-		if err := rest.ForwardToNode(w, r, nodeId); err != nil {
+	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
+		if err := service.ForwardToNode(w, r, nodeId); err != nil {
 			// If forwarding fails, allow delete to proceed (node might be dead)
 			log.WithError(err).Warn("failed to forward delete request, proceeding locally")
 		} else {
@@ -364,8 +364,8 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if request should be forwarded to another node
-	if shouldForward, nodeId := rest.ShouldForwardToNode(space.NodeId); shouldForward {
-		if err := rest.ForwardToNode(w, r, nodeId); err != nil {
+	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
+		if err := service.ForwardToNode(w, r, nodeId); err != nil {
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to forward request"})
 		}
 		return
@@ -480,8 +480,8 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if request should be forwarded to another node
-	if shouldForward, nodeId := rest.ShouldForwardToNode(space.NodeId); shouldForward {
-		if err := rest.ForwardToNode(w, r, nodeId); err != nil {
+	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
+		if err := service.ForwardToNode(w, r, nodeId); err != nil {
 			// If forwarding fails, allow stop to proceed (node might be dead)
 			log.WithError(err).Warn("failed to forward stop request, proceeding locally")
 		}
@@ -539,8 +539,8 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if request should be forwarded to another node
-	if shouldForward, nodeId := rest.ShouldForwardToNode(space.NodeId); shouldForward {
-		if err := rest.ForwardToNode(w, r, nodeId); err != nil {
+	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
+		if err := service.ForwardToNode(w, r, nodeId); err != nil {
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to forward request"})
 		}
 		return
