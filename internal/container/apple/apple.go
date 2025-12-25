@@ -108,14 +108,21 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
+		succeeded := false
 		defer func() {
 			space.IsPending = false
 			space.UpdatedAt = hlc.Now()
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 				c.logger.Error("creating space job error", "space_id", space.Id)
 			}
-			service.GetTransport().GossipSpace(space)
-			sse.PublishSpaceChanged(space.Id, space.UserId)
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSpace(space)
+			}
+			// Only publish SSE event if we didn't succeed (error/timeout paths)
+			// Success path publishes its own event with IsDeployed=true
+			if !succeeded {
+				sse.PublishSpaceChanged(space.Id, space.UserId)
+			}
 		}()
 
 		args := []string{"run", "-d", "--name", spec.ContainerName}
@@ -176,7 +183,10 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 			c.logger.Error("creating space job error", "space_id", space.Id)
 			return
 		}
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
+		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}()
 
@@ -203,14 +213,21 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
+		succeeded := false
 		defer func() {
 			space.IsPending = false
 			space.UpdatedAt = hlc.Now()
 			if err := db.SaveSpace(space, []string{"IsPending", "UpdatedAt"}); err != nil {
 				c.logger.Error("creating space job error", "space_id", space.Id)
 			}
-			service.GetTransport().GossipSpace(space)
-			sse.PublishSpaceChanged(space.Id, space.UserId)
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSpace(space)
+			}
+			// Only publish SSE event if we didn't succeed (error/timeout paths)
+			// Success path publishes its own event with IsDeployed=false
+			if !succeeded {
+				sse.PublishSpaceChanged(space.Id, space.UserId)
+			}
 		}()
 
 		// Check if context has been cancelled before stopping the container
@@ -297,7 +314,10 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 			return
 		}
 
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
+		succeeded = true
 		sse.PublishSpaceChanged(space.Id, space.UserId)
 
 		if onStopped != nil {
@@ -321,19 +341,42 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 	}
 
 	if len(volInfo.Volumes) == 0 && len(space.VolumeData) == 0 {
-		log.Debug(c.DriverName + ": no volumes to create")
+		c.logger.Debug("no volumes to create")
 		return nil
 	}
 
-	log.Debug(c.DriverName + ": checking for required volumes")
+	c.logger.Debug("checking for required volumes")
 
 	db := database.GetInstance()
 
+	// Store initial volume data to detect changes
+	initialVolumeData := make(map[string]model.SpaceVolume)
+	for k, v := range space.VolumeData {
+		initialVolumeData[k] = v
+	}
+
 	defer func() {
-		space.UpdatedAt = hlc.Now()
-		db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
-		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceChanged(space.Id, space.UserId)
+		// Only save and publish if volumes actually changed
+		volumesChanged := false
+		if len(initialVolumeData) != len(space.VolumeData) {
+			volumesChanged = true
+		} else {
+			for k, v := range space.VolumeData {
+				if initialV, ok := initialVolumeData[k]; !ok || v != initialV {
+					volumesChanged = true
+					break
+				}
+			}
+		}
+
+		if volumesChanged {
+			space.UpdatedAt = hlc.Now()
+			db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"})
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSpace(space)
+			}
+			sse.PublishSpaceChanged(space.Id, space.UserId)
+		}
 	}()
 
 	for volName := range volInfo.Volumes {
@@ -371,7 +414,7 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 		}
 	}
 
-	log.Debug(c.DriverName + ": volumes checked")
+	c.logger.Debug("volumes checked")
 
 	return nil
 }
@@ -379,10 +422,10 @@ func (c *AppleClient) CreateSpaceVolumes(user *model.User, template *model.Templ
 func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 	db := database.GetInstance()
 
-	log.Debug(c.DriverName + ": deleting volumes")
+	c.logger.Debug("deleting volumes")
 
 	if len(space.VolumeData) == 0 {
-		log.Debug(c.DriverName + ": no volumes to delete")
+		c.logger.Debug("no volumes to delete")
 		return nil
 	}
 
@@ -398,7 +441,7 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 
 		cmd := exec.Command("container", "volume", "rm", volName)
 		output, err := cmd.CombinedOutput()
-		if err != nil {
+		if err != nil && !strings.Contains(string(output), "not found") {
 			c.logger.Error("deleting volume error, output:", "volname", volName, "output", string(output))
 			return err
 		}
@@ -406,13 +449,13 @@ func (c *AppleClient) DeleteSpaceVolumes(space *model.Space) error {
 		delete(space.VolumeData, volName)
 	}
 
-	log.Debug(c.DriverName + ": volumes deleted")
+	c.logger.Debug("volumes deleted")
 
 	return nil
 }
 
 func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
-	log.Debug(c.DriverName + ": creating volume")
+	c.logger.Debug("creating volume")
 
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
@@ -440,13 +483,13 @@ func (c *AppleClient) CreateVolume(vol *model.Volume, variables map[string]inter
 		}
 	}
 
-	log.Debug(c.DriverName + ": volume created")
+	c.logger.Debug("volume created")
 
 	return nil
 }
 
 func (c *AppleClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
-	log.Debug(c.DriverName + ": deleting volume")
+	c.logger.Debug("deleting volume")
 
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
@@ -464,13 +507,13 @@ func (c *AppleClient) DeleteVolume(vol *model.Volume, variables map[string]inter
 
 		cmd := exec.Command("container", "volume", "rm", volName)
 		output, err := cmd.CombinedOutput()
-		if err != nil {
+		if err != nil && !strings.Contains(string(output), "not found") {
 			c.logger.Error("deleting volume error, output:", "volname", volName, "output", string(output))
 			return err
 		}
 	}
 
-	log.Debug(c.DriverName + ": volume deleted")
+	c.logger.Debug("volume deleted")
 
 	return nil
 }

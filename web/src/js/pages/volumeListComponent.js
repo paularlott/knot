@@ -51,6 +51,10 @@ window.volumeListComponent = function() {
           this.volumes = this.volumes.filter(v => v.volume_id !== payload?.id);
           this.searchChanged();
         });
+
+        window.sseClient.subscribe('reconnected', () => {
+          this.getVolumes();
+        });
       }
     },
 

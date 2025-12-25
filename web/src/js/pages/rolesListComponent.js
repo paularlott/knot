@@ -39,6 +39,10 @@ window.rolesListComponent = function() {
           this.roles = this.roles.filter(x => x.role_id !== payload?.id);
           this.searchChanged();
         });
+
+        window.sseClient.subscribe('reconnected', () => {
+          this.getRoles();
+        });
       }
     },
 

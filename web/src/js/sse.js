@@ -13,6 +13,7 @@ class SSEClient {
     this.reconnecting = false;
     this.autoConnectEnabled = false; // Track if auto-connect should be enabled
     this.hasActiveSubscriptions = false; // Track if there are any active subscriptions
+    this.wasDisconnected = false; // Track if we were previously disconnected
   }
 
   /**
@@ -26,14 +27,19 @@ class SSEClient {
     this.eventSource = new EventSource('/api/events');
 
     this.eventSource.onopen = () => {
-      console.log('SSE connected');
+      const wasDisconnected = !this.connected;
       this.connected = true;
       this.reconnecting = false;
       this.reconnectDelay = 1000; // Reset reconnect delay on successful connection
+
+      // If we were previously disconnected, emit a reconnected event
+      if (wasDisconnected) {
+        this.handleMessage({ type: 'reconnected' });
+      }
     };
 
-    this.eventSource.addEventListener('connected', (event) => {
-      console.log('SSE connection confirmed:', event.data);
+    this.eventSource.addEventListener('connected', () => {
+      // Connection confirmed silently
     });
 
     this.eventSource.addEventListener('message', (event) => {
@@ -45,8 +51,8 @@ class SSEClient {
       }
     });
 
-    this.eventSource.onerror = (event) => {
-      console.error('SSE error:', event);
+    this.eventSource.onerror = () => {
+      // SSE errors are common in Safari (ERR_NETWORK_CHANGED) and handled by reconnection
       this.handleError();
     };
   }
@@ -112,7 +118,7 @@ class SSEClient {
     }
 
     this.reconnecting = true;
-    console.log(`SSE reconnecting in ${this.reconnectDelay}ms...`);
+    console.debug(`SSE reconnecting in ${this.reconnectDelay}ms...`);
 
     setTimeout(() => {
       this.reconnecting = false;

@@ -35,8 +35,8 @@
         <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3">Token ID</th>
-              <th scope="col" class="px-4 py-3">Name</th>
+              <th scope="col" class="px-4 py-3">Details</th>
+              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Name</th>
               <th scope="col" class="px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
@@ -44,7 +44,7 @@
           <template x-for="t in tokens" :key="t.token_id">
             <tr x-show="!t.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
               <td class="px-4 py-3">
-                <div class="flex flex-nowrap text-xs p-2 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer w-full" @click.debounce.750="copyToClipboard(t.token_id)">
+                <div class="flex flex-nowrap text-xs p-2 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer w-full mb-2" @click.debounce.750="copyToClipboard(t.token_id)">
                   <input type="text" readonly aria-label="Token ID" class="shrink grow w-full p-0 text-xs bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer outline-0 border-0 focus:border-0 focus:ring-0" x-model="t.token_id" @click.debounce.750="copyToClipboard(t.token_id)" />
                   <div class="shrink-0 grow-0">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 ml-2 flex-shrink-0 self-end" aria-hidden="true" >
@@ -52,8 +52,11 @@
                     </svg>
                   </div>
                 </div>
+                <div class="sm:hidden">
+                  <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white" x-text="t.name"></div>
+                </div>
               </td>
-              <td x-text="t.name" class="px-4 py-3"></td>
+              <td x-text="t.name" class="px-4 py-3 hidden sm:table-cell"></td>
               <td class="px-4 py-3">
                 <div class="flex items-center justify-end">
                   <button @click="deleteConfirm.show = true; deleteConfirm.token = t" class="group flex items-center cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">
@@ -107,7 +110,7 @@
     </div>
 
     <!-- Modal create token -->
-    <div x-cloak x-show="tokenFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="tokenFormModal.show" @keydown.esc.window="tokenFormModal.show = false" @click.self="tokenFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="tokenModalTitle">
+    <div x-cloak x-show="tokenFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="tokenFormModal.show" @keydown.esc.window="tokenFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="tokenModalTitle">
       <div x-show="tokenFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-2xl w-full flex-col overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl max-h-[90vh]">
         <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
           <h3 id="tokenModalTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Create API Token</h3>

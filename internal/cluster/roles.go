@@ -42,16 +42,17 @@ func (c *Cluster) handleRoleGossip(sender *gossip.Node, packet *gossip.Packet) e
 		return err
 	}
 
-	// Merge the roles with the local roles
-	if err := c.mergeRoles(roles); err != nil {
-		c.logger.WithError(err).Error("Failed to merge roles")
-		return err
-	}
+	// Merge the roles in the background
+	go func() {
+		if err := c.mergeRoles(roles); err != nil {
+			c.logger.WithError(err).Error("Failed to merge roles")
+		}
 
-	// Forward to any leaf nodes
-	if len(c.leafSessions) > 0 {
-		c.sendToLeafNodes(leafmsg.MessageGossipRole, &roles)
-	}
+		// Forward to any leaf nodes
+		if len(c.leafSessions) > 0 {
+			c.sendToLeafNodes(leafmsg.MessageGossipRole, &roles)
+		}
+	}()
 
 	return nil
 }

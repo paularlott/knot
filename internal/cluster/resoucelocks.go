@@ -82,11 +82,8 @@ func (c *Cluster) handleResourceLockGossip(sender *gossip.Node, packet *gossip.P
 		return err
 	}
 
-	// Merge the resource locks with the local resource locks
-	if err := c.mergeResourceLocks(resourceLocks); err != nil {
-		c.logger.WithError(err).Error("Failed to merge resource locks")
-		return err
-	}
+	// Merge the resource locks in the background
+	go c.mergeResourceLocks(resourceLocks)
 
 	return nil
 }

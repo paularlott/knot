@@ -14,7 +14,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       alt_names: [],
       custom_fields: [],
       created_at: "",
-      created_at_formatted: ""
+      created_at_formatted: "",
+      selected_node_id: ""
     },
     template_id: templateId,
     template: {
@@ -36,9 +37,15 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     startOnCreate: true,
     saving: false,
     quotaStorageLimitShow: false,
+    availableNodes: [],
+    loadingNodes: false,
 
     formatCreatedAt() {
       return this.formData.created_at_formatted || '';
+    },
+
+    formatNodeLabel(node) {
+      return `${node.hostname} (${node.running_spaces} running / ${node.total_spaces} total)`;
     },
 
     async initData() {
@@ -99,6 +106,20 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       });
       this.template = await templatesResponse.json();
 
+      // Initialize custom fields array immediately to prevent Alpine errors
+      if (this.template.custom_fields && this.template.custom_fields.length > 0) {
+        // If editing, preserve existing values; if creating, initialize with empty strings
+        const existingFields = isEdit ? this.formData.custom_fields : [];
+        this.formData.custom_fields = this.template.custom_fields.map(field => {
+          return {
+            name: field.name,
+            value: existingFields.find(f => f.name === field.name)?.value || ''
+          };
+        });
+      } else {
+        this.formData.custom_fields = [];
+      }
+
       // Get if the template is manual
       this.isManual = this.template ? this.template.platform === 'manual' : false;
       this.startOnCreate = !this.isManual;
@@ -107,13 +128,22 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         this.formData.icon_url = this.template.icon_url;
       }
 
-      // Sort the formData custom fields to match the ordering of the template
-      this.formData.custom_fields = this.template.custom_fields.map(field => {
-        return {
-          name: field.name,
-          value: this.formData.custom_fields.find(f => f.name === field.name)?.value || ''
-        };
-      });
+      // Fetch available nodes for local container templates
+      if(!isEdit && this.template && this.template.platform !== 'manual' && this.template.platform !== 'nomad') {
+        this.loadingNodes = true;
+        const nodesResponse = await fetch('/api/templates/'+templateId+'/nodes', {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        if (nodesResponse.status === 200) {
+          this.availableNodes = await nodesResponse.json();
+          if (this.availableNodes.length === 1) {
+            this.formData.selected_node_id = this.availableNodes[0].node_id;
+          }
+        }
+        this.loadingNodes = false;
+      }
 
       this.loading = false;
     },
@@ -197,10 +227,12 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
             self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
             self.$dispatch('close-space-form');
           } else if (response.status === 201) {
+            response.json().then((data) => {
+              self.$dispatch('space-created', { space_id: data.space_id });
+              self.$dispatch('close-space-form');
 
-            // If start on create
-            if (this.startOnCreate) {
-              response.json().then((data) => {
+              // If start on create
+              if (this.startOnCreate) {
                 fetch(`/api/spaces/${data.space_id}/start`, {
                   method: 'POST',
                   headers: {
@@ -208,22 +240,22 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
                   }
                 }).then((response2) => {
                   if (response2.status === 200) {
-                    self.$dispatch('show-alert', { msg: "Space started", type: 'success' });
+                    window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space started", type: 'success' } }));
                   } else {
-                    response2.json().then((d) => {
-                      self.$dispatch('show-alert', { msg: `Failed to start space, ${d.error}`, type: 'error' });
+                    response2.text().then((text) => {
+                      try {
+                        const d = JSON.parse(text);
+                        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: `Failed to start space, ${d.error}`, type: 'error' } }));
+                      } catch {
+                        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: `Failed to start space`, type: 'error' } }));
+                      }
                     });
                   }
                 }).catch((error) => {
-                  self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
-                }).finally(() => {
-                  self.$dispatch('close-space-form');
-                  window.location.href = '/spaces';
-                })
-              });
-            } else {
-              self.$dispatch('close-space-form');
-            }
+                  window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: `Error!<br />${error.message}`, type: 'error' } }));
+                });
+              }
+            });
           } else if (response.status === 507) {
             self.quotaStorageLimitShow = true;
           } else {

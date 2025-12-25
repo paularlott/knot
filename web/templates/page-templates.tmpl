@@ -354,7 +354,7 @@
       </div>
 
       <!-- Modal choose user -->
-      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" @click.self="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
         <!-- Modal Dialog -->
         <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-visible rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -435,7 +435,7 @@
       </div>
 
       <!-- Modal create/edit template -->
-      <div x-cloak x-show="templateFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="templateFormModal.show" @keydown.esc.window="templateFormModal.show = false" @click.self="templateFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="templateModalTitle">
+      <div x-cloak x-show="templateFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="templateFormModal.show" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="templateModalTitle">
         <div x-show="templateFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-6xl w-full flex-col overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl max-h-[90vh]">
           <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
             <h3 id="templateModalTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white" x-text="templateFormModal.isEdit ? 'Edit Template' : 'Create Template'"></h3>
@@ -454,7 +454,7 @@
       </div>
 
       <!-- Modal: Space Form -->
-      <div x-cloak x-show="spaceFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceFormModal.show" @keydown.esc.window="spaceFormModal.show = false" @click.self="spaceFormModal.show = false" @close-space-form.window="spaceFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="spaceFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceFormModal.show" @close-space-form.window="spaceFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
         <div x-show="spaceFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-2xl w-full flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
             <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Create Space</h3>

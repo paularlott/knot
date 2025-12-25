@@ -27,14 +27,36 @@ func (client *NomadClient) CreateSpaceVolumes(user *model.User, template *model.
 		return nil
 	}
 
+	// Store initial volume data to detect changes
+	initialVolumeData := make(map[string]model.SpaceVolume)
+	for k, v := range space.VolumeData {
+		initialVolumeData[k] = v
+	}
+
 	defer func() {
-		// Save the space with the volume data
-		space.UpdatedAt = hlc.Now()
-		if err := db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"}); err != nil {
-			client.logger.Error("saving space  error", "space_id", space.Id)
+		// Only save and publish if volumes actually changed
+		volumesChanged := false
+		if len(initialVolumeData) != len(space.VolumeData) {
+			volumesChanged = true
+		} else {
+			for k, v := range space.VolumeData {
+				if initialV, ok := initialVolumeData[k]; !ok || v != initialV {
+					volumesChanged = true
+					break
+				}
+			}
 		}
-		service.GetTransport().GossipSpace(space)
-		sse.PublishSpaceChanged(space.Id, space.UserId)
+
+		if volumesChanged {
+			space.UpdatedAt = hlc.Now()
+			if err := db.SaveSpace(space, []string{"VolumeData", "UpdatedAt"}); err != nil {
+				client.logger.Error("saving space  error", "space_id", space.Id)
+			}
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSpace(space)
+			}
+			sse.PublishSpaceChanged(space.Id, space.UserId)
+		}
 	}()
 
 	client.logger.Debug("checking for required volumes")

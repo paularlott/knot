@@ -130,6 +130,9 @@
                     <img x-show="s.icon_url.length && s.icon_url_exists" :src="s.icon_url" alt="Icon" class="hidden sm:block size-8" />
                     <div>
                       <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="s.name"></div>
+                      <template x-if="s.node_hostname">
+                        <div class="text-xs text-gray-500 dark:text-gray-400" x-text="'Host: ' + s.node_hostname"></div>
+                      </template>
 
                       <!-- Show first 2 lines of description inline -->
                       <template x-if="s.description || s.note">
@@ -605,7 +608,7 @@
       </div>
 
       <!-- Modal choose user -->
-      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" @click.self="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
         <!-- Modal Dialog -->
         <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-visible rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -839,7 +842,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="spaceDesc.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceDesc.show" @keydown.esc.window="spaceDesc.show = false" @click.self="spaceDesc.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="spaceDesc.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceDesc.show" @keydown.esc.window="spaceDesc.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
         <!-- Modal Dialog -->
         <div x-show="spaceDesc.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -876,7 +879,7 @@
       </div>
 
       <!-- Modal: Space Form -->
-      <div x-cloak x-show="spaceFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceFormModal.show" @keydown.esc.window="spaceFormModal.show = false" @click.self="spaceFormModal.show = false" @close-space-form.window="spaceFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="spaceFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceFormModal.show" @close-space-form.window="spaceFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
         <div x-show="spaceFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-2xl w-full flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
             <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white" x-text="spaceFormModal.isEdit ? 'Edit Space' : 'Create Space'"></h3>
@@ -895,7 +898,7 @@
       </div>
 
       <!-- Modal: Template Selector -->
-      <div x-cloak x-show="templateSelector.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="templateSelector.show" @keydown.esc.window="templateSelector.show = false" @click.self="templateSelector.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="templateSelector.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="templateSelector.show" @keydown.esc.window="templateSelector.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
         <!-- Modal Dialog -->
         <div x-show="templateSelector.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-4xl w-full flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->

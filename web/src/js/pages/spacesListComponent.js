@@ -1,6 +1,20 @@
 import Alpine from 'alpinejs';
 import { popup } from '../popup.js';
 
+// Debounce function to limit rapid calls
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const context = this;
+    const later = () => {
+      clearTimeout(timeout);
+      func.apply(context, args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 window.spacesListComponent = function(userId, username, forUserId, canManageSpaces, wildcardDomain, zone, canTransferSpaces, canShareSpaces) {
 
   document.addEventListener('keydown', (e) => {
@@ -15,6 +29,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
     loading: true,
     spaces: [],
     visibleSpaces: 0,
+    // Debounced version of getSpaces for SSE events (500ms debounce)
+    debouncedGetSpaces: debounce(function(spaceId) {
+      this.getSpaces(spaceId);
+    }, 500),
     deleteConfirm: {
       show: false,
       space: {
@@ -116,6 +134,11 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
       this.getSpaces();
 
+      // Listen for space-created event
+      window.addEventListener('space-created', (e) => {
+        this.getSpaces(e.detail.space_id);
+      });
+
       // Subscribe to SSE for real-time updates
       if (window.sseClient) {
         window.sseClient.subscribe('space:changed', (payload) => {
@@ -127,7 +150,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           }
           // Check if we should fetch/update the space
           if (this.forUserId === '' || this.forUserId === payload?.user_id || payload?.user_id === userId || this.forUserId === payload?.shared_with_user_id) {
-            this.getSpaces(payload?.id);
+            this.debouncedGetSpaces(payload?.id);
           }
         });
 
@@ -139,6 +162,10 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         });
 
         window.sseClient.subscribe('templates:changed', () => {
+          this.getSpaces();
+        });
+
+        window.sseClient.subscribe('reconnected', () => {
           this.getSpaces();
         });
       }
@@ -173,12 +200,19 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
           // Space not found (deleted), remove from list
           this.spaces = this.spaces.filter(s => s.space_id !== spaceId);
           this.searchChanged();
+        } else if(response.status === 503 && spaceId) {
+          // Space temporarily unavailable, ignore (will be updated via SSE)
         } else if(response.status === 200) {
           let spacesAdded = false;
 
           response.json().then((data) => {
             const spacesList = spaceId ? [data] : data.spaces;
             spacesList.forEach(space => {
+              // Skip spaces that are deleting and have id = name (already deleted)
+              if (space.is_deleting && space.space_id === space.name) {
+                return;
+              }
+
               // If this space isn't in this.spaces then add it
               const existing = this.spaces.find(s => s.space_id === space.space_id);
               if(!existing) {
@@ -191,6 +225,13 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               }
               // Else update the sharing information
               else {
+                // If space is now deleted (is_deleting && id === name), remove it
+                if (space.is_deleting && space.space_id === space.name) {
+                  this.spaces = this.spaces.filter(s => s.space_id !== space.space_id);
+                  this.searchChanged();
+                  return;
+                }
+
                 // If is_deployed changing state then treat as added
                 if(existing.is_deployed !== space.is_deployed) {
                   spacesAdded = true;
@@ -206,6 +247,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
                 existing.platform = space.platform;
                 existing.note = space.note;
                 existing.zone = space.zone;
+                existing.node_hostname = space.node_hostname;
                 existing.has_code_server = space.has_code_server;
                 existing.has_ssh = space.has_ssh;
                 existing.has_terminal = space.has_terminal;
@@ -314,12 +356,14 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
         } else {
           response.json().then((data) => {
             self.$dispatch('show-alert', { msg: `Space could not be started: ${data.error}`, type: 'error' });
+          }).catch(() => {
+            self.$dispatch('show-alert', { msg: `Space could not be started`, type: 'error' });
           });
         }
       }).catch((error) => {
         self.$dispatch('show-alert', { msg: `Space could not be started: ${error}`, type: 'error' });
       }).finally(() => {
-        self.getSpaces();
+        self.getSpaces(spaceId);
       });
     },
     async stopSpace(spaceId) {

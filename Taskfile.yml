@@ -406,5 +406,5 @@ tasks:
     desc: Run a server as a 2nd cluster member for development
     deps: [agents]
     cmds:
-      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --config=.knot-cluster2.toml
+      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --config=.knot-cluster2.toml --hostname=podmanhost
     ignore_error: true

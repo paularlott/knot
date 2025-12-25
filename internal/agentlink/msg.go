@@ -21,6 +21,9 @@ const (
 	CommandSpaceGetField
 	CommandSpaceStop
 	CommandSpaceRestart
+	CommandForwardPort
+	CommandListPortForwards
+	CommandStopPortForward
 )
 
 type CommandMsg struct {

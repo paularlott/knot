@@ -25,10 +25,10 @@ type ServerConfig struct {
 	TerminalWebGL             bool
 	EncryptionKey             string
 	Zone                      string
+	Hostname                  string
 	Timezone                  string
 	LeafNode                  bool
 	AuthIPRateLimiting        bool
-	LocalContainerRuntime     string
 	LocalContainerRuntimePref []string
 	Origin                    OriginConfig
 	TOTP                      TOTPConfig

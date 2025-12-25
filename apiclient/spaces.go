@@ -8,14 +8,15 @@ import (
 )
 
 type SpaceRequest struct {
-	Name         string             `json:"name"`
-	Description  string             `json:"description"`
-	TemplateId   string             `json:"template_id"`
-	Shell        string             `json:"shell"`
-	UserId       string             `json:"user_id"`
-	AltNames     []string           `json:"alt_names"`
-	IconURL      string             `json:"icon_url"`
-	CustomFields []CustomFieldValue `json:"custom_fields"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	TemplateId     string             `json:"template_id"`
+	Shell          string             `json:"shell"`
+	UserId         string             `json:"user_id"`
+	AltNames       []string           `json:"alt_names"`
+	IconURL        string             `json:"icon_url"`
+	CustomFields   []CustomFieldValue `json:"custom_fields"`
+	SelectedNodeId string             `json:"selected_node_id,omitempty"`
 }
 
 type CreateSpaceResponse struct {
@@ -56,6 +57,7 @@ type SpaceInfo struct {
 	VSCodeTunnel    string            `json:"vscode_tunnel_name"`
 	StartedAt       time.Time         `json:"started_at"`
 	IconURL         string            `json:"icon_url"`
+	NodeHostname    string            `json:"node_hostname"`
 }
 
 type SpaceInfoList struct {
@@ -113,6 +115,7 @@ type SpaceDefinition struct {
 	HasVSCodeTunnel    bool                         `json:"has_vscode_tunnel"`
 	VSCodeTunnel       string                       `json:"vscode_tunnel_name"`
 	IsRemote           bool                         `json:"is_remote"`
+	NodeHostname       string                       `json:"node_hostname"`
 }
 
 type RunCommandRequest struct {

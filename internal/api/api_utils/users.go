@@ -48,7 +48,9 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 		space.Name = space.Id
 		space.UpdatedAt = hlc.Now()
 		db.SaveSpace(space, []string{"IsDeleted", "Name", "UpdatedAt"})
-		service.GetTransport().GossipSpace(space)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
 	}
 
 	// Delete the user
@@ -64,7 +66,9 @@ func (auu *ApiUtilsUsers) DeleteUser(toDelete *model.User) error {
 			return err
 		}
 
-		service.GetTransport().GossipUser(toDelete)
+		if transport := service.GetTransport(); transport != nil {
+			transport.GossipUser(toDelete)
+		}
 		sse.PublishUsersDeleted(toDelete.Id)
 		auu.RemoveUsersSessions(toDelete)
 		auu.RemoveUsersTokens(toDelete)
@@ -85,7 +89,9 @@ func (auu *ApiUtilsUsers) RemoveUsersSessions(user *model.User) {
 			session.ExpiresAfter = time.Now().Add(model.SessionExpiryDuration).UTC()
 			session.UpdatedAt = hlc.Now()
 			store.SaveSession(session)
-			service.GetTransport().GossipSession(session)
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipSession(session)
+			}
 		}
 	}
 }
