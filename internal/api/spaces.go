@@ -76,6 +76,23 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.Platform = template.Platform
 		s.IconURL = space.IconURL
 
+		// Get node hostname if node_id is set
+		if space.NodeId != "" {
+			transport := service.GetTransport()
+			if transport != nil {
+				node := transport.GetNodeByIDString(space.NodeId)
+				if node != nil {
+					s.NodeHostname = node.Metadata.GetString("hostname")
+				}
+				if s.NodeHostname == "" {
+					s.NodeHostname = "Offline Remote Node"
+				}
+			} else {
+				// Leaf mode - all nodes are local
+				s.NodeHostname = cfg.Hostname
+			}
+		}
+
 		// Get the user
 		u, err := db.GetUser(space.UserId)
 		if err != nil {
@@ -177,6 +194,16 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	}
 	spaceName := space.Name
 
+	// Check if request should be forwarded to another node
+	if shouldForward, nodeId := rest.ShouldForwardToNode(space.NodeId); shouldForward {
+		if err := rest.ForwardToNode(w, r, nodeId); err != nil {
+			// If forwarding fails, allow delete to proceed (node might be dead)
+			log.WithError(err).Warn("failed to forward delete request, proceeding locally")
+		} else {
+			return
+		}
+	}
+
 	// API-specific logic for checking if space can be deleted
 	cfg := config.GetServerConfig()
 	if space.IsDeployed || space.IsPending || space.IsDeleting || (space.Zone != "" && space.Zone != cfg.Zone) {
@@ -262,8 +289,24 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Get template for node selection
+	db := database.GetInstance()
+	template, err := db.GetTemplate(request.TemplateId)
+	if err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "template not found"})
+		return
+	}
+
+	// Select node for space
+	nodeId, err := service.SelectNodeForSpace(template, request.SelectedNodeId)
+	if err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
 	// Create the space
 	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, "", request.IconURL, customFields)
+	space.NodeId = nodeId
 
 	spaceService := service.GetSpaceService()
 	err = spaceService.CreateSpace(space, user)
@@ -309,6 +352,26 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+	cfg := config.GetServerConfig()
+
+	space, err = db.GetSpace(spaceId)
+	if err != nil {
+		logger.WithError(err).Error("get space failed")
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Check if request should be forwarded to another node
+	if shouldForward, nodeId := rest.ShouldForwardToNode(space.NodeId); shouldForward {
+		if err := rest.ForwardToNode(w, r, nodeId); err != nil {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to forward request"})
+		}
+		return
+	}
+
+	// Acquire lock after forwarding check
 	transport := service.GetTransport()
 	unlockToken := transport.LockResource(spaceId)
 	if unlockToken == "" {
@@ -317,12 +380,6 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer transport.UnlockResource(spaceId, unlockToken)
-
-	user := r.Context().Value("user").(*model.User)
-	db := database.GetInstance()
-	cfg := config.GetServerConfig()
-
-	space, err = db.GetSpace(spaceId)
 	if err != nil {
 		logger.WithError(err).Error("get space failed")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
@@ -422,6 +479,15 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if request should be forwarded to another node
+	if shouldForward, nodeId := rest.ShouldForwardToNode(space.NodeId); shouldForward {
+		if err := rest.ForwardToNode(w, r, nodeId); err != nil {
+			// If forwarding fails, allow stop to proceed (node might be dead)
+			log.WithError(err).Warn("failed to forward stop request, proceeding locally")
+		}
+		return
+	}
+
 	// If user doesn't have permission to manage spaces and not their space then fail
 	if user.Id != space.UserId && user.Id != space.SharedWithUserId && !user.HasPermission(model.PermissionManageSpaces) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
@@ -467,7 +533,22 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 
 	space, err = db.GetSpace(spaceId)
 	if err != nil {
-		log.WithError(err).Error("HandleSpaceStop:")
+		log.WithError(err).Error("HandleSpaceRestart")
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Check if request should be forwarded to another node
+	if shouldForward, nodeId := rest.ShouldForwardToNode(space.NodeId); shouldForward {
+		if err := rest.ForwardToNode(w, r, nodeId); err != nil {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to forward request"})
+		}
+		return
+	}
+
+	space, err = db.GetSpace(spaceId)
+	if err != nil {
+		log.WithError(err).Error("HandleSpaceRestart")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}

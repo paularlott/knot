@@ -130,6 +130,9 @@
                     <img x-show="s.icon_url.length && s.icon_url_exists" :src="s.icon_url" alt="Icon" class="hidden sm:block size-8" />
                     <div>
                       <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="s.name"></div>
+                      <template x-if="s.node_hostname">
+                        <div class="text-xs text-gray-500 dark:text-gray-400" x-text="'Host: ' + s.node_hostname"></div>
+                      </template>
 
                       <!-- Show first 2 lines of description inline -->
                       <template x-if="s.description || s.note">

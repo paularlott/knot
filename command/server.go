@@ -22,7 +22,6 @@ import (
 	"github.com/paularlott/knot/internal/cluster"
 	"github.com/paularlott/knot/internal/config"
 	containerHelper "github.com/paularlott/knot/internal/container/helper"
-	"github.com/paularlott/knot/internal/container/runtime"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/dns"
@@ -126,6 +125,12 @@ var ServerCmd = &cli.Command{
 			Usage:      "The zone of the server.",
 			ConfigPath: []string{"server.zone"},
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_ZONE"},
+		},
+		&cli.StringFlag{
+			Name:       "hostname",
+			Usage:      "The hostname to advertise to other servers (defaults to system hostname).",
+			ConfigPath: []string{"server.hostname"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_HOSTNAME"},
 		},
 		&cli.StringFlag{
 			Name:         "html-path",
@@ -557,6 +562,13 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_ENABLED"},
 			DefaultValue: false,
 		},
+		&cli.BoolFlag{
+			Name:         "mcp-native-tools",
+			Usage:        "Use native tool registration instead of discovery-based registration.",
+			ConfigPath:   []string{"server.mcp.native_tools"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_NATIVE_TOOLS"},
+			DefaultValue: false,
+		},
 
 		// Chat flags
 		&cli.BoolFlag{
@@ -776,12 +788,16 @@ var ServerCmd = &cli.Command{
 		openaiEndpointEnabled := cmd.GetBool("chat-openai-endpoints")
 
 		if mcpEnabled || chatEnabled || openaiEndpointEnabled {
-			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, &cfg.MCP)
+			nativeTools := cmd.GetBool("mcp-native-tools")
+			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, nativeTools, &cfg.MCP)
 			if !mcpEnabled {
 				logger.Debug("MCP chat-only mode")
 			} else {
 				logger.Info("MCP server enabled")
 			}
+
+			// Set the appropriate system prompt based on native tools setting
+			systemprompt.SetDefaultSystemPrompt(nativeTools)
 		}
 
 		// If AI chat enabled then initialize chat service
@@ -1087,14 +1103,17 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	logger := log.WithGroup("server")
 
 	// Get the hostname with fallback logic
-	hostname := os.Getenv("NOMAD_DC")
+	hostname := cmd.GetString("hostname")
 	if hostname == "" {
-		var err error
-		hostname, err = os.Hostname()
-		if err != nil {
-			log.Fatal("Error getting hostname:", "err", err)
+		hostname = os.Getenv("NOMAD_DC")
+		if hostname == "" {
+			var err error
+			hostname, err = os.Hostname()
+			if err != nil {
+				log.Fatal("Error getting hostname:", "err", err)
+			}
+			hostname = strings.Split(hostname, ".")[0]
 		}
-		hostname = strings.Split(hostname, ".")[0]
 	}
 
 	// Use hostname as default for zone if not set
@@ -1123,6 +1142,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		TerminalWebGL:          cmd.GetBool("terminal-webgl"),
 		EncryptionKey:          cmd.GetString("encrypt"),
 		Zone:                   zone,
+		Hostname:               hostname,
 		Timezone:               cmd.GetString("timezone"),
 		LeafNode:               cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
 		AuthIPRateLimiting:     cmd.GetBool("auth-ip-rate-limiting"),
@@ -1244,8 +1264,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
 	}
 
-	serverCfg.Chat.SystemPrompt = systemprompt.GetSystemPrompt(serverCfg.Chat.SystemPromptFile)
-
 	// If tunnel domain doesn't start with a . then prefix it, strip leading * if present
 	if serverCfg.TunnelDomain != "" {
 		serverCfg.TunnelDomain = strings.TrimPrefix(serverCfg.TunnelDomain, "*")
@@ -1271,9 +1289,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	logger.Info("timezone", "timezone", serverCfg.Timezone)
 
 	config.SetServerConfig(serverCfg)
-
-	// Detect local container runtime
-	serverCfg.LocalContainerRuntime = runtime.DetectLocalContainerRuntime(serverCfg.LocalContainerRuntimePref)
 
 	return serverCfg
 }

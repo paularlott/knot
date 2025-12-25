@@ -42,11 +42,8 @@ func (c *Cluster) handleSpaceGossip(sender *gossip.Node, packet *gossip.Packet) 
 		return err
 	}
 
-	// Merge the spaces with the local spaces
-	if err := c.mergeSpaces(spaces); err != nil {
-		c.logger.WithError(err).Error("Failed to merge spaces")
-		return err
-	}
+	// Merge the spaces in the background
+	go c.mergeSpaces(spaces)
 
 	return nil
 }
@@ -120,9 +117,18 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 					service.GetUserService().UpdateSpaceSSHKeys(space, user)
 				}
 
+				// Only publish SSE events when stateful fields that the UI cares about change
+				// This prevents spamming events during startup when only UpdatedAt changes
+				stateChanged := space.IsDeleted != localSpace.IsDeleted ||
+					space.IsDeployed != localSpace.IsDeployed ||
+					space.IsPending != localSpace.IsPending ||
+					space.SharedWithUserId != localSpace.SharedWithUserId
+
 				if space.IsDeleted {
-					sse.PublishSpaceDeleted(space.Id, space.UserId)
-				} else {
+					if stateChanged {
+						sse.PublishSpaceDeleted(space.Id, space.UserId)
+					}
+				} else if stateChanged {
 					sse.PublishSpaceChanged(space.Id, space.UserId)
 				}
 			}

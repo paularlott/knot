@@ -24,6 +24,7 @@ type Transport interface {
 	UnlockResource(resourceId, unlockToken string)
 
 	Nodes() []*gossip.Node
+	GetNodeByIDString(id string) *gossip.Node
 }
 
 var (

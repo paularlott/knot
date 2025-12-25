@@ -15,7 +15,7 @@ import (
 	"github.com/paularlott/mcp/discovery"
 )
 
-func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfig *config.MCPConfig) *mcp.Server {
+func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, nativeTools bool, mcpConfig *config.MCPConfig) *mcp.Server {
 	server := mcp.NewServer("knot-mcp-server", build.Version)
 	server.SetInstructions(`These tools manage spaces, templates, and other resources.
 
@@ -77,117 +77,113 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	}
 
 	// Create a tool registry for discoverable tools
-	registry := discovery.NewToolRegistry()
+	var registry *discovery.ToolRegistry
+	if !nativeTools {
+		registry = discovery.NewToolRegistry()
+	}
+
+	// Helper function to register tools either natively or in discovery registry
+	registerTool := func(tool *mcp.ToolBuilder, handler mcp.ToolHandler, keywords ...string) {
+		if nativeTools {
+			server.RegisterTool(tool, handler)
+		} else {
+			registry.RegisterTool(tool, handler, keywords...)
+		}
+	}
 
 	// =========================================================================
-	// Register ALL tools in discovery registry
+	// Register ALL tools in discovery registry or natively
 	// =========================================================================
 
 	// Spaces - All space operations
-	registry.RegisterTool(
-		mcp.NewTool("list_spaces", "List all spaces for current user with status and sharing details.",
-			mcp.Output(
-				mcp.ObjectArray("spaces", "Array of available spaces and their status",
-					mcp.String("id", "Space ID"),
-					mcp.String("name", "Space name"),
-					mcp.String("state", "Space state (stopped, running, pending, deleting)"),
-					mcp.String("description", "Space description"),
-					mcp.String("note", "Space note"),
-					mcp.String("zone", "Zone name"),
-					mcp.String("platform", "Platform type"),
-					mcp.StringArray("web_ports", "Web port mappings"),
-					mcp.StringArray("tcp_ports", "TCP port mappings"),
-					mcp.Boolean("ssh", "SSH access available"),
-					mcp.Boolean("web_terminal", "Web terminal access available"),
-					mcp.ObjectArray("custom_fields", "The list of custom fields and their values",
-						mcp.String("name", "Custom field name"),
-						mcp.String("value", "Custom field value"),
-					),
-					mcp.Object("shared_with", "User ID the space is shared with if any",
-						mcp.String("user_id", "User ID"),
-						mcp.String("username", "Username"),
-						mcp.String("email", "Email"),
-					),
+	tool := mcp.NewTool("list_spaces", "List all spaces for current user with status and sharing details.",
+		mcp.Output(
+			mcp.ObjectArray("spaces", "Array of available spaces and their status",
+				mcp.String("id", "Space ID"),
+				mcp.String("name", "Space name"),
+				mcp.String("state", "Space state (stopped, running, pending, deleting)"),
+				mcp.String("description", "Space description"),
+				mcp.String("note", "Space note"),
+				mcp.String("zone", "Zone name"),
+				mcp.String("platform", "Platform type"),
+				mcp.StringArray("web_ports", "Web port mappings"),
+				mcp.StringArray("tcp_ports", "TCP port mappings"),
+				mcp.Boolean("ssh", "SSH access available"),
+				mcp.Boolean("web_terminal", "Web terminal access available"),
+				mcp.ObjectArray("custom_fields", "The list of custom fields and their values",
+					mcp.String("name", "Custom field name"),
+					mcp.String("value", "Custom field value"),
+				),
+				mcp.Object("shared_with", "User ID the space is shared with if any",
+					mcp.String("user_id", "User ID"),
+					mcp.String("username", "Username"),
+					mcp.String("email", "Email"),
 				),
 			),
 		),
-		listSpaces,
-		"spaces", "list", "environments", "development", "deploy", "instances",
 	)
-	registry.RegisterTool(
-		mcp.NewTool("start_space", "Start a space.",
-			mcp.String("space_name", "Name of the space to start", mcp.Required()),
-		),
-		startSpace,
-		"start", "space", "run", "launch", "activate", "environment",
+	registerTool(tool, listSpaces, "spaces", "list", "environments", "development", "deploy", "instances")
+	tool = mcp.NewTool("start_space", "Start a space.",
+		mcp.String("space_name", "Name of the space to start", mcp.Required()),
 	)
-	registry.RegisterTool(
-		mcp.NewTool("stop_space", "Stop a space.",
-			mcp.String("space_name", "Name of the space to stop", mcp.Required()),
-		),
-		stopSpace,
-		"stop", "space", "shutdown", "halt", "deactivate", "environment",
+	registerTool(tool, startSpace, "start", "space", "run", "launch", "activate", "environment")
+
+	tool = mcp.NewTool("stop_space", "Stop a space.",
+		mcp.String("space_name", "Name of the space to stop", mcp.Required()),
 	)
-	registry.RegisterTool(
-		mcp.NewTool("restart_space", "Restart a space.",
-			mcp.String("space_name", "Name of the space to restart", mcp.Required()),
-		),
-		restartSpace,
-		"restart", "space", "reboot", "reload", "environment",
+	registerTool(tool, stopSpace, "stop", "space", "shutdown", "halt", "deactivate", "environment")
+
+	tool = mcp.NewTool("restart_space", "Restart a space.",
+		mcp.String("space_name", "Name of the space to restart", mcp.Required()),
 	)
+	registerTool(tool, restartSpace, "restart", "space", "reboot", "reload", "environment")
 
 	// Groups
-	registry.RegisterTool(
-		mcp.NewTool("list_groups", "List all user groups. Use to find group IDs for template restrictions and user management.",
-			mcp.Output(
-				mcp.ObjectArray("groups", "Array of available groups",
-					mcp.String("id", "Group ID"),
-					mcp.String("name", "Group name"),
-					mcp.Number("max_spaces", "Maximum number of spaces"),
-					mcp.Number("compute_units", "Maximum compute units"),
-					mcp.Number("storage_units", "Maximum storage units"),
-					mcp.Number("max_tunnels", "Maximum number of tunnels"),
-				),
+	tool = mcp.NewTool("list_groups", "List all user groups. Use to find group IDs for template restrictions and user management.",
+		mcp.Output(
+			mcp.ObjectArray("groups", "Array of available groups",
+				mcp.String("id", "Group ID"),
+				mcp.String("name", "Group name"),
+				mcp.Number("max_spaces", "Maximum number of spaces"),
+				mcp.Number("compute_units", "Maximum compute units"),
+				mcp.Number("storage_units", "Maximum storage units"),
+				mcp.Number("max_tunnels", "Maximum number of tunnels"),
 			),
 		),
-		listGroups,
-		"groups", "users", "permissions", "restrictions", "rbac", "access", "team", "organization",
 	)
+	registerTool(tool, listGroups, "groups", "users", "permissions", "restrictions", "rbac", "access", "team", "organization")
 
 	// Templates
-	registry.RegisterTool(
-		mcp.NewTool("list_templates", "List all space templates. Use to find template IDs or check existing templates.",
-			mcp.Boolean("show_all", "Show template from all zones (default: false)"),
-			mcp.Boolean("show_inactive", "Show inactive templates (default: false)"),
-			mcp.Output(
-				mcp.ObjectArray("templates", "Array of available templates",
-					mcp.String("id", "Template ID"),
-					mcp.String("name", "Template name"),
-					mcp.String("description", "Template description"),
-					mcp.String("platform", "Platform type"),
-					mcp.ObjectArray("groups", "The list of groups that can use this template",
-						mcp.String("id", "Group ID"),
-						mcp.String("name", "Group name"),
-					),
-					mcp.Number("compute_units", "Compute units required"),
-					mcp.Number("storage_units", "Storage units required"),
-					mcp.Boolean("schedule_enabled", "Schedule restrictions enabled"),
-					mcp.Boolean("is_managed", "Is managed template"),
-					mcp.String("schedule", "Schedule configuration"),
-					mcp.StringArray("zones", "Zone names where template appears"),
-					mcp.ObjectArray("custom_fields", "The list of custom field definitions",
-						mcp.String("name", "Field name"),
-						mcp.String("description", "Field description"),
-					),
-					mcp.Number("max_uptime", "Maximum uptime"),
-					mcp.String("max_uptime_unit", "Maximum uptime unit"),
+	tool = mcp.NewTool("list_templates", "List all space templates. Use to find template IDs or check existing templates.",
+		mcp.Boolean("show_all", "Show template from all zones (default: false)"),
+		mcp.Boolean("show_inactive", "Show inactive templates (default: false)"),
+		mcp.Output(
+			mcp.ObjectArray("templates", "Array of available templates",
+				mcp.String("id", "Template ID"),
+				mcp.String("name", "Template name"),
+				mcp.String("description", "Template description"),
+				mcp.String("platform", "Platform type"),
+				mcp.ObjectArray("groups", "The list of groups that can use this template",
+					mcp.String("id", "Group ID"),
+					mcp.String("name", "Group name"),
 				),
+				mcp.Number("compute_units", "Compute units required"),
+				mcp.Number("storage_units", "Storage units required"),
+				mcp.Boolean("schedule_enabled", "Schedule restrictions enabled"),
+				mcp.Boolean("is_managed", "Is managed template"),
+				mcp.String("schedule", "Schedule configuration"),
+				mcp.StringArray("zones", "Zone names where template appears"),
+				mcp.ObjectArray("custom_fields", "The list of custom field definitions",
+					mcp.String("name", "Field name"),
+					mcp.String("description", "Field description"),
+				),
+				mcp.Number("max_uptime", "Maximum uptime"),
+				mcp.String("max_uptime_unit", "Maximum uptime unit"),
 			),
 		),
-		listTemplates,
-		"templates", "list", "blueprint", "definition", "docker", "nomad", "podman", "platform", "job", "specification",
 	)
-	registry.RegisterTool(
+	registerTool(tool, listTemplates, "templates", "list", "blueprint", "definition", "docker", "nomad", "podman", "platform", "job", "specification")
+	registerTool(
 		mcp.NewTool("create_template", "Create a new space template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide for the job definition.",
 			mcp.String("name", "Template name", mcp.Required()),
 			mcp.String("platform", "Platform type ('manual', 'docker', 'podman', or 'nomad')", mcp.Required()),
@@ -223,7 +219,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		createTemplate,
 		"create", "template", "new", "docker", "nomad", "podman", "platform", "job", "specification", "blueprint",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("update_template", "Update an existing template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide.",
 			mcp.String("template_name", "Name of the template to update", mcp.Required()),
 			mcp.String("name", "New template name"),
@@ -262,7 +258,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		updateTemplate,
 		"update", "template", "modify", "edit", "docker", "nomad", "podman", "platform", "job", "specification", "blueprint",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("get_template", "Get detailed template information including configuration and job specification.",
 			mcp.String("template_name", "Template name to retrieve", mcp.Required()),
 			mcp.Output(
@@ -304,7 +300,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		getTemplate,
 		"get", "template", "view", "details", "configuration", "docker", "nomad", "podman", "platform", "job", "specification",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("delete_template", "Permanently delete a template. Cannot be undone.",
 			mcp.String("template_name", "Template name to delete"),
 			mcp.Output(
@@ -316,7 +312,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// Additional space management tools
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("get_space", "Get detailed space information including configuration and status.",
 			mcp.String("space_name", "Name of the space to retrieve", mcp.Required()),
 			mcp.Output(
@@ -343,7 +339,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		getSpace,
 		"get", "space", "details", "information", "configuration", "environment",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("run_command", "Execute a command in a running space and return results.",
 			mcp.String("space_name", "Name of the space to run command in", mcp.Required()),
 			mcp.String("command", "Command to execute", mcp.Required()),
@@ -359,7 +355,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		runCommand,
 		"run", "execute", "command", "shell", "terminal", "bash", "sh", "script", "output",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("read_file", "Read file contents from a running space.",
 			mcp.String("space_name", "Name of the space to read the file from", mcp.Required()),
 			mcp.String("file_path", "File path in the space of the file to read", mcp.Required()),
@@ -374,7 +370,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		readFile,
 		"read", "file", "content", "view", "open", "cat", "text", "document",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("write_file", "Write content to a file in a running space.",
 			mcp.String("space_name", "Name of the space to write to", mcp.Required()),
 			mcp.String("file_path", "File path in the space of the file to write", mcp.Required()),
@@ -390,7 +386,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		writeFile,
 		"write", "file", "create", "save", "edit", "content", "text", "document",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("share_space", "Share a space with another user. Use list_users to find user ID if not provided.",
 			mcp.String("space_name", "Name of the space to share", mcp.Required()),
 			mcp.String("user_id", "User ID to share the space with", mcp.Required()),
@@ -401,7 +397,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		shareSpace,
 		"share", "space", "grant", "access", "collaborate", "permissions",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("stop_sharing_space", "Stop sharing a space.",
 			mcp.String("space_name", "Name of the space to stop sharing", mcp.Required()),
 			mcp.Output(
@@ -411,7 +407,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		stopSharingSpace,
 		"stop", "sharing", "revoke", "access", "permissions", "private",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("transfer_space", "Transfer space ownership to another user. Use list_users to find user ID if not provided.",
 			mcp.String("space_name", "Name of the space to transfer", mcp.Required()),
 			mcp.String("user_id", "User ID to transfer to", mcp.Required()),
@@ -422,7 +418,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		transferSpace,
 		"transfer", "space", "ownership", "give", "assign",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("create_space", "Create a new development space. ONLY use when explicitly asked to create a space. Spaces are created stopped - use start_space to run them.",
 			mcp.String("name", "Name of the space", mcp.Required()),
 			mcp.String("template_name", "Template name to use", mcp.Required()),
@@ -441,7 +437,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		createSpace,
 		"create", "space", "new", "environment", "development", "deploy", "instance",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("update_space", "Update an existing space.",
 			mcp.String("space_name", "Name of the space to update", mcp.Required()),
 			mcp.String("name", "New space name"),
@@ -460,7 +456,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		updateSpace,
 		"update", "space", "modify", "edit", "configure",
 	)
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("delete_space", "Permanently delete a space and all its data. Cannot be undone.",
 			mcp.String("space_name", "Name of the space to delete", mcp.Required()),
 			mcp.Output(
@@ -472,7 +468,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// Users
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("list_users", "List all users details (id, username, email, active, groups). Use to find user IDs for sharing or transfers.",
 			mcp.Output(
 				mcp.ObjectArray("users", "Array of users within the system",
@@ -489,7 +485,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// Icons
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("list_icons", "List all available icons with descriptions and URLs. Use to find icon URLs for templates or spaces.",
 			mcp.Output(
 				mcp.ObjectArray("icons", "Array of available icons",
@@ -504,7 +500,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// Skills/Knowledge base
-	registry.RegisterTool(
+	registerTool(
 		mcp.NewTool("skills", "Access knowledge base/skills for guides and best practices. Call without filename to list all, or with filename for specific content. First call skills() to see what's available - don't assume filenames. Standard skills: nomad-spec.md, local-container-spec.md (covers docker, podman, and apple containers).",
 			mcp.String("filename", "Skill filename to retrieve. Omit to list all skills."),
 			mcp.Output(
@@ -569,9 +565,11 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	}
 
 	// =========================================================================
-	// Attach registry to server (registers tool_search, execute_tool)
+	// Attach registry to server (registers tool_search, execute_tool) or register tools natively
 	// =========================================================================
-	registry.Attach(server)
+	if !nativeTools {
+		registry.Attach(server)
+	}
 
 	return server
 }

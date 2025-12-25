@@ -6,11 +6,25 @@ import (
 )
 
 //go:embed system-prompt.md
-var defaultSystemPrompt string
+var onDemandSystemPrompt string
 
-// GetSystemPrompt returns either the built-in system prompt or loads from file
+//go:embed system-prompt-native-tools.md
+var nativeToolsSystemPrompt string
+
+var currentDefaultPrompt string = onDemandSystemPrompt
+
+// SetDefaultSystemPrompt sets which embedded prompt to use as the default
+func SetDefaultSystemPrompt(useNativeTools bool) {
+	if useNativeTools {
+		currentDefaultPrompt = nativeToolsSystemPrompt
+	} else {
+		currentDefaultPrompt = onDemandSystemPrompt
+	}
+}
+
+// GetSystemPrompt returns either the current default system prompt or loads from file
 func GetSystemPrompt(systemPromptFile string) string {
-	systemPrompt := defaultSystemPrompt
+	systemPrompt := currentDefaultPrompt
 	if systemPromptFile != "" {
 		if content, err := os.ReadFile(systemPromptFile); err == nil {
 			systemPrompt = string(content)
@@ -19,7 +33,12 @@ func GetSystemPrompt(systemPromptFile string) string {
 	return systemPrompt
 }
 
-// GetInternalSystemPrompt returns the embedded system prompt (for scaffold command)
+// GetInternalSystemPrompt returns the embedded on-demand system prompt (for scaffold command)
 func GetInternalSystemPrompt() string {
-	return defaultSystemPrompt
+	return onDemandSystemPrompt
+}
+
+// GetInternalSystemPromptNative returns the embedded native tools system prompt
+func GetInternalSystemPromptNative() string {
+	return nativeToolsSystemPrompt
 }

@@ -44,24 +44,25 @@ func (c *Cluster) handleUserGossip(sender *gossip.Node, packet *gossip.Packet) e
 		return err
 	}
 
-	// Merge the users with the local users
-	if err := c.mergeUsers(users); err != nil {
-		c.logger.WithError(err).Error("Failed to merge users")
-		return err
-	}
+	// Merge the users in the background
+	go func() {
+		if err := c.mergeUsers(users); err != nil {
+			c.logger.WithError(err).Error("Failed to merge users")
+		}
 
-	// Forward to any leaf nodes
-	if len(c.leafSessions) > 0 {
-		c.leafSessionMux.RLock()
-		defer c.leafSessionMux.RUnlock()
-		for _, session := range c.leafSessions {
-			for _, user := range users {
-				if session.user.Id == user.Id {
-					session.SendMessage(leafmsg.MessageGossipUser, []*model.User{user})
+		// Forward to any leaf nodes
+		if len(c.leafSessions) > 0 {
+			c.leafSessionMux.RLock()
+			defer c.leafSessionMux.RUnlock()
+			for _, session := range c.leafSessions {
+				for _, user := range users {
+					if session.user.Id == user.Id {
+						session.SendMessage(leafmsg.MessageGossipUser, []*model.User{user})
+					}
 				}
 			}
 		}
-	}
+	}()
 
 	return nil
 }

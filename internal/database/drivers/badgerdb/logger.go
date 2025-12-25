@@ -31,5 +31,4 @@ func (l *badgerdbLog) Infof(f string, v ...interface{}) {
 }
 
 func (l *badgerdbLog) Debugf(f string, v ...interface{}) {
-	l.logger.Debug(fmt.Sprintf(f, v...))
 }

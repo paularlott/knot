@@ -49,7 +49,9 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 			token.ExpiresAfter = expiresAfter.UTC()
 			token.UpdatedAt = hlc.Now()
 			db.SaveToken(token)
-			service.GetTransport().GossipToken(token)
+			if transport := service.GetTransport(); transport != nil {
+				transport.GossipToken(token)
+			}
 		} else {
 			// Get session from cookie
 			session := middleware.GetSessionFromCookie(r)
@@ -71,7 +73,9 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 			if err := store.SaveSession(session); err != nil {
 				logger.Error("failed to save session", "error", err, "session_id", session.Id)
 			} else {
-				service.GetTransport().GossipSession(session)
+				if transport := service.GetTransport(); transport != nil {
+					transport.GossipSession(session)
+				}
 			}
 		}
 
@@ -137,20 +141,32 @@ func HandleSSE(w http.ResponseWriter, r *http.Request) {
 		defer close(sessionCheckDone)
 
 		// Main event loop
+		keepAlive := time.NewTicker(5 * time.Second)
+		defer keepAlive.Stop()
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Debug("SSE client disconnected", "user_id", userId)
 				return
+
+			case <-keepAlive.C:
+				// Send a keep-alive comment every 5 seconds to prevent proxy timeouts
+				_, err := fmt.Fprintf(w, ": keep-alive\n\n")
+				if err != nil {
+					return
+				}
+				flusher.Flush()
 
 			case data, ok := <-client.Send():
 				if !ok {
-					logger.Debug("SSE client channel closed", "user_id", userId)
 					return
 				}
 
 				// Write the event
-				fmt.Fprintf(w, "event: message\ndata: %s\n\n", data)
+				_, err := fmt.Fprintf(w, "event: message\ndata: %s\n\n", data)
+				if err != nil {
+					logger.Warn("SSE write error", "error", err)
+					return
+				}
 				flusher.Flush()
 			}
 		}

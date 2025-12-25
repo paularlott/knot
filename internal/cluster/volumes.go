@@ -42,11 +42,8 @@ func (c *Cluster) handleVolumeGossip(sender *gossip.Node, packet *gossip.Packet)
 		return err
 	}
 
-	// Merge the volumes with the local volumes
-	if err := c.mergeVolumes(volumes); err != nil {
-		c.logger.WithError(err).Error("Failed to merge volumes")
-		return err
-	}
+	// Merge the volumes in the background
+	go c.mergeVolumes(volumes)
 
 	return nil
 }

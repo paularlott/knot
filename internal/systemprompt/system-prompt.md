@@ -10,12 +10,6 @@ This server uses tool discovery to minimize context usage. ALL tools require the
 1. `tool_search(query="<operation>")` - Find the tool
 2. `execute_tool(name="<tool_name>", arguments={...})` - Execute the tool
 
-**Examples:**
-- List spaces: `tool_search("list spaces")` → `execute_tool("list_spaces")`
-- Start space: `tool_search("start space")` → `execute_tool("start_space")`
-- Create template: `tool_search("create template")` → `execute_tool("create_template")`
-- Read file: `tool_search("read file")` → `execute_tool("read_file")`
-
 ## **Core Operating Principles**
 
 1. **Request Priority:**

@@ -135,3 +135,7 @@ func (c *AgentClient) Shutdown() {
 	c.serverList = make(map[string]*agentServer) // Clear the server list
 	c.serverListMutex.Unlock()
 }
+
+func (c *AgentClient) GetSpaceId() string {
+	return c.spaceId
+}

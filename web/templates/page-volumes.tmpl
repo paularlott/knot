@@ -35,26 +35,40 @@
         <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
             <tr>
-              <th scope="col" class="px-4 py-3">Name</th>
-              <th scope="col" class="px-4 py-3">Zone</th>
-              <th scope="col" class="px-4 py-3">Type</th>
-              <th scope="col" class="px-4 py-3">Deployed</th>
+              <th scope="col" class="px-4 py-3">Details</th>
+              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Zone</th>
+              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Type</th>
+              <th scope="col" class="px-4 py-3 hidden sm:table-cell">Deployed</th>
               <th scope="col" class="px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
           <template x-for="v in volumes" :key="v.volume_id">
             <tr x-show="!v.searchHide" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600/10">
-              <td x-text="v.name" class="px-4 py-3"></td>
-              <td x-text="v.zone" class="px-4 py-3"></td>
               <td class="px-4 py-3">
+                <div class="text-base font-semibold text-gray-900 dark:text-white" x-text="v.name"></div>
+                <div class="sm:hidden">
+                  <div class="mt-2 flex flex-wrap gap-1 text-xs">
+                    <span x-show="v.zone != ''" class="inline-block bg-blue-100 text-blue-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-300 border border-blue-300" x-text="v.zone"></span>
+                    <span x-show="v.platform == 'docker'" class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Docker Volume</span>
+                    <span x-show="v.platform == 'podman'" class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Podman Volume</span>
+                    <span x-show="v.platform == 'apple'" class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Apple Volume</span>
+                    <span x-show="v.platform == 'container'" class="inline-block bg-indigo-100 text-indigo-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400">Container Volume</span>
+                    <span x-show="v.platform == 'nomad'" class="inline-block bg-green-100 text-green-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Nomad Volume</span>
+                    <span x-show="v.active" class="inline-block bg-green-100 text-green-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Running</span>
+                    <span x-show="!v.active" class="inline-block bg-gray-100 text-gray-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-300 border border-gray-300">Stopped</span>
+                  </div>
+                </div>
+              </td>
+              <td x-text="v.zone" class="px-4 py-3 hidden sm:table-cell"></td>
+              <td class="px-4 py-3 hidden sm:table-cell">
                 <span x-show="v.platform == 'docker'" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Docker Volume</span>
                 <span x-show="v.platform == 'podman'" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Podman Volume</span>
                 <span x-show="v.platform == 'apple'" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Apple Volume</span>
                 <span x-show="v.platform == 'container'" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Container Volume</span>
                 <span x-show="v.platform == 'nomad'" class="inline-block bg-green-100 text-green-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400 text-nowrap">Nomad Volume</span>
               </td>
-              <td class="px-4 py-3">
+              <td class="px-4 py-3 hidden sm:table-cell">
                 <span x-show="v.active" class="inline-block bg-green-100 text-green-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Running</span>
                 <span x-show="!v.active" class="inline-block bg-gray-100 text-gray-800 text-xs font-medium m-1 px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-gray-300 border border-gray-300">Stopped</span>
               </td>

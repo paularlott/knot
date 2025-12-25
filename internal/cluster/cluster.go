@@ -183,6 +183,7 @@ func NewCluster(
 		cfg := config.GetServerConfig()
 		metadata := cluster.gossipCluster.LocalMetadata()
 		metadata.SetString("zone", cfg.Zone)
+		metadata.SetString("hostname", cfg.Hostname)
 		metadata.SetString("agent_endpoint", cfg.AgentEndpoint)
 		metadata.SetString("tunnel_server", cfg.TunnelServer)
 
@@ -377,6 +378,13 @@ func (c *Cluster) Nodes() []*gossip.Node {
 	return nil
 }
 
+func (c *Cluster) GetNodeByIDString(id string) *gossip.Node {
+	if c.gossipCluster != nil {
+		return c.gossipCluster.GetNodeByIDString(id)
+	}
+	return nil
+}
+
 // This is a duplicate of the gossip payload size calculation, however when gossip isn't running we still need this for sending to leaf nodes
 func (c *Cluster) CalcLeafPayloadSize(totalNodes int) int {
 	if totalNodes <= 0 {
@@ -397,6 +405,19 @@ func (c *Cluster) GetAgentEndpoints() []string {
 
 func (c *Cluster) GetTunnelServers() []string {
 	return c.tunnelServers
+}
+
+func (c *Cluster) GetLocalNodeId() (string, error) {
+	if c.gossipCluster != nil {
+		return c.gossipCluster.LocalNode().ID.String(), nil
+	}
+	// Fallback to database
+	db := database.GetInstance()
+	nodeIdCfg, err := db.GetCfgValue("node_id")
+	if err != nil || nodeIdCfg == nil {
+		return "", err
+	}
+	return nodeIdCfg.Value, nil
 }
 
 func (c *Cluster) LockResource(resourceId string) string {

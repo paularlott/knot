@@ -42,16 +42,17 @@ func (c *Cluster) handleTemplateVarGossip(sender *gossip.Node, packet *gossip.Pa
 		return err
 	}
 
-	// Merge the template vars with the local template vars
-	if err := c.mergeTemplateVars(templateVars); err != nil {
-		c.logger.WithError(err).Error("Failed to merge template vars")
-		return err
-	}
+	// Merge the template vars in the background
+	go func() {
+		if err := c.mergeTemplateVars(templateVars); err != nil {
+			c.logger.WithError(err).Error("Failed to merge template vars")
+		}
 
-	// Forward to any leaf nodes
-	if len(c.leafSessions) > 0 {
-		c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, &templateVars)
-	}
+		// Forward to any leaf nodes
+		if len(c.leafSessions) > 0 {
+			c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, &templateVars)
+		}
+	}()
 
 	return nil
 }
