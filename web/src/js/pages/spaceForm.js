@@ -227,11 +227,12 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
             self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
             self.$dispatch('close-space-form');
           } else if (response.status === 201) {
-            self.$dispatch('close-space-form');
+            response.json().then((data) => {
+              self.$dispatch('space-created', { space_id: data.space_id });
+              self.$dispatch('close-space-form');
 
-            // If start on create
-            if (this.startOnCreate) {
-              response.json().then((data) => {
+              // If start on create
+              if (this.startOnCreate) {
                 fetch(`/api/spaces/${data.space_id}/start`, {
                   method: 'POST',
                   headers: {
@@ -239,19 +240,22 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
                   }
                 }).then((response2) => {
                   if (response2.status === 200) {
-                    self.$dispatch('show-alert', { msg: "Space started", type: 'success' });
+                    window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space started", type: 'success' } }));
                   } else {
-                    response2.json().then((d) => {
-                      self.$dispatch('show-alert', { msg: `Failed to start space, ${d.error}`, type: 'error' });
+                    response2.text().then((text) => {
+                      try {
+                        const d = JSON.parse(text);
+                        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: `Failed to start space, ${d.error}`, type: 'error' } }));
+                      } catch {
+                        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: `Failed to start space`, type: 'error' } }));
+                      }
                     });
                   }
                 }).catch((error) => {
-                  self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
-                }).finally(() => {
-                  self.$dispatch('close-space-form');
-                })
-              });
-            }
+                  window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: `Error!<br />${error.message}`, type: 'error' } }));
+                });
+              }
+            });
           } else if (response.status === 507) {
             self.quotaStorageLimitShow = true;
           } else {

@@ -134,6 +134,11 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
 
       this.getSpaces();
 
+      // Listen for space-created event
+      window.addEventListener('space-created', (e) => {
+        this.getSpaces(e.detail.space_id);
+      });
+
       // Subscribe to SSE for real-time updates
       if (window.sseClient) {
         window.sseClient.subscribe('space:changed', (payload) => {
