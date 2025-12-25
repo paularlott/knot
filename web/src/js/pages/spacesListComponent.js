@@ -334,6 +334,7 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               self.$dispatch('show-alert', { msg: `Space could not be started: ${data.error}`, type: 'error' });
             }
           });
+          self.getSpaces(spaceId);
         } else if(response.status === 507) {
           response.json().then((data) => {
             // If compute units exceeded then show the dialog
@@ -351,13 +352,18 @@ window.spacesListComponent = function(userId, username, forUserId, canManageSpac
               self.$dispatch('show-alert', { msg: "Space could not be as it has exceeded quota limits.", type: 'error' });
             }
           });
+          self.getSpaces(spaceId);
         } else {
           response.json().then((data) => {
             self.$dispatch('show-alert', { msg: `Space could not be started: ${data.error}`, type: 'error' });
+          }).catch(() => {
+            self.$dispatch('show-alert', { msg: `Space could not be started`, type: 'error' });
           });
+          self.getSpaces(spaceId);
         }
       }).catch((error) => {
         self.$dispatch('show-alert', { msg: `Space could not be started: ${error}`, type: 'error' });
+        self.getSpaces(spaceId);
       }).finally(() => {
         self.getSpaces();
       });
