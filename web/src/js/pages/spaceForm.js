@@ -49,6 +49,9 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     },
 
     async initData() {
+      // Ensure availableNodes is always an array to prevent Alpine errors
+      this.availableNodes = this.availableNodes || [];
+
       const iconsResponse = await fetch('/api/icons', {
         headers: {
           'Content-Type': 'application/json'
@@ -104,7 +107,12 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           'Content-Type': 'application/json'
         }
       });
-      this.template = await templatesResponse.json();
+      if (templatesResponse.status === 200) {
+        this.template = await templatesResponse.json();
+      } else {
+        // Set a default template to prevent null reference errors
+        this.template = { platform: 'manual', custom_fields: [] };
+      }
 
       // Initialize custom fields array immediately to prevent Alpine errors
       if (this.template.custom_fields && this.template.custom_fields.length > 0) {
@@ -137,10 +145,14 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           }
         });
         if (nodesResponse.status === 200) {
-          this.availableNodes = await nodesResponse.json();
+          const nodes = await nodesResponse.json();
+          this.availableNodes = nodes || [];
           if (this.availableNodes.length === 1) {
             this.formData.selected_node_id = this.availableNodes[0].node_id;
           }
+        } else {
+          // Ensure availableNodes is an empty array on error
+          this.availableNodes = [];
         }
         this.loadingNodes = false;
       }
