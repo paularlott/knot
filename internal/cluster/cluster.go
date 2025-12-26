@@ -144,6 +144,8 @@ func NewCluster(
 		cluster.gossipCluster.HandleFunc(ResourceLockGossipMsg, cluster.handleResourceLockGossip)
 		cluster.gossipCluster.HandleFuncWithReply(ScriptFullSyncMsg, cluster.handleScriptFullSync)
 		cluster.gossipCluster.HandleFunc(ScriptGossipMsg, cluster.handleScriptGossip)
+		cluster.gossipCluster.HandleFuncWithReply(ResponseFullSyncMsg, cluster.handleResponseFullSync)
+		cluster.gossipCluster.HandleFunc(ResponseGossipMsg, cluster.handleResponseGossip)
 
 		if cluster.sessionGossip {
 			cluster.gossipCluster.HandleFuncWithReply(SessionFullSyncMsg, cluster.handleSessionFullSync)
@@ -175,6 +177,7 @@ func NewCluster(
 			cluster.gossipVolumes()
 			cluster.gossipResourceLocks()
 			cluster.gossipScripts()
+			cluster.gossipResponses()
 			if cluster.sessionGossip {
 				cluster.gossipSessions()
 			}
@@ -336,6 +339,10 @@ func (c *Cluster) Start(peers []string, originServer string, originToken string)
 
 					if err := c.DoScriptFullSync(node); err != nil {
 						c.logger.WithError(err).Error("failed to sync scripts with node")
+					}
+
+					if err := c.DoResponseFullSync(node); err != nil {
+						c.logger.WithError(err).Error("failed to sync responses with node")
 					}
 
 					if c.sessionGossip {

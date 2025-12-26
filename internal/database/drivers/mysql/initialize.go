@@ -231,6 +231,29 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
+	db.logger.Debug("creating responses table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS responses (
+response_id CHAR(36) PRIMARY KEY,
+status VARCHAR(32) NOT NULL DEFAULT 'pending',
+request JSON DEFAULT NULL,
+response JSON DEFAULT NULL,
+error_text TEXT DEFAULT '',
+previous_response_id CHAR(36) DEFAULT '',
+user_id CHAR(36),
+space_id CHAR(36) DEFAULT '',
+expires_at TIMESTAMP(6) DEFAULT NULL,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+created_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX user_id (user_id),
+INDEX status (status),
+INDEX expires_at (expires_at),
+INDEX idx_is_deleted (is_deleted)
+)`)
+	if err != nil {
+		return err
+	}
+
 	db.logger.Debug("creating audit_log table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS audit_logs (
 audit_log_id bigint(20) NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -282,6 +305,13 @@ value MEDIUMTEXT
 				if err != nil {
 					goto again
 				}
+			}
+
+			// Remove expired responses (both TTL expired and soft-deleted past grace period)
+			// Soft-deleted responses have expires_at set to deleted_at + 7 days
+			_, err = db.connection.Exec("DELETE FROM responses WHERE expires_at < ?", now)
+			if err != nil {
+				goto again
 			}
 		}
 	}()

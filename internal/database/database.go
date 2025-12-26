@@ -70,6 +70,14 @@ type DbDriver interface {
 	GetGroup(id string) (*model.Group, error)
 	GetGroups() ([]*model.Group, error)
 
+	// Responses
+	SaveResponse(response *model.Response) error
+	DeleteResponse(response *model.Response) error
+	GetResponse(id string) (*model.Response, error)
+	GetResponses() ([]*model.Response, error)
+	GetResponsesByUser(userId string) ([]*model.Response, error)
+	GetResponsesByStatus(status model.ResponseStatus) ([]*model.Response, error)
+
 	// Template Variables
 	SaveTemplateVar(variable *model.TemplateVar) error
 	DeleteTemplateVar(variable *model.TemplateVar) error

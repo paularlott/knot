@@ -820,6 +820,16 @@ var ServerCmd = &cli.Command{
 				internal_mcp.SetChatService(chatService)
 			}
 
+			// Initialize response worker pool for Responses API
+			if openaiEndpointEnabled {
+				logger.Info("Initializing response worker pool")
+				// Create gossip callback for response updates
+				gossipFunc := func(response *model.Response) {
+					service.GetTransport().GossipResponse(response)
+				}
+				openai.InitResponseWorker(openAIClient, openai.DefaultResponseWorkerPoolSize, gossipFunc)
+			}
+
 			// API endpoint for chat
 			if chatEnabled {
 				routes.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
@@ -842,6 +852,10 @@ var ServerCmd = &cli.Command{
 			service := openai.NewService(openAIClient, cfg.Chat.SystemPrompt)
 			routes.HandleFunc("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetModels)))
 			routes.HandleFunc("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleChatCompletions)))
+			routes.HandleFunc("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleCreateResponse)))
+			routes.HandleFunc("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetResponse)))
+			routes.HandleFunc("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleDeleteResponse)))
+			routes.HandleFunc("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleCancelResponse)))
 		}
 
 		// Add support for page not found
@@ -1080,6 +1094,9 @@ var ServerCmd = &cli.Command{
 
 		// Shutdown SSE hub to close all browser connections immediately
 		sse.GetHub().Shutdown()
+
+		// Shutdown response worker pool
+		openai.ShutdownResponseWorker()
 
 		// Shutdown the HTTP server with a short timeout
 		// If graceful shutdown takes too long, the timeout will force it

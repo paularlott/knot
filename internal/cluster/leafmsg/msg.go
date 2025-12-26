@@ -19,6 +19,7 @@ const (
 	MessageGossipTemplateVar
 	MessageGossipUser
 	MessageGossipScript
+	MessageGossipResponse
 )
 
 type Message struct {

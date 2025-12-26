@@ -35,6 +35,9 @@ type (
 	ChatStream             = mcpopenai.ChatStream
 	ToolHandler            = mcpopenai.ToolHandler
 	ToolFilter             = mcpopenai.ToolFilter
+	ResponseObject         = mcpopenai.ResponseObject
+	CreateResponseRequest  = mcpopenai.CreateResponseRequest
+	APIError               = mcpopenai.APIError
 )
 
 // Re-export functions from mcp/openai
@@ -298,6 +301,11 @@ func (c *Client) nonStreamingChatCompletion(ctx context.Context, req ChatComplet
 	_, err := c.restClient.Post(ctx, "chat/completions", req, &response, http.StatusOK)
 	if err != nil {
 		return nil, fmt.Errorf("chat completion failed: %w", err)
+	}
+
+	// Ensure Choices is never nil for N8N compatibility
+	if response.Choices == nil {
+		response.Choices = []Choice{}
 	}
 
 	return &response, nil

@@ -17,6 +17,7 @@ type Transport interface {
 	GossipAuditLog(entry *model.AuditLogEntry)
 	GossipSession(session *model.Session)
 	GossipScript(script *model.Script)
+	GossipResponse(response *model.Response)
 	GetAgentEndpoints() []string
 	GetTunnelServers() []string
 
