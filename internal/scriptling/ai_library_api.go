@@ -17,12 +17,16 @@ type CreateResponseRequest struct {
 	Instructions       string                 `json:"instructions,omitempty"`
 	PreviousResponseId string                 `json:"previous_response_id,omitempty"`
 	Params             map[string]interface{} `json:"params,omitempty"`
+	Background         bool                   `json:"background,omitempty"`
 }
 
-// CreateResponseResponse represents the response from creating a response
+// CreateResponseResponse represents the full response from creating a response
 type CreateResponseResponse struct {
-	ResponseId string `json:"response_id"`
-	Status     string `json:"status"`
+	ID        string                 `json:"id"`
+	Status    string                 `json:"status"`
+	Output    []interface{}          `json:"output"`
+	Error     map[string]interface{} `json:"error,omitempty"`
+	CreatedAt int64                  `json:"created_at,omitempty"`
 }
 
 // GetResponseResponse represents the response from getting a response
@@ -47,7 +51,7 @@ func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
 				return responseCreate(ctx, client, userId, kwargs, args...)
 			},
-			HelpText: "response_create(model, input, instructions, previous_response_id) - Create async response. Returns response_id.",
+			HelpText: "response_create(input, model=None, instructions=None, previous_response_id=None, background=False) - Create AI response. Returns response dict by default, or response_id if background=True.",
 		},
 		"response_get": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
@@ -163,7 +167,9 @@ func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId str
 	}
 
 	// Build request from args
-	req := CreateResponseRequest{}
+	req := CreateResponseRequest{
+		Background: false, // Default to synchronous (background=false)
+	}
 
 	// Get input (required)
 	if len(args) < 1 {
@@ -187,9 +193,19 @@ func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId str
 			req.PreviousResponseId = prevStr.Value
 		}
 	}
+	if background, ok := kwargs["background"]; ok {
+		if boolVal, ok := background.(*object.Boolean); ok {
+			req.Background = boolVal.Value
+		}
+	}
 
 	// Create independent context for response creation
-	aiCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// Use longer timeout for synchronous processing
+	timeout := 30 * time.Second
+	if !req.Background {
+		timeout = 5 * time.Minute // Allow more time for synchronous processing
+	}
+	aiCtx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	// Copy user from original context
@@ -204,7 +220,27 @@ func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId str
 		return &object.Error{Message: fmt.Sprintf("Failed to create response: %v", err)}
 	}
 
-	return &object.String{Value: resp.ResponseId}
+	// If background=true, return just the response_id
+	if req.Background {
+		return &object.String{Value: resp.ID}
+	}
+
+	// Otherwise (background=false), return the full response
+	result := map[string]interface{}{
+		"response_id": resp.ID,
+		"status":      resp.Status,
+	}
+	if len(resp.Output) > 0 {
+		result["output"] = resp.Output
+	}
+	if resp.Error != nil {
+		result["error"] = resp.Error["message"]
+	}
+	if resp.CreatedAt > 0 {
+		result["created_at"] = resp.CreatedAt
+	}
+
+	return convertToScriptlingObject(result)
 }
 
 // responseGet retrieves a response by ID via API

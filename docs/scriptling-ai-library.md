@@ -5,11 +5,11 @@ The `ai` library provides AI completion functionality for scriptling scripts. Th
 ## Available Functions
 
 - `completion(messages)` - Get an AI completion from a list of messages
-- `response_create(input, model=None, instructions=None, previous_response_id=None)` - Create an async AI response
-- `response_get(id)` - Get the status and result of an async response
-- `response_wait(id, timeout=300)` - Wait for an async response to complete
-- `response_cancel(id)` - Cancel an in-progress async response
-- `response_delete(id)` - Delete an async response
+- `response_create(input, model=None, instructions=None, previous_response_id=None, background=False)` - Create an AI response
+- `response_get(id)` - Get the status and result of a response
+- `response_wait(id, timeout=300)` - Wait for a response to complete
+- `response_cancel(id)` - Cancel an in-progress response
+- `response_delete(id)` - Delete a response
 
 ## Availability
 
@@ -79,29 +79,48 @@ print(response)
 # The other two ('web-space' and 'test-space') are already running."
 ```
 
-### response_create(input, model=None, instructions=None, previous_response_id=None)
+### response_create(input, model=None, instructions=None, previous_response_id=None, background=False)
 
-Create an asynchronous AI response. This is useful for long-running AI operations that you don't want to block on.
+Create an AI response. By default, processes synchronously and returns the full response. Set `background=True` for async processing.
 
 **Parameters:**
 - `input` (string, dict, or list): The input for the AI response. Can be a simple string, a structured dict, or a list of items
 - `model` (string, optional): The AI model to use (if not specified, uses server default)
 - `instructions` (string, optional): System (or developer) message inserted into the model's context. When using with previous_response_id, instructions from the previous response will NOT be carried over, making it simple to swap out system messages in new responses
 - `previous_response_id` (string, optional): ID of a previous response to continue from. The conversation history will be included, but instructions will not carry forward
+- `background` (bool, optional): If `True`, process asynchronously and return just the response_id. If `False` (default), process synchronously and return the full response
 
 **Returns:**
-- `string`: The response ID that can be used to check status, wait for completion, or cancel
+- `dict` (default): A dictionary containing the response data when `background=False`
+  - `response_id` (string): The response ID
+  - `status` (string): Response status ("completed", "failed", etc.)
+  - `response` (dict, optional): The response data (when completed)
+  - `error` (string, optional): Error message (if failed)
+- `string` (background=True): Just the response ID for async processing
 
 **Example:**
 ```python
 import ai
 
-# Create an async response
-response_id = ai.response_create(
+# Synchronous (default) - waits for completion and returns full response
+result = ai.response_create(
     input="Analyze all my spaces and provide a detailed report",
     instructions="Include resource usage and recommendations"
 )
-print(f"Created response: {response_id}")
+print(f"Status: {result['status']}")
+if result['status'] == 'completed':
+    print(f"Response: {result['response']}")
+
+# Asynchronous - returns immediately with response_id
+response_id = ai.response_create(
+    input="Analyze all my spaces and provide a detailed report",
+    instructions="Include resource usage and recommendations",
+    background=True
+)
+print(f"Created async response: {response_id}")
+
+# Later, wait for and retrieve the async result
+result = ai.response_wait(response_id, timeout=300)
 ```
 
 ### response_get(id)
@@ -190,7 +209,7 @@ print("Response cancelled")
 
 ### response_delete(id)
 
-Delete an async response and clean up its data.
+Delete a response and clean up its data.
 
 **Parameters:**
 - `id` (string): The response ID returned from response_create()
@@ -205,16 +224,27 @@ import ai
 # Clean up a completed response
 ai.response_delete(response_id)
 print("Response deleted")
+```
 
 ## Implementation Details
 
+### Synchronous vs Asynchronous Processing
+
+The `response_create()` function supports two modes:
+
+- **Synchronous (default)**: `background=False` - The function waits for the AI processing to complete and returns the full response. This is the simplest mode for most use cases.
+
+- **Asynchronous**: `background=True` - The function returns immediately with a `response_id`. You can then use `response_wait()` or `response_get()` to check status and retrieve results later. This is useful for long-running operations or when you want to start multiple operations in parallel.
+
 ### Local and Remote Environments
 - **ai.completion()**: Uses the `api/chat/completion` endpoint via REST API
+- **ai.response_create()**: Uses the `v1/responses` endpoint via REST API
 - Automatically handles authentication with the server
 - Returns complete response without streaming
 
 ### MCP Environment
 - **ai.completion()**: Uses the MCP server's direct OpenAI client integration
+- **ai.response_create()**: Uses direct database access with synchronous or asynchronous processing
 - No API calls needed - direct server communication
 
 ## Error Handling
@@ -234,38 +264,62 @@ import time
 def process_with_async_ai():
     """Use async AI responses for long-running operations"""
 
-    # Start multiple async operations
+    # Start multiple async operations (background=True)
     print("Starting async AI operations...")
-    
+
     response_ids = []
     for i in range(3):
         response_id = ai.response_create(
             input=f"Task {i+1}: Analyze system component {i+1}",
-            instructions="Provide detailed analysis with recommendations"
+            instructions="Provide detailed analysis with recommendations",
+            background=True  # Enable async processing
         )
         response_ids.append(response_id)
         print(f"Started task {i+1}: {response_id}")
-    
+
     # Wait for all to complete
     results = []
     for i, response_id in enumerate(response_ids):
         print(f"\nWaiting for task {i+1}...")
         result = ai.response_wait(response_id, timeout=120)
-        
+
         if result['status'] == 'completed':
             print(f"Task {i+1} completed successfully")
             results.append(result['response'])
         else:
             print(f"Task {i+1} failed: {result.get('error', 'Unknown error')}")
-        
+
         # Clean up
         ai.response_delete(response_id)
-    
+
     return results
 
 # Execute
 results = process_with_async_ai()
 print(f"\nCompleted {len(results)} tasks")
+```
+
+### Example 1b: Using Synchronous Responses (Default)
+
+```python
+import ai
+
+def simple_sync_query():
+    """Use synchronous AI response - simplest approach for most cases"""
+
+    # Synchronous (default) - waits for completion
+    result = ai.response_create(
+        input="What is the capital of France and tell me one interesting fact about it",
+        instructions="Be concise but informative"
+    )
+
+    if result['status'] == 'completed':
+        print(f"Response: {result['response']}")
+    elif result['status'] == 'failed':
+        print(f"Error: {result.get('error', 'Unknown error')}")
+
+# Execute
+simple_sync_query()
 ```
 
 ### Example 2: AI-Assisted Space Management

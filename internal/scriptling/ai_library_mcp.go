@@ -25,7 +25,7 @@ func GetAIMCPLibrary(openaiClient *openai.Client) *object.Library {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
 				return responseCreateMCP(ctx, openaiClient, kwargs, args...)
 			},
-			HelpText: "response_create(model, input, instructions, previous_response_id) - Create async response. Returns response_id.",
+			HelpText: "response_create(input, model=None, instructions=None, previous_response_id=None, background=False) - Create AI response. Returns response dict by default, or response_id if background=True.",
 		},
 		"response_get": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
@@ -176,6 +176,7 @@ func responseCreateMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 	}
 
 	// Get optional parameters from kwargs
+	background := false // Default to synchronous
 	if model, ok := kwargs["model"]; ok {
 		if modelStr, ok := model.(*object.String); ok {
 			req.Model = modelStr.Value
@@ -191,6 +192,11 @@ func responseCreateMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 			req.PreviousResponseID = prevStr.Value
 		}
 	}
+	if bg, ok := kwargs["background"]; ok {
+		if boolVal, ok := bg.(*object.Boolean); ok {
+			background = boolVal.Value
+		}
+	}
 
 	// Create response object
 	response := model.NewResponse(userId, "", 30*24*time.Hour) // 30 day TTL
@@ -202,10 +208,43 @@ func responseCreateMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 		return &object.Error{Message: fmt.Sprintf("Failed to save response: %v", err)}
 	}
 
-	// Trigger async processing (the response processor will handle it)
-	// Note: In MCP mode, responses are picked up by polling in the worker pool
+	if background {
+		// Async: enqueue for processing and return just the response_id
+		openai.EnqueueResponse(response)
+		return &object.String{Value: response.Id}
+	}
 
-	return &object.String{Value: response.Id}
+	// Sync: process immediately and return the full response
+	// Create independent context for AI completion to prevent script timeout from canceling AI operations
+	aiCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// Copy user from original context if it exists
+	if user := ctx.Value("user"); user != nil {
+		aiCtx = context.WithValue(aiCtx, "user", user)
+	}
+
+	result, err := openai.ProcessResponseSynchronously(aiCtx, openaiClient, response)
+	if err != nil {
+		return &object.Error{Message: fmt.Sprintf("Failed to process response: %v", err)}
+	}
+
+	// Return the full response
+	responseData := map[string]interface{}{
+		"response_id": result.Id,
+		"status":      string(result.Status),
+	}
+	if result.Status == model.StatusCompleted {
+		var respData map[string]interface{}
+		if err := result.GetResponse(&respData); err == nil {
+			responseData["response"] = respData
+		}
+	}
+	if result.Error != "" {
+		responseData["error"] = result.Error
+	}
+
+	return convertToScriptlingObject(responseData)
 }
 
 // responseGetMCP retrieves a response by ID using direct database access
@@ -335,6 +374,9 @@ func responseCancelMCP(kwargs map[string]object.Object, args ...object.Object) o
 		return &object.Error{Message: fmt.Sprintf("Failed to cancel response: %v", err)}
 	}
 
+	// Cancel in worker pool and gossip the cancellation
+	openai.CancelResponse(response)
+
 	return &object.Boolean{Value: true}
 }
 
@@ -364,6 +406,9 @@ func responseDeleteMCP(kwargs map[string]object.Object, args ...object.Object) o
 	if err := db.DeleteResponse(response); err != nil {
 		return &object.Error{Message: fmt.Sprintf("Failed to delete response: %v", err)}
 	}
+
+	// Gossip the deletion so all cluster nodes are aware
+	openai.CancelResponse(response)
 
 	return &object.Boolean{Value: true}
 }

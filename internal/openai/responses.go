@@ -49,6 +49,84 @@ func ShutdownResponseWorker() {
 	}
 }
 
+// EnqueueResponse enqueues a response for async processing and gossips it to the cluster
+// This is used by non-HTTP paths (like MCP) to trigger response processing
+func EnqueueResponse(response *model.Response) {
+	if globalResponseWorkerPool == nil {
+		log.Error("Response worker pool not initialized, cannot enqueue response", "id", response.Id)
+		return
+	}
+
+	// Gossip the response (pending status) so all cluster nodes are aware
+	if globalGossipFunc != nil {
+		globalGossipFunc(response)
+	}
+
+	// Enqueue for processing
+	globalResponseWorkerPool.Enqueue(response)
+	log.Debug("Response enqueued for async processing", "id", response.Id)
+}
+
+// CancelResponse cancels an in-progress response in the worker pool and gossips the cancellation
+// This is used by non-HTTP paths (like MCP) to cancel response processing
+func CancelResponse(response *model.Response) {
+	if globalResponseWorkerPool != nil {
+		// Cancel the context in the worker pool
+		globalResponseWorkerPool.Cancel(response.Id)
+	}
+
+	// Gossip the cancellation so all cluster nodes are aware
+	if globalGossipFunc != nil {
+		globalGossipFunc(response)
+	}
+}
+
+// ProcessResponseSynchronously processes a response synchronously and returns the result
+// This is used by non-HTTP paths (like MCP) that need synchronous processing
+func ProcessResponseSynchronously(ctx context.Context, client *Client, response *model.Response) (*model.Response, error) {
+	db := database.GetInstance()
+
+	// Update status to in_progress
+	response.Status = model.StatusInProgress
+	response.UpdatedAt = hlc.Now()
+	if err := db.SaveResponse(response); err != nil {
+		return nil, fmt.Errorf("failed to update response status to in_progress: %w", err)
+	}
+
+	// Gossip the in_progress status
+	if globalGossipFunc != nil {
+		globalGossipFunc(response)
+	}
+
+	// Process the response directly
+	processor := &responseProcessor{client: client}
+	result, err := processor.Process(ctx, response)
+
+	// Update response with result
+	response.UpdatedAt = hlc.Now()
+	if err != nil {
+		response.Status = model.StatusFailed
+		response.Error = err.Error()
+		log.WithError(err).Error("Response processing failed", "id", response.Id)
+	} else {
+		response.Status = model.StatusCompleted
+		if err := response.SetResponse(result); err != nil {
+			log.WithError(err).Error("Failed to store response result", "id", response.Id)
+		}
+	}
+
+	if saveErr := db.SaveResponse(response); saveErr != nil {
+		log.WithError(saveErr).Error("Failed to save final response status", "id", response.Id)
+	}
+
+	// Gossip the final result
+	if globalGossipFunc != nil {
+		globalGossipFunc(response)
+	}
+
+	return response, nil
+}
+
 // recoverIncompleteResponses finds and re-queues incomplete responses on startup
 func recoverIncompleteResponses(client *Client) {
 	db := database.GetInstance()
