@@ -527,22 +527,16 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 				continue // Skip if auth provider creation failed
 			}
 
-			// Register remote server
-			var err error
-			if remoteServer.Hidden {
-				err = server.RegisterRemoteServerHidden(remoteServer.URL, remoteServer.Namespace, authProvider)
-			} else {
-				err = server.RegisterRemoteServer(remoteServer.URL, remoteServer.Namespace, authProvider)
-			}
+			// Parse tool visibility
+			visibility := parseToolVisibility(remoteServer.ToolVisibility)
+
+			// Register remote server with visibility
+			err := server.RegisterRemoteServerWithVisibility(remoteServer.URL, remoteServer.Namespace, authProvider, visibility)
 			if err != nil {
-				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "error", err)
+				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", remoteServer.ToolVisibility, "error", err)
 				continue
 			}
-			if remoteServer.Hidden {
-				log.WithGroup("mcp").Info("Registered remote MCP server (hidden tools)", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
-			} else {
-				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
-			}
+			log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", remoteServer.ToolVisibility)
 
 			// Test if we can list tools from the remote server
 			tools := server.ListTools()
@@ -552,9 +546,9 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 					remoteToolCount++
 				}
 			}
-			if remoteToolCount == 0 {
+			if remoteToolCount == 0 && visibility == mcp.ToolVisibilityVisible {
 				log.WithGroup("mcp").Warn("No tools loaded from remote MCP server (may be unreachable or have auth issues)", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
-			} else {
+			} else if visibility == mcp.ToolVisibilityVisible {
 				log.WithGroup("mcp").Info("Remote server tool count", "namespace", remoteServer.Namespace, "count", remoteToolCount)
 			}
 		}
@@ -572,6 +566,20 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	}
 
 	return server
+}
+
+// parseToolVisibility converts string visibility to mcp.ToolVisibility
+func parseToolVisibility(visibility string) mcp.ToolVisibility {
+	switch strings.ToLower(visibility) {
+	case "hidden":
+		return mcp.ToolVisibilityHidden
+	case "ondemand":
+		return mcp.ToolVisibilityOnDemand
+	case "visible", "":
+		return mcp.ToolVisibilityVisible
+	default:
+		return mcp.ToolVisibilityVisible
+	}
 }
 
 func ToolFilter(user *model.User) openai.ToolFilter {

@@ -1257,7 +1257,9 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 							if token := server.GetString("token"); token != "" {
 								remoteServer.Token = token
 							}
-							remoteServer.Hidden = server.GetBool("hidden")
+							if visibility := server.GetString("tool_visibility"); visibility != "" {
+								remoteServer.ToolVisibility = visibility
+							}
 							mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
 						}
 					}
