@@ -5,6 +5,11 @@ The `ai` library provides AI completion functionality for scriptling scripts. Th
 ## Available Functions
 
 - `completion(messages)` - Get an AI completion from a list of messages
+- `response_create(input, model=None, instructions=None, previous_response_id=None)` - Create an async AI response
+- `response_get(id)` - Get the status and result of an async response
+- `response_wait(id, timeout=300)` - Wait for an async response to complete
+- `response_cancel(id)` - Cancel an in-progress async response
+- `response_delete(id)` - Delete an async response
 
 ## Availability
 
@@ -74,6 +79,133 @@ print(response)
 # The other two ('web-space' and 'test-space') are already running."
 ```
 
+### response_create(input, model=None, instructions=None, previous_response_id=None)
+
+Create an asynchronous AI response. This is useful for long-running AI operations that you don't want to block on.
+
+**Parameters:**
+- `input` (string, dict, or list): The input for the AI response. Can be a simple string, a structured dict, or a list of items
+- `model` (string, optional): The AI model to use (if not specified, uses server default)
+- `instructions` (string, optional): Additional instructions for the AI
+- `previous_response_id` (string, optional): ID of a previous response to continue from
+
+**Returns:**
+- `string`: The response ID that can be used to check status, wait for completion, or cancel
+
+**Example:**
+```python
+import ai
+
+# Create an async response
+response_id = ai.response_create(
+    input="Analyze all my spaces and provide a detailed report",
+    instructions="Include resource usage and recommendations"
+)
+print(f"Created response: {response_id}")
+```
+
+### response_get(id)
+
+Get the current status and result of an async response.
+
+**Parameters:**
+- `id` (string): The response ID returned from response_create()
+
+**Returns:**
+- `dict`: A dictionary containing:
+  - `response_id` (string): The response ID
+  - `status` (string): Current status ("pending", "in_progress", "completed", "failed", or "cancelled")
+  - `request` (dict): The original request data
+  - `response` (dict, optional): The response data (only present when completed)
+  - `error` (string, optional): Error message (only present if failed)
+
+**Example:**
+```python
+import ai
+
+# Check response status
+status = ai.response_get(response_id)
+print(f"Status: {status['status']}")
+
+if status['status'] == 'completed':
+    print(f"Result: {status['response']}")
+elif status['status'] == 'failed':
+    print(f"Error: {status['error']}")
+```
+
+### response_wait(id, timeout=300)
+
+Wait for an async response to complete. This will block until the response is finished or the timeout is reached.
+
+**Parameters:**
+- `id` (string): The response ID returned from response_create()
+- `timeout` (int, optional): Maximum time to wait in seconds (default: 300)
+
+**Returns:**
+- `dict`: Same format as response_get() - a dictionary with the final response status and result
+
+**Example:**
+```python
+import ai
+
+# Create and wait for response
+response_id = ai.response_create(
+    input="Generate a comprehensive analysis"
+)
+
+# Wait up to 5 minutes for completion
+result = ai.response_wait(response_id, timeout=300)
+
+if result['status'] == 'completed':
+    print(f"Analysis complete: {result['response']}")
+else:
+    print(f"Failed with status: {result['status']}")
+```
+
+### response_cancel(id)
+
+Cancel an in-progress async response.
+
+**Parameters:**
+- `id` (string): The response ID returned from response_create()
+
+**Returns:**
+- `bool`: True if successfully cancelled
+
+**Example:**
+```python
+import ai
+import time
+
+# Create a response
+response_id = ai.response_create(
+    input="Long running task"
+)
+
+# Wait a bit then cancel
+time.sleep(2)
+ai.response_cancel(response_id)
+print("Response cancelled")
+```
+
+### response_delete(id)
+
+Delete an async response and clean up its data.
+
+**Parameters:**
+- `id` (string): The response ID returned from response_create()
+
+**Returns:**
+- `bool`: True if successfully deleted
+
+**Example:**
+```python
+import ai
+
+# Clean up a completed response
+ai.response_delete(response_id)
+print("Response deleted")
+
 ## Implementation Details
 
 ### Local and Remote Environments
@@ -93,7 +225,50 @@ If the AI library is not available, it will return an appropriate error message:
 
 ## Complete Examples
 
-### Example 1: AI-Assisted Space Management
+### Example 1: Using Async Responses for Long Operations
+
+```python
+import ai
+import time
+
+def process_with_async_ai():
+    """Use async AI responses for long-running operations"""
+
+    # Start multiple async operations
+    print("Starting async AI operations...")
+    
+    response_ids = []
+    for i in range(3):
+        response_id = ai.response_create(
+            input=f"Task {i+1}: Analyze system component {i+1}",
+            instructions="Provide detailed analysis with recommendations"
+        )
+        response_ids.append(response_id)
+        print(f"Started task {i+1}: {response_id}")
+    
+    # Wait for all to complete
+    results = []
+    for i, response_id in enumerate(response_ids):
+        print(f"\nWaiting for task {i+1}...")
+        result = ai.response_wait(response_id, timeout=120)
+        
+        if result['status'] == 'completed':
+            print(f"Task {i+1} completed successfully")
+            results.append(result['response'])
+        else:
+            print(f"Task {i+1} failed: {result.get('error', 'Unknown error')}")
+        
+        # Clean up
+        ai.response_delete(response_id)
+    
+    return results
+
+# Execute
+results = process_with_async_ai()
+print(f"\nCompleted {len(results)} tasks")
+```
+
+### Example 2: AI-Assisted Space Management
 
 ```python
 import ai
@@ -123,7 +298,7 @@ def manage_spaces_with_ai():
 manage_spaces_with_ai()
 ```
 
-### Example 2: Using AI for Code Generation
+### Example 3: Using AI for Code Generation
 
 ```python
 import ai
@@ -142,7 +317,7 @@ def generate_code():
 generate_code()
 ```
 
-### Example 3: Multi-turn Conversation
+### Example 4: Multi-turn Conversation
 
 ```python
 import ai
