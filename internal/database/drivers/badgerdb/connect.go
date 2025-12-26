@@ -200,6 +200,36 @@ func (db *BadgerDbDriver) Connect() error {
 					}
 				}
 			}
+
+			// Remove old scripts
+			scripts, err := db.GetScripts()
+			if err != nil {
+				db.logger.WithError(err).Error("failed to get scripts")
+			} else {
+				for _, script := range scripts {
+					if script.IsDeleted && script.UpdatedAt.Time().Before(before) {
+						err := db.DeleteScript(script)
+						if err != nil {
+							db.logger.WithError(err).Error("failed to delete script", "script_id", script.Id)
+						}
+					}
+				}
+			}
+
+			// Remove old responses
+			responses, err := db.GetResponses()
+			if err != nil {
+				db.logger.WithError(err).Error("failed to get responses")
+			} else {
+				for _, response := range responses {
+					if response.IsDeleted && response.UpdatedAt.Time().Before(before) {
+						err := db.DeleteResponse(response)
+						if err != nil {
+							db.logger.WithError(err).Error("failed to delete response", "response_id", response.Id)
+						}
+					}
+				}
+			}
 		}
 	}()
 

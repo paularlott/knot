@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/logger"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/log"
 )
 
@@ -112,55 +113,67 @@ func (db *MySQLDriver) Connect() error {
 		for range intervalTimer.C {
 			db.logger.Debug("running garbage collector")
 
-			before := time.Now().UTC()
-			before = before.Add(-garbageMaxAge)
+			before := time.Now().UTC().Add(-garbageMaxAge)
+			beforeHLC := hlc.FromTime(before).Uint64()
 
 			// Remove old groups
-			_, err := db.connection.Exec("DELETE FROM groups WHERE is_deleted > 0 AND updated_at < ?", before)
+			_, err := db.connection.Exec("DELETE FROM groups WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
 			if err != nil {
 				db.logger.WithError(err).Error("failed to delete old groups")
 			}
 
 			// Remove old roles
-			_, err = db.connection.Exec("DELETE FROM roles WHERE is_deleted > 0 AND updated_at < ?", before)
+			_, err = db.connection.Exec("DELETE FROM roles WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
 			if err != nil {
 				db.logger.WithError(err).Error("failed to delete old roles")
 			}
 
 			// Remove old spaces
-			_, err = db.connection.Exec("DELETE FROM spaces WHERE is_deleted > 0 AND updated_at < ?", before)
+			_, err = db.connection.Exec("DELETE FROM spaces WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
 			if err != nil {
 				db.logger.WithError(err).Error("failed to delete old spaces")
 			}
 
 			// Remove old templates
-			_, err = db.connection.Exec("DELETE FROM templates WHERE is_deleted > 0 AND updated_at < ?", before)
+			_, err = db.connection.Exec("DELETE FROM templates WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
 			if err != nil {
 				db.logger.WithError(err).Error("failed to delete old templates")
 			}
 
 			// Remove old template vars
-			_, err = db.connection.Exec("DELETE FROM templatevars WHERE is_deleted > 0 AND updated_at < ?", before)
+			_, err = db.connection.Exec("DELETE FROM templatevars WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
 			if err != nil {
 				db.logger.WithError(err).Error("failed to delete old template vars")
 			}
 
 			// Remove old users
-			_, err = db.connection.Exec("DELETE FROM users WHERE is_deleted > 0 AND updated_at < ?", before)
+			_, err = db.connection.Exec("DELETE FROM users WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
 			if err != nil {
 				db.logger.WithError(err).Error("failed to delete old users")
 			}
 
 			// Remove old tokens
-			_, err = db.connection.Exec("DELETE FROM tokens WHERE is_deleted > 0 AND updated_at < ?", before)
+			_, err = db.connection.Exec("DELETE FROM tokens WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
 			if err != nil {
 				db.logger.WithError(err).Error("failed to delete old tokens")
 			}
 
 			// Remove old volumes
-			_, err = db.connection.Exec("DELETE FROM volumes WHERE is_deleted > 0 AND updated_at < ?", before)
+			_, err = db.connection.Exec("DELETE FROM volumes WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
 			if err != nil {
 				db.logger.WithError(err).Error("failed to delete old volumes")
+			}
+
+			// Remove old scripts
+			_, err = db.connection.Exec("DELETE FROM scripts WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
+			if err != nil {
+				db.logger.WithError(err).Error("failed to delete old scripts")
+			}
+
+			// Remove old responses
+			_, err = db.connection.Exec("DELETE FROM responses WHERE is_deleted > 0 AND updated_at < ?", beforeHLC)
+			if err != nil {
+				db.logger.WithError(err).Error("failed to delete old responses")
 			}
 		}
 	}()

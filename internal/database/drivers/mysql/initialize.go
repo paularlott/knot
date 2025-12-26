@@ -306,13 +306,6 @@ value MEDIUMTEXT
 					goto again
 				}
 			}
-
-			// Remove expired responses (both TTL expired and soft-deleted past grace period)
-			// Soft-deleted responses have expires_at set to deleted_at + 7 days
-			_, err = db.connection.Exec("DELETE FROM responses WHERE expires_at < ?", now)
-			if err != nil {
-				goto again
-			}
 		}
 	}()
 
