@@ -30,13 +30,6 @@ func (p *responseProcessor) Process(ctx context.Context, response *model.Respons
 		return nil, fmt.Errorf("failed to convert input: %w", err)
 	}
 
-	// Add instructions if provided
-	if req.Instructions != "" {
-		systemMsg := Message{Role: "system"}
-		systemMsg.SetContentAsString(req.Instructions)
-		messages = append([]Message{systemMsg}, messages...)
-	}
-
 	// Handle previous_response_id for conversation chaining
 	if req.PreviousResponseID != "" {
 		db := database.GetInstance()
@@ -57,15 +50,23 @@ func (p *responseProcessor) Process(ctx context.Context, response *model.Respons
 			return nil, fmt.Errorf("failed to extract previous response data: %w", err)
 		}
 
-		// Convert previous output to messages and append
+		// Convert previous output to messages (excludes system messages/instructions)
 		prevMessages, err := p.convertOutputToMessages(prevRespData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert previous output to messages: %w", err)
 		}
 
-		// Append previous messages before current messages
+		// Prepend previous messages before current messages
 		messages = append(prevMessages, messages...)
 		log.Debug("Appended previous response messages", "previous_id", req.PreviousResponseID, "message_count", len(prevMessages))
+	}
+
+	// Add instructions if provided (after previous messages to ensure they take precedence)
+	// Instructions are NOT carried forward from previous responses
+	if req.Instructions != "" {
+		systemMsg := Message{Role: "system"}
+		systemMsg.SetContentAsString(req.Instructions)
+		messages = append([]Message{systemMsg}, messages...)
 	}
 
 	// Create chat completion request
@@ -148,6 +149,11 @@ func (p *responseProcessor) convertOutputToMessages(responseData map[string]inte
 
 		role, _ := msgMap["role"].(string)
 		contentRaw, hasContent := msgMap["content"]
+
+		// Skip system messages - instructions should not be carried forward
+		if role == "system" {
+			continue
+		}
 
 		msg := Message{Role: role}
 

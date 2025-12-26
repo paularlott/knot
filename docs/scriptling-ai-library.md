@@ -86,8 +86,8 @@ Create an asynchronous AI response. This is useful for long-running AI operation
 **Parameters:**
 - `input` (string, dict, or list): The input for the AI response. Can be a simple string, a structured dict, or a list of items
 - `model` (string, optional): The AI model to use (if not specified, uses server default)
-- `instructions` (string, optional): Additional instructions for the AI
-- `previous_response_id` (string, optional): ID of a previous response to continue from
+- `instructions` (string, optional): System (or developer) message inserted into the model's context. When using with previous_response_id, instructions from the previous response will NOT be carried over, making it simple to swap out system messages in new responses
+- `previous_response_id` (string, optional): ID of a previous response to continue from. The conversation history will be included, but instructions will not carry forward
 
 **Returns:**
 - `string`: The response ID that can be used to check status, wait for completion, or cancel
