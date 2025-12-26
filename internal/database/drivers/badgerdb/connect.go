@@ -1,9 +1,11 @@
 package driver_badgerdb
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/logger"
 
@@ -82,156 +84,144 @@ func (db *BadgerDbDriver) Connect() error {
 			before = before.Add(-garbageMaxAge)
 
 			// Remove old groups
-			groups, err := db.GetGroups()
-			if err != nil {
-				db.logger.WithError(err).Error("failed to get groups")
-			} else {
-				for _, group := range groups {
-					if group.IsDeleted && group.UpdatedAt.Time().Before(before) {
-						err := db.DeleteGroup(group)
-						if err != nil {
-							db.logger.WithError(err).Error("failed to delete group", "group_id", group.Id)
-						}
-					}
+			db.cleanupObjectType("Groups", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.Group
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
 				}
-			}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
 
 			// Remove old roles
-			roles, err := db.GetRoles()
-			if err != nil {
-				db.logger.WithError(err).Error("failed to get roles")
-			} else {
-				for _, role := range roles {
-					if role.IsDeleted && role.UpdatedAt.Time().Before(before) {
-						err := db.DeleteRole(role)
-						if err != nil {
-							db.logger.WithError(err).Error("failed to delete role", "role_id", role.Id)
-						}
-					}
+			db.cleanupObjectType("Roles", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.Role
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
 				}
-			}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
 
 			// Remove old spaces
-			spaces, err := db.GetSpaces()
-			if err != nil {
-				db.logger.WithError(err).Error("failed to get spaces")
-			} else {
-				for _, space := range spaces {
-					if space.IsDeleted && space.UpdatedAt.Time().Before(before) {
-						err := db.DeleteSpace(space)
-						if err != nil {
-							db.logger.WithError(err).Error("failed to delete space", "space_id", space.Id)
-						}
-					}
+			db.cleanupObjectType("Spaces", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.Space
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
 				}
-			}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
 
 			// Remove old templates
-			templates, err := db.GetTemplates()
-			if err != nil {
-				db.logger.WithError(err).Error("failed to get templates")
-			} else {
-				for _, template := range templates {
-					if template.IsDeleted && template.UpdatedAt.Time().Before(before) {
-						err := db.DeleteTemplate(template)
-						if err != nil {
-							db.logger.WithError(err).Error("failed to delete template", "template_id", template.Id)
-						}
-					}
+			db.cleanupObjectType("Templates", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.Template
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
 				}
-			}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
 
 			// Remove old template vars
-			templateVars, err := db.GetTemplateVars()
-			if err != nil {
-				db.logger.WithError(err).Error("failed to get template vars")
-			} else {
-				for _, templateVar := range templateVars {
-					if templateVar.IsDeleted && templateVar.UpdatedAt.Time().Before(before) {
-						err := db.DeleteTemplateVar(templateVar)
-						if err != nil {
-							db.logger.WithError(err).Error("failed to delete template var", "template_var_id", templateVar.Id)
-						}
-					}
+			db.cleanupObjectType("TemplateVars", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.TemplateVar
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
 				}
-			}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
 
 			// Remove old users
-			users, err := db.GetUsers()
-			if err != nil {
-				db.logger.WithError(err).Error("failed to get users")
-			} else {
-				for _, user := range users {
-					if user.IsDeleted && user.UpdatedAt.Time().Before(before) {
-						err := db.DeleteUser(user)
-						if err != nil {
-							db.logger.WithError(err).Error("failed to delete user", "user_id", user.Id)
-						}
-					}
+			db.cleanupObjectType("Users", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.User
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
 				}
-			}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
 
 			// Remove old tokens
-			tokens, err := db.GetTokens()
-			if err != nil {
-				db.logger.WithError(err).Error("failed to get tokens")
-			} else {
-				for _, token := range tokens {
-					if token.IsDeleted && token.UpdatedAt.Time().Before(before) {
-						err := db.DeleteToken(token)
-						if err != nil {
-							db.logger.WithError(err).Error("failed to delete token", "token_id", token.Id)
-						}
-					}
+			db.cleanupObjectType("Tokens", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.Token
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
 				}
-			}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
 
 			// Remove old volumes
-			volumes, err := db.GetVolumes()
-			if err != nil {
-				db.logger.WithError(err).Error("failed to get volumes")
-			} else {
-				for _, volume := range volumes {
-					if volume.IsDeleted && volume.UpdatedAt.Time().Before(before) {
-						err := db.DeleteVolume(volume)
-						if err != nil {
-							db.logger.WithError(err).Error("failed to delete volume", "volume_id", volume.Id)
-						}
-					}
+			db.cleanupObjectType("Volumes", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.Volume
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
 				}
-			}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
 
 			// Remove old scripts
-			scripts, err := db.GetScripts()
-			if err != nil {
-				db.logger.WithError(err).Error("failed to get scripts")
-			} else {
-				for _, script := range scripts {
-					if script.IsDeleted && script.UpdatedAt.Time().Before(before) {
-						err := db.DeleteScript(script)
-						if err != nil {
-							db.logger.WithError(err).Error("failed to delete script", "script_id", script.Id)
-						}
-					}
+			db.cleanupObjectType("Scripts", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.Script
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
 				}
-			}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
 
 			// Remove old responses
-			responses, err := db.GetResponses()
-			if err != nil {
-				db.logger.WithError(err).Error("failed to get responses")
-			} else {
-				for _, response := range responses {
-					if response.IsDeleted && response.UpdatedAt.Time().Before(before) {
-						err := db.DeleteResponse(response)
-						if err != nil {
-							db.logger.WithError(err).Error("failed to delete response", "response_id", response.Id)
-						}
-					}
+			db.cleanupObjectType("Responses", before, func(data []byte) (bool, time.Time, error) {
+				var obj model.Response
+				if err := json.Unmarshal(data, &obj); err != nil {
+					return false, time.Time{}, err
 				}
-			}
+				return obj.IsDeleted, obj.UpdatedAt.Time(), nil
+			})
 		}
 	}()
 
 	return err
+}
+
+// cleanupObjectType iterates through keys of a given object type and deletes old soft-deleted entries
+func (db *BadgerDbDriver) cleanupObjectType(objectType string, before time.Time, checkFunc func([]byte) (bool, time.Time, error)) {
+	err := db.connection.Update(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+
+		prefix := []byte(objectType + ":")
+		var keysToDelete [][]byte
+
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			key := item.Key()
+
+			err := item.Value(func(val []byte) error {
+				isDeleted, updatedAt, err := checkFunc(val)
+				if err != nil {
+					db.logger.WithError(err).Error("failed to unmarshal object for cleanup", "object_type", objectType, "key", string(key))
+					return nil // Continue processing other items
+				}
+
+				if isDeleted && updatedAt.Before(before) {
+					// Save key for deletion (can't delete during iteration)
+					keyCopy := make([]byte, len(key))
+					copy(keyCopy, key)
+					keysToDelete = append(keysToDelete, keyCopy)
+				}
+				return nil
+			})
+			if err != nil {
+				db.logger.WithError(err).Error("failed to read item value during cleanup", "object_type", objectType, "key", string(key))
+			}
+		}
+
+		// Delete the collected keys
+		for _, key := range keysToDelete {
+			if err := txn.Delete(key); err != nil {
+				db.logger.Error("failed to delete expired object", "error", err, "object_type", objectType, "key", string(key))
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		db.logger.WithError(err).Error("failed to run cleanup transaction", "object_type", objectType)
+	}
 }
