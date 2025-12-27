@@ -90,6 +90,8 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
     showPlatformWarning: false,
 
     async initData() {
+      focus.Element('input[name="name"]');
+
       const iconsResponse = await fetch('/api/icons', {
         headers: {
           'Content-Type': 'application/json'

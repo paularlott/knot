@@ -6,6 +6,7 @@ import 'ace-builds/src-noconflict/mode-text';
 import 'ace-builds/src-noconflict/theme-github';
 import 'ace-builds/src-noconflict/theme-github_dark';
 import 'ace-builds/src-noconflict/ext-searchbox';
+import { focus } from '../focus.js';
 
 window.scriptForm = function(isEdit, scriptId) {
   return {
@@ -33,6 +34,8 @@ window.scriptForm = function(isEdit, scriptId) {
     darkMode: Alpine.$persist(null).as('dark-theme').using(localStorage),
 
     async initData() {
+      focus.Element('input[name="name"]');
+
       await this.loadGroups();
 
       if (this.isEdit) {

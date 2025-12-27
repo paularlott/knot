@@ -1,8 +1,11 @@
 export const focus = {
   Element(selector) {
     setTimeout(() => {
-      document.querySelector(selector).focus();
-    }, 10);
+      const el = document.querySelector(selector);
+      if (el) {
+        el.focus();
+      }
+    }, 350);
   }
 };
 

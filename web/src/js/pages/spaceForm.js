@@ -49,6 +49,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     },
 
     async initData() {
+      focus.Element('input[name="name"]');
+
       // Ensure availableNodes is always an array to prevent Alpine errors
       this.availableNodes = this.availableNodes || [];
 
@@ -61,8 +63,6 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         const icons = await iconsResponse.json();
         this.iconList.push(...icons);
       }
-
-      focus.Element('input[name="name"]');
 
       if(isEdit) {
         const spaceResponse = await fetch(`/api/spaces/${spaceId}`, {

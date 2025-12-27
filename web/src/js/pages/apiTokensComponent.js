@@ -1,4 +1,5 @@
 import Alpine from 'alpinejs';
+import { focus } from '../focus.js';
 
 window.apiTokensComponent = function() {
   document.addEventListener('keydown', (e) => {
@@ -33,7 +34,9 @@ window.apiTokensComponent = function() {
       await this.getTokens();
 
       this.$watch('tokenFormModal.show', (value) => {
-        if (!value) {
+        if (value) {
+          focus.Element('input[name="name"]');
+        } else {
           this.formData.name = '';
           this.nameValid = true;
           this.buttonLabel = 'Create Token';
