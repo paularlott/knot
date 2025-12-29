@@ -61,7 +61,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 			// Add script tools as request-scoped provider
 			if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
 				scriptRegistry := discovery.NewToolRegistry()
-				registerScriptTools(scriptRegistry, user)
+				RegisterScriptTools(scriptRegistry, user)
 
 				// Add as request provider
 				ctx := discovery.WithRequestProviders(r.Context(), scriptRegistry)
@@ -515,6 +515,15 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		skills,
 		"skills", "knowledge", "guides", "documentation", "specs", "specifications", "nomad", "docker", "podman", "container",
 	)
+
+	// =========================================================================
+	// Set up tool registry for discovery (if not in native tools mode)
+	// =========================================================================
+	if !nativeTools {
+		// Set the tool registry on the server for OnDemand tools from remote servers
+		// This MUST be called before RegisterRemoteServerWithVisibility for ondemand tools to work
+		server.SetToolRegistry(registry)
+	}
 
 	// =========================================================================
 	// Register remote MCP servers if configured

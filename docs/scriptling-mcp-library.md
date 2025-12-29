@@ -16,8 +16,8 @@ The `mcp` library provides MCP (Model Context Protocol) functionality for script
 ### For All Environments (Tool Access)
 - `list_tools()` - Get a list of all available MCP tools and their parameters
 - `call_tool(name, arguments)` - Call an MCP tool directly
-- `tool_search(query[, namespace])` - Search for tools by keyword (helper for discovery pattern)
-- `execute_tool(name, arguments[, namespace])` - Execute a discovered tool (helper for discovery pattern)
+- `tool_search(query)` - Search for tools by keyword. Returns tools with names like 'namespace/toolname' for namespaced tools
+- `execute_tool(name, arguments)` - Execute a discovered tool. Use full name like 'namespace/toolname' for namespaced tools
 
 ## Availability
 

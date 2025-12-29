@@ -30,13 +30,13 @@ func GetMCPToolsLibrary(client *apiclient.ApiClient) *object.Library {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
 				return mcpToolSearch(ctx, client, kwargs, args...)
 			},
-			HelpText: "tool_search(query[, namespace]) - Search for tools by keyword. Returns list of matching tools.",
+			HelpText: "tool_search(query) - Search for tools by keyword. Returns list of matching tools with names like 'namespace/toolname'.",
 		},
 		"execute_tool": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
 				return mcpExecuteTool(ctx, client, kwargs, args...)
 			},
-			HelpText: "execute_tool(name, arguments[, namespace]) - Execute a discovered tool. Arguments should be a dict.",
+			HelpText: "execute_tool(name, arguments) - Execute a discovered tool. Use full name like 'namespace/toolname' for namespaced tools. Arguments should be a dict.",
 		},
 	}
 
@@ -239,20 +239,6 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 		return &object.Error{Message: "tool_search() first argument must be a string (search query)"}
 	}
 
-	// Get optional namespace
-	namespace := ""
-	if len(args) >= 2 {
-		if nsStr, ok := args[1].(*object.String); ok {
-			namespace = nsStr.Value
-		}
-	}
-
-	// Build tool name with namespace prefix if provided
-	toolName := "tool_search"
-	if namespace != "" {
-		toolName = namespace + "/" + toolName
-	}
-
 	// Use call_tool to call tool_search
 	searchArgs := &object.Dict{
 		Pairs: map[string]object.DictPair{
@@ -263,7 +249,7 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 		},
 	}
 
-	result := mcpCallTool(ctx, client, kwargs, &object.String{Value: toolName}, searchArgs)
+	result := mcpCallTool(ctx, client, kwargs, &object.String{Value: "tool_search"}, searchArgs)
 
 	// The response is a content block (possibly wrapped in a List), extract the tools from the Text field
 	var contentBlock *object.Dict
@@ -314,7 +300,7 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, kwargs map
 		return &object.Error{Message: "MCP tools not available - API client not configured"}
 	}
 
-	// Get tool name
+	// Get tool name (can be namespaced like "namespace/toolname")
 	toolNameStr, ok := args[0].(*object.String)
 	if !ok {
 		return &object.Error{Message: "execute_tool() first argument must be a string (tool name)"}
@@ -326,33 +312,15 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, kwargs map
 		return &object.Error{Message: "execute_tool() second argument must be a dict (arguments)"}
 	}
 
-	// Get optional namespace
-	namespace := ""
-	if len(args) >= 3 {
-		if nsStr, ok := args[2].(*object.String); ok {
-			namespace = nsStr.Value
-		}
-	}
-
-	// Convert arguments to JSON string
+	// Convert arguments to map[string]interface{} for the execute_tool call
 	arguments := make(map[string]interface{})
 	for _, pair := range argsDict.Pairs {
 		key := pair.Key.(*object.String).Value
 		arguments[key] = convertFromScriptlingObject(pair.Value)
 	}
 
-	argumentsJSON, err := json.Marshal(arguments)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("Failed to marshal arguments: %v", err)}
-	}
-
-	// Build tool name with namespace prefix if provided
-	executeToolName := "execute_tool"
-	if namespace != "" {
-		executeToolName = namespace + "/" + executeToolName
-	}
-
 	// Use call_tool to call execute_tool
+	// Note: execute_tool expects arguments as a map/object, not as JSON string
 	executeArgs := &object.Dict{
 		Pairs: map[string]object.DictPair{
 			"name": {
@@ -361,10 +329,10 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, kwargs map
 			},
 			"arguments": {
 				Key:   &object.String{Value: "arguments"},
-				Value: &object.String{Value: string(argumentsJSON)},
+				Value: convertToScriptlingObject(arguments),
 			},
 		},
 	}
 
-	return mcpCallTool(ctx, client, kwargs, &object.String{Value: executeToolName}, executeArgs)
+	return mcpCallTool(ctx, client, kwargs, &object.String{Value: "execute_tool"}, executeArgs)
 }

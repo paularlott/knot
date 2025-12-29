@@ -28,8 +28,8 @@ func getChatService() *chat.Service {
 	return chatService
 }
 
-// registerScriptTools registers all script-based tools for a user
-func registerScriptTools(registry *discovery.ToolRegistry, user *model.User) {
+// RegisterScriptTools registers all script-based tools for a user
+func RegisterScriptTools(registry *discovery.ToolRegistry, user *model.User) {
 	db := database.GetInstance()
 
 	// Get active scripts of type "tool"

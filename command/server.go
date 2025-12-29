@@ -40,6 +40,7 @@ import (
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/mcp"
+	mcp_discovery "github.com/paularlott/mcp/discovery"
 )
 
 var ServerCmd = &cli.Command{
@@ -837,9 +838,21 @@ var ServerCmd = &cli.Command{
 
 				// Register chat tool endpoints if MCP server is available
 				if mcpServer != nil {
-					// Apply MCP server context middleware
-					routes.Handle("GET /api/chat/tools", middleware.MCPServerContext(mcpServer)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(api.HandleListTools))))
-					routes.Handle("POST /api/chat/tools/call", middleware.MCPServerContext(mcpServer)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(api.HandleCallTool))))
+					// Create a callback that returns script tools for the current user
+					// This allows tool_search to discover script tools without creating circular imports
+					scriptToolsProvider := func(ctx context.Context) *mcp_discovery.ToolRegistry {
+						user, ok := ctx.Value("user").(*model.User)
+						if !ok || user == nil || !user.HasPermission(model.PermissionExecuteScripts) {
+							return nil
+						}
+						scriptRegistry := mcp_discovery.NewToolRegistry()
+						internal_mcp.RegisterScriptTools(scriptRegistry, user)
+						return scriptRegistry
+					}
+
+					// Apply MCP server context middleware with script tools provider
+					routes.Handle("GET /api/chat/tools", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(api.HandleListTools))))
+					routes.Handle("POST /api/chat/tools/call", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(api.HandleCallTool))))
 				}
 			}
 		}
