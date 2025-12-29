@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
+	scriptlib "github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -175,7 +176,7 @@ func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId str
 	if len(args) < 1 {
 		return &object.Error{Message: "response_create() requires input argument"}
 	}
-	req.Input = convertFromScriptlingObject(args[0])
+	req.Input = scriptlib.ToGo(args[0])
 
 	// Get optional parameters from kwargs
 	if model, ok := kwargs["model"]; ok {
@@ -240,7 +241,7 @@ func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId str
 		result["created_at"] = resp.CreatedAt
 	}
 
-	return convertToScriptlingObject(result)
+	return scriptlib.FromGo(result)
 }
 
 // responseGet retrieves a response by ID via API
@@ -274,7 +275,7 @@ func responseGet(ctx context.Context, client *apiclient.ApiClient, kwargs map[st
 		return &object.Error{Message: fmt.Sprintf("Failed to get response: %v", err)}
 	}
 
-	return convertToScriptlingObject(resp)
+	return scriptlib.FromGo(resp)
 }
 
 // responseWait waits for a response to complete via API
@@ -326,7 +327,7 @@ func responseWait(ctx context.Context, client *apiclient.ApiClient, kwargs map[s
 
 			// Check if complete
 			if resp.Status == "completed" || resp.Status == "failed" || resp.Status == "cancelled" {
-				return convertToScriptlingObject(resp)
+				return scriptlib.FromGo(resp)
 			}
 		}
 	}

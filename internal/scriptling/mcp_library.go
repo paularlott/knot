@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
+	scriptlib "github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -76,7 +77,7 @@ func mcpListTools(ctx context.Context, client *apiclient.ApiClient, kwargs map[s
 				},
 				"parameters": {
 					Key:   &object.String{Value: "parameters"},
-					Value: convertToScriptlingObject(tool.Parameters),
+					Value: scriptlib.FromGo(tool.Parameters),
 				},
 			},
 		}
@@ -117,7 +118,7 @@ func decodeToolResponse(response interface{}) object.Object {
 		return &object.List{Elements: elements}
 	default:
 		// Fallback to normal conversion
-		return convertToScriptlingObject(response)
+		return scriptlib.FromGo(response)
 	}
 }
 
@@ -125,7 +126,7 @@ func decodeToolResponse(response interface{}) object.Object {
 func decodeToolContent(block interface{}) object.Object {
 	contentMap, ok := block.(map[string]interface{})
 	if !ok {
-		return convertToScriptlingObject(block)
+		return scriptlib.FromGo(block)
 	}
 
 	// Get content type - keys from JSON are capitalized (Type, Text, etc.)
@@ -150,16 +151,16 @@ func decodeToolContent(block interface{}) object.Object {
 		}
 	case "image":
 		// Return image block with data and mimeType
-		return convertToScriptlingObject(contentMap)
+		return scriptlib.FromGo(contentMap)
 	case "resource":
 		// Return resource block
-		return convertToScriptlingObject(contentMap)
+		return scriptlib.FromGo(contentMap)
 	default:
 		// Unknown type, return as-is
-		return convertToScriptlingObject(contentMap)
+		return scriptlib.FromGo(contentMap)
 	}
 
-	return convertToScriptlingObject(block)
+	return scriptlib.FromGo(block)
 }
 
 // decodeToolText decodes text content, parsing JSON if valid
@@ -167,7 +168,7 @@ func decodeToolText(text string) object.Object {
 	// Try to parse as JSON
 	var jsonValue interface{}
 	if err := json.Unmarshal([]byte(text), &jsonValue); err == nil {
-		return convertToScriptlingObject(jsonValue)
+		return scriptlib.FromGo(jsonValue)
 	}
 	// Return as plain string
 	return &object.String{Value: text}
@@ -199,7 +200,7 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, kwargs map[st
 	arguments := make(map[string]interface{})
 	for _, pair := range argsDict.Pairs {
 		key := pair.Key.(*object.String).Value
-		arguments[key] = convertFromScriptlingObject(pair.Value)
+		arguments[key] = scriptlib.ToGo(pair.Value)
 	}
 
 	// Create request
@@ -276,7 +277,7 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 						for k, v := range tool {
 							toolDict.Pairs[k] = object.DictPair{
 								Key:   &object.String{Value: k},
-								Value: convertToScriptlingObject(v),
+								Value: scriptlib.FromGo(v),
 							}
 						}
 						toolList = append(toolList, toolDict)
@@ -316,23 +317,30 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, kwargs map
 	arguments := make(map[string]interface{})
 	for _, pair := range argsDict.Pairs {
 		key := pair.Key.(*object.String).Value
-		arguments[key] = convertFromScriptlingObject(pair.Value)
+		arguments[key] = scriptlib.ToGo(pair.Value)
 	}
 
-	// Use call_tool to call execute_tool
+	// Create request for execute_tool
 	// Note: execute_tool expects arguments as a map/object, not as JSON string
-	executeArgs := &object.Dict{
-		Pairs: map[string]object.DictPair{
-			"name": {
-				Key:   &object.String{Value: "name"},
-				Value: &object.String{Value: toolNameStr.Value},
-			},
-			"arguments": {
-				Key:   &object.String{Value: "arguments"},
-				Value: convertToScriptlingObject(arguments),
-			},
+	req := ToolCallRequest{
+		Name:      "execute_tool",
+		Arguments: map[string]interface{}{
+			"name":      toolNameStr.Value,
+			"arguments": arguments,
 		},
 	}
 
-	return mcpCallTool(ctx, client, kwargs, &object.String{Value: "execute_tool"}, executeArgs)
+	// Create independent context for tool call to prevent script timeout
+	mcpCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	// Call API to execute tool
+	var response ToolCallResponse
+	_, err := client.Do(mcpCtx, "POST", "api/chat/tools/call", req, &response)
+	if err != nil {
+		errMsg := fmt.Sprintf("Tool execution failed: %v", err)
+		return &object.Error{Message: errMsg}
+	}
+
+	return decodeToolResponse(response.Content)
 }

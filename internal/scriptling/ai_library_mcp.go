@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/openai"
+	scriptlib "github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -156,7 +157,7 @@ func responseCreateMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 	}
 
 	// Build request
-	rawInput := convertFromScriptlingObject(args[0])
+	rawInput := scriptlib.ToGo(args[0])
 
 	// Convert input to []any format expected by CreateResponseRequest
 	var input []any
@@ -244,7 +245,7 @@ func responseCreateMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 		responseData["error"] = result.Error
 	}
 
-	return convertToScriptlingObject(responseData)
+	return scriptlib.FromGo(responseData)
 }
 
 // responseGetMCP retrieves a response by ID using direct database access
@@ -279,7 +280,7 @@ func responseGetMCP(kwargs map[string]object.Object, args ...object.Object) obje
 		result["error"] = response.Error
 	}
 
-	return convertToScriptlingObject(result)
+	return scriptlib.FromGo(result)
 }
 
 // responseWaitMCP waits for a response to complete using direct database access
@@ -334,7 +335,7 @@ func responseWaitMCP(kwargs map[string]object.Object, args ...object.Object) obj
 				if response.Error != "" {
 					result["error"] = response.Error
 				}
-				return convertToScriptlingObject(result)
+				return scriptlib.FromGo(result)
 			}
 		}
 	}

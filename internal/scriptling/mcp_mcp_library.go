@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/openai"
+	scriptlib "github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -206,7 +207,7 @@ func mcpListToolsMCP(ctx context.Context, openaiClient *openai.Client, kwargs ma
 				},
 				"parameters": {
 					Key:   &object.String{Value: "parameters"},
-					Value: convertToScriptlingObject(tool.InputSchema),
+					Value: scriptlib.FromGo(tool.InputSchema),
 				},
 			},
 		}
@@ -246,7 +247,7 @@ func decodeToolResponseMCP(response interface{}) object.Object {
 		return &object.List{Elements: elements}
 	default:
 		// Fallback to normal conversion
-		return convertToScriptlingObject(response)
+		return scriptlib.FromGo(response)
 	}
 }
 
@@ -254,7 +255,7 @@ func decodeToolResponseMCP(response interface{}) object.Object {
 func decodeToolContentMCP(block interface{}) object.Object {
 	contentMap, ok := block.(map[string]interface{})
 	if !ok {
-		return convertToScriptlingObject(block)
+		return scriptlib.FromGo(block)
 	}
 
 	// Get content type - keys from JSON are capitalized (Type, Text, etc.)
@@ -279,16 +280,16 @@ func decodeToolContentMCP(block interface{}) object.Object {
 		}
 	case "image":
 		// Return image block with data and mimeType
-		return convertToScriptlingObject(contentMap)
+		return scriptlib.FromGo(contentMap)
 	case "resource":
 		// Return resource block
-		return convertToScriptlingObject(contentMap)
+		return scriptlib.FromGo(contentMap)
 	default:
 		// Unknown type, return as-is
-		return convertToScriptlingObject(contentMap)
+		return scriptlib.FromGo(contentMap)
 	}
 
-	return convertToScriptlingObject(block)
+	return scriptlib.FromGo(block)
 }
 
 // decodeToolTextMCP decodes text content, parsing JSON if valid
@@ -296,7 +297,7 @@ func decodeToolTextMCP(text string) object.Object {
 	// Try to parse as JSON
 	var jsonValue interface{}
 	if err := json.Unmarshal([]byte(text), &jsonValue); err == nil {
-		return convertToScriptlingObject(jsonValue)
+		return scriptlib.FromGo(jsonValue)
 	}
 	// Return as plain string
 	return &object.String{Value: text}
@@ -329,7 +330,7 @@ func mcpCallToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs map
 	arguments := make(map[string]any)
 	for _, pair := range argsDict.Pairs {
 		key := pair.Key.(*object.String).Value
-		arguments[key] = convertFromScriptlingObject(pair.Value)
+		arguments[key] = scriptlib.ToGo(pair.Value)
 	}
 
 	// Create independent context for tool call
@@ -418,7 +419,7 @@ func mcpToolSearchMCP(ctx context.Context, openaiClient *openai.Client, kwargs m
 						for k, v := range tool {
 							toolDict.Pairs[k] = object.DictPair{
 								Key:   &object.String{Value: k},
-								Value: convertToScriptlingObject(v),
+								Value: scriptlib.FromGo(v),
 							}
 						}
 						toolList = append(toolList, toolDict)
@@ -466,7 +467,7 @@ func mcpExecuteToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 	arguments := make(map[string]interface{})
 	for _, pair := range argsDict.Pairs {
 		key := pair.Key.(*object.String).Value
-		arguments[key] = convertFromScriptlingObject(pair.Value)
+		arguments[key] = scriptlib.ToGo(pair.Value)
 	}
 
 	argumentsJSON, err := json.Marshal(arguments)
