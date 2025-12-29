@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/paularlott/knot/internal/openai"
+	"github.com/paularlott/scriptling-mcp"
 	scriptlib "github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/object"
 )
@@ -94,26 +94,10 @@ func mcpGet(mcpParams map[string]string, args ...object.Object) object.Object {
 	// Try to parse as JSON first (for arrays/objects)
 	var jsonValue interface{}
 	if err := json.Unmarshal([]byte(value), &jsonValue); err == nil {
-		return interfaceToObject(jsonValue)
+		return scriptlib.FromGo(jsonValue)
 	}
 
-	// Try as number
-	if num, err := strconv.ParseFloat(value, 64); err == nil {
-		if num == float64(int64(num)) {
-			return &object.Integer{Value: int64(num)}
-		}
-		return &object.Float{Value: num}
-	}
-
-	// Try as boolean
-	if value == "true" {
-		return &object.Boolean{Value: true}
-	}
-	if value == "false" {
-		return &object.Boolean{Value: false}
-	}
-
-	// Return as string
+	// Return as string (MCP parameters are always strings)
 	return &object.String{Value: value}
 }
 
@@ -139,39 +123,6 @@ func mcpReturnError(args ...object.Object) object.Object {
 		return &object.String{Value: "Error"}
 	}
 	return args[0]
-}
-
-// interfaceToObject converts a Go interface{} to a scriptling object
-func interfaceToObject(v interface{}) object.Object {
-	switch val := v.(type) {
-	case nil:
-		return &object.Null{}
-	case bool:
-		return &object.Boolean{Value: val}
-	case float64:
-		if val == float64(int64(val)) {
-			return object.NewInteger(int64(val))
-		}
-		return &object.Float{Value: val}
-	case string:
-		return &object.String{Value: val}
-	case []interface{}:
-		elements := make([]object.Object, len(val))
-		for i, elem := range val {
-			elements[i] = interfaceToObject(elem)
-		}
-		return &object.List{Elements: elements}
-	case map[string]interface{}:
-		pairs := make(map[string]object.DictPair)
-		for k, v := range val {
-			key := &object.String{Value: k}
-			value := interfaceToObject(v)
-			pairs[k] = object.DictPair{Key: key, Value: value}
-		}
-		return &object.Dict{Pairs: pairs}
-	default:
-		return &object.Null{}
-	}
 }
 
 // mcpListToolsMCP fetches available tools directly from MCP server
@@ -217,92 +168,6 @@ func mcpListToolsMCP(ctx context.Context, openaiClient *openai.Client, kwargs ma
 	return &object.List{Elements: toolList}
 }
 
-// decodeToolResponse intelligently decodes a tool response for easier use in scripts
-// - Single text content: returns the text as a string
-// - Text that is valid JSON: returns the parsed JSON as objects
-// - Multiple content blocks: returns the list of decoded blocks
-// - Structured content: returns the decoded structure
-func decodeToolResponseMCP(response interface{}) object.Object {
-	// Handle if response is already a simple type
-	switch v := response.(type) {
-	case string:
-		return decodeToolTextMCP(v)
-	case map[string]interface{}:
-		// Single content block (not wrapped in array)
-		return decodeToolContentMCP(v)
-	case []interface{}:
-		// Empty content
-		if len(v) == 0 {
-			return &object.Null{}
-		}
-		// Single content block
-		if len(v) == 1 {
-			return decodeToolContentMCP(v[0])
-		}
-		// Multiple content blocks - decode each
-		elements := make([]object.Object, len(v))
-		for i, block := range v {
-			elements[i] = decodeToolContentMCP(block)
-		}
-		return &object.List{Elements: elements}
-	default:
-		// Fallback to normal conversion
-		return scriptlib.FromGo(response)
-	}
-}
-
-// decodeToolContentMCP decodes a single content block
-func decodeToolContentMCP(block interface{}) object.Object {
-	contentMap, ok := block.(map[string]interface{})
-	if !ok {
-		return scriptlib.FromGo(block)
-	}
-
-	// Get content type - keys from JSON are capitalized (Type, Text, etc.)
-	contentType := ""
-	if v, ok := contentMap["Type"].(string); ok {
-		contentType = v
-	} else if v, ok := contentMap["type"].(string); ok {
-		contentType = v
-	}
-
-	switch contentType {
-	case "text":
-		// Try both capitalized and lowercase keys for text field
-		var text string
-		if v, ok := contentMap["Text"].(string); ok {
-			text = v
-		} else if v, ok := contentMap["text"].(string); ok {
-			text = v
-		}
-		if text != "" {
-			return decodeToolTextMCP(text)
-		}
-	case "image":
-		// Return image block with data and mimeType
-		return scriptlib.FromGo(contentMap)
-	case "resource":
-		// Return resource block
-		return scriptlib.FromGo(contentMap)
-	default:
-		// Unknown type, return as-is
-		return scriptlib.FromGo(contentMap)
-	}
-
-	return scriptlib.FromGo(block)
-}
-
-// decodeToolTextMCP decodes text content, parsing JSON if valid
-func decodeToolTextMCP(text string) object.Object {
-	// Try to parse as JSON
-	var jsonValue interface{}
-	if err := json.Unmarshal([]byte(text), &jsonValue); err == nil {
-		return scriptlib.FromGo(jsonValue)
-	}
-	// Return as plain string
-	return &object.String{Value: text}
-}
-
 // mcpCallToolMCP calls a tool directly on MCP server
 func mcpCallToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) < 2 {
@@ -326,12 +191,8 @@ func mcpCallToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs map
 		return &object.Error{Message: "call_tool() second argument must be a dict (arguments)"}
 	}
 
-	// Convert arguments to map
-	arguments := make(map[string]any)
-	for _, pair := range argsDict.Pairs {
-		key := pair.Key.(*object.String).Value
-		arguments[key] = scriptlib.ToGo(pair.Value)
-	}
+	// Convert arguments to map using the bridge package
+	arguments := scriptlingmcp.DictToMap(argsDict)
 
 	// Create independent context for tool call
 	mcpCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -349,7 +210,8 @@ func mcpCallToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs map
 		return &object.Error{Message: errMsg}
 	}
 
-	return decodeToolResponseMCP(response.Content)
+	// Use the bridge package to decode the response
+	return scriptlingmcp.DecodeToolResponse(response)
 }
 
 // mcpToolSearchMCP searches for tools by keyword on MCP server
@@ -405,27 +267,23 @@ func mcpToolSearchMCP(ctx context.Context, openaiClient *openai.Client, kwargs m
 	}
 
 	if contentBlock != nil {
-		if textVal, found := contentBlock.Pairs["Text"]; found {
-			if textStr, ok := textVal.Value.(*object.String); ok {
-				// Parse the JSON in the Text field
-				var tools []map[string]interface{}
-				if err := json.Unmarshal([]byte(textStr.Value), &tools); err == nil {
-					// Convert to scriptling objects, same format as list_tools
-					toolList := make([]object.Object, 0, len(tools))
-					for _, tool := range tools {
-						toolDict := &object.Dict{
-							Pairs: map[string]object.DictPair{},
-						}
-						for k, v := range tool {
-							toolDict.Pairs[k] = object.DictPair{
-								Key:   &object.String{Value: k},
-								Value: scriptlib.FromGo(v),
-							}
-						}
-						toolList = append(toolList, toolDict)
-					}
-					return &object.List{Elements: toolList}
-				}
+		// Try both "text" and "Text" keys (from JSON parsing)
+		var textVal *object.String
+		if val, found := contentBlock.Pairs["text"]; found {
+			if s, ok := val.Value.(*object.String); ok {
+				textVal = s
+			}
+		} else if val, found := contentBlock.Pairs["Text"]; found {
+			if s, ok := val.Value.(*object.String); ok {
+				textVal = s
+			}
+		}
+
+		if textVal != nil {
+			// Parse the JSON text using the bridge package
+			tools, err := scriptlingmcp.ParseToolSearchResultsFromText(textVal.Value)
+			if err == nil {
+				return tools
 			}
 		}
 	}
@@ -463,12 +321,8 @@ func mcpExecuteToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 		}
 	}
 
-	// Convert arguments to JSON string
-	arguments := make(map[string]interface{})
-	for _, pair := range argsDict.Pairs {
-		key := pair.Key.(*object.String).Value
-		arguments[key] = scriptlib.ToGo(pair.Value)
-	}
+	// Convert arguments to JSON string using the bridge package
+	arguments := scriptlingmcp.DictToMap(argsDict)
 
 	argumentsJSON, err := json.Marshal(arguments)
 	if err != nil {
