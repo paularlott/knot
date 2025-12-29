@@ -305,7 +305,45 @@ func mcpToolSearchMCP(ctx context.Context, openaiClient *openai.Client, kwargs m
 		},
 	}
 
-	return mcpCallToolMCP(ctx, openaiClient, kwargs, &object.String{Value: toolName}, searchArgs)
+	result := mcpCallToolMCP(ctx, openaiClient, kwargs, &object.String{Value: toolName}, searchArgs)
+
+	// The response is a content block (possibly wrapped in a List), extract the tools from the Text field
+	var contentBlock *object.Dict
+	if resultList, ok := result.(*object.List); ok && len(resultList.Elements) > 0 {
+		if firstDict, ok := resultList.Elements[0].(*object.Dict); ok {
+			contentBlock = firstDict
+		}
+	} else if resultDict, ok := result.(*object.Dict); ok {
+		contentBlock = resultDict
+	}
+
+	if contentBlock != nil {
+		if textVal, found := contentBlock.Pairs["Text"]; found {
+			if textStr, ok := textVal.Value.(*object.String); ok {
+				// Parse the JSON in the Text field
+				var tools []map[string]interface{}
+				if err := json.Unmarshal([]byte(textStr.Value), &tools); err == nil {
+					// Convert to scriptling objects, same format as list_tools
+					toolList := make([]object.Object, 0, len(tools))
+					for _, tool := range tools {
+						toolDict := &object.Dict{
+							Pairs: map[string]object.DictPair{},
+						}
+						for k, v := range tool {
+							toolDict.Pairs[k] = object.DictPair{
+								Key:   &object.String{Value: k},
+								Value: convertToScriptlingObject(v),
+							}
+						}
+						toolList = append(toolList, toolDict)
+					}
+					return &object.List{Elements: toolList}
+				}
+			}
+		}
+	}
+
+	return result
 }
 
 // mcpExecuteToolMCP executes a discovered tool on MCP server

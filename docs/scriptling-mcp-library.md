@@ -225,7 +225,7 @@ Search for tools by keyword. This is a helper function that wraps `call_tool("to
 - `namespace` (string, optional): Namespace prefix for the tool_search tool (e.g., "ai" becomes "ai/tool_search")
 
 **Returns:**
-- `dict`: Search results containing matching tools
+- `list`: Array of tool dictionaries (same format as `list_tools`)
 
 **Example:**
 ```python
@@ -237,7 +237,7 @@ print("Found tools:", results)
 
 # Search for file operations
 file_tools = mcp.tool_search("read write file")
-for tool in file_tools.get('results', []):
+for tool in file_tools:
     print(f"- {tool['name']}: {tool['description']}")
 
 # Search using a specific namespace (calls "ai/tool_search")
