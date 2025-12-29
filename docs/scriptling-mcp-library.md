@@ -187,7 +187,11 @@ Call an MCP tool directly. This is the low-level function for tool execution.
 - `arguments` (dict): Arguments to pass to the tool
 
 **Returns:**
-- `any`: The tool's response content (type depends on the tool)
+- `any`: The tool's response content, automatically decoded:
+  - **Single text response**: Returns as a string
+  - **JSON in text**: Automatically parsed and returned as objects (dict/list)
+  - **Multiple content blocks**: Returns as a list of decoded blocks
+  - **Image/Resource blocks**: Returns as a dict with `Type`, `Data`, `MimeType`, etc.
 
 **Example:**
 ```python
@@ -212,6 +216,21 @@ ai_response = mcp.call_tool("ai/generate-text", {
     "max_tokens": 50
 })
 print(ai_response)
+
+# Response decoding examples:
+# 1. Text responses are returned as strings
+text_result = mcp.call_tool("some_tool", {})
+print(text_result)  # "Hello World" (not [{"Type": "text", "Text": "Hello World"}])
+
+# 2. JSON in text is automatically parsed
+json_result = mcp.call_tool("json_tool", {})
+print(json_result)  # {"status": "ok", "count": 5} - already a dict!
+print(json_result["status"])  # "ok"
+
+# 3. Multiple content blocks are returned as a list
+multi_result = mcp.call_tool("multi_tool", {})
+for block in multi_result:
+    print(block)  # Each decoded block
 ```
 
 ---
@@ -257,7 +276,11 @@ Execute a discovered tool. This is a helper function that wraps `call_tool("exec
 - `namespace` (string, optional): Namespace prefix for the execute_tool tool (e.g., "ai" becomes "ai/execute_tool")
 
 **Returns:**
-- `any`: The tool's response content
+- `any`: The tool's response content, automatically decoded:
+  - **Single text response**: Returns as a string
+  - **JSON in text**: Automatically parsed and returned as objects (dict/list)
+  - **Multiple content blocks**: Returns as a list of decoded blocks
+  - **Image/Resource blocks**: Returns as a dict with `Type`, `Data`, `MimeType`, etc.
 
 **Example:**
 ```python

@@ -87,6 +87,92 @@ func mcpListTools(ctx context.Context, client *apiclient.ApiClient, kwargs map[s
 }
 
 // mcpCallTool calls a tool via API for local/remote environments
+// decodeToolResponse intelligently decodes a tool response for easier use in scripts
+// - Single text content: returns the text as a string
+// - Text that is valid JSON: returns the parsed JSON as objects
+// - Multiple content blocks: returns the list of decoded blocks
+// - Structured content: returns the decoded structure
+func decodeToolResponse(response interface{}) object.Object {
+	// Handle if response is already a simple type
+	switch v := response.(type) {
+	case string:
+		return decodeToolText(v)
+	case map[string]interface{}:
+		// Single content block (not wrapped in array)
+		return decodeToolContent(v)
+	case []interface{}:
+		// Empty content
+		if len(v) == 0 {
+			return &object.Null{}
+		}
+		// Single content block
+		if len(v) == 1 {
+			return decodeToolContent(v[0])
+		}
+		// Multiple content blocks - decode each
+		elements := make([]object.Object, len(v))
+		for i, block := range v {
+			elements[i] = decodeToolContent(block)
+		}
+		return &object.List{Elements: elements}
+	default:
+		// Fallback to normal conversion
+		return convertToScriptlingObject(response)
+	}
+}
+
+// decodeToolContent decodes a single content block
+func decodeToolContent(block interface{}) object.Object {
+	contentMap, ok := block.(map[string]interface{})
+	if !ok {
+		return convertToScriptlingObject(block)
+	}
+
+	// Get content type - keys from JSON are capitalized (Type, Text, etc.)
+	contentType := ""
+	if v, ok := contentMap["Type"].(string); ok {
+		contentType = v
+	} else if v, ok := contentMap["type"].(string); ok {
+		contentType = v
+	}
+
+	switch contentType {
+	case "text":
+		// Try both capitalized and lowercase keys for text field
+		var text string
+		if v, ok := contentMap["Text"].(string); ok {
+			text = v
+		} else if v, ok := contentMap["text"].(string); ok {
+			text = v
+		}
+		if text != "" {
+			return decodeToolText(text)
+		}
+	case "image":
+		// Return image block with data and mimeType
+		return convertToScriptlingObject(contentMap)
+	case "resource":
+		// Return resource block
+		return convertToScriptlingObject(contentMap)
+	default:
+		// Unknown type, return as-is
+		return convertToScriptlingObject(contentMap)
+	}
+
+	return convertToScriptlingObject(block)
+}
+
+// decodeToolText decodes text content, parsing JSON if valid
+func decodeToolText(text string) object.Object {
+	// Try to parse as JSON
+	var jsonValue interface{}
+	if err := json.Unmarshal([]byte(text), &jsonValue); err == nil {
+		return convertToScriptlingObject(jsonValue)
+	}
+	// Return as plain string
+	return &object.String{Value: text}
+}
+
 func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) < 2 {
 		return &object.Error{Message: "call_tool() requires tool name and arguments"}
@@ -134,7 +220,7 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, kwargs map[st
 		return &object.Error{Message: errMsg}
 	}
 
-	return convertToScriptlingObject(response.Content)
+	return decodeToolResponse(response.Content)
 }
 
 // mcpToolSearch searches for tools by keyword via API
