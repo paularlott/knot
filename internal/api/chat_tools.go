@@ -11,24 +11,6 @@ import (
 	"github.com/paularlott/mcp"
 )
 
-// Tool represents a tool definition
-type Tool struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
-}
-
-// ToolCallRequest represents a tool call request
-type ToolCallRequest struct {
-	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"`
-}
-
-// ToolCallResponse represents a tool call response
-type ToolCallResponse struct {
-	Content interface{} `json:"content"`
-}
-
 // HandleListTools handles GET /api/chat/tools - lists available tools
 func HandleListTools(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -43,20 +25,8 @@ func HandleListTools(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get tools from MCP server
-	mcpTools := mcpServer.ListTools()
-
-	// Convert to API format
-	tools := make([]Tool, 0, len(mcpTools))
-	for _, tool := range mcpTools {
-		parameters, _ := tool.InputSchema.(map[string]interface{})
-		tools = append(tools, Tool{
-			Name:        tool.Name,
-			Description: tool.Description,
-			Parameters:  parameters,
-		})
-	}
-
+	// Get tools from MCP server and return them directly
+	tools := mcpServer.ListTools()
 	rest.WriteResponse(http.StatusOK, w, r, tools)
 }
 
@@ -75,7 +45,7 @@ func HandleCallTool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse request
-	var req ToolCallRequest
+	var req mcp.ToolCallParams
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.WithError(err).Error("Failed to decode tool call request")
 		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
@@ -106,10 +76,8 @@ func HandleCallTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return the result
-	rest.WriteResponse(http.StatusOK, w, r, ToolCallResponse{
-		Content: response.Content,
-	})
+	// Return the result - *mcp.ToolResponse marshals correctly as JSON
+	rest.WriteResponse(http.StatusOK, w, r, response)
 }
 
 // RegisterChatToolRoutes registers the chat tool API routes
