@@ -4,26 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"sync"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
-	"github.com/paularlott/knot/internal/proxy"
+	"github.com/paularlott/knot/internal/portforward"
 )
-
-var (
-	portForwardsMux sync.RWMutex
-	portForwards    = make(map[uint16]*portForwardInfo)
-)
-
-type portForwardInfo struct {
-	LocalPort  uint16
-	Space      string
-	RemotePort uint16
-	Cancel     context.CancelFunc
-	Listener   net.Listener
-}
 
 func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 	var request ForwardPortRequest
@@ -100,31 +86,22 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 	}
 
 	// Check if port is already forwarded
-	portForwardsMux.Lock()
-	if _, exists := portForwards[request.LocalPort]; exists {
-		portForwardsMux.Unlock()
+	if portforward.IsPortForwarded(request.LocalPort) {
 		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "port already forwarded"})
 		return
 	}
 
 	// Create context for this forward
-	ctx, cancel := context.WithCancel(context.Background())
-	info := &portForwardInfo{
-		LocalPort:  request.LocalPort,
-		Space:      request.Space,
-		RemotePort: request.RemotePort,
-		Cancel:     cancel,
-	}
-	portForwards[request.LocalPort] = info
-	portForwardsMux.Unlock()
+	forwardCtx, cancel := context.WithCancel(context.Background())
+	portforward.StartForward(request.LocalPort, request.RemotePort, request.Space, cancel)
 
 	// Send success response immediately
 	sendMsg(conn, CommandNil, RunCommandResponse{Success: true})
 
 	// Start port forwarding in background
 	go func() {
-		listener := proxy.RunTCPForwarderViaAgentWithContext(
-			ctx,
+		listener := portforward.RunTCPForwarderViaAgentWithContext(
+			forwardCtx,
 			server,
 			fmt.Sprintf("127.0.0.1:%d", request.LocalPort),
 			request.Space,
@@ -135,25 +112,17 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 
 		if listener == nil {
 			log.Error("failed to create listener for port forward", "port", request.LocalPort)
-			cancel()
+			portforward.StopForward(request.LocalPort)
 			return
 		}
 
 		// Store listener
-		portForwardsMux.Lock()
-		if fwd, exists := portForwards[request.LocalPort]; exists {
-			fwd.Listener = listener
-		} else {
-			listener.Close()
-		}
-		portForwardsMux.Unlock()
+		portforward.StoreListener(request.LocalPort, listener)
 
 		// Wait for context cancellation
-		<-ctx.Done()
+		<-forwardCtx.Done()
 
 		// Clean up when forward stops
-		portForwardsMux.Lock()
-		delete(portForwards, request.LocalPort)
-		portForwardsMux.Unlock()
+		portforward.StopForward(request.LocalPort)
 	}()
 }

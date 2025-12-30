@@ -265,3 +265,92 @@ func (s *Session) SendCopyFile(copyCmd *msg.CopyFileMessage) (chan *msg.CopyFile
 
 	return responseChannel, nil
 }
+
+func (s *Session) SendPortForward(portCmd *msg.PortForwardRequest) (*msg.PortForwardResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	// Write the port forward command
+	err = msg.WriteCommand(conn, msg.CmdPortForward)
+	if err != nil {
+		s.logger.WithError(err).Error("writing port forward command:")
+		return &msg.PortForwardResponse{Success: false, Error: "Failed to send command to agent"}, nil
+	}
+
+	// Write the port forward message
+	err = msg.WriteMessage(conn, portCmd)
+	if err != nil {
+		s.logger.WithError(err).Error("writing port forward message:")
+		return &msg.PortForwardResponse{Success: false, Error: "Failed to send command message to agent"}, nil
+	}
+
+	// Read the response
+	var response msg.PortForwardResponse
+	err = msg.ReadMessage(conn, &response)
+	if err != nil {
+		s.logger.WithError(err).Error("reading port forward response:")
+		return &msg.PortForwardResponse{Success: false, Error: "Failed to read response from agent"}, nil
+	}
+
+	return &response, nil
+}
+
+func (s *Session) SendPortList() (*msg.PortListResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	// Write the port list command
+	err = msg.WriteCommand(conn, msg.CmdPortList)
+	if err != nil {
+		s.logger.WithError(err).Error("writing port list command:")
+		return nil, err
+	}
+
+	// Read the response
+	var response msg.PortListResponse
+	err = msg.ReadMessage(conn, &response)
+	if err != nil {
+		s.logger.WithError(err).Error("reading port list response:")
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+func (s *Session) SendPortStop(portCmd *msg.PortStopRequest) (*msg.PortStopResponse, error) {
+	conn, err := s.MuxSession.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	// Write the port stop command
+	err = msg.WriteCommand(conn, msg.CmdPortStop)
+	if err != nil {
+		s.logger.WithError(err).Error("writing port stop command:")
+		return &msg.PortStopResponse{Success: false, Error: "Failed to send command to agent"}, nil
+	}
+
+	// Write the port stop message
+	err = msg.WriteMessage(conn, portCmd)
+	if err != nil {
+		s.logger.WithError(err).Error("writing port stop message:")
+		return &msg.PortStopResponse{Success: false, Error: "Failed to send command message to agent"}, nil
+	}
+
+	// Read the response
+	var response msg.PortStopResponse
+	err = msg.ReadMessage(conn, &response)
+	if err != nil {
+		s.logger.WithError(err).Error("reading port stop response:")
+		return &msg.PortStopResponse{Success: false, Error: "Failed to read response from agent"}, nil
+	}
+
+	return &response, nil
+}
