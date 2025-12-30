@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_chat "github.com/paularlott/knot/agent/cmd/chat"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
@@ -81,7 +80,6 @@ It offers both a user-friendly web interface and a command line interface to str
 			command_spaces.SpacesCmd,
 			command_ssh_config.SshConfigCmd,
 			command_templates.TemplatesCmd,
-			agentcmd.AgentCmd,
 			commands_admin.AdminCmd,
 			command_chat.ChatCmd,
 			command_tunnel.TunnelCmd,
