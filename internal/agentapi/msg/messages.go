@@ -33,6 +33,9 @@ const (
 	CmdSpaceRestart
 	CmdRunCommand
 	CmdCopyFile
+	CmdPortForward
+	CmdPortList
+	CmdPortStop
 	CmdExecuteScript
 )
 

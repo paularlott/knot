@@ -13,6 +13,7 @@ import (
 	"github.com/paularlott/knot/command"
 	commands_admin "github.com/paularlott/knot/command/admin"
 	commands_forward "github.com/paularlott/knot/command/forward"
+	commands_port "github.com/paularlott/knot/command/port"
 	command_scripts "github.com/paularlott/knot/command/scripts"
 	command_spaces "github.com/paularlott/knot/command/spaces"
 	command_ssh_config "github.com/paularlott/knot/command/ssh-config"
@@ -79,11 +80,11 @@ It offers both a user-friendly web interface and a command line interface to str
 		Commands: []*cli.Command{
 			command.ConnectCmd,
 			commands_forward.ForwardCmd,
+			commands_port.PortCmd,
 			command_scripts.ScriptsCmd,
 			command_spaces.SpacesCmd,
 			command_ssh_config.SshConfigCmd,
 			command_templates.TemplatesCmd,
-			agentcmd.AgentCmd,
 			commands_admin.AdminCmd,
 			command_chat.ChatCmd,
 			command_tunnel.TunnelCmd,

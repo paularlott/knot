@@ -4,23 +4,21 @@ import (
 	"net"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/portforward"
 )
 
 func handleListPortForwards(conn net.Conn, msg *CommandMsg) {
-	portForwardsMux.RLock()
-	defer portForwardsMux.RUnlock()
+	forwards := portforward.ListForwards()
 
-	forwards := make([]PortForwardInfo, 0, len(portForwards))
-	for _, fwd := range portForwards {
-		forwards = append(forwards, PortForwardInfo{
+	response := ListPortForwardsResponse{
+		Forwards: make([]PortForwardInfo, len(forwards)),
+	}
+	for i, fwd := range forwards {
+		response.Forwards[i] = PortForwardInfo{
 			LocalPort:  fwd.LocalPort,
 			Space:      fwd.Space,
 			RemotePort: fwd.RemotePort,
-		})
-	}
-
-	response := ListPortForwardsResponse{
-		Forwards: forwards,
+		}
 	}
 
 	err := sendMsg(conn, CommandNil, response)

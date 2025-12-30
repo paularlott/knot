@@ -1528,6 +1528,110 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
+  /space-io/{space_id}/port/forward:
+    post:
+      summary: Forward a port from one space to another
+      description: Forward a port from one space to a port in another space within the same zone.
+      operationId: portForward
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the source space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortForwardRequest'
+      responses:
+        '200':
+          description: Port forward established successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/port/list:
+    get:
+      summary: List active port forwards for a space
+      description: List all active port forwards from a space.
+      operationId: portList
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      responses:
+        '200':
+          description: List of active port forwards
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortListSuccess'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
+  /space-io/{space_id}/port/stop:
+    post:
+      summary: Stop a port forward
+      description: Stop an active port forward by local port number.
+      operationId: portStop
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            description: The ID of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortStopRequest'
+      responses:
+        '200':
+          description: Port forward stopped successfully
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
   /api/templates:
     get:
       summary: Get Templates
@@ -3813,6 +3917,117 @@ components:
             format: address
           example: ["https://server1.example.com", "https://server2.example.com"]
           description: A list of tunnel servers. If this list is present then these servers should be used for the tunnel connections.
+
+    PortForwardRequest:
+      type: object
+      properties:
+        local_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 8080
+          description: The local port in the source space to forward from.
+        space:
+          type: string
+          example: backend-api
+          description: The name of the target space.
+        remote_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 3000
+          description: The port in the target space to forward to.
+
+    PortForwardSuccess:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: The status of the operation, true if successful.
+
+    PortForwardError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+          description: The status of the operation, false if failed.
+        error:
+          type: string
+          example: "target space not found"
+          description: The error message if the operation failed.
+
+    PortForwardInfo:
+      type: object
+      properties:
+        local_port:
+          type: integer
+          example: 8080
+          description: The local port being forwarded.
+        space:
+          type: string
+          example: backend-api
+          description: The name of the target space.
+        remote_port:
+          type: integer
+          example: 3000
+          description: The port in the target space.
+
+    PortListSuccess:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: The status of the operation, true if successful.
+        forwards:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortForwardInfo'
+          description: List of active port forwards.
+
+    PortListError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+          description: The status of the operation, false if failed.
+        error:
+          type: string
+          example: "failed to connect to agent"
+          description: The error message if the operation failed.
+
+    PortStopRequest:
+      type: object
+      properties:
+        local_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 8080
+          description: The local port to stop forwarding.
+
+    PortStopSuccess:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: The status of the operation, true if successful.
+
+    PortStopError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+          description: The status of the operation, false if failed.
+        error:
+          type: string
+          example: "port forward not found"
+          description: The error message if the operation failed.
 
     ScriptInfo:
       type: object

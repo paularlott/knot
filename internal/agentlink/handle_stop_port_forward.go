@@ -4,6 +4,7 @@ import (
 	"net"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/portforward"
 )
 
 func handleStopPortForward(conn net.Conn, msg *CommandMsg) {
@@ -15,21 +16,12 @@ func handleStopPortForward(conn net.Conn, msg *CommandMsg) {
 		return
 	}
 
-	portForwardsMux.Lock()
-	fwd, exists := portForwards[request.LocalPort]
-	if !exists {
-		portForwardsMux.Unlock()
+	// Check if port forward exists
+	if _, exists := portforward.GetForward(request.LocalPort); !exists {
 		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "port forward not found"})
 		return
 	}
 
-	// Cancel the forward and close the listener
-	fwd.Cancel()
-	if fwd.Listener != nil {
-		fwd.Listener.Close()
-	}
-	delete(portForwards, request.LocalPort)
-	portForwardsMux.Unlock()
-
+	portforward.StopForward(request.LocalPort)
 	sendMsg(conn, CommandNil, RunCommandResponse{Success: true})
 }

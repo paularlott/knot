@@ -134,6 +134,26 @@ type CopyFileRequest struct {
 	Workdir    string `json:"workdir,omitempty"`
 }
 
+type PortForwardRequest struct {
+	LocalPort  uint16 `json:"local_port"`
+	Space      string `json:"space"`
+	RemotePort uint16 `json:"remote_port"`
+}
+
+type PortListResponse struct {
+	Forwards []PortForwardInfo `json:"forwards"`
+}
+
+type PortForwardInfo struct {
+	LocalPort  uint16 `json:"local_port"`
+	Space      string `json:"space"`
+	RemotePort uint16 `json:"remote_port"`
+}
+
+type PortStopRequest struct {
+	LocalPort uint16 `json:"local_port"`
+}
+
 func (c *ApiClient) GetSpaces(ctx context.Context, userId string) (*SpaceInfoList, int, error) {
 	response := &SpaceInfoList{}
 
@@ -223,6 +243,23 @@ func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId st
 	}
 
 	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/transfer", request, nil, 200)
+}
+
+func (c *ApiClient) ForwardPort(ctx context.Context, spaceId string, request *PortForwardRequest) (int, error) {
+	return c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/forward", request, nil, 200)
+}
+
+func (c *ApiClient) ListPorts(ctx context.Context, spaceId string) (*PortListResponse, int, error) {
+	response := &PortListResponse{}
+	code, err := c.httpClient.Get(ctx, "/space-io/"+spaceId+"/port/list", &response)
+	if err != nil {
+		return nil, code, err
+	}
+	return response, code, nil
+}
+
+func (c *ApiClient) StopPort(ctx context.Context, spaceId string, request *PortStopRequest) (int, error) {
+	return c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/stop", request, nil, 200)
 }
 
 func (c *ApiClient) GetSpaceByName(ctx context.Context, spaceName string) (*SpaceDefinition, error) {

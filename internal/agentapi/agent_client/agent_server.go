@@ -470,6 +470,33 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 			handleCopyFileExecution(stream, copyCmd)
 		}
 
+	case byte(msg.CmdPortForward):
+		var portCmd msg.PortForwardRequest
+		if err := msg.ReadMessage(stream, &portCmd); err != nil {
+			log.WithError(err).Error("reading port forward message:")
+			return
+		}
+
+		if s.agentClient.withRunCommand {
+			handlePortForwardExecution(stream, portCmd, s.agentClient)
+		}
+
+	case byte(msg.CmdPortList):
+		if s.agentClient.withRunCommand {
+			handlePortListExecution(stream, s.agentClient)
+		}
+
+	case byte(msg.CmdPortStop):
+		var portCmd msg.PortStopRequest
+		if err := msg.ReadMessage(stream, &portCmd); err != nil {
+			log.WithError(err).Error("reading port stop message:")
+			return
+		}
+
+		if s.agentClient.withRunCommand {
+			handlePortStopExecution(stream, portCmd, s.agentClient)
+		}
+
 	case byte(msg.CmdExecuteScript):
 		var execMsg msg.ExecuteScriptMessage
 		if err := msg.ReadMessage(stream, &execMsg); err != nil {
