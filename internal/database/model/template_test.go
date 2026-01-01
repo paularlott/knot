@@ -27,6 +27,8 @@ func TestNewTemplate(t *testing.T) {
 		true,
 		true,
 		false,
+		"startup-script-id",
+		"shutdown-script-id",
 		100,
 		200,
 		true,
