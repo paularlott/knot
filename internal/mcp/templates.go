@@ -158,6 +158,8 @@ func createTemplate(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolRespons
 		req.BoolOr("with_code_server", false),
 		req.BoolOr("with_ssh", false),
 		req.BoolOr("with_run_command", false),
+		req.StringOr("startup_script_id", ""),
+		req.StringOr("shutdown_script_id", ""),
 		uint32(req.IntOr("compute_units", 0)),
 		uint32(req.IntOr("storage_units", 0)),
 		scheduleEnabled,

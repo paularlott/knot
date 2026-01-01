@@ -13,6 +13,7 @@ import 'ace-builds/src-noconflict/ext-searchbox';
 window.templateForm = function(isEdit, templateId, isDuplicate = false) {
   return {
     iconList: [],
+    scriptList: [],
     formData: {
       name: "",
       description: "",
@@ -27,6 +28,8 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
       with_code_server: false,
       with_ssh: false,
       with_run_command: false,
+      startup_script_id: '',
+      shutdown_script_id: '',
       compute_units: 0,
       storage_units: 0,
       active: true,
@@ -102,6 +105,16 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
         this.iconList.push(...icons);
       }
 
+      const scriptsResponse = await fetch('/api/scripts', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (scriptsResponse.status === 200) {
+        const scripts = await scriptsResponse.json();
+        this.scriptList = scripts.scripts.filter(s => s.script_type === 'script' && s.active);
+      }
+
       for (let hour = 0; hour < 24; hour++) {
         for (let minute = 0; minute < 60; minute += 15) {
           const period = hour < 12 || hour === 24 ? 'am' : 'pm';
@@ -154,6 +167,8 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
           this.formData.max_uptime_unit = template.max_uptime_unit;
           this.formData.icon_url = template.icon_url;
           this.formData.custom_fields = template.custom_fields;
+          this.formData.startup_script_id = template.startup_script_id || '';
+          this.formData.shutdown_script_id = template.shutdown_script_id || '';
 
           // Set the zones and mark all as valid
           this.formData.zones = template.zones ? template.zones : [];
@@ -164,6 +179,10 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
           this.customFieldValid = [];
            this.formData.custom_fields.forEach(() => {
             this.customFieldValid.push(true);
+          });
+
+          this.$nextTick(() => {
+            this.$dispatch('refresh-autocompleter');
           });
         }
 
@@ -194,6 +213,7 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
         wrap: false,
         vScrollBarAlwaysVisible: true,
         customScrollbar: true,
+        useWorker: false,
       });
 
       // Create the volume editor
@@ -326,6 +346,8 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
         with_code_server: this.formData.with_code_server,
         with_ssh: this.formData.with_ssh,
         with_run_command: this.formData.with_run_command,
+        startup_script_id: this.formData.platform === 'manual' ? '' : this.formData.startup_script_id,
+        shutdown_script_id: this.formData.platform === 'manual' ? '' : this.formData.shutdown_script_id,
         compute_units: parseInt(this.formData.compute_units),
         storage_units: parseInt(this.formData.storage_units),
         schedule_enabled: this.formData.schedule_enabled && this.formData.platform !== 'manual',

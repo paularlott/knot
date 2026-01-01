@@ -3,9 +3,11 @@ package helper
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/apple"
@@ -174,6 +176,9 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 	// Don't revert the space on success
 	deployFailed = false
 
+	// Execute startup script if defined (non-blocking)
+	go executeSpaceScript(space, template, template.StartupScriptId, true)
+
 	return nil
 }
 
@@ -203,6 +208,11 @@ func (h *Helper) StopSpace(space *model.Space) error {
 	if err != nil {
 		log.WithError(err).Error("StopSpace: failed to create container client")
 		return err
+	}
+
+	// Execute shutdown script if defined (blocking)
+	if err := executeSpaceScript(space, template, template.ShutdownScriptId, false); err != nil {
+		log.WithError(err).Warn("shutdown script failed", "space_id", space.Id)
 	}
 
 	// Stop the job
@@ -256,6 +266,11 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 	if err != nil {
 		log.WithError(err).Error("RestartSpace: failed to create container client")
 		return err
+	}
+
+	// Execute shutdown script if defined (blocking)
+	if err := executeSpaceScript(space, template, template.ShutdownScriptId, false); err != nil {
+		log.WithError(err).Warn("shutdown script failed", "space_id", space.Id)
 	}
 
 	// Stop the job
@@ -318,6 +333,11 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 
 			// If the space is deployed, stop the job
 			if space.IsDeployed {
+				// Execute shutdown script if defined (blocking)
+				if err := executeSpaceScript(space, template, template.ShutdownScriptId, false); err != nil {
+					logger.WithError(err).Warn("shutdown script failed", "space_id", space.Id)
+				}
+
 				err = containerClient.DeleteSpaceJob(space, nil)
 				if err != nil {
 					logger.WithError(err).Error("delete space job")
@@ -413,4 +433,85 @@ func (h *Helper) CleanupOnBoot() {
 	}
 
 	logger.Info("finished cleaning spaces...")
+}
+
+func executeSpaceScript(space *model.Space, template *model.Template, scriptId string, waitForAgent bool) error {
+	if scriptId == "" || template.IsManual() {
+		return nil
+	}
+
+	db := database.GetInstance()
+	script, err := db.GetScript(scriptId)
+	if err != nil {
+		log.WithError(err).Error("failed to get script", "script_id", scriptId, "space_id", space.Id)
+		return err
+	}
+
+	if script == nil || script.IsDeleted || !script.Active {
+		log.Debug("script not found or inactive", "script_id", scriptId, "space_id", space.Id)
+		return nil
+	}
+
+	var session *agent_server.Session
+	if waitForAgent {
+		for i := 0; i < 60; i++ {
+			session = agent_server.GetSession(space.Id)
+			if session != nil {
+				break
+			}
+			time.Sleep(5 * time.Second)
+		}
+	} else {
+		session = agent_server.GetSession(space.Id)
+	}
+
+	if session == nil {
+		log.Warn("agent not connected, skipping script", "space_id", space.Id)
+		return nil
+	}
+
+	log.Debug("executing script", "script_id", script.Id, "space_id", space.Id)
+
+	libraries := getLibraries(db)
+	timeout := script.Timeout
+	if timeout == 0 {
+		timeout = config.GetServerConfig().MaxScriptExecutionTime
+	}
+
+	execMsg := &msg.ExecuteScriptMessage{
+		Content:   script.Content,
+		Libraries: libraries,
+		Arguments: []string{},
+		Timeout:   timeout,
+	}
+
+	respChan, err := session.SendExecuteScript(execMsg)
+	if err != nil {
+		log.WithError(err).Error("failed to send script to agent", "script_id", script.Id, "space_id", space.Id)
+		return err
+	}
+
+	resp := <-respChan
+	if !resp.Success {
+		err := fmt.Errorf("%s", resp.Error)
+		log.WithError(err).Error("script execution failed", "script_id", script.Id, "space_id", space.Id)
+		return err
+	}
+
+	log.Debug("script completed", "script_id", script.Id, "space_id", space.Id)
+	return nil
+}
+
+func getLibraries(db database.DbDriver) map[string]string {
+	libraries := make(map[string]string)
+	allScripts, err := db.GetScripts()
+	if err == nil {
+		for _, lib := range allScripts {
+			if lib.IsDeleted || !lib.Active || lib.ScriptType != "lib" {
+				continue
+			}
+			libraries[lib.Name] = lib.Content
+		}
+	}
+	return libraries
 }

@@ -147,6 +147,8 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.WithCodeServer = request.WithCodeServer
 	template.WithSSH = request.WithSSH
 	template.WithRunCommand = request.WithRunCommand
+	template.StartupScriptId = request.StartupScriptId
+	template.ShutdownScriptId = request.ShutdownScriptId
 	template.ComputeUnits = request.ComputeUnits
 	template.StorageUnits = request.StorageUnits
 	template.ScheduleEnabled = request.ScheduleEnabled
@@ -254,6 +256,8 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.WithCodeServer,
 		request.WithSSH,
 		request.WithRunCommand,
+		request.StartupScriptId,
+		request.ShutdownScriptId,
 		request.ComputeUnits,
 		request.StorageUnits,
 		request.ScheduleEnabled,

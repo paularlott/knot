@@ -149,17 +149,71 @@
           </div>
         </div>
         {{ if not .isLeafNode }}
-        <div x-show="formData.platform != 'manual'" x-clock>
-          <label for="compute_units" class="form-label">Compute Units</label>
-          <input type="number" class="form-field" name="compute_units" id="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
-          <p class="description">The number of compute units (CPU, GPU, RAM, etc.) this template uses.<br />Compute units only count against the users limits when a space created from the template is running.</p>
-          <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
+        <div x-show="formData.platform != 'manual'" x-cloak>
+          <label class="form-label">Scripts</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="startup_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
+              <label for="startup_script_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startup Script</label>
+              <div class="flex items-center">
+                <div class="relative w-full">
+                  <input id="startup_script_id" x-model="search" class="form-field" type="search" placeholder="Search scripts..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+                  <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
+                    <ul class="list-none">
+                      <template x-for="(option, index) in filteredOptions" :key="index">
+                        <li @click="selectOption(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
+                          <div x-text="option.name"></div>
+                        </li>
+                      </template>
+                    </ul>
+                  </div>
+                </div>
+                <div class="cursor-pointer ml-2 text-gray-900 dark:text-white" @click="clear()" x-show="formData.startup_script_id.length" title="Clear Script">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="shutdown_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
+              <label for="shutdown_script_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Shutdown Script</label>
+              <div class="flex items-center">
+                <div class="relative w-full">
+                  <input id="shutdown_script_id" x-model="search" class="form-field" type="search" placeholder="Search scripts..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+                  <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
+                    <ul class="list-none">
+                      <template x-for="(option, index) in filteredOptions" :key="index">
+                        <li @click="selectOption(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
+                          <div x-text="option.name"></div>
+                        </li>
+                      </template>
+                    </ul>
+                  </div>
+                </div>
+                <div class="cursor-pointer ml-2 text-gray-900 dark:text-white" @click="clear()" x-show="formData.shutdown_script_id.length" title="Clear Script">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="description">Optional scripts to run when the space starts or stops.</p>
         </div>
         <div x-show="formData.platform != 'manual'" x-clock>
-          <label for="storage_units" class="form-label">Storage Units</label>
-          <input type="number" class="form-field" name="storage_units" id="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
-          <p class="description">The number of storage units this template uses.<br />Once a space is created and started the storage units are counted against the user.</p>
-          <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
+          <label class="form-label">Resource Units</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="compute_units" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Compute Units</label>
+              <input type="number" class="form-field" name="compute_units" id="compute_units" x-model="formData.compute_units" min="0" x-on:keyup.debounce.500ms="checkComputeUnits()" :class="{'form-field-error': !computeUnitsValid}" >
+              <div x-show="!computeUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
+            </div>
+            <div>
+              <label for="storage_units" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Storage Units</label>
+              <input type="number" class="form-field" name="storage_units" id="storage_units" x-model="formData.storage_units" min="0" x-on:keyup.debounce.500ms="checkStorageUnits()" :class="{'form-field-error': !storageUnitsValid}" >
+              <div x-show="!storageUnitsValid" class="error-message" x-cloak>Enter a valid number >= 0</div>
+            </div>
+          </div>
+          <p class="description">Compute units count when a space is running. Storage units count once a space is created.</p>
         </div>
         {{ end }}
 
