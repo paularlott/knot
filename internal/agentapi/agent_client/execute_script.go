@@ -9,6 +9,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
 )
@@ -20,7 +21,22 @@ func SetAgentClient(client *AgentClient) {
 }
 
 func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
-	log.Debug("executing script", "timeout", execMsg.Timeout)
+	log.Debug("executing script", "timeout", execMsg.Timeout, "is_system_call", execMsg.IsSystemCall)
+
+	// Check if user scripts are disabled (system scripts always allowed)
+	if !execMsg.IsSystemCall {
+		cfg := config.GetAgentConfig()
+		if cfg.DisableSpaceIO {
+			response := msg.ExecuteScriptResponse{
+				Success: false,
+				Error:   "Script execution disabled by agent configuration",
+			}
+			if err := msg.WriteMessage(stream, &response); err != nil {
+				log.WithError(err).Error("failed to send disabled response")
+			}
+			return
+		}
+	}
 
 	timeout := time.Duration(execMsg.Timeout) * time.Second
 	if timeout <= 0 {

@@ -355,10 +355,11 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 			timeout = cfg.MaxScriptExecutionTime
 		}
 		execMsg := &msg.ExecuteScriptMessage{
-			Content:   script.Content,
-			Libraries: libraries,
-			Arguments: request.Arguments,
-			Timeout:   timeout,
+			Content:      script.Content,
+			Libraries:    libraries,
+			Arguments:    request.Arguments,
+			Timeout:      timeout,
+			IsSystemCall: false, // User-initiated scripts
 		}
 
 		respChan, err := session.SendExecuteScript(execMsg)

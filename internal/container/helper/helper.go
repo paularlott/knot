@@ -499,10 +499,11 @@ func executeSpaceScript(space *model.Space, template *model.Template, scriptId s
 	}
 
 	execMsg := &msg.ExecuteScriptMessage{
-		Content:   script.Content,
-		Libraries: libraries,
-		Arguments: []string{},
-		Timeout:   timeout,
+		Content:      script.Content,
+		Libraries:    libraries,
+		Arguments:    []string{},
+		Timeout:      timeout,
+		IsSystemCall: true, // Startup/shutdown scripts are system calls
 	}
 
 	respChan, err := session.SendExecuteScript(execMsg)
