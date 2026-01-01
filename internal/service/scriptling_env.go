@@ -44,6 +44,7 @@ func NewLocalScriptlingEnv(argv []string, libraries map[string]string, client *a
 	extlibs.RegisterThreadsLibrary(env)
 	extlibs.RegisterOSLibrary(env, []string{})
 	extlibs.RegisterPathlibLibrary(env, []string{})
+	extlibs.RegisterWaitForLibrary(env)
 	env.EnableOutputCapture()
 
 	registerScriptLibraries(env, libraries)
@@ -84,6 +85,7 @@ func NewMCPScriptlingEnv(libraries map[string]string, mcpParams map[string]strin
 	extlibs.RegisterRequestsLibrary(env)
 	extlibs.RegisterSecretsLibrary(env)
 	extlibs.RegisterHTMLParserLibrary(env)
+	extlibs.RegisterWaitForLibrary(env)
 	env.EnableOutputCapture()
 
 	registerScriptLibraries(env, libraries)
@@ -116,6 +118,7 @@ func NewRemoteScriptlingEnv(argv []string, libraries map[string]string, client *
 	extlibs.RegisterThreadsLibrary(env)
 	extlibs.RegisterOSLibrary(env, []string{})
 	extlibs.RegisterPathlibLibrary(env, []string{})
+	extlibs.RegisterWaitForLibrary(env)
 	env.EnableOutputCapture()
 
 	registerScriptLibraries(env, libraries)
