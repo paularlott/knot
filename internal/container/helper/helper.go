@@ -452,6 +452,26 @@ func executeSpaceScript(space *model.Space, template *model.Template, scriptId s
 		return nil
 	}
 
+	// Check if script groups match template groups (if script has groups)
+	if len(script.Groups) > 0 {
+		hasMatch := false
+		for _, scriptGroup := range script.Groups {
+			for _, templateGroup := range template.Groups {
+				if scriptGroup == templateGroup {
+					hasMatch = true
+					break
+				}
+			}
+			if hasMatch {
+				break
+			}
+		}
+		if !hasMatch {
+			log.Warn("script groups do not match template groups, skipping", "script_id", scriptId, "space_id", space.Id)
+			return nil
+		}
+	}
+
 	var session *agent_server.Session
 	if waitForAgent {
 		for i := 0; i < 60; i++ {
@@ -472,7 +492,7 @@ func executeSpaceScript(space *model.Space, template *model.Template, scriptId s
 
 	log.Debug("executing script", "script_id", script.Id, "space_id", space.Id)
 
-	libraries := getLibraries(db)
+	libraries := getLibrariesForTemplate(db, template)
 	timeout := script.Timeout
 	if timeout == 0 {
 		timeout = config.GetServerConfig().MaxScriptExecutionTime
@@ -502,13 +522,31 @@ func executeSpaceScript(space *model.Space, template *model.Template, scriptId s
 	return nil
 }
 
-func getLibraries(db database.DbDriver) map[string]string {
+func getLibrariesForTemplate(db database.DbDriver, template *model.Template) map[string]string {
 	libraries := make(map[string]string)
 	allScripts, err := db.GetScripts()
 	if err == nil {
 		for _, lib := range allScripts {
 			if lib.IsDeleted || !lib.Active || lib.ScriptType != "lib" {
 				continue
+			}
+			// Check if library groups match template groups (if library has groups)
+			if len(lib.Groups) > 0 {
+				hasMatch := false
+				for _, libGroup := range lib.Groups {
+					for _, templateGroup := range template.Groups {
+						if libGroup == templateGroup {
+							hasMatch = true
+							break
+						}
+					}
+					if hasMatch {
+						break
+					}
+				}
+				if !hasMatch {
+					continue
+				}
 			}
 			libraries[lib.Name] = lib.Content
 		}
