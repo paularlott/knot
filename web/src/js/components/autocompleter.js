@@ -226,3 +226,101 @@ window.autocompleterIcon = function(dataSource) {
     }
   }
 }
+
+window.autocompleterScript = function() {
+  return {
+    ...autocompleterBase(),
+    parentVariable: '',
+    parentVarGroup: '',
+    dataSource: 'scriptList',
+    dropdownStyle: '',
+    dropdownVisible: true,
+    scrollListener: null,
+    init() {
+      this.parentVarGroup = this.$el.getAttribute('data-parent-var-group');
+      this.parentVariable = this.$el.getAttribute('data-parent-variable');
+      this.$watch('search', () => { this.selectedIndex = -1; });
+      this.$watch('showList', (value) => {
+        if (value) {
+          this.$nextTick(() => {
+            this.positionDropdown();
+            this.attachScrollListener();
+          });
+        } else {
+          this.detachScrollListener();
+        }
+      });
+      this.$watch(this.dataSource, () => { this.loadOptions(); });
+      this.loadOptions();
+    },
+    attachScrollListener() {
+      this.scrollListener = () => this.positionDropdown();
+      document.addEventListener('scroll', this.scrollListener, true);
+    },
+    detachScrollListener() {
+      if (this.scrollListener) {
+        document.removeEventListener('scroll', this.scrollListener, true);
+      }
+    },
+    positionDropdown() {
+      const input = this.$refs.searchInput;
+      const dropdown = this.$refs.dropdown;
+      if (!input || !dropdown) return;
+
+      const scrollContainer = input.closest('.overflow-y-auto');
+      if (scrollContainer) {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const inputRect = input.getBoundingClientRect();
+        this.dropdownVisible = inputRect.bottom >= containerRect.top && inputRect.top <= containerRect.bottom;
+      } else {
+        this.dropdownVisible = true;
+      }
+
+      const rect = input.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const dropdownHeight = 160;
+      const gap = 4;
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      if (spaceBelow >= dropdownHeight || spaceBelow >= spaceAbove) {
+        this.dropdownStyle = `top: ${rect.bottom + gap}px; left: ${rect.left}px; width: ${rect.width}px;`;
+      } else {
+        this.dropdownStyle = `bottom: ${viewportHeight - rect.top + gap}px; left: ${rect.left}px; width: ${rect.width}px;`;
+      }
+    },
+    loadOptions() {
+      if (!this[this.dataSource] || !this[this.parentVarGroup]) return;
+      const scriptId = this[this.parentVarGroup][this.parentVariable];
+      if (!scriptId) {
+        this.search = '';
+        return;
+      }
+      const selectedScript = this[this.dataSource].find(itm => itm.script_id === scriptId);
+      this.search = selectedScript ? selectedScript.name : '';
+    },
+    selectOption(option) {
+      this.search = option.name;
+      this[this.parentVarGroup][this.parentVariable] = option.script_id;
+      this.showList = false;
+      this.selectedIndex = -1;
+    },
+    get filteredOptions() {
+      if (!this[this.dataSource]) return [];
+      return this[this.dataSource]
+        .filter(option =>
+          option.name.toLowerCase().includes(this.search.toLowerCase())
+        )
+        .slice(0, 50);
+    },
+    clear() {
+      this.search = '';
+      this[this.parentVarGroup][this.parentVariable] = '';
+      this.showList = false;
+      this.selectedIndex = -1;
+    },
+    refresh() {
+      this.loadOptions();
+    }
+  }
+}

@@ -3143,6 +3143,14 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        startup_script_id:
+          type: string
+          format: uuid
+          description: The ID of the script to run when the space starts.
+        shutdown_script_id:
+          type: string
+          format: uuid
+          description: The ID of the script to run when the space stops.
         compute_units:
           type: integer
           format: uint32
@@ -3230,6 +3238,14 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        startup_script_id:
+          type: string
+          format: uuid
+          description: The ID of the script to run when the space starts.
+        shutdown_script_id:
+          type: string
+          format: uuid
+          description: The ID of the script to run when the space stops.
         compute_units:
           type: integer
           format: uint32
@@ -3331,6 +3347,14 @@ components:
         with_ssh:
           type: boolean
           description: If the space should support an SSH server.
+        startup_script_id:
+          type: string
+          format: uuid
+          description: The ID of the script to run when the space starts.
+        shutdown_script_id:
+          type: string
+          format: uuid
+          description: The ID of the script to run when the space stops.
         compute_units:
           type: integer
           format: uint32

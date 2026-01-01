@@ -23,6 +23,8 @@ type TemplateCreateRequest struct {
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
 	WithRunCommand   bool                 `json:"with_run_command"`
+	StartupScriptId  string               `json:"startup_script_id"`
+	ShutdownScriptId string               `json:"shutdown_script_id"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
 	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
@@ -48,6 +50,8 @@ type TemplateUpdateRequest struct {
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
 	WithRunCommand   bool                 `json:"with_run_command"`
+	StartupScriptId  string               `json:"startup_script_id"`
+	ShutdownScriptId string               `json:"shutdown_script_id"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
 	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
@@ -115,6 +119,8 @@ type TemplateDetails struct {
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
 	WithRunCommand   bool                 `json:"with_run_command"`
+	StartupScriptId  string               `json:"startup_script_id"`
+	ShutdownScriptId string               `json:"shutdown_script_id"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
