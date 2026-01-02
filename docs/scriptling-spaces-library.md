@@ -17,6 +17,9 @@ The `spaces` library provides functions to manage development spaces programmati
 - `set_description(name, description)` - Set space description
 - `run_script(space_name, script_name, *args)` - Execute a script in a space
 - `run(space_name, command, args=[], timeout=30, workdir='')` - Execute a command in a space
+- `port_forward(source_space, local_port, remote_space, remote_port)` - Forward a local port to a remote space port
+- `port_list(space)` - List active port forwards for a space
+- `port_stop(space, local_port)` - Stop a port forward
 
 ## Availability
 
@@ -303,6 +306,82 @@ import spaces
 
 description = spaces.get_description("my-dev-space")
 print(f"Description: {description}")
+```
+
+---
+
+### port_forward(source_space, local_port, remote_space, remote_port)
+
+Forward a local port from one space to a port in another space. This allows you to access services running in one space from another space.
+
+**Parameters:**
+- `source_space` (string): The name of the source space (where the listener is created)
+- `local_port` (int): The local port to listen on in the source space (1-65535)
+- `remote_space` (string): The name of the target space to connect to
+- `remote_port` (int): The port in the target space to connect to (1-65535)
+
+**Returns:**
+- `True` on success
+- Raises error if spaces not found, not running, or forward cannot be established
+
+**Example:**
+```python
+import spaces
+
+# Forward port 8080 in web-dev space to port 3000 in api-dev space
+spaces.port_forward("web-dev", 8080, "api-dev", 3000)
+print("Port forward established: web-dev:8080 -> api-dev:3000")
+
+# Now web-dev can access api-dev's service at localhost:8080
+```
+
+---
+
+### port_list(space)
+
+List all active port forwards for a space.
+
+**Parameters:**
+- `space` (string): The name of the space
+
+**Returns:**
+- List of dictionaries, each containing:
+  - `local_port` (int): The local port number
+  - `space` (string): The name of the target space
+  - `remote_port` (int): The remote port number
+- Raises error if space not found
+
+**Example:**
+```python
+import spaces
+
+# List all active port forwards
+forwards = spaces.port_list("web-dev")
+for forward in forwards:
+    print(f"Port {forward['local_port']} -> {forward['space']}:{forward['remote_port']}")
+```
+
+---
+
+### port_stop(space, local_port)
+
+Stop an active port forward.
+
+**Parameters:**
+- `space` (string): The name of the space
+- `local_port` (int): The local port of the forward to stop
+
+**Returns:**
+- `True` on success
+- Raises error if space not found or forward not active
+
+**Example:**
+```python
+import spaces
+
+# Stop a port forward
+spaces.port_stop("web-dev", 8080)
+print("Port forward stopped")
 ```
 
 ---

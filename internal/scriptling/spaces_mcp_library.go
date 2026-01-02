@@ -30,6 +30,9 @@ type ContainerService interface {
 // AgentSession interface to avoid import cycle
 type AgentSession interface {
 	SendRunCommand(runCmd *msg.RunCommandMessage) (chan *msg.RunCommandResponse, error)
+	SendPortForwardRequest(req *msg.PortForwardRequest) (chan *msg.PortForwardResponse, error)
+	SendPortListRequest() (chan *msg.PortListResponse, error)
+	SendPortStopRequest(req *msg.PortStopRequest) (chan *msg.PortStopResponse, error)
 }
 
 // GetSpacesMCPLibrary returns the spaces helper library for scriptling (MCP environment)
@@ -121,6 +124,24 @@ func GetSpacesMCPLibrary(
 				return spaceMCPExecCommand(ctx, user, getAgentSession, kwargs, args...)
 			},
 			HelpText: "run(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space",
+		},
+		"port_forward": {
+			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+				return spaceMCPPortForward(ctx, user, getAgentSession, args...)
+			},
+			HelpText: "port_forward(source_space, local_port, remote_space, remote_port) - Forward a local port to a remote space port",
+		},
+		"port_list": {
+			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+				return spaceMCPPortList(ctx, user, getAgentSession, args...)
+			},
+			HelpText: "port_list(space) - List active port forwards for a space",
+		},
+		"port_stop": {
+			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+				return spaceMCPPortStop(ctx, user, getAgentSession, args...)
+			},
+			HelpText: "port_stop(space, local_port) - Stop a port forward",
 		},
 	}
 
@@ -571,4 +592,133 @@ func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession 
 	}
 
 	return &object.String{Value: string(response.Output)}
+}
+
+func spaceMCPPortForward(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
+	if len(args) < 4 {
+		return &object.Error{Message: "port_forward() requires source_space, local_port, remote_space, and remote_port"}
+	}
+
+	sourceSpaceName := args[0].(*object.String).Value
+	localPort := uint16(args[1].(*object.Integer).Value)
+	remoteSpaceName := args[2].(*object.String).Value
+	remotePort := uint16(args[3].(*object.Integer).Value)
+
+	sourceSpaceId, err := resolveSpaceNameMCP(user, sourceSpaceName)
+	if err != nil {
+		return &object.Error{Message: err.Error()}
+	}
+
+	var session AgentSession
+	if getAgentSession != nil {
+		session = getAgentSession(sourceSpaceId)
+	}
+	if session == nil {
+		return &object.Error{Message: "space is not running or agent session not available"}
+	}
+
+	req := &msg.PortForwardRequest{
+		LocalPort:  localPort,
+		Space:      remoteSpaceName,
+		RemotePort: remotePort,
+	}
+
+	responseChannel, err := session.SendPortForwardRequest(req)
+	if err != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to send port forward request to agent: %v", err)}
+	}
+
+	response := <-responseChannel
+	if response == nil {
+		return &object.Error{Message: "no response from agent"}
+	}
+
+	if !response.Success {
+		return &object.Error{Message: response.Error}
+	}
+
+	return &object.Boolean{Value: true}
+}
+
+func spaceMCPPortList(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
+	if len(args) < 1 {
+		return &object.Error{Message: "port_list() requires space name"}
+	}
+
+	spaceName := args[0].(*object.String).Value
+	spaceId, err := resolveSpaceNameMCP(user, spaceName)
+	if err != nil {
+		return &object.Error{Message: err.Error()}
+	}
+
+	var session AgentSession
+	if getAgentSession != nil {
+		session = getAgentSession(spaceId)
+	}
+	if session == nil {
+		return &object.Error{Message: "space is not running or agent session not available"}
+	}
+
+	responseChannel, err := session.SendPortListRequest()
+	if err != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to send port list request to agent: %v", err)}
+	}
+
+	response := <-responseChannel
+	if response == nil {
+		return &object.Error{Message: "no response from agent"}
+	}
+
+	elements := make([]object.Object, len(response.Forwards))
+	for i, forward := range response.Forwards {
+		pairs := make(map[string]object.DictPair)
+		pairs["local_port"] = object.DictPair{Key: &object.String{Value: "local_port"}, Value: &object.Integer{Value: int64(forward.LocalPort)}}
+		pairs["space"] = object.DictPair{Key: &object.String{Value: "space"}, Value: &object.String{Value: forward.Space}}
+		pairs["remote_port"] = object.DictPair{Key: &object.String{Value: "remote_port"}, Value: &object.Integer{Value: int64(forward.RemotePort)}}
+		elements[i] = &object.Dict{Pairs: pairs}
+	}
+
+	return &object.List{Elements: elements}
+}
+
+func spaceMCPPortStop(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
+	if len(args) < 2 {
+		return &object.Error{Message: "port_stop() requires space name and local_port"}
+	}
+
+	spaceName := args[0].(*object.String).Value
+	localPort := uint16(args[1].(*object.Integer).Value)
+
+	spaceId, err := resolveSpaceNameMCP(user, spaceName)
+	if err != nil {
+		return &object.Error{Message: err.Error()}
+	}
+
+	var session AgentSession
+	if getAgentSession != nil {
+		session = getAgentSession(spaceId)
+	}
+	if session == nil {
+		return &object.Error{Message: "space is not running or agent session not available"}
+	}
+
+	req := &msg.PortStopRequest{
+		LocalPort: localPort,
+	}
+
+	responseChannel, err := session.SendPortStopRequest(req)
+	if err != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to send port stop request to agent: %v", err)}
+	}
+
+	response := <-responseChannel
+	if response == nil {
+		return &object.Error{Message: "no response from agent"}
+	}
+
+	if !response.Success {
+		return &object.Error{Message: response.Error}
+	}
+
+	return &object.Boolean{Value: true}
 }

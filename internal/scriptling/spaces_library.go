@@ -89,6 +89,24 @@ func GetSpacesLibrary(client *apiclient.ApiClient, userId string) *object.Librar
 			},
 			HelpText: "run(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space",
 		},
+		"port_forward": {
+			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+				return spacePortForward(ctx, client, userId, args...)
+			},
+			HelpText: "port_forward(source_space, local_port, remote_space, remote_port) - Forward a local port to a remote space port",
+		},
+		"port_list": {
+			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+				return spacePortList(ctx, client, userId, args...)
+			},
+			HelpText: "port_list(space) - List active port forwards for a space",
+		},
+		"port_stop": {
+			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+				return spacePortStop(ctx, client, userId, args...)
+			},
+			HelpText: "port_stop(space, local_port) - Stop a port forward",
+		},
 	}
 
 	return object.NewLibrary(functions, nil, "Space management functions")
@@ -452,4 +470,86 @@ func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId s
 	}
 
 	return &object.String{Value: output}
+}
+
+func spacePortForward(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
+	if len(args) < 4 {
+		return &object.Error{Message: "port_forward() requires source_space, local_port, remote_space, and remote_port"}
+	}
+
+	sourceSpaceName := args[0].(*object.String).Value
+	localPort := uint16(args[1].(*object.Integer).Value)
+	remoteSpaceName := args[2].(*object.String).Value
+	remotePort := uint16(args[3].(*object.Integer).Value)
+
+	sourceSpaceId, err := resolveSpaceName(ctx, client, userId, sourceSpaceName)
+	if err != nil {
+		return &object.Error{Message: err.Error()}
+	}
+
+	request := &apiclient.PortForwardRequest{
+		LocalPort:  localPort,
+		Space:      remoteSpaceName,
+		RemotePort: remotePort,
+	}
+
+	_, err = client.ForwardPort(ctx, sourceSpaceId, request)
+	if err != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to forward port: %v", err)}
+	}
+
+	return &object.Boolean{Value: true}
+}
+
+func spacePortList(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
+	if len(args) < 1 {
+		return &object.Error{Message: "port_list() requires space name"}
+	}
+
+	spaceName := args[0].(*object.String).Value
+	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
+	if err != nil {
+		return &object.Error{Message: err.Error()}
+	}
+
+	response, _, err := client.ListPorts(ctx, spaceId)
+	if err != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to list ports: %v", err)}
+	}
+
+	elements := make([]object.Object, len(response.Forwards))
+	for i, forward := range response.Forwards {
+		pairs := make(map[string]object.DictPair)
+		pairs["local_port"] = object.DictPair{Key: &object.String{Value: "local_port"}, Value: &object.Integer{Value: int64(forward.LocalPort)}}
+		pairs["space"] = object.DictPair{Key: &object.String{Value: "space"}, Value: &object.String{Value: forward.Space}}
+		pairs["remote_port"] = object.DictPair{Key: &object.String{Value: "remote_port"}, Value: &object.Integer{Value: int64(forward.RemotePort)}}
+		elements[i] = &object.Dict{Pairs: pairs}
+	}
+
+	return &object.List{Elements: elements}
+}
+
+func spacePortStop(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
+	if len(args) < 2 {
+		return &object.Error{Message: "port_stop() requires space name and local_port"}
+	}
+
+	spaceName := args[0].(*object.String).Value
+	localPort := uint16(args[1].(*object.Integer).Value)
+
+	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
+	if err != nil {
+		return &object.Error{Message: err.Error()}
+	}
+
+	request := &apiclient.PortStopRequest{
+		LocalPort: localPort,
+	}
+
+	_, err = client.StopPort(ctx, spaceId, request)
+	if err != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to stop port: %v", err)}
+	}
+
+	return &object.Boolean{Value: true}
 }
