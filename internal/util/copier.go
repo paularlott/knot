@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -18,6 +19,8 @@ import (
 type copierConnections struct {
 	socket       net.Conn
 	wsConnection *websocket.Conn
+	closed       bool
+	closeMutex   sync.Mutex
 }
 
 func NewCopier(socket net.Conn, wsConnection *websocket.Conn) *copierConnections {
@@ -29,10 +32,14 @@ func NewCopier(socket net.Conn, wsConnection *websocket.Conn) *copierConnections
 
 func (connections *copierConnections) Run() error {
 	logger := log.WithGroup("copier")
+	done := make(chan struct{}, 2)
 
 	// Copy tcp to websocket
 	go func() {
-		defer connections.close()
+		defer func() {
+			connections.close()
+			done <- struct{}{}
+		}()
 
 		var n int
 		var err error
@@ -48,7 +55,10 @@ func (connections *copierConnections) Run() error {
 				n, err = os.Stdin.Read(buf)
 			}
 
-			if err != nil && !os.IsTimeout(err) {
+			if err != nil {
+				if os.IsTimeout(err) {
+					continue
+				}
 				unwrappedErr := errors.Unwrap(err)
 				if err != io.EOF && unwrappedErr != nil && unwrappedErr.Error() != "use of closed network connection" {
 					logger.WithError(err).Error("error reading from socket:")
@@ -56,17 +66,22 @@ func (connections *copierConnections) Run() error {
 				return
 			}
 
-			// Write data to the websocket
-			if err := connections.wsConnection.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
-				logger.WithError(err).Error("error writing to websocket:")
-				return
+			// Write data to the websocket if we read any
+			if n > 0 {
+				if err := connections.wsConnection.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
+					logger.WithError(err).Error("error writing to websocket:")
+					return
+				}
 			}
 		}
 	}()
 
 	// Copy websocket to tcp
-	func() {
-		defer connections.close()
+	go func() {
+		defer func() {
+			connections.close()
+			done <- struct{}{}
+		}()
 
 		for {
 			// Read data from the websocket
@@ -97,10 +112,20 @@ func (connections *copierConnections) Run() error {
 		}
 	}()
 
+	<-done
+	<-done
 	return nil
 }
 
 func (connections *copierConnections) close() {
+	connections.closeMutex.Lock()
+	defer connections.closeMutex.Unlock()
+	
+	if connections.closed {
+		return
+	}
+	connections.closed = true
+	
 	connections.wsConnection.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(10*time.Second))
 	connections.wsConnection.Close()
 
