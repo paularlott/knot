@@ -44,6 +44,7 @@ var PortCmd = &cli.Command{
 		}
 
 		proxy.RunTCPForwarderViaAgent(cfg.WsServer, util.FixListenAddress(cmd.GetStringArg("listen")), cmd.GetStringArg("space"), port, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+		<-ctx.Done()
 		return nil
 	},
 }
