@@ -155,7 +155,7 @@ func defaultHandler(s ssh.Session) {
 				s.Exit(1)
 				return
 			}
-			done := make(chan struct{})
+			done := make(chan struct{}, 2)
 			go func() {
 				io.Copy(stdin, s)
 				stdin.Close()
@@ -165,7 +165,7 @@ func defaultHandler(s ssh.Session) {
 				done <- struct{}{}
 			}()
 			go func() {
-				io.Copy(s, stderr)
+				io.Copy(s.Stderr(), stderr)
 				done <- struct{}{}
 			}()
 			<-done
