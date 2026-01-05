@@ -78,14 +78,24 @@ func defaultHandler(s ssh.Session) {
 				return
 			}
 
+			// Find a shell to execute the command
+			selectedShell := util.CheckShells(preferredShell)
+			if selectedShell == "" {
+				logger.Error("no valid shell found")
+				s.Exit(1)
+				return
+			}
+
 			var cmd *exec.Cmd
 			var tty *os.File
 
-			cmd = exec.Command(commands[0], commands[1:]...)
+			// Execute command through shell for variable expansion
+			cmd = exec.Command(selectedShell, "-c", s.RawCommand())
 			cmd.Dir = home
 			cmd.Env = append(os.Environ(), s.Environ()...)
 			cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
 			cmd.Env = append(cmd.Env, fmt.Sprintf("HOME=%s", home))
+			cmd.Env = append(cmd.Env, fmt.Sprintf("USER=%s", s.User()))
 
 			if tty, err = pty.Start(cmd); err != nil {
 				logger.WithError(err).Error("Failed to start PTY command")
@@ -184,10 +194,21 @@ func defaultHandler(s ssh.Session) {
 				s.Exit(1)
 				return
 			}
-			cmd := exec.Command(commands[0], commands[1:]...)
+			
+			// Find a shell to execute the command
+			selectedShell := util.CheckShells(preferredShell)
+			if selectedShell == "" {
+				logger.Error("no valid shell found")
+				s.Exit(1)
+				return
+			}
+			
+			// Execute command through shell for variable expansion
+			cmd := exec.Command(selectedShell, "-c", s.RawCommand())
 			cmd.Dir = home
 			cmd.Env = append(os.Environ(), s.Environ()...)
 			cmd.Env = append(cmd.Env, fmt.Sprintf("HOME=%s", home))
+			cmd.Env = append(cmd.Env, fmt.Sprintf("USER=%s", s.User()))
 			stdout, err := cmd.StdoutPipe()
 			if err != nil {
 				logger.WithError(err).Error("failed to create stdout pipe")
@@ -227,6 +248,9 @@ func defaultHandler(s ssh.Session) {
 			<-done
 			<-done
 			err = cmd.Wait()
+			// Close streams to ensure all data is flushed before exit
+			stdout.Close()
+			stderr.Close()
 			if err != nil {
 				if exitErr, ok := err.(*exec.ExitError); ok {
 					s.Exit(exitErr.ExitCode())
