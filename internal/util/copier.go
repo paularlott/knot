@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -19,7 +20,7 @@ import (
 type copierConnections struct {
 	socket       net.Conn
 	wsConnection *websocket.Conn
-	closed       bool
+	closed       atomic.Bool
 	closeMutex   sync.Mutex
 }
 
@@ -37,7 +38,7 @@ func (connections *copierConnections) Run() error {
 	// Copy tcp to websocket
 	go func() {
 		defer func() {
-			connections.close()
+			connections.closeWrite()
 			done <- struct{}{}
 		}()
 
@@ -68,6 +69,9 @@ func (connections *copierConnections) Run() error {
 
 			// Write data to the websocket if we read any
 			if n > 0 {
+				if connections.closed.Load() {
+					return
+				}
 				if err := connections.wsConnection.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
 					logger.WithError(err).Error("error writing to websocket:")
 					return
@@ -100,14 +104,17 @@ func (connections *copierConnections) Run() error {
 
 			// Write data to the socket / stdout
 			if connections.socket != nil {
-				_, err = io.Copy(connections.socket, r)
+				_, err := io.Copy(connections.socket, r)
+				if err != nil {
+					logger.WithError(err).Error("error while writing to socket:")
+					return
+				}
 			} else {
-				_, err = io.Copy(os.Stdout, r)
-			}
-
-			if err != nil {
-				logger.WithError(err).Error("error while writing to socket:")
-				return
+				_, err := io.Copy(os.Stdout, r)
+				if err != nil {
+					logger.WithError(err).Error("error while writing to socket:")
+					return
+				}
 			}
 		}
 	}()
@@ -117,19 +124,33 @@ func (connections *copierConnections) Run() error {
 	return nil
 }
 
+func (connections *copierConnections) closeWrite() {
+	connections.closeMutex.Lock()
+	defer connections.closeMutex.Unlock()
+	
+	if connections.closed.Load() {
+		return
+	}
+	
+	if connections.socket != nil {
+		if tcpConn, ok := connections.socket.(*net.TCPConn); ok {
+			tcpConn.CloseWrite()
+		}
+	}
+}
+
 func (connections *copierConnections) close() {
 	connections.closeMutex.Lock()
 	defer connections.closeMutex.Unlock()
 	
-	if connections.closed {
+	if connections.closed.Swap(true) {
 		return
 	}
-	connections.closed = true
 	
-	connections.wsConnection.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(10*time.Second))
-	connections.wsConnection.Close()
-
 	if connections.socket != nil {
 		connections.socket.Close()
 	}
+	
+	connections.wsConnection.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(1*time.Second))
+	connections.wsConnection.Close()
 }
