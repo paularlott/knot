@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,6 +49,8 @@ type jobSpec struct {
 	DNS           []string    `yaml:"dns,omitempty"`
 	AddHost       []string    `yaml:"add_host,omitempty"`
 	DNSSearch     []string    `yaml:"dns_search,omitempty"`
+	Memory        string      `yaml:"memory,omitempty"`
+	CPUs          string      `yaml:"cpus,omitempty"`
 }
 
 type volInfo struct {
@@ -61,6 +64,40 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func parseMemory(memStr string) (int64, error) {
+	if memStr == "" {
+		return 0, nil
+	}
+	// Check for suffixes
+	if strings.HasSuffix(memStr, "m") || strings.HasSuffix(memStr, "M") {
+		val, err := strconv.ParseInt(memStr[:len(memStr)-1], 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return val * 1024 * 1024, nil
+	} else if strings.HasSuffix(memStr, "g") || strings.HasSuffix(memStr, "G") {
+		val, err := strconv.ParseInt(memStr[:len(memStr)-1], 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return val * 1024 * 1024 * 1024, nil
+	} else {
+		// Assume bytes
+		return strconv.ParseInt(memStr, 10, 64)
+	}
+}
+
+func parseCPUs(cpusStr string) (int64, error) {
+	if cpusStr == "" {
+		return 0, nil
+	}
+	cpus, err := strconv.ParseFloat(cpusStr, 64)
+	if err != nil {
+		return 0, err
+	}
+	return int64(cpus * 1e9), nil
 }
 
 func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template, space *model.Space, variables map[string]interface{}) error {
@@ -124,6 +161,22 @@ func (c *DockerClient) CreateSpaceJob(user *model.User, template *model.Template
 			PathInContainer:   parts[1],
 			CgroupPermissions: "rwm",
 		})
+	}
+
+	if spec.Memory != "" {
+		mem, err := parseMemory(spec.Memory)
+		if err != nil {
+			return err
+		}
+		resourcesConfig.Memory = mem
+	}
+
+	if spec.CPUs != "" {
+		cpus, err := parseCPUs(spec.CPUs)
+		if err != nil {
+			return err
+		}
+		resourcesConfig.NanoCPUs = cpus
 	}
 
 	hostConfig := &container.HostConfig{

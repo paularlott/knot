@@ -1,7 +1,6 @@
 package sshd
 
 import (
-	"fmt"
 	"io"
 	"os"
 
@@ -12,15 +11,15 @@ import (
 
 // SftpHandler handler for SFTP subsystem
 func SftpHandler(sess ssh.Session) {
+	logger := log.WithGroup("sshd")
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatal("failed to get user home directory:", "err", err)
+		logger.WithError(err).Error("failed to get user home directory")
+		return
 	}
 
-	debugStream := io.Discard
 	serverOptions := []sftp.ServerOption{
-		sftp.WithDebug(debugStream),
 		sftp.WithServerWorkingDirectory(home),
 	}
 	server, err := sftp.NewServer(
@@ -28,13 +27,12 @@ func SftpHandler(sess ssh.Session) {
 		serverOptions...,
 	)
 	if err != nil {
-		log.WithError(err).Error("sftp server init error")
+		logger.WithError(err).Error("sftp server init error")
 		return
 	}
 	if err := server.Serve(); err == io.EOF {
 		server.Close()
-		fmt.Println("sftp client exited session.")
 	} else if err != nil {
-		fmt.Println("sftp server completed with error:", err)
+		logger.WithError(err).Error("SFTP server completed with error")
 	}
 }
