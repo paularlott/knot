@@ -67,6 +67,55 @@ func defaultHandler(s ssh.Session) {
 	logger := log.WithGroup("sshd")
 	ptyReq, winCh, isPty := s.Pty()
 	if isPty {
+		// Check if a command was specified with PTY
+		commands := s.Command()
+		if len(commands) > 0 {
+			// Execute command in PTY mode
+			home, err := os.UserHomeDir()
+			if err != nil {
+				logger.WithError(err).Error("failed to get user home directory")
+				s.Exit(1)
+				return
+			}
+
+			var cmd *exec.Cmd
+			var tty *os.File
+
+			cmd = exec.Command(commands[0], commands[1:]...)
+			cmd.Dir = home
+			cmd.Env = append(os.Environ(), s.Environ()...)
+			cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
+			cmd.Env = append(cmd.Env, fmt.Sprintf("HOME=%s", home))
+
+			if tty, err = pty.Start(cmd); err != nil {
+				logger.WithError(err).Error("Failed to start PTY command")
+				s.Exit(1)
+				return
+			}
+
+			go func() {
+				for win := range winCh {
+					setWinsize(tty, win.Width, win.Height)
+				}
+			}()
+			go func() {
+				io.Copy(tty, s)
+			}()
+			io.Copy(s, tty)
+			err = cmd.Wait()
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					s.Exit(exitErr.ExitCode())
+				} else {
+					s.Exit(1)
+				}
+			} else {
+				s.Exit(0)
+			}
+			return
+		}
+
+		// No command specified, start interactive shell
 
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -80,8 +129,6 @@ func defaultHandler(s ssh.Session) {
 			s.Exit(1)
 			return
 		}
-
-		logger.Debug("starting shell", "selectedShell", selectedShell)
 
 		var cmd *exec.Cmd
 		var tty *os.File
@@ -118,7 +165,16 @@ func defaultHandler(s ssh.Session) {
 			io.Copy(tty, s) // stdin
 		}()
 		io.Copy(s, tty) // stdout
-		cmd.Wait()
+		err = cmd.Wait()
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				s.Exit(exitErr.ExitCode())
+			} else {
+				s.Exit(1)
+			}
+		} else {
+			s.Exit(0)
+		}
 	} else {
 		commands := s.Command()
 		if len(commands) > 0 {
