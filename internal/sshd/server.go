@@ -54,7 +54,6 @@ func ListenAndServe(port int, privateKeyPEM string) {
 			"direct-tcpip": ssh.DirectTCPIPHandler,
 		},
 		LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
-			logger.Debug("local port forwarding requested", "dhost", dhost, "dport", dport)
 			return true
 		}),
 	}
@@ -123,16 +122,64 @@ func defaultHandler(s ssh.Session) {
 	} else {
 		commands := s.Command()
 		if len(commands) > 0 {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				logger.WithError(err).Error("failed to get user home directory")
+				s.Exit(1)
+				return
+			}
 			cmd := exec.Command(commands[0], commands[1:]...)
+			cmd.Dir = home
 			cmd.Env = append(os.Environ(), s.Environ()...)
-			stdout, _ := cmd.StdoutPipe()
-			stderr, _ := cmd.StderrPipe()
-			stdin, _ := cmd.StdinPipe()
-			cmd.Start()
-			go io.Copy(stdin, s)  // forward input
-			go io.Copy(s, stdout) // forward output
-			io.Copy(s, stderr)    // forward errors
-			cmd.Wait()
+			cmd.Env = append(cmd.Env, fmt.Sprintf("HOME=%s", home))
+			stdout, err := cmd.StdoutPipe()
+			if err != nil {
+				logger.WithError(err).Error("failed to create stdout pipe")
+				s.Exit(1)
+				return
+			}
+			stderr, err := cmd.StderrPipe()
+			if err != nil {
+				logger.WithError(err).Error("failed to create stderr pipe")
+				s.Exit(1)
+				return
+			}
+			stdin, err := cmd.StdinPipe()
+			if err != nil {
+				logger.WithError(err).Error("failed to create stdin pipe")
+				s.Exit(1)
+				return
+			}
+			if err := cmd.Start(); err != nil {
+				logger.WithError(err).Error("failed to start command")
+				s.Exit(1)
+				return
+			}
+			done := make(chan struct{})
+			go func() {
+				io.Copy(stdin, s)
+				stdin.Close()
+			}()
+			go func() {
+				io.Copy(s, stdout)
+				done <- struct{}{}
+			}()
+			go func() {
+				io.Copy(s, stderr)
+				done <- struct{}{}
+			}()
+			<-done
+			<-done
+			err = cmd.Wait()
+			if err != nil {
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					s.Exit(exitErr.ExitCode())
+				} else {
+					s.Exit(1)
+				}
+			} else {
+				s.Exit(0)
+			}
 		} else {
 			logger.Error("no command provided")
 			io.WriteString(s, "No command provided.\n")
