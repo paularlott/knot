@@ -9,6 +9,13 @@ vars:
     - darwin/arm64
     - windows/amd64
     - windows/arm64
+  AGENT_PLATFORMS:
+    - linux/amd64
+    - linux/arm64
+    - darwin/amd64
+    - darwin/arm64
+    - windows/amd64
+    - windows/arm64
   BUILT_AT:
     sh: date +%Y%m%d.%H%M%S%z
   BUILD_FLAGS: '-ldflags="-s -w -X github.com/paularlott/knot/build.Date={{.BUILT_AT}}" -trimpath -tags "skip_codec_hashicorp_msgpack skip_codec_json skip_codec_shamaton_msgpack skip_encryption_chacha20 skip_websocket_coder"'
@@ -172,26 +179,12 @@ tasks:
 
   agents:
     desc: Build the agent binaries
-    deps:
-      - agents-clean
-      - build-agent-linux-amd64
-      - build-agent-linux-arm64
-      - build-agent-darwin-amd64
-      - build-agent-darwin-arm64
-      - build-agent-windows-amd64
-      - build-agent-windows-arm64
-
-  agents-clean:
-    internal: true
     cmds:
-      - rm -f {{.AGENT_OUTPUT_DIR}}/knot-agent*.zip {{.AGENT_OUTPUT_DIR}}/knot-agent
-
-  build-agent-linux-amd64:
-    internal: true
-    deps: [agents-clean]
-    cmds:
+      - rm -f {{.AGENT_OUTPUT_DIR}}/knot_agent*.zip {{.AGENT_OUTPUT_DIR}}/knot-agent # Clean previous agent builds first
       - task: build-agent
-        vars: { PLATFORM: 'linux/amd64' }
+        vars: { PLATFORM: '{{.ITEM}}' }
+        for:
+          var: 'AGENT_PLATFORMS'
     sources:
       - ./agent/**/*.go
       - ./internal/**/*.go
@@ -199,82 +192,7 @@ tasks:
       - go.mod
       - go.sum
     generates:
-      - '{{.AGENT_OUTPUT_DIR}}/knot_agent_linux_amd64.exe.zip'
-
-  build-agent-linux-arm64:
-    internal: true
-    deps: [agents-clean]
-    cmds:
-      - task: build-agent
-        vars: { PLATFORM: 'linux/arm64' }
-    sources:
-      - ./agent/**/*.go
-      - ./internal/**/*.go
-      - ./build/**/*.go
-      - go.mod
-      - go.sum
-    generates:
-      - '{{.AGENT_OUTPUT_DIR}}/knot_agent_linux_arm64.exe.zip'
-
-  build-agent-darwin-amd64:
-    internal: true
-    deps: [agents-clean]
-    cmds:
-      - task: build-agent
-        vars: { PLATFORM: 'darwin/amd64' }
-    sources:
-      - ./agent/**/*.go
-      - ./internal/**/*.go
-      - ./build/**/*.go
-      - go.mod
-      - go.sum
-    generates:
-      - '{{.AGENT_OUTPUT_DIR}}/knot_agent_darwin_amd64.exe.zip'
-
-  build-agent-darwin-arm64:
-    internal: true
-    deps: [agents-clean]
-    cmds:
-      - task: build-agent
-        vars: { PLATFORM: 'darwin/arm64' }
-    sources:
-      - ./agent/**/*.go
-      - ./internal/**/*.go
-      - ./build/**/*.go
-      - go.mod
-      - go.sum
-    generates:
-      - '{{.AGENT_OUTPUT_DIR}}/knot_agent_darwin_arm64.exe.zip'
-
-  build-agent-windows-amd64:
-    internal: true
-    deps: [agents-clean]
-    cmds:
-      - task: build-agent
-        vars: { PLATFORM: 'windows/amd64' }
-    sources:
-      - ./agent/**/*.go
-      - ./internal/**/*.go
-      - ./build/**/*.go
-      - go.mod
-      - go.sum
-    generates:
-      - '{{.AGENT_OUTPUT_DIR}}/knot_agent_windows_amd64.exe.zip'
-
-  build-agent-windows-arm64:
-    internal: true
-    deps: [agents-clean]
-    cmds:
-      - task: build-agent
-        vars: { PLATFORM: 'windows/arm64' }
-    sources:
-      - ./agent/**/*.go
-      - ./internal/**/*.go
-      - ./build/**/*.go
-      - go.mod
-      - go.sum
-    generates:
-      - '{{.AGENT_OUTPUT_DIR}}/knot_agent_windows_arm64.exe.zip'
+      - '{{.AGENT_OUTPUT_DIR}}/{{.PROJECT_NAME}}_agent_*.zip' # Pattern for generated files
 
   build-agent:
     internal: true
