@@ -33,6 +33,9 @@ const (
 	CmdSpaceRestart
 	CmdRunCommand
 	CmdCopyFile
+	CmdPortForward
+	CmdPortList
+	CmdPortStop
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

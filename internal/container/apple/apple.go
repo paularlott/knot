@@ -41,6 +41,8 @@ type jobSpec struct {
 	DNS           []string    `yaml:"dns,omitempty"`
 	AddHost       []string    `yaml:"add_host,omitempty"`
 	DNSSearch     []string    `yaml:"dns_search,omitempty"`
+	Memory        string      `yaml:"memory,omitempty"`
+	CPUs          string      `yaml:"cpus,omitempty"`
 }
 
 type volInfo struct {
@@ -149,6 +151,14 @@ func (c *AppleClient) CreateSpaceJob(user *model.User, template *model.Template,
 
 		for _, search := range spec.DNSSearch {
 			args = append(args, "--dns-search", search)
+		}
+
+		if spec.Memory != "" {
+			args = append(args, "--memory", spec.Memory)
+		}
+
+		if spec.CPUs != "" {
+			args = append(args, "--cpus", spec.CPUs)
 		}
 
 		args = append(args, spec.Image)

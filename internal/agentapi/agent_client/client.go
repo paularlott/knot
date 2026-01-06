@@ -27,6 +27,7 @@ type AgentClient struct {
 	lastGitHubUsernames    []string
 	sshPort                int
 	usingInternalSSH       bool
+	sshConfirmedLive       bool
 	withTerminal           bool
 	withVSCodeTunnel       bool
 	withCodeServer         bool
@@ -48,6 +49,7 @@ func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
 		lastPublicSSHKeys:    []string{},
 		lastGitHubUsernames:  []string{},
 		usingInternalSSH:     false,
+		sshConfirmedLive:     false,
 		withTerminal:         false,
 		withVSCodeTunnel:     false,
 		withCodeServer:       false,

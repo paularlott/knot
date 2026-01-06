@@ -486,6 +486,18 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			handleCopyFile(stream, session)
 			return // Single shot command so done
 
+		case byte(msg.CmdPortForward):
+			handlePortForward(stream, session)
+			return // Single shot command so done
+
+		case byte(msg.CmdPortList):
+			handlePortList(stream, session)
+			return // Single shot command so done
+
+		case byte(msg.CmdPortStop):
+			handlePortStop(stream, session)
+			return // Single shot command so done
+
 		default:
 			log.Error("unknown command from agent:", "cmd", cmd)
 			return
@@ -667,6 +679,171 @@ func handleCopyFile(stream net.Conn, session *Session) {
 	}
 
 	log.Info("copy file completed", "direction", copyCmd.Direction, "space_id", session.Id, "success", response.Success)
+}
+
+func handlePortForward(stream net.Conn, session *Session) {
+	// Read the port forward message
+	var portCmd msg.PortForwardRequest
+	if err := msg.ReadMessage(stream, &portCmd); err != nil {
+		log.WithError(err).Error("reading port forward message:")
+		return
+	}
+
+	log.Info("forwarding port forward to agent", "local_port", portCmd.LocalPort, "space", portCmd.Space, "remote_port", portCmd.RemotePort, "space_id", session.Id)
+
+	// Open a new connection to the agent to send the port forward command
+	agentConn, err := session.MuxSession.Open()
+	if err != nil {
+		log.WithError(err).Error("opening connection to agent:")
+		response := msg.PortForwardResponse{
+			Success: false,
+			Error:   "Failed to connect to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+	defer agentConn.Close()
+
+	// Send the port forward command to the agent
+	if err := msg.WriteCommand(agentConn, msg.CmdPortForward); err != nil {
+		log.WithError(err).Error("writing port forward command to agent:")
+		response := msg.PortForwardResponse{
+			Success: false,
+			Error:   "Failed to send command to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	if err := msg.WriteMessage(agentConn, &portCmd); err != nil {
+		log.WithError(err).Error("writing port forward message to agent:")
+		response := msg.PortForwardResponse{
+			Success: false,
+			Error:   "Failed to send command message to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	// Read the response from the agent
+	var response msg.PortForwardResponse
+	if err := msg.ReadMessage(agentConn, &response); err != nil {
+		log.WithError(err).Error("reading port forward response from agent:")
+		response = msg.PortForwardResponse{
+			Success: false,
+			Error:   "Failed to read response from agent",
+		}
+	}
+
+	// Forward the response back to the client
+	if err := msg.WriteMessage(stream, &response); err != nil {
+		log.WithError(err).Error("writing port forward response to client:")
+		return
+	}
+
+	log.Info("port forward completed", "local_port", portCmd.LocalPort, "space", portCmd.Space, "remote_port", portCmd.RemotePort, "space_id", session.Id, "success", response.Success)
+}
+
+func handlePortList(stream net.Conn, session *Session) {
+	// Open a new connection to the agent to send the port list command
+	agentConn, err := session.MuxSession.Open()
+	if err != nil {
+		log.WithError(err).Error("opening connection to agent:")
+		response := msg.PortListResponse{
+			Forwards: []msg.PortForwardInfo{},
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+	defer agentConn.Close()
+
+	// Send the port list command to the agent
+	if err := msg.WriteCommand(agentConn, msg.CmdPortList); err != nil {
+		log.WithError(err).Error("writing port list command to agent:")
+		response := msg.PortListResponse{
+			Forwards: []msg.PortForwardInfo{},
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	// Read the response from the agent
+	var response msg.PortListResponse
+	if err := msg.ReadMessage(agentConn, &response); err != nil {
+		log.WithError(err).Error("reading port list response from agent:")
+		response = msg.PortListResponse{
+			Forwards: []msg.PortForwardInfo{},
+		}
+	}
+
+	// Forward the response back to the client
+	if err := msg.WriteMessage(stream, &response); err != nil {
+		log.WithError(err).Error("writing port list response to client:")
+		return
+	}
+}
+
+func handlePortStop(stream net.Conn, session *Session) {
+	// Read the port stop message
+	var portCmd msg.PortStopRequest
+	if err := msg.ReadMessage(stream, &portCmd); err != nil {
+		log.WithError(err).Error("reading port stop message:")
+		return
+	}
+
+	log.Info("forwarding port stop to agent", "local_port", portCmd.LocalPort, "space_id", session.Id)
+
+	// Open a new connection to the agent to send the port stop command
+	agentConn, err := session.MuxSession.Open()
+	if err != nil {
+		log.WithError(err).Error("opening connection to agent:")
+		response := msg.PortStopResponse{
+			Success: false,
+			Error:   "Failed to connect to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+	defer agentConn.Close()
+
+	// Send the port stop command to the agent
+	if err := msg.WriteCommand(agentConn, msg.CmdPortStop); err != nil {
+		log.WithError(err).Error("writing port stop command to agent:")
+		response := msg.PortStopResponse{
+			Success: false,
+			Error:   "Failed to send command to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	if err := msg.WriteMessage(agentConn, &portCmd); err != nil {
+		log.WithError(err).Error("writing port stop message to agent:")
+		response := msg.PortStopResponse{
+			Success: false,
+			Error:   "Failed to send command message to agent",
+		}
+		msg.WriteMessage(stream, &response)
+		return
+	}
+
+	// Read the response from the agent
+	var response msg.PortStopResponse
+	if err := msg.ReadMessage(agentConn, &response); err != nil {
+		log.WithError(err).Error("reading port stop response from agent:")
+		response = msg.PortStopResponse{
+			Success: false,
+			Error:   "Failed to read response from agent",
+		}
+	}
+
+	// Forward the response back to the client
+	if err := msg.WriteMessage(stream, &response); err != nil {
+		log.WithError(err).Error("writing port stop response to client:")
+		return
+	}
+
+	log.Info("port stop completed", "local_port", portCmd.LocalPort, "space_id", session.Id, "success", response.Success)
 }
 
 func compareVersionMajorMinor(version1, version2 string) bool {

@@ -46,7 +46,5 @@ func forwardSSH(dialURL, token string, skipTLSVerify bool) error {
 	}
 
 	copier := util.NewCopier(nil, wsConn)
-	copier.Run()
-
-	return nil
+	return copier.Run()
 }

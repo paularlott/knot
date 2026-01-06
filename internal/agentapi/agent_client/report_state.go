@@ -46,14 +46,20 @@ func (c *AgentClient) reportState() {
 		var hasVSCodeTunnel bool = false
 		var vscodeTunnelName string = ""
 
-		// If sshPort > 0 then check the health of sshd, waits for SSHD to be up
+		// If sshPort > 0 then check the health of sshd (until confirmed live, then assume it stays live)
 		if c.withSSH && c.sshPort > 0 && sshAlivePort == 0 {
-			// Check health of sshd
-			address := fmt.Sprintf("127.0.0.1:%d", c.sshPort)
-			connSSH, err := net.DialTimeout("tcp", address, time.Second)
-			if err == nil {
-				connSSH.Close()
+			if c.sshConfirmedLive {
+				// Already confirmed live, just return the cached port
 				sshAlivePort = c.sshPort
+			} else {
+				// Not yet confirmed, check health of sshd
+				address := fmt.Sprintf("127.0.0.1:%d", c.sshPort)
+				connSSH, err := net.DialTimeout("tcp", address, time.Second)
+				if err == nil {
+					connSSH.Close()
+					sshAlivePort = c.sshPort
+					c.sshConfirmedLive = true
+				}
 			}
 		}
 

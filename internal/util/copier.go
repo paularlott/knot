@@ -9,6 +9,8 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -18,6 +20,8 @@ import (
 type copierConnections struct {
 	socket       net.Conn
 	wsConnection *websocket.Conn
+	closed       atomic.Bool
+	closeMutex   sync.Mutex
 }
 
 func NewCopier(socket net.Conn, wsConnection *websocket.Conn) *copierConnections {
@@ -29,10 +33,14 @@ func NewCopier(socket net.Conn, wsConnection *websocket.Conn) *copierConnections
 
 func (connections *copierConnections) Run() error {
 	logger := log.WithGroup("copier")
+	done := make(chan struct{}, 2)
 
 	// Copy tcp to websocket
 	go func() {
-		defer connections.close()
+		defer func() {
+			connections.closeWrite()
+			done <- struct{}{}
+		}()
 
 		var n int
 		var err error
@@ -48,7 +56,10 @@ func (connections *copierConnections) Run() error {
 				n, err = os.Stdin.Read(buf)
 			}
 
-			if err != nil && !os.IsTimeout(err) {
+			if err != nil {
+				if os.IsTimeout(err) {
+					continue
+				}
 				unwrappedErr := errors.Unwrap(err)
 				if err != io.EOF && unwrappedErr != nil && unwrappedErr.Error() != "use of closed network connection" {
 					logger.WithError(err).Error("error reading from socket:")
@@ -56,17 +67,25 @@ func (connections *copierConnections) Run() error {
 				return
 			}
 
-			// Write data to the websocket
-			if err := connections.wsConnection.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
-				logger.WithError(err).Error("error writing to websocket:")
-				return
+			// Write data to the websocket if we read any
+			if n > 0 {
+				if connections.closed.Load() {
+					return
+				}
+				if err := connections.wsConnection.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
+					logger.WithError(err).Error("error writing to websocket:")
+					return
+				}
 			}
 		}
 	}()
 
 	// Copy websocket to tcp
-	func() {
-		defer connections.close()
+	go func() {
+		defer func() {
+			connections.close()
+			done <- struct{}{}
+		}()
 
 		for {
 			// Read data from the websocket
@@ -85,26 +104,53 @@ func (connections *copierConnections) Run() error {
 
 			// Write data to the socket / stdout
 			if connections.socket != nil {
-				_, err = io.Copy(connections.socket, r)
+				_, err := io.Copy(connections.socket, r)
+				if err != nil {
+					logger.WithError(err).Error("error while writing to socket:")
+					return
+				}
 			} else {
-				_, err = io.Copy(os.Stdout, r)
-			}
-
-			if err != nil {
-				logger.WithError(err).Error("error while writing to socket:")
-				return
+				_, err := io.Copy(os.Stdout, r)
+				if err != nil {
+					logger.WithError(err).Error("error while writing to socket:")
+					return
+				}
 			}
 		}
 	}()
 
+	<-done
+	<-done
 	return nil
 }
 
-func (connections *copierConnections) close() {
-	connections.wsConnection.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(10*time.Second))
-	connections.wsConnection.Close()
+func (connections *copierConnections) closeWrite() {
+	connections.closeMutex.Lock()
+	defer connections.closeMutex.Unlock()
+	
+	if connections.closed.Load() {
+		return
+	}
+	
+	if connections.socket != nil {
+		if tcpConn, ok := connections.socket.(*net.TCPConn); ok {
+			tcpConn.CloseWrite()
+		}
+	}
+}
 
+func (connections *copierConnections) close() {
+	connections.closeMutex.Lock()
+	defer connections.closeMutex.Unlock()
+	
+	if connections.closed.Swap(true) {
+		return
+	}
+	
 	if connections.socket != nil {
 		connections.socket.Close()
 	}
+	
+	connections.wsConnection.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(1*time.Second))
+	connections.wsConnection.Close()
 }
