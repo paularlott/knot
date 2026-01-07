@@ -9,8 +9,8 @@ import (
 	"github.com/paularlott/mcp"
 	"github.com/paularlott/mcp/toon"
 	scriptlib "github.com/paularlott/scriptling"
+	scriptlingmcp "github.com/paularlott/scriptling/mcp"
 	"github.com/paularlott/scriptling/object"
-	"github.com/paularlott/scriptling-mcp"
 )
 
 // GetMCPToolsLibrary returns the MCP tools library for scriptling (used in local/remote environments)

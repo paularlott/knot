@@ -8,8 +8,8 @@ import (
 
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/mcp/toon"
-	"github.com/paularlott/scriptling-mcp"
 	scriptlib "github.com/paularlott/scriptling"
+	scriptlingmcp "github.com/paularlott/scriptling/mcp"
 	"github.com/paularlott/scriptling/object"
 )
 
