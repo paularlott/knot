@@ -14,9 +14,18 @@ func (db *BadgerDbDriver) SaveScript(script *model.Script, updateFields []string
 	err := db.connection.Update(func(txn *badger.Txn) error {
 		existingScript, _ := db.GetScript(script.Id)
 
-		if existingScript != nil && len(updateFields) > 0 {
-			util.CopyFields(script, existingScript, updateFields)
-			script = existingScript
+		if existingScript != nil {
+			if existingScript.Name != script.Name && (len(updateFields) == 0 || util.InArray(updateFields, "Name")) {
+				err := txn.Delete([]byte(fmt.Sprintf("ScriptsByName:%s", existingScript.Name)))
+				if err != nil {
+					return err
+				}
+			}
+
+			if len(updateFields) > 0 {
+				util.CopyFields(script, existingScript, updateFields)
+				script = existingScript
+			}
 		}
 
 		data, err := json.Marshal(script)
@@ -25,6 +34,11 @@ func (db *BadgerDbDriver) SaveScript(script *model.Script, updateFields []string
 		}
 
 		e := badger.NewEntry([]byte(fmt.Sprintf("Scripts:%s", script.Id)), data)
+		if err = txn.SetEntry(e); err != nil {
+			return err
+		}
+
+		e = badger.NewEntry([]byte(fmt.Sprintf("ScriptsByName:%s", script.Name)), []byte(script.Id))
 		if err = txn.SetEntry(e); err != nil {
 			return err
 		}
@@ -38,6 +52,11 @@ func (db *BadgerDbDriver) SaveScript(script *model.Script, updateFields []string
 func (db *BadgerDbDriver) DeleteScript(script *model.Script) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
 		err := txn.Delete([]byte(fmt.Sprintf("Scripts:%s", script.Id)))
+		if err != nil {
+			return err
+		}
+
+		err = txn.Delete([]byte(fmt.Sprintf("ScriptsByName:%s", script.Name)))
 		if err != nil {
 			return err
 		}
@@ -103,16 +122,34 @@ func (db *BadgerDbDriver) GetScripts() ([]*model.Script, error) {
 }
 
 func (db *BadgerDbDriver) GetScriptByName(name string) (*model.Script, error) {
-	scripts, err := db.GetScripts()
+	var script = &model.Script{}
+
+	err := db.connection.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(fmt.Sprintf("ScriptsByName:%s", name)))
+		if err != nil {
+			return err
+		}
+
+		var scriptId string
+		err = item.Value(func(val []byte) error {
+			scriptId = string(val)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		script, err = db.GetScript(scriptId)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	for _, script := range scripts {
-		if script.Name == name {
-			return script, nil
-		}
-	}
-
-	return nil, fmt.Errorf("script not found")
+	return script, nil
 }

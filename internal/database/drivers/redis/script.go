@@ -13,9 +13,15 @@ import (
 func (db *RedisDbDriver) SaveScript(script *model.Script, updateFields []string) error {
 	existingScript, _ := db.GetScript(script.Id)
 
-	if existingScript != nil && len(updateFields) > 0 {
-		util.CopyFields(script, existingScript, updateFields)
-		script = existingScript
+	if existingScript != nil {
+		if existingScript.Name != script.Name && (len(updateFields) == 0 || util.InArray(updateFields, "Name")) {
+			db.connection.Del(context.Background(), fmt.Sprintf("%sScriptsByName:%s", db.prefix, existingScript.Name))
+		}
+
+		if len(updateFields) > 0 {
+			util.CopyFields(script, existingScript, updateFields)
+			script = existingScript
+		}
 	}
 
 	data, err := json.Marshal(script)
@@ -23,10 +29,16 @@ func (db *RedisDbDriver) SaveScript(script *model.Script, updateFields []string)
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id), data, 0).Err()
+	err = db.connection.Set(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id), data, 0).Err()
+	if err != nil {
+		return err
+	}
+
+	return db.connection.Set(context.Background(), fmt.Sprintf("%sScriptsByName:%s", db.prefix, script.Name), script.Id, 0).Err()
 }
 
 func (db *RedisDbDriver) DeleteScript(script *model.Script) error {
+	db.connection.Del(context.Background(), fmt.Sprintf("%sScriptsByName:%s", db.prefix, script.Name))
 	return db.connection.Del(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id)).Err()
 }
 
@@ -70,16 +82,10 @@ func (db *RedisDbDriver) GetScripts() ([]*model.Script, error) {
 }
 
 func (db *RedisDbDriver) GetScriptByName(name string) (*model.Script, error) {
-	scripts, err := db.GetScripts()
+	scriptId, err := db.connection.Get(context.Background(), fmt.Sprintf("%sScriptsByName:%s", db.prefix, name)).Result()
 	if err != nil {
-		return nil, err
+		return nil, convertRedisError(err)
 	}
 
-	for _, script := range scripts {
-		if script.Name == name {
-			return script, nil
-		}
-	}
-
-	return nil, fmt.Errorf("script not found")
+	return db.GetScript(scriptId)
 }
