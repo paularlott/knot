@@ -44,6 +44,5 @@ var ScriptsCmd = &cli.Command{
 		listCmd,
 		showCmd,
 		deleteCmd,
-		runCmd,
 	},
 }

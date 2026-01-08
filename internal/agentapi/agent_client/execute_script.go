@@ -63,7 +63,7 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 		}
 	}
 
-	env, err := service.NewRemoteScriptlingEnv(execMsg.Arguments, execMsg.Libraries, client, userId)
+	env, err := service.NewRemoteScriptlingEnv(execMsg.Arguments, client, userId)
 	if err != nil {
 		response := msg.ExecuteScriptResponse{
 			Success: false,

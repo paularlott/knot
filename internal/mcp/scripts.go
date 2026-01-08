@@ -77,12 +77,8 @@ func executeScriptTool(script *model.Script) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
 		user := ctx.Value("user").(*model.User)
 
-		// Extract parameters
 		mcpParams := make(map[string]string)
-
-		// Get all arguments
 		for key, value := range req.Args() {
-			// Convert complex types to JSON
 			switch v := value.(type) {
 			case string:
 				mcpParams[key] = v
@@ -94,8 +90,7 @@ func executeScriptTool(script *model.Script) mcp.ToolHandler {
 			}
 		}
 
-		// Execute script locally
-		result, err := executeScriptWithEnv(script, mcpParams, user)
+		result, err := service.ExecuteScriptWithMCP(script, mcpParams, user, nil)
 		if err != nil {
 			return mcp.NewToolResponseText(fmt.Sprintf("Error: %s", err.Error())), nil
 		}
@@ -131,23 +126,4 @@ func executeScriptTool(script *model.Script) mcp.ToolHandler {
 
 		return mcp.NewToolResponseText(result), nil
 	}
-}
-
-// executeScriptWithEnv executes a script with MCP parameters
-func executeScriptWithEnv(script *model.Script, mcpParams map[string]string, user *model.User) (string, error) {
-	db := database.GetInstance()
-
-	// Get all library scripts
-	libraries := make(map[string]string)
-	allScripts, err := db.GetScripts()
-	if err == nil {
-		for _, lib := range allScripts {
-			if lib.IsDeleted || !lib.Active || lib.ScriptType != "lib" {
-				continue
-			}
-			libraries[lib.Name] = lib.Content
-		}
-	}
-
-	return service.ExecuteScriptWithMCP(script, libraries, mcpParams, user)
 }

@@ -65,3 +65,18 @@ type ScriptExecuteResponse struct {
 	Output string `json:"output"`
 	Error  string `json:"error,omitempty"`
 }
+
+type ScriptContentExecuteRequest struct {
+	Content   string   `json:"content"`
+	Arguments []string `json:"arguments"`
+}
+
+type ScriptNameExecuteRequest struct {
+	ScriptName string   `json:"script_name"`
+	Arguments  []string `json:"arguments"`
+}
+
+type ScriptLibraryResponse struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}

@@ -41,7 +41,7 @@ func GetSpacesMCPLibrary(
 	spaceService SpaceService,
 	containerService ContainerService,
 	getAgentSession func(string) AgentSession,
-	executeScriptInSpace func(*model.Space, *model.Script, map[string]string, []string) (string, error),
+	executeScriptLocally func(*model.Script, []string) (string, error),
 ) *object.Library {
 	if getAgentSession == nil {
 		getAgentSession = func(spaceId string) AgentSession { return nil }
@@ -115,7 +115,7 @@ func GetSpacesMCPLibrary(
 		},
 		"run_script": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return spaceMCPExecScript(ctx, user, executeScriptInSpace, args...)
+				return spaceMCPExecScript(ctx, user, executeScriptLocally, args...)
 			},
 			HelpText: "run_script(space_name, script_name, *args) - Execute a script in a space",
 		},
@@ -440,7 +440,7 @@ func spaceMCPList(ctx context.Context, user *model.User, args ...object.Object) 
 	return &object.List{Elements: elements}
 }
 
-func spaceMCPExecScript(ctx context.Context, user *model.User, executeScriptInSpace func(*model.Space, *model.Script, map[string]string, []string) (string, error), args ...object.Object) object.Object {
+func spaceMCPExecScript(ctx context.Context, user *model.User, executeScriptLocally func(*model.Script, []string) (string, error), args ...object.Object) object.Object {
 	if len(args) < 2 {
 		return &object.Error{Message: "run_script() requires space name and script name"}
 	}
@@ -485,15 +485,7 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, executeScriptInSp
 		scriptArgs = append(scriptArgs, args[i].(*object.String).Value)
 	}
 
-	libraries := make(map[string]string)
-	for _, lib := range scripts {
-		if lib.IsDeleted || !lib.Active || lib.ScriptType != "lib" {
-			continue
-		}
-		libraries[lib.Name] = lib.Content
-	}
-
-	output, err := executeScriptInSpace(space, script, libraries, scriptArgs)
+	output, err := executeScriptLocally(script, scriptArgs)
 	if err != nil {
 		return &object.Error{Message: fmt.Sprintf("failed to execute script: %v", err)}
 	}

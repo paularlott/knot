@@ -492,7 +492,6 @@ func executeSpaceScript(space *model.Space, template *model.Template, scriptId s
 
 	log.Debug("executing script", "script_id", script.Id, "space_id", space.Id)
 
-	libraries := getLibrariesForTemplate(db, template)
 	timeout := script.Timeout
 	if timeout == 0 {
 		timeout = config.GetServerConfig().MaxScriptExecutionTime
@@ -500,10 +499,9 @@ func executeSpaceScript(space *model.Space, template *model.Template, scriptId s
 
 	execMsg := &msg.ExecuteScriptMessage{
 		Content:      script.Content,
-		Libraries:    libraries,
 		Arguments:    []string{},
 		Timeout:      timeout,
-		IsSystemCall: true, // Startup/shutdown scripts are system calls
+		IsSystemCall: true,
 	}
 
 	respChan, err := session.SendExecuteScript(execMsg)
@@ -521,36 +519,4 @@ func executeSpaceScript(space *model.Space, template *model.Template, scriptId s
 
 	log.Debug("script completed", "script_id", script.Id, "space_id", space.Id)
 	return nil
-}
-
-func getLibrariesForTemplate(db database.DbDriver, template *model.Template) map[string]string {
-	libraries := make(map[string]string)
-	allScripts, err := db.GetScripts()
-	if err == nil {
-		for _, lib := range allScripts {
-			if lib.IsDeleted || !lib.Active || lib.ScriptType != "lib" {
-				continue
-			}
-			// Check if library groups match template groups (if library has groups)
-			if len(lib.Groups) > 0 {
-				hasMatch := false
-				for _, libGroup := range lib.Groups {
-					for _, templateGroup := range template.Groups {
-						if libGroup == templateGroup {
-							hasMatch = true
-							break
-						}
-					}
-					if hasMatch {
-						break
-					}
-				}
-				if !hasMatch {
-					continue
-				}
-			}
-			libraries[lib.Name] = lib.Content
-		}
-	}
-	return libraries
 }

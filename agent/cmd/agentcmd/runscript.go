@@ -44,7 +44,6 @@ var RunScriptCmd = &cli.Command{
 		args := cmd.GetArgs()
 
 		var scriptContent string
-		var libraries map[string]string
 
 		alias := cmd.GetString("alias")
 		cfg := config.GetServerAddr(alias, cmd)
@@ -52,13 +51,7 @@ var RunScriptCmd = &cli.Command{
 		if err != nil {
 			return fmt.Errorf("failed to create API client: %w", err)
 		}
-		// Set 5-minute timeout to support AI operations with tool calling
 		client.SetTimeout(5 * time.Minute)
-
-		libraries, err = client.GetScriptLibraries(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get libraries: %w", err)
-		}
 
 		if _, err := os.Stat(script); err == nil {
 			content, err := os.ReadFile(script)
@@ -79,7 +72,7 @@ var RunScriptCmd = &cli.Command{
 			return fmt.Errorf("failed to get user: %w", err)
 		}
 
-		output, err := service.RunScript(ctx, scriptContent, args, libraries, client, user.Id)
+		output, err := service.RunScript(ctx, scriptContent, args, client, user.Id)
 		if err != nil {
 			return fmt.Errorf("script execution failed: %w", err)
 		}

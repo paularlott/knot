@@ -278,6 +278,88 @@ func HandleDeleteScript(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func HandleGetScriptByName(w http.ResponseWriter, r *http.Request) {
+	scriptName := r.PathValue("script_name")
+	if !validate.VarName(scriptName) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid script name"})
+		return
+	}
+
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	scripts, err := db.GetScripts()
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	for _, script := range scripts {
+		if script.IsDeleted || script.Name != scriptName {
+			continue
+		}
+
+		if !user.HasPermission(model.PermissionManageScripts) {
+			if len(script.Groups) > 0 && !user.HasAnyGroup(&script.Groups) {
+				continue
+			}
+		}
+
+		rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptDetails{
+			Id:                 script.Id,
+			Name:               script.Name,
+			Description:        script.Description,
+			Content:            script.Content,
+			Groups:             script.Groups,
+			Active:             script.Active,
+			ScriptType:         script.ScriptType,
+			MCPInputSchemaToml: script.MCPInputSchemaToml,
+			MCPKeywords:        script.MCPKeywords,
+			Timeout:            script.Timeout,
+		})
+		return
+	}
+
+	rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Script not found"})
+}
+
+func HandleGetScriptLibrary(w http.ResponseWriter, r *http.Request) {
+	libraryName := r.PathValue("library_name")
+	if !validate.VarName(libraryName) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid library name"})
+		return
+	}
+
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	scripts, err := db.GetScripts()
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	for _, script := range scripts {
+		if script.IsDeleted || !script.Active || script.ScriptType != "lib" || script.Name != libraryName {
+			continue
+		}
+
+		if !user.HasPermission(model.PermissionManageScripts) {
+			if len(script.Groups) > 0 && !user.HasAnyGroup(&script.Groups) {
+				continue
+			}
+		}
+
+		rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptLibraryResponse{
+			Name:    script.Name,
+			Content: script.Content,
+		})
+		return
+	}
+
+	rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Library not found"})
+}
+
 func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 	spaceId := r.PathValue("space_id")
 	scriptId := r.PathValue("script_id")
@@ -326,23 +408,6 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get all library scripts user has access to
-	libraries := make(map[string]string)
-	allScripts, err := db.GetScripts()
-	if err == nil {
-		for _, lib := range allScripts {
-			if lib.IsDeleted || !lib.Active || lib.ScriptType != "lib" {
-				continue
-			}
-			if !user.HasPermission(model.PermissionManageScripts) {
-				if len(lib.Groups) > 0 && !user.HasAnyGroup(&lib.Groups) {
-					continue
-				}
-			}
-			libraries[lib.Name] = lib.Content
-		}
-	}
-
 	var output string
 	var execErr error
 
@@ -356,10 +421,9 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 		}
 		execMsg := &msg.ExecuteScriptMessage{
 			Content:      script.Content,
-			Libraries:    libraries,
 			Arguments:    request.Arguments,
 			Timeout:      timeout,
-			IsSystemCall: false, // User-initiated scripts
+			IsSystemCall: false,
 		}
 
 		respChan, err := session.SendExecuteScript(execMsg)
@@ -377,7 +441,236 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Local execution
-		output, execErr = service.ExecuteScriptLocally(script, libraries, request.Arguments)
+		output, execErr = service.ExecuteScriptLocally(script, request.Arguments)
+	}
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventScriptExecute,
+		fmt.Sprintf("Executed script %s in space %s", script.Name, space.Name),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"script_id":       script.Id,
+			"script_name":     script.Name,
+			"space_id":        space.Id,
+			"space_name":      space.Name,
+		},
+	)
+
+	response := apiclient.ScriptExecuteResponse{
+		Output: output,
+	}
+	if execErr != nil {
+		response.Error = execErr.Error()
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, response)
+}
+
+func HandleExecuteScriptContent(w http.ResponseWriter, r *http.Request) {
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
+	request := apiclient.ScriptContentExecuteRequest{}
+	err := rest.DecodeRequestBody(w, r, &request)
+	if err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if len(request.Content) == 0 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Script content is required"})
+		return
+	}
+
+	if len(request.Content) > 4*1024*1024 {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Script content exceeds 4MB limit"})
+		return
+	}
+
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	space, err := db.GetSpace(spaceId)
+	if err != nil || space.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Space not found"})
+		return
+	}
+
+	if !user.HasPermission(model.PermissionManageSpaces) && space.UserId != user.Id {
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to access this space"})
+		return
+	}
+
+	if !user.HasPermission(model.PermissionExecuteScripts) {
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to execute scripts"})
+		return
+	}
+
+	var output string
+	var execErr error
+
+	session := agent_server.GetSession(space.Id)
+	if session != nil {
+		cfg := config.GetServerConfig()
+		timeout := cfg.MaxScriptExecutionTime
+		if timeout == 0 {
+			timeout = 120
+		}
+		execMsg := &msg.ExecuteScriptMessage{
+			Content:      request.Content,
+			Arguments:    request.Arguments,
+			Timeout:      timeout,
+			IsSystemCall: false,
+		}
+
+		respChan, err := session.SendExecuteScript(execMsg)
+		if err != nil {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: fmt.Sprintf("failed to send script to agent: %v", err)})
+			return
+		}
+
+		resp := <-respChan
+		if !resp.Success {
+			output = resp.Output
+			execErr = fmt.Errorf("%s", resp.Error)
+		} else {
+			output = resp.Output
+		}
+	} else {
+		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "Space is not running or agent not connected"})
+		return
+	}
+
+	audit.Log(
+		user.Username,
+		model.AuditActorTypeUser,
+		model.AuditEventScriptExecute,
+		fmt.Sprintf("Executed script content in space %s", space.Name),
+		&map[string]interface{}{
+			"agent":           r.UserAgent(),
+			"IP":              r.RemoteAddr,
+			"X-Forwarded-For": r.Header.Get("X-Forwarded-For"),
+			"space_id":        space.Id,
+			"space_name":      space.Name,
+		},
+	)
+
+	response := apiclient.ScriptExecuteResponse{
+		Output: output,
+	}
+	if execErr != nil {
+		response.Error = execErr.Error()
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, response)
+}
+
+func HandleExecuteScriptByName(w http.ResponseWriter, r *http.Request) {
+	spaceId := r.PathValue("space_id")
+
+	if !validate.UUID(spaceId) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+		return
+	}
+
+	request := apiclient.ScriptNameExecuteRequest{}
+	err := rest.DecodeRequestBody(w, r, &request)
+	if err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if !validate.VarName(request.ScriptName) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid script name"})
+		return
+	}
+
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	space, err := db.GetSpace(spaceId)
+	if err != nil || space.IsDeleted {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Space not found"})
+		return
+	}
+
+	if !user.HasPermission(model.PermissionManageSpaces) && space.UserId != user.Id {
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to access this space"})
+		return
+	}
+
+	if !user.HasPermission(model.PermissionExecuteScripts) {
+		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to execute scripts"})
+		return
+	}
+
+	scripts, err := db.GetScripts()
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	var script *model.Script
+	for _, s := range scripts {
+		if s.IsDeleted || !s.Active || s.Name != request.ScriptName {
+			continue
+		}
+
+		if !user.HasPermission(model.PermissionManageScripts) {
+			if len(s.Groups) > 0 && !user.HasAnyGroup(&s.Groups) {
+				continue
+			}
+		}
+
+		script = s
+		break
+	}
+
+	if script == nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Script not found"})
+		return
+	}
+
+	var output string
+	var execErr error
+
+	session := agent_server.GetSession(space.Id)
+	if session != nil {
+		timeout := script.Timeout
+		if timeout == 0 {
+			cfg := config.GetServerConfig()
+			timeout = cfg.MaxScriptExecutionTime
+		}
+		execMsg := &msg.ExecuteScriptMessage{
+			Content:      script.Content,
+			Arguments:    request.Arguments,
+			Timeout:      timeout,
+			IsSystemCall: false,
+		}
+
+		respChan, err := session.SendExecuteScript(execMsg)
+		if err != nil {
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: fmt.Sprintf("failed to send script to agent: %v", err)})
+			return
+		}
+
+		resp := <-respChan
+		if !resp.Success {
+			output = resp.Output
+			execErr = fmt.Errorf("%s", resp.Error)
+		} else {
+			output = resp.Output
+		}
+	} else {
+		output, execErr = service.ExecuteScriptLocally(script, request.Arguments)
 	}
 
 	audit.Log(

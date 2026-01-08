@@ -2323,7 +2323,75 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
-  /api/spaces/{space_id}/scripts/{script_id}/execute:
+  /api/scripts/library/{library_name}:
+    get:
+      summary: Get Script Library
+      description: Fetch a single script library by name for dynamic loading.
+      tags:
+        - Scripts
+      operationId: getScriptLibrary
+      parameters:
+        - in: path
+          name: library_name
+          schema:
+            type: string
+          required: true
+          description: The name of the library script to fetch.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: The name of the library
+                  content:
+                    type: string
+                    description: The library script content
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+  /api/scripts/name/{script_name}:
+    get:
+      summary: Get Script by Name
+      description: Get details of a specific script by its name.
+      tags:
+        - Scripts
+      operationId: getScriptByName
+      parameters:
+        - in: path
+          name: script_name
+          schema:
+            type: string
+          required: true
+          description: The name of the script.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScriptDetails'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
+
     post:
       summary: Execute Script
       description: Execute a script in a specific space.

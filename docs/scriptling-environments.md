@@ -2,11 +2,15 @@
 
 Knot provides three distinct scriptling execution environments, each tailored for specific use cases with different library availability and security constraints.
 
+## Library Loading
+
+All environments now use **dynamic library loading** via scriptling's on-demand callback mechanism. Libraries are fetched from the server as needed when import statements are encountered, rather than being bulk-loaded at environment creation.
+
 ## Local Environment
 
 **Used by:** `knot run-script` command on desktop/agent
 
-**Purpose:** Execute scripts locally with full system access and on-demand library loading from disk.
+**Purpose:** Execute scripts locally with full system access and on-demand library loading from disk or server.
 
 **Available Libraries:**
 
@@ -23,21 +27,24 @@ Knot provides three distinct scriptling execution environments, each tailored fo
 - **pathlib** - Filesystem path operations
 - **sys** - System-specific parameters (argv)
 - **spaces** - Space management operations (via API)
-
-### Database Libraries
-- All library scripts from the database (filtered by user groups)
+- **ai** - AI completion functions (via API)
+- **mcp** - MCP tools library (via API)
 
 ### On-Demand Loading
-- Enabled: Local `.py` files are automatically loaded when imported
-- Files are loaded from the current working directory
+- **Enabled**: Libraries are loaded dynamically as imports are encountered
+- **Priority**: Local `.py` files are tried first, then fetches from server
+- **API**: Uses `GET /api/scripts/library/{library_name}` endpoint
 
 **Example:**
 ```bash
-# Run local script with server libraries
+# Run local script with dynamic library loading
 knot run-script myscript.py arg1 arg2
 
-# Import local .py files automatically
-import mylib  # Loads mylib.py from current directory
+# Execute script in a space
+knot space run-script myspace myscript arg1 arg2
+
+# Import local .py files first, then server libraries
+import mylib  # Tries mylib.py locally, then fetches from server
 ```
 
 ---
@@ -58,15 +65,15 @@ import mylib  # Loads mylib.py from current directory
 - **secrets** - Secure random number generation
 - **htmlparser** - HTML parsing and manipulation
 - **spaces** - Space management operations (via internal API)
+- **ai** - AI completion functions (via MCP server)
 
 ### Special Libraries
 - **mcp** - MCP-specific functions with access to tool parameters
 
-### Database Libraries
-- All library scripts from the database (filtered by user groups)
-
 ### On-Demand Loading
-- Disabled: No filesystem access for security
+- **Enabled**: Libraries are loaded dynamically from server only
+- **API**: Uses `GET /api/scripts/library/{library_name}` endpoint
+- **No filesystem access** for security
 
 **Security Note:** This environment is intentionally restricted to prevent AI tools from executing arbitrary system commands or accessing the filesystem.
 
@@ -76,7 +83,7 @@ import mylib  # Loads mylib.py from current directory
 
 **Used by:** Script execution within spaces (containers)
 
-**Purpose:** Execute scripts remotely in user spaces with full capabilities but no on-demand loading.
+**Purpose:** Execute scripts remotely in user spaces with full capabilities and dynamic library loading.
 
 **Available Libraries:**
 
@@ -93,17 +100,17 @@ import mylib  # Loads mylib.py from current directory
 - **pathlib** - Filesystem path operations
 - **sys** - System-specific parameters (argv)
 - **spaces** - Space management operations (via API)
-
-### Database Libraries
-- All library scripts from the database (filtered by user groups)
+- **ai** - AI completion functions (via API)
+- **mcp** - MCP tools library (via API)
 
 ### On-Demand Loading
-- Disabled: All libraries must be pre-registered
+- **Enabled**: Libraries are loaded dynamically from server only
+- **API**: Uses `GET /api/scripts/library/{library_name}` endpoint
 
 **Example:**
 ```bash
 # Execute script in a space
-knot spaces run myspace myscript arg1 arg2
+knot space run-script myspace myscript arg1 arg2
 ```
 
 ---
@@ -122,9 +129,9 @@ knot spaces run myspace myscript arg1 arg2
 | pathlib | ✓ | ✗ | ✓ |
 | sys | ✓ | ✗ | ✓ |
 | spaces | ✓ | ✓ | ✓ |
-| mcp | ✗ | ✓ | ✗ |
-| Database libs | ✓ | ✓ | ✓ |
-| On-demand .py | ✓ | ✗ | ✗ |
+| ai | ✓ | ✓ | ✓ |
+| mcp | ✓ | ✓ | ✓ |
+| On-demand libs | ✓ (local+server) | ✓ (server) | ✓ (server) |
 
 ---
 
@@ -134,19 +141,21 @@ knot spaces run myspace myscript arg1 arg2
 - Full system access - use with trusted scripts only
 - Can read/write files via pathlib
 - Can execute system commands via subprocess
-- Can load arbitrary .py files from disk
+- Can load arbitrary .py files from disk (tried first)
+- Falls back to server libraries if not found locally
 
 ### MCP Environment
 - Restricted for AI safety
 - No filesystem access
 - No command execution
 - Cannot load external files
+- Only fetches libraries from server
 
 ### Remote Environment
 - Runs in isolated container
 - Full capabilities within container
 - No access to host filesystem
-- Libraries must be pre-defined in database
+- Libraries fetched dynamically from server
 
 ---
 

@@ -6,15 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/scriptling"
 )
 
-func ExecuteScriptInSpace(space *model.Space, script *model.Script, libraries map[string]string, args []string) (string, error) {
-	return ExecuteScriptLocally(script, libraries, args)
-}
-
-func ExecuteScriptWithMCP(script *model.Script, libraries map[string]string, mcpParams map[string]string, user *model.User) (string, error) {
+func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, user *model.User, client *apiclient.ApiClient) (string, error) {
 	timeout := time.Duration(script.Timeout) * time.Second
 	if script.Timeout == 0 {
 		timeout = 300 * time.Second // 5 minutes to allow for AI operations with tool calling
@@ -23,10 +20,9 @@ func ExecuteScriptWithMCP(script *model.Script, libraries map[string]string, mcp
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Add user to context for MCP tools
 	ctx = context.WithValue(ctx, "user", user)
 
-	env, err := NewMCPScriptlingEnv(libraries, mcpParams, user)
+	env, err := NewMCPScriptlingEnv(client, mcpParams, user)
 	if err != nil {
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}
@@ -51,8 +47,7 @@ func ExecuteScriptWithMCP(script *model.Script, libraries map[string]string, mcp
 	return strings.TrimRight(output, "\n"), nil
 }
 
-func ExecuteScriptLocally(script *model.Script, libraries map[string]string, args []string) (string, error) {
-	// Tool scripts can only be executed via MCP
+func ExecuteScriptLocally(script *model.Script, args []string) (string, error) {
 	if script.ScriptType == "tool" {
 		return "", fmt.Errorf("tool scripts can only be executed via MCP")
 	}
@@ -65,7 +60,7 @@ func ExecuteScriptLocally(script *model.Script, libraries map[string]string, arg
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	env, err := NewRemoteScriptlingEnv(args, libraries, nil, "")
+	env, err := NewRemoteScriptlingEnv(args, nil, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}

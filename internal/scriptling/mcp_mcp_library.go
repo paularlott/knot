@@ -73,37 +73,11 @@ func GetMCPLibrary(mcpParams map[string]string, openaiClient *openai.Client) *ob
 			},
 			HelpText: "execute_tool(name, arguments[, namespace]) - Execute a discovered tool. Arguments should be a dict.",
 		},
-		"toon_encode": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				if len(args) < 1 {
-					return &object.String{Value: "Error: toon_encode requires 1 argument"}
-				}
-				goValue := scriptlib.ToGo(args[0])
-				encoded, err := toon.Encode(goValue)
-				if err != nil {
-					return &object.String{Value: fmt.Sprintf("Error encoding to toon: %v", err)}
-				}
-				return &object.String{Value: encoded}
-			},
-			HelpText: "toon_encode(value) - Encode a value to toon format string.",
-		},
-		"toon_decode": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				if len(args) < 1 {
-					return &object.String{Value: "Error: toon_decode requires 1 argument"}
-				}
-				str, ok := args[0].(*object.String)
-				if !ok {
-					return &object.String{Value: "Error: toon_decode argument must be a string"}
-				}
-				decoded, err := toon.Decode(str.Value)
-				if err != nil {
-					return &object.String{Value: fmt.Sprintf("Error decoding from toon: %v", err)}
-				}
-				return scriptlib.FromGo(decoded)
-			},
-			HelpText: "toon_decode(string) - Decode a toon format string to a value.",
-		},
+	}
+
+	// Add shared toon functions
+	for name, builtin := range GetToonBuiltins() {
+		functions[name] = builtin
 	}
 
 	return object.NewLibrary(functions, nil, "MCP helper functions for tool scripts")
