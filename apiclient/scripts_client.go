@@ -17,10 +17,19 @@ func (c *ApiClient) GetScript(ctx context.Context, id string) (*ScriptDetails, e
 	return &script, err
 }
 
-func (c *ApiClient) GetScriptByName(ctx context.Context, name string) (*ScriptDetails, error) {
+func (c *ApiClient) GetScriptDetailsByName(ctx context.Context, name string) (*ScriptDetails, error) {
 	var script ScriptDetails
 	_, err := c.httpClient.Get(ctx, "/api/scripts/name/"+name, &script)
 	return &script, err
+}
+
+func (c *ApiClient) GetScriptByName(ctx context.Context, name string) (string, error) {
+	var content string
+	_, err := c.httpClient.Get(ctx, "/api/scripts/name/"+name+"/script", &content)
+	if err != nil {
+		return "", err
+	}
+	return content, nil
 }
 
 func (c *ApiClient) DeleteScript(ctx context.Context, id string) error {
@@ -42,12 +51,12 @@ func (c *ApiClient) ExecuteScript(ctx context.Context, spaceId, scriptId string,
 }
 
 func (c *ApiClient) GetScriptLibrary(ctx context.Context, name string) (string, error) {
-	var resp ScriptLibraryResponse
-	_, err := c.httpClient.Get(ctx, "/api/scripts/name/"+name+"/lib", &resp)
+	var content string
+	_, err := c.httpClient.Get(ctx, "/api/scripts/name/"+name+"/lib", &content)
 	if err != nil {
 		return "", err
 	}
-	return resp.Content, nil
+	return content, nil
 }
 
 func (c *ApiClient) ExecuteScriptContent(ctx context.Context, spaceId, content string, args []string) (string, error) {

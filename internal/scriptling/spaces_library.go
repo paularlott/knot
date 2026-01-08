@@ -401,17 +401,12 @@ func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId st
 		return &object.Error{Message: err.Error()}
 	}
 
-	script, err := client.GetScriptByName(ctx, scriptName)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get script: %v", err)}
-	}
-
 	scriptArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
 		scriptArgs = append(scriptArgs, args[i].(*object.String).Value)
 	}
 
-	output, err := client.ExecuteScript(ctx, spaceId, script.Id, scriptArgs)
+	output, err := client.ExecuteScriptByName(ctx, spaceId, scriptName, scriptArgs)
 	if err != nil {
 		return &object.Error{Message: fmt.Sprintf("failed to execute script: %v", err)}
 	}

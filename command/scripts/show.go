@@ -24,7 +24,7 @@ var showCmd = &cli.Command{
 		}
 
 		args := cmd.GetArgs()
-		script, err := client.GetScriptByName(ctx, args[0])
+		script, err := client.GetScriptDetailsByName(ctx, args[0])
 		if err != nil {
 			return fmt.Errorf("error getting script: %w", err)
 		}

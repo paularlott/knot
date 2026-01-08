@@ -278,16 +278,11 @@ func HandleDeleteScript(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func HandleGetScriptByName(w http.ResponseWriter, r *http.Request) {
+func HandleGetScriptDetailsByName(w http.ResponseWriter, r *http.Request) {
 	scriptName := r.PathValue("script_name")
 	if !validate.VarName(scriptName) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid script name"})
 		return
-	}
-
-	scriptType := r.PathValue("script_type")
-	if scriptType == "" {
-		scriptType = "script"
 	}
 
 	user := r.Context().Value("user").(*model.User)
@@ -299,18 +294,6 @@ func HandleGetScriptByName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if scriptType == "lib" {
-		if !script.Active || script.ScriptType != "lib" {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Library not found"})
-			return
-		}
-	} else {
-		if script.ScriptType != "script" {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Script not found"})
-			return
-		}
-	}
-
 	if !user.HasPermission(model.PermissionManageScripts) {
 		if len(script.Groups) > 0 && !user.HasAnyGroup(&script.Groups) {
 			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Script not found"})
@@ -318,25 +301,51 @@ func HandleGetScriptByName(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if scriptType == "lib" {
-		rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptLibraryResponse{
-			Name:    script.Name,
-			Content: script.Content,
-		})
-	} else {
-		rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptDetails{
-			Id:                 script.Id,
-			Name:               script.Name,
-			Description:        script.Description,
-			Content:            script.Content,
-			Groups:             script.Groups,
-			Active:             script.Active,
-			ScriptType:         script.ScriptType,
-			MCPInputSchemaToml: script.MCPInputSchemaToml,
-			MCPKeywords:        script.MCPKeywords,
-			Timeout:            script.Timeout,
-		})
+	rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptDetails{
+		Id:                 script.Id,
+		Name:               script.Name,
+		Description:        script.Description,
+		Content:            script.Content,
+		Groups:             script.Groups,
+		Active:             script.Active,
+		ScriptType:         script.ScriptType,
+		MCPInputSchemaToml: script.MCPInputSchemaToml,
+		MCPKeywords:        script.MCPKeywords,
+		Timeout:            script.Timeout,
+	})
+}
+
+func HandleGetScriptByName(w http.ResponseWriter, r *http.Request) {
+	scriptName := r.PathValue("script_name")
+	if !validate.VarName(scriptName) {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid script name"})
+		return
 	}
+
+	scriptType := r.PathValue("script_type")
+
+	user := r.Context().Value("user").(*model.User)
+	db := database.GetInstance()
+
+	script, err := db.GetScriptByName(scriptName)
+	if err != nil || script.IsDeleted || !script.Active {
+		rest.WriteResponse(http.StatusNotFound, w, r, "")
+		return
+	}
+
+	if scriptType != script.ScriptType {
+		rest.WriteResponse(http.StatusNotFound, w, r, "")
+		return
+	}
+
+	if !user.HasPermission(model.PermissionManageScripts) {
+		if len(script.Groups) > 0 && !user.HasAnyGroup(&script.Groups) {
+			rest.WriteResponse(http.StatusNotFound, w, r, "")
+			return
+		}
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, script.Content)
 }
 
 func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {

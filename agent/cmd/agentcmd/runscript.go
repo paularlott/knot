@@ -47,49 +47,76 @@ var RunScriptCmd = &cli.Command{
 
 		var scriptContent string
 		var cfg *config.ServerAddr
-		
-		// Try to get existing config, but don't fail if missing
-		if cmd.HasFlag("server") && cmd.HasFlag("token") {
-			cfg = &config.ServerAddr{
-				HttpServer: cmd.GetString("server"),
-				ApiToken:   cmd.GetString("token"),
+		var client *apiclient.ApiClient
+
+		// Helper to get/refresh token and create client
+		getClient := func() (*apiclient.ApiClient, error) {
+			// Try to get existing config
+			if cmd.HasFlag("server") && cmd.HasFlag("token") {
+				cfg = &config.ServerAddr{
+					HttpServer: cmd.GetString("server"),
+					ApiToken:   cmd.GetString("token"),
+				}
+			} else {
+				cfg = &config.ServerAddr{}
+				v, exists := cmd.ConfigFile.GetValue("client.connection." + alias + ".server")
+				if exists {
+					cfg.HttpServer = v.(string)
+				}
+				v, exists = cmd.ConfigFile.GetValue("client.connection." + alias + ".token")
+				if exists {
+					cfg.ApiToken = v.(string)
+				}
 			}
-		} else {
-			cfg = &config.ServerAddr{}
-			v, exists := cmd.ConfigFile.GetValue("client.connection." + alias + ".server")
-			if exists {
-				cfg.HttpServer = v.(string)
+
+			// If no API token, try to get one from agent
+			if cfg.ApiToken == "" && agentlink.IsAgentRunning() {
+				var connectResp agentlink.ConnectResponse
+				if err := agentlink.SendWithResponseMsg(agentlink.CommandConnect, nil, &connectResp); err == nil && connectResp.Success {
+					cfg.HttpServer = connectResp.Server
+					cfg.ApiToken = connectResp.Token
+					cmd.ConfigFile.SetValue("client.connection."+alias+".server", cfg.HttpServer)
+					cmd.ConfigFile.SetValue("client.connection."+alias+".token", cfg.ApiToken)
+					cmd.ConfigFile.Save()
+				}
 			}
-			v, exists = cmd.ConfigFile.GetValue("client.connection." + alias + ".token")
-			if exists {
-				cfg.ApiToken = v.(string)
+
+			if cfg.HttpServer == "" {
+				return nil, fmt.Errorf("no server configured and agent not running")
 			}
-		}
-		
-		// If no API token, try to get one from agent
-		if cfg.ApiToken == "" && agentlink.IsAgentRunning() {
-			var connectResp agentlink.ConnectResponse
-			if err := agentlink.SendWithResponseMsg(agentlink.CommandConnect, nil, &connectResp); err == nil && connectResp.Success {
-				cfg.HttpServer = connectResp.Server
-				cfg.ApiToken = connectResp.Token
-				cmd.ConfigFile.SetValue("client.connection."+alias+".server", cfg.HttpServer)
-				cmd.ConfigFile.SetValue("client.connection."+alias+".token", cfg.ApiToken)
-				cmd.ConfigFile.Save()
+			if cfg.ApiToken == "" {
+				return nil, fmt.Errorf("no API token available")
 			}
+
+			c, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+			if err != nil {
+				return nil, err
+			}
+			c.SetTimeout(5 * time.Minute)
+			return c, nil
 		}
 
-		if cfg.HttpServer == "" {
-			return fmt.Errorf("no server configured and agent not running")
-		}
-		if cfg.ApiToken == "" {
-			return fmt.Errorf("no API token available")
-		}
-
-		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+		// Get initial client
+		client, err := getClient()
 		if err != nil {
 			return fmt.Errorf("failed to create API client: %w", err)
 		}
-		client.SetTimeout(5 * time.Minute)
+
+		// Validate token and get user - if expired and agent running, refresh and retry
+		user, err := client.WhoAmI(ctx)
+		if err != nil && agentlink.IsAgentRunning() {
+			cfg.ApiToken = "" // Force refresh
+			client, err = getClient()
+			if err != nil {
+				return fmt.Errorf("failed to refresh API client: %w", err)
+			}
+			user, err = client.WhoAmI(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get user: %w", err)
+			}
+		} else if err != nil {
+			return fmt.Errorf("failed to get user: %w", err)
+		}
 
 		// Check if file exists locally
 		if _, err := os.Stat(script); err == nil {
@@ -99,19 +126,10 @@ var RunScriptCmd = &cli.Command{
 			}
 			scriptContent = string(content)
 		} else {
-			scriptObj, err := client.GetScriptByName(ctx, script)
+			scriptContent, err = client.GetScriptByName(ctx, script)
 			if err != nil {
 				return fmt.Errorf("failed to get script: %w", err)
 			}
-			if scriptObj.ScriptType != "script" {
-				return fmt.Errorf("script not found")
-			}
-			scriptContent = scriptObj.Content
-		}
-
-		user, err := client.WhoAmI(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get user: %w", err)
 		}
 
 		output, err := service.RunScript(ctx, scriptContent, args, client, user.Id)
