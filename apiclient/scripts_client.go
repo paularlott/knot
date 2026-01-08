@@ -43,7 +43,7 @@ func (c *ApiClient) ExecuteScript(ctx context.Context, spaceId, scriptId string,
 
 func (c *ApiClient) GetScriptLibrary(ctx context.Context, name string) (string, error) {
 	var resp ScriptLibraryResponse
-	_, err := c.httpClient.Get(ctx, "/api/scripts/library/"+name, &resp)
+	_, err := c.httpClient.Get(ctx, "/api/scripts/name/"+name+"/lib", &resp)
 	if err != nil {
 		return "", err
 	}

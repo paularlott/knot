@@ -18,6 +18,7 @@ import (
 var (
 	openaiClient     *openai.Client
 	openaiClientOnce sync.Once
+	libraryFetcher   func(string) (string, error)
 )
 
 // SetOpenAIClient sets the global OpenAI client for scriptling environments
@@ -30,6 +31,11 @@ func SetOpenAIClient(client *openai.Client) {
 // GetOpenAIClient returns the global OpenAI client
 func GetOpenAIClient() *openai.Client {
 	return openaiClient
+}
+
+// SetLibraryFetcher sets a callback for fetching libraries when API client is not available
+func SetLibraryFetcher(fetcher func(string) (string, error)) {
+	libraryFetcher = fetcher
 }
 
 // registerBaseLibraries registers common libraries shared across all environments
@@ -57,6 +63,14 @@ func setupServerLibraryCallback(env *scriptling.Scriptling, client *apiclient.Ap
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			content, err := client.GetScriptLibrary(ctx, libName)
+			if err == nil {
+				return p.RegisterScriptLibrary(libName, content) == nil
+			}
+			return false
+		})
+	} else if libraryFetcher != nil {
+		env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
+			content, err := libraryFetcher(libName)
 			if err == nil {
 				return p.RegisterScriptLibrary(libName, content) == nil
 			}
@@ -90,6 +104,10 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if content, err := client.GetScriptLibrary(ctx, libName); err == nil {
+				return p.RegisterScriptLibrary(libName, content) == nil
+			}
+		} else if libraryFetcher != nil {
+			if content, err := libraryFetcher(libName); err == nil {
 				return p.RegisterScriptLibrary(libName, content) == nil
 			}
 		}
