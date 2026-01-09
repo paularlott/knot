@@ -89,9 +89,13 @@ func mcpGet(mcpParams map[string]string, args ...object.Object) object.Object {
 		return &object.Null{}
 	}
 
-	name := args[0].(*object.String).Value
-	value, ok := mcpParams[name]
+	name, ok := args[0].AsString()
 	if !ok {
+		return &object.Error{Message: "get() first argument must be a string (parameter name)"}
+	}
+
+	value, found := mcpParams[name]
+	if !found {
 		value = ""
 	}
 

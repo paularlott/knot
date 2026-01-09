@@ -158,140 +158,153 @@ func resolveSpaceNameMCP(user *model.User, spaceName string) (string, error) {
 }
 
 func spaceMCPStart(ctx context.Context, user *model.User, containerService ContainerService, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "start() requires space name"}
+	spaceName, err := GetString(args, 0, "start")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	db := database.GetInstance()
-	space, err := db.GetSpace(spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("space not found: %v", err)}
+	space, dbErr := db.GetSpace(spaceId)
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("space not found: %v", dbErr)}
 	}
 
-	template, err := db.GetTemplate(space.TemplateId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get template: %v", err)}
+	template, templateErr := db.GetTemplate(space.TemplateId)
+	if templateErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to get template: %v", templateErr)}
 	}
 
-	err = containerService.StartSpace(space, template, user)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to start space: %v", err)}
+	svcErr := containerService.StartSpace(space, template, user)
+	if svcErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to start space: %v", svcErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceMCPStop(ctx context.Context, user *model.User, containerService ContainerService, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "stop() requires space name"}
+	spaceName, err := GetString(args, 0, "stop")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	db := database.GetInstance()
-	space, err := db.GetSpace(spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("space not found: %v", err)}
+	space, dbErr := db.GetSpace(spaceId)
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("space not found: %v", dbErr)}
 	}
 
-	err = containerService.StopSpace(space)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to stop space: %v", err)}
+	svcErr := containerService.StopSpace(space)
+	if svcErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to stop space: %v", svcErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceMCPRestart(ctx context.Context, user *model.User, containerService ContainerService, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "restart() requires space name"}
+	spaceName, err := GetString(args, 0, "restart")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	db := database.GetInstance()
-	space, err := db.GetSpace(spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("space not found: %v", err)}
+	space, dbErr := db.GetSpace(spaceId)
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("space not found: %v", dbErr)}
 	}
 
-	err = containerService.RestartSpace(space)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to restart space: %v", err)}
+	svcErr := containerService.RestartSpace(space)
+	if svcErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to restart space: %v", svcErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceMCPGetField(ctx context.Context, user *model.User, spaceService SpaceService, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "get_field() requires space name and field name"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	fieldName := args[1].(*object.String).Value
-
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	fieldName, fieldErr := GetString(args, 1, "field name")
+	if fieldErr != nil {
+		return fieldErr
 	}
 
-	value, err := spaceService.GetSpaceCustomField(spaceId, fieldName, user)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get field: %v", err)}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
+	}
+
+	value, svcErr := spaceService.GetSpaceCustomField(spaceId, fieldName, user)
+	if svcErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to get field: %v", svcErr)}
 	}
 
 	return &object.String{Value: value}
 }
 
 func spaceMCPSetField(ctx context.Context, user *model.User, spaceService SpaceService, args ...object.Object) object.Object {
-	if len(args) < 3 {
-		return &object.Error{Message: "set_field() requires space name, field name, and value"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	fieldName := args[1].(*object.String).Value
-	fieldValue := args[2].(*object.String).Value
-
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	fieldName, fieldErr := GetString(args, 1, "field name")
+	if fieldErr != nil {
+		return fieldErr
 	}
 
-	err = spaceService.SetSpaceCustomField(spaceId, fieldName, fieldValue, user)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to set field: %v", err)}
+	fieldValue, valueErr := GetString(args, 2, "field value")
+	if valueErr != nil {
+		return valueErr
+	}
+
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
+	}
+
+	svcErr := spaceService.SetSpaceCustomField(spaceId, fieldName, fieldValue, user)
+	if svcErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to set field: %v", svcErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceMCPCreate(ctx context.Context, user *model.User, spaceService SpaceService, kwargs map[string]object.Object, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "create() requires name and template_name"}
+	name, err := GetString(args, 0, "name")
+	if err != nil {
+		return err
 	}
 
-	name := args[0].(*object.String).Value
-	templateName := args[1].(*object.String).Value
+	templateName, templateErr := GetString(args, 1, "template_name")
+	if templateErr != nil {
+		return templateErr
+	}
 
 	db := database.GetInstance()
-	templates, err := db.GetTemplates()
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get templates: %v", err)}
+	templates, dbErr := db.GetTemplates()
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to get templates: %v", dbErr)}
 	}
 
 	var templateId string
@@ -308,110 +321,125 @@ func spaceMCPCreate(ctx context.Context, user *model.User, spaceService SpaceSer
 
 	description := ""
 	if len(args) > 2 {
-		description = args[2].(*object.String).Value
+		description, err = GetString(args, 2, "description")
+		if err != nil {
+			return err
+		}
 	}
-	if desc, ok := kwargs["description"]; ok {
-		description = desc.(*object.String).Value
+	if desc, found, kwErr := GetStringFromKwargs(kwargs, "description"); found {
+		if kwErr != nil {
+			return kwErr
+		}
+		description = desc
 	}
 
 	shell := "bash"
 	if len(args) > 3 {
-		shell = args[3].(*object.String).Value
+		shell, err = GetString(args, 3, "shell")
+		if err != nil {
+			return err
+		}
 	}
-	if sh, ok := kwargs["shell"]; ok {
-		shell = sh.(*object.String).Value
+	if sh, found, kwErr := GetStringFromKwargs(kwargs, "shell"); found {
+		if kwErr != nil {
+			return kwErr
+		}
+		shell = sh
 	}
 
 	space := model.NewSpace(name, description, user.Id, templateId, shell, &[]string{}, "", "", []model.SpaceCustomField{})
 
-	err = spaceService.CreateSpace(space, user)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to create space: %v", err)}
+	svcErr := spaceService.CreateSpace(space, user)
+	if svcErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to create space: %v", svcErr)}
 	}
 
 	return &object.String{Value: space.Id}
 }
 
 func spaceMCPDelete(ctx context.Context, user *model.User, spaceService SpaceService, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "delete() requires space name"}
+	spaceName, err := GetString(args, 0, "delete")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
-	err = spaceService.DeleteSpace(spaceId, user)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to delete space: %v", err)}
+	svcErr := spaceService.DeleteSpace(spaceId, user)
+	if svcErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to delete space: %v", svcErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceMCPSetDescription(ctx context.Context, user *model.User, spaceService SpaceService, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "set_description() requires space name and description"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	description := args[1].(*object.String).Value
-
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	description, descErr := GetString(args, 1, "description")
+	if descErr != nil {
+		return descErr
 	}
 
-	space, err := spaceService.GetSpace(spaceId, user)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("space not found: %v", err)}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
+	}
+
+	space, svcErr := spaceService.GetSpace(spaceId, user)
+	if svcErr != nil {
+		return &object.Error{Message: fmt.Sprintf("space not found: %v", svcErr)}
 	}
 
 	space.Description = description
-	err = spaceService.UpdateSpace(space, user)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to update space: %v", err)}
+	updateErr := spaceService.UpdateSpace(space, user)
+	if updateErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to update space: %v", updateErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceMCPGetDescription(ctx context.Context, user *model.User, spaceService SpaceService, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "get_description() requires space name"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
-	space, err := spaceService.GetSpace(spaceId, user)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("space not found: %v", err)}
+	space, svcErr := spaceService.GetSpace(spaceId, user)
+	if svcErr != nil {
+		return &object.Error{Message: fmt.Sprintf("space not found: %v", svcErr)}
 	}
 
 	return &object.String{Value: space.Description}
 }
 
 func spaceMCPIsRunning(ctx context.Context, user *model.User, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "is_running() requires space name"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	db := database.GetInstance()
-	space, err := db.GetSpace(spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("space not found: %v", err)}
+	space, dbErr := db.GetSpace(spaceId)
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("space not found: %v", dbErr)}
 	}
 
 	return &object.Boolean{Value: space.IsDeployed}
@@ -419,9 +447,9 @@ func spaceMCPIsRunning(ctx context.Context, user *model.User, args ...object.Obj
 
 func spaceMCPList(ctx context.Context, user *model.User, args ...object.Object) object.Object {
 	db := database.GetInstance()
-	spaces, err := db.GetSpacesForUser(user.Id)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to list spaces: %v", err)}
+	spaces, dbErr := db.GetSpacesForUser(user.Id)
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to list spaces: %v", dbErr)}
 	}
 
 	elements := make([]object.Object, 0, len(spaces))
@@ -441,31 +469,34 @@ func spaceMCPList(ctx context.Context, user *model.User, args ...object.Object) 
 }
 
 func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "run_script() requires space name and script name"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	scriptName := args[1].(*object.String).Value
+	scriptName, scriptErr := GetString(args, 1, "script name")
+	if scriptErr != nil {
+		return scriptErr
+	}
 
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	db := database.GetInstance()
-	space, err := db.GetSpace(spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("space not found: %v", err)}
+	space, dbErr := db.GetSpace(spaceId)
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("space not found: %v", dbErr)}
 	}
 
 	if space.UserId != user.Id && space.SharedWithUserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
 		return &object.Error{Message: "no permission to execute scripts in this space"}
 	}
 
-	scripts, err := db.GetScripts()
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get scripts: %v", err)}
+	scripts, scriptsErr := db.GetScripts()
+	if scriptsErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to get scripts: %v", scriptsErr)}
 	}
 
 	var script *model.Script
@@ -482,7 +513,11 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession f
 
 	scriptArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		scriptArgs = append(scriptArgs, args[i].(*object.String).Value)
+		arg, argErr := GetString(args, i, "script arg")
+		if argErr != nil {
+			return argErr
+		}
+		scriptArgs = append(scriptArgs, arg)
 	}
 
 	// Get agent session for the space
@@ -504,9 +539,9 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession f
 		IsSystemCall: false,
 	}
 
-	respChan, err := session.SendExecuteScript(execMsg)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to send script to agent: %v", err)}
+	respChan, sendErr := session.SendExecuteScript(execMsg)
+	if sendErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to send script to agent: %v", sendErr)}
 	}
 
 	resp := <-respChan
@@ -518,27 +553,30 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession f
 }
 
 func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, kwargs map[string]object.Object, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "run() requires space name and command"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	command := args[1].(*object.String).Value
+	command, cmdErr := GetString(args, 1, "command")
+	if cmdErr != nil {
+		return cmdErr
+	}
 
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	db := database.GetInstance()
-	space, err := db.GetSpace(spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("space not found: %v", err)}
+	space, dbErr := db.GetSpace(spaceId)
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("space not found: %v", dbErr)}
 	}
 
-	template, err := db.GetTemplate(space.TemplateId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get template: %v", err)}
+	template, templateErr := db.GetTemplate(space.TemplateId)
+	if templateErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to get template: %v", templateErr)}
 	}
 
 	if !template.WithRunCommand {
@@ -556,26 +594,41 @@ func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession 
 	cmdArgs := make([]string, 0)
 	if len(args) > 2 {
 		for i := 2; i < len(args); i++ {
-			cmdArgs = append(cmdArgs, args[i].(*object.String).Value)
+			arg, argErr := GetString(args, i, "command arg")
+			if argErr != nil {
+				return argErr
+			}
+			cmdArgs = append(cmdArgs, arg)
 		}
 	}
-	if argsObj, ok := kwargs["args"]; ok {
-		if argsList, ok := argsObj.(*object.List); ok {
-			cmdArgs = make([]string, len(argsList.Elements))
-			for i, elem := range argsList.Elements {
-				cmdArgs[i] = elem.(*object.String).Value
+	if argsList, found, kwErr := GetListFromKwargs(kwargs, "args"); found {
+		if kwErr != nil {
+			return kwErr
+		}
+		cmdArgs = make([]string, len(argsList))
+		for i, elem := range argsList {
+			arg, ok := elem.AsString()
+			if !ok {
+				return &object.Error{Message: fmt.Sprintf("args[%d]: must be a string", i)}
 			}
+			cmdArgs[i] = arg
 		}
 	}
 
 	timeout := 30
-	if timeoutObj, ok := kwargs["timeout"]; ok {
-		timeout = int(timeoutObj.(*object.Integer).Value)
+	if timeoutVal, found, kwErr := GetIntFromKwargs(kwargs, "timeout"); found {
+		if kwErr != nil {
+			return kwErr
+		}
+		timeout = int(timeoutVal)
 	}
 
 	workdir := ""
-	if workdirObj, ok := kwargs["workdir"]; ok {
-		workdir = workdirObj.(*object.String).Value
+	if workdirVal, found, kwErr := GetStringFromKwargs(kwargs, "workdir"); found {
+		if kwErr != nil {
+			return kwErr
+		}
+		workdir = workdirVal
 	}
 
 	var session AgentSession
@@ -593,9 +646,9 @@ func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession 
 		Workdir: workdir,
 	}
 
-	responseChannel, err := session.SendRunCommand(runCmd)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to send command to agent: %v", err)}
+	responseChannel, sendErr := session.SendRunCommand(runCmd)
+	if sendErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to send command to agent: %v", sendErr)}
 	}
 
 	response := <-responseChannel
@@ -611,18 +664,29 @@ func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession 
 }
 
 func spaceMCPPortForward(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
-	if len(args) < 4 {
-		return &object.Error{Message: "port_forward() requires source_space, local_port, remote_space, and remote_port"}
+	sourceSpaceName, err := GetString(args, 0, "source_space")
+	if err != nil {
+		return err
 	}
 
-	sourceSpaceName := args[0].(*object.String).Value
-	localPort := uint16(args[1].(*object.Integer).Value)
-	remoteSpaceName := args[2].(*object.String).Value
-	remotePort := uint16(args[3].(*object.Integer).Value)
+	localPort, portErr := GetIntAsUint16(args, 1, "local_port")
+	if portErr != nil {
+		return portErr
+	}
 
-	sourceSpaceId, err := resolveSpaceNameMCP(user, sourceSpaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	remoteSpaceName, spaceErr := GetString(args, 2, "remote_space")
+	if spaceErr != nil {
+		return spaceErr
+	}
+
+	remotePort, remotePortErr := GetIntAsUint16(args, 3, "remote_port")
+	if remotePortErr != nil {
+		return remotePortErr
+	}
+
+	sourceSpaceId, resolveErr := resolveSpaceNameMCP(user, sourceSpaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	var session AgentSession
@@ -639,9 +703,9 @@ func spaceMCPPortForward(ctx context.Context, user *model.User, getAgentSession 
 		RemotePort: remotePort,
 	}
 
-	responseChannel, err := session.SendPortForwardRequest(req)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to send port forward request to agent: %v", err)}
+	responseChannel, sendErr := session.SendPortForwardRequest(req)
+	if sendErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to send port forward request to agent: %v", sendErr)}
 	}
 
 	response := <-responseChannel
@@ -657,14 +721,14 @@ func spaceMCPPortForward(ctx context.Context, user *model.User, getAgentSession 
 }
 
 func spaceMCPPortList(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "port_list() requires space name"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	var session AgentSession
@@ -675,9 +739,9 @@ func spaceMCPPortList(ctx context.Context, user *model.User, getAgentSession fun
 		return &object.Error{Message: "space is not running or agent session not available"}
 	}
 
-	responseChannel, err := session.SendPortListRequest()
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to send port list request to agent: %v", err)}
+	responseChannel, sendErr := session.SendPortListRequest()
+	if sendErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to send port list request to agent: %v", sendErr)}
 	}
 
 	response := <-responseChannel
@@ -698,16 +762,19 @@ func spaceMCPPortList(ctx context.Context, user *model.User, getAgentSession fun
 }
 
 func spaceMCPPortStop(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "port_stop() requires space name and local_port"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	localPort := uint16(args[1].(*object.Integer).Value)
+	localPort, portErr := GetIntAsUint16(args, 1, "local_port")
+	if portErr != nil {
+		return portErr
+	}
 
-	spaceId, err := resolveSpaceNameMCP(user, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceNameMCP(user, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	var session AgentSession
@@ -722,9 +789,9 @@ func spaceMCPPortStop(ctx context.Context, user *model.User, getAgentSession fun
 		LocalPort: localPort,
 	}
 
-	responseChannel, err := session.SendPortStopRequest(req)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to send port stop request to agent: %v", err)}
+	responseChannel, sendErr := session.SendPortStopRequest(req)
+	if sendErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to send port stop request to agent: %v", sendErr)}
 	}
 
 	response := <-responseChannel

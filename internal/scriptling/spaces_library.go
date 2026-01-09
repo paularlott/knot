@@ -128,133 +128,164 @@ func resolveSpaceName(ctx context.Context, client *apiclient.ApiClient, userId s
 }
 
 func spaceStart(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "start() requires space name"}
+	spaceName, err := GetString(args, 0, "start")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
-	_, err = client.StartSpace(ctx, spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to start space: %v", err)}
+	_, apiErr := client.StartSpace(ctx, spaceId)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to start space: %v", apiErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceStop(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "stop() requires space name"}
+	spaceName, err := GetString(args, 0, "stop")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
-	_, err = client.StopSpace(ctx, spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to stop space: %v", err)}
+	_, apiErr := client.StopSpace(ctx, spaceId)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to stop space: %v", apiErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceRestart(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "restart() requires space name"}
+	spaceName, err := GetString(args, 0, "restart")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
-	_, err = client.RestartSpace(ctx, spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to restart space: %v", err)}
+	_, apiErr := client.RestartSpace(ctx, spaceId)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to restart space: %v", apiErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceGetField(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "get_field() requires space name and field name"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	fieldName := args[1].(*object.String).Value
-
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	fieldName, fieldErr := GetString(args, 1, "field name")
+	if fieldErr != nil {
+		return fieldErr
 	}
 
-	response, _, err := client.GetSpaceCustomField(ctx, spaceId, fieldName)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get field: %v", err)}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
+	}
+
+	response, _, apiErr := client.GetSpaceCustomField(ctx, spaceId, fieldName)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to get field: %v", apiErr)}
 	}
 
 	return &object.String{Value: response.Value}
 }
 
 func spaceSetField(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 3 {
-		return &object.Error{Message: "set_field() requires space name, field name, and value"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	fieldName := args[1].(*object.String).Value
-	fieldValue := args[2].(*object.String).Value
-
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	fieldName, fieldErr := GetString(args, 1, "field name")
+	if fieldErr != nil {
+		return fieldErr
 	}
 
-	_, err = client.SetSpaceCustomField(ctx, spaceId, fieldName, fieldValue)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to set field: %v", err)}
+	fieldValue, valueErr := GetString(args, 2, "field value")
+	if valueErr != nil {
+		return valueErr
+	}
+
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
+	}
+
+	_, apiErr := client.SetSpaceCustomField(ctx, spaceId, fieldName, fieldValue)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to set field: %v", apiErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs map[string]object.Object, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "create() requires name and template_name"}
+	name, err := GetString(args, 0, "name")
+	if err != nil {
+		return err
 	}
 
-	name := args[0].(*object.String).Value
-	templateName := args[1].(*object.String).Value
+	templateName, templateErr := GetString(args, 1, "template_name")
+	if templateErr != nil {
+		return templateErr
+	}
 
-	template, err := client.GetTemplateByName(ctx, templateName)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get template: %v", err)}
+	template, apiErr := client.GetTemplateByName(ctx, templateName)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to get template: %v", apiErr)}
 	}
 	templateId := template.TemplateId
 
 	description := ""
 	if len(args) > 2 {
-		description = args[2].(*object.String).Value
+		description, err = GetString(args, 2, "description")
+		if err != nil {
+			// Optional arg - if wrong type, return error
+			return err
+		}
 	}
-	if desc, ok := kwargs["description"]; ok {
-		description = desc.(*object.String).Value
+	if desc, found, kwErr := GetStringFromKwargs(kwargs, "description"); found {
+		if kwErr != nil {
+			return kwErr
+		}
+		description = desc
+	} else if kwErr != nil {
+		return kwErr
 	}
 
 	shell := "bash"
 	if len(args) > 3 {
-		shell = args[3].(*object.String).Value
+		shell, err = GetString(args, 3, "shell")
+		if err != nil {
+			// Optional arg - if wrong type, return error
+			return err
+		}
 	}
-	if sh, ok := kwargs["shell"]; ok {
-		shell = sh.(*object.String).Value
+	if sh, found, kwErr := GetStringFromKwargs(kwargs, "shell"); found {
+		if kwErr != nil {
+			return kwErr
+		}
+		shell = sh
+	} else if kwErr != nil {
+		return kwErr
 	}
 
 	request := &apiclient.SpaceRequest{
@@ -265,49 +296,52 @@ func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string
 		UserId:      userId,
 	}
 
-	spaceId, _, err := client.CreateSpace(ctx, request)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to create space: %v", err)}
+	spaceId, _, apiErr := client.CreateSpace(ctx, request)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to create space: %v", apiErr)}
 	}
 
 	return &object.String{Value: spaceId}
 }
 
 func spaceDelete(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "delete() requires space name"}
+	spaceName, err := GetString(args, 0, "delete")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
-	_, err = client.DeleteSpace(ctx, spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to delete space: %v", err)}
+	_, apiErr := client.DeleteSpace(ctx, spaceId)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to delete space: %v", apiErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceSetDescription(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "set_description() requires space name and description"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	description := args[1].(*object.String).Value
-
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	description, descErr := GetString(args, 1, "description")
+	if descErr != nil {
+		return descErr
 	}
 
-	space, _, err := client.GetSpace(ctx, spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get space: %v", err)}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
+	}
+
+	space, _, apiErr := client.GetSpace(ctx, spaceId)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to get space: %v", apiErr)}
 	}
 
 	request := &apiclient.SpaceRequest{
@@ -317,47 +351,47 @@ func spaceSetDescription(ctx context.Context, client *apiclient.ApiClient, userI
 		Shell:       space.Shell,
 	}
 
-	_, err = client.UpdateSpace(ctx, spaceId, request)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to update space: %v", err)}
+	_, apiErr = client.UpdateSpace(ctx, spaceId, request)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to update space: %v", apiErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spaceGetDescription(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "get_description() requires space name"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
-	space, _, err := client.GetSpace(ctx, spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get space: %v", err)}
+	space, _, apiErr := client.GetSpace(ctx, spaceId)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to get space: %v", apiErr)}
 	}
 
 	return &object.String{Value: space.Description}
 }
 
 func spaceIsRunning(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "is_running() requires space name"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
-	spaces, _, err := client.GetSpaces(ctx, userId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get spaces: %v", err)}
+	spaces, _, apiErr := client.GetSpaces(ctx, userId)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to get spaces: %v", apiErr)}
 	}
 
 	for _, space := range spaces.Spaces {
@@ -389,67 +423,92 @@ func spaceList(ctx context.Context, client *apiclient.ApiClient, userId string, 
 }
 
 func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "run_script() requires space name and script name"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	scriptName := args[1].(*object.String).Value
+	scriptName, scriptErr := GetString(args, 1, "script name")
+	if scriptErr != nil {
+		return scriptErr
+	}
 
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	scriptArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		scriptArgs = append(scriptArgs, args[i].(*object.String).Value)
+		arg, argErr := GetString(args, i, "script arg")
+		if argErr != nil {
+			return argErr
+		}
+		scriptArgs = append(scriptArgs, arg)
 	}
 
-	output, err := client.ExecuteScriptByName(ctx, spaceId, scriptName, scriptArgs)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to execute script: %v", err)}
+	output, apiErr := client.ExecuteScriptByName(ctx, spaceId, scriptName, scriptArgs)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to execute script: %v", apiErr)}
 	}
 
 	return &object.String{Value: output}
 }
 
 func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs map[string]object.Object, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "run() requires space name and command"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	command := args[1].(*object.String).Value
+	command, cmdErr := GetString(args, 1, "command")
+	if cmdErr != nil {
+		return cmdErr
+	}
 
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	cmdArgs := make([]string, 0)
 	if len(args) > 2 {
 		for i := 2; i < len(args); i++ {
-			cmdArgs = append(cmdArgs, args[i].(*object.String).Value)
+			arg, argErr := GetString(args, i, "command arg")
+			if argErr != nil {
+				return argErr
+			}
+			cmdArgs = append(cmdArgs, arg)
 		}
 	}
-	if argsObj, ok := kwargs["args"]; ok {
-		if argsList, ok := argsObj.(*object.List); ok {
-			cmdArgs = make([]string, len(argsList.Elements))
-			for i, elem := range argsList.Elements {
-				cmdArgs[i] = elem.(*object.String).Value
+	if argsList, found, kwErr := GetListFromKwargs(kwargs, "args"); found {
+		if kwErr != nil {
+			return kwErr
+		}
+		cmdArgs = make([]string, len(argsList))
+		for i, elem := range argsList {
+			arg, ok := elem.AsString()
+			if !ok {
+				return &object.Error{Message: fmt.Sprintf("args[%d]: must be a string", i)}
 			}
+			cmdArgs[i] = arg
 		}
 	}
 
 	timeout := 30
-	if timeoutObj, ok := kwargs["timeout"]; ok {
-		timeout = int(timeoutObj.(*object.Integer).Value)
+	if timeoutVal, found, kwErr := GetIntFromKwargs(kwargs, "timeout"); found {
+		if kwErr != nil {
+			return kwErr
+		}
+		timeout = int(timeoutVal)
 	}
 
 	workdir := ""
-	if workdirObj, ok := kwargs["workdir"]; ok {
-		workdir = workdirObj.(*object.String).Value
+	if workdirVal, found, kwErr := GetStringFromKwargs(kwargs, "workdir"); found {
+		if kwErr != nil {
+			return kwErr
+		}
+		workdir = workdirVal
 	}
 
 	request := &apiclient.RunCommandRequest{
@@ -459,27 +518,38 @@ func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId s
 		Workdir: workdir,
 	}
 
-	output, err := client.RunCommand(ctx, spaceId, request)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to execute command: %v", err)}
+	output, apiErr := client.RunCommand(ctx, spaceId, request)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to execute command: %v", apiErr)}
 	}
 
 	return &object.String{Value: output}
 }
 
 func spacePortForward(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 4 {
-		return &object.Error{Message: "port_forward() requires source_space, local_port, remote_space, and remote_port"}
+	sourceSpaceName, err := GetString(args, 0, "source_space")
+	if err != nil {
+		return err
 	}
 
-	sourceSpaceName := args[0].(*object.String).Value
-	localPort := uint16(args[1].(*object.Integer).Value)
-	remoteSpaceName := args[2].(*object.String).Value
-	remotePort := uint16(args[3].(*object.Integer).Value)
+	localPort, portErr := GetIntAsUint16(args, 1, "local_port")
+	if portErr != nil {
+		return portErr
+	}
 
-	sourceSpaceId, err := resolveSpaceName(ctx, client, userId, sourceSpaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	remoteSpaceName, spaceErr := GetString(args, 2, "remote_space")
+	if spaceErr != nil {
+		return spaceErr
+	}
+
+	remotePort, remotePortErr := GetIntAsUint16(args, 3, "remote_port")
+	if remotePortErr != nil {
+		return remotePortErr
+	}
+
+	sourceSpaceId, resolveErr := resolveSpaceName(ctx, client, userId, sourceSpaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	request := &apiclient.PortForwardRequest{
@@ -488,28 +558,28 @@ func spacePortForward(ctx context.Context, client *apiclient.ApiClient, userId s
 		RemotePort: remotePort,
 	}
 
-	_, err = client.ForwardPort(ctx, sourceSpaceId, request)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to forward port: %v", err)}
+	_, apiErr := client.ForwardPort(ctx, sourceSpaceId, request)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to forward port: %v", apiErr)}
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 func spacePortList(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "port_list() requires space name"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
-	response, _, err := client.ListPorts(ctx, spaceId)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to list ports: %v", err)}
+	response, _, apiErr := client.ListPorts(ctx, spaceId)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to list ports: %v", apiErr)}
 	}
 
 	elements := make([]object.Object, len(response.Forwards))
@@ -525,25 +595,28 @@ func spacePortList(ctx context.Context, client *apiclient.ApiClient, userId stri
 }
 
 func spacePortStop(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if len(args) < 2 {
-		return &object.Error{Message: "port_stop() requires space name and local_port"}
+	spaceName, err := GetString(args, 0, "space name")
+	if err != nil {
+		return err
 	}
 
-	spaceName := args[0].(*object.String).Value
-	localPort := uint16(args[1].(*object.Integer).Value)
+	localPort, portErr := GetIntAsUint16(args, 1, "local_port")
+	if portErr != nil {
+		return portErr
+	}
 
-	spaceId, err := resolveSpaceName(ctx, client, userId, spaceName)
-	if err != nil {
-		return &object.Error{Message: err.Error()}
+	spaceId, resolveErr := resolveSpaceName(ctx, client, userId, spaceName)
+	if resolveErr != nil {
+		return &object.Error{Message: resolveErr.Error()}
 	}
 
 	request := &apiclient.PortStopRequest{
 		LocalPort: localPort,
 	}
 
-	_, err = client.StopPort(ctx, spaceId, request)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to stop port: %v", err)}
+	_, apiErr := client.StopPort(ctx, spaceId, request)
+	if apiErr != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to stop port: %v", apiErr)}
 	}
 
 	return &object.Boolean{Value: true}

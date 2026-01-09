@@ -119,7 +119,10 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, kwargs map[st
 	// Convert arguments to map
 	arguments := make(map[string]interface{})
 	for _, pair := range argsDict.Pairs {
-		key := pair.Key.(*object.String).Value
+		key, ok := pair.Key.AsString()
+		if !ok {
+			continue // Skip non-string keys (shouldn't happen in practice)
+		}
 		arguments[key] = scriptlib.ToGo(pair.Value)
 	}
 
@@ -227,7 +230,10 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, kwargs map
 	// Convert arguments to map[string]interface{} for the execute_tool call
 	arguments := make(map[string]interface{})
 	for _, pair := range argsDict.Pairs {
-		key := pair.Key.(*object.String).Value
+		key, ok := pair.Key.AsString()
+		if !ok {
+			continue // Skip non-string keys (shouldn't happen in practice)
+		}
 		arguments[key] = scriptlib.ToGo(pair.Value)
 	}
 

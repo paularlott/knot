@@ -81,14 +81,17 @@ func aiCompletionMCP(ctx context.Context, openaiClient *openai.Client, kwargs ma
 
 		role, content := "", ""
 		for _, pair := range msgDict.Pairs {
-			key := pair.Key.(*object.String).Value
+			key, ok := pair.Key.AsString()
+			if !ok {
+				continue // Skip non-string keys (shouldn't happen in practice)
+			}
 			if key == "role" {
-				if roleStr, ok := pair.Value.(*object.String); ok {
-					role = roleStr.Value
+				if roleStr, ok := pair.Value.AsString(); ok {
+					role = roleStr
 				}
 			} else if key == "content" {
-				if contentStr, ok := pair.Value.(*object.String); ok {
-					content = contentStr.Value
+				if contentStr, ok := pair.Value.AsString(); ok {
+					content = contentStr
 				}
 			}
 		}
