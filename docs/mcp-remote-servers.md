@@ -1,6 +1,30 @@
 # MCP Remote Servers
 
-Knot's MCP server can connect to external MCP servers to expose their tools alongside Knot's native tools. This provides a unified interface for accessing tools from multiple MCP servers.
+Knot's MCP server can connect to external MCP servers to expose their tools alongside Knot's built-in tools. This provides a unified interface for accessing tools from multiple MCP servers.
+
+## MCP Endpoints
+
+Knot provides two MCP endpoints, each optimized for different use cases:
+
+### `/mcp` - Discovery-Based Endpoint (Internal AI)
+
+This endpoint uses tool discovery to minimize context window usage. All tools are accessed via the `tool_search` → `execute_tool` pattern:
+
+- **Use case**: Internal AI assistants and chat interfaces
+- **Tool access**: Tools are discovered on-demand using `tool_search`, then called via `execute_tool`
+- **Benefits**: Reduces token usage by up to 85% by not sending all tool definitions upfront
+- **Target**: Knot's internal AI features and scriptling environments
+
+### `/mcp/tools` - Native Tools Endpoint (External MCP Clients)
+
+This endpoint exposes all tools via standard MCP tool discovery (tools/list):
+
+- **Use case**: External MCP clients (Claude Desktop, VS Code extensions, etc.)
+- **Tool access**: Tools appear in `tools/list` and can be called directly
+- **Benefits**: Full compatibility with standard MCP clients
+- **Target**: Third-party MCP consumers integrating with Knot
+
+Both endpoints provide access to the same tools - only the discovery mechanism differs.
 
 ## Configuration
 
@@ -102,7 +126,27 @@ response = ai.completion(messages)
 
 ### In MCP Clients
 
-When connecting to Knot's MCP server, all tools (local and remote) are available through the standard ListTools and CallTool methods. The MCP server handles routing requests to the appropriate server.
+When connecting to Knot's MCP server from external clients (like Claude Desktop or VS Code extensions), use the `/mcp/tools` endpoint:
+
+```json
+{
+  "mcpServers": {
+    "knot": {
+      "url": "https://knot.example.com/mcp/tools",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
+      }
+    }
+  }
+}
+```
+
+All tools (local and remote) are available through standard MCP methods:
+
+- `tools/list` - Lists all available tools with full schemas
+- `tools/call` - Executes a tool directly
+
+For internal use (AI chat, scriptling), Knot automatically uses the `/mcp` endpoint with tool discovery.
 
 ## Security Considerations
 
@@ -127,6 +171,7 @@ knot server --log-level debug
 ```
 
 You'll see logs like:
+
 - `Registering remote MCP server: ai-tools (namespace: ai)`
 - `Successfully connected to remote MCP server: ai-tools`
 - `Failed to register remote MCP server: data-services - authentication failed`

@@ -15,7 +15,8 @@ import (
 	"github.com/paularlott/mcp/discovery"
 )
 
-func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, nativeTools bool, mcpConfig *config.MCPConfig) *mcp.Server {
+func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfig *config.MCPConfig) *mcp.Server {
+	// Create the main server with discovery-based tools (for internal AI use)
 	server := mcp.NewServer("knot-mcp-server", build.Version)
 	server.SetInstructions(`These tools manage spaces, templates, and other resources.
 
@@ -52,8 +53,31 @@ EXAMPLE: For "create a nomad template":
 
 REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_tool for ALL operations.`)
 
+	// Factory function to create a native server with all tools registered
+	var toolDefinitions []struct {
+		builder *mcp.ToolBuilder
+		handler mcp.ToolHandler
+	}
+
+	createNativeServerWithTools := func(user *model.User) *mcp.Server {
+		nativeServer := mcp.NewServer("knot-mcp-server", build.Version)
+		nativeServer.SetInstructions(`These tools manage spaces, templates, and other resources. All tools can be called directly.`)
+
+		// Register all static tools
+		for _, td := range toolDefinitions {
+			nativeServer.RegisterTool(td.builder, td.handler)
+		}
+
+		// Register script tools for this user
+		if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
+			RegisterScriptToolsNative(nativeServer, user)
+		}
+
+		return nativeServer
+	}
+
 	if enableWebEndpoint {
-		// Create handler with request-scoped support for tool discovery
+		// Create handler with request-scoped support for tool discovery (main /mcp endpoint)
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
@@ -72,23 +96,38 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 			server.HandleRequest(w, r)
 		})
 
-		// Apply authentication middleware
+		// Apply authentication middleware - discovery-based endpoint
 		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(handler.ServeHTTP)))
+
+		// Create handler for native tools endpoint (/mcp/tools)
+		// This endpoint creates a server per-request with all tools registered natively
+		nativeHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// The authentication middleware has already run and set the user in the context
+			user := r.Context().Value("user").(*model.User)
+
+			// Create a new server instance for this request with all tools
+			requestServer := createNativeServerWithTools(user)
+
+			// Handle the MCP request with the request-specific server
+			requestServer.HandleRequest(w, r)
+		})
+
+		// Apply authentication middleware - native tools endpoint
+		routes.HandleFunc("POST /mcp/tools", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(nativeHandler.ServeHTTP)))
 	}
 
-	// Create a tool registry for discoverable tools
-	var registry *discovery.ToolRegistry
-	if !nativeTools {
-		registry = discovery.NewToolRegistry()
-	}
+	// Create a tool registry for discoverable tools (main server)
+	registry := discovery.NewToolRegistry()
 
-	// Helper function to register tools either natively or in discovery registry
+	// Helper function to register tools in both discovery registry and tool definitions list
 	registerTool := func(tool *mcp.ToolBuilder, handler mcp.ToolHandler, keywords ...string) {
-		if nativeTools {
-			server.RegisterTool(tool, handler)
-		} else {
-			registry.RegisterTool(tool, handler, keywords...)
-		}
+		// Register in discovery registry for main /mcp endpoint
+		registry.RegisterTool(tool, handler, keywords...)
+		// Store for native server registration
+		toolDefinitions = append(toolDefinitions, struct {
+			builder *mcp.ToolBuilder
+			handler mcp.ToolHandler
+		}{builder: tool, handler: handler})
 	}
 
 	// =========================================================================
@@ -517,13 +556,11 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// =========================================================================
-	// Set up tool registry for discovery (if not in native tools mode)
+	// Set up tool registry for discovery on main server
 	// =========================================================================
-	if !nativeTools {
-		// Set the tool registry on the server for OnDemand tools from remote servers
-		// This MUST be called before RegisterRemoteServerWithVisibility for ondemand tools to work
-		server.SetToolRegistry(registry)
-	}
+	// Set the tool registry on the server for OnDemand tools from remote servers
+	// This MUST be called before RegisterRemoteServerWithVisibility for ondemand tools to work
+	server.SetToolRegistry(registry)
 
 	// =========================================================================
 	// Register remote MCP servers if configured
@@ -539,13 +576,16 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 			// Parse tool visibility
 			visibility := parseToolVisibility(remoteServer.ToolVisibility)
 
-			// Register remote server with visibility
+			// Register remote server with visibility on main discovery server
 			err := server.RegisterRemoteServerWithVisibility(remoteServer.URL, remoteServer.Namespace, authProvider, visibility)
 			if err != nil {
 				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", remoteServer.ToolVisibility, "error", err)
 				continue
 			}
 			log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", remoteServer.ToolVisibility)
+
+			// Note: Remote servers are not pre-registered on native endpoint
+			// They will be registered per-request in createNativeServerWithTools
 
 			// Test if we can list tools from the remote server
 			tools := server.ListTools()
@@ -568,11 +608,12 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	}
 
 	// =========================================================================
-	// Attach registry to server (registers tool_search, execute_tool) or register tools natively
+	// Attach registry to server (registers tool_search, execute_tool)
 	// =========================================================================
-	if !nativeTools {
-		registry.Attach(server)
-	}
+	registry.Attach(server)
+
+	// Note: We don't attach a registry to nativeServer - it only has natively registered tools
+	// Script tools are registered dynamically per-request in the handler above
 
 	return server
 }

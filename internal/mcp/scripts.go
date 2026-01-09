@@ -72,6 +72,46 @@ func RegisterScriptTools(registry *discovery.ToolRegistry, user *model.User) {
 	}
 }
 
+// RegisterScriptToolsNative registers all script-based tools natively on a server for a user
+func RegisterScriptToolsNative(server *mcp.Server, user *model.User) {
+	db := database.GetInstance()
+
+	// Get active scripts of type "tool"
+	scripts, err := db.GetScripts()
+	if err != nil {
+		log.Warn("Failed to get scripts for MCP tools: %v", err)
+		return
+	}
+
+	for _, script := range scripts {
+		// Skip non-tool scripts, inactive scripts, or deleted scripts
+		if script.ScriptType != "tool" || !script.Active || script.IsDeleted {
+			continue
+		}
+
+		// Check group access
+		if len(script.Groups) > 0 && !user.HasAnyGroup(&script.Groups) {
+			continue
+		}
+
+		// Build tool with schema from TOML
+		var tool *mcp.ToolBuilder
+		if script.MCPInputSchemaToml != "" {
+			params, err := FromToml(script.MCPInputSchemaToml)
+			if err != nil {
+				log.Warn("Failed to parse TOML schema for script %s: %v", script.Name, err)
+				continue
+			}
+			tool = mcp.NewTool(script.Name, script.Description, params...)
+		} else {
+			tool = mcp.NewTool(script.Name, script.Description)
+		}
+
+		// Register natively on the server
+		server.RegisterTool(tool, executeScriptTool(script))
+	}
+}
+
 // executeScriptTool creates a handler for executing a script
 func executeScriptTool(script *model.Script) mcp.ToolHandler {
 	return func(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {

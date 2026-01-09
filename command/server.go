@@ -31,7 +31,6 @@ import (
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
-	"github.com/paularlott/knot/internal/systemprompt"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
@@ -563,13 +562,6 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_ENABLED"},
 			DefaultValue: false,
 		},
-		&cli.BoolFlag{
-			Name:         "mcp-native-tools",
-			Usage:        "Use native tool registration instead of discovery-based registration.",
-			ConfigPath:   []string{"server.mcp.native_tools"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_NATIVE_TOOLS"},
-			DefaultValue: false,
-		},
 
 		// Chat flags
 		&cli.BoolFlag{
@@ -789,16 +781,12 @@ var ServerCmd = &cli.Command{
 		openaiEndpointEnabled := cmd.GetBool("chat-openai-endpoints")
 
 		if mcpEnabled || chatEnabled || openaiEndpointEnabled {
-			nativeTools := cmd.GetBool("mcp-native-tools")
-			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, nativeTools, &cfg.MCP)
+			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, &cfg.MCP)
 			if !mcpEnabled {
 				logger.Debug("MCP chat-only mode")
 			} else {
 				logger.Info("MCP server enabled")
 			}
-
-			// Set the appropriate system prompt based on native tools setting
-			systemprompt.SetDefaultSystemPrompt(nativeTools)
 		}
 
 		// If AI chat enabled then initialize chat service
