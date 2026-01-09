@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/internal/config"
-
 	"github.com/paularlott/cli"
+	"github.com/paularlott/knot/command/cmdutil"
 )
 
 var StopCmd = &cli.Command{
@@ -26,9 +24,7 @@ var StopCmd = &cli.Command{
 		spaceName := cmd.GetStringArg("space")
 		fmt.Println("Stopping space: ", spaceName)
 
-		alias := cmd.GetString("alias")
-		cfg := config.GetServerAddr(alias, cmd)
-		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
 			return fmt.Errorf("Failed to create API client: %w", err)
 		}

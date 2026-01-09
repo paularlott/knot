@@ -50,8 +50,10 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 	var userId string
 
 	if agentClient != nil {
-		server, token, err := agentClient.SendRequestToken()
-		if err == nil {
+		server := agentClient.GetServerURL()
+		token := agentClient.GetAgentToken()
+		if server != "" && token != "" {
+			var err error
 			client, err = apiclient.NewClient(server, token, true)
 			if err == nil {
 				client.SetTimeout(6 * time.Minute)

@@ -11,11 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/internal/config"
-
 	"github.com/gorilla/websocket"
 	"github.com/paularlott/cli"
+	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 )
 
 var CopyCmd = &cli.Command{

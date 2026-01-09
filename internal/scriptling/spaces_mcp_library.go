@@ -30,6 +30,7 @@ type ContainerService interface {
 // AgentSession interface to avoid import cycle
 type AgentSession interface {
 	SendRunCommand(runCmd *msg.RunCommandMessage) (chan *msg.RunCommandResponse, error)
+	SendExecuteScript(execMsg *msg.ExecuteScriptMessage) (chan *msg.ExecuteScriptResponse, error)
 	SendPortForwardRequest(req *msg.PortForwardRequest) (chan *msg.PortForwardResponse, error)
 	SendPortListRequest() (chan *msg.PortListResponse, error)
 	SendPortStopRequest(req *msg.PortStopRequest) (chan *msg.PortStopResponse, error)
@@ -41,7 +42,6 @@ func GetSpacesMCPLibrary(
 	spaceService SpaceService,
 	containerService ContainerService,
 	getAgentSession func(string) AgentSession,
-	executeScriptLocally func(*model.Script, []string) (string, error),
 ) *object.Library {
 	if getAgentSession == nil {
 		getAgentSession = func(spaceId string) AgentSession { return nil }
@@ -115,7 +115,7 @@ func GetSpacesMCPLibrary(
 		},
 		"run_script": {
 			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return spaceMCPExecScript(ctx, user, executeScriptLocally, args...)
+				return spaceMCPExecScript(ctx, user, getAgentSession, args...)
 			},
 			HelpText: "run_script(space_name, script_name, *args) - Execute a script in a space",
 		},
@@ -440,7 +440,7 @@ func spaceMCPList(ctx context.Context, user *model.User, args ...object.Object) 
 	return &object.List{Elements: elements}
 }
 
-func spaceMCPExecScript(ctx context.Context, user *model.User, executeScriptLocally func(*model.Script, []string) (string, error), args ...object.Object) object.Object {
+func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
 	if len(args) < 2 {
 		return &object.Error{Message: "run_script() requires space name and script name"}
 	}
@@ -485,12 +485,36 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, executeScriptLoca
 		scriptArgs = append(scriptArgs, args[i].(*object.String).Value)
 	}
 
-	output, err := executeScriptLocally(script, scriptArgs)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to execute script: %v", err)}
+	// Get agent session for the space
+	session := getAgentSession(spaceId)
+	if session == nil {
+		return &object.Error{Message: "space agent is not connected - cannot execute script"}
 	}
 
-	return &object.String{Value: output}
+	// Execute script via agent
+	timeout := script.Timeout
+	if timeout == 0 {
+		timeout = 60
+	}
+
+	execMsg := &msg.ExecuteScriptMessage{
+		Content:      script.Content,
+		Arguments:    scriptArgs,
+		Timeout:      timeout,
+		IsSystemCall: false,
+	}
+
+	respChan, err := session.SendExecuteScript(execMsg)
+	if err != nil {
+		return &object.Error{Message: fmt.Sprintf("failed to send script to agent: %v", err)}
+	}
+
+	resp := <-respChan
+	if !resp.Success {
+		return &object.Error{Message: fmt.Sprintf("script execution failed: %s", resp.Error)}
+	}
+
+	return &object.String{Value: resp.Output}
 }
 
 func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, kwargs map[string]object.Object, args ...object.Object) object.Object {

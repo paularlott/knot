@@ -162,6 +162,16 @@ func (s *agentServer) ConnectAndServe() {
 
 			log.Info("registered with server", "server", serverAddr, "version", response.Version)
 
+		// Store the agent token and server URL at AgentClient level
+		// Note: All servers in the zone generate identical tokens (deterministic HMAC)
+		// so we only need to store once, on first successful registration
+		s.agentClient.credentialsMutex.Lock()
+		if s.agentClient.agentToken == "" {
+			s.agentClient.agentToken = response.AgentToken
+			s.agentClient.serverURL = response.ServerURL
+		}
+		s.agentClient.credentialsMutex.Unlock()
+
 			// If 1st registration then start the ssh server if required
 			s.agentClient.firstRegistrationMutex.Lock()
 			if s.agentClient.firstRegistration {

@@ -14,6 +14,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/tunnel_server"
+	"github.com/paularlott/knot/internal/util/crypt"
 
 	"github.com/hashicorp/yamux"
 	"github.com/paularlott/gossip/hlc"
@@ -22,7 +23,6 @@ import (
 
 const (
 	AGENT_SESSION_LOG_HISTORY = 1000 // Number of lines of log history to keep
-	AGENT_TOKEN_DESCRIPTION   = "agent token"
 )
 
 func handleAgentConnection(conn net.Conn) {
@@ -143,6 +143,17 @@ func handleAgentConnection(conn net.Conn) {
 			}
 		}
 	}
+
+	// Generate agent token for authentication
+	cfg := config.GetServerConfig()
+	agentToken, err := crypt.GenerateAgentToken(space.Id, user.Id, cfg.Zone, cfg.EncryptionKey)
+	if err != nil {
+		logger.WithError(err).Error("failed to generate agent token")
+		msg.WriteMessage(conn, &response)
+		return
+	}
+	response.AgentToken = agentToken
+	response.ServerURL = cfg.URL
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
@@ -436,10 +447,6 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			// Single shot command so done
 			return
 
-		case byte(msg.CmdCreateToken):
-			handleCreateToken(stream, session)
-			return // Single shot command so done
-
 		case byte(msg.CmdTunnelPortConnection):
 			var reversePort msg.TcpPort
 			if err := msg.ReadMessage(stream, &reversePort); err != nil {
@@ -502,56 +509,6 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			log.Error("unknown command from agent:", "cmd", cmd)
 			return
 		}
-	}
-}
-
-func handleCreateToken(stream net.Conn, session *Session) {
-	db := database.GetInstance()
-
-	// Load the space from the database so we can get the user id
-	space, err := db.GetSpace(session.Id)
-	if err != nil {
-		log.Error("unknown space:", "agent", session.Id)
-		return
-	}
-
-	createTokenMutex.Lock()
-	defer createTokenMutex.Unlock()
-
-	// Get the users tokens
-	tokens, err := db.GetTokensForUser(space.UserId)
-	if err != nil {
-		log.WithError(err).Error("getting tokens for user:")
-		return
-	}
-
-	// Look for a token with the name AGENT_TOKEN_DESCRIPTION, if not found we create one
-	var token *model.Token
-	for _, t := range tokens {
-		if t.Name == AGENT_TOKEN_DESCRIPTION && !t.IsDeleted {
-			token = t
-			break
-		}
-	}
-
-	if token == nil {
-		token = model.NewToken(AGENT_TOKEN_DESCRIPTION, space.UserId)
-		err := db.SaveToken(token)
-		if err != nil {
-			log.WithError(err).Error("saving token:")
-			return
-		}
-		service.GetTransport().GossipToken(token)
-	}
-
-	cfg := config.GetServerConfig()
-	response := msg.CreateTokenResponse{
-		Server: cfg.URL,
-		Token:  token.Id,
-	}
-	if err := msg.WriteMessage(stream, &response); err != nil {
-		log.WithError(err).Error("writing create token response:")
-		return
 	}
 }
 

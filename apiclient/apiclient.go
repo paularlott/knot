@@ -11,6 +11,7 @@ import (
 
 type ApiClient struct {
 	httpClient *rest.RESTClient
+	spaceId    string
 }
 
 func NewClient(baseURL string, token string, insecureSkipVerify bool) (*ApiClient, error) {
@@ -52,6 +53,14 @@ func (c *ApiClient) SetBaseUrl(baseURL string) *ApiClient {
 func (c *ApiClient) SetTimeout(timeout time.Duration) *ApiClient {
 	c.httpClient.SetTimeout(timeout)
 	return c
+}
+
+func (c *ApiClient) GetBaseURL() string {
+	return c.httpClient.GetBaseURL()
+}
+
+func (c *ApiClient) GetAuthToken() string {
+	return c.httpClient.GetAuthToken()
 }
 
 // Do makes an arbitrary API request using JSON content type

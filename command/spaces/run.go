@@ -7,11 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/internal/config"
-
 	"github.com/gorilla/websocket"
 	"github.com/paularlott/cli"
+	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/command/cmdutil"
 )
 
 var RunCmd = &cli.Command{
@@ -53,9 +52,7 @@ var RunCmd = &cli.Command{
 		command := cmd.GetStringArg("command")
 
 		// Create a new websocket connection
-		alias := cmd.GetString("alias")
-		cfg := config.GetServerAddr(alias, cmd)
-		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
 			return fmt.Errorf("Failed to create API client: %w", err)
 		}
@@ -85,16 +82,20 @@ var RunCmd = &cli.Command{
 			return fmt.Errorf("Space not found: %s", spaceName)
 		}
 
+		// Get server info from client
+		baseURL := client.GetBaseURL()
+		token := client.GetAuthToken()
+		wsURL := "ws" + baseURL[4:] + fmt.Sprintf("/space-io/%s/run", spaceId)
+
 		// Connect to the websocket for command execution (new path under /space-io)
-		wsUrl := fmt.Sprintf("%s/space-io/%s/run", cfg.WsServer, spaceId)
 		header := http.Header{
-			"Authorization": []string{fmt.Sprintf("Bearer %s", cfg.ApiToken)},
+			"Authorization": []string{fmt.Sprintf("Bearer %s", token)},
 		}
 
 		dialer := websocket.DefaultDialer
 		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cmd.GetBool("tls-skip-verify")}
 		dialer.HandshakeTimeout = 5 * time.Second
-		ws, response, err := dialer.Dial(wsUrl, header)
+		ws, response, err := dialer.Dial(wsURL, header)
 		if err != nil {
 			if response != nil && response.StatusCode == http.StatusUnauthorized {
 				return fmt.Errorf("failed to authenticate with server, check remote token")

@@ -128,33 +128,15 @@ func IsAgentRunning() bool {
 		return false
 	}
 
+	// Just check if we can connect to the socket
 	conn, err := net.Dial("unix", socketPath)
 	if err != nil {
 		os.Remove(socketPath)
 		return false
 	}
-	defer conn.Close()
+	conn.Close()
 
-	err = sendMsg(conn, CommandConnect, nil)
-	if err != nil {
-		os.Remove(socketPath)
-		return false
-	}
-
-	var response ConnectResponse
-	msgRec, err := receiveMsg(conn)
-	if err != nil {
-		os.Remove(socketPath)
-		return false
-	}
-
-	err = msgRec.Unmarshal(&response)
-	if err != nil {
-		os.Remove(socketPath)
-		return false
-	}
-
-	return response.Success
+	return true
 }
 
 func SendWithResponseMsg(commandType CommandType, payload interface{}, response interface{}) error {

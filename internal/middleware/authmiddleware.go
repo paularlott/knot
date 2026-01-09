@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/knot/internal/util/crypt"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 
@@ -80,23 +81,59 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 					return
 				}
 
-				token, _ := db.GetToken(bearer)
-				if token == nil || token.IsDeleted {
-					returnUnauthorized(w, r)
-					return
+				// Check if this is an agent token
+				if crypt.IsAgentToken(bearer) {
+					cfg := config.GetServerConfig()
+
+					// Extract space ID from token
+					spaceId := crypt.ExtractSpaceIdFromToken(bearer)
+					if spaceId == "" {
+						logger.Debug("invalid agent token format")
+						returnUnauthorized(w, r)
+						return
+					}
+
+					// Look up space to get userId
+					space, err := db.GetSpace(spaceId)
+					if err != nil {
+						logger.Debug("space not found", "space_id", spaceId)
+						returnUnauthorized(w, r)
+						return
+					}
+
+					// Validate token signature
+					if !crypt.ValidateAgentToken(bearer, spaceId, space.UserId, cfg.Zone, cfg.EncryptionKey) {
+						logger.Debug("invalid agent token signature")
+						returnUnauthorized(w, r)
+						return
+					}
+
+					userId = space.UserId
+
+					// Add space ID to context
+					ctx = context.WithValue(ctx, "space_id", spaceId)
+
+					logger.Debug("agent token authenticated", "space_id", spaceId, "user_id", userId)
+				} else {
+					// Regular API token
+					token, _ := db.GetToken(bearer)
+					if token == nil || token.IsDeleted {
+						returnUnauthorized(w, r)
+						return
+					}
+
+					userId = token.UserId
+
+					// Save the token to extend its life
+					expiresAfter := time.Now().Add(model.MaxTokenAge)
+					token.ExpiresAfter = expiresAfter.UTC()
+					token.UpdatedAt = hlc.Now()
+					db.SaveToken(token)
+					service.GetTransport().GossipToken(token)
+
+					// Add the token to the context
+					ctx = context.WithValue(r.Context(), "access_token", token)
 				}
-
-				userId = token.UserId
-
-				// Save the token to extend its life
-				expiresAfter := time.Now().Add(model.MaxTokenAge)
-				token.ExpiresAfter = expiresAfter.UTC()
-				token.UpdatedAt = hlc.Now()
-				db.SaveToken(token)
-				service.GetTransport().GossipToken(token)
-
-				// Add the token to the context
-				ctx = context.WithValue(r.Context(), "access_token", token)
 			} else {
 				// Get the session
 				session := GetSessionFromCookie(r)

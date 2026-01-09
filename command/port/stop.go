@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/command"
 
 	"github.com/paularlott/cli"
 )
@@ -28,9 +28,6 @@ var StopCmd = &cli.Command{
 	},
 	MaxArgs: cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
-		alias := cmd.GetString("alias")
-		cfg := config.GetServerAddr(alias, cmd)
-
 		spaceName := cmd.GetStringArg("space")
 		localPort := cmd.GetIntArg("local-port")
 
@@ -40,7 +37,7 @@ var StopCmd = &cli.Command{
 		}
 
 		// Get the space ID from the space name
-		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+		client, err := command.GetClient(cmd)
 		if err != nil {
 			return fmt.Errorf("failed to create API client: %w", err)
 		}

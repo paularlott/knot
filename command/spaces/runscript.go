@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/paularlott/cli"
-	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/command/cmdutil"
 )
 
 var RunScriptCmd = &cli.Command{
@@ -29,9 +28,7 @@ var RunScriptCmd = &cli.Command{
 		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
-		alias := cmd.GetString("alias")
-		cfg := config.GetServerAddr(alias, cmd)
-		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
 			return fmt.Errorf("failed to create API client: %w", err)
 		}

@@ -4,6 +4,7 @@ type ConnectResponse struct {
 	Success bool   `msgpack:"s"`
 	Server  string `msgpack:"sv"`
 	Token   string `msgpack:"t"`
+	SpaceID string `msgpack:"sid"`
 }
 
 type SpaceNoteRequest struct {

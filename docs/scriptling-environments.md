@@ -15,9 +15,11 @@ All environments now use **dynamic library loading** via scriptling's on-demand 
 **Available Libraries:**
 
 ### Standard Libraries
+
 - All Python-like standard libraries via `stdlib.RegisterAll()`
 
 ### Extended Libraries
+
 - **requests** - HTTP client library
 - **secrets** - Secure random number generation
 - **subprocess** - Process execution
@@ -31,11 +33,13 @@ All environments now use **dynamic library loading** via scriptling's on-demand 
 - **mcp** - MCP tools library (via API)
 
 ### On-Demand Loading
+
 - **Enabled**: Libraries are loaded dynamically as imports are encountered
 - **Priority**: Local `.py` files are tried first, then fetches from server
 - **API**: Uses `GET /api/scripts/library/{library_name}` endpoint
 
 **Example:**
+
 ```bash
 # Run local script with dynamic library loading
 knot run-script myscript.py arg1 arg2
@@ -58,9 +62,11 @@ import mylib  # Tries mylib.py locally, then fetches from server
 **Available Libraries:**
 
 ### Standard Libraries
+
 - All Python-like standard libraries via `stdlib.RegisterAll()`
 
 ### Extended Libraries
+
 - **requests** - HTTP client library
 - **secrets** - Secure random number generation
 - **htmlparser** - HTML parsing and manipulation
@@ -68,9 +74,11 @@ import mylib  # Tries mylib.py locally, then fetches from server
 - **ai** - AI completion functions (via MCP server)
 
 ### Special Libraries
+
 - **mcp** - MCP-specific functions with access to tool parameters
 
 ### On-Demand Loading
+
 - **Enabled**: Libraries are loaded dynamically from server only
 - **API**: Uses `GET /api/scripts/library/{library_name}` endpoint
 - **No filesystem access** for security
@@ -88,9 +96,11 @@ import mylib  # Tries mylib.py locally, then fetches from server
 **Available Libraries:**
 
 ### Standard Libraries
+
 - All Python-like standard libraries via `stdlib.RegisterAll()`
 
 ### Extended Libraries
+
 - **requests** - HTTP client library
 - **secrets** - Secure random number generation
 - **subprocess** - Process execution
@@ -104,10 +114,12 @@ import mylib  # Tries mylib.py locally, then fetches from server
 - **mcp** - MCP tools library (via API)
 
 ### On-Demand Loading
+
 - **Enabled**: Libraries are loaded dynamically from server only
 - **API**: Uses `GET /api/scripts/library/{library_name}` endpoint
 
 **Example:**
+
 ```bash
 # Execute script in a space
 knot space run-script myspace myscript arg1 arg2
@@ -117,20 +129,20 @@ knot space run-script myspace myscript arg1 arg2
 
 ## Library Comparison Matrix
 
-| Library | Local | MCP | Remote |
-|---------|-------|-----|--------|
-| stdlib | ✓ | ✓ | ✓ |
-| requests | ✓ | ✓ | ✓ |
-| secrets | ✓ | ✓ | ✓ |
-| htmlparser | ✓ | ✓ | ✓ |
-| subprocess | ✓ | ✗ | ✓ |
-| threads | ✓ | ✗ | ✓ |
-| os | ✓ | ✗ | ✓ |
-| pathlib | ✓ | ✗ | ✓ |
-| sys | ✓ | ✗ | ✓ |
-| spaces | ✓ | ✓ | ✓ |
-| ai | ✓ | ✓ | ✓ |
-| mcp | ✓ | ✓ | ✓ |
+| Library        | Local            | MCP        | Remote     |
+| -------------- | ---------------- | ---------- | ---------- |
+| stdlib         | ✓                | ✓          | ✓          |
+| requests       | ✓                | ✓          | ✓          |
+| secrets        | ✓                | ✓          | ✓          |
+| htmlparser     | ✓                | ✓          | ✓          |
+| subprocess     | ✓                | ✗          | ✓          |
+| threads        | ✓                | ✗          | ✓          |
+| os             | ✓                | ✗          | ✓          |
+| pathlib        | ✓                | ✗          | ✓          |
+| sys            | ✓                | ✗          | ✓          |
+| spaces         | ✓                | ✓          | ✓          |
+| ai             | ✓                | ✓          | ✓          |
+| mcp            | ✓                | ✓          | ✓          |
 | On-demand libs | ✓ (local+server) | ✓ (server) | ✓ (server) |
 
 ---
@@ -138,24 +150,31 @@ knot space run-script myspace myscript arg1 arg2
 ## Security Considerations
 
 ### Local Environment
+
 - Full system access - use with trusted scripts only
-- Can read/write files via pathlib
+- Can read/write files via pathlib on local machine
 - Can execute system commands via subprocess
 - Can load arbitrary .py files from disk (tried first)
 - Falls back to server libraries if not found locally
+- Has API access to spaces, ai, and mcp
 
 ### MCP Environment
+
 - Restricted for AI safety
 - No filesystem access
 - No command execution
 - Cannot load external files
 - Only fetches libraries from server
+- Limited to safe operations for AI tool usage
 
 ### Remote Environment
-- Runs in isolated container
+
+- Runs in isolated container (space)
 - Full capabilities within container
 - No access to host filesystem
 - Libraries fetched dynamically from server
+- Has API access to spaces, ai, and mcp from within space
+- **Requires active agent connection** - script execution fails if space agent is not connected
 
 ---
 

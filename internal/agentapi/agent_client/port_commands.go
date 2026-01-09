@@ -50,9 +50,10 @@ func handlePortForwardExecution(stream net.Conn, portCmd msg.PortForwardRequest,
 	}
 
 	// Get connection info from agent
-	server, token, err := agentClient.SendRequestToken()
-	if err != nil {
-		log.WithError(err).Error("Failed to get connection info")
+	server := agentClient.GetServerURL()
+	token := agentClient.GetAgentToken()
+	if server == "" || token == "" {
+		log.Error("Failed to get connection info from agent")
 		msg.WriteMessage(stream, &msg.PortForwardResponse{
 			Success: false,
 			Error:   "Failed to get connection info",

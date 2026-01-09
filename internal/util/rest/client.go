@@ -143,6 +143,14 @@ func (c *RESTClient) ClearHeaders() *RESTClient {
 	return c
 }
 
+func (c *RESTClient) GetBaseURL() string {
+	return c.baseURL.String()
+}
+
+func (c *RESTClient) GetAuthToken() string {
+	return c.token
+}
+
 func (c *RESTClient) setHeaders(req *http.Request) {
 	req.Header.Set("Accept", strings.Join(c.accept, ", "))
 	req.Header.Set("Content-Type", c.contentType)

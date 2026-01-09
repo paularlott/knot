@@ -428,8 +428,9 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 			output = resp.Output
 		}
 	} else {
-		// Local execution
-		output, execErr = service.ExecuteScriptLocally(script, request.Arguments)
+		// No agent connection - reject execution
+		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "Space agent is not connected - cannot execute script"})
+		return
 	}
 
 	audit.Log(
@@ -658,7 +659,9 @@ func HandleExecuteScriptByName(w http.ResponseWriter, r *http.Request) {
 			output = resp.Output
 		}
 	} else {
-		output, execErr = service.ExecuteScriptLocally(script, request.Arguments)
+		// No agent connection - reject execution
+		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "Space agent is not connected - cannot execute script"})
+		return
 	}
 
 	audit.Log(

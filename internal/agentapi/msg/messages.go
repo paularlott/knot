@@ -26,7 +26,6 @@ const (
 	CmdUpdateSpaceNote
 	CmdUpdateSpaceVar
 	CmdGetSpaceVar
-	CmdCreateToken
 	CmdTunnelPort
 	CmdTunnelPortConnection
 	CmdSpaceStop

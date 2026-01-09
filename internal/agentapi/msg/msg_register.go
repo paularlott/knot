@@ -20,4 +20,6 @@ type RegisterResponse struct {
 	WithSSH          bool
 	WithRunCommand   bool
 	Freeze           bool
+	AgentToken       string // Deterministic authentication token for the agent
+	ServerURL        string // Public URL of the server for API calls
 }

@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
-
-	"github.com/paularlott/cli"
 )
 
 var DeleteCmd = &cli.Command{
