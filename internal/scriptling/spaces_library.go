@@ -263,9 +263,9 @@ func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string
 			return err
 		}
 	}
-	desc, err := scriptling.GetStringFromKwargs(kwargs.Kwargs, "description", "")
-	if err != nil {
-		return err
+	desc, getErr := kwargs.GetString("description", "")
+	if getErr != nil {
+		return &object.Error{Message: getErr.Error()}
 	}
 	description = desc
 
@@ -277,9 +277,9 @@ func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string
 			return err
 		}
 	}
-	sh, err := scriptling.GetStringFromKwargs(kwargs.Kwargs, "shell", "bash")
-	if err != nil {
-		return err
+	sh, getErr := kwargs.GetString("shell", "bash")
+	if getErr != nil {
+		return &object.Error{Message: getErr.Error()}
 	}
 	shell = sh
 
@@ -476,9 +476,9 @@ func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId s
 			cmdArgs = append(cmdArgs, arg)
 		}
 	}
-	argsList, err := scriptling.GetListFromKwargs(kwargs.Kwargs, "args", []object.Object{})
-	if err != nil {
-		return err
+	argsList, getErr := kwargs.GetList("args", []object.Object{})
+	if getErr != nil {
+		return &object.Error{Message: getErr.Error()}
 	}
 	if len(argsList) > 0 {
 		cmdArgs = make([]string, len(argsList))
@@ -492,16 +492,16 @@ func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId s
 	}
 
 	timeout := 30
-	timeoutVal, err := scriptling.GetIntFromKwargs(kwargs.Kwargs, "timeout", 30)
-	if err != nil {
-		return err
+	timeoutVal, getErr := kwargs.GetInt("timeout", 30)
+	if getErr != nil {
+		return &object.Error{Message: getErr.Error()}
 	}
 	timeout = int(timeoutVal)
 
 	workdir := ""
-	workdirVal, err := scriptling.GetStringFromKwargs(kwargs.Kwargs, "workdir", "")
-	if err != nil {
-		return err
+	workdirVal, getErr := kwargs.GetString("workdir", "")
+	if getErr != nil {
+		return &object.Error{Message: getErr.Error()}
 	}
 	workdir = workdirVal
 
