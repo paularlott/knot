@@ -49,97 +49,97 @@ func GetSpacesMCPLibrary(
 	}
 	functions := map[string]*object.Builtin{
 		"start": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPStart(ctx, user, containerService, args...)
 			},
 			HelpText: "start(name) - Start a space by name",
 		},
 		"stop": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPStop(ctx, user, containerService, args...)
 			},
 			HelpText: "stop(name) - Stop a space by name",
 		},
 		"restart": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPRestart(ctx, user, containerService, args...)
 			},
 			HelpText: "restart(name) - Restart a space by name",
 		},
 		"get_field": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPGetField(ctx, user, spaceService, args...)
 			},
 			HelpText: "get_field(name, field) - Get a custom field value from a space",
 		},
 		"set_field": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPSetField(ctx, user, spaceService, args...)
 			},
 			HelpText: "set_field(name, field, value) - Set a custom field value on a space",
 		},
 		"create": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPCreate(ctx, user, spaceService, kwargs, args...)
 			},
 			HelpText: "create(name, template_name, description='', shell='bash') - Create a new space",
 		},
 		"delete": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPDelete(ctx, user, spaceService, args...)
 			},
 			HelpText: "delete(name) - Delete a space by name",
 		},
 		"set_description": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPSetDescription(ctx, user, spaceService, args...)
 			},
 			HelpText: "set_description(name, description) - Set the description of a space",
 		},
 		"get_description": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPGetDescription(ctx, user, spaceService, args...)
 			},
 			HelpText: "get_description(name) - Get the description of a space",
 		},
 		"is_running": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPIsRunning(ctx, user, args...)
 			},
 			HelpText: "is_running(name) - Check if a space is running",
 		},
 		"list": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPList(ctx, user, args...)
 			},
 			HelpText: "list() - List all spaces for the current user",
 		},
 		"run_script": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPExecScript(ctx, user, getAgentSession, args...)
 			},
 			HelpText: "run_script(space_name, script_name, *args) - Execute a script in a space",
 		},
 		"run": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPExecCommand(ctx, user, getAgentSession, kwargs, args...)
 			},
 			HelpText: "run(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space",
 		},
 		"port_forward": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPPortForward(ctx, user, getAgentSession, args...)
 			},
 			HelpText: "port_forward(source_space, local_port, remote_space, remote_port) - Forward a local port to a remote space port",
 		},
 		"port_list": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPPortList(ctx, user, getAgentSession, args...)
 			},
 			HelpText: "port_list(space) - List active port forwards for a space",
 		},
 		"port_stop": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPPortStop(ctx, user, getAgentSession, args...)
 			},
 			HelpText: "port_stop(space, local_port) - Stop a port forward",
@@ -291,7 +291,7 @@ func spaceMCPSetField(ctx context.Context, user *model.User, spaceService SpaceS
 	return &object.Boolean{Value: true}
 }
 
-func spaceMCPCreate(ctx context.Context, user *model.User, spaceService SpaceService, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func spaceMCPCreate(ctx context.Context, user *model.User, spaceService SpaceService, kwargs object.Kwargs, args ...object.Object) object.Object {
 	name, err := scriptling.GetString(args, 0, "name")
 	if err != nil {
 		return err
@@ -327,7 +327,7 @@ func spaceMCPCreate(ctx context.Context, user *model.User, spaceService SpaceSer
 			return err
 		}
 	}
-	desc, err := scriptling.GetStringFromKwargs(kwargs, "description", "")
+	desc, err := scriptling.GetStringFromKwargs(kwargs.Kwargs, "description", "")
 	if err != nil {
 		return err
 	}
@@ -340,7 +340,7 @@ func spaceMCPCreate(ctx context.Context, user *model.User, spaceService SpaceSer
 			return err
 		}
 	}
-	sh, err := scriptling.GetStringFromKwargs(kwargs, "shell", "bash")
+	sh, err := scriptling.GetStringFromKwargs(kwargs.Kwargs, "shell", "bash")
 	if err != nil {
 		return err
 	}
@@ -551,7 +551,7 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession f
 	return &object.String{Value: resp.Output}
 }
 
-func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, kwargs object.Kwargs, args ...object.Object) object.Object {
 	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
@@ -600,7 +600,7 @@ func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession 
 			cmdArgs = append(cmdArgs, arg)
 		}
 	}
-	argsList, err := scriptling.GetListFromKwargs(kwargs, "args", []object.Object{})
+	argsList, err := scriptling.GetListFromKwargs(kwargs.Kwargs, "args", []object.Object{})
 	if err != nil {
 		return err
 	}
@@ -616,14 +616,14 @@ func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession 
 	}
 
 	timeout := 30
-	timeoutVal, err := scriptling.GetIntFromKwargs(kwargs, "timeout", 30)
+	timeoutVal, err := scriptling.GetIntFromKwargs(kwargs.Kwargs, "timeout", 30)
 	if err != nil {
 		return err
 	}
 	timeout = int(timeoutVal)
 
 	workdir := ""
-	workdirVal, err := scriptling.GetStringFromKwargs(kwargs, "workdir", "")
+	workdirVal, err := scriptling.GetStringFromKwargs(kwargs.Kwargs, "workdir", "")
 	if err != nil {
 		return err
 	}

@@ -17,26 +17,26 @@ import (
 func GetMCPToolsLibrary(client *apiclient.ApiClient) *object.Library {
 	functions := map[string]*object.Builtin{
 		"list_tools": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpListTools(ctx, client, kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return mcpListTools(ctx, client, kwargs.Kwargs, args...)
 			},
 			HelpText: "list_tools() - Get list of available MCP tools and their parameters.",
 		},
 		"call_tool": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpCallTool(ctx, client, kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return mcpCallTool(ctx, client, kwargs.Kwargs, args...)
 			},
 			HelpText: "call_tool(name, arguments) - Call an MCP tool directly. Arguments should be a dict.",
 		},
 		"tool_search": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpToolSearch(ctx, client, kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return mcpToolSearch(ctx, client, kwargs.Kwargs, args...)
 			},
 			HelpText: "tool_search(query) - Search for tools by keyword. Returns list of matching tools with names like 'namespace/toolname'.",
 		},
 		"execute_tool": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpExecuteTool(ctx, client, kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return mcpExecuteTool(ctx, client, kwargs.Kwargs, args...)
 			},
 			HelpText: "execute_tool(name, arguments) - Execute a discovered tool. Use full name like 'namespace/toolname' for namespaced tools. Arguments should be a dict.",
 		},

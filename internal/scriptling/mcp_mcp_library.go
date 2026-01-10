@@ -20,56 +20,56 @@ import (
 func GetMCPLibrary(mcpParams map[string]string, openaiClient *openai.Client) *object.Library {
 	functions := map[string]*object.Builtin{
 		"get": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return mcpGet(mcpParams, args...)
 			},
 			HelpText: "get(name[, default]) - Get MCP parameter value with automatic type conversion",
 		},
 		"return_string": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return mcpReturnString(args...)
 			},
 			HelpText: "return_string(value) - Return a string result and exit",
 		},
 		"return_object": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return mcpReturnObject(args...)
 			},
 			HelpText: "return_object(value) - Return a structured object as JSON and exit",
 		},
 		"return_toon": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return mcpReturnToon(args...)
 			},
 			HelpText: "return_toon(value) - Return a value encoded as toon and exit",
 		},
 		"return_error": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return mcpReturnError(args...)
 			},
 			HelpText: "return_error(message) - Return an error message and exit with error code",
 		},
 		"list_tools": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpListToolsMCP(ctx, openaiClient, kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return mcpListToolsMCP(ctx, openaiClient, kwargs.Kwargs, args...)
 			},
 			HelpText: "list_tools() - Get list of available MCP tools and their parameters.",
 		},
 		"call_tool": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpCallToolMCP(ctx, openaiClient, kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return mcpCallToolMCP(ctx, openaiClient, kwargs.Kwargs, args...)
 			},
 			HelpText: "call_tool(name, arguments) - Call an MCP tool directly. Arguments should be a dict.",
 		},
 		"tool_search": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpToolSearchMCP(ctx, openaiClient, kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return mcpToolSearchMCP(ctx, openaiClient, kwargs.Kwargs, args...)
 			},
 			HelpText: "tool_search(query[, namespace]) - Search for tools by keyword. Returns list of matching tools.",
 		},
 		"execute_tool": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return mcpExecuteToolMCP(ctx, openaiClient, kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return mcpExecuteToolMCP(ctx, openaiClient, kwargs.Kwargs, args...)
 			},
 			HelpText: "execute_tool(name, arguments[, namespace]) - Execute a discovered tool. Arguments should be a dict.",
 		},

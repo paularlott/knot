@@ -17,38 +17,38 @@ import (
 func GetAIMCPLibrary(openaiClient *openai.Client) *object.Library {
 	functions := map[string]*object.Builtin{
 		"completion": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return aiCompletionMCP(ctx, openaiClient, kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return aiCompletionMCP(ctx, openaiClient, kwargs.Kwargs, args...)
 			},
 			HelpText: "completion(messages) - Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys.",
 		},
 		"response_create": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return responseCreateMCP(ctx, openaiClient, kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return responseCreateMCP(ctx, openaiClient, kwargs.Kwargs, args...)
 			},
 			HelpText: "response_create(input, model=None, instructions=None, previous_response_id=None, background=False) - Create AI response. Returns response dict by default, or response_id if background=True.",
 		},
 		"response_get": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return responseGetMCP(kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return responseGetMCP(kwargs.Kwargs, args...)
 			},
 			HelpText: "response_get(id) - Get response by ID. Returns dict with status and result.",
 		},
 		"response_wait": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return responseWaitMCP(kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return responseWaitMCP(kwargs.Kwargs, args...)
 			},
 			HelpText: "response_wait(id, timeout) - Wait for response completion. timeout is in seconds (default 300). Returns response dict.",
 		},
 		"response_cancel": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return responseCancelMCP(kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return responseCancelMCP(kwargs.Kwargs, args...)
 			},
 			HelpText: "response_cancel(id) - Cancel in-progress response.",
 		},
 		"response_delete": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
-				return responseDeleteMCP(kwargs, args...)
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+				return responseDeleteMCP(kwargs.Kwargs, args...)
 			},
 			HelpText: "response_delete(id) - Delete response.",
 		},

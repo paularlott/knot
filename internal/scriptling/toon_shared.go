@@ -13,7 +13,7 @@ import (
 func GetToonBuiltins() map[string]*object.Builtin {
 	return map[string]*object.Builtin{
 		"toon_encode": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				if len(args) < 1 {
 					return &object.String{Value: "Error: toon_encode requires 1 argument"}
 				}
@@ -27,7 +27,7 @@ func GetToonBuiltins() map[string]*object.Builtin {
 			HelpText: "toon_encode(value) - Encode a value to toon format string.",
 		},
 		"toon_decode": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				if len(args) < 1 {
 					return &object.String{Value: "Error: toon_decode requires 1 argument"}
 				}

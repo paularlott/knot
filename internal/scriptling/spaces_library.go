@@ -13,97 +13,97 @@ import (
 func GetSpacesLibrary(client *apiclient.ApiClient, userId string) *object.Library {
 	functions := map[string]*object.Builtin{
 		"start": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceStart(ctx, client, userId, args...)
 			},
 			HelpText: "start(name) - Start a space by name",
 		},
 		"stop": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceStop(ctx, client, userId, args...)
 			},
 			HelpText: "stop(name) - Stop a space by name",
 		},
 		"restart": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceRestart(ctx, client, userId, args...)
 			},
 			HelpText: "restart(name) - Restart a space by name",
 		},
 		"get_field": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceGetField(ctx, client, userId, args...)
 			},
 			HelpText: "get_field(name, field) - Get a custom field value from a space",
 		},
 		"set_field": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceSetField(ctx, client, userId, args...)
 			},
 			HelpText: "set_field(name, field, value) - Set a custom field value on a space",
 		},
 		"create": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceCreate(ctx, client, userId, kwargs, args...)
 			},
 			HelpText: "create(name, template_name, description='', shell='bash') - Create a new space",
 		},
 		"delete": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceDelete(ctx, client, userId, args...)
 			},
 			HelpText: "delete(name) - Delete a space by name",
 		},
 		"set_description": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceSetDescription(ctx, client, userId, args...)
 			},
 			HelpText: "set_description(name, description) - Set the description of a space",
 		},
 		"get_description": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceGetDescription(ctx, client, userId, args...)
 			},
 			HelpText: "get_description(name) - Get the description of a space",
 		},
 		"is_running": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceIsRunning(ctx, client, userId, args...)
 			},
 			HelpText: "is_running(name) - Check if a space is running",
 		},
 		"list": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceList(ctx, client, userId, args...)
 			},
 			HelpText: "list() - List all spaces for the current user",
 		},
 		"run_script": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceExecScript(ctx, client, userId, args...)
 			},
 			HelpText: "run_script(space_name, script_name, *args) - Execute a script in a space",
 		},
 		"run": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceExecCommand(ctx, client, userId, kwargs, args...)
 			},
 			HelpText: "run(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space",
 		},
 		"port_forward": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spacePortForward(ctx, client, userId, args...)
 			},
 			HelpText: "port_forward(source_space, local_port, remote_space, remote_port) - Forward a local port to a remote space port",
 		},
 		"port_list": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spacePortList(ctx, client, userId, args...)
 			},
 			HelpText: "port_list(space) - List active port forwards for a space",
 		},
 		"port_stop": {
-			Fn: func(ctx context.Context, kwargs map[string]object.Object, args ...object.Object) object.Object {
+			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spacePortStop(ctx, client, userId, args...)
 			},
 			HelpText: "port_stop(space, local_port) - Stop a port forward",
@@ -238,7 +238,7 @@ func spaceSetField(ctx context.Context, client *apiclient.ApiClient, userId stri
 	return &object.Boolean{Value: true}
 }
 
-func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs object.Kwargs, args ...object.Object) object.Object {
 	name, err := scriptling.GetString(args, 0, "name")
 	if err != nil {
 		return err
@@ -263,7 +263,7 @@ func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string
 			return err
 		}
 	}
-	desc, err := scriptling.GetStringFromKwargs(kwargs, "description", "")
+	desc, err := scriptling.GetStringFromKwargs(kwargs.Kwargs, "description", "")
 	if err != nil {
 		return err
 	}
@@ -277,7 +277,7 @@ func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string
 			return err
 		}
 	}
-	sh, err := scriptling.GetStringFromKwargs(kwargs, "shell", "bash")
+	sh, err := scriptling.GetStringFromKwargs(kwargs.Kwargs, "shell", "bash")
 	if err != nil {
 		return err
 	}
@@ -450,7 +450,7 @@ func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId st
 	return &object.String{Value: output}
 }
 
-func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs object.Kwargs, args ...object.Object) object.Object {
 	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
@@ -476,7 +476,7 @@ func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId s
 			cmdArgs = append(cmdArgs, arg)
 		}
 	}
-	argsList, err := scriptling.GetListFromKwargs(kwargs, "args", []object.Object{})
+	argsList, err := scriptling.GetListFromKwargs(kwargs.Kwargs, "args", []object.Object{})
 	if err != nil {
 		return err
 	}
@@ -492,14 +492,14 @@ func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId s
 	}
 
 	timeout := 30
-	timeoutVal, err := scriptling.GetIntFromKwargs(kwargs, "timeout", 30)
+	timeoutVal, err := scriptling.GetIntFromKwargs(kwargs.Kwargs, "timeout", 30)
 	if err != nil {
 		return err
 	}
 	timeout = int(timeoutVal)
 
 	workdir := ""
-	workdirVal, err := scriptling.GetStringFromKwargs(kwargs, "workdir", "")
+	workdirVal, err := scriptling.GetStringFromKwargs(kwargs.Kwargs, "workdir", "")
 	if err != nil {
 		return err
 	}
