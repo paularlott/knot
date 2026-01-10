@@ -1,0 +1,178 @@
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  cla-check:
+    name: Check CLA status
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run CLA check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const username = pr.user.login;
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const CLA_OK_LABEL = 'cla: ok';
+            const CLA_MISSING_LABEL = 'cla: required';
+
+            // 1. Load .clabot.json file
+            const fs = require('fs');
+            const path = '.clabot.json';
+
+            if (!fs.existsSync(path)) {
+              core.setFailed('.clabot.json file is missing in the repository root');
+              return;
+            }
+
+            let config;
+            try {
+              const raw = fs.readFileSync(path, 'utf8');
+              config = JSON.parse(raw);
+            } catch (e) {
+              core.setFailed('Failed to parse .clabot.json as valid JSON: ' + e.message);
+              return;
+            }
+
+            // 2. Normalise schema
+            const individuals = config.individuals || config.contributors || [];
+            const companies = config.companies || {};
+            const allUsers = new Set([
+              ...individuals.map(u => u.toLowerCase()),
+              ...Object.values(companies).flat().map(u => u.toLowerCase())
+            ]);
+
+            const hasSigned = allUsers.has(username.toLowerCase());
+
+            // 3. Ensure labels exist on the repo
+            async function ensureLabel(name, color, description) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch (err) {
+                if (err.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name,
+                    color,
+                    description
+                  });
+                } else {
+                  throw err;
+                }
+              }
+            }
+
+            await ensureLabel(CLA_OK_LABEL, '0e8a16', 'Contributor has signed the CLA');
+            await ensureLabel(CLA_MISSING_LABEL, 'e11d21', 'Contributor must sign the CLA');
+
+            // 4. Update labels on the PR
+            const issue_number = pr.number;
+
+            const { data: currentLabels } = await github.rest.issues.listLabelsOnIssue({
+              owner,
+              repo,
+              issue_number
+            });
+
+            const currentLabelNames = currentLabels.map(l => l.name);
+
+            const desiredLabel = hasSigned ? CLA_OK_LABEL : CLA_MISSING_LABEL;
+            const undesiredLabel = hasSigned ? CLA_MISSING_LABEL : CLA_OK_LABEL;
+
+            // Add desired label if missing
+            if (!currentLabelNames.includes(desiredLabel)) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number,
+                labels: [desiredLabel]
+              });
+            }
+
+            // Remove undesired label if present
+            if (currentLabelNames.includes(undesiredLabel)) {
+              await github.rest.issues.removeLabel({
+                owner,
+                repo,
+                issue_number,
+                name: undesiredLabel
+              });
+            }
+
+            // 5. Post or update comment if CLA missing
+            const CLA_COMMENT_MARKER = '<!-- CLA-MISSING-MARKER -->';
+            const CLA_URL = 'https://forms.gle/bkZPYEzWskbXsfPS8'; // URL to Google Forms for CLA Acceptance
+
+            const missingMessage = `
+            ${CLA_COMMENT_MARKER}
+            Thanks for your contribution, @${username}!
+
+            Before we can review this pull request, you need to accept the Contributor License Agreement (CLA).
+
+            👉 Please read and sign the CLA here: ${CLA_URL}
+
+            Once you have signed, a maintainer will add your GitHub username to the **.clabot.json** file and this PR will automatically update to **cla: ok**.
+            `.trim();
+
+            if (!hasSigned) {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number,
+                per_page: 100
+              });
+
+              const existing = comments.find(c => c.body && c.body.includes(CLA_COMMENT_MARKER));
+
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body: missingMessage
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number,
+                  body: missingMessage
+                });
+              }
+
+              core.setFailed(`CLA not signed for user ${username}`);
+            } else {
+              // If CLA is signed, remove any old CLA-missing comment
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number,
+                per_page: 100
+              });
+
+              const existing = comments.find(c => c.body && c.body.includes(CLA_COMMENT_MARKER));
+
+              if (existing) {
+                await github.rest.issues.deleteComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id
+                });
+              }
+
+              core.info(`CLA already signed by ${username}`);
+            }
