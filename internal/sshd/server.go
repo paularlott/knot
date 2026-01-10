@@ -19,6 +19,36 @@ var (
 	preferredShell string = "bash"
 )
 
+// prepareCommand sets up a command with proper home directory, shell, and environment
+func prepareCommand(s ssh.Session, command string, extraEnv ...string) (*exec.Cmd, string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, "", err
+	}
+
+	selectedShell := util.CheckShells(preferredShell)
+	if selectedShell == "" {
+		return nil, "", fmt.Errorf("no valid shell found")
+	}
+
+	var cmd *exec.Cmd
+	if command != "" {
+		// Execute command through shell for variable expansion
+		cmd = exec.Command(selectedShell, "-c", command)
+	} else {
+		// No command - start interactive shell
+		cmd = exec.Command(selectedShell, "-l")
+	}
+
+	cmd.Dir = home
+	cmd.Env = append(os.Environ(), s.Environ()...)
+	cmd.Env = append(cmd.Env, fmt.Sprintf("HOME=%s", home))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("USER=%s", s.User()))
+	cmd.Env = append(cmd.Env, extraEnv...)
+
+	return cmd, home, nil
+}
+
 func ListenAndServe(port int, privateKeyPEM string) {
 	logger := log.WithGroup("sshd")
 	logger.Info("starting on port", "port", port)
@@ -63,6 +93,72 @@ func ListenAndServe(port int, privateKeyPEM string) {
 	}()
 }
 
+// executeNonPtyCommand executes a command in non-PTY mode with proper I/O handling
+func executeNonPtyCommand(s ssh.Session, command string) {
+	logger := log.WithGroup("sshd")
+
+	cmd, _, err := prepareCommand(s, command)
+	if err != nil {
+		logger.WithError(err).Error("failed to prepare command")
+		s.Exit(1)
+		return
+	}
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		logger.WithError(err).Error("failed to create stdout pipe")
+		s.Exit(1)
+		return
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		logger.WithError(err).Error("failed to create stderr pipe")
+		s.Exit(1)
+		return
+	}
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		logger.WithError(err).Error("failed to create stdin pipe")
+		s.Exit(1)
+		return
+	}
+
+	if err := cmd.Start(); err != nil {
+		logger.WithError(err).Error("failed to start command")
+		s.Exit(1)
+		return
+	}
+
+	done := make(chan struct{}, 2)
+	go func() {
+		io.Copy(stdin, s)
+		stdin.Close()
+	}()
+	go func() {
+		io.Copy(s, stdout)
+		done <- struct{}{}
+	}()
+	go func() {
+		io.Copy(s.Stderr(), stderr)
+		done <- struct{}{}
+	}()
+	<-done
+	<-done
+	err = cmd.Wait()
+	// Close streams to ensure all data is flushed before exit
+	stdout.Close()
+	stderr.Close()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			s.Exit(exitErr.ExitCode())
+		} else {
+			s.Exit(1)
+		}
+	} else {
+		s.Exit(0)
+	}
+}
+
 func defaultHandler(s ssh.Session) {
 	logger := log.WithGroup("sshd")
 	ptyReq, winCh, isPty := s.Pty()
@@ -71,32 +167,14 @@ func defaultHandler(s ssh.Session) {
 		commands := s.Command()
 		if len(commands) > 0 {
 			// Execute command in PTY mode
-			home, err := os.UserHomeDir()
+			cmd, _, err := prepareCommand(s, s.RawCommand(), fmt.Sprintf("TERM=%s", ptyReq.Term))
 			if err != nil {
-				logger.WithError(err).Error("failed to get user home directory")
+				logger.WithError(err).Error("failed to prepare command")
 				s.Exit(1)
 				return
 			}
 
-			// Find a shell to execute the command
-			selectedShell := util.CheckShells(preferredShell)
-			if selectedShell == "" {
-				logger.Error("no valid shell found")
-				s.Exit(1)
-				return
-			}
-
-			var cmd *exec.Cmd
 			var tty *os.File
-
-			// Execute command through shell for variable expansion
-			cmd = exec.Command(selectedShell, "-c", s.RawCommand())
-			cmd.Dir = home
-			cmd.Env = append(os.Environ(), s.Environ()...)
-			cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
-			cmd.Env = append(cmd.Env, fmt.Sprintf("HOME=%s", home))
-			cmd.Env = append(cmd.Env, fmt.Sprintf("USER=%s", s.User()))
-
 			if tty, err = pty.Start(cmd); err != nil {
 				logger.WithError(err).Error("Failed to start PTY command")
 				s.Exit(1)
@@ -127,26 +205,14 @@ func defaultHandler(s ssh.Session) {
 
 		// No command specified, start interactive shell
 
-		home, err := os.UserHomeDir()
+		cmd, _, err := prepareCommand(s, "", fmt.Sprintf("TERM=%s", ptyReq.Term))
 		if err != nil {
-			log.Fatal("failed to get user home directory:", "err", err)
-		}
-
-		// Check requested shell exists, if not find one
-		selectedShell := util.CheckShells(preferredShell)
-		if selectedShell == "" {
-			logger.Error("no valid shell found")
+			logger.WithError(err).Error("failed to prepare shell")
 			s.Exit(1)
 			return
 		}
 
-		var cmd *exec.Cmd
 		var tty *os.File
-
-		cmd = exec.Command(selectedShell, "-l")
-		cmd.Dir = home
-		cmd.Env = append(os.Environ(), s.Environ()...)
-		cmd.Env = append(cmd.Env, fmt.Sprintf("TERM=%s", ptyReq.Term))
 
 		// If agent forwarding then start the agent listener and add the env var
 		if ssh.AgentRequested(s) {
@@ -186,84 +252,14 @@ func defaultHandler(s ssh.Session) {
 			s.Exit(0)
 		}
 	} else {
+		// Non-PTY mode: execute command or start shell
 		commands := s.Command()
 		if len(commands) > 0 {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				logger.WithError(err).Error("failed to get user home directory")
-				s.Exit(1)
-				return
-			}
-			
-			// Find a shell to execute the command
-			selectedShell := util.CheckShells(preferredShell)
-			if selectedShell == "" {
-				logger.Error("no valid shell found")
-				s.Exit(1)
-				return
-			}
-			
-			// Execute command through shell for variable expansion
-			cmd := exec.Command(selectedShell, "-c", s.RawCommand())
-			cmd.Dir = home
-			cmd.Env = append(os.Environ(), s.Environ()...)
-			cmd.Env = append(cmd.Env, fmt.Sprintf("HOME=%s", home))
-			cmd.Env = append(cmd.Env, fmt.Sprintf("USER=%s", s.User()))
-			stdout, err := cmd.StdoutPipe()
-			if err != nil {
-				logger.WithError(err).Error("failed to create stdout pipe")
-				s.Exit(1)
-				return
-			}
-			stderr, err := cmd.StderrPipe()
-			if err != nil {
-				logger.WithError(err).Error("failed to create stderr pipe")
-				s.Exit(1)
-				return
-			}
-			stdin, err := cmd.StdinPipe()
-			if err != nil {
-				logger.WithError(err).Error("failed to create stdin pipe")
-				s.Exit(1)
-				return
-			}
-			if err := cmd.Start(); err != nil {
-				logger.WithError(err).Error("failed to start command")
-				s.Exit(1)
-				return
-			}
-			done := make(chan struct{}, 2)
-			go func() {
-				io.Copy(stdin, s)
-				stdin.Close()
-			}()
-			go func() {
-				io.Copy(s, stdout)
-				done <- struct{}{}
-			}()
-			go func() {
-				io.Copy(s.Stderr(), stderr)
-				done <- struct{}{}
-			}()
-			<-done
-			<-done
-			err = cmd.Wait()
-			// Close streams to ensure all data is flushed before exit
-			stdout.Close()
-			stderr.Close()
-			if err != nil {
-				if exitErr, ok := err.(*exec.ExitError); ok {
-					s.Exit(exitErr.ExitCode())
-				} else {
-					s.Exit(1)
-				}
-			} else {
-				s.Exit(0)
-			}
+			// Execute the provided command
+			executeNonPtyCommand(s, s.RawCommand())
 		} else {
-			logger.Error("no command provided")
-			io.WriteString(s, "No command provided.\n")
-			s.Exit(1)
+			// No command - start shell for clients like VSCode
+			executeNonPtyCommand(s, "")
 		}
 	}
 }
