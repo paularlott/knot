@@ -7,6 +7,7 @@ import (
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -158,7 +159,7 @@ func resolveSpaceNameMCP(user *model.User, spaceName string) (string, error) {
 }
 
 func spaceMCPStart(ctx context.Context, user *model.User, containerService ContainerService, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "start")
+	spaceName, err := scriptling.GetString(args, 0, "start")
 	if err != nil {
 		return err
 	}
@@ -188,7 +189,7 @@ func spaceMCPStart(ctx context.Context, user *model.User, containerService Conta
 }
 
 func spaceMCPStop(ctx context.Context, user *model.User, containerService ContainerService, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "stop")
+	spaceName, err := scriptling.GetString(args, 0, "stop")
 	if err != nil {
 		return err
 	}
@@ -213,7 +214,7 @@ func spaceMCPStop(ctx context.Context, user *model.User, containerService Contai
 }
 
 func spaceMCPRestart(ctx context.Context, user *model.User, containerService ContainerService, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "restart")
+	spaceName, err := scriptling.GetString(args, 0, "restart")
 	if err != nil {
 		return err
 	}
@@ -238,12 +239,12 @@ func spaceMCPRestart(ctx context.Context, user *model.User, containerService Con
 }
 
 func spaceMCPGetField(ctx context.Context, user *model.User, spaceService SpaceService, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
 
-	fieldName, fieldErr := GetString(args, 1, "field name")
+	fieldName, fieldErr := scriptling.GetString(args, 1, "field name")
 	if fieldErr != nil {
 		return fieldErr
 	}
@@ -262,17 +263,17 @@ func spaceMCPGetField(ctx context.Context, user *model.User, spaceService SpaceS
 }
 
 func spaceMCPSetField(ctx context.Context, user *model.User, spaceService SpaceService, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
 
-	fieldName, fieldErr := GetString(args, 1, "field name")
+	fieldName, fieldErr := scriptling.GetString(args, 1, "field name")
 	if fieldErr != nil {
 		return fieldErr
 	}
 
-	fieldValue, valueErr := GetString(args, 2, "field value")
+	fieldValue, valueErr := scriptling.GetString(args, 2, "field value")
 	if valueErr != nil {
 		return valueErr
 	}
@@ -291,12 +292,12 @@ func spaceMCPSetField(ctx context.Context, user *model.User, spaceService SpaceS
 }
 
 func spaceMCPCreate(ctx context.Context, user *model.User, spaceService SpaceService, kwargs map[string]object.Object, args ...object.Object) object.Object {
-	name, err := GetString(args, 0, "name")
+	name, err := scriptling.GetString(args, 0, "name")
 	if err != nil {
 		return err
 	}
 
-	templateName, templateErr := GetString(args, 1, "template_name")
+	templateName, templateErr := scriptling.GetString(args, 1, "template_name")
 	if templateErr != nil {
 		return templateErr
 	}
@@ -321,31 +322,29 @@ func spaceMCPCreate(ctx context.Context, user *model.User, spaceService SpaceSer
 
 	description := ""
 	if len(args) > 2 {
-		description, err = GetString(args, 2, "description")
+		description, err = scriptling.GetString(args, 2, "description")
 		if err != nil {
 			return err
 		}
 	}
-	if desc, found, kwErr := GetStringFromKwargs(kwargs, "description"); found {
-		if kwErr != nil {
-			return kwErr
-		}
-		description = desc
+	desc, err := scriptling.GetStringFromKwargs(kwargs, "description", "")
+	if err != nil {
+		return err
 	}
+	description = desc
 
 	shell := "bash"
 	if len(args) > 3 {
-		shell, err = GetString(args, 3, "shell")
+		shell, err = scriptling.GetString(args, 3, "shell")
 		if err != nil {
 			return err
 		}
 	}
-	if sh, found, kwErr := GetStringFromKwargs(kwargs, "shell"); found {
-		if kwErr != nil {
-			return kwErr
-		}
-		shell = sh
+	sh, err := scriptling.GetStringFromKwargs(kwargs, "shell", "bash")
+	if err != nil {
+		return err
 	}
+	shell = sh
 
 	space := model.NewSpace(name, description, user.Id, templateId, shell, &[]string{}, "", "", []model.SpaceCustomField{})
 
@@ -358,7 +357,7 @@ func spaceMCPCreate(ctx context.Context, user *model.User, spaceService SpaceSer
 }
 
 func spaceMCPDelete(ctx context.Context, user *model.User, spaceService SpaceService, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "delete")
+	spaceName, err := scriptling.GetString(args, 0, "delete")
 	if err != nil {
 		return err
 	}
@@ -377,12 +376,12 @@ func spaceMCPDelete(ctx context.Context, user *model.User, spaceService SpaceSer
 }
 
 func spaceMCPSetDescription(ctx context.Context, user *model.User, spaceService SpaceService, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
 
-	description, descErr := GetString(args, 1, "description")
+	description, descErr := scriptling.GetString(args, 1, "description")
 	if descErr != nil {
 		return descErr
 	}
@@ -407,7 +406,7 @@ func spaceMCPSetDescription(ctx context.Context, user *model.User, spaceService 
 }
 
 func spaceMCPGetDescription(ctx context.Context, user *model.User, spaceService SpaceService, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
@@ -426,7 +425,7 @@ func spaceMCPGetDescription(ctx context.Context, user *model.User, spaceService 
 }
 
 func spaceMCPIsRunning(ctx context.Context, user *model.User, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
@@ -469,12 +468,12 @@ func spaceMCPList(ctx context.Context, user *model.User, args ...object.Object) 
 }
 
 func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
 
-	scriptName, scriptErr := GetString(args, 1, "script name")
+	scriptName, scriptErr := scriptling.GetString(args, 1, "script name")
 	if scriptErr != nil {
 		return scriptErr
 	}
@@ -513,7 +512,7 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession f
 
 	scriptArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		arg, argErr := GetString(args, i, "script arg")
+		arg, argErr := scriptling.GetString(args, i, "script arg")
 		if argErr != nil {
 			return argErr
 		}
@@ -553,12 +552,12 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession f
 }
 
 func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, kwargs map[string]object.Object, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
 
-	command, cmdErr := GetString(args, 1, "command")
+	command, cmdErr := scriptling.GetString(args, 1, "command")
 	if cmdErr != nil {
 		return cmdErr
 	}
@@ -594,17 +593,18 @@ func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession 
 	cmdArgs := make([]string, 0)
 	if len(args) > 2 {
 		for i := 2; i < len(args); i++ {
-			arg, argErr := GetString(args, i, "command arg")
+			arg, argErr := scriptling.GetString(args, i, "command arg")
 			if argErr != nil {
 				return argErr
 			}
 			cmdArgs = append(cmdArgs, arg)
 		}
 	}
-	if argsList, found, kwErr := GetListFromKwargs(kwargs, "args"); found {
-		if kwErr != nil {
-			return kwErr
-		}
+	argsList, err := scriptling.GetListFromKwargs(kwargs, "args", []object.Object{})
+	if err != nil {
+		return err
+	}
+	if len(argsList) > 0 {
 		cmdArgs = make([]string, len(argsList))
 		for i, elem := range argsList {
 			arg, ok := elem.AsString()
@@ -616,20 +616,18 @@ func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession 
 	}
 
 	timeout := 30
-	if timeoutVal, found, kwErr := GetIntFromKwargs(kwargs, "timeout"); found {
-		if kwErr != nil {
-			return kwErr
-		}
-		timeout = int(timeoutVal)
+	timeoutVal, err := scriptling.GetIntFromKwargs(kwargs, "timeout", 30)
+	if err != nil {
+		return err
 	}
+	timeout = int(timeoutVal)
 
 	workdir := ""
-	if workdirVal, found, kwErr := GetStringFromKwargs(kwargs, "workdir"); found {
-		if kwErr != nil {
-			return kwErr
-		}
-		workdir = workdirVal
+	workdirVal, err := scriptling.GetStringFromKwargs(kwargs, "workdir", "")
+	if err != nil {
+		return err
 	}
+	workdir = workdirVal
 
 	var session AgentSession
 	if getAgentSession != nil {
@@ -664,7 +662,7 @@ func spaceMCPExecCommand(ctx context.Context, user *model.User, getAgentSession 
 }
 
 func spaceMCPPortForward(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
-	sourceSpaceName, err := GetString(args, 0, "source_space")
+	sourceSpaceName, err := scriptling.GetString(args, 0, "source_space")
 	if err != nil {
 		return err
 	}
@@ -674,7 +672,7 @@ func spaceMCPPortForward(ctx context.Context, user *model.User, getAgentSession 
 		return portErr
 	}
 
-	remoteSpaceName, spaceErr := GetString(args, 2, "remote_space")
+	remoteSpaceName, spaceErr := scriptling.GetString(args, 2, "remote_space")
 	if spaceErr != nil {
 		return spaceErr
 	}
@@ -721,7 +719,7 @@ func spaceMCPPortForward(ctx context.Context, user *model.User, getAgentSession 
 }
 
 func spaceMCPPortList(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
@@ -762,7 +760,7 @@ func spaceMCPPortList(ctx context.Context, user *model.User, getAgentSession fun
 }
 
 func spaceMCPPortStop(ctx context.Context, user *model.User, getAgentSession func(string) AgentSession, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}

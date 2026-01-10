@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -128,7 +129,7 @@ func resolveSpaceName(ctx context.Context, client *apiclient.ApiClient, userId s
 }
 
 func spaceStart(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "start")
+	spaceName, err := scriptling.GetString(args, 0, "start")
 	if err != nil {
 		return err
 	}
@@ -147,7 +148,7 @@ func spaceStart(ctx context.Context, client *apiclient.ApiClient, userId string,
 }
 
 func spaceStop(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "stop")
+	spaceName, err := scriptling.GetString(args, 0, "stop")
 	if err != nil {
 		return err
 	}
@@ -166,7 +167,7 @@ func spaceStop(ctx context.Context, client *apiclient.ApiClient, userId string, 
 }
 
 func spaceRestart(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "restart")
+	spaceName, err := scriptling.GetString(args, 0, "restart")
 	if err != nil {
 		return err
 	}
@@ -185,12 +186,12 @@ func spaceRestart(ctx context.Context, client *apiclient.ApiClient, userId strin
 }
 
 func spaceGetField(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
 
-	fieldName, fieldErr := GetString(args, 1, "field name")
+	fieldName, fieldErr := scriptling.GetString(args, 1, "field name")
 	if fieldErr != nil {
 		return fieldErr
 	}
@@ -209,17 +210,17 @@ func spaceGetField(ctx context.Context, client *apiclient.ApiClient, userId stri
 }
 
 func spaceSetField(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
 
-	fieldName, fieldErr := GetString(args, 1, "field name")
+	fieldName, fieldErr := scriptling.GetString(args, 1, "field name")
 	if fieldErr != nil {
 		return fieldErr
 	}
 
-	fieldValue, valueErr := GetString(args, 2, "field value")
+	fieldValue, valueErr := scriptling.GetString(args, 2, "field value")
 	if valueErr != nil {
 		return valueErr
 	}
@@ -238,12 +239,12 @@ func spaceSetField(ctx context.Context, client *apiclient.ApiClient, userId stri
 }
 
 func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs map[string]object.Object, args ...object.Object) object.Object {
-	name, err := GetString(args, 0, "name")
+	name, err := scriptling.GetString(args, 0, "name")
 	if err != nil {
 		return err
 	}
 
-	templateName, templateErr := GetString(args, 1, "template_name")
+	templateName, templateErr := scriptling.GetString(args, 1, "template_name")
 	if templateErr != nil {
 		return templateErr
 	}
@@ -256,37 +257,31 @@ func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string
 
 	description := ""
 	if len(args) > 2 {
-		description, err = GetString(args, 2, "description")
+		description, err = scriptling.GetString(args, 2, "description")
 		if err != nil {
 			// Optional arg - if wrong type, return error
 			return err
 		}
 	}
-	if desc, found, kwErr := GetStringFromKwargs(kwargs, "description"); found {
-		if kwErr != nil {
-			return kwErr
-		}
-		description = desc
-	} else if kwErr != nil {
-		return kwErr
+	desc, err := scriptling.GetStringFromKwargs(kwargs, "description", "")
+	if err != nil {
+		return err
 	}
+	description = desc
 
 	shell := "bash"
 	if len(args) > 3 {
-		shell, err = GetString(args, 3, "shell")
+		shell, err = scriptling.GetString(args, 3, "shell")
 		if err != nil {
 			// Optional arg - if wrong type, return error
 			return err
 		}
 	}
-	if sh, found, kwErr := GetStringFromKwargs(kwargs, "shell"); found {
-		if kwErr != nil {
-			return kwErr
-		}
-		shell = sh
-	} else if kwErr != nil {
-		return kwErr
+	sh, err := scriptling.GetStringFromKwargs(kwargs, "shell", "bash")
+	if err != nil {
+		return err
 	}
+	shell = sh
 
 	request := &apiclient.SpaceRequest{
 		Name:        name,
@@ -305,7 +300,7 @@ func spaceCreate(ctx context.Context, client *apiclient.ApiClient, userId string
 }
 
 func spaceDelete(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "delete")
+	spaceName, err := scriptling.GetString(args, 0, "delete")
 	if err != nil {
 		return err
 	}
@@ -324,12 +319,12 @@ func spaceDelete(ctx context.Context, client *apiclient.ApiClient, userId string
 }
 
 func spaceSetDescription(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
 
-	description, descErr := GetString(args, 1, "description")
+	description, descErr := scriptling.GetString(args, 1, "description")
 	if descErr != nil {
 		return descErr
 	}
@@ -360,7 +355,7 @@ func spaceSetDescription(ctx context.Context, client *apiclient.ApiClient, userI
 }
 
 func spaceGetDescription(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
@@ -379,7 +374,7 @@ func spaceGetDescription(ctx context.Context, client *apiclient.ApiClient, userI
 }
 
 func spaceIsRunning(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
@@ -423,12 +418,12 @@ func spaceList(ctx context.Context, client *apiclient.ApiClient, userId string, 
 }
 
 func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
 
-	scriptName, scriptErr := GetString(args, 1, "script name")
+	scriptName, scriptErr := scriptling.GetString(args, 1, "script name")
 	if scriptErr != nil {
 		return scriptErr
 	}
@@ -440,7 +435,7 @@ func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId st
 
 	scriptArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		arg, argErr := GetString(args, i, "script arg")
+		arg, argErr := scriptling.GetString(args, i, "script arg")
 		if argErr != nil {
 			return argErr
 		}
@@ -456,12 +451,12 @@ func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId st
 }
 
 func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs map[string]object.Object, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
 
-	command, cmdErr := GetString(args, 1, "command")
+	command, cmdErr := scriptling.GetString(args, 1, "command")
 	if cmdErr != nil {
 		return cmdErr
 	}
@@ -474,17 +469,18 @@ func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId s
 	cmdArgs := make([]string, 0)
 	if len(args) > 2 {
 		for i := 2; i < len(args); i++ {
-			arg, argErr := GetString(args, i, "command arg")
+			arg, argErr := scriptling.GetString(args, i, "command arg")
 			if argErr != nil {
 				return argErr
 			}
 			cmdArgs = append(cmdArgs, arg)
 		}
 	}
-	if argsList, found, kwErr := GetListFromKwargs(kwargs, "args"); found {
-		if kwErr != nil {
-			return kwErr
-		}
+	argsList, err := scriptling.GetListFromKwargs(kwargs, "args", []object.Object{})
+	if err != nil {
+		return err
+	}
+	if len(argsList) > 0 {
 		cmdArgs = make([]string, len(argsList))
 		for i, elem := range argsList {
 			arg, ok := elem.AsString()
@@ -496,20 +492,18 @@ func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId s
 	}
 
 	timeout := 30
-	if timeoutVal, found, kwErr := GetIntFromKwargs(kwargs, "timeout"); found {
-		if kwErr != nil {
-			return kwErr
-		}
-		timeout = int(timeoutVal)
+	timeoutVal, err := scriptling.GetIntFromKwargs(kwargs, "timeout", 30)
+	if err != nil {
+		return err
 	}
+	timeout = int(timeoutVal)
 
 	workdir := ""
-	if workdirVal, found, kwErr := GetStringFromKwargs(kwargs, "workdir"); found {
-		if kwErr != nil {
-			return kwErr
-		}
-		workdir = workdirVal
+	workdirVal, err := scriptling.GetStringFromKwargs(kwargs, "workdir", "")
+	if err != nil {
+		return err
 	}
+	workdir = workdirVal
 
 	request := &apiclient.RunCommandRequest{
 		Command: command,
@@ -527,7 +521,7 @@ func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId s
 }
 
 func spacePortForward(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	sourceSpaceName, err := GetString(args, 0, "source_space")
+	sourceSpaceName, err := scriptling.GetString(args, 0, "source_space")
 	if err != nil {
 		return err
 	}
@@ -537,7 +531,7 @@ func spacePortForward(ctx context.Context, client *apiclient.ApiClient, userId s
 		return portErr
 	}
 
-	remoteSpaceName, spaceErr := GetString(args, 2, "remote_space")
+	remoteSpaceName, spaceErr := scriptling.GetString(args, 2, "remote_space")
 	if spaceErr != nil {
 		return spaceErr
 	}
@@ -567,7 +561,7 @@ func spacePortForward(ctx context.Context, client *apiclient.ApiClient, userId s
 }
 
 func spacePortList(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
@@ -595,7 +589,7 @@ func spacePortList(ctx context.Context, client *apiclient.ApiClient, userId stri
 }
 
 func spacePortStop(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	spaceName, err := GetString(args, 0, "space name")
+	spaceName, err := scriptling.GetString(args, 0, "space name")
 	if err != nil {
 		return err
 	}
