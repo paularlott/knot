@@ -22,11 +22,11 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.70
-	github.com/paularlott/cli v0.7.1
+	github.com/paularlott/cli v0.7.2
 	github.com/paularlott/gossip v0.12.0
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.7.2
-	github.com/paularlott/scriptling v0.0.0-20260110052118-2a121dd4ad8f
+	github.com/paularlott/scriptling v0.0.0-20260110065512-bd2e51535c6f
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/vmihailenco/msgpack/v5 v5.4.1
