@@ -64,8 +64,21 @@ func (ws *Adapter) Write(b []byte) (n int, err error) {
 	if err != nil {
 		return 0, err
 	}
-	defer w.Close()
-	return w.Write(b)
+
+	// Write the data
+	n, err = w.Write(b)
+	if err != nil {
+		w.Close()
+		return n, err
+	}
+
+	// Close the writer to flush the frame
+	// This is important for protocols like SCP that expect immediate delivery
+	if closeErr := w.Close(); closeErr != nil {
+		return n, closeErr
+	}
+
+	return n, nil
 }
 
 func (ws *Adapter) Close() error {
