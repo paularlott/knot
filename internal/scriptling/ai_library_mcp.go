@@ -67,30 +67,26 @@ func aiCompletionMCP(ctx context.Context, openaiClient *openai.Client, kwargs ma
 		return &object.Error{Message: "AI completion not available - OpenAI client not configured"}
 	}
 
-	messagesList, ok := args[0].(*object.List)
-	if !ok {
+	messagesList, err := args[0].AsList()
+	if err != nil {
 		return &object.Error{Message: "completion() first argument must be a list of messages"}
 	}
 
-	openaiMessages := make([]openai.Message, 0, len(messagesList.Elements))
-	for i, msgObj := range messagesList.Elements {
-		msgDict, ok := msgObj.(*object.Dict)
-		if !ok {
+	openaiMessages := make([]openai.Message, 0, len(messagesList))
+	for i, msgObj := range messagesList {
+		msgDict, err := msgObj.AsDict()
+		if err != nil {
 			return &object.Error{Message: fmt.Sprintf("message %d must be a dict with 'role' and 'content' keys", i)}
 		}
 
 		role, content := "", ""
-		for _, pair := range msgDict.Pairs {
-			key, ok := pair.Key.AsString()
-			if !ok {
-				continue // Skip non-string keys (shouldn't happen in practice)
-			}
+		for key, val := range msgDict {
 			if key == "role" {
-				if roleStr, ok := pair.Value.AsString(); ok {
+				if roleStr, err := val.AsString(); err == nil {
 					role = roleStr
 				}
 			} else if key == "content" {
-				if contentStr, ok := pair.Value.AsString(); ok {
+				if contentStr, err := val.AsString(); err == nil {
 					content = contentStr
 				}
 			}
@@ -121,10 +117,10 @@ func aiCompletionMCP(ctx context.Context, openaiClient *openai.Client, kwargs ma
 	}
 
 	// Call OpenAI with MCP server integration using the AI-specific context
-	response, err := openaiClient.ChatCompletion(aiCtx, req)
-	if err != nil {
-		errMsg := fmt.Sprintf("AI completion failed: %v", err)
-		if containsTimeOrDeadline(err.Error()) {
+	response, openaiErr := openaiClient.ChatCompletion(aiCtx, req)
+	if openaiErr != nil {
+		errMsg := fmt.Sprintf("AI completion failed: %v", openaiErr)
+		if containsTimeOrDeadline(openaiErr.Error()) {
 			errMsg += "\nNote: Make sure OpenAI API is properly configured"
 		}
 		return &object.Error{Message: errMsg}
@@ -182,23 +178,23 @@ func responseCreateMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 	// Get optional parameters from kwargs
 	background := false // Default to synchronous
 	if model, ok := kwargs["model"]; ok {
-		if modelStr, ok := model.(*object.String); ok {
-			req.Model = modelStr.Value
+		if modelStr, err := model.AsString(); err == nil {
+			req.Model = modelStr
 		}
 	}
 	if instructions, ok := kwargs["instructions"]; ok {
-		if instrStr, ok := instructions.(*object.String); ok {
-			req.Instructions = instrStr.Value
+		if instrStr, err := instructions.AsString(); err == nil {
+			req.Instructions = instrStr
 		}
 	}
 	if prevResp, ok := kwargs["previous_response_id"]; ok {
-		if prevStr, ok := prevResp.(*object.String); ok {
-			req.PreviousResponseID = prevStr.Value
+		if prevStr, err := prevResp.AsString(); err == nil {
+			req.PreviousResponseID = prevStr
 		}
 	}
 	if bg, ok := kwargs["background"]; ok {
-		if boolVal, ok := bg.(*object.Boolean); ok {
-			background = boolVal.Value
+		if boolVal, err := bg.AsBool(); err == nil {
+			background = boolVal
 		}
 	}
 
@@ -257,16 +253,16 @@ func responseGetMCP(kwargs map[string]object.Object, args ...object.Object) obje
 		return &object.Error{Message: "response_get() requires response_id"}
 	}
 
-	responseId, ok := args[0].(*object.String)
-	if !ok {
+	responseId, err := args[0].AsString()
+	if err != nil {
 		return &object.Error{Message: "response_get() first argument must be a string (response_id)"}
 	}
 
 	// Get from database
 	db := database.GetInstance()
-	response, err := db.GetResponse(responseId.Value)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("Failed to get response: %v", err)}
+	response, dbErr := db.GetResponse(responseId)
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("Failed to get response: %v", dbErr)}
 	}
 	if response == nil || response.IsDeleted {
 		return &object.Error{Message: "Response not found"}
@@ -292,16 +288,16 @@ func responseWaitMCP(kwargs map[string]object.Object, args ...object.Object) obj
 		return &object.Error{Message: "response_wait() requires response_id"}
 	}
 
-	responseId, ok := args[0].(*object.String)
-	if !ok {
+	responseId, err := args[0].AsString()
+	if err != nil {
 		return &object.Error{Message: "response_wait() first argument must be a string (response_id)"}
 	}
 
 	// Get timeout (default 300 seconds)
 	timeout := 300 * time.Second
 	if len(args) >= 2 {
-		if timeoutObj, ok := args[1].(*object.Integer); ok {
-			timeout = time.Duration(timeoutObj.Value) * time.Second
+		if timeoutInt, err := args[1].AsInt(); err == nil {
+			timeout = time.Duration(timeoutInt) * time.Second
 		}
 	}
 
@@ -319,7 +315,7 @@ func responseWaitMCP(kwargs map[string]object.Object, args ...object.Object) obj
 		case <-ctx.Done():
 			return &object.Error{Message: "Timeout waiting for response to complete"}
 		case <-ticker.C:
-			response, err := db.GetResponse(responseId.Value)
+			response, err := db.GetResponse(responseId)
 			if err != nil {
 				continue
 			}
@@ -350,16 +346,16 @@ func responseCancelMCP(kwargs map[string]object.Object, args ...object.Object) o
 		return &object.Error{Message: "response_cancel() requires response_id"}
 	}
 
-	responseId, ok := args[0].(*object.String)
-	if !ok {
+	responseId, err := args[0].AsString()
+	if err != nil {
 		return &object.Error{Message: "response_cancel() first argument must be a string (response_id)"}
 	}
 
 	// Get from database
 	db := database.GetInstance()
-	response, err := db.GetResponse(responseId.Value)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("Failed to get response: %v", err)}
+	response, dbErr := db.GetResponse(responseId)
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("Failed to get response: %v", dbErr)}
 	}
 	if response == nil || response.IsDeleted {
 		return &object.Error{Message: "Response not found"}
@@ -390,16 +386,16 @@ func responseDeleteMCP(kwargs map[string]object.Object, args ...object.Object) o
 		return &object.Error{Message: "response_delete() requires response_id"}
 	}
 
-	responseId, ok := args[0].(*object.String)
-	if !ok {
+	responseId, err := args[0].AsString()
+	if err != nil {
 		return &object.Error{Message: "response_delete() first argument must be a string (response_id)"}
 	}
 
 	// Get from database
 	db := database.GetInstance()
-	response, err := db.GetResponse(responseId.Value)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("Failed to get response: %v", err)}
+	response, dbErr := db.GetResponse(responseId)
+	if dbErr != nil {
+		return &object.Error{Message: fmt.Sprintf("Failed to get response: %v", dbErr)}
 	}
 	if response == nil || response.IsDeleted {
 		// Already deleted or doesn't exist

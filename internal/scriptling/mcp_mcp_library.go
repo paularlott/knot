@@ -75,12 +75,21 @@ func GetMCPLibrary(mcpParams map[string]string, openaiClient *openai.Client) *ob
 		},
 	}
 
-	// Add shared toon functions
-	for name, builtin := range GetToonBuiltins() {
-		functions[name] = builtin
-	}
+	// Add shared toon functions from scriptling/mcp
+	scriptlingmcp.RegisterToon(&libraryRegistrar{functions: functions})
 
 	return object.NewLibrary(functions, nil, "MCP helper functions for tool scripts")
+}
+
+type libraryRegistrar struct {
+	functions map[string]*object.Builtin
+}
+
+func (r *libraryRegistrar) RegisterLibrary(name string, lib *object.Library) {
+	funcs := lib.Functions()
+	for fname, fn := range funcs {
+		r.functions[name+"_"+fname] = fn
+	}
 }
 
 // mcpGet retrieves a parameter value with automatic type conversion
@@ -89,9 +98,9 @@ func mcpGet(mcpParams map[string]string, args ...object.Object) object.Object {
 		return &object.Null{}
 	}
 
-	name, ok := args[0].AsString()
-	if !ok {
-		return &object.Error{Message: "get() first argument must be a string (parameter name)"}
+	name, err := args[0].AsString()
+	if err != nil {
+		return err
 	}
 
 	value, found := mcpParams[name]
@@ -208,20 +217,22 @@ func mcpCallToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs map
 	}
 
 	// Get tool name
-	toolNameStr, ok := args[0].(*object.String)
-	if !ok {
-		return &object.Error{Message: "call_tool() first argument must be a string (tool name)"}
+	toolName, err := args[0].AsString()
+	if err != nil {
+		return err
 	}
-	toolName := toolNameStr.Value
 
 	// Get arguments
-	argsDict, ok := args[1].(*object.Dict)
-	if !ok {
-		return &object.Error{Message: "call_tool() second argument must be a dict (arguments)"}
+	argsDict, err := args[1].AsDict()
+	if err != nil {
+		return err
 	}
 
 	// Convert arguments to map using the bridge package
-	arguments := scriptlingmcp.DictToMap(argsDict)
+	arguments := make(map[string]interface{})
+	for key, val := range argsDict {
+		arguments[key] = scriptlib.ToGo(val)
+	}
 
 	// Create independent context for tool call
 	mcpCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -233,9 +244,9 @@ func mcpCallToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs map
 	}
 
 	// Call tool on MCP server
-	response, err := openaiClient.GetMCPServer().CallTool(mcpCtx, toolName, arguments)
-	if err != nil {
-		errMsg := fmt.Sprintf("Tool call failed: %v", err)
+	response, mcpErr := openaiClient.GetMCPServer().CallTool(mcpCtx, toolName, arguments)
+	if mcpErr != nil {
+		errMsg := fmt.Sprintf("Tool call failed: %v", mcpErr)
 		return &object.Error{Message: errMsg}
 	}
 
@@ -254,16 +265,16 @@ func mcpToolSearchMCP(ctx context.Context, openaiClient *openai.Client, kwargs m
 	}
 
 	// Get search query
-	queryStr, ok := args[0].(*object.String)
-	if !ok {
-		return &object.Error{Message: "tool_search() first argument must be a string (search query)"}
+	query, err := args[0].AsString()
+	if err != nil {
+		return err
 	}
 
 	// Get optional namespace
 	namespace := ""
 	if len(args) >= 2 {
-		if nsStr, ok := args[1].(*object.String); ok {
-			namespace = nsStr.Value
+		if ns, err := args[1].AsString(); err == nil {
+			namespace = ns
 		}
 	}
 
@@ -278,7 +289,7 @@ func mcpToolSearchMCP(ctx context.Context, openaiClient *openai.Client, kwargs m
 		Pairs: map[string]object.DictPair{
 			"query": {
 				Key:   &object.String{Value: "query"},
-				Value: &object.String{Value: queryStr.Value},
+				Value: &object.String{Value: query},
 			},
 		},
 	}
@@ -286,31 +297,31 @@ func mcpToolSearchMCP(ctx context.Context, openaiClient *openai.Client, kwargs m
 	result := mcpCallToolMCP(ctx, openaiClient, kwargs, &object.String{Value: toolName}, searchArgs)
 
 	// The response is a content block (possibly wrapped in a List), extract the tools from the Text field
-	var contentBlock *object.Dict
-	if resultList, ok := result.(*object.List); ok && len(resultList.Elements) > 0 {
-		if firstDict, ok := resultList.Elements[0].(*object.Dict); ok {
+	var contentBlock map[string]object.Object
+	if resultList, err := result.AsList(); err == nil && len(resultList) > 0 {
+		if firstDict, err := resultList[0].AsDict(); err == nil {
 			contentBlock = firstDict
 		}
-	} else if resultDict, ok := result.(*object.Dict); ok {
+	} else if resultDict, err := result.AsDict(); err == nil {
 		contentBlock = resultDict
 	}
 
 	if contentBlock != nil {
 		// Try both "text" and "Text" keys (from JSON parsing)
-		var textVal *object.String
-		if val, found := contentBlock.Pairs["text"]; found {
-			if s, ok := val.Value.(*object.String); ok {
+		var textVal string
+		if val, found := contentBlock["text"]; found {
+			if s, err := val.AsString(); err == nil {
 				textVal = s
 			}
-		} else if val, found := contentBlock.Pairs["Text"]; found {
-			if s, ok := val.Value.(*object.String); ok {
+		} else if val, found := contentBlock["Text"]; found {
+			if s, err := val.AsString(); err == nil {
 				textVal = s
 			}
 		}
 
-		if textVal != nil {
+		if textVal != "" {
 			// Parse the JSON text using the bridge package
-			tools, err := scriptlingmcp.ParseToolSearchResultsFromText(textVal.Value)
+			tools, err := scriptlingmcp.ParseToolSearchResultsFromText(textVal)
 			if err == nil {
 				return tools
 			}
@@ -331,31 +342,34 @@ func mcpExecuteToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 	}
 
 	// Get tool name
-	toolNameStr, ok := args[0].(*object.String)
-	if !ok {
-		return &object.Error{Message: "execute_tool() first argument must be a string (tool name)"}
+	toolName, err := args[0].AsString()
+	if err != nil {
+		return err
 	}
 
 	// Get arguments
-	argsDict, ok := args[1].(*object.Dict)
-	if !ok {
-		return &object.Error{Message: "execute_tool() second argument must be a dict (arguments)"}
+	argsDict, err := args[1].AsDict()
+	if err != nil {
+		return err
 	}
 
 	// Get optional namespace
 	namespace := ""
 	if len(args) >= 3 {
-		if nsStr, ok := args[2].(*object.String); ok {
-			namespace = nsStr.Value
+		if ns, err := args[2].AsString(); err == nil {
+			namespace = ns
 		}
 	}
 
-	// Convert arguments to JSON string using the bridge package
-	arguments := scriptlingmcp.DictToMap(argsDict)
+	// Convert arguments to JSON string
+	arguments := make(map[string]interface{})
+	for key, val := range argsDict {
+		arguments[key] = scriptlib.ToGo(val)
+	}
 
-	argumentsJSON, err := json.Marshal(arguments)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("Failed to marshal arguments: %v", err)}
+	argumentsJSON, jsonErr := json.Marshal(arguments)
+	if jsonErr != nil {
+		return &object.Error{Message: fmt.Sprintf("Failed to marshal arguments: %v", jsonErr)}
 	}
 
 	// Build tool name with namespace prefix if provided
@@ -369,7 +383,7 @@ func mcpExecuteToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 		Pairs: map[string]object.DictPair{
 			"name": {
 				Key:   &object.String{Value: "name"},
-				Value: &object.String{Value: toolNameStr.Value},
+				Value: &object.String{Value: toolName},
 			},
 			"arguments": {
 				Key:   &object.String{Value: "arguments"},

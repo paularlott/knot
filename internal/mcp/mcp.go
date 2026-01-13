@@ -576,8 +576,11 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 			// Parse tool visibility
 			visibility := parseToolVisibility(remoteServer.ToolVisibility)
 
+			// Create MCP client for remote server
+			client := mcp.NewClient(remoteServer.URL, authProvider, remoteServer.Namespace)
+
 			// Register remote server with visibility on main discovery server
-			err := server.RegisterRemoteServerWithVisibility(remoteServer.URL, remoteServer.Namespace, authProvider, visibility)
+			err := server.RegisterRemoteServerWithVisibility(client, visibility)
 			if err != nil {
 				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", remoteServer.ToolVisibility, "error", err)
 				continue

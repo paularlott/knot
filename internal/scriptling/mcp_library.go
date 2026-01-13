@@ -15,43 +15,44 @@ import (
 // GetMCPToolsLibrary returns the MCP tools library for scriptling (used in local/remote environments)
 // This provides only tool access functions that communicate with the server via API calls
 func GetMCPToolsLibrary(client *apiclient.ApiClient) *object.Library {
-	functions := map[string]*object.Builtin{
-		"list_tools": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				return mcpListTools(ctx, client, kwargs.Kwargs, args...)
-			},
-			HelpText: "list_tools() - Get list of available MCP tools and their parameters.",
-		},
-		"call_tool": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				return mcpCallTool(ctx, client, kwargs.Kwargs, args...)
-			},
-			HelpText: "call_tool(name, arguments) - Call an MCP tool directly. Arguments should be a dict.",
-		},
-		"tool_search": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				return mcpToolSearch(ctx, client, kwargs.Kwargs, args...)
-			},
-			HelpText: "tool_search(query) - Search for tools by keyword. Returns list of matching tools with names like 'namespace/toolname'.",
-		},
-		"execute_tool": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				return mcpExecuteTool(ctx, client, kwargs.Kwargs, args...)
-			},
-			HelpText: "execute_tool(name, arguments) - Execute a discovered tool. Use full name like 'namespace/toolname' for namespaced tools. Arguments should be a dict.",
-		},
-	}
+	builder := object.NewLibraryBuilder("mcp", "MCP tool functions")
 
-	// Add shared toon functions
-	for name, builtin := range GetToonBuiltins() {
-		functions[name] = builtin
-	}
+	builder.RawFunctionWithHelp("list_tools", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return mcpListTools(ctx, client, args...)
+	}, "list_tools() - Get list of available MCP tools and their parameters.")
 
-	return object.NewLibrary(functions, nil, "MCP tool functions")
+	builder.RawFunctionWithHelp("call_tool", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return mcpCallTool(ctx, client, args...)
+	}, "call_tool(name, arguments) - Call an MCP tool directly. Arguments should be a dict.")
+
+	builder.RawFunctionWithHelp("tool_search", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return mcpToolSearch(ctx, client, args...)
+	}, "tool_search(query) - Search for tools by keyword. Returns list of matching tools with names like 'namespace/toolname'.")
+
+	builder.RawFunctionWithHelp("execute_tool", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return mcpExecuteTool(ctx, client, args...)
+	}, "execute_tool(name, arguments) - Execute a discovered tool. Use full name like 'namespace/toolname' for namespaced tools. Arguments should be a dict.")
+
+	// Add shared toon functions from scriptling/mcp
+	toonReg := &toonRegistrar{builder: builder}
+	scriptlingmcp.RegisterToon(toonReg)
+
+	return builder.Build()
+}
+
+type toonRegistrar struct {
+	builder *object.LibraryBuilder
+}
+
+func (r *toonRegistrar) RegisterLibrary(name string, lib *object.Library) {
+	funcs := lib.Functions()
+	for fname, fn := range funcs {
+		r.builder.RawFunctionWithHelp(name+"_"+fname, fn.Fn, fn.HelpText)
+	}
 }
 
 // mcpListTools fetches available tools via API for local/remote environments
-func mcpListTools(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func mcpListTools(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
 	if client == nil {
 		return &object.Error{Message: "MCP tools not available - API client not configured"}
 	}
@@ -94,7 +95,7 @@ func mcpListTools(ctx context.Context, client *apiclient.ApiClient, kwargs map[s
 }
 
 // mcpCallTool calls a tool via API for local/remote environments
-func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
 	if len(args) < 2 {
 		return &object.Error{Message: "call_tool() requires tool name and arguments"}
 	}
@@ -104,26 +105,21 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, kwargs map[st
 	}
 
 	// Get tool name
-	toolNameStr, ok := args[0].(*object.String)
-	if !ok {
-		return &object.Error{Message: "call_tool() first argument must be a string (tool name)"}
+	toolName, err := args[0].AsString()
+	if err != nil {
+		return err
 	}
-	toolName := toolNameStr.Value
 
 	// Get arguments
-	argsDict, ok := args[1].(*object.Dict)
-	if !ok {
+	argsDict, err := args[1].AsDict()
+	if err != nil {
 		return &object.Error{Message: "call_tool() second argument must be a dict (arguments)"}
 	}
 
 	// Convert arguments to map
 	arguments := make(map[string]interface{})
-	for _, pair := range argsDict.Pairs {
-		key, ok := pair.Key.AsString()
-		if !ok {
-			continue // Skip non-string keys (shouldn't happen in practice)
-		}
-		arguments[key] = scriptlib.ToGo(pair.Value)
+	for key, val := range argsDict {
+		arguments[key] = scriptlib.ToGo(val)
 	}
 
 	// Create request
@@ -138,9 +134,9 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, kwargs map[st
 
 	// Call API to execute tool
 	var response *mcp.ToolResponse
-	_, err := client.Do(mcpCtx, "POST", "api/chat/tools/call", req, &response)
-	if err != nil {
-		errMsg := fmt.Sprintf("Tool call failed: %v", err)
+	_, apiErr := client.Do(mcpCtx, "POST", "api/chat/tools/call", req, &response)
+	if apiErr != nil {
+		errMsg := fmt.Sprintf("Tool call failed: %v", apiErr)
 		return &object.Error{Message: errMsg}
 	}
 
@@ -149,7 +145,7 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, kwargs map[st
 }
 
 // mcpToolSearch searches for tools by keyword via API
-func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
 	if len(args) < 1 {
 		return &object.Error{Message: "tool_search() requires a search query"}
 	}
@@ -159,9 +155,9 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 	}
 
 	// Get search query
-	queryStr, ok := args[0].(*object.String)
-	if !ok {
-		return &object.Error{Message: "tool_search() first argument must be a string (search query)"}
+	query, err := args[0].AsString()
+	if err != nil {
+		return err
 	}
 
 	// Use call_tool to call tool_search
@@ -169,12 +165,12 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 		Pairs: map[string]object.DictPair{
 			"query": {
 				Key:   &object.String{Value: "query"},
-				Value: &object.String{Value: queryStr.Value},
+				Value: &object.String{Value: query},
 			},
 		},
 	}
 
-	result := mcpCallTool(ctx, client, kwargs, &object.String{Value: "tool_search"}, searchArgs)
+	result := mcpCallTool(ctx, client, &object.String{Value: "tool_search"}, searchArgs)
 
 	// The result should be a scriptling object from the bridge package
 	// If it's a list with a single dict containing "text" field, parse the tools
@@ -206,7 +202,7 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[
 }
 
 // mcpExecuteTool executes a discovered tool via API
-func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
 	if len(args) < 2 {
 		return &object.Error{Message: "execute_tool() requires tool name and arguments"}
 	}
@@ -216,32 +212,28 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, kwargs map
 	}
 
 	// Get tool name (can be namespaced like "namespace/toolname")
-	toolNameStr, ok := args[0].(*object.String)
-	if !ok {
-		return &object.Error{Message: "execute_tool() first argument must be a string (tool name)"}
+	toolName, err := args[0].AsString()
+	if err != nil {
+		return err
 	}
 
 	// Get arguments
-	argsDict, ok := args[1].(*object.Dict)
-	if !ok {
+	argsDict, err := args[1].AsDict()
+	if err != nil {
 		return &object.Error{Message: "execute_tool() second argument must be a dict (arguments)"}
 	}
 
 	// Convert arguments to map[string]interface{} for the execute_tool call
 	arguments := make(map[string]interface{})
-	for _, pair := range argsDict.Pairs {
-		key, ok := pair.Key.AsString()
-		if !ok {
-			continue // Skip non-string keys (shouldn't happen in practice)
-		}
-		arguments[key] = scriptlib.ToGo(pair.Value)
+	for key, val := range argsDict {
+		arguments[key] = scriptlib.ToGo(val)
 	}
 
 	// Create request for execute_tool
 	req := mcp.ToolCallParams{
 		Name: "execute_tool",
 		Arguments: map[string]interface{}{
-			"name":      toolNameStr.Value,
+			"name":      toolName,
 			"arguments": arguments,
 		},
 	}
@@ -252,9 +244,9 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, kwargs map
 
 	// Call API to execute tool
 	var response *mcp.ToolResponse
-	_, err := client.Do(mcpCtx, "POST", "api/chat/tools/call", req, &response)
-	if err != nil {
-		errMsg := fmt.Sprintf("Tool execution failed: %v", err)
+	_, apiErr := client.Do(mcpCtx, "POST", "api/chat/tools/call", req, &response)
+	if apiErr != nil {
+		errMsg := fmt.Sprintf("Tool execution failed: %v", apiErr)
 		return &object.Error{Message: errMsg}
 	}
 

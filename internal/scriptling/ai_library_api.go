@@ -8,6 +8,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	scriptlib "github.com/paularlott/scriptling"
+	"github.com/paularlott/scriptling/errors"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -41,89 +42,72 @@ type GetResponseResponse struct {
 
 // GetAILibrary returns the AI helper library for scriptling (local/remote environments)
 func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
-	functions := map[string]*object.Builtin{
-		"completion": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				return aiCompletion(ctx, client, userId, kwargs.Kwargs, args...)
-			},
-			HelpText: "completion(messages) - Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys.",
-		},
-		"response_create": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				return responseCreate(ctx, client, userId, kwargs.Kwargs, args...)
-			},
-			HelpText: "response_create(input, model=None, instructions=None, previous_response_id=None, background=False) - Create AI response. Returns response dict by default, or response_id if background=True.",
-		},
-		"response_get": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				return responseGet(ctx, client, kwargs.Kwargs, args...)
-			},
-			HelpText: "response_get(id) - Get response by ID. Returns dict with status and result.",
-		},
-		"response_wait": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				return responseWait(ctx, client, kwargs.Kwargs, args...)
-			},
-			HelpText: "response_wait(id, timeout) - Wait for response completion. timeout is in seconds (default 300). Returns response dict.",
-		},
-		"response_cancel": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				return responseCancel(ctx, client, kwargs.Kwargs, args...)
-			},
-			HelpText: "response_cancel(id) - Cancel in-progress response.",
-		},
-		"response_delete": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-				return responseDelete(ctx, client, kwargs.Kwargs, args...)
-			},
-			HelpText: "response_delete(id) - Delete response.",
-		},
-	}
+	builder := object.NewLibraryBuilder("ai", "AI completion functions")
 
-	return object.NewLibrary(functions, nil, "AI completion functions")
+	builder.RawFunctionWithHelp("completion", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return aiCompletion(ctx, client, userId, args...)
+	}, "completion(messages) - Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys.")
+
+	builder.RawFunctionWithHelp("response_create", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return responseCreate(ctx, client, userId, kwargs, args...)
+	}, "response_create(input, model=None, instructions=None, previous_response_id=None, background=False) - Create AI response. Returns response dict by default, or response_id if background=True.")
+
+	builder.RawFunctionWithHelp("response_get", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return responseGet(ctx, client, args...)
+	}, "response_get(id) - Get response by ID. Returns dict with status and result.")
+
+	builder.RawFunctionWithHelp("response_wait", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return responseWait(ctx, client, args...)
+	}, "response_wait(id, timeout) - Wait for response completion. timeout is in seconds (default 300). Returns response dict.")
+
+	builder.RawFunctionWithHelp("response_cancel", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return responseCancel(ctx, client, args...)
+	}, "response_cancel(id) - Cancel in-progress response.")
+
+	builder.RawFunctionWithHelp("response_delete", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return responseDelete(ctx, client, args...)
+	}, "response_delete(id) - Delete response.")
+
+	return builder.Build()
 }
 
 // aiCompletion gets AI completion via API
-func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs map[string]object.Object, args ...object.Object) object.Object {
-	if len(args) < 1 {
-		return &object.Error{Message: "completion() requires messages array"}
+func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
+	if err := errors.ExactArgs(args, 1); err != nil {
+		return err
 	}
 
 	if client == nil {
 		return &object.Error{Message: "AI completion not available - API client not configured"}
 	}
 
-	messagesList, ok := args[0].(*object.List)
-	if !ok {
-		return &object.Error{Message: "completion() first argument must be a list of messages"}
+	messagesList, err := args[0].AsList()
+	if err != nil {
+		return errors.ParameterError("messages", err)
 	}
 
-	messages := make([]ChatMessage, 0, len(messagesList.Elements))
-	for i, msgObj := range messagesList.Elements {
-		msgDict, ok := msgObj.(*object.Dict)
-		if !ok {
-			return &object.Error{Message: fmt.Sprintf("message %d must be a dict with 'role' and 'content' keys", i)}
+	messages := make([]ChatMessage, 0, len(messagesList))
+	for i, msgObj := range messagesList {
+		msgDict, err := msgObj.AsDict()
+		if err != nil {
+			return errors.NewError("message %d must be a dict with 'role' and 'content' keys", i)
 		}
 
 		role, content := "", ""
-		for _, pair := range msgDict.Pairs {
-			key, ok := pair.Key.AsString()
-			if !ok {
-				continue // Skip non-string keys (shouldn't happen in practice)
-			}
+		for key, val := range msgDict {
 			if key == "role" {
-				if roleStr, ok := pair.Value.AsString(); ok {
+				if roleStr, err := val.AsString(); err == nil {
 					role = roleStr
 				}
 			} else if key == "content" {
-				if contentStr, ok := pair.Value.AsString(); ok {
+				if contentStr, err := val.AsString(); err == nil {
 					content = contentStr
 				}
 			}
 		}
 
 		if role == "" || content == "" {
-			return &object.Error{Message: fmt.Sprintf("message %d missing 'role' or 'content' key", i)}
+			return errors.NewError("message %d missing 'role' or 'content' key", i)
 		}
 
 		messages = append(messages, ChatMessage{
@@ -149,23 +133,23 @@ func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId strin
 
 	// Call API - the server will handle tool calling via MCP server integration
 	var response ChatCompletionResponse
-	_, err := client.Do(aiCtx, "POST", "api/chat/completion", req, &response)
-	if err != nil {
+	_, apiErr := client.Do(aiCtx, "POST", "api/chat/completion", req, &response)
+	if apiErr != nil {
 		// Provide more helpful error message
-		errMsg := fmt.Sprintf("AI completion failed: %v", err)
-		if strings.Contains(err.Error(), "timeout") || strings.Contains(err.Error(), "deadline exceeded") {
+		errMsg := fmt.Sprintf("AI completion failed: %v", apiErr)
+		if strings.Contains(apiErr.Error(), "timeout") || strings.Contains(apiErr.Error(), "deadline exceeded") {
 			errMsg += "\nNote: Make sure the server has AI chat enabled with valid OpenAI credentials"
-		} else if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+		} else if strings.Contains(apiErr.Error(), "404") || strings.Contains(apiErr.Error(), "not found") {
 			errMsg += "\nNote: The server may not have the chat completion endpoint enabled"
 		}
-		return &object.Error{Message: errMsg}
+		return errors.NewError("%s", errMsg)
 	}
 
 	return &object.String{Value: response.Content}
 }
 
 // responseCreate creates a new async response via API
-func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs object.Kwargs, args ...object.Object) object.Object {
 	if client == nil {
 		return &object.Error{Message: "Response creation not available - API client not configured"}
 	}
@@ -176,31 +160,34 @@ func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId str
 	}
 
 	// Get input (required)
-	if len(args) < 1 {
-		return &object.Error{Message: "response_create() requires input argument"}
+	if err := errors.ExactArgs(args, 1); err != nil {
+		return err
 	}
 	req.Input = scriptlib.ToGo(args[0])
 
 	// Get optional parameters from kwargs
-	if model, ok := kwargs["model"]; ok {
-		if modelStr, ok := model.(*object.String); ok {
-			req.Model = modelStr.Value
-		}
+	if model, err := kwargs.GetString("model", ""); err != nil {
+		return err
+	} else if model != "" {
+		req.Model = model
 	}
-	if instructions, ok := kwargs["instructions"]; ok {
-		if instrStr, ok := instructions.(*object.String); ok {
-			req.Instructions = instrStr.Value
-		}
+
+	if instructions, err := kwargs.GetString("instructions", ""); err != nil {
+		return err
+	} else if instructions != "" {
+		req.Instructions = instructions
 	}
-	if prevResp, ok := kwargs["previous_response_id"]; ok {
-		if prevStr, ok := prevResp.(*object.String); ok {
-			req.PreviousResponseId = prevStr.Value
-		}
+
+	if prevResp, err := kwargs.GetString("previous_response_id", ""); err != nil {
+		return err
+	} else if prevResp != "" {
+		req.PreviousResponseId = prevResp
 	}
-	if background, ok := kwargs["background"]; ok {
-		if boolVal, ok := background.(*object.Boolean); ok {
-			req.Background = boolVal.Value
-		}
+
+	if background, err := kwargs.GetBool("background", false); err != nil {
+		return err
+	} else {
+		req.Background = background
 	}
 
 	// Create independent context for response creation
@@ -219,9 +206,9 @@ func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId str
 
 	// Call API to create response
 	var resp CreateResponseResponse
-	_, err := client.Do(aiCtx, "POST", "v1/responses", req, &resp)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("Failed to create response: %v", err)}
+	_, apiErr := client.Do(aiCtx, "POST", "v1/responses", req, &resp)
+	if apiErr != nil {
+		return errors.NewError("Failed to create response: %v", apiErr)
 	}
 
 	// If background=true, return just the response_id
@@ -248,18 +235,18 @@ func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId str
 }
 
 // responseGet retrieves a response by ID via API
-func responseGet(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func responseGet(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
 	if client == nil {
 		return &object.Error{Message: "Response retrieval not available - API client not configured"}
 	}
 
-	if len(args) < 1 {
-		return &object.Error{Message: "response_get() requires response_id"}
+	if err := errors.ExactArgs(args, 1); err != nil {
+		return err
 	}
 
-	responseId, ok := args[0].(*object.String)
-	if !ok {
-		return &object.Error{Message: "response_get() first argument must be a string (response_id)"}
+	responseId, err := args[0].AsString()
+	if err != nil {
+		return errors.ParameterError("response_id", err)
 	}
 
 	// Create independent context
@@ -273,34 +260,34 @@ func responseGet(ctx context.Context, client *apiclient.ApiClient, kwargs map[st
 
 	// Call API to get response
 	var resp GetResponseResponse
-	_, err := client.Do(aiCtx, "GET", "v1/responses/"+responseId.Value, nil, &resp)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("Failed to get response: %v", err)}
+	_, apiErr := client.Do(aiCtx, "GET", "v1/responses/"+responseId, nil, &resp)
+	if apiErr != nil {
+		return errors.NewError("Failed to get response: %v", apiErr)
 	}
 
 	return scriptlib.FromGo(resp)
 }
 
 // responseWait waits for a response to complete via API
-func responseWait(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func responseWait(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
 	if client == nil {
 		return &object.Error{Message: "Response wait not available - API client not configured"}
 	}
 
-	if len(args) < 1 {
-		return &object.Error{Message: "response_wait() requires response_id"}
+	if err := errors.MinArgs(args, 1); err != nil {
+		return err
 	}
 
-	responseId, ok := args[0].(*object.String)
-	if !ok {
-		return &object.Error{Message: "response_wait() first argument must be a string (response_id)"}
+	responseId, err := args[0].AsString()
+	if err != nil {
+		return errors.ParameterError("response_id", err)
 	}
 
 	// Get timeout (default 300 seconds)
 	timeout := 300 * time.Second
 	if len(args) >= 2 {
-		if timeoutObj, ok := args[1].(*object.Integer); ok {
-			timeout = time.Duration(timeoutObj.Value) * time.Second
+		if timeoutInt, err := args[1].AsInt(); err == nil {
+			timeout = time.Duration(timeoutInt) * time.Second
 		}
 	}
 
@@ -320,12 +307,12 @@ func responseWait(ctx context.Context, client *apiclient.ApiClient, kwargs map[s
 	for {
 		select {
 		case <-aiCtx.Done():
-			return &object.Error{Message: "Timeout waiting for response to complete"}
+			return errors.NewError("Timeout waiting for response to complete")
 		case <-ticker.C:
 			var resp GetResponseResponse
-			_, err := client.Do(aiCtx, "GET", "v1/responses/"+responseId.Value, nil, &resp)
-			if err != nil {
-				return &object.Error{Message: fmt.Sprintf("Failed to get response: %v", err)}
+			_, apiErr := client.Do(aiCtx, "GET", "v1/responses/"+responseId, nil, &resp)
+			if apiErr != nil {
+				return errors.NewError("Failed to get response: %v", apiErr)
 			}
 
 			// Check if complete
@@ -337,18 +324,18 @@ func responseWait(ctx context.Context, client *apiclient.ApiClient, kwargs map[s
 }
 
 // responseCancel cancels an in-progress response via API
-func responseCancel(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func responseCancel(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
 	if client == nil {
 		return &object.Error{Message: "Response cancellation not available - API client not configured"}
 	}
 
-	if len(args) < 1 {
-		return &object.Error{Message: "response_cancel() requires response_id"}
+	if err := errors.ExactArgs(args, 1); err != nil {
+		return err
 	}
 
-	responseId, ok := args[0].(*object.String)
-	if !ok {
-		return &object.Error{Message: "response_cancel() first argument must be a string (response_id)"}
+	responseId, err := args[0].AsString()
+	if err != nil {
+		return errors.ParameterError("response_id", err)
 	}
 
 	// Create independent context
@@ -361,27 +348,27 @@ func responseCancel(ctx context.Context, client *apiclient.ApiClient, kwargs map
 	}
 
 	// Call API to cancel response
-	_, err := client.Do(aiCtx, "POST", "v1/responses/"+responseId.Value+"/cancel", nil, nil)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("Failed to cancel response: %v", err)}
+	_, apiErr := client.Do(aiCtx, "POST", "v1/responses/"+responseId+"/cancel", nil, nil)
+	if apiErr != nil {
+		return errors.NewError("Failed to cancel response: %v", apiErr)
 	}
 
 	return &object.Boolean{Value: true}
 }
 
 // responseDelete deletes a response via API
-func responseDelete(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
+func responseDelete(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
 	if client == nil {
 		return &object.Error{Message: "Response deletion not available - API client not configured"}
 	}
 
-	if len(args) < 1 {
-		return &object.Error{Message: "response_delete() requires response_id"}
+	if err := errors.ExactArgs(args, 1); err != nil {
+		return err
 	}
 
-	responseId, ok := args[0].(*object.String)
-	if !ok {
-		return &object.Error{Message: "response_delete() first argument must be a string (response_id)"}
+	responseId, err := args[0].AsString()
+	if err != nil {
+		return errors.ParameterError("response_id", err)
 	}
 
 	// Create independent context
@@ -394,9 +381,9 @@ func responseDelete(ctx context.Context, client *apiclient.ApiClient, kwargs map
 	}
 
 	// Call API to delete response
-	_, err := client.Do(aiCtx, "DELETE", "v1/responses/"+responseId.Value, nil, nil)
-	if err != nil {
-		return &object.Error{Message: fmt.Sprintf("Failed to delete response: %v", err)}
+	_, apiErr := client.Do(aiCtx, "DELETE", "v1/responses/"+responseId, nil, nil)
+	if apiErr != nil {
+		return errors.NewError("Failed to delete response: %v", apiErr)
 	}
 
 	return &object.Boolean{Value: true}
