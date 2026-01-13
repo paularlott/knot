@@ -44,27 +44,27 @@ type GetResponseResponse struct {
 func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
 	builder := object.NewLibraryBuilder("ai", "AI completion functions")
 
-	builder.RawFunctionWithHelp("completion", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("completion", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return aiCompletion(ctx, client, userId, args...)
 	}, "completion(messages) - Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys.")
 
-	builder.RawFunctionWithHelp("response_create", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("response_create", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return responseCreate(ctx, client, userId, kwargs, args...)
 	}, "response_create(input, model=None, instructions=None, previous_response_id=None, background=False) - Create AI response. Returns response dict by default, or response_id if background=True.")
 
-	builder.RawFunctionWithHelp("response_get", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("response_get", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return responseGet(ctx, client, args...)
 	}, "response_get(id) - Get response by ID. Returns dict with status and result.")
 
-	builder.RawFunctionWithHelp("response_wait", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("response_wait", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return responseWait(ctx, client, args...)
 	}, "response_wait(id, timeout) - Wait for response completion. timeout is in seconds (default 300). Returns response dict.")
 
-	builder.RawFunctionWithHelp("response_cancel", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("response_cancel", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return responseCancel(ctx, client, args...)
 	}, "response_cancel(id) - Cancel in-progress response.")
 
-	builder.RawFunctionWithHelp("response_delete", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("response_delete", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return responseDelete(ctx, client, args...)
 	}, "response_delete(id) - Delete response.")
 

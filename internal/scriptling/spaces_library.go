@@ -61,7 +61,7 @@ func GetSpacesLibrary(client *apiclient.ApiClient, userId string) *object.Librar
 		return err == nil, err
 	}, "set_field(name, field, value) - Set a custom field value on a space")
 
-	builder.RawFunctionWithHelp("create", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("create", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spaceCreate(ctx, client, userId, kwargs, args...)
 	}, "create(name, template_name, description='', shell='bash') - Create a new space")
 
@@ -122,27 +122,27 @@ func GetSpacesLibrary(client *apiclient.ApiClient, userId string) *object.Librar
 		return false, nil
 	}, "is_running(name) - Check if a space is running")
 
-	builder.RawFunctionWithHelp("list", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("list", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spaceList(ctx, client, userId)
 	}, "list() - List all spaces for the current user")
 
-	builder.RawFunctionWithHelp("run_script", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("run_script", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spaceExecScript(ctx, client, userId, args...)
 	}, "run_script(space_name, script_name, *args) - Execute a script in a space")
 
-	builder.RawFunctionWithHelp("run", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("run", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spaceExecCommand(ctx, client, userId, kwargs, args...)
 	}, "run(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space")
 
-	builder.RawFunctionWithHelp("port_forward", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("port_forward", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spacePortForward(ctx, client, userId, args...)
 	}, "port_forward(source_space, local_port, remote_space, remote_port) - Forward a local port to a remote space port")
 
-	builder.RawFunctionWithHelp("port_list", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("port_list", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spacePortList(ctx, client, userId, args...)
 	}, "port_list(space) - List active port forwards for a space")
 
-	builder.RawFunctionWithHelp("port_stop", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("port_stop", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spacePortStop(ctx, client, userId, args...)
 	}, "port_stop(space, local_port) - Stop a port forward")
 

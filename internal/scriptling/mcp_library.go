@@ -17,19 +17,19 @@ import (
 func GetMCPToolsLibrary(client *apiclient.ApiClient) *object.Library {
 	builder := object.NewLibraryBuilder("mcp", "MCP tool functions")
 
-	builder.RawFunctionWithHelp("list_tools", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("list_tools", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return mcpListTools(ctx, client, args...)
 	}, "list_tools() - Get list of available MCP tools and their parameters.")
 
-	builder.RawFunctionWithHelp("call_tool", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("call_tool", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return mcpCallTool(ctx, client, args...)
 	}, "call_tool(name, arguments) - Call an MCP tool directly. Arguments should be a dict.")
 
-	builder.RawFunctionWithHelp("tool_search", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("tool_search", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return mcpToolSearch(ctx, client, args...)
 	}, "tool_search(query) - Search for tools by keyword. Returns list of matching tools with names like 'namespace/toolname'.")
 
-	builder.RawFunctionWithHelp("execute_tool", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	builder.FunctionWithHelp("execute_tool", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return mcpExecuteTool(ctx, client, args...)
 	}, "execute_tool(name, arguments) - Execute a discovered tool. Use full name like 'namespace/toolname' for namespaced tools. Arguments should be a dict.")
 
@@ -47,7 +47,7 @@ type toonRegistrar struct {
 func (r *toonRegistrar) RegisterLibrary(name string, lib *object.Library) {
 	funcs := lib.Functions()
 	for fname, fn := range funcs {
-		r.builder.RawFunctionWithHelp(name+"_"+fname, fn.Fn, fn.HelpText)
+		r.builder.FunctionWithHelp(name+"_"+fname, fn.Fn, fn.HelpText)
 	}
 }
 

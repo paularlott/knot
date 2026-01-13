@@ -59,11 +59,23 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		handler mcp.ToolHandler
 	}
 
+	// Store remote server configurations for native endpoint
+	var remoteServerConfigs []struct {
+		client     *mcp.Client
+		visibility mcp.ToolVisibility
+	}
+
+	// Track if we need discovery tools (tool_search, execute_tool)
+	var hasDiscoverableTools bool
+
 	createNativeServerWithTools := func(user *model.User) *mcp.Server {
 		nativeServer := mcp.NewServer("knot-mcp-server", build.Version)
 		nativeServer.SetInstructions(`These tools manage spaces, templates, and other resources. All tools can be called directly.`)
 
-		// Register all static tools
+		// Create a tool registry for discovery support (tool_search, execute_tool)
+		nativeRegistry := discovery.NewToolRegistry()
+
+		// Register all static tools in both the server and the registry
 		for _, td := range toolDefinitions {
 			nativeServer.RegisterTool(td.builder, td.handler)
 		}
@@ -71,6 +83,31 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		// Register script tools for this user
 		if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
 			RegisterScriptToolsNative(nativeServer, user)
+		}
+
+		// Only set up discovery if we have hidden/ondemand tools
+		if hasDiscoverableTools {
+			// Set the tool registry before registering remote servers (needed for ondemand)
+			nativeServer.SetToolRegistry(nativeRegistry)
+
+			// Register remote MCP servers with their visibility settings
+			for _, remoteConfig := range remoteServerConfigs {
+				err := nativeServer.RegisterRemoteServerWithVisibility(remoteConfig.client, remoteConfig.visibility)
+				if err != nil {
+					log.WithGroup("mcp").Error("Failed to register remote MCP server on native endpoint", "error", err)
+				}
+			}
+
+			// Attach registry to enable tool_search and execute_tool
+			nativeRegistry.Attach(nativeServer)
+		} else {
+			// Register remote MCP servers without discovery
+			for _, remoteConfig := range remoteServerConfigs {
+				err := nativeServer.RegisterRemoteServerWithVisibility(remoteConfig.client, remoteConfig.visibility)
+				if err != nil {
+					log.WithGroup("mcp").Error("Failed to register remote MCP server on native endpoint", "error", err)
+				}
+			}
 		}
 
 		return nativeServer
@@ -566,6 +603,15 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	// Register remote MCP servers if configured
 	// =========================================================================
 	if mcpConfig != nil && len(mcpConfig.RemoteServers) > 0 {
+		// Check if we have any hidden or ondemand tools
+		for _, remoteServer := range mcpConfig.RemoteServers {
+			visibility := parseToolVisibility(remoteServer.ToolVisibility)
+			if visibility == mcp.ToolVisibilityHidden || visibility == mcp.ToolVisibilityOnDemand {
+				hasDiscoverableTools = true
+				break
+			}
+		}
+
 		for _, remoteServer := range mcpConfig.RemoteServers {
 			// Create auth provider
 			authProvider := CreateAuthProvider(remoteServer)
@@ -587,8 +633,11 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 			}
 			log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", remoteServer.ToolVisibility)
 
-			// Note: Remote servers are not pre-registered on native endpoint
-			// They will be registered per-request in createNativeServerWithTools
+			// Store remote server config for native endpoint
+			remoteServerConfigs = append(remoteServerConfigs, struct {
+				client     *mcp.Client
+				visibility mcp.ToolVisibility
+			}{client: client, visibility: visibility})
 
 			// Test if we can list tools from the remote server
 			tools := server.ListTools()
@@ -611,12 +660,17 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	}
 
 	// =========================================================================
-	// Attach registry to server (registers tool_search, execute_tool)
+	// Attach registry to main server (registers tool_search, execute_tool)
+	// Main /mcp endpoint always has discovery enabled
 	// =========================================================================
 	registry.Attach(server)
 
-	// Note: We don't attach a registry to nativeServer - it only has natively registered tools
-	// Script tools are registered dynamically per-request in the handler above
+	// Log whether native endpoint will have discovery
+	if hasDiscoverableTools {
+		log.WithGroup("mcp").Info("Discovery tools enabled on both /mcp and /mcp/tools endpoints")
+	} else {
+		log.WithGroup("mcp").Info("Discovery tools enabled on /mcp endpoint only (no hidden/ondemand tools)")
+	}
 
 	return server
 }
