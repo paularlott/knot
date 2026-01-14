@@ -28,9 +28,9 @@ All environments now use **dynamic library loading** via scriptling's on-demand 
 - **os** - Operating system interface
 - **pathlib** - Filesystem path operations
 - **sys** - System-specific parameters (argv)
-- **spaces** - Space management operations (via API)
-- **ai** - AI completion functions (via API)
-- **mcp** - MCP tools library (via API)
+- **knot.spaces** - Space management operations (via API)
+- **knot.ai** - AI completion functions (via API)
+- **knot.mcp** - MCP tools library (via API)
 
 ### On-Demand Loading
 
@@ -70,12 +70,12 @@ import mylib  # Tries mylib.py locally, then fetches from server
 - **requests** - HTTP client library
 - **secrets** - Secure random number generation
 - **htmlparser** - HTML parsing and manipulation
-- **spaces** - Space management operations (via internal API)
-- **ai** - AI completion functions (via MCP server)
+- **knot.spaces** - Space management operations (via internal API)
+- **knot.ai** - AI completion functions (via MCP server)
 
 ### Special Libraries
 
-- **mcp** - MCP-specific functions with access to tool parameters
+- **knot.mcp** - MCP-specific functions with access to tool parameters
 
 ### On-Demand Loading
 
@@ -109,9 +109,9 @@ import mylib  # Tries mylib.py locally, then fetches from server
 - **os** - Operating system interface
 - **pathlib** - Filesystem path operations
 - **sys** - System-specific parameters (argv)
-- **spaces** - Space management operations (via API)
-- **ai** - AI completion functions (via API)
-- **mcp** - MCP tools library (via API)
+- **knot.spaces** - Space management operations (via API)
+- **knot.ai** - AI completion functions (via API)
+- **knot.mcp** - MCP tools library (via API)
 
 ### On-Demand Loading
 
@@ -140,9 +140,9 @@ knot space run-script myspace myscript arg1 arg2
 | os             | ✓                | ✗          | ✓          |
 | pathlib        | ✓                | ✗          | ✓          |
 | sys            | ✓                | ✗          | ✓          |
-| spaces         | ✓                | ✓          | ✓          |
-| ai             | ✓                | ✓          | ✓          |
-| mcp            | ✓                | ✓          | ✓          |
+| knot.spaces   | ✓                | ✓          | ✓          |
+| knot.ai        | ✓                | ✓          | ✓          |
+| knot.mcp       | ✓                | ✓          | ✓          |
 | On-demand libs | ✓ (local+server) | ✓ (server) | ✓ (server) |
 
 ---

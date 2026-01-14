@@ -1,6 +1,6 @@
 # Scriptling MCP Library
 
-The `mcp` library provides MCP (Model Context Protocol) functionality for scriptling scripts. This library is available in all environments with functions adapted to the context:
+The `knot.mcp` library provides MCP (Model Context Protocol) functionality for scriptling scripts. This library is available in all environments with functions adapted to the context:
 
 1. **MCP Tool Scripts**: All functions including parameter access (get, return_string, return_object, return_error) plus tool access functions
 2. **Local/Remote/MCP Environments**: MCP tool access functions for calling MCP tools programmatically
@@ -53,23 +53,23 @@ Get a parameter value with automatic type conversion.
 
 **Example:**
 ```python
-import mcp
+import knot.mcp
 
 # String parameter
-name = mcp.get("name")
-name = mcp.get("name", "default")
+name = knot.mcp.get("name")
+name = knot.mcp.get("name", "default")
 
 # Number (auto-converted)
-count = mcp.get("count", 0)
+count = knot.mcp.get("count", 0)
 
 # Boolean (auto-converted)
-enabled = mcp.get("enabled", False)
+enabled = knot.mcp.get("enabled", False)
 
 # Array (auto-parsed from JSON)
-items = mcp.get("items", [])
+items = knot.mcp.get("items", [])
 
 # Object (auto-parsed from JSON)
-config = mcp.get("config", {})
+config = knot.mcp.get("config", {})
 ```
 
 ---
@@ -83,10 +83,10 @@ Return a string result from the MCP tool. The script should exit after calling t
 
 **Example:**
 ```python
-import mcp
+import knot.mcp
 
 result = "Operation completed successfully"
-return mcp.return_string(result)
+return knot.mcp.return_string(result)
 ```
 
 ---
@@ -100,14 +100,14 @@ Return a structured object (automatically converted to JSON). The script should 
 
 **Example:**
 ```python
-import mcp
+import knot.mcp
 
 result = {
     "status": "success",
     "records_processed": 42,
     "duration_ms": 1234
 }
-return mcp.return_object(result)
+return knot.mcp.return_object(result)
 ```
 
 ---
@@ -121,10 +121,10 @@ Return an error message. The script should exit after calling this.
 
 **Example:**
 ```python
-import mcp
+import knot.mcp
 
 if not url:
-    return mcp.return_error("URL parameter is required")
+    return knot.mcp.return_error("URL parameter is required")
 ```
 
 ---
@@ -147,10 +147,10 @@ Get a list of all available MCP tools and their parameters, including tools from
 
 **Example:**
 ```python
-import mcp
+import knot.mcp
 
 # Get all available tools
-tools = mcp.list_tools()
+tools = knot.mcp.list_tools()
 
 # Print tool information
 for tool in tools:
@@ -180,7 +180,7 @@ print(f"Remote tools: {len(remote_tools)}")
 
 Call an MCP tool directly. This is the low-level function for tool execution.
 
-**Important:** The MCP server uses a discovery pattern. Only `tool_search` and `execute_tool` are directly callable. Other tools must first be discovered using `tool_search`, then executed using `execute_tool`. Consider using `mcp.tool_search()` and `mcp.execute_tool()` helper functions instead.
+**Important:** The MCP server uses a discovery pattern. Only `tool_search` and `execute_tool` are directly callable. Other tools must first be discovered using `tool_search`, then executed using `execute_tool`. Consider using `knot.mcp.tool_search()` and `knot.mcp.execute_tool()` helper functions instead.
 
 **Parameters:**
 - `name` (string): Name of the tool to call
@@ -195,23 +195,23 @@ Call an MCP tool directly. This is the low-level function for tool execution.
 
 **Example:**
 ```python
-import mcp
+import knot.mcp
 
 # Search for space-related tools
-tool_search_results = mcp.call_tool("tool_search", {
+tool_search_results = knot.mcp.call_tool("tool_search", {
     "query": "list spaces"
 })
 print("Tool search results:", tool_search_results)
 
 # Execute a tool found through search
-space_results = mcp.call_tool("execute_tool", {
+space_results = knot.mcp.call_tool("execute_tool", {
     "name": "list_spaces",
     "arguments": {}
 })
 print("Spaces:", space_results)
 
 # Call a remote tool directly (if configured)
-ai_response = mcp.call_tool("ai/generate-text", {
+ai_response = knot.mcp.call_tool("ai/generate-text", {
     "prompt": "Write a Python hello world function",
     "max_tokens": 50
 })
@@ -219,16 +219,16 @@ print(ai_response)
 
 # Response decoding examples:
 # 1. Text responses are returned as strings
-text_result = mcp.call_tool("some_tool", {})
+text_result = knot.mcp.call_tool("some_tool", {})
 print(text_result)  # "Hello World" (not [{"Type": "text", "Text": "Hello World"}])
 
 # 2. JSON in text is automatically parsed
-json_result = mcp.call_tool("json_tool", {})
+json_result = knot.mcp.call_tool("json_tool", {})
 print(json_result)  # {"status": "ok", "count": 5} - already a dict!
 print(json_result["status"])  # "ok"
 
 # 3. Multiple content blocks are returned as a list
-multi_result = mcp.call_tool("multi_tool", {})
+multi_result = knot.mcp.call_tool("multi_tool", {})
 for block in multi_result:
     print(block)  # Each decoded block
 ```
@@ -248,19 +248,19 @@ Search for tools by keyword. This is a helper function that wraps `call_tool("to
 
 **Example:**
 ```python
-import mcp
+import knot.mcp
 
 # Search for space management tools (uses default tool_search)
-results = mcp.tool_search("create space")
+results = knot.mcp.tool_search("create space")
 print("Found tools:", results)
 
 # Search for file operations
-file_tools = mcp.tool_search("read write file")
+file_tools = knot.mcp.tool_search("read write file")
 for tool in file_tools:
     print(f"- {tool['name']}: {tool['description']}")
 
 # Search using a specific namespace (calls "ai/tool_search")
-ai_results = mcp.tool_search("generate code", "ai")
+ai_results = knot.mcp.tool_search("generate code", "ai")
 print("AI tools:", ai_results)
 ```
 
@@ -284,27 +284,27 @@ Execute a discovered tool. This is a helper function that wraps `call_tool("exec
 
 **Example:**
 ```python
-import mcp
+import knot.mcp
 
 # List all spaces (uses default execute_tool)
-spaces = mcp.execute_tool("list_spaces", {})
+spaces = knot.mcp.execute_tool("list_spaces", {})
 print("Spaces:", spaces)
 
 # Start a specific space
-result = mcp.execute_tool("start_space", {
+result = knot.mcp.execute_tool("start_space", {
     "space_name": "dev-environment"
 })
 print("Start result:", result)
 
 # Create a new space
-new_space = mcp.execute_tool("create_space", {
+new_space = knot.mcp.execute_tool("create_space", {
     "name": "my-new-space",
     "template_name": "python-dev"
 })
 print("Created:", new_space)
 
 # Execute a tool from a specific namespace (calls "ai/execute_tool")
-ai_result = mcp.execute_tool("generate_code", {
+ai_result = knot.mcp.execute_tool("generate_code", {
     "prompt": "Write a Python function",
     "language": "python"
 }, "ai")
@@ -316,19 +316,19 @@ print("AI result:", ai_result)
 ## Implementation Details
 
 ### MCP Tool Scripts
-- `mcp.get()`: Reads from `MCP_PARAM_<name>` environment variables
+- `knot.mcp.get()`: Reads from `MCP_PARAM_<name>` environment variables
 - Automatically parses JSON for arrays and objects
 - Converts string numbers to int/float
 - Converts string booleans to bool
 
 ### Local and Remote Environments
-- **mcp.list_tools()**: Uses the `api/chat/tools` endpoint to fetch available tools
-- **mcp.call_tool()**: Uses the `api/chat/tools/call` endpoint to execute tools
+- **knot.mcp.list_tools()**: Uses the `api/chat/tools` endpoint to fetch available tools
+- **knot.mcp.call_tool()**: Uses the `api/chat/tools/call` endpoint to execute tools
 - Automatically handles authentication with the server
 
 ### MCP Environment
-- **mcp.list_tools()**: Calls MCP server's ListTools() method directly
-- **mcp.call_tool()**: Calls MCP server's CallTool() method directly
+- **knot.mcp.list_tools()**: Calls MCP server's ListTools() method directly
+- **knot.mcp.call_tool()**: Calls MCP server's CallTool() method directly
 - No API calls needed - direct server communication
 
 ---
@@ -355,9 +355,9 @@ The MCP server uses a discovery pattern where:
 1. **tool_search**: Search for tools based on keywords and descriptions
 2. **execute_tool**: Execute a specific tool by name with arguments
 
-The `mcp.tool_search()` and `mcp.execute_tool()` helper functions simplify this pattern.
+The `knot.mcp.tool_search()` and `knot.mcp.execute_tool()` helper functions simplify this pattern.
 
-When using `ai.completion()`, the AI handles tool discovery and execution automatically.
+When using `knot.ai.completion()`, the AI handles tool discovery and execution automatically.
 
 ---
 
@@ -375,39 +375,39 @@ If the MCP library is not available, it will return an appropriate error message
 
 ```python
 # A complete MCP tool that greets a user
-import mcp
+import knot.mcp
 
 # Get parameters
-name = mcp.get("name")
-greeting_type = mcp.get("greeting_type", "hello")
+name = knot.mcp.get("name")
+greeting_type = knot.mcp.get("greeting_type", "hello")
 
 # Validate input
 if not name:
-    return mcp.return_error("name parameter is required")
+    return knot.mcp.return_error("name parameter is required")
 
 # Build greeting
 greeting = f"{greeting_type.capitalize()}, {name}!"
 
 # Return result
-return mcp.return_string(greeting)
+return knot.mcp.return_string(greeting)
 ```
 
 ### Example 2: Discovering and Using Tools
 
 ```python
-import mcp
+import knot.mcp
 
 def find_and_use_space_tools():
     """Discover space management tools and use them"""
 
     # Search for space-related tools
-    results = mcp.tool_search("manage spaces")
+    results = knot.mcp.tool_search("manage spaces")
     print("Available tools:")
     for tool in results.get('results', []):
         print(f"  - {tool['name']}: {tool['description']}")
 
     # List current spaces
-    spaces = mcp.execute_tool("list_spaces", {})
+    spaces = knot.mcp.execute_tool("list_spaces", {})
     print(f"\nFound {len(spaces)} spaces:")
     for space in spaces:
         print(f"  - {space['name']}: {space['status']}")
@@ -418,13 +418,13 @@ find_and_use_space_tools()
 ### Example 3: Using Multiple Tools Together
 
 ```python
-import mcp
+import knot.mcp
 
 def check_and_start_spaces():
     """Check space status and start stopped ones"""
 
     # Get all spaces
-    spaces = mcp.execute_tool("list_spaces", {})
+    spaces = knot.mcp.execute_tool("list_spaces", {})
 
     stopped_spaces = [s for s in spaces if s['status'] == 'stopped']
 
@@ -435,7 +435,7 @@ def check_and_start_spaces():
     print(f"Found {len(stopped_spaces)} stopped spaces. Starting...")
 
     for space in stopped_spaces:
-        result = mcp.execute_tool("start_space", {
+        result = knot.mcp.execute_tool("start_space", {
             "space_name": space['name']
         })
         print(f"Started {space['name']}: {result}")
@@ -446,8 +446,8 @@ check_and_start_spaces()
 ### Example 4: Combining with AI Completion
 
 ```python
-import ai
-import mcp
+import knot.ai
+import knot.mcp
 
 def ai_managed_operations():
     """Let AI manage tools or do it directly"""
@@ -456,14 +456,14 @@ def ai_managed_operations():
     messages = [
         {"role": "user", "content": "List my spaces and start any that are stopped"}
     ]
-    response = ai.completion(messages)
+    response = knot.ai.completion(messages)
     print("AI handled it:", response)
 
     # Option 2: Do it programmatically with full control
-    spaces = mcp.execute_tool("list_spaces", {})
+    spaces = knot.mcp.execute_tool("list_spaces", {})
     for space in spaces:
         if space['status'] == 'stopped':
-            mcp.execute_tool("start_space", {"space_name": space['name']})
+            knot.mcp.execute_tool("start_space", {"space_name": space['name']})
             print(f"Started: {space['name']}")
 
 ai_managed_operations()
@@ -473,5 +473,5 @@ ai_managed_operations()
 
 ## Related Libraries
 
-- **ai** - For AI completions with automatic tool usage
-- **spaces** - For direct space management functions (alternative to mcp.execute_tool)
+- **knot.ai** - For AI completions with automatic tool usage
+- **knot.spaces** - For direct space management functions (alternative to mcp.execute_tool)

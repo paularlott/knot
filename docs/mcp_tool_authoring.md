@@ -18,17 +18,17 @@ When creating a script, set the `script_type` field:
 
 ```python
 # Import the MCP helper library
-import mcp
+import knot.mcp
 
 # Access parameters (automatically handles env vars and JSON parsing)
-name = mcp.get("name")
-greeting_type = mcp.get("greeting_type", "hello")  # with default
+name = knot.mcp.get("name")
+greeting_type = knot.mcp.get("greeting_type", "hello")  # with default
 
 # Do your work
 greeting = f"{greeting_type.capitalize()}, {name}!"
 
 # Return output
-return mcp.return_string(greeting)
+return knot.mcp.return_string(greeting)
 ```
 
 ### 2. Define Input Schema (TOML)
@@ -82,27 +82,27 @@ Assign groups to control which users can access the tool:
 
 ## Accessing Parameters
 
-The `mcp` library handles all parameter access and type conversion:
+The `knot.mcp` library handles all parameter access and type conversion:
 
 ```python
-import mcp
+import knot.mcp
 
 # String parameter
-name = mcp.get("name")
+name = knot.mcp.get("name")
 
 # Number parameter (automatically converted)
-count = mcp.get("count", 10)  # default: 10
+count = knot.mcp.get("count", 10)  # default: 10
 
 # Boolean parameter (automatically converted)
-enabled = mcp.get("enabled", False)
+enabled = knot.mcp.get("enabled", False)
 
 # Array parameter (automatically parsed from JSON)
-headers = mcp.get("headers", [])
+headers = knot.mcp.get("headers", [])
 for header in headers:
     print(f"Header: {header}")
 
 # Object parameter (automatically parsed from JSON)
-config = mcp.get("config", {})
+config = knot.mcp.get("config", {})
 retry = config.get('retry', False)
 max_attempts = config.get('max_attempts', 3)
 ```
@@ -112,10 +112,10 @@ max_attempts = config.get('max_attempts', 3)
 ### Using the MCP Library (Recommended)
 
 ```python
-import mcp
+import knot.mcp
 
 # Return a string (script ends after return)
-return mcp.return_string("Operation completed successfully")
+return knot.mcp.return_string("Operation completed successfully")
 
 # Return structured data (automatically converted to JSON)
 result = {
@@ -123,11 +123,11 @@ result = {
     "records_processed": 42,
     "duration_ms": 1234
 }
-return mcp.return_object(result)
+return knot.mcp.return_object(result)
 
 # Return an error
 if not url:
-    return mcp.return_error("URL parameter is required")
+    return knot.mcp.return_error("URL parameter is required")
 ```
 
 ### Direct Output (Alternative)
@@ -180,17 +180,17 @@ required = false
 ### Script Content
 
 ```python
-import mcp
+import knot.mcp
 
 # Get parameters using MCP library
-name = mcp.get("name")
-greeting_type = mcp.get("greeting_type", "hello")
+name = knot.mcp.get("name")
+greeting_type = knot.mcp.get("greeting_type", "hello")
 
 # Build greeting
 greeting = f"{greeting_type.capitalize()}, {name}!"
 
 # Return the greeting
-return mcp.return_string(greeting)
+return knot.mcp.return_string(greeting)
 ```
 
 ## Best Practices
@@ -200,11 +200,11 @@ return mcp.return_string(greeting)
 Always validate required parameters:
 
 ```python
-import mcp
+import knot.mcp
 
-url = mcp.get("url")
+url = knot.mcp.get("url")
 if not url:
-    return mcp.return_error("url parameter is required")
+    return knot.mcp.return_error("url parameter is required")
 ```
 
 ### 2. Provide Defaults
@@ -212,10 +212,10 @@ if not url:
 Use sensible defaults for optional parameters:
 
 ```python
-import mcp
+import knot.mcp
 
-timeout = mcp.get("timeout", 30)
-method = mcp.get("method", "GET")
+timeout = knot.mcp.get("timeout", 30)
+method = knot.mcp.get("method", "GET")
 ```
 
 ### 3. Handle Errors Gracefully
@@ -223,15 +223,15 @@ method = mcp.get("method", "GET")
 Catch exceptions and return helpful messages:
 
 ```python
-import mcp
+import knot.mcp
 
 try:
     # Your code
     pass
 except ValueError as e:
-    return mcp.return_error(f"Invalid parameter: {e}")
+    return knot.mcp.return_error(f"Invalid parameter: {e}")
 except Exception as e:
-    return mcp.return_error(f"Unexpected error: {e}")
+    return knot.mcp.return_error(f"Unexpected error: {e}")
 ```
 
 ### 4. Keep Output Concise
@@ -239,11 +239,11 @@ except Exception as e:
 AI context windows are limited. Truncate large outputs:
 
 ```python
-import mcp
+import knot.mcp
 
 if len(output) > 1000:
     output = output[:1000] + "... (truncated)"
-return mcp.return_string(output)
+return knot.mcp.return_string(output)
 ```
 
 ### 5. Use Descriptive Names
@@ -277,7 +277,7 @@ MCP tools are designed to be executed by AI assistants through the Model Context
 
 1. The AI assistant discovers your tool using `tool_search`
 2. The AI executes it using `execute_tool` with the appropriate parameters
-3. Your tool receives parameters via `mcp.get()` and returns results
+3. Your tool receives parameters via `knot.mcp.get()` and returns results
 
 This is the recommended way to test MCP tools as it exercises the full MCP integration.
 
@@ -285,16 +285,16 @@ This is the recommended way to test MCP tools as it exercises the full MCP integ
 
 ### Parameter Access
 
-The `mcp` library provides a simple interface for accessing tool parameters:
+The `knot.mcp` library provides a simple interface for accessing tool parameters:
 
-- `mcp.get("name")` - Get parameter value with automatic type conversion and JSON parsing
-- `mcp.get("name", default)` - Get parameter with default value if not provided
+- `knot.mcp.get("name")` - Get parameter value with automatic type conversion and JSON parsing
+- `knot.mcp.get("name", default)` - Get parameter with default value if not provided
 
 ### Return Functions
 
-- `mcp.return_string(value)` - Return a string result
-- `mcp.return_object(value)` - Return a structured object (automatically converted to JSON)
-- `mcp.return_error(message)` - Return an error message
+- `knot.mcp.return_string(value)` - Return a string result
+- `knot.mcp.return_object(value)` - Return a structured object (automatically converted to JSON)
+- `knot.mcp.return_error(message)` - Return an error message
 
 All return functions should be used with the `return` statement to properly end script execution.
 
@@ -389,7 +389,7 @@ description = "Database port"
 
 1. Verify TOML schema is valid
 2. Check parameter names match (case-sensitive)
-3. Add debug output: `print(f"Received: {mcp.get('param_name')}")` to verify parameter values
+3. Add debug output: `print(f"Received: {knot.mcp.get('param_name')}")` to verify parameter values
 
 ### Timeout Errors
 
@@ -419,54 +419,54 @@ See the Web UI for example MCP tools:
 
 ## MCP Library Reference
 
-The `mcp` library is automatically available in all MCP tool scripts.
+The `knot.mcp` library is automatically available in all MCP tool scripts.
 
 ### Functions
 
-#### `mcp.get(name, default=None)`
+#### `knot.mcp.get(name, default=None)`
 Get a parameter value with automatic type conversion.
 
 ```python
 # String
-name = mcp.get("name")
-name = mcp.get("name", "default")
+name = knot.mcp.get("name")
+name = knot.mcp.get("name", "default")
 
 # Number (auto-converted)
-count = mcp.get("count", 0)
+count = knot.mcp.get("count", 0)
 
 # Boolean (auto-converted)
-enabled = mcp.get("enabled", False)
+enabled = knot.mcp.get("enabled", False)
 
 # Array (auto-parsed from JSON)
-items = mcp.get("items", [])
+items = knot.mcp.get("items", [])
 
 # Object (auto-parsed from JSON)
-config = mcp.get("config", {})
+config = knot.mcp.get("config", {})
 ```
 
-#### `mcp.return_string(text)`
+#### `knot.mcp.return_string(text)`
 Return a text response.
 
 ```python
-mcp.return_string("Operation completed")
+knot.mcp.return_string("Operation completed")
 ```
 
-#### `mcp.return_object(obj)`
+#### `knot.mcp.return_object(obj)`
 Return a structured object (automatically converted to JSON).
 
 ```python
-mcp.return_object({
+knot.mcp.return_object({
     "status": "success",
     "count": 42
 })
 ```
 
-#### `mcp.return_error(message)`
+#### `knot.mcp.return_error(message)`
 Return an error message and exit.
 
 ```python
 if not valid:
-    mcp.return_error("Invalid input")
+    knot.mcp.return_error("Invalid input")
 ```
 
 ### Implementation Details

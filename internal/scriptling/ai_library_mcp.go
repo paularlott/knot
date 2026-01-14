@@ -54,7 +54,7 @@ func GetAIMCPLibrary(openaiClient *openai.Client) *object.Library {
 		},
 	}
 
-	return object.NewLibrary(functions, nil, "AI completion functions")
+	return object.NewLibrary(functions, nil, "Knot AI completion functions")
 }
 
 // aiCompletionMCP gets AI completion using direct OpenAI client

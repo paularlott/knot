@@ -6,7 +6,7 @@ go 1.25.5
 
 //replace github.com/paularlott/cli => ../cli/
 
-replace github.com/paularlott/mcp => ../mcp/
+//replace github.com/paularlott/mcp => ../mcp/
 
 replace github.com/paularlott/scriptling => ../scriptling/
 
@@ -25,16 +25,16 @@ require (
 	github.com/paularlott/cli v0.7.2
 	github.com/paularlott/gossip v0.12.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.7.2
+	github.com/paularlott/mcp v0.8.0
 	github.com/paularlott/scriptling v0.0.0-20260110065512-bd2e51535c6f
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/yeqown/go-qrcode/v2 v2.2.5
 	github.com/yeqown/go-qrcode/writer/standard v1.3.0
-	golang.org/x/crypto v0.46.0
+	golang.org/x/crypto v0.47.0
 	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93
-	golang.org/x/net v0.48.0
+	golang.org/x/net v0.49.0
 	golang.org/x/term v0.39.0
 	golang.org/x/time v0.14.0
 	gopkg.in/yaml.v3 v3.0.1

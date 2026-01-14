@@ -84,7 +84,7 @@ Remote servers can be configured with `hidden = true` to make their tools callab
 - **Reducing context**: Keeping tool lists concise while still allowing script access
 - **Security**: Hiding sensitive internal APIs from external visibility
 
-Hidden tools can still be called using `mcp.call_tool()` in scripts, but won't appear in `mcp.list_tools()` responses.
+Hidden tools can still be called using `knot.mcp.call_tool()` in scripts, but won't appear in `knot.mcp.list_tools()` responses.
 
 ### Authentication
 
@@ -95,23 +95,23 @@ Remote servers use Bearer token authentication. The token is configured in the T
 ### In Scriptling Scripts
 
 ```python
-import mcp
+import knot.mcp
 
 # List all available tools (including remote ones)
-tools = mcp.list_tools()
+tools = knot.mcp.list_tools()
 for tool in tools:
     print(f"Tool: {tool['name']}")
     # Tools will include both local (list_spaces) and remote (ai/generate-text)
 
 # Call a remote tool directly
-response = mcp.call_tool("ai/generate-text", {
+response = knot.mcp.call_tool("ai/generate-text", {
     "prompt": "Write a Python function",
     "max_tokens": 100
 })
 print(response)
 
 # Call a hidden tool (not listed but callable)
-response = mcp.call_tool("internal/process-data", {
+response = knot.mcp.call_tool("internal/process-data", {
     "data_id": "12345"
 })
 print(response)
@@ -120,7 +120,7 @@ print(response)
 messages = [
     {"role": "user", "content": "Generate a Python function and save it to a file in my dev space"}
 ]
-response = ai.completion(messages)
+response = knot.ai.completion(messages)
 # AI will automatically use both remote (ai/generate-text) and local (write_file) tools
 ```
 

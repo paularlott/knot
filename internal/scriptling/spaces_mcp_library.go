@@ -145,7 +145,7 @@ func GetSpacesMCPLibrary(
 		},
 	}
 
-	return object.NewLibrary(functions, nil, "Space management functions")
+	return object.NewLibrary(functions, nil, "Knot space management functions")
 }
 
 func resolveSpaceNameMCP(user *model.User, spaceName string) (string, error) {

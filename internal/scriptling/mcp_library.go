@@ -15,7 +15,7 @@ import (
 // GetMCPToolsLibrary returns the MCP tools library for scriptling (used in local/remote environments)
 // This provides only tool access functions that communicate with the server via API calls
 func GetMCPToolsLibrary(client *apiclient.ApiClient) *object.Library {
-	builder := object.NewLibraryBuilder("mcp", "MCP tool functions")
+	builder := object.NewLibraryBuilder("knot.mcp", "Knot MCP tool functions")
 
 	builder.FunctionWithHelp("list_tools", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return mcpListTools(ctx, client, args...)

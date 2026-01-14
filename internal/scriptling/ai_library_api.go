@@ -42,7 +42,7 @@ type GetResponseResponse struct {
 
 // GetAILibrary returns the AI helper library for scriptling (local/remote environments)
 func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
-	builder := object.NewLibraryBuilder("ai", "AI completion functions")
+	builder := object.NewLibraryBuilder("knot.ai", "Knot AI completion functions")
 
 	builder.FunctionWithHelp("completion", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return aiCompletion(ctx, client, userId, args...)

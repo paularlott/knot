@@ -1,6 +1,6 @@
 # Scriptling Spaces Library
 
-The `spaces` library provides functions to manage development spaces programmatically from within scriptling scripts. This library is available in all three scriptling execution environments (Local, MCP, and Remote), with the implementation automatically adapting to the environment.
+The `knot.spaces` library provides functions to manage development spaces programmatically from within scriptling scripts. This library is available in all three scriptling execution environments (Local, MCP, and Remote), with the implementation automatically adapting to the environment.
 
 ## Available Functions
 
@@ -32,24 +32,24 @@ The `spaces` library provides functions to manage development spaces programmati
 ## Usage
 
 ```python
-import spaces
+import knot.spaces
 
 # List all spaces
-for space in spaces.list():
+for space in knot.spaces.list():
     print(f"{space['name']}: {'running' if space['is_running'] else 'stopped'}")
 
 # Start a space
-spaces.start("my-dev-space")
+knot.spaces.start("my-dev-space")
 
 # Check if running
-if spaces.is_running("my-dev-space"):
+if knot.spaces.is_running("my-dev-space"):
     print("Space is running")
 
 # Get custom field value
-api_key = spaces.get_field("my-dev-space", "api_key")
+api_key = knot.spaces.get_field("my-dev-space", "api_key")
 
 # Stop the space
-spaces.stop("my-dev-space")
+knot.spaces.stop("my-dev-space")
 ```
 
 ## Functions
@@ -67,9 +67,9 @@ Start a space by name.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
-spaces.start("my-dev-space")
+knot.spaces.start("my-dev-space")
 print("Space started successfully")
 ```
 
@@ -88,9 +88,9 @@ Stop a running space by name.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
-spaces.stop("my-dev-space")
+knot.spaces.stop("my-dev-space")
 print("Space stopped successfully")
 ```
 
@@ -109,9 +109,9 @@ Restart a running space by name.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
-spaces.restart("my-dev-space")
+knot.spaces.restart("my-dev-space")
 print("Space restarted successfully")
 ```
 
@@ -131,9 +131,9 @@ Check if a space is currently running.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
-if spaces.is_running("my-dev-space"):
+if knot.spaces.is_running("my-dev-space"):
     print("Space is running")
 else:
     print("Space is stopped")
@@ -157,9 +157,9 @@ List all spaces for the current user.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
-all_spaces = spaces.list()
+all_spaces = knot.spaces.list()
 for space in all_spaces:
     status = "running" if space["is_running"] else "stopped"
     print(f"{space['name']}: {status} - {space['description']}")
@@ -182,9 +182,9 @@ Get the value of a custom field from a space.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
-api_key = spaces.get_field("my-dev-space", "api_key")
+api_key = knot.spaces.get_field("my-dev-space", "api_key")
 print(f"API Key: {api_key}")
 ```
 
@@ -205,9 +205,9 @@ Set the value of a custom field on a space.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
-spaces.set_field("my-dev-space", "api_key", "sk-1234567890")
+knot.spaces.set_field("my-dev-space", "api_key", "sk-1234567890")
 print("Field updated successfully")
 ```
 
@@ -229,13 +229,13 @@ Create a new space.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
 # Positional arguments
-space_id = spaces.create("new-space", "my-template", "My development space", "zsh")
+space_id = knot.spaces.create("new-space", "my-template", "My development space", "zsh")
 
 # Keyword arguments
-space_id = spaces.create("new-space", "my-template", description="My dev space", shell="zsh")
+space_id = knot.spaces.create("new-space", "my-template", description="My dev space", shell="zsh")
 
 print(f"Created space with ID: {space_id}")
 ```
@@ -255,13 +255,13 @@ Delete a space by name. The space must be stopped before it can be deleted.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
 # Stop the space first
-spaces.stop("old-space")
+knot.spaces.stop("old-space")
 
 # Then delete it
-spaces.delete("old-space")
+knot.spaces.delete("old-space")
 print("Space deleted successfully")
 ```
 
@@ -281,9 +281,9 @@ Set the description of a space.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
-spaces.set_description("my-dev-space", "Updated description for my space")
+knot.spaces.set_description("my-dev-space", "Updated description for my space")
 print("Description updated successfully")
 ```
 
@@ -302,9 +302,9 @@ Get the description of a space.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
-description = spaces.get_description("my-dev-space")
+description = knot.spaces.get_description("my-dev-space")
 print(f"Description: {description}")
 ```
 
@@ -326,10 +326,10 @@ Forward a local port from one space to a port in another space. This allows you 
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
 # Forward port 8080 in web-dev space to port 3000 in api-dev space
-spaces.port_forward("web-dev", 8080, "api-dev", 3000)
+knot.spaces.port_forward("web-dev", 8080, "api-dev", 3000)
 print("Port forward established: web-dev:8080 -> api-dev:3000")
 
 # Now web-dev can access api-dev's service at localhost:8080
@@ -353,10 +353,10 @@ List all active port forwards for a space.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
 # List all active port forwards
-forwards = spaces.port_list("web-dev")
+forwards = knot.spaces.port_list("web-dev")
 for forward in forwards:
     print(f"Port {forward['local_port']} -> {forward['space']}:{forward['remote_port']}")
 ```
@@ -377,10 +377,10 @@ Stop an active port forward.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
 # Stop a port forward
-spaces.port_stop("web-dev", 8080)
+knot.spaces.port_stop("web-dev", 8080)
 print("Port forward stopped")
 ```
 
@@ -389,10 +389,10 @@ print("Port forward stopped")
 ## Complete Example
 
 ```python
-import spaces
+import knot.spaces
 
 # Create a new development space
-space_id = spaces.create(
+space_id = knot.spaces.create(
     "test-space",
     "my-template",
     description="Test environment",
@@ -401,36 +401,36 @@ space_id = spaces.create(
 print(f"Created space: {space_id}")
 
 # Set custom fields
-spaces.set_field("test-space", "environment", "testing")
-spaces.set_field("test-space", "api_key", "sk-test-key")
+knot.spaces.set_field("test-space", "environment", "testing")
+knot.spaces.set_field("test-space", "api_key", "sk-test-key")
 
 # Start the space
-spaces.start("test-space")
+knot.spaces.start("test-space")
 print("Space started")
 
 # Wait for it to be running
 import time
-while not spaces.is_running("test-space"):
+while not knot.spaces.is_running("test-space"):
     print("Waiting for space to start...")
     time.sleep(2)
 
 print("Space is now running")
 
 # Get custom field values
-env = spaces.get_field("test-space", "environment")
-api_key = spaces.get_field("test-space", "api_key")
+env = knot.spaces.get_field("test-space", "environment")
+api_key = knot.spaces.get_field("test-space", "api_key")
 print(f"Environment: {env}")
 print(f"API Key: {api_key}")
 
 # Update description
-spaces.set_description("test-space", "Updated test environment")
+knot.spaces.set_description("test-space", "Updated test environment")
 
 # Stop the space when done
-spaces.stop("test-space")
+knot.spaces.stop("test-space")
 print("Space stopped")
 
 # Clean up
-spaces.delete("test-space")
+knot.spaces.delete("test-space")
 print("Space deleted")
 ```
 
@@ -439,10 +439,10 @@ print("Space deleted")
 All functions raise errors when operations fail. Use try/except blocks to handle errors gracefully:
 
 ```python
-import spaces
+import knot.spaces
 
 try:
-    spaces.start("my-space")
+    knot.spaces.start("my-space")
     print("Space started successfully")
 except Exception as e:
     print(f"Failed to start space: {e}")
@@ -484,14 +484,14 @@ Execute a script in a space.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
 # Execute script without arguments
-output = spaces.run_script("my-dev-space", "deploy-script")
+output = knot.spaces.run_script("my-dev-space", "deploy-script")
 print(output)
 
 # Execute script with arguments
-output = spaces.run_script("my-dev-space", "build-script", "production", "v1.2.3")
+output = knot.spaces.run_script("my-dev-space", "build-script", "production", "v1.2.3")
 print(output)
 ```
 
@@ -514,14 +514,14 @@ Execute a command in a space.
 
 **Example:**
 ```python
-import spaces
+import knot.spaces
 
 # Simple command
-output = spaces.run("my-dev-space", "ls", args=["-la", "/home"])
+output = knot.spaces.run("my-dev-space", "ls", args=["-la", "/home"])
 print(output)
 
 # Command with timeout and workdir
-output = spaces.run(
+output = knot.spaces.run(
     "my-dev-space",
     "npm",
     args=["install"],

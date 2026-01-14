@@ -29,7 +29,7 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, use
 
 	// Register MCP library with parameters and tool access
 	mcpLib := scriptling.GetMCPLibrary(mcpParams, GetOpenAIClient())
-	env.RegisterLibrary("mcp", mcpLib)
+	env.RegisterLibrary("knot.mcp", mcpLib)
 
 	result, err := env.EvalWithContext(ctx, script.Content)
 	if err != nil {

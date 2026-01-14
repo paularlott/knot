@@ -81,9 +81,9 @@ Knot has **three** distinct scriptling execution environments, each optimized fo
 | **Used By**          | CLI run-script | AI MCP tools | Space execution |
 | **System Access**    | ✓ Full         | ✗ None       | ✓ Container     |
 | **API Client**       | ✓ Yes          | ✗ No         | ✓ Yes           |
-| **spaces lib**       | ✓ API          | ✓ Internal   | ✓ API           |
-| **ai lib**           | ✓ API          | ✓ MCP        | ✓ API           |
-| **mcp lib**          | ✓ Tools        | ✓ Special    | ✓ Tools         |
+| **knot.spaces lib**       | ✓ API          | ✓ Internal   | ✓ API           |
+| **knot.ai lib**           | ✓ API          | ✓ MCP        | ✓ API           |
+| **knot.mcp lib**          | ✓ Tools        | ✓ Special    | ✓ Tools         |
 | **subprocess**       | ✓              | ✗            | ✓               |
 | **os/pathlib**       | ✓              | ✗            | ✓               |
 | **Load from disk**   | ✓ First        | ✗            | ✗               |

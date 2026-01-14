@@ -78,7 +78,7 @@ func GetMCPLibrary(mcpParams map[string]string, openaiClient *openai.Client) *ob
 	// Add shared toon functions from scriptling/mcp
 	scriptlingmcp.RegisterToon(&libraryRegistrar{functions: functions})
 
-	return object.NewLibrary(functions, nil, "MCP helper functions for tool scripts")
+	return object.NewLibrary(functions, nil, "Knot MCP helper functions for tool scripts")
 }
 
 type libraryRegistrar struct {
