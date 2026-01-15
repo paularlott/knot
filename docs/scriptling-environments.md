@@ -140,7 +140,7 @@ knot space run-script myspace myscript arg1 arg2
 | os             | ✓                | ✗          | ✓          |
 | pathlib        | ✓                | ✗          | ✓          |
 | sys            | ✓                | ✗          | ✓          |
-| knot.spaces   | ✓                | ✓          | ✓          |
+| knot.spaces    | ✓                | ✓          | ✓          |
 | knot.ai        | ✓                | ✓          | ✓          |
 | knot.mcp       | ✓                | ✓          | ✓          |
 | On-demand libs | ✓ (local+server) | ✓ (server) | ✓ (server) |
@@ -180,4 +180,4 @@ knot space run-script myspace myscript arg1 arg2
 
 ## Additional Documentation
 
-- [Spaces Library Reference](scriptling-spaces-library.md) - Complete documentation for the `spaces` library
+- [Space Library Reference](scriptling-space-library.md) - Complete documentation for the `knot.space` library

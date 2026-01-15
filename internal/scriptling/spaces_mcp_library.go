@@ -36,8 +36,8 @@ type AgentSession interface {
 	SendPortStopRequest(req *msg.PortStopRequest) (chan *msg.PortStopResponse, error)
 }
 
-// GetSpacesMCPLibrary returns the spaces helper library for scriptling (MCP environment)
-func GetSpacesMCPLibrary(
+// GetSpaceMCPLibrary returns the space helper library for scriptling (MCP environment)
+func GetSpaceMCPLibrary(
 	user *model.User,
 	spaceService SpaceService,
 	containerService ContainerService,
@@ -46,106 +46,56 @@ func GetSpacesMCPLibrary(
 	if getAgentSession == nil {
 		getAgentSession = func(spaceId string) AgentSession { return nil }
 	}
-	functions := map[string]*object.Builtin{
-		"start": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+	return object.NewLibraryBuilder("knot.space", "Knot space management functions").
+		FunctionWithHelp("start", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPStart(ctx, user, containerService, args...)
-			},
-			HelpText: "start(name) - Start a space by name",
-		},
-		"stop": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "start(name) - Start a space by name").
+		FunctionWithHelp("stop", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPStop(ctx, user, containerService, args...)
-			},
-			HelpText: "stop(name) - Stop a space by name",
-		},
-		"restart": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "stop(name) - Stop a space by name").
+		FunctionWithHelp("restart", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPRestart(ctx, user, containerService, args...)
-			},
-			HelpText: "restart(name) - Restart a space by name",
-		},
-		"get_field": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "restart(name) - Restart a space by name").
+		FunctionWithHelp("get_field", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPGetField(ctx, user, spaceService, args...)
-			},
-			HelpText: "get_field(name, field) - Get a custom field value from a space",
-		},
-		"set_field": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "get_field(name, field) - Get a custom field value from a space").
+		FunctionWithHelp("set_field", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPSetField(ctx, user, spaceService, args...)
-			},
-			HelpText: "set_field(name, field, value) - Set a custom field value on a space",
-		},
-		"create": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "set_field(name, field, value) - Set a custom field value on a space").
+		FunctionWithHelp("create", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPCreate(ctx, user, spaceService, kwargs, args...)
-			},
-			HelpText: "create(name, template_name, description='', shell='bash') - Create a new space",
-		},
-		"delete": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "create(name, template_name, description='', shell='bash') - Create a new space").
+		FunctionWithHelp("delete", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPDelete(ctx, user, spaceService, args...)
-			},
-			HelpText: "delete(name) - Delete a space by name",
-		},
-		"set_description": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "delete(name) - Delete a space by name").
+		FunctionWithHelp("set_description", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPSetDescription(ctx, user, spaceService, args...)
-			},
-			HelpText: "set_description(name, description) - Set the description of a space",
-		},
-		"get_description": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "set_description(name, description) - Set the description of a space").
+		FunctionWithHelp("get_description", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPGetDescription(ctx, user, spaceService, args...)
-			},
-			HelpText: "get_description(name) - Get the description of a space",
-		},
-		"is_running": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "get_description(name) - Get the description of a space").
+		FunctionWithHelp("is_running", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPIsRunning(ctx, user, args...)
-			},
-			HelpText: "is_running(name) - Check if a space is running",
-		},
-		"list": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "is_running(name) - Check if a space is running").
+		FunctionWithHelp("list", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPList(ctx, user, args...)
-			},
-			HelpText: "list() - List all spaces for the current user",
-		},
-		"run_script": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "list() - List all spaces for the current user").
+		FunctionWithHelp("run_script", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPExecScript(ctx, user, getAgentSession, args...)
-			},
-			HelpText: "run_script(space_name, script_name, *args) - Execute a script in a space",
-		},
-		"run": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "run_script(space_name, script_name, *args) - Execute a script in a space").
+		FunctionWithHelp("run", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPExecCommand(ctx, user, getAgentSession, kwargs, args...)
-			},
-			HelpText: "run(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space",
-		},
-		"port_forward": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "run(space_name, command, args=[], timeout=30, workdir='') - Execute a command in a space").
+		FunctionWithHelp("port_forward", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPPortForward(ctx, user, getAgentSession, args...)
-			},
-			HelpText: "port_forward(source_space, local_port, remote_space, remote_port) - Forward a local port to a remote space port",
-		},
-		"port_list": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "port_forward(source_space, local_port, remote_space, remote_port) - Forward a local port to a remote space port").
+		FunctionWithHelp("port_list", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPPortList(ctx, user, getAgentSession, args...)
-			},
-			HelpText: "port_list(space) - List active port forwards for a space",
-		},
-		"port_stop": {
-			Fn: func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			}, "port_list(space) - List active port forwards for a space").
+		FunctionWithHelp("port_stop", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return spaceMCPPortStop(ctx, user, getAgentSession, args...)
-			},
-			HelpText: "port_stop(space, local_port) - Stop a port forward",
-		},
-	}
-
-	return object.NewLibrary(functions, nil, "Knot space management functions")
+			}, "port_stop(space, local_port) - Stop a port forward").
+		Build()
 }
 
 func resolveSpaceNameMCP(user *model.User, spaceName string) (string, error) {
