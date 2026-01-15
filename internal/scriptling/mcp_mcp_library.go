@@ -151,7 +151,8 @@ func mcpListToolsMCP(ctx context.Context, openaiClient *openai.Client, kwargs ma
 	}
 
 	// Get tools from MCP server
-	mcpTools := openaiClient.GetMCPServer().ListTools()
+	mcpServer := openai.GetMCPServer(openaiClient)
+	mcpTools := mcpServer.ListTools()
 
 	// Convert to scriptling objects
 	toolList := make([]object.Object, 0, len(mcpTools))
@@ -216,7 +217,8 @@ func mcpCallToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs map
 	}
 
 	// Call tool on MCP server
-	response, mcpErr := openaiClient.GetMCPServer().CallTool(mcpCtx, toolName, arguments)
+	mcpServer := openai.GetMCPServer(openaiClient)
+	response, mcpErr := mcpServer.CallTool(mcpCtx, toolName, arguments)
 	if mcpErr != nil {
 		errMsg := fmt.Sprintf("Tool call failed: %v", mcpErr)
 		return &object.Error{Message: errMsg}

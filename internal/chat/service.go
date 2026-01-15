@@ -40,7 +40,6 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, erro
 	openaiConfig := openai.Config{
 		APIKey:  config.OpenAIAPIKey,
 		BaseURL: config.OpenAIBaseURL,
-		Timeout: 5 * time.Minute,
 	}
 
 	openaiClient, err := openai.New(openaiConfig, mcpServer)
