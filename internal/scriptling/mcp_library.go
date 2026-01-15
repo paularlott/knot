@@ -8,7 +8,7 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/mcp"
 	scriptlib "github.com/paularlott/scriptling"
-	scriptlingmcp "github.com/paularlott/scriptling/mcp"
+	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/object"
 )
 

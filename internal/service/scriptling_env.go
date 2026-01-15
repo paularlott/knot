@@ -11,9 +11,9 @@ import (
 	"github.com/paularlott/knot/internal/openai"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/scriptling"
-	scriptlingai "github.com/paularlott/scriptling/ai"
 	"github.com/paularlott/scriptling/extlibs"
-	scriptlingmcp "github.com/paularlott/scriptling/mcp"
+	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
+	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/stdlib"
 )
 
