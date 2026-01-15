@@ -114,7 +114,23 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	}
 
 	if enableWebEndpoint {
-		// Create handler with request-scoped support for tool discovery (main /mcp endpoint)
+		// Create handler for native tools endpoint (/mcp)
+		// This endpoint creates a server per-request with all tools registered natively
+		nativeHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// The authentication middleware has already run and set the user in the context
+			user := r.Context().Value("user").(*model.User)
+
+			// Create a new server instance for this request with all tools
+			requestServer := createNativeServerWithTools(user)
+
+			// Handle the MCP request with the request-specific server
+			requestServer.HandleRequest(w, r)
+		})
+
+		// Apply authentication middleware - native tools endpoint
+		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(nativeHandler.ServeHTTP)))
+
+		// Create handler with request-scoped support for tool discovery (/mcp/discovery endpoint)
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
@@ -134,23 +150,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		})
 
 		// Apply authentication middleware - discovery-based endpoint
-		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(handler.ServeHTTP)))
-
-		// Create handler for native tools endpoint (/mcp/tools)
-		// This endpoint creates a server per-request with all tools registered natively
-		nativeHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// The authentication middleware has already run and set the user in the context
-			user := r.Context().Value("user").(*model.User)
-
-			// Create a new server instance for this request with all tools
-			requestServer := createNativeServerWithTools(user)
-
-			// Handle the MCP request with the request-specific server
-			requestServer.HandleRequest(w, r)
-		})
-
-		// Apply authentication middleware - native tools endpoint
-		routes.HandleFunc("POST /mcp/tools", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(nativeHandler.ServeHTTP)))
+		routes.HandleFunc("POST /mcp/discovery", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(handler.ServeHTTP)))
 	}
 
 	// Create a tool registry for discoverable tools (main server)
@@ -667,9 +667,9 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 
 	// Log whether native endpoint will have discovery
 	if hasDiscoverableTools {
-		log.WithGroup("mcp").Info("Discovery tools enabled on both /mcp and /mcp/tools endpoints")
+		log.WithGroup("mcp").Info("Discovery tools enabled on both /mcp and /mcp/discovery endpoints")
 	} else {
-		log.WithGroup("mcp").Info("Discovery tools enabled on /mcp endpoint only (no hidden/ondemand tools)")
+		log.WithGroup("mcp").Info("Discovery tools enabled on /mcp/discovery endpoint only (no hidden/ondemand tools)")
 	}
 
 	return server
