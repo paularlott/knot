@@ -53,60 +53,35 @@ EXAMPLE: For "create a nomad template":
 
 REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_tool for ALL operations.`)
 
-	// Store tool definitions for creating per-request native servers
-	var toolDefinitions []struct {
-		builder  *mcp.ToolBuilder
-		handler  mcp.ToolHandler
-		keywords []string
-	}
-
 	// Store remote server configurations
 	var remoteServerConfigs []*mcp.Client
 
-	// Factory function to create a native server for /mcp endpoint
-	createNativeServerWithTools := func(user *model.User) *mcp.Server {
-		nativeServer := mcp.NewServer("knot-mcp-server", build.Version)
-		nativeServer.SetInstructions(`These tools manage spaces, templates, and other resources. All tools can be called directly.`)
-
-		// Register all static tools natively (not searchable on native endpoint)
-		for _, td := range toolDefinitions {
-			nativeServer.RegisterToolNativeOnly(td.builder, td.handler)
-		}
-
-		// Register script tools for this user (not searchable on native endpoint)
-		if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
-			RegisterScriptToolsNative(nativeServer, user)
-		}
-
-		// Register remote MCP servers
-		for _, remoteClient := range remoteServerConfigs {
-			err := nativeServer.RegisterRemoteServer(remoteClient)
-			if err != nil {
-				log.WithGroup("mcp").Error("Failed to register remote MCP server on native endpoint", "error", err)
-			}
-		}
-
-		return nativeServer
-	}
-
 	if enableWebEndpoint {
 		// Create handler for native tools endpoint (/mcp)
-		// This endpoint creates a server per-request with all tools registered natively (not searchable)
+		// This endpoint shows all tools directly callable (native mode)
 		nativeHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
 
-			// Create a new server instance for this request with all tools
-			requestServer := createNativeServerWithTools(user)
+			// Start with native mode context (all tools visible in tools/list)
+			ctx := mcp.WithNativeMode(r.Context())
 
-			// Handle the MCP request with the request-specific server
-			requestServer.HandleRequest(w, r)
+			// Add script tools as request-scoped provider
+			if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
+				provider := NewScriptToolsProvider(user)
+				ctx = mcp.WithToolProviders(ctx, provider)
+			}
+
+			// Handle the MCP request with native mode
+			r = r.WithContext(ctx)
+			server.HandleRequest(w, r)
 		})
 
 		// Apply authentication middleware - native tools endpoint
 		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(nativeHandler.ServeHTTP)))
 
-		// Create handler with request-scoped tool provider for /mcp/discovery endpoint
+		// Create handler for discovery endpoint (/mcp/discovery)
+		// Only tool_search and execute_tool visible, all other tools discoverable via search
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
@@ -116,16 +91,12 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 
 			// Add script tools as request-scoped provider using ToolProvider interface
 			if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
-				// Create a script tools provider for this user
 				provider := NewScriptToolsProvider(user)
-				// Add provider to context
 				ctx = mcp.WithToolProviders(ctx, provider)
 			}
 
-			// Update request with the discovery mode context
+			// Handle the MCP request with discovery mode
 			r = r.WithContext(ctx)
-
-			// Handle the MCP request with tool discovery support
 			server.HandleRequest(w, r)
 		})
 
@@ -133,16 +104,10 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		routes.HandleFunc("POST /mcp/discovery", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(handler.ServeHTTP)))
 	}
 
-	// Helper function to register tools on the main server and store for native endpoint
+	// Helper function to register tools on the main server
 	registerTool := func(tool *mcp.ToolBuilder, handler mcp.ToolHandler, keywords ...string) {
-		// Register searchable tool on main discovery server (auto-enables tool_search/execute_tool)
+		// Register searchable tool on main server (auto-enables tool_search/execute_tool)
 		server.RegisterTool(tool, handler, keywords...)
-		// Store for native server registration
-		toolDefinitions = append(toolDefinitions, struct {
-			builder  *mcp.ToolBuilder
-			handler  mcp.ToolHandler
-			keywords []string
-		}{builder: tool, handler: handler, keywords: keywords})
 	}
 
 	// =========================================================================
