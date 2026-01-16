@@ -16,8 +16,12 @@
     </div>
 
     <div>
-      <label for="description" class="form-label">Description</label>
-      <input type="text" class="form-field" name="description" id="description" placeholder="What this script does" x-model="formData.description">
+      <label class="form-label">Description</label>
+      <div class="short-editor">
+        <div class="editor-wrap">
+          <textarea name="description" class="form-field" id="description" placeholder="What this script does"></textarea>
+        </div>
+      </div>
     </div>
 
     <div class="mb-4">

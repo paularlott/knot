@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/paularlott/knot/internal/openai"
 
 	"github.com/paularlott/mcp"
-	"github.com/paularlott/mcp/discovery"
 )
 
 func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfig *config.MCPConfig) *mcp.Server {
@@ -53,60 +53,36 @@ EXAMPLE: For "create a nomad template":
 
 REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_tool for ALL operations.`)
 
-	// Factory function to create a native server with all tools registered
+	// Store tool definitions for creating per-request native servers
 	var toolDefinitions []struct {
-		builder *mcp.ToolBuilder
-		handler mcp.ToolHandler
+		builder  *mcp.ToolBuilder
+		handler  mcp.ToolHandler
+		keywords []string
 	}
 
-	// Store remote server configurations for native endpoint
-	var remoteServerConfigs []struct {
-		client     *mcp.Client
-		visibility mcp.ToolVisibility
-	}
+	// Store remote server configurations
+	var remoteServerConfigs []*mcp.Client
 
-	// Track if we need discovery tools (tool_search, execute_tool)
-	var hasDiscoverableTools bool
-
+	// Factory function to create a native server for /mcp endpoint
 	createNativeServerWithTools := func(user *model.User) *mcp.Server {
 		nativeServer := mcp.NewServer("knot-mcp-server", build.Version)
 		nativeServer.SetInstructions(`These tools manage spaces, templates, and other resources. All tools can be called directly.`)
 
-		// Create a tool registry for discovery support (tool_search, execute_tool)
-		nativeRegistry := discovery.NewToolRegistry()
-
-		// Register all static tools in both the server and the registry
+		// Register all static tools natively (not searchable on native endpoint)
 		for _, td := range toolDefinitions {
-			nativeServer.RegisterTool(td.builder, td.handler)
+			nativeServer.RegisterToolNativeOnly(td.builder, td.handler)
 		}
 
-		// Register script tools for this user
+		// Register script tools for this user (not searchable on native endpoint)
 		if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
 			RegisterScriptToolsNative(nativeServer, user)
 		}
 
-		// Only set up discovery if we have hidden/ondemand tools
-		if hasDiscoverableTools {
-			// Set the tool registry before registering remote servers (needed for ondemand)
-			nativeServer.SetToolRegistry(nativeRegistry)
-
-			// Register remote MCP servers with their visibility settings
-			for _, remoteConfig := range remoteServerConfigs {
-				err := nativeServer.RegisterRemoteServerWithVisibility(remoteConfig.client, remoteConfig.visibility)
-				if err != nil {
-					log.WithGroup("mcp").Error("Failed to register remote MCP server on native endpoint", "error", err)
-				}
-			}
-
-			// Attach registry to enable tool_search and execute_tool
-			nativeRegistry.Attach(nativeServer)
-		} else {
-			// Register remote MCP servers without discovery
-			for _, remoteConfig := range remoteServerConfigs {
-				err := nativeServer.RegisterRemoteServerWithVisibility(remoteConfig.client, remoteConfig.visibility)
-				if err != nil {
-					log.WithGroup("mcp").Error("Failed to register remote MCP server on native endpoint", "error", err)
-				}
+		// Register remote MCP servers
+		for _, remoteClient := range remoteServerConfigs {
+			err := nativeServer.RegisterRemoteServer(remoteClient)
+			if err != nil {
+				log.WithGroup("mcp").Error("Failed to register remote MCP server on native endpoint", "error", err)
 			}
 		}
 
@@ -115,7 +91,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 
 	if enableWebEndpoint {
 		// Create handler for native tools endpoint (/mcp)
-		// This endpoint creates a server per-request with all tools registered natively
+		// This endpoint creates a server per-request with all tools registered natively (not searchable)
 		nativeHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
@@ -130,20 +106,24 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		// Apply authentication middleware - native tools endpoint
 		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(nativeHandler.ServeHTTP)))
 
-		// Create handler with request-scoped support for tool discovery (/mcp/discovery endpoint)
+		// Create handler with request-scoped tool provider for /mcp/discovery endpoint
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
 
-			// Add script tools as request-scoped provider
-			if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
-				scriptRegistry := discovery.NewToolRegistry()
-				RegisterScriptTools(scriptRegistry, user)
+			// Start with discovery mode context (only tool_search and execute_tool visible)
+			ctx := mcp.WithDiscoveryMode(r.Context())
 
-				// Add as request provider
-				ctx := discovery.WithRequestProviders(r.Context(), scriptRegistry)
-				r = r.WithContext(ctx)
+			// Add script tools as request-scoped provider using ToolProvider interface
+			if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
+				// Create a script tools provider for this user
+				provider := NewScriptToolsProvider(user)
+				// Add provider to context
+				ctx = mcp.WithToolProviders(ctx, provider)
 			}
+
+			// Update request with the discovery mode context
+			r = r.WithContext(ctx)
 
 			// Handle the MCP request with tool discovery support
 			server.HandleRequest(w, r)
@@ -153,22 +133,20 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		routes.HandleFunc("POST /mcp/discovery", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(handler.ServeHTTP)))
 	}
 
-	// Create a tool registry for discoverable tools (main server)
-	registry := discovery.NewToolRegistry()
-
-	// Helper function to register tools in both discovery registry and tool definitions list
+	// Helper function to register tools on the main server and store for native endpoint
 	registerTool := func(tool *mcp.ToolBuilder, handler mcp.ToolHandler, keywords ...string) {
-		// Register in discovery registry for main /mcp endpoint
-		registry.RegisterTool(tool, handler, keywords...)
+		// Register searchable tool on main discovery server (auto-enables tool_search/execute_tool)
+		server.RegisterTool(tool, handler, keywords...)
 		// Store for native server registration
 		toolDefinitions = append(toolDefinitions, struct {
-			builder *mcp.ToolBuilder
-			handler mcp.ToolHandler
-		}{builder: tool, handler: handler})
+			builder  *mcp.ToolBuilder
+			handler  mcp.ToolHandler
+			keywords []string
+		}{builder: tool, handler: handler, keywords: keywords})
 	}
 
 	// =========================================================================
-	// Register ALL tools in discovery registry or natively
+	// Register ALL tools
 	// =========================================================================
 
 	// Spaces - All space operations
@@ -593,25 +571,9 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// =========================================================================
-	// Set up tool registry for discovery on main server
-	// =========================================================================
-	// Set the tool registry on the server for OnDemand tools from remote servers
-	// This MUST be called before RegisterRemoteServerWithVisibility for ondemand tools to work
-	server.SetToolRegistry(registry)
-
-	// =========================================================================
 	// Register remote MCP servers if configured
 	// =========================================================================
 	if mcpConfig != nil && len(mcpConfig.RemoteServers) > 0 {
-		// Check if we have any hidden or ondemand tools
-		for _, remoteServer := range mcpConfig.RemoteServers {
-			visibility := parseToolVisibility(remoteServer.ToolVisibility)
-			if visibility == mcp.ToolVisibilityHidden || visibility == mcp.ToolVisibilityOnDemand {
-				hasDiscoverableTools = true
-				break
-			}
-		}
-
 		for _, remoteServer := range mcpConfig.RemoteServers {
 			// Create auth provider
 			authProvider := CreateAuthProvider(remoteServer)
@@ -619,25 +581,19 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 				continue // Skip if auth provider creation failed
 			}
 
-			// Parse tool visibility
-			visibility := parseToolVisibility(remoteServer.ToolVisibility)
-
 			// Create MCP client for remote server
 			client := mcp.NewClient(remoteServer.URL, authProvider, remoteServer.Namespace)
 
-			// Register remote server with visibility on main discovery server
-			err := server.RegisterRemoteServerWithVisibility(client, visibility)
+			// Register remote server on main discovery server
+			err := server.RegisterRemoteServer(client)
 			if err != nil {
-				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", remoteServer.ToolVisibility, "error", err)
+				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "error", err)
 				continue
 			}
-			log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", remoteServer.ToolVisibility)
+			log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
 
-			// Store remote server config for native endpoint
-			remoteServerConfigs = append(remoteServerConfigs, struct {
-				client     *mcp.Client
-				visibility mcp.ToolVisibility
-			}{client: client, visibility: visibility})
+			// Store remote server client for native endpoint
+			remoteServerConfigs = append(remoteServerConfigs, client)
 
 			// Test if we can list tools from the remote server
 			tools := server.ListTools()
@@ -647,9 +603,9 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 					remoteToolCount++
 				}
 			}
-			if remoteToolCount == 0 && visibility == mcp.ToolVisibilityVisible {
+			if remoteToolCount == 0 {
 				log.WithGroup("mcp").Warn("No tools loaded from remote MCP server (may be unreachable or have auth issues)", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
-			} else if visibility == mcp.ToolVisibilityVisible {
+			} else {
 				log.WithGroup("mcp").Info("Remote server tool count", "namespace", remoteServer.Namespace, "count", remoteToolCount)
 			}
 		}
@@ -659,34 +615,63 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		log.WithGroup("mcp").Info("Total tools after remote registration", "count", len(totalTools))
 	}
 
-	// =========================================================================
-	// Attach registry to main server (registers tool_search, execute_tool)
-	// Main /mcp endpoint always has discovery enabled
-	// =========================================================================
-	registry.Attach(server)
-
-	// Log whether native endpoint will have discovery
-	if hasDiscoverableTools {
-		log.WithGroup("mcp").Info("Discovery tools enabled on both /mcp and /mcp/discovery endpoints")
-	} else {
-		log.WithGroup("mcp").Info("Discovery tools enabled on /mcp/discovery endpoint only (no hidden/ondemand tools)")
-	}
+	// Log info about discovery tools
+	log.WithGroup("mcp").Info("MCP server initialized with searchable tools on /mcp/discovery endpoint")
 
 	return server
 }
 
-// parseToolVisibility converts string visibility to mcp.ToolVisibility
-func parseToolVisibility(visibility string) mcp.ToolVisibility {
-	switch strings.ToLower(visibility) {
-	case "hidden":
-		return mcp.ToolVisibilityHidden
-	case "ondemand":
-		return mcp.ToolVisibilityOnDemand
-	case "visible", "":
-		return mcp.ToolVisibilityVisible
-	default:
-		return mcp.ToolVisibilityVisible
+// CreateDiscoveryServer creates a minimal MCP server for OpenAI client that only exposes
+// tool_search and execute_tool in ListTools(), requiring all tool access to go through
+// discovery pattern while delegating actual execution to the main server.
+func CreateDiscoveryServer(mainServer *mcp.Server) *mcp.Server {
+	// Create a new server with only discovery capabilities
+	discoveryServer := mcp.NewServer("knot-discovery", build.Version)
+	discoveryServer.SetInstructions(`These tools manage spaces, templates, and other resources.
+
+This server uses FULL tool discovery to minimize context usage. ALL tools are discoverable via tool_search.
+
+CRITICAL RULES:
+- ALL tools MUST be accessed via tool_search → execute_tool pattern
+- NO tools can be called directly except tool_search and execute_tool
+- ALWAYS search for tools first, then execute them
+
+WORKFLOW FOR EVERY OPERATION:
+1. tool_search(query="<operation description>")
+2. execute_tool(name="<tool_name>", arguments={...})`)
+
+	// Helper to inject script tools provider into context if user is present
+	injectScriptTools := func(ctx context.Context) context.Context {
+		user, ok := ctx.Value("user").(*model.User)
+		if ok && user != nil && user.HasPermission(model.PermissionExecuteScripts) {
+			provider := NewScriptToolsProvider(user)
+			return mcp.WithToolProviders(ctx, provider)
+		}
+		return ctx
 	}
+
+	// Register tool_search - delegates to main server with script tools injected
+	toolSearchDef := mcp.NewTool("tool_search", "Search for available tools by keyword or description",
+		mcp.String("query", "Search query to find relevant tools", mcp.Required()),
+	)
+	discoveryServer.RegisterToolNativeOnly(toolSearchDef, func(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+		// Inject script tools provider if user is in context
+		ctx = injectScriptTools(ctx)
+		return mainServer.CallTool(ctx, "tool_search", req.Args())
+	})
+
+	// Register execute_tool - delegates to main server with script tools injected
+	executeToolDef := mcp.NewTool("execute_tool", "Execute a tool by name with provided arguments",
+		mcp.String("name", "Name of the tool to execute", mcp.Required()),
+		mcp.Object("arguments", "Arguments to pass to the tool"),
+	)
+	discoveryServer.RegisterToolNativeOnly(executeToolDef, func(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
+		// Inject script tools provider if user is in context
+		ctx = injectScriptTools(ctx)
+		return mainServer.CallTool(ctx, "execute_tool", req.Args())
+	})
+
+	return discoveryServer
 }
 
 func ToolFilter(user *model.User) openai.ToolFilter {

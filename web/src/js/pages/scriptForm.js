@@ -9,6 +9,8 @@ import "ace-builds/src-noconflict/ext-searchbox";
 import "ace-builds/src-noconflict/ext-language_tools";
 
 import { focus } from "../focus.js";
+import "./aceEditorCompleter.js"; // Sets up window.AceEditorCompleter
+import { scriptLibraries } from "./scriptCompletions.js";
 
 window.scriptForm = function (isEdit, scriptId) {
   return {
@@ -33,6 +35,7 @@ window.scriptForm = function (isEdit, scriptId) {
     availableGroups: [],
     contentEditor: null,
     schemaEditor: null,
+    descriptionEditor: null,
     darkMode: Alpine.$persist(null).as("dark-theme").using(localStorage),
 
     async initData() {
@@ -90,6 +93,12 @@ window.scriptForm = function (isEdit, scriptId) {
             darkMode ? "ace/theme/github_dark" : "ace/theme/github"
           );
           this.contentEditor.session.setMode("ace/mode/python");
+
+          // Register custom completer for scriptling/knot libraries
+          window.AceEditorCompleter.setup(this.contentEditor, scriptLibraries, {
+            debug: false,
+          });
+
           this.contentEditor.setOptions({
             printMargin: false,
             newLineMode: "unix",
@@ -129,13 +138,36 @@ window.scriptForm = function (isEdit, scriptId) {
           });
         }
 
+        if (!this.descriptionEditor) {
+          this.descriptionEditor = ace.edit("description");
+          this.descriptionEditor.session.setValue(this.formData.description);
+          this.descriptionEditor.session.on("change", () => {
+            this.formData.description = this.descriptionEditor.getValue();
+          });
+          this.descriptionEditor.setTheme(
+            darkMode ? "ace/theme/github_dark" : "ace/theme/github"
+          );
+          this.descriptionEditor.session.setMode("ace/mode/text");
+          this.descriptionEditor.setOptions({
+            printMargin: false,
+            newLineMode: "unix",
+            tabSize: 2,
+            wrap: false,
+            vScrollBarAlwaysVisible: true,
+            customScrollbar: true,
+            useWorker: false,
+          });
+        }
+
         window.addEventListener("theme-change", (e) => {
           if (e.detail.dark_theme) {
             this.contentEditor.setTheme("ace/theme/github_dark");
             this.schemaEditor.setTheme("ace/theme/github_dark");
+            this.descriptionEditor.setTheme("ace/theme/github_dark");
           } else {
             this.contentEditor.setTheme("ace/theme/github");
             this.schemaEditor.setTheme("ace/theme/github");
+            this.descriptionEditor.setTheme("ace/theme/github");
           }
         });
       });

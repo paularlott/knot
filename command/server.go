@@ -39,7 +39,6 @@ import (
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/mcp"
-	mcp_discovery "github.com/paularlott/mcp/discovery"
 )
 
 var ServerCmd = &cli.Command{
@@ -794,8 +793,15 @@ var ServerCmd = &cli.Command{
 		if chatEnabled || openaiEndpointEnabled {
 			logger.Info("AI chat enabled")
 
-			// Initialize chat service with config
-			chatService, err := chat.NewService(cfg.Chat, mcpServer)
+			// Create a discovery-only MCP server for the OpenAI client
+			// This ensures tools are accessed via tool_search → execute_tool pattern
+			var discoveryServer *mcp.Server
+			if mcpServer != nil {
+				discoveryServer = internal_mcp.CreateDiscoveryServer(mcpServer)
+			}
+
+			// Initialize chat service with discovery-only server
+			chatService, err := chat.NewService(cfg.Chat, discoveryServer)
 			if err != nil {
 				logger.WithError(err).Fatal("failed to create chat service:")
 			}
@@ -826,16 +832,14 @@ var ServerCmd = &cli.Command{
 
 				// Register chat tool endpoints if MCP server is available
 				if mcpServer != nil {
-					// Create a callback that returns script tools for the current user
+					// Create a callback that returns a ToolProvider for script tools
 					// This allows tool_search to discover script tools without creating circular imports
-					scriptToolsProvider := func(ctx context.Context) *mcp_discovery.ToolRegistry {
-						user, ok := ctx.Value("user").(*model.User)
-						if !ok || user == nil || !user.HasPermission(model.PermissionExecuteScripts) {
+					scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
+						if user == nil || !user.HasPermission(model.PermissionExecuteScripts) {
 							return nil
 						}
-						scriptRegistry := mcp_discovery.NewToolRegistry()
-						internal_mcp.RegisterScriptTools(scriptRegistry, user)
-						return scriptRegistry
+						// Use the newScriptToolsProvider from internal/mcp package
+						return internal_mcp.NewScriptToolsProvider(user)
 					}
 
 					// Apply MCP server context middleware with script tools provider
@@ -1257,9 +1261,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 							}
 							if token := server.GetString("token"); token != "" {
 								remoteServer.Token = token
-							}
-							if visibility := server.GetString("tool_visibility"); visibility != "" {
-								remoteServer.ToolVisibility = visibility
 							}
 							mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
 						}

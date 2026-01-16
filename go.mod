@@ -1,12 +1,12 @@
 module github.com/paularlott/knot
 
-go 1.25.5
+go 1.25.6
 
 //replace github.com/paularlott/gossip => ../gossip/
 
 //replace github.com/paularlott/cli => ../cli/
 
-//replace github.com/paularlott/mcp => ../mcp/
+replace github.com/paularlott/mcp => ../mcp/
 
 //replace github.com/paularlott/scriptling => ../scriptling/
 
@@ -25,7 +25,7 @@ require (
 	github.com/paularlott/cli v0.7.2
 	github.com/paularlott/gossip v0.12.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.8.0
+	github.com/paularlott/mcp v0.8.1
 	github.com/paularlott/scriptling v0.0.0-20260115081247-b64c0a285865
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.2
