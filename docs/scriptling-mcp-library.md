@@ -474,4 +474,4 @@ ai_managed_operations()
 ## Related Libraries
 
 - **knot.ai** - For AI completions with automatic tool usage
-- **knot.spaces** - For direct space management functions (alternative to mcp.execute_tool)
+- **knot.space** - For direct space management functions (alternative to mcp.execute_tool)

@@ -326,7 +326,7 @@ simple_sync_query()
 
 ```python
 import knot.ai
-import knot.spaces
+import knot.space
 
 def manage_spaces_with_ai():
     """Use AI to help manage spaces - AI will automatically use tools when needed"""
@@ -400,4 +400,4 @@ chat_conversation()
 ## Related Libraries
 
 - **knot.mcp** - For direct MCP tool access (list_tools, call_tool, tool_search, execute_tool)
-- **knot.spaces** - For space management functions
+- **knot.space** - For space management functions

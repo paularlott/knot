@@ -45,7 +45,8 @@ const scriptLibraries = [
         name: "list",
         signature: "list()",
         description: "List all spaces for current user",
-        returns: "list - List of space dicts with name, id, is_running, description",
+        returns:
+          "list - List of space dicts with name, id, is_running, description",
       },
       {
         name: "is_running",
@@ -97,7 +98,8 @@ const scriptLibraries = [
       },
       {
         name: "port_forward",
-        signature: "port_forward(source_space, local_port, remote_space, remote_port)",
+        signature:
+          "port_forward(source_space, local_port, remote_space, remote_port)",
         description: "Forward a local port to a remote space port",
         returns: "bool - True if successful",
       },
@@ -122,13 +124,16 @@ const scriptLibraries = [
       {
         name: "completion",
         signature: "completion(messages)",
-        description: "Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys",
+        description:
+          "Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys",
         returns: "str - AI response content",
       },
       {
         name: "response_create",
-        signature: "response_create(input, model=None, instructions=None, previous_response_id=None, background=False)",
-        description: "Create AI response. Returns response dict by default, or response_id if background=True",
+        signature:
+          "response_create(input, model=None, instructions=None, previous_response_id=None, background=False)",
+        description:
+          "Create AI response. Returns response dict by default, or response_id if background=True",
         returns: "dict or str - Response object or response ID",
       },
       {
@@ -140,7 +145,8 @@ const scriptLibraries = [
       {
         name: "response_wait",
         signature: "response_wait(id, timeout=300)",
-        description: "Wait for response completion. timeout is in seconds (default 300)",
+        description:
+          "Wait for response completion. timeout is in seconds (default 300)",
         returns: "dict - Response dict",
       },
       {
@@ -200,24 +206,22 @@ const scriptLibraries = [
       {
         name: "tool_search",
         signature: "tool_search(query)",
-        description: "Search for tools by keyword. Returns list of matching tools",
+        description:
+          "Search for tools by keyword. Returns list of matching tools",
         returns: "list - List of matching tool dicts",
       },
       {
         name: "execute_tool",
         signature: "execute_tool(name, arguments)",
-        description: "Execute a discovered tool. Use full name for namespaced tools",
+        description:
+          "Execute a discovered tool. Use full name for namespaced tools",
         returns: "any - Tool response",
       },
     ],
   },
-
-  // ============================================================================
-  // SCRIPTLING LIBRARIES (sl.*) - Standalone scriptling libraries
-  // ============================================================================
   {
-    module: "sl.space",
-    description: "Scriptling space management (same as knot.space)",
+    module: "knot.space",
+    description: "Knot space management functions",
     functions: [
       {
         name: "start",
@@ -275,7 +279,8 @@ const scriptLibraries = [
       },
       {
         name: "port_forward",
-        signature: "port_forward(source_space, local_port, remote_space, remote_port)",
+        signature:
+          "port_forward(source_space, local_port, remote_space, remote_port)",
         description: "Forward ports between spaces",
         returns: "bool",
       },
@@ -293,14 +298,20 @@ const scriptLibraries = [
       },
     ],
   },
+
+  // ============================================================================
+  // SCRIPTLING LIBRARIES (sl.*) - Standalone scriptling libraries
+  // ============================================================================
   {
     module: "sl.ai",
-    description: "Full AI client with streaming, custom tools, and MCP integration",
+    description:
+      "Full AI client with streaming, custom tools, and MCP integration",
     functions: [
       {
         name: "completion",
         signature: "completion(model, messages)",
-        description: "Create a chat completion using the specified model and messages",
+        description:
+          "Create a chat completion using the specified model and messages",
         returns: "dict - Response with id, choices, usage",
       },
       {
@@ -330,7 +341,8 @@ const scriptLibraries = [
       {
         name: "new_client",
         signature: 'new_client(base_url, service="openai", api_key=None)',
-        description: "Create a new AI client instance for making API calls to supported services",
+        description:
+          "Create a new AI client instance for making API calls to supported services",
         returns: "OpenAIClient - A client instance",
         returnType: "OpenAIClient",
       },
@@ -379,7 +391,8 @@ const scriptLibraries = [
           },
           {
             name: "add_remote_server",
-            signature: 'add_remote_server(base_url, namespace="", bearer_token="")',
+            signature:
+              'add_remote_server(base_url, namespace="", bearer_token="")',
             description: "Add remote MCP server for AI tool access",
             returns: "None",
           },
@@ -430,7 +443,8 @@ const scriptLibraries = [
       {
         name: "new_client",
         signature: 'new_client(base_url, namespace="", bearer_token="")',
-        description: "Create a new MCP client for connecting to a remote MCP server",
+        description:
+          "Create a new MCP client for connecting to a remote MCP server",
         returns: "MCPClient - A client instance",
         returnType: "MCPClient",
       },
@@ -476,7 +490,8 @@ const scriptLibraries = [
   },
   {
     module: "sl.toon",
-    description: "TOON (Token-Oriented Object Notation) encoding/decoding library",
+    description:
+      "TOON (Token-Oriented Object Notation) encoding/decoding library",
     functions: [
       {
         name: "encode",
@@ -757,7 +772,8 @@ const scriptLibraries = [
     functions: [
       {
         name: "datetime",
-        signature: "datetime(year, month, day, hour=0, minute=0, second=0, microsecond=0)",
+        signature:
+          "datetime(year, month, day, hour=0, minute=0, second=0, microsecond=0)",
         description: "Create datetime instance",
         returns: "datetime - Datetime instance",
         returnType: "datetime",
@@ -772,7 +788,8 @@ const scriptLibraries = [
       {
         name: "timedelta",
         signature: "timedelta(**kwargs)",
-        description: "Create timedelta with days, seconds, microseconds, milliseconds, minutes, hours, weeks",
+        description:
+          "Create timedelta with days, seconds, microseconds, milliseconds, minutes, hours, weeks",
         returns: "timedelta - Timedelta instance",
         returnType: "timedelta",
       },
@@ -915,7 +932,8 @@ const scriptLibraries = [
       {
         name: "glob",
         signature: "glob(pattern[, root_dir='.''])",
-        description: "Find all pathnames matching a shell-style pattern. Supports *, ?, [seq] wildcards",
+        description:
+          "Find all pathnames matching a shell-style pattern. Supports *, ?, [seq] wildcards",
         returns: "list - List of matching paths",
       },
       {
@@ -927,7 +945,8 @@ const scriptLibraries = [
       {
         name: "escape",
         signature: "escape(pattern)",
-        description: "Escape special characters (*, ?, [, ]) to treat them as literals",
+        description:
+          "Escape special characters (*, ?, [, ]) to treat them as literals",
         returns: "str - Escaped pattern string",
       },
     ],
@@ -939,7 +958,8 @@ const scriptLibraries = [
     classes: [
       {
         name: "HTMLParser",
-        description: "Simple HTML parser with handler methods for different elements",
+        description:
+          "Simple HTML parser with handler methods for different elements",
         methods: [
           {
             name: "__init__",
@@ -1591,7 +1611,8 @@ const scriptLibraries = [
       },
       {
         name: "islice",
-        signature: "islice(iterable, stop) or islice(iterable, start, stop[, step])",
+        signature:
+          "islice(iterable, stop) or islice(iterable, start, stop[, step])",
         description: "Slice iterable",
         returns: "iterator",
       },
@@ -2620,7 +2641,8 @@ const scriptLibraries = [
       {
         name: "run",
         signature: "run(args, **kwargs)",
-        description: "Run command and wait for completion. kwargs: capture_output, shell, cwd, timeout, check, text, encoding, input, env",
+        description:
+          "Run command and wait for completion. kwargs: capture_output, shell, cwd, timeout, check, text, encoding, input, env",
         returns: "CompletedProcess - Process result",
         returnType: "CompletedProcess",
       },
@@ -3005,7 +3027,7 @@ function getCompletions(editor, session, pos, prefix, callback) {
       // Filter by partial name
       if (partialName) {
         completions = completions.filter((c) =>
-          c.caption.toLowerCase().startsWith(partialName.toLowerCase())
+          c.caption.toLowerCase().startsWith(partialName.toLowerCase()),
         );
       }
 
@@ -3020,7 +3042,7 @@ function getCompletions(editor, session, pos, prefix, callback) {
       // Filter by partial name
       if (partialName) {
         completions = completions.filter((c) =>
-          c.caption.toLowerCase().startsWith(partialName.toLowerCase())
+          c.caption.toLowerCase().startsWith(partialName.toLowerCase()),
         );
       }
 
@@ -3034,7 +3056,7 @@ function getCompletions(editor, session, pos, prefix, callback) {
     // Filter by partial name
     if (partialName) {
       completions = completions.filter((c) =>
-        c.caption.toLowerCase().startsWith(partialName.toLowerCase())
+        c.caption.toLowerCase().startsWith(partialName.toLowerCase()),
       );
     }
 
@@ -3047,10 +3069,38 @@ function getCompletions(editor, session, pos, prefix, callback) {
 
   // Add standard builtins
   const builtins = [
-    "abs", "all", "any", "bin", "bool", "chr", "dict", "dir", "enumerate",
-    "filter", "float", "hex", "int", "len", "list", "map", "max", "min",
-    "oct", "ord", "pow", "print", "range", "reversed", "round", "set",
-    "sorted", "str", "sum", "tuple", "type", "zip",
+    "abs",
+    "all",
+    "any",
+    "bin",
+    "bool",
+    "chr",
+    "dict",
+    "dir",
+    "enumerate",
+    "filter",
+    "float",
+    "hex",
+    "int",
+    "len",
+    "list",
+    "map",
+    "max",
+    "min",
+    "oct",
+    "ord",
+    "pow",
+    "print",
+    "range",
+    "reversed",
+    "round",
+    "set",
+    "sorted",
+    "str",
+    "sum",
+    "tuple",
+    "type",
+    "zip",
   ];
   for (const builtin of builtins) {
     completions.push({
@@ -3063,7 +3113,7 @@ function getCompletions(editor, session, pos, prefix, callback) {
   // Filter by prefix
   if (prefix) {
     completions = completions.filter((c) =>
-      c.caption.toLowerCase().startsWith(prefix.toLowerCase())
+      c.caption.toLowerCase().startsWith(prefix.toLowerCase()),
     );
   }
 

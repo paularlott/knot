@@ -28,7 +28,7 @@ All environments now use **dynamic library loading** via scriptling's on-demand 
 - **os** - Operating system interface
 - **pathlib** - Filesystem path operations
 - **sys** - System-specific parameters (argv)
-- **knot.spaces** - Space management operations (via API)
+- **knot.space** - Space management operations (via API)
 - **knot.ai** - AI completion functions (via API)
 - **knot.mcp** - MCP tools library (via API)
 
@@ -70,7 +70,7 @@ import mylib  # Tries mylib.py locally, then fetches from server
 - **requests** - HTTP client library
 - **secrets** - Secure random number generation
 - **htmlparser** - HTML parsing and manipulation
-- **knot.spaces** - Space management operations (via internal API)
+- **knot.space** - Space management operations (via internal API)
 - **knot.ai** - AI completion functions (via MCP server)
 
 ### Special Libraries
@@ -109,7 +109,7 @@ import mylib  # Tries mylib.py locally, then fetches from server
 - **os** - Operating system interface
 - **pathlib** - Filesystem path operations
 - **sys** - System-specific parameters (argv)
-- **knot.spaces** - Space management operations (via API)
+- **knot.space** - Space management operations (via API)
 - **knot.ai** - AI completion functions (via API)
 - **knot.mcp** - MCP tools library (via API)
 
@@ -140,7 +140,7 @@ knot space run-script myspace myscript arg1 arg2
 | os             | ✓                | ✗          | ✓          |
 | pathlib        | ✓                | ✗          | ✓          |
 | sys            | ✓                | ✗          | ✓          |
-| knot.spaces    | ✓                | ✓          | ✓          |
+| knot.space    | ✓                | ✓          | ✓          |
 | knot.ai        | ✓                | ✓          | ✓          |
 | knot.mcp       | ✓                | ✓          | ✓          |
 | On-demand libs | ✓ (local+server) | ✓ (server) | ✓ (server) |
