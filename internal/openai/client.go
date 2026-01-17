@@ -50,6 +50,7 @@ var (
 // MCPServer interface for MCP server operations
 type MCPServer interface {
 	ListTools() []mcp.MCPTool
+	ListToolsWithContext(ctx context.Context) []mcp.MCPTool
 	CallTool(ctx context.Context, name string, args map[string]any) (*mcp.ToolResponse, error)
 }
 

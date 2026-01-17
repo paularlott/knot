@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 func TestHandlers_GetModels(t *testing.T) {
@@ -34,7 +33,6 @@ func TestHandlers_GetModels(t *testing.T) {
 	config := Config{
 		APIKey:  "test-key",
 		BaseURL: upstream.URL + "/",
-		Timeout: 10 * time.Second,
 	}
 
 	client, err := New(config, nil)
@@ -95,7 +93,6 @@ func TestHandlers_ChatCompletions_NonStreaming(t *testing.T) {
 	config := Config{
 		APIKey:  "test-key",
 		BaseURL: upstream.URL + "/",
-		Timeout: 10 * time.Second,
 	}
 
 	client, err := New(config, nil)

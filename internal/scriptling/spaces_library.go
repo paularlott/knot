@@ -11,7 +11,7 @@ import (
 
 // GetSpacesLibrary returns the spaces helper library for scriptling (local/remote environments)
 func GetSpacesLibrary(client *apiclient.ApiClient, userId string) *object.Library {
-	builder := object.NewLibraryBuilder("knot.spaces", "Knot space management functions")
+	builder := object.NewLibraryBuilder("knot.space", "Knot space management functions")
 
 	builder.FunctionWithHelp("start", func(name string) (bool, error) {
 		spaceId, err := resolveSpaceName(context.Background(), client, userId, name)

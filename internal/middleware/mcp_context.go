@@ -4,12 +4,12 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/mcp"
-	"github.com/paularlott/mcp/discovery"
 )
 
-// ScriptToolsProvider is a callback function that returns a discovery.ToolRegistry with script tools for a user
-type ScriptToolsProvider func(ctx context.Context) *discovery.ToolRegistry
+// ScriptToolsProvider is a callback function that returns a ToolProvider for script tools
+type ScriptToolsProvider func(ctx context.Context, user *model.User) mcp.ToolProvider
 
 // MCPServerContext adds the MCP server and request-scoped script tools to the request context
 func MCPServerContext(mcpServer *mcp.Server, scriptToolsProvider ScriptToolsProvider) func(http.Handler) http.Handler {
@@ -20,11 +20,20 @@ func MCPServerContext(mcpServer *mcp.Server, scriptToolsProvider ScriptToolsProv
 			// Add MCP server to context
 			ctx = context.WithValue(ctx, "mcp", mcpServer)
 
-			// Add script tools as request-scoped provider for tool discovery
+			// Add script tools as request-scoped provider in force ondemand mode
 			if scriptToolsProvider != nil {
-				if scriptRegistry := scriptToolsProvider(ctx); scriptRegistry != nil {
-					ctx = discovery.WithRequestProviders(ctx, scriptRegistry)
+				user, ok := ctx.Value("user").(*model.User)
+				if ok && user != nil {
+					if provider := scriptToolsProvider(ctx, user); provider != nil {
+						ctx = mcp.WithForceOnDemandMode(ctx, provider)
+					} else {
+						ctx = mcp.WithForceOnDemandMode(ctx)
+					}
+				} else {
+					ctx = mcp.WithForceOnDemandMode(ctx)
 				}
+			} else {
+				ctx = mcp.WithForceOnDemandMode(ctx)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))

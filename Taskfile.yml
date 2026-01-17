@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 vars:
   PROJECT_NAME: knot
@@ -38,7 +38,7 @@ vars:
       else
         echo "none"
       fi
-  PLATFORM_ARG: '--platform linux/amd64,linux/arm64'
+  PLATFORM_ARG: "--platform linux/amd64,linux/arm64"
 
 tasks:
   default:
@@ -52,8 +52,8 @@ tasks:
       GOOS: '{{OS | default "linux"}}'
       GOARCH: '{{ARCH | default "amd64"}}'
     env:
-      GOOS: '{{.GOOS}}'
-      GOARCH: '{{.GOARCH}}'
+      GOOS: "{{.GOOS}}"
+      GOARCH: "{{.GOARCH}}"
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.OUTPUT_DIR}}/{{.PROJECT_NAME}} .
     sources:
@@ -63,14 +63,14 @@ tasks:
       - legal/license.txt
       - legal/notice.txt
     generates:
-      - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}'
+      - "{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}"
 
   build-amd64:
     desc: Build the binary for the current platform
     deps: [agents, apidocs, webassets]
     env:
-      GOOS: 'linux'
-      GOARCH: 'amd64'
+      GOOS: "linux"
+      GOARCH: "amd64"
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.OUTPUT_DIR}}/{{.PROJECT_NAME}} .
     sources:
@@ -80,14 +80,14 @@ tasks:
       - legal/license.txt
       - legal/notice.txt
     generates:
-      - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}'
+      - "{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}"
 
   build-arm64:
     desc: Build the binary for the current platform
     deps: [agents, apidocs, webassets]
     env:
-      GOOS: 'linux'
-      GOARCH: 'arm64'
+      GOOS: "linux"
+      GOARCH: "arm64"
     cmds:
       - go build {{.BUILD_FLAGS}} -o {{.OUTPUT_DIR}}/{{.PROJECT_NAME}} .
     sources:
@@ -97,15 +97,15 @@ tasks:
       - legal/license.txt
       - legal/notice.txt
     generates:
-      - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}'
+      - "{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}"
 
   knot-dns:
     desc: Build the knot-dns binary for all platforms
     cmds:
       - task: build-knot-dns-platform
-        vars: { PLATFORM: '{{.ITEM}}' }
+        vars: { PLATFORM: "{{.ITEM}}" }
         for:
-          var: 'PLATFORMS'
+          var: "PLATFORMS"
     sources:
       - ./**/*.go
       - go.mod
@@ -114,7 +114,7 @@ tasks:
       - legal/notice.txt
       - web/**/*
     generates:
-      - '{{.OUTPUT_DIR}}/knot-dns_{{.PLATFORMS}}'
+      - "{{.OUTPUT_DIR}}/knot-dns_{{.PLATFORMS}}"
 
   build-knot-dns-platform:
     internal: true
@@ -123,10 +123,10 @@ tasks:
       GOOS: '{{splitList "/" .PLATFORM | first}}'
       GOARCH: '{{splitList "/" .PLATFORM | last}}'
       EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
-      OUTPUT_FILE: '{{.OUTPUT_DIR}}/knot-dns_{{.GOOS}}_{{.GOARCH}}{{.EXT}}'
+      OUTPUT_FILE: "{{.OUTPUT_DIR}}/knot-dns_{{.GOOS}}_{{.GOARCH}}{{.EXT}}"
     env:
-      GOOS: '{{.GOOS}}'
-      GOARCH: '{{.GOARCH}}'
+      GOOS: "{{.GOOS}}"
+      GOARCH: "{{.GOARCH}}"
     cmds:
       - go build {{$.BUILD_FLAGS}} -o {{.OUTPUT_FILE}} ./dns-server
 
@@ -135,9 +135,9 @@ tasks:
     deps: [agents, apidocs, webassets]
     cmds:
       - task: build-platform
-        vars: { PLATFORM: '{{.ITEM}}' }
+        vars: { PLATFORM: "{{.ITEM}}" }
         for:
-          var: 'PLATFORMS'
+          var: "PLATFORMS"
     sources:
       - ./**/*.go
       - go.mod
@@ -146,7 +146,7 @@ tasks:
       - legal/notice.txt
       - web/**/*
     generates:
-      - '{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}_{{.PLATFORMS}}*.zip'
+      - "{{.OUTPUT_DIR}}/{{.PROJECT_NAME}}_{{.PLATFORMS}}*.zip"
 
   build-platform:
     internal: true
@@ -155,12 +155,12 @@ tasks:
       GOOS: '{{splitList "/" .PLATFORM | first}}'
       GOARCH: '{{splitList "/" .PLATFORM | last}}'
       EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
-      OUTPUT_FILE: '{{.OUTPUT_DIR}}/{{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}}'
-      ZIP_FILE: '{{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}}.zip'
-      FINAL_NAME: '{{$.PROJECT_NAME}}{{.EXT}}'
+      OUTPUT_FILE: "{{.OUTPUT_DIR}}/{{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}}"
+      ZIP_FILE: "{{$.PROJECT_NAME}}_{{.GOOS}}_{{.GOARCH}}{{.EXT}}.zip"
+      FINAL_NAME: "{{$.PROJECT_NAME}}{{.EXT}}"
     env:
-      GOOS: '{{.GOOS}}'
-      GOARCH: '{{.GOARCH}}'
+      GOOS: "{{.GOOS}}"
+      GOARCH: "{{.GOARCH}}"
     cmds:
       - go build {{$.BUILD_FLAGS}} -o {{.OUTPUT_FILE}} .
       - |
@@ -175,16 +175,16 @@ tasks:
       - legal/notice.txt
       - web/**/*
     generates:
-      - '{{.OUTPUT_DIR}}/{{.ZIP_FILE}}'
+      - "{{.OUTPUT_DIR}}/{{.ZIP_FILE}}"
 
   agents:
     desc: Build the agent binaries
     cmds:
       - rm -f {{.AGENT_OUTPUT_DIR}}/knot_agent*.zip {{.AGENT_OUTPUT_DIR}}/knot-agent # Clean previous agent builds first
       - task: build-agent
-        vars: { PLATFORM: '{{.ITEM}}' }
+        vars: { PLATFORM: "{{.ITEM}}" }
         for:
-          var: 'AGENT_PLATFORMS'
+          var: "AGENT_PLATFORMS"
     sources:
       - ./agent/**/*.go
       - ./internal/**/*.go
@@ -192,7 +192,7 @@ tasks:
       - go.mod
       - go.sum
     generates:
-      - '{{.AGENT_OUTPUT_DIR}}/{{.PROJECT_NAME}}_agent_*.zip' # Pattern for generated files
+      - "{{.AGENT_OUTPUT_DIR}}/{{.PROJECT_NAME}}_agent_*.zip" # Pattern for generated files
 
   build-agent:
     internal: true
@@ -201,12 +201,12 @@ tasks:
       GOOS: '{{splitList "/" .PLATFORM | first}}'
       GOARCH: '{{splitList "/" .PLATFORM | last}}'
       EXT: '{{if eq .GOOS "windows"}}.exe{{end}}'
-      OUTPUT_FILE: '{{.AGENT_OUTPUT_DIR}}/{{$.PROJECT_NAME}}_agent_{{.GOOS}}_{{.GOARCH}}{{.EXT}}'
-      ZIP_FILE: '{{.AGENT_OUTPUT_DIR}}/{{$.PROJECT_NAME}}_agent_{{.GOOS}}_{{.GOARCH}}{{.EXT}}.zip'
-      FINAL_NAME: 'knot-agent{{.EXT}}'
+      OUTPUT_FILE: "{{.AGENT_OUTPUT_DIR}}/{{$.PROJECT_NAME}}_agent_{{.GOOS}}_{{.GOARCH}}{{.EXT}}"
+      ZIP_FILE: "{{.AGENT_OUTPUT_DIR}}/{{$.PROJECT_NAME}}_agent_{{.GOOS}}_{{.GOARCH}}{{.EXT}}.zip"
+      FINAL_NAME: "knot-agent{{.EXT}}"
     env:
-      GOOS: '{{.GOOS}}'
-      GOARCH: '{{.GOARCH}}'
+      GOOS: "{{.GOOS}}"
+      GOARCH: "{{.GOARCH}}"
     cmds:
       - go build {{$.BUILD_FLAGS}} -o {{.OUTPUT_FILE}} ./agent
       - |
@@ -221,7 +221,7 @@ tasks:
       - go.mod
       - go.sum
     generates:
-      - '{{.ZIP_FILE}}'
+      - "{{.ZIP_FILE}}"
 
   checksums:
     desc: Show the ZIP file checksums

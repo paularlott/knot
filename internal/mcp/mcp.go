@@ -12,163 +12,65 @@ import (
 	"github.com/paularlott/knot/internal/openai"
 
 	"github.com/paularlott/mcp"
-	"github.com/paularlott/mcp/discovery"
 )
 
 func InitializeMCPServer(routes *http.ServeMux, enableWebEndpoint bool, mcpConfig *config.MCPConfig) *mcp.Server {
-	// Create the main server with discovery-based tools (for internal AI use)
+	// Debug: Log what we actually received
+	if mcpConfig != nil && len(mcpConfig.RemoteServers) > 0 {
+		for i, rs := range mcpConfig.RemoteServers {
+			log.WithGroup("mcp").Info("RemoteServer config", "index", i, "namespace", rs.Namespace, "url", rs.URL, "tool_visibility", rs.ToolVisibility)
+		}
+	}
+
+	// Create the main unified MCP server
 	server := mcp.NewServer("knot-mcp-server", build.Version)
 	server.SetInstructions(`These tools manage spaces, templates, and other resources.
 
-This server uses FULL tool discovery to minimize context usage. ALL tools are discoverable via tool_search.
-
-CRITICAL RULES:
-- ALL tools MUST be accessed via tool_search → execute_tool pattern
-- NO tools can be called directly
-- ALWAYS search for tools first, then execute them
-
-WORKFLOW FOR EVERY OPERATION:
-1. tool_search(query="<operation description>")
-2. execute_tool(name="<tool_name>", arguments={...})
-
-COMMON OPERATIONS:
-- List spaces: tool_search(query="list spaces") → execute_tool(name="list_spaces")
-- Start space: tool_search(query="start space") → execute_tool(name="start_space")
-- Stop space: tool_search(query="stop space") → execute_tool(name="stop_space")
-- Create template: tool_search(query="create template") → find tool → execute_tool
-- List users: tool_search(query="list users") → find tool → execute_tool
-
-CRITICAL TEMPLATE CREATION WORKFLOW:
-When user asks to create/update a template, you MUST follow this exact sequence:
-1. FIRST: tool_search(query="create template") to find the create_template tool
-2. SECOND: Call skills(filename='<platform>-spec.md') where platform is nomad, docker, or podman
-3. THIRD: Use the specification from step 2 as your guide to construct the job definition
-4. FOURTH: execute_tool(name="create_template", arguments={...}) with the properly formatted job
-
-EXAMPLE: For "create a nomad template":
-1. tool_search(query="create template") → finds create_template
-2. Call skills(filename='nomad-spec.md')
-3. Follow the nomad specification format from the response
-4. execute_tool(name="create_template", arguments={...})
-
-REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_tool for ALL operations.`)
-
-	// Factory function to create a native server with all tools registered
-	var toolDefinitions []struct {
-		builder *mcp.ToolBuilder
-		handler mcp.ToolHandler
-	}
-
-	// Store remote server configurations for native endpoint
-	var remoteServerConfigs []struct {
-		client     *mcp.Client
-		visibility mcp.ToolVisibility
-	}
-
-	// Track if we need discovery tools (tool_search, execute_tool)
-	var hasDiscoverableTools bool
-
-	createNativeServerWithTools := func(user *model.User) *mcp.Server {
-		nativeServer := mcp.NewServer("knot-mcp-server", build.Version)
-		nativeServer.SetInstructions(`These tools manage spaces, templates, and other resources. All tools can be called directly.`)
-
-		// Create a tool registry for discovery support (tool_search, execute_tool)
-		nativeRegistry := discovery.NewToolRegistry()
-
-		// Register all static tools in both the server and the registry
-		for _, td := range toolDefinitions {
-			nativeServer.RegisterTool(td.builder, td.handler)
-		}
-
-		// Register script tools for this user
-		if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
-			RegisterScriptToolsNative(nativeServer, user)
-		}
-
-		// Only set up discovery if we have hidden/ondemand tools
-		if hasDiscoverableTools {
-			// Set the tool registry before registering remote servers (needed for ondemand)
-			nativeServer.SetToolRegistry(nativeRegistry)
-
-			// Register remote MCP servers with their visibility settings
-			for _, remoteConfig := range remoteServerConfigs {
-				err := nativeServer.RegisterRemoteServerWithVisibility(remoteConfig.client, remoteConfig.visibility)
-				if err != nil {
-					log.WithGroup("mcp").Error("Failed to register remote MCP server on native endpoint", "error", err)
-				}
-			}
-
-			// Attach registry to enable tool_search and execute_tool
-			nativeRegistry.Attach(nativeServer)
-		} else {
-			// Register remote MCP servers without discovery
-			for _, remoteConfig := range remoteServerConfigs {
-				err := nativeServer.RegisterRemoteServerWithVisibility(remoteConfig.client, remoteConfig.visibility)
-				if err != nil {
-					log.WithGroup("mcp").Error("Failed to register remote MCP server on native endpoint", "error", err)
-				}
-			}
-		}
-
-		return nativeServer
-	}
+All tools are directly callable on the /mcp endpoint.
+Use tool_search to discover tools by keyword or description.`)
 
 	if enableWebEndpoint {
 		// Create handler for native tools endpoint (/mcp)
-		// This endpoint creates a server per-request with all tools registered natively
+		// This endpoint shows all native tools directly in tools/list
 		nativeHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
 
-			// Create a new server instance for this request with all tools
-			requestServer := createNativeServerWithTools(user)
+			// Add script tools as request-scoped provider (they'll be visible in tools/list)
+			ctx := r.Context()
+			if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
+				provider := NewScriptToolsProvider(user)
+				ctx = mcp.WithToolProviders(ctx, provider)
+			}
 
-			// Handle the MCP request with the request-specific server
-			requestServer.HandleRequest(w, r)
+			// Handle the MCP request - native mode (all tools visible)
+			server.HandleRequest(w, r.WithContext(ctx))
 		})
 
 		// Apply authentication middleware - native tools endpoint
 		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(nativeHandler.ServeHTTP)))
 
-		// Create handler with request-scoped support for tool discovery (/mcp/discovery endpoint)
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// The authentication middleware has already run and set the user in the context
+		// Discovery endpoint with forced ondemand mode (only tool_search/execute_tool visible)
+		discoveryHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user := r.Context().Value("user").(*model.User)
 
-			// Add script tools as request-scoped provider
+			ctx := r.Context()
 			if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
-				scriptRegistry := discovery.NewToolRegistry()
-				RegisterScriptTools(scriptRegistry, user)
-
-				// Add as request provider
-				ctx := discovery.WithRequestProviders(r.Context(), scriptRegistry)
-				r = r.WithContext(ctx)
+				provider := NewScriptToolsProvider(user)
+				ctx = mcp.WithForceOnDemandMode(ctx, provider)
+			} else {
+				ctx = mcp.WithForceOnDemandMode(ctx)
 			}
 
-			// Handle the MCP request with tool discovery support
-			server.HandleRequest(w, r)
+			server.HandleRequest(w, r.WithContext(ctx))
 		})
 
-		// Apply authentication middleware - discovery-based endpoint
-		routes.HandleFunc("POST /mcp/discovery", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(handler.ServeHTTP)))
-	}
-
-	// Create a tool registry for discoverable tools (main server)
-	registry := discovery.NewToolRegistry()
-
-	// Helper function to register tools in both discovery registry and tool definitions list
-	registerTool := func(tool *mcp.ToolBuilder, handler mcp.ToolHandler, keywords ...string) {
-		// Register in discovery registry for main /mcp endpoint
-		registry.RegisterTool(tool, handler, keywords...)
-		// Store for native server registration
-		toolDefinitions = append(toolDefinitions, struct {
-			builder *mcp.ToolBuilder
-			handler mcp.ToolHandler
-		}{builder: tool, handler: handler})
+		// Apply authentication middleware - discovery mode endpoint
+		routes.HandleFunc("POST /mcp/discovery", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(discoveryHandler.ServeHTTP)))
 	}
 
 	// =========================================================================
-	// Register ALL tools in discovery registry or natively
+	// Register ALL tools
 	// =========================================================================
 
 	// Spaces - All space operations
@@ -198,21 +100,21 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 			),
 		),
 	)
-	registerTool(tool, listSpaces, "spaces", "list", "environments", "development", "deploy", "instances")
+	server.RegisterTool(tool, listSpaces, "spaces", "list", "environments", "development", "deploy", "instances")
 	tool = mcp.NewTool("start_space", "Start a space.",
 		mcp.String("space_name", "Name of the space to start", mcp.Required()),
 	)
-	registerTool(tool, startSpace, "start", "space", "run", "launch", "activate", "environment")
+	server.RegisterTool(tool, startSpace, "start", "space", "run", "launch", "activate", "environment")
 
 	tool = mcp.NewTool("stop_space", "Stop a space.",
 		mcp.String("space_name", "Name of the space to stop", mcp.Required()),
 	)
-	registerTool(tool, stopSpace, "stop", "space", "shutdown", "halt", "deactivate", "environment")
+	server.RegisterTool(tool, stopSpace, "stop", "space", "shutdown", "halt", "deactivate", "environment")
 
 	tool = mcp.NewTool("restart_space", "Restart a space.",
 		mcp.String("space_name", "Name of the space to restart", mcp.Required()),
 	)
-	registerTool(tool, restartSpace, "restart", "space", "reboot", "reload", "environment")
+	server.RegisterTool(tool, restartSpace, "restart", "space", "reboot", "reload", "environment")
 
 	// Groups
 	tool = mcp.NewTool("list_groups", "List all user groups. Use to find group IDs for template restrictions and user management.",
@@ -227,7 +129,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 			),
 		),
 	)
-	registerTool(tool, listGroups, "groups", "users", "permissions", "restrictions", "rbac", "access", "team", "organization")
+	server.RegisterTool(tool, listGroups, "groups", "users", "permissions", "restrictions", "rbac", "access", "team", "organization")
 
 	// Templates
 	tool = mcp.NewTool("list_templates", "List all space templates. Use to find template IDs or check existing templates.",
@@ -258,8 +160,8 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 			),
 		),
 	)
-	registerTool(tool, listTemplates, "templates", "list", "blueprint", "definition", "docker", "nomad", "podman", "platform", "job", "specification")
-	registerTool(
+	server.RegisterTool(tool, listTemplates, "templates", "list", "blueprint", "definition", "docker", "nomad", "podman", "platform", "job", "specification")
+	server.RegisterTool(
 		mcp.NewTool("create_template", "Create a new space template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide for the job definition.",
 			mcp.String("name", "Template name", mcp.Required()),
 			mcp.String("platform", "Platform type ('manual', 'docker', 'podman', or 'nomad')", mcp.Required()),
@@ -295,7 +197,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		createTemplate,
 		"create", "template", "new", "docker", "nomad", "podman", "platform", "job", "specification", "blueprint",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("update_template", "Update an existing template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide.",
 			mcp.String("template_name", "Name of the template to update", mcp.Required()),
 			mcp.String("name", "New template name"),
@@ -334,7 +236,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		updateTemplate,
 		"update", "template", "modify", "edit", "docker", "nomad", "podman", "platform", "job", "specification", "blueprint",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("get_template", "Get detailed template information including configuration and job specification.",
 			mcp.String("template_name", "Template name to retrieve", mcp.Required()),
 			mcp.Output(
@@ -376,7 +278,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		getTemplate,
 		"get", "template", "view", "details", "configuration", "docker", "nomad", "podman", "platform", "job", "specification",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("delete_template", "Permanently delete a template. Cannot be undone.",
 			mcp.String("template_name", "Template name to delete"),
 			mcp.Output(
@@ -388,7 +290,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// Additional space management tools
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("get_space", "Get detailed space information including configuration and status.",
 			mcp.String("space_name", "Name of the space to retrieve", mcp.Required()),
 			mcp.Output(
@@ -415,7 +317,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		getSpace,
 		"get", "space", "details", "information", "configuration", "environment",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("run_command", "Execute a command in a running space and return results.",
 			mcp.String("space_name", "Name of the space to run command in", mcp.Required()),
 			mcp.String("command", "Command to execute", mcp.Required()),
@@ -431,7 +333,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		runCommand,
 		"run", "execute", "command", "shell", "terminal", "bash", "sh", "script", "output",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("read_file", "Read file contents from a running space.",
 			mcp.String("space_name", "Name of the space to read the file from", mcp.Required()),
 			mcp.String("file_path", "File path in the space of the file to read", mcp.Required()),
@@ -446,7 +348,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		readFile,
 		"read", "file", "content", "view", "open", "cat", "text", "document",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("write_file", "Write content to a file in a running space.",
 			mcp.String("space_name", "Name of the space to write to", mcp.Required()),
 			mcp.String("file_path", "File path in the space of the file to write", mcp.Required()),
@@ -462,7 +364,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		writeFile,
 		"write", "file", "create", "save", "edit", "content", "text", "document",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("share_space", "Share a space with another user. Use list_users to find user ID if not provided.",
 			mcp.String("space_name", "Name of the space to share", mcp.Required()),
 			mcp.String("user_id", "User ID to share the space with", mcp.Required()),
@@ -473,7 +375,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		shareSpace,
 		"share", "space", "grant", "access", "collaborate", "permissions",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("stop_sharing_space", "Stop sharing a space.",
 			mcp.String("space_name", "Name of the space to stop sharing", mcp.Required()),
 			mcp.Output(
@@ -483,7 +385,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		stopSharingSpace,
 		"stop", "sharing", "revoke", "access", "permissions", "private",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("transfer_space", "Transfer space ownership to another user. Use list_users to find user ID if not provided.",
 			mcp.String("space_name", "Name of the space to transfer", mcp.Required()),
 			mcp.String("user_id", "User ID to transfer to", mcp.Required()),
@@ -494,7 +396,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		transferSpace,
 		"transfer", "space", "ownership", "give", "assign",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("create_space", "Create a new development space. ONLY use when explicitly asked to create a space. Spaces are created stopped - use start_space to run them.",
 			mcp.String("name", "Name of the space", mcp.Required()),
 			mcp.String("template_name", "Template name to use", mcp.Required()),
@@ -513,7 +415,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		createSpace,
 		"create", "space", "new", "environment", "development", "deploy", "instance",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("update_space", "Update an existing space.",
 			mcp.String("space_name", "Name of the space to update", mcp.Required()),
 			mcp.String("name", "New space name"),
@@ -532,7 +434,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		updateSpace,
 		"update", "space", "modify", "edit", "configure",
 	)
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("delete_space", "Permanently delete a space and all its data. Cannot be undone.",
 			mcp.String("space_name", "Name of the space to delete", mcp.Required()),
 			mcp.Output(
@@ -544,7 +446,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// Users
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("list_users", "List all users details (id, username, email, active, groups). Use to find user IDs for sharing or transfers.",
 			mcp.Output(
 				mcp.ObjectArray("users", "Array of users within the system",
@@ -561,7 +463,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// Icons
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("list_icons", "List all available icons with descriptions and URLs. Use to find icon URLs for templates or spaces.",
 			mcp.Output(
 				mcp.ObjectArray("icons", "Array of available icons",
@@ -576,7 +478,7 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// Skills/Knowledge base
-	registerTool(
+	server.RegisterTool(
 		mcp.NewTool("skills", "Access knowledge base/skills for guides and best practices. Call without filename to list all, or with filename for specific content. First call skills() to see what's available - don't assume filenames. Standard skills: nomad-spec.md, local-container-spec.md (covers docker, podman, and apple containers).",
 			mcp.String("filename", "Skill filename to retrieve. Omit to list all skills."),
 			mcp.Output(
@@ -593,25 +495,9 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 	)
 
 	// =========================================================================
-	// Set up tool registry for discovery on main server
-	// =========================================================================
-	// Set the tool registry on the server for OnDemand tools from remote servers
-	// This MUST be called before RegisterRemoteServerWithVisibility for ondemand tools to work
-	server.SetToolRegistry(registry)
-
-	// =========================================================================
 	// Register remote MCP servers if configured
 	// =========================================================================
 	if mcpConfig != nil && len(mcpConfig.RemoteServers) > 0 {
-		// Check if we have any hidden or ondemand tools
-		for _, remoteServer := range mcpConfig.RemoteServers {
-			visibility := parseToolVisibility(remoteServer.ToolVisibility)
-			if visibility == mcp.ToolVisibilityHidden || visibility == mcp.ToolVisibilityOnDemand {
-				hasDiscoverableTools = true
-				break
-			}
-		}
-
 		for _, remoteServer := range mcpConfig.RemoteServers {
 			// Create auth provider
 			authProvider := CreateAuthProvider(remoteServer)
@@ -619,38 +505,47 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 				continue // Skip if auth provider creation failed
 			}
 
-			// Parse tool visibility
-			visibility := parseToolVisibility(remoteServer.ToolVisibility)
+			// Determine tool visibility mode (default to "native" if not specified)
+			visibility := strings.TrimSpace(remoteServer.ToolVisibility)
+			if visibility == "" {
+				visibility = "native"
+			}
+			log.WithGroup("mcp").Info("Processing remote server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "tool_visibility_config", remoteServer.ToolVisibility, "tool_visibility_resolved", visibility)
 
 			// Create MCP client for remote server
 			client := mcp.NewClient(remoteServer.URL, authProvider, remoteServer.Namespace)
 
-			// Register remote server with visibility on main discovery server
-			err := server.RegisterRemoteServerWithVisibility(client, visibility)
+			// Register based on visibility setting
+			var err error
+			if visibility == "ondemand" {
+				// OnDemand mode: tools only available via tool_search, not in tools/list
+				err = server.RegisterRemoteServerOnDemand(client)
+				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "mode", "ondemand")
+			} else {
+				// Native mode: tools visible in tools/list
+				err = server.RegisterRemoteServer(client)
+				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "mode", "native")
+			}
+
 			if err != nil {
-				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", remoteServer.ToolVisibility, "error", err)
+				log.WithGroup("mcp").Error("Failed to register remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", visibility, "error", err)
 				continue
 			}
-			log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "visibility", remoteServer.ToolVisibility)
 
-			// Store remote server config for native endpoint
-			remoteServerConfigs = append(remoteServerConfigs, struct {
-				client     *mcp.Client
-				visibility mcp.ToolVisibility
-			}{client: client, visibility: visibility})
-
-			// Test if we can list tools from the remote server
-			tools := server.ListTools()
-			remoteToolCount := 0
-			for _, tool := range tools {
-				if strings.Contains(tool.Name, remoteServer.Namespace+"/") {
-					remoteToolCount++
+			// Test if we can list tools from the remote server (only if native mode)
+			if visibility == "native" {
+				tools := server.ListTools()
+				remoteToolCount := 0
+				for _, tool := range tools {
+					if strings.Contains(tool.Name, remoteServer.Namespace+"/") {
+						remoteToolCount++
+					}
 				}
-			}
-			if remoteToolCount == 0 && visibility == mcp.ToolVisibilityVisible {
-				log.WithGroup("mcp").Warn("No tools loaded from remote MCP server (may be unreachable or have auth issues)", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
-			} else if visibility == mcp.ToolVisibilityVisible {
-				log.WithGroup("mcp").Info("Remote server tool count", "namespace", remoteServer.Namespace, "count", remoteToolCount)
+				if remoteToolCount == 0 {
+					log.WithGroup("mcp").Warn("No tools loaded from remote MCP server (may be unreachable or have auth issues)", "namespace", remoteServer.Namespace, "url", remoteServer.URL)
+				} else {
+					log.WithGroup("mcp").Info("Remote server tool count", "namespace", remoteServer.Namespace, "count", remoteToolCount)
+				}
 			}
 		}
 
@@ -659,34 +554,10 @@ REMEMBER: NO tools are directly callable. ALWAYS use tool_search → execute_too
 		log.WithGroup("mcp").Info("Total tools after remote registration", "count", len(totalTools))
 	}
 
-	// =========================================================================
-	// Attach registry to main server (registers tool_search, execute_tool)
-	// Main /mcp endpoint always has discovery enabled
-	// =========================================================================
-	registry.Attach(server)
-
-	// Log whether native endpoint will have discovery
-	if hasDiscoverableTools {
-		log.WithGroup("mcp").Info("Discovery tools enabled on both /mcp and /mcp/discovery endpoints")
-	} else {
-		log.WithGroup("mcp").Info("Discovery tools enabled on /mcp/discovery endpoint only (no hidden/ondemand tools)")
-	}
+	// Log info
+	log.WithGroup("mcp").Info("MCP server initialized")
 
 	return server
-}
-
-// parseToolVisibility converts string visibility to mcp.ToolVisibility
-func parseToolVisibility(visibility string) mcp.ToolVisibility {
-	switch strings.ToLower(visibility) {
-	case "hidden":
-		return mcp.ToolVisibilityHidden
-	case "ondemand":
-		return mcp.ToolVisibilityOnDemand
-	case "visible", "":
-		return mcp.ToolVisibilityVisible
-	default:
-		return mcp.ToolVisibilityVisible
-	}
 }
 
 func ToolFilter(user *model.User) openai.ToolFilter {
