@@ -14,6 +14,7 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/mcp"
 )
 
 const (
@@ -238,6 +239,9 @@ func (s *Service) HandleCreateResponse(w http.ResponseWriter, r *http.Request) {
 
 	// Synchronous: process directly in this HTTP handler (bypass queue)
 	log.Info("Processing response synchronously", "id", response.Id)
+
+	// Force ondemand mode for synchronous response processing
+	ctx = mcp.WithForceOnDemandMode(ctx)
 
 	// Update status to in_progress
 	response.Status = model.StatusInProgress

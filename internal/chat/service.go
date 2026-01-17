@@ -236,6 +236,10 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 	// Add user to context for MCP server
 	chatCtx := context.WithValue(ctx, "user", user)
 
+	// Force ondemand mode - only tool_search and execute_tool visible in tools/list
+	// All other tools (native, ondemand, provider, remote) are searchable and callable
+	chatCtx = mcp.WithForceOnDemandMode(chatCtx)
+
 	// Use the OpenAI client's non-streaming completion
 	response, err := s.openaiClient.ChatCompletion(chatCtx, req)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/openai"
+	"github.com/paularlott/mcp"
 	scriptlib "github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/object"
 )
@@ -90,6 +91,9 @@ func aiCompletionMCP(ctx context.Context, openaiClient *openai.Client, kwargs ma
 	if user := ctx.Value("user"); user != nil {
 		aiCtx = context.WithValue(aiCtx, "user", user)
 	}
+
+	// Force ondemand mode for MCP tool completions
+	aiCtx = mcp.WithForceOnDemandMode(aiCtx)
 
 	// Create chat completion request
 	req := openai.ChatCompletionRequest{
@@ -203,6 +207,9 @@ func responseCreateMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 	if user := ctx.Value("user"); user != nil {
 		aiCtx = context.WithValue(aiCtx, "user", user)
 	}
+
+	// Force ondemand mode for MCP tool completions
+	aiCtx = mcp.WithForceOnDemandMode(aiCtx)
 
 	result, err := openai.ProcessResponseSynchronously(aiCtx, openaiClient, response)
 	if err != nil {

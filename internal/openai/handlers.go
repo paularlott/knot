@@ -8,6 +8,7 @@ import (
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/mcp"
 )
 
 type Service struct {
@@ -63,6 +64,9 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 
 // handleNonStreamingChatCompletion handles non-streaming chat completions
 func (s *Service) handleNonStreamingChatCompletion(ctx context.Context, w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
+	// Force ondemand mode for API completions
+	ctx = mcp.WithForceOnDemandMode(ctx)
+
 	response, err := s.client.ChatCompletion(ctx, req)
 	if err != nil {
 		log.WithError(err).Error("OpenAI: Chat completion failed")
@@ -77,6 +81,9 @@ func (s *Service) handleNonStreamingChatCompletion(ctx context.Context, w http.R
 
 // handleStreamingChatCompletion handles streaming chat completions
 func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
+	// Force ondemand mode for API completions
+	ctx = mcp.WithForceOnDemandMode(ctx)
+
 	streamWriter := rest.NewStreamWriter(w, r)
 	defer streamWriter.Close()
 

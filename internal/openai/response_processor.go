@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/mcp"
 )
 
 // responseProcessor handles the conversion and processing of Responses API requests
@@ -18,6 +19,9 @@ type responseProcessor struct {
 
 // Process processes a response request and returns the result
 func (p *responseProcessor) Process(ctx context.Context, response *model.Response) (map[string]interface{}, error) {
+	// Force ondemand mode for response processing
+	ctx = mcp.WithForceOnDemandMode(ctx)
+
 	// Extract the request
 	var req CreateResponseRequest
 	if err := response.GetRequest(&req); err != nil {
