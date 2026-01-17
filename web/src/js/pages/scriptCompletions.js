@@ -395,6 +395,12 @@ const scriptLibraries = [
             description: "Set custom tools for manual execution",
             returns: "None",
           },
+          {
+            name: "embedding",
+            signature: "embedding(model, input)",
+            description: "Create embedding vector from input text",
+            returns: "dict - Embedding response with vector",
+          },
         ],
       },
       {
@@ -498,6 +504,165 @@ const scriptLibraries = [
       },
     ],
   },
+  {
+    module: "sl.console",
+    description: "Console input/output functions",
+    functions: [
+      {
+        name: "input",
+        signature: "input([prompt])",
+        description: "Read a line from stdin with optional prompt",
+        returns: "str - Line read without trailing newline",
+      },
+    ],
+  },
+  {
+    module: "sl.threads",
+    description: "Threading and concurrency primitives for async operations",
+    functions: [
+      {
+        name: "run",
+        signature: "run(func, *args, **kwargs)",
+        description: "Run function asynchronously in isolated environment",
+        returns: "Promise - Promise with .get() and .wait() methods",
+        returnType: "Promise",
+      },
+    ],
+    classes: [
+      {
+        name: "Atomic",
+        description: "Atomic integer for thread-safe counting",
+        methods: [
+          {
+            name: "add",
+            signature: "add(delta=1)",
+            description: "Atomically add and return new value",
+            returns: "int - New value after addition",
+          },
+          {
+            name: "get",
+            signature: "get()",
+            description: "Atomically read value",
+            returns: "int - Current value",
+          },
+          {
+            name: "set",
+            signature: "set(value)",
+            description: "Atomically set value",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "Shared",
+        description: "Thread-safe shared value container",
+        methods: [
+          {
+            name: "get",
+            signature: "get()",
+            description: "Thread-safe get",
+            returns: "any - Current value",
+          },
+          {
+            name: "set",
+            signature: "set(value)",
+            description: "Thread-safe set",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "WaitGroup",
+        description: "Wait for collection of goroutines to finish",
+        methods: [
+          {
+            name: "add",
+            signature: "add(delta=1)",
+            description: "Add to counter",
+            returns: "None",
+          },
+          {
+            name: "done",
+            signature: "done()",
+            description: "Decrement counter",
+            returns: "None",
+          },
+          {
+            name: "wait",
+            signature: "wait()",
+            description: "Block until counter reaches zero",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "Queue",
+        description: "Thread-safe queue for passing data between goroutines",
+        methods: [
+          {
+            name: "put",
+            signature: "put(item)",
+            description: "Add item (blocks if full)",
+            returns: "None",
+          },
+          {
+            name: "get",
+            signature: "get()",
+            description: "Remove item (blocks if empty)",
+            returns: "any - Retrieved item",
+          },
+          {
+            name: "size",
+            signature: "size()",
+            description: "Get number of items in queue",
+            returns: "int - Queue size",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close queue",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "Pool",
+        description: "Worker pool for concurrent processing",
+        methods: [
+          {
+            name: "submit",
+            signature: "submit(data)",
+            description: "Submit data for processing",
+            returns: "None",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Stop pool and wait for completion",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "Promise",
+        description: "Result from async goroutine execution",
+        methods: [
+          {
+            name: "get",
+            signature: "get()",
+            description: "Wait for and return result",
+            returns: "any - Function return value",
+          },
+          {
+            name: "wait",
+            signature: "wait()",
+            description: "Wait for completion",
+            returns: "None",
+          },
+        ],
+      },
+    ],
+  },
 
   // ============================================================================
   // STANDARD LIBRARY MODULES
@@ -536,6 +701,54 @@ const scriptLibraries = [
         description: "Current time in seconds since epoch",
         returns: "float",
       },
+      {
+        name: "perf_counter",
+        signature: "perf_counter()",
+        description: "Performance counter in seconds (highest resolution)",
+        returns: "float",
+      },
+      {
+        name: "localtime",
+        signature: "localtime([timestamp_or_datetime])",
+        description: "Convert to local time tuple",
+        returns: "tuple - Time tuple",
+      },
+      {
+        name: "gmtime",
+        signature: "gmtime([timestamp_or_datetime])",
+        description: "Convert to UTC time tuple",
+        returns: "tuple - Time tuple",
+      },
+      {
+        name: "mktime",
+        signature: "mktime(tuple)",
+        description: "Convert time tuple to timestamp",
+        returns: "float - Unix timestamp",
+      },
+      {
+        name: "strftime",
+        signature: "strftime(format[, tuple])",
+        description: "Format time as string",
+        returns: "str - Formatted time string",
+      },
+      {
+        name: "strptime",
+        signature: "strptime(string, format)",
+        description: "Parse time from string",
+        returns: "datetime - Parsed datetime",
+      },
+      {
+        name: "asctime",
+        signature: "asctime([tuple])",
+        description: "Convert time tuple to string",
+        returns: "str - Time string",
+      },
+      {
+        name: "ctime",
+        signature: "ctime([timestamp])",
+        description: "Convert timestamp to string",
+        returns: "str - Time string",
+      },
     ],
   },
   {
@@ -543,21 +756,383 @@ const scriptLibraries = [
     description: "Date and time manipulation",
     functions: [
       {
+        name: "datetime",
+        signature: "datetime(year, month, day, hour=0, minute=0, second=0, microsecond=0)",
+        description: "Create datetime instance",
+        returns: "datetime - Datetime instance",
+        returnType: "datetime",
+      },
+      {
+        name: "date",
+        signature: "date(year, month, day)",
+        description: "Create date instance",
+        returns: "date - Date instance",
+        returnType: "date",
+      },
+      {
+        name: "timedelta",
+        signature: "timedelta(**kwargs)",
+        description: "Create timedelta with days, seconds, microseconds, milliseconds, minutes, hours, weeks",
+        returns: "timedelta - Timedelta instance",
+        returnType: "timedelta",
+      },
+    ],
+    classes: [
+      {
+        name: "datetime",
+        description: "Date and time object",
+        methods: [
+          {
+            name: "strftime",
+            signature: "strftime(format)",
+            description: "Format datetime as string",
+            returns: "str - Formatted string",
+          },
+          {
+            name: "timestamp",
+            signature: "timestamp()",
+            description: "Return POSIX timestamp",
+            returns: "float - Unix timestamp",
+          },
+          {
+            name: "year",
+            signature: "year()",
+            description: "Get year component",
+            returns: "int - Year",
+          },
+          {
+            name: "month",
+            signature: "month()",
+            description: "Get month component",
+            returns: "int - Month (1-12)",
+          },
+          {
+            name: "day",
+            signature: "day()",
+            description: "Get day component",
+            returns: "int - Day",
+          },
+          {
+            name: "hour",
+            signature: "hour()",
+            description: "Get hour component",
+            returns: "int - Hour (0-23)",
+          },
+          {
+            name: "minute",
+            signature: "minute()",
+            description: "Get minute component",
+            returns: "int - Minute (0-59)",
+          },
+          {
+            name: "second",
+            signature: "second()",
+            description: "Get second component",
+            returns: "int - Second (0-59)",
+          },
+          {
+            name: "weekday",
+            signature: "weekday()",
+            description: "Day of week (Monday=0, Sunday=6)",
+            returns: "int - Weekday",
+          },
+          {
+            name: "isoformat",
+            signature: "isoformat()",
+            description: "Return ISO 8601 formatted string",
+            returns: "str - ISO format string",
+          },
+          {
+            name: "replace",
+            signature: "replace(**kwargs)",
+            description: "Return datetime with replaced fields",
+            returns: "datetime - New datetime",
+          },
+        ],
+      },
+      {
+        name: "date",
+        description: "Date object (year, month, day)",
+        methods: [
+          {
+            name: "strftime",
+            signature: "strftime(format)",
+            description: "Format date as string",
+            returns: "str - Formatted string",
+          },
+          {
+            name: "year",
+            signature: "year()",
+            description: "Get year component",
+            returns: "int - Year",
+          },
+          {
+            name: "month",
+            signature: "month()",
+            description: "Get month component",
+            returns: "int - Month (1-12)",
+          },
+          {
+            name: "day",
+            signature: "day()",
+            description: "Get day component",
+            returns: "int - Day",
+          },
+        ],
+      },
+    ],
+    classAttributes: [
+      {
+        class: "datetime",
         name: "now",
+        description: "Current local datetime",
         signature: "datetime.now()",
-        description: "Return current local date and time",
-        returns: "datetime",
+      },
+      {
+        class: "datetime",
+        name: "utcnow",
+        description: "Current UTC datetime",
+        signature: "datetime.utcnow()",
+      },
+      {
+        class: "datetime",
+        name: "strptime",
+        description: "Parse string to datetime",
+        signature: "datetime.strptime(date_string, format)",
+      },
+      {
+        class: "datetime",
+        name: "fromtimestamp",
+        description: "Create datetime from Unix timestamp",
+        signature: "datetime.fromtimestamp(timestamp)",
+      },
+    ],
+  },
+  {
+    module: "glob",
+    description: "Unix shell-style wildcards for file path matching",
+    functions: [
+      {
+        name: "glob",
+        signature: "glob(pattern[, root_dir='.''])",
+        description: "Find all pathnames matching a shell-style pattern. Supports *, ?, [seq] wildcards",
+        returns: "list - List of matching paths",
+      },
+      {
+        name: "iglob",
+        signature: "iglob(pattern[, root_dir='.''])",
+        description: "Memory-efficient iterator version of glob",
+        returns: "iterator - Iterator of matching paths",
+      },
+      {
+        name: "escape",
+        signature: "escape(pattern)",
+        description: "Escape special characters (*, ?, [, ]) to treat them as literals",
+        returns: "str - Escaped pattern string",
+      },
+    ],
+  },
+  {
+    module: "html.parser",
+    description: "HTML parsing for simple structured data extraction",
+    functions: [],
+    classes: [
+      {
+        name: "HTMLParser",
+        description: "Simple HTML parser with handler methods for different elements",
+        methods: [
+          {
+            name: "__init__",
+            signature: "__init__(*, convert_charrefs=True)",
+            description: "Initialize parser",
+            returns: "HTMLParser",
+          },
+          {
+            name: "feed",
+            signature: "feed(data)",
+            description: "Feed HTML data to parser",
+            returns: "None",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Force processing of buffered data",
+            returns: "None",
+          },
+          {
+            name: "reset",
+            signature: "reset()",
+            description: "Reset parser instance",
+            returns: "None",
+          },
+          {
+            name: "getpos",
+            signature: "getpos()",
+            description: "Return current (line, offset) position",
+            returns: "tuple - (line, offset)",
+          },
+          {
+            name: "handle_starttag",
+            signature: "handle_starttag(tag, attrs)",
+            description: "Override to handle start tags",
+            returns: "None",
+          },
+          {
+            name: "handle_endtag",
+            signature: "handle_endtag(tag)",
+            description: "Override to handle end tags",
+            returns: "None",
+          },
+          {
+            name: "handle_data",
+            signature: "handle_data(data)",
+            description: "Override to handle text content",
+            returns: "None",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "logging",
+    description: "Logging facility for event tracking and debugging",
+    functions: [
+      {
+        name: "getLogger",
+        signature: "getLogger([name='scriptling'])",
+        description: "Get logger instance",
+        returns: "Logger - Logger instance",
+        returnType: "Logger",
+      },
+      {
+        name: "debug",
+        signature: "debug(msg)",
+        description: "Log debug message",
+        returns: "None",
+      },
+      {
+        name: "info",
+        signature: "info(msg)",
+        description: "Log info message",
+        returns: "None",
+      },
+      {
+        name: "warning",
+        signature: "warning(msg)",
+        description: "Log warning message",
+        returns: "None",
+      },
+      {
+        name: "warn",
+        signature: "warn(msg)",
+        description: "Log warning message (alias for warning)",
+        returns: "None",
+      },
+      {
+        name: "error",
+        signature: "error(msg)",
+        description: "Log error message",
+        returns: "None",
+      },
+      {
+        name: "critical",
+        signature: "critical(msg)",
+        description: "Log critical message",
+        returns: "None",
+      },
+    ],
+    classes: [
+      {
+        name: "Logger",
+        description: "Logger instance for logging messages",
+        methods: [
+          {
+            name: "debug",
+            signature: "debug(msg)",
+            description: "Log debug message",
+            returns: "None",
+          },
+          {
+            name: "info",
+            signature: "info(msg)",
+            description: "Log info message",
+            returns: "None",
+          },
+          {
+            name: "warning",
+            signature: "warning(msg)",
+            description: "Log warning message",
+            returns: "None",
+          },
+          {
+            name: "warn",
+            signature: "warn(msg)",
+            description: "Log warning message",
+            returns: "None",
+          },
+          {
+            name: "error",
+            signature: "error(msg)",
+            description: "Log error message",
+            returns: "None",
+          },
+          {
+            name: "critical",
+            signature: "critical(msg)",
+            description: "Log critical message",
+            returns: "None",
+          },
+        ],
+      },
+    ],
+    constants: [
+      {
+        name: "DEBUG",
+        value: "10",
+        description: "Debug log level",
+      },
+      {
+        name: "INFO",
+        value: "20",
+        description: "Info log level",
+      },
+      {
+        name: "WARNING",
+        value: "30",
+        description: "Warning log level",
+      },
+      {
+        name: "ERROR",
+        value: "40",
+        description: "Error log level",
+      },
+      {
+        name: "CRITICAL",
+        value: "50",
+        description: "Critical log level",
       },
     ],
   },
   {
     module: "math",
-    description: "Mathematical functions",
+    description: "Mathematical functions and constants",
     functions: [
       {
         name: "sqrt",
         signature: "sqrt(x)",
         description: "Square root of x",
+        returns: "float",
+      },
+      {
+        name: "pow",
+        signature: "pow(base, exp)",
+        description: "Base raised to the power of exp",
+        returns: "float",
+      },
+      {
+        name: "fabs",
+        signature: "fabs(x)",
+        description: "Absolute value as float",
         returns: "float",
       },
       {
@@ -572,12 +1147,172 @@ const scriptLibraries = [
         description: "Ceiling of x",
         returns: "int",
       },
+      {
+        name: "sin",
+        signature: "sin(x)",
+        description: "Sine of x (radians)",
+        returns: "float",
+      },
+      {
+        name: "cos",
+        signature: "cos(x)",
+        description: "Cosine of x (radians)",
+        returns: "float",
+      },
+      {
+        name: "tan",
+        signature: "tan(x)",
+        description: "Tangent of x (radians)",
+        returns: "float",
+      },
+      {
+        name: "log",
+        signature: "log(x)",
+        description: "Natural logarithm",
+        returns: "float",
+      },
+      {
+        name: "exp",
+        signature: "exp(x)",
+        description: "Exponential function e^x",
+        returns: "float",
+      },
+      {
+        name: "degrees",
+        signature: "degrees(x)",
+        description: "Convert radians to degrees",
+        returns: "float",
+      },
+      {
+        name: "radians",
+        signature: "radians(x)",
+        description: "Convert degrees to radians",
+        returns: "float",
+      },
+      {
+        name: "fmod",
+        signature: "fmod(x, y)",
+        description: "Floating-point remainder",
+        returns: "float",
+      },
+      {
+        name: "gcd",
+        signature: "gcd(a, b)",
+        description: "Greatest common divisor",
+        returns: "int",
+      },
+      {
+        name: "factorial",
+        signature: "factorial(n)",
+        description: "Factorial (n <= 20)",
+        returns: "int",
+      },
+      {
+        name: "isnan",
+        signature: "isnan(x)",
+        description: "Check if x is NaN",
+        returns: "bool",
+      },
+      {
+        name: "isinf",
+        signature: "isinf(x)",
+        description: "Check if x is infinity",
+        returns: "bool",
+      },
+      {
+        name: "isfinite",
+        signature: "isfinite(x)",
+        description: "Check if x is finite",
+        returns: "bool",
+      },
+      {
+        name: "copysign",
+        signature: "copysign(x, y)",
+        description: "Copy sign from y to x",
+        returns: "float",
+      },
+      {
+        name: "trunc",
+        signature: "trunc(x)",
+        description: "Truncate toward zero",
+        returns: "int",
+      },
+      {
+        name: "log10",
+        signature: "log10(x)",
+        description: "Base-10 logarithm",
+        returns: "float",
+      },
+      {
+        name: "log2",
+        signature: "log2(x)",
+        description: "Base-2 logarithm",
+        returns: "float",
+      },
+      {
+        name: "hypot",
+        signature: "hypot(x, y)",
+        description: "Euclidean distance sqrt(x*x + y*y)",
+        returns: "float",
+      },
+      {
+        name: "asin",
+        signature: "asin(x)",
+        description: "Arc sine",
+        returns: "float",
+      },
+      {
+        name: "acos",
+        signature: "acos(x)",
+        description: "Arc cosine",
+        returns: "float",
+      },
+      {
+        name: "atan",
+        signature: "atan(x)",
+        description: "Arc tangent",
+        returns: "float",
+      },
+      {
+        name: "atan2",
+        signature: "atan2(y, x)",
+        description: "Arc tangent of y/x",
+        returns: "float",
+      },
+    ],
+    constants: [
+      {
+        name: "pi",
+        value: "3.14159...",
+        description: "Pi constant",
+      },
+      {
+        name: "e",
+        value: "2.71828...",
+        description: "Euler's number",
+      },
+      {
+        name: "inf",
+        value: "Infinity",
+        description: "Positive infinity",
+      },
+      {
+        name: "nan",
+        value: "NaN",
+        description: "Not a number",
+      },
     ],
   },
   {
     module: "random",
     description: "Random number generation",
     functions: [
+      {
+        name: "seed",
+        signature: "seed([a])",
+        description: "Initialize random number generator",
+        returns: "None",
+      },
       {
         name: "random",
         signature: "random()",
@@ -586,9 +1321,51 @@ const scriptLibraries = [
       },
       {
         name: "randint",
-        signature: "randint(a, b)",
-        description: "Random integer N where a <= N <= b",
+        signature: "randint(min, max)",
+        description: "Random integer in range [min, max]",
         returns: "int",
+      },
+      {
+        name: "choice",
+        signature: "choice(seq)",
+        description: "Random element from sequence",
+        returns: "any",
+      },
+      {
+        name: "shuffle",
+        signature: "shuffle(list)",
+        description: "Shuffle list in place",
+        returns: "None",
+      },
+      {
+        name: "uniform",
+        signature: "uniform(a, b)",
+        description: "Random float in [a, b]",
+        returns: "float",
+      },
+      {
+        name: "sample",
+        signature: "sample(population, k)",
+        description: "k unique random elements",
+        returns: "list",
+      },
+      {
+        name: "randrange",
+        signature: "randrange(stop) or randrange(start, stop[, step])",
+        description: "Random from range",
+        returns: "int",
+      },
+      {
+        name: "gauss",
+        signature: "gauss(mu, sigma)",
+        description: "Gaussian distribution",
+        returns: "float",
+      },
+      {
+        name: "expovariate",
+        signature: "expovariate(lambd)",
+        description: "Exponential distribution",
+        returns: "float",
       },
     ],
   },
@@ -597,15 +1374,21 @@ const scriptLibraries = [
     description: "Cryptographic hashing",
     functions: [
       {
-        name: "md5",
-        signature: "md5(data)",
-        description: "Return MD5 hash",
+        name: "sha256",
+        signature: "sha256(string)",
+        description: "Compute SHA-256 hash",
         returns: "str - Hex digest",
       },
       {
-        name: "sha256",
-        signature: "sha256(data)",
-        description: "Return SHA-256 hash",
+        name: "sha1",
+        signature: "sha1(string)",
+        description: "Compute SHA-1 hash",
+        returns: "str - Hex digest",
+      },
+      {
+        name: "md5",
+        signature: "md5(string)",
+        description: "Compute MD5 hash",
         returns: "str - Hex digest",
       },
     ],
@@ -633,10 +1416,751 @@ const scriptLibraries = [
     description: "UUID generation",
     functions: [
       {
+        name: "uuid1",
+        signature: "uuid1()",
+        description: "Generate UUID version 1 (time-based)",
+        returns: "str - UUID string",
+      },
+      {
         name: "uuid4",
         signature: "uuid4()",
-        description: "Generate random UUID",
+        description: "Generate UUID version 4 (random)",
         returns: "str - UUID string",
+      },
+      {
+        name: "uuid7",
+        signature: "uuid7()",
+        description: "Generate UUID version 7 (timestamp-based, sortable)",
+        returns: "str - UUID string",
+      },
+    ],
+  },
+  {
+    module: "collections",
+    description: "Specialized container datatypes",
+    functions: [
+      {
+        name: "Counter",
+        signature: "Counter([iterable])",
+        description: "Create a Counter for counting hashable objects",
+        returns: "Counter - Counter instance",
+        returnType: "Counter",
+      },
+      {
+        name: "namedtuple",
+        signature: "namedtuple(typename, field_names)",
+        description: "Create named tuple class with attribute access",
+        returns: "type - Named tuple class",
+      },
+      {
+        name: "OrderedDict",
+        signature: "OrderedDict([items])",
+        description: "Create ordered dictionary",
+        returns: "dict - Ordered dictionary",
+      },
+      {
+        name: "deque",
+        signature: "deque([iterable, maxlen])",
+        description: "Create double-ended queue",
+        returns: "deque - Deque instance",
+        returnType: "deque",
+      },
+      {
+        name: "ChainMap",
+        signature: "ChainMap(*maps)",
+        description: "Group multiple dicts for single lookup",
+        returns: "ChainMap - ChainMap instance",
+        returnType: "ChainMap",
+      },
+      {
+        name: "DefaultDict",
+        signature: "DefaultDict(default_factory)",
+        description: "Create dictionary with default factory behavior",
+        returns: "DefaultDict - DefaultDict instance",
+        returnType: "DefaultDict",
+      },
+    ],
+    classes: [
+      {
+        name: "Counter",
+        description: "Dictionary subclass for counting hashable objects",
+        methods: [
+          {
+            name: "__getitem__",
+            signature: "__getitem__(key)",
+            description: "Get count for key (supports c[key] syntax)",
+            returns: "int - Count",
+          },
+          {
+            name: "most_common",
+            signature: "most_common([n])",
+            description: "Return n most common elements",
+            returns: "list - List of (element, count) tuples",
+          },
+          {
+            name: "elements",
+            signature: "elements()",
+            description: "Iterator over elements repeating by count",
+            returns: "iterator",
+          },
+        ],
+      },
+      {
+        name: "DefaultDict",
+        description: "Dictionary with default factory behavior",
+        methods: [
+          {
+            name: "__getitem__",
+            signature: "__getitem__(key)",
+            description: "Get value with default creation",
+            returns: "any - Value",
+          },
+          {
+            name: "__setitem__",
+            signature: "__setitem__(key, value)",
+            description: "Set value",
+            returns: "None",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "functools",
+    description: "Higher-order functions and operations on callable objects",
+    functions: [
+      {
+        name: "reduce",
+        signature: "reduce(function, iterable[, initializer])",
+        description: "Apply function cumulatively to items",
+        returns: "any - Reduced value",
+      },
+      {
+        name: "partial",
+        signature: "partial(func, *args, **kwargs)",
+        description: "Create partial function with pre-filled arguments",
+        returns: "callable - Partial function",
+      },
+    ],
+  },
+  {
+    module: "html",
+    description: "HTML helper functions",
+    functions: [
+      {
+        name: "escape",
+        signature: "escape(s)",
+        description: "Escape HTML special characters",
+        returns: "str - Escaped string",
+      },
+      {
+        name: "unescape",
+        signature: "unescape(s)",
+        description: "Unescape HTML entities",
+        returns: "str - Unescaped string",
+      },
+    ],
+  },
+  {
+    module: "itertools",
+    description: "Functions creating iterators for efficient looping",
+    functions: [
+      {
+        name: "chain",
+        signature: "chain(*iterables)",
+        description: "Chain multiple iterables together",
+        returns: "iterator",
+      },
+      {
+        name: "repeat",
+        signature: "repeat(elem, n)",
+        description: "Repeat element n times",
+        returns: "iterator",
+      },
+      {
+        name: "cycle",
+        signature: "cycle(iterable, n)",
+        description: "Cycle through iterable n times",
+        returns: "iterator",
+      },
+      {
+        name: "count",
+        signature: "count(start, stop[, step])",
+        description: "Generate sequence of numbers",
+        returns: "iterator",
+      },
+      {
+        name: "islice",
+        signature: "islice(iterable, stop) or islice(iterable, start, stop[, step])",
+        description: "Slice iterable",
+        returns: "iterator",
+      },
+      {
+        name: "takewhile",
+        signature: "takewhile(predicate, iterable)",
+        description: "Take elements while predicate is true",
+        returns: "iterator",
+      },
+      {
+        name: "dropwhile",
+        signature: "dropwhile(predicate, iterable)",
+        description: "Drop elements while predicate is true",
+        returns: "iterator",
+      },
+      {
+        name: "zip_longest",
+        signature: "zip_longest(*iterables, fillvalue=None)",
+        description: "Zip iterables filling shorter ones",
+        returns: "iterator",
+      },
+      {
+        name: "product",
+        signature: "product(*iterables)",
+        description: "Cartesian product",
+        returns: "iterator",
+      },
+      {
+        name: "permutations",
+        signature: "permutations(iterable[, r])",
+        description: "Generate r-length permutations",
+        returns: "iterator",
+      },
+      {
+        name: "combinations",
+        signature: "combinations(iterable, r)",
+        description: "Generate r-length combinations (without repetition)",
+        returns: "iterator",
+      },
+      {
+        name: "combinations_with_replacement",
+        signature: "combinations_with_replacement(iterable, r)",
+        description: "Generate combinations with repetition",
+        returns: "iterator",
+      },
+      {
+        name: "groupby",
+        signature: "groupby(iterable[, key])",
+        description: "Group consecutive elements",
+        returns: "iterator",
+      },
+      {
+        name: "accumulate",
+        signature: "accumulate(iterable[, func])",
+        description: "Running totals/accumulation",
+        returns: "iterator",
+      },
+      {
+        name: "filterfalse",
+        signature: "filterfalse(predicate, iterable)",
+        description: "Filter elements where predicate is false",
+        returns: "iterator",
+      },
+      {
+        name: "starmap",
+        signature: "starmap(func, iterable)",
+        description: "Apply function to argument tuples",
+        returns: "iterator",
+      },
+      {
+        name: "compress",
+        signature: "compress(data, selectors)",
+        description: "Filter data based on selectors",
+        returns: "iterator",
+      },
+      {
+        name: "pairwise",
+        signature: "pairwise(iterable)",
+        description: "Return successive overlapping pairs",
+        returns: "iterator",
+      },
+      {
+        name: "batched",
+        signature: "batched(iterable, n)",
+        description: "Batch elements into tuples of size n",
+        returns: "iterator",
+      },
+    ],
+  },
+  {
+    module: "platform",
+    description: "Platform and system information",
+    functions: [
+      {
+        name: "python_version",
+        signature: "python_version()",
+        description: "Return Python (Scriptling) version",
+        returns: "str - Version string",
+      },
+      {
+        name: "scriptling_version",
+        signature: "scriptling_version()",
+        description: "Return Scriptling version",
+        returns: "str - Version string",
+      },
+      {
+        name: "system",
+        signature: "system()",
+        description: "Return OS name (Darwin, Linux, Windows, etc.)",
+        returns: "str - OS name",
+      },
+      {
+        name: "platform",
+        signature: "platform()",
+        description: "Return platform string",
+        returns: "str - Platform",
+      },
+      {
+        name: "architecture",
+        signature: "architecture()",
+        description: "Return architecture info",
+        returns: "str - Architecture",
+      },
+      {
+        name: "machine",
+        signature: "machine()",
+        description: "Return machine type",
+        returns: "str - Machine type",
+      },
+      {
+        name: "processor",
+        signature: "processor()",
+        description: "Return processor name",
+        returns: "str - Processor",
+      },
+      {
+        name: "node",
+        signature: "node()",
+        description: "Return hostname",
+        returns: "str - Hostname",
+      },
+      {
+        name: "release",
+        signature: "release()",
+        description: "Return release info",
+        returns: "str - Release",
+      },
+      {
+        name: "version",
+        signature: "version()",
+        description: "Return version info",
+        returns: "str - Version",
+      },
+      {
+        name: "uname",
+        signature: "uname()",
+        description: "Return system info dict",
+        returns: "dict - System info",
+      },
+    ],
+  },
+  {
+    module: "re",
+    description: "Regular expression operations",
+    functions: [
+      {
+        name: "match",
+        signature: "match(pattern, string, flags=0)",
+        description: "Match pattern at start of string",
+        returns: "Match - Match object or None",
+        returnType: "Match",
+      },
+      {
+        name: "search",
+        signature: "search(pattern, string, flags=0)",
+        description: "Search for pattern anywhere in string",
+        returns: "Match - Match object or None",
+        returnType: "Match",
+      },
+      {
+        name: "findall",
+        signature: "findall(pattern, string, flags=0)",
+        description: "Find all matches",
+        returns: "list - List of matches",
+      },
+      {
+        name: "finditer",
+        signature: "finditer(pattern, string, flags=0)",
+        description: "Find all matches as Match objects",
+        returns: "iterator - Match objects",
+      },
+      {
+        name: "sub",
+        signature: "sub(pattern, repl, string, count=0, flags=0)",
+        description: "Replace matches",
+        returns: "str - Modified string",
+      },
+      {
+        name: "split",
+        signature: "split(pattern, string, maxsplit=0, flags=0)",
+        description: "Split string by pattern",
+        returns: "list - Split parts",
+      },
+      {
+        name: "compile",
+        signature: "compile(pattern, flags=0)",
+        description: "Compile regex pattern",
+        returns: "Regex - Compiled regex",
+        returnType: "Regex",
+      },
+      {
+        name: "escape",
+        signature: "escape(pattern)",
+        description: "Escape special regex characters",
+        returns: "str - Escaped string",
+      },
+      {
+        name: "fullmatch",
+        signature: "fullmatch(pattern, string, flags=0)",
+        description: "Match entire string",
+        returns: "Match - Match object or None",
+        returnType: "Match",
+      },
+    ],
+    classes: [
+      {
+        name: "Regex",
+        description: "Compiled regular expression object",
+        methods: [
+          {
+            name: "match",
+            signature: "match(string)",
+            description: "Match at start of string",
+            returns: "Match - Match object or None",
+          },
+          {
+            name: "search",
+            signature: "search(string)",
+            description: "Search anywhere in string",
+            returns: "Match - Match object or None",
+          },
+          {
+            name: "findall",
+            signature: "findall(string)",
+            description: "Find all matches",
+            returns: "list - List of matches",
+          },
+          {
+            name: "finditer",
+            signature: "finditer(string)",
+            description: "Find all matches as Match objects",
+            returns: "iterator - Match objects",
+          },
+        ],
+      },
+      {
+        name: "Match",
+        description: "Regex match result",
+        methods: [
+          {
+            name: "group",
+            signature: "group(n=0)",
+            description: "Return nth group",
+            returns: "str - Matched group",
+          },
+          {
+            name: "groups",
+            signature: "groups()",
+            description: "Return tuple of all groups (excluding group 0)",
+            returns: "tuple - All groups",
+          },
+          {
+            name: "start",
+            signature: "start(n=0)",
+            description: "Return start position",
+            returns: "int - Start index",
+          },
+          {
+            name: "end",
+            signature: "end(n=0)",
+            description: "Return end position",
+            returns: "int - End index",
+          },
+          {
+            name: "span",
+            signature: "span(n=0)",
+            description: "Return (start, end) tuple",
+            returns: "tuple - (start, end)",
+          },
+        ],
+      },
+    ],
+    constants: [
+      {
+        name: "IGNORECASE",
+        value: "2",
+        description: "Case-insensitive matching flag (alias: I)",
+      },
+      {
+        name: "I",
+        value: "2",
+        description: "Case-insensitive matching (short alias)",
+      },
+      {
+        name: "MULTILINE",
+        value: "8",
+        description: "^ and $ match at line boundaries (alias: M)",
+      },
+      {
+        name: "M",
+        value: "8",
+        description: "Multiline mode (short alias)",
+      },
+      {
+        name: "DOTALL",
+        value: "16",
+        description: ". matches newlines (alias: S)",
+      },
+      {
+        name: "S",
+        value: "16",
+        description: "Dot matches all (short alias)",
+      },
+    ],
+  },
+  {
+    module: "statistics",
+    description: "Mathematical statistics functions",
+    functions: [
+      {
+        name: "mean",
+        signature: "mean(data)",
+        description: "Arithmetic mean",
+        returns: "float - Average value",
+      },
+      {
+        name: "fmean",
+        signature: "fmean(data)",
+        description: "Arithmetic mean (fast)",
+        returns: "float - Average value",
+      },
+      {
+        name: "geometric_mean",
+        signature: "geometric_mean(data)",
+        description: "Geometric mean (positive numbers)",
+        returns: "float - Geometric mean",
+      },
+      {
+        name: "harmonic_mean",
+        signature: "harmonic_mean(data)",
+        description: "Harmonic mean (positive numbers)",
+        returns: "float - Harmonic mean",
+      },
+      {
+        name: "median",
+        signature: "median(data)",
+        description: "Median value",
+        returns: "float - Median",
+      },
+      {
+        name: "mode",
+        signature: "mode(data)",
+        description: "Most common value",
+        returns: "any - Mode",
+      },
+      {
+        name: "stdev",
+        signature: "stdev(data)",
+        description: "Sample standard deviation",
+        returns: "float - Standard deviation",
+      },
+      {
+        name: "pstdev",
+        signature: "pstdev(data)",
+        description: "Population standard deviation",
+        returns: "float - Standard deviation",
+      },
+      {
+        name: "variance",
+        signature: "variance(data)",
+        description: "Sample variance",
+        returns: "float - Variance",
+      },
+      {
+        name: "pvariance",
+        signature: "pvariance(data)",
+        description: "Population variance",
+        returns: "float - Variance",
+      },
+    ],
+  },
+  {
+    module: "string",
+    description: "String constants and operations",
+    functions: [],
+    constants: [
+      {
+        name: "ascii_letters",
+        value: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        description: "ASCII letters",
+      },
+      {
+        name: "ascii_lowercase",
+        value: "abcdefghijklmnopqrstuvwxyz",
+        description: "ASCII lowercase letters",
+      },
+      {
+        name: "ascii_uppercase",
+        value: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+        description: "ASCII uppercase letters",
+      },
+      {
+        name: "digits",
+        value: "0123456789",
+        description: "Decimal digits",
+      },
+      {
+        name: "hexdigits",
+        value: "0123456789abcdefABCDEF",
+        description: "Hexadecimal digits",
+      },
+      {
+        name: "octdigits",
+        value: "01234567",
+        description: "Octal digits",
+      },
+      {
+        name: "punctuation",
+        value: "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~",
+        description: "Punctuation characters",
+      },
+      {
+        name: "whitespace",
+        value: " \\t\\n\\r\\x0b\\x0c",
+        description: "Whitespace characters",
+      },
+      {
+        name: "printable",
+        value: "All printable characters",
+        description: "Printable characters",
+      },
+    ],
+  },
+  {
+    module: "textwrap",
+    description: "Text wrapping and filling",
+    functions: [
+      {
+        name: "wrap",
+        signature: "wrap(text, width=70)",
+        description: "Wrap text to specified width",
+        returns: "list - List of lines",
+      },
+      {
+        name: "fill",
+        signature: "fill(text, width=70)",
+        description: "Wrap and return single string",
+        returns: "str - Wrapped text",
+      },
+      {
+        name: "dedent",
+        signature: "dedent(text)",
+        description: "Remove common leading whitespace",
+        returns: "str - Dedented text",
+      },
+      {
+        name: "indent",
+        signature: "indent(text, prefix)",
+        description: "Add prefix to non-empty lines",
+        returns: "str - Indented text",
+      },
+      {
+        name: "shorten",
+        signature: "shorten(text, width, placeholder='[...]')",
+        description: "Truncate to fit width",
+        returns: "str - Shortened text",
+      },
+    ],
+  },
+  {
+    module: "urllib.parse",
+    description: "URL parsing and manipulation",
+    functions: [
+      {
+        name: "quote",
+        signature: "quote(string, safe='')",
+        description: "URL encode string",
+        returns: "str - Encoded string",
+      },
+      {
+        name: "quote_plus",
+        signature: "quote_plus(string, safe='')",
+        description: "URL encode with + for spaces",
+        returns: "str - Encoded string",
+      },
+      {
+        name: "unquote",
+        signature: "unquote(string)",
+        description: "URL decode string",
+        returns: "str - Decoded string",
+      },
+      {
+        name: "unquote_plus",
+        signature: "unquote_plus(string)",
+        description: "URL decode with + as spaces",
+        returns: "str - Decoded string",
+      },
+      {
+        name: "urlparse",
+        signature: "urlparse(urlstring)",
+        description: "Parse URL into components",
+        returns: "ParseResult - Parsed URL",
+        returnType: "ParseResult",
+      },
+      {
+        name: "urlunparse",
+        signature: "urlunparse(components)",
+        description: "Construct URL from components",
+        returns: "str - URL",
+      },
+      {
+        name: "urljoin",
+        signature: "urljoin(base, url)",
+        description: "Join base URL with reference",
+        returns: "str - Joined URL",
+      },
+      {
+        name: "urlsplit",
+        signature: "urlsplit(urlstring)",
+        description: "Split URL into components",
+        returns: "SplitResult - Split URL",
+      },
+      {
+        name: "urlunsplit",
+        signature: "urlunsplit(components)",
+        description: "Construct URL from component tuple",
+        returns: "str - URL",
+      },
+      {
+        name: "parse_qs",
+        signature: "parse_qs(qs)",
+        description: "Parse query string as dict",
+        returns: "dict - Query parameters",
+      },
+      {
+        name: "parse_qsl",
+        signature: "parse_qsl(qs)",
+        description: "Parse query string as list of tuples",
+        returns: "list - Query tuples",
+      },
+      {
+        name: "urlencode",
+        signature: "urlencode(query)",
+        description: "Encode dict as query string",
+        returns: "str - Query string",
+      },
+    ],
+    classes: [
+      {
+        name: "ParseResult",
+        description: "Parsed URL result",
+        methods: [
+          {
+            name: "geturl",
+            signature: "geturl()",
+            description: "Reconstruct URL from components",
+            returns: "str - URL",
+          },
+        ],
       },
     ],
   },
@@ -684,31 +2208,534 @@ const scriptLibraries = [
   },
   {
     module: "os",
-    description: "OS operations",
+    description: "OS operations and file system access",
     functions: [
       {
         name: "getenv",
-        signature: "getenv(key, default=None)",
-        description: "Get environment variable",
-        returns: "str",
+        signature: "getenv(key[, default])",
+        description: "Get environment variable value",
+        returns: "str or default - Environment value or default",
       },
       {
-        name: "path",
-        signature: "os.path.join(*parts)",
-        description: "Join path parts",
-        returns: "str",
+        name: "environ",
+        signature: "environ()",
+        description: "Get all environment variables",
+        returns: "dict - All environment variables as dictionary",
+      },
+      {
+        name: "getcwd",
+        signature: "getcwd()",
+        description: "Get current working directory",
+        returns: "str - Current directory path",
+      },
+      {
+        name: "listdir",
+        signature: "listdir[path='.'])",
+        description: "List directory contents",
+        returns: "list - Directory entries",
+      },
+      {
+        name: "read_file",
+        signature: "read_file(path)",
+        description: "Read entire file contents as string",
+        returns: "str - File contents",
+      },
+      {
+        name: "write_file",
+        signature: "write_file(path, content)",
+        description: "Write string content to file",
+        returns: "None",
+      },
+      {
+        name: "append_file",
+        signature: "append_file(path, content)",
+        description: "Append content to file",
+        returns: "None",
+      },
+      {
+        name: "remove",
+        signature: "remove(path)",
+        description: "Remove file",
+        returns: "None",
+      },
+      {
+        name: "mkdir",
+        signature: "mkdir(path)",
+        description: "Create directory",
+        returns: "None",
+      },
+      {
+        name: "makedirs",
+        signature: "makedirs(path)",
+        description: "Create directories recursively",
+        returns: "None",
+      },
+      {
+        name: "rmdir",
+        signature: "rmdir(path)",
+        description: "Remove empty directory",
+        returns: "None",
+      },
+      {
+        name: "rename",
+        signature: "rename(old, new)",
+        description: "Rename file or directory",
+        returns: "None",
+      },
+    ],
+    constants: [
+      {
+        name: "sep",
+        value: "'/' or '\\'",
+        description: "Path separator string",
+      },
+      {
+        name: "linesep",
+        value: "'\\n' or '\\r\\n'",
+        description: "Line separator string",
+      },
+      {
+        name: "name",
+        value: "'posix' or 'nt'",
+        description: "OS name identifier",
+      },
+    ],
+  },
+  {
+    module: "os.path",
+    description: "Common pathname manipulations",
+    functions: [
+      {
+        name: "join",
+        signature: "join(*paths)",
+        description: "Join path components intelligently",
+        returns: "str - Combined path",
+      },
+      {
+        name: "exists",
+        signature: "exists(path)",
+        description: "Check if path exists",
+        returns: "bool - True if path exists",
+      },
+      {
+        name: "isfile",
+        signature: "isfile(path)",
+        description: "Check if path is a file",
+        returns: "bool - True if file",
+      },
+      {
+        name: "isdir",
+        signature: "isdir(path)",
+        description: "Check if path is a directory",
+        returns: "bool - True if directory",
+      },
+      {
+        name: "basename",
+        signature: "basename(path)",
+        description: "Get final path component",
+        returns: "str - Base name",
+      },
+      {
+        name: "dirname",
+        signature: "dirname(path)",
+        description: "Get directory component",
+        returns: "str - Directory path",
+      },
+      {
+        name: "split",
+        signature: "split(path)",
+        description: "Split into (directory, filename) tuple",
+        returns: "tuple - (dirname, basename)",
+      },
+      {
+        name: "splitext",
+        signature: "splitext(path)",
+        description: "Split into (root, extension) tuple",
+        returns: "tuple - (root, ext)",
+      },
+      {
+        name: "abspath",
+        signature: "abspath(path)",
+        description: "Get absolute path",
+        returns: "str - Absolute path",
+      },
+      {
+        name: "normpath",
+        signature: "normpath(path)",
+        description: "Normalize path (collapse redundant separators, etc.)",
+        returns: "str - Normalized path",
+      },
+      {
+        name: "relpath",
+        signature: "relpath(path[, start])",
+        description: "Get relative path",
+        returns: "str - Relative path",
+      },
+      {
+        name: "isabs",
+        signature: "isabs(path)",
+        description: "Check if path is absolute",
+        returns: "bool - True if absolute",
+      },
+      {
+        name: "getsize",
+        signature: "getsize(path)",
+        description: "Get file size in bytes",
+        returns: "int - File size",
       },
     ],
   },
   {
     module: "pathlib",
-    description: "Path manipulation",
+    description: "Object-oriented path manipulation",
     functions: [
       {
         name: "Path",
         signature: "Path(path)",
         description: "Create Path object",
-        returns: "Path",
+        returns: "Path - Path instance",
+        returnType: "Path",
+      },
+    ],
+    classes: [
+      {
+        name: "Path",
+        description: "Object-oriented filesystem path",
+        methods: [
+          {
+            name: "joinpath",
+            signature: "joinpath(*other)",
+            description: "Combine with other path segments",
+            returns: "Path - New combined path",
+          },
+          {
+            name: "exists",
+            signature: "exists()",
+            description: "Check if path exists",
+            returns: "bool - True if exists",
+          },
+          {
+            name: "is_file",
+            signature: "is_file()",
+            description: "Check if path is a regular file",
+            returns: "bool - True if file",
+          },
+          {
+            name: "is_dir",
+            signature: "is_dir()",
+            description: "Check if path is a directory",
+            returns: "bool - True if directory",
+          },
+          {
+            name: "mkdir",
+            signature: "mkdir(parents=False)",
+            description: "Create directory",
+            returns: "None",
+          },
+          {
+            name: "rmdir",
+            signature: "rmdir()",
+            description: "Remove empty directory",
+            returns: "None",
+          },
+          {
+            name: "unlink",
+            signature: "unlink(missing_ok=False)",
+            description: "Remove file or symlink",
+            returns: "None",
+          },
+          {
+            name: "read_text",
+            signature: "read_text()",
+            description: "Read file contents as string",
+            returns: "str - File contents",
+          },
+          {
+            name: "write_text",
+            signature: "write_text(data)",
+            description: "Write string data to file",
+            returns: "None",
+          },
+        ],
+        properties: [
+          {
+            name: "name",
+            description: "Final path component",
+          },
+          {
+            name: "stem",
+            description: "Final component without suffix",
+          },
+          {
+            name: "suffix",
+            description: "Final component's last suffix",
+          },
+          {
+            name: "parent",
+            description: "Logical parent path",
+          },
+          {
+            name: "parts",
+            description: "Tuple of path components",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "requests",
+    description: "HTTP client for making web requests",
+    functions: [
+      {
+        name: "get",
+        signature: "get(url, **kwargs)",
+        description: "Send GET request",
+        returns: "Response - Response object",
+        returnType: "Response",
+      },
+      {
+        name: "post",
+        signature: "post(url, data=None, **kwargs)",
+        description: "Send POST request",
+        returns: "Response - Response object",
+        returnType: "Response",
+      },
+      {
+        name: "put",
+        signature: "put(url, data=None, **kwargs)",
+        description: "Send PUT request",
+        returns: "Response - Response object",
+        returnType: "Response",
+      },
+      {
+        name: "delete",
+        signature: "delete(url, **kwargs)",
+        description: "Send DELETE request",
+        returns: "Response - Response object",
+        returnType: "Response",
+      },
+      {
+        name: "patch",
+        signature: "patch(url, data=None, **kwargs)",
+        description: "Send PATCH request",
+        returns: "Response - Response object",
+        returnType: "Response",
+      },
+    ],
+    classes: [
+      {
+        name: "Response",
+        description: "HTTP response object",
+        methods: [
+          {
+            name: "json",
+            signature: "json()",
+            description: "Parse response body as JSON",
+            returns: "object - Parsed JSON",
+          },
+          {
+            name: "raise_for_status",
+            signature: "raise_for_status()",
+            description: "Raise exception if status >= 400",
+            returns: "None",
+          },
+        ],
+        properties: [
+          {
+            name: "status_code",
+            description: "HTTP status code (int)",
+          },
+          {
+            name: "text",
+            description: "Response body as string",
+          },
+          {
+            name: "headers",
+            description: "Response headers as dict",
+          },
+          {
+            name: "body",
+            description: "Response body as string (alias for text)",
+          },
+          {
+            name: "url",
+            description: "Request URL",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "secrets",
+    description: "Secure random number generation for secrets and tokens",
+    functions: [
+      {
+        name: "token_bytes",
+        signature: "token_bytes([nbytes])",
+        description: "Generate nbytes random bytes as list of integers",
+        returns: "list[int] - Random bytes",
+      },
+      {
+        name: "token_hex",
+        signature: "token_hex([nbytes])",
+        description: "Generate random hexadecimal string",
+        returns: "str - Hex string",
+      },
+      {
+        name: "token_urlsafe",
+        signature: "token_urlsafe([nbytes])",
+        description: "Generate URL-safe random text",
+        returns: "str - URL-safe random string",
+      },
+      {
+        name: "randbelow",
+        signature: "randbelow(n)",
+        description: "Random integer in [0, n)",
+        returns: "int - Random number",
+      },
+      {
+        name: "randbits",
+        signature: "randbits(k)",
+        description: "Random integer with k random bits",
+        returns: "int - Random number",
+      },
+      {
+        name: "choice",
+        signature: "choice(sequence)",
+        description: "Random element from string or list",
+        returns: "any - Random element",
+      },
+      {
+        name: "compare_digest",
+        signature: "compare_digest(a, b)",
+        description: "Constant-time string comparison",
+        returns: "bool - True if equal",
+      },
+    ],
+  },
+  {
+    module: "subprocess",
+    description: "Subprocess management and command execution",
+    functions: [
+      {
+        name: "run",
+        signature: "run(args, **kwargs)",
+        description: "Run command and wait for completion. kwargs: capture_output, shell, cwd, timeout, check, text, encoding, input, env",
+        returns: "CompletedProcess - Process result",
+        returnType: "CompletedProcess",
+      },
+    ],
+    classes: [
+      {
+        name: "CompletedProcess",
+        description: "Result of subprocess execution",
+        properties: [
+          {
+            name: "args",
+            description: "List of command arguments",
+          },
+          {
+            name: "returncode",
+            description: "Exit status code",
+          },
+          {
+            name: "stdout",
+            description: "Standard output",
+          },
+          {
+            name: "stderr",
+            description: "Standard error",
+          },
+        ],
+        methods: [
+          {
+            name: "check_returncode",
+            signature: "check_returncode()",
+            description: "Raises exception if returncode != 0",
+            returns: "None",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "sys",
+    description: "System-specific parameters and functions",
+    functions: [
+      {
+        name: "exit",
+        signature: "exit([code])",
+        description: "Exit from script. Raises SystemExit exception",
+        returns: "Never returns",
+      },
+    ],
+    constants: [
+      {
+        name: "platform",
+        value: "'darwin', 'linux', 'win32', etc.",
+        description: "Platform identifier",
+      },
+      {
+        name: "version",
+        value: "Scriptling version string",
+        description: "Scriptling interpreter version",
+      },
+      {
+        name: "maxsize",
+        value: "2^63 - 1",
+        description: "Maximum integer value",
+      },
+      {
+        name: "path_sep",
+        value: "'/' or '\\'",
+        description: "Path separator",
+      },
+      {
+        name: "argv",
+        value: "List of command line arguments",
+        description: "Script arguments",
+      },
+    ],
+  },
+  {
+    module: "wait_for",
+    description: "Wait for resources to become available",
+    functions: [
+      {
+        name: "file",
+        signature: "file(path, timeout=30, poll_rate=1)",
+        description: "Wait for file to exist",
+        returns: "bool - True if file exists",
+      },
+      {
+        name: "dir",
+        signature: "dir(path, timeout=30, poll_rate=1)",
+        description: "Wait for directory to exist",
+        returns: "bool - True if directory exists",
+      },
+      {
+        name: "port",
+        signature: "port(host, port, timeout=30, poll_rate=1)",
+        description: "Wait for TCP port to be open",
+        returns: "bool - True if port is open",
+      },
+      {
+        name: "http",
+        signature: "http(url, timeout=30, poll_rate=1, status_code=200)",
+        description: "Wait for HTTP endpoint with expected status",
+        returns: "bool - True if endpoint responds",
+      },
+      {
+        name: "file_content",
+        signature: "file_content(path, content, timeout=30, poll_rate=1)",
+        description: "Wait for file to contain content",
+        returns: "bool - True if content found",
+      },
+      {
+        name: "process_name",
+        signature: "process_name(name, timeout=30, poll_rate=1)",
+        description: "Wait for process to be running",
+        returns: "bool - True if process is running",
       },
     ],
   },
@@ -739,6 +2766,86 @@ const typePatterns = [
   {
     regex: /(\w+)\s*=\s*(\w+\.)*completion_stream\s*\(/,
     type: "ChatStream",
+  },
+  // sl.threads.run returns Promise
+  {
+    regex: /(\w+)\s*=\s*sl\.threads\.run\s*\(/,
+    type: "Promise",
+  },
+  // requests.get/post/put/delete/patch returns Response
+  {
+    regex: /(\w+)\s*=\s*requests\.(get|post|put|delete|patch)\s*\(/,
+    type: "Response",
+  },
+  // subprocess.run returns CompletedProcess
+  {
+    regex: /(\w+)\s*=\s*subprocess\.run\s*\(/,
+    type: "CompletedProcess",
+  },
+  // logging.getLogger returns Logger
+  {
+    regex: /(\w+)\s*=\s*logging\.getLogger\s*\(/,
+    type: "Logger",
+  },
+  // pathlib.Path returns Path
+  {
+    regex: /(\w+)\s*=\s*(pathlib\.)?Path\s*\(/,
+    type: "Path",
+  },
+  // html.parser.HTMLParser()
+  {
+    regex: /(\w+)\s*=\s*html\.parser\.HTMLParser\s*\(/,
+    type: "HTMLParser",
+  },
+  // collections.Counter()
+  {
+    regex: /(\w+)\s*=\s*collections\.Counter\s*\(/,
+    type: "Counter",
+  },
+  // collections.DefaultDict()
+  {
+    regex: /(\w+)\s*=\s*collections\.DefaultDict\s*\(/,
+    type: "DefaultDict",
+  },
+  // collections.deque()
+  {
+    regex: /(\w+)\s*=\s*collections\.deque\s*\(/,
+    type: "deque",
+  },
+  // collections.ChainMap()
+  {
+    regex: /(\w+)\s*=\s*collections\.ChainMap\s*\(/,
+    type: "ChainMap",
+  },
+  // re.compile() returns Regex
+  {
+    regex: /(\w+)\s*=\s*re\.compile\s*\(/,
+    type: "Regex",
+  },
+  // re.match() returns Match
+  {
+    regex: /(\w+)\s*=\s*re\.(match|search|fullmatch)\s*\(/,
+    type: "Match",
+  },
+  // urllib.parse.urlparse() returns ParseResult
+  {
+    regex: /(\w+)\s*=\s*urllib\.parse\.urlparse\s*\(/,
+    type: "ParseResult",
+  },
+  // datetime.datetime() returns datetime
+  {
+    regex: /(\w+)\s*=\s*datetime\.datetime\s*\(/,
+    type: "datetime",
+  },
+  // datetime.date() returns date
+  {
+    regex: /(\w+)\s*=\s*datetime\.date\s*\(/,
+    type: "date",
+  },
+  // datetime.timedelta() returns timedelta
+  {
+    regex: /(\w+)\s*=\s*datetime\.timedelta\s*\(/,
+    type: "timedelta",
   },
 ];
 
