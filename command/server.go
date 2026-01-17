@@ -793,15 +793,9 @@ var ServerCmd = &cli.Command{
 		if chatEnabled || openaiEndpointEnabled {
 			logger.Info("AI chat enabled")
 
-			// Create a discovery-only MCP server for the OpenAI client
-			// This ensures tools are accessed via tool_search → execute_tool pattern
-			var discoveryServer *mcp.Server
-			if mcpServer != nil {
-				discoveryServer = internal_mcp.CreateDiscoveryServer(mcpServer)
-			}
-
-			// Initialize chat service with discovery-only server
-			chatService, err := chat.NewService(cfg.Chat, discoveryServer)
+			// Initialize chat service with main MCP server
+			// The OpenAI client will use forced ondemand mode via context
+			chatService, err := chat.NewService(cfg.Chat, mcpServer)
 			if err != nil {
 				logger.WithError(err).Fatal("failed to create chat service:")
 			}
@@ -851,16 +845,23 @@ var ServerCmd = &cli.Command{
 
 		// If OpenAI chat enabled then initialize OpenAI service
 		if openaiEndpointEnabled {
-			//openai.SetupOpenAIEndpoints(cfg, routes, mcpServer)
 			logger.Info("OpenAI endpoints enabled")
 
+			// Create script tools provider for OpenAI endpoints
+			scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
+				if user == nil || !user.HasPermission(model.PermissionExecuteScripts) {
+					return nil
+				}
+				return internal_mcp.NewScriptToolsProvider(user)
+			}
+
 			service := openai.NewService(openAIClient, cfg.Chat.SystemPrompt)
-			routes.HandleFunc("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetModels)))
-			routes.HandleFunc("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleChatCompletions)))
-			routes.HandleFunc("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleCreateResponse)))
-			routes.HandleFunc("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetResponse)))
-			routes.HandleFunc("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleDeleteResponse)))
-			routes.HandleFunc("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleCancelResponse)))
+			routes.Handle("GET /v1/models", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetModels))))
+			routes.Handle("POST /v1/chat/completions", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleChatCompletions))))
+			routes.Handle("POST /v1/responses", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleCreateResponse))))
+			routes.Handle("GET /v1/responses/{response_id}", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetResponse))))
+			routes.Handle("DELETE /v1/responses/{response_id}", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleDeleteResponse))))
+			routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleCancelResponse))))
 		}
 
 		// Add support for page not found
@@ -1261,6 +1262,9 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 							}
 							if token := server.GetString("token"); token != "" {
 								remoteServer.Token = token
+							}
+							if visibility := server.GetString("tool_visibility"); visibility != "" {
+								remoteServer.ToolVisibility = visibility
 							}
 							mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
 						}

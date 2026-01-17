@@ -20,14 +20,20 @@ func MCPServerContext(mcpServer *mcp.Server, scriptToolsProvider ScriptToolsProv
 			// Add MCP server to context
 			ctx = context.WithValue(ctx, "mcp", mcpServer)
 
-			// Add script tools as request-scoped provider using ToolProvider interface
+			// Add script tools as request-scoped provider in force ondemand mode
 			if scriptToolsProvider != nil {
 				user, ok := ctx.Value("user").(*model.User)
 				if ok && user != nil {
 					if provider := scriptToolsProvider(ctx, user); provider != nil {
-						ctx = mcp.WithToolProviders(ctx, provider)
+						ctx = mcp.WithForceOnDemandMode(ctx, provider)
+					} else {
+						ctx = mcp.WithForceOnDemandMode(ctx)
 					}
+				} else {
+					ctx = mcp.WithForceOnDemandMode(ctx)
 				}
+			} else {
+				ctx = mcp.WithForceOnDemandMode(ctx)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))

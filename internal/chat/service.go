@@ -100,6 +100,10 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 	// Add user to context for MCP server
 	chatCtx := context.WithValue(ctx, "user", user)
 
+	// Force ondemand mode - only tool_search and execute_tool visible in tools/list
+	// All other tools (native, ondemand, provider, remote) are searchable and callable
+	chatCtx = mcp.WithForceOnDemandMode(chatCtx)
+
 	// Add the tool handler to the context
 	toolHandler := NewWebChatToolHandler(sseWriter)
 	chatCtx = openai.WithToolHandler(chatCtx, toolHandler)

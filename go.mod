@@ -6,7 +6,7 @@ go 1.25.6
 
 //replace github.com/paularlott/cli => ../cli/
 
-replace github.com/paularlott/mcp => ../mcp/
+//replace github.com/paularlott/mcp => ../mcp/
 
 //replace github.com/paularlott/scriptling => ../scriptling/
 
@@ -25,8 +25,8 @@ require (
 	github.com/paularlott/cli v0.7.2
 	github.com/paularlott/gossip v0.12.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.8.1
-	github.com/paularlott/scriptling v0.0.0-20260115081247-b64c0a285865
+	github.com/paularlott/mcp v0.9.0
+	github.com/paularlott/scriptling v0.0.0-20260117092521-0982ed7abff3
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/vmihailenco/msgpack/v5 v5.4.1
@@ -64,7 +64,7 @@ require (
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.25.1 // indirect
 	github.com/hashicorp/go-msgpack/v2 v2.1.5 // indirect
-	github.com/klauspost/compress v1.18.2 // indirect
+	github.com/klauspost/compress v1.18.3 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20251013123823-9fd1530e3ec3 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect

@@ -268,7 +268,7 @@ func TestLocalScriptlingEnv_CanImportSystemLibraries(t *testing.T) {
 import subprocess
 import os
 import pathlib
-import threads
+import sl.threads
 import sys
 result = "all_system_libs_imported"
 `
@@ -292,7 +292,7 @@ func TestRemoteScriptlingEnv_CanImportSystemLibraries(t *testing.T) {
 import subprocess
 import os
 import pathlib
-import threads
+import sl.threads
 import sys
 result = "all_system_libs_imported"
 `

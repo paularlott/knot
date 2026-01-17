@@ -39,7 +39,6 @@ func TestNew(t *testing.T) {
 			config: Config{
 				APIKey:  "test-key",
 				BaseURL: "https://api.openai.com/v1/",
-				Timeout: 30 * time.Second,
 			},
 			wantErr: false,
 		},
@@ -47,14 +46,6 @@ func TestNew(t *testing.T) {
 			name: "empty base URL uses default",
 			config: Config{
 				APIKey: "test-key",
-			},
-			wantErr: false,
-		},
-		{
-			name: "zero timeout uses default",
-			config: Config{
-				APIKey:  "test-key",
-				BaseURL: "https://api.openai.com/v1/",
 			},
 			wantErr: false,
 		},
@@ -114,7 +105,6 @@ func TestClient_GetModels(t *testing.T) {
 	config := Config{
 		APIKey:  "test-key",
 		BaseURL: server.URL + "/",
-		Timeout: 10 * time.Second,
 	}
 
 	client, err := New(config, nil)
@@ -173,7 +163,6 @@ func TestClient_StreamChatCompletion_Basic(t *testing.T) {
 	config := Config{
 		APIKey:  "test-key",
 		BaseURL: server.URL + "/",
-		Timeout: 10 * time.Second,
 	}
 
 	client, err := New(config, nil)
@@ -305,7 +294,6 @@ func TestBaseURLTrailingSlash(t *testing.T) {
 			config := Config{
 				APIKey:  "test-key",
 				BaseURL: tt.inputURL,
-				Timeout: 5 * time.Second,
 			}
 
 			// Replace the base domain with our test server
@@ -327,7 +315,7 @@ func TestBaseURLTrailingSlash(t *testing.T) {
 			}
 			req.Messages[0].SetContentAsString("test")
 
-			_, _ = client.nonStreamingChatCompletion(ctx, req)
+			_, _ = client.ChatCompletion(ctx, req)
 
 			// Verify the path was correctly resolved
 			if capturedPath != tt.expectPath {

@@ -130,9 +130,10 @@ type NomadConfig struct {
 }
 
 type MCPRemoteServerConfig struct {
-	Namespace string `toml:"namespace"`
-	URL       string `toml:"url"`
-	Token     string `toml:"token"`
+	Namespace      string `toml:"namespace"`
+	URL            string `toml:"url"`
+	Token          string `toml:"token"`
+	ToolVisibility string `toml:"tool_visibility"` // "native" or "ondemand"
 }
 
 type MCPConfig struct {

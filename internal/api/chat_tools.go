@@ -25,8 +25,8 @@ func HandleListTools(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get tools from MCP server and return them directly
-	tools := mcpServer.ListTools()
+	// Get tools from MCP server with context to respect force ondemand mode
+	tools := mcpServer.ListToolsWithContext(ctx)
 	rest.WriteResponse(http.StatusOK, w, r, tools)
 }
 
