@@ -256,6 +256,7 @@ func HandleCreateScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := r.Context().Value("user").(*model.User)
+	cfg := config.GetServerConfig()
 	db := database.GetInstance()
 
 	// Determine if creating user script or global script based on request body
@@ -265,26 +266,34 @@ func HandleCreateScript(w http.ResponseWriter, r *http.Request) {
 	}
 	isUserScript := ownerUserId != ""
 
-	// Permission check
-	if isUserScript {
-		// Creating user script
-		if ownerUserId != user.Id && !user.HasPermission(model.PermissionManageScripts) {
-			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to create scripts for other users"})
-			return
-		}
-		if ownerUserId == user.Id && !user.HasPermission(model.PermissionManageOwnScripts) {
-			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to create own scripts"})
-			return
-		}
-		// User scripts cannot have groups
-		if len(request.Groups) > 0 {
-			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "User scripts cannot have groups"})
-			return
+	// Permission check (bypass in leaf mode)
+	if !cfg.LeafNode {
+		if isUserScript {
+			// Creating user script
+			if ownerUserId != user.Id && !user.HasPermission(model.PermissionManageScripts) {
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to create scripts for other users"})
+				return
+			}
+			if ownerUserId == user.Id && !user.HasPermission(model.PermissionManageOwnScripts) {
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to create own scripts"})
+				return
+			}
+			// User scripts cannot have groups
+			if len(request.Groups) > 0 {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "User scripts cannot have groups"})
+				return
+			}
+		} else {
+			// Creating global script
+			if !user.HasPermission(model.PermissionManageScripts) {
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to create global scripts"})
+				return
+			}
 		}
 	} else {
-		// Creating global script
-		if !user.HasPermission(model.PermissionManageScripts) {
-			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to create global scripts"})
+		// In leaf mode, user scripts cannot have groups
+		if isUserScript && len(request.Groups) > 0 {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "User scripts cannot have groups"})
 			return
 		}
 	}
@@ -359,6 +368,7 @@ func HandleUpdateScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := r.Context().Value("user").(*model.User)
+	cfg := config.GetServerConfig()
 	db := database.GetInstance()
 
 	script, err := db.GetScript(scriptId)
@@ -373,23 +383,31 @@ func HandleUpdateScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Permission check
-	if script.IsUserScript() {
-		if script.UserId != user.Id && !user.HasPermission(model.PermissionManageScripts) {
-			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to edit this script"})
-			return
-		}
-		if script.UserId == user.Id && !user.HasPermission(model.PermissionManageOwnScripts) {
-			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to edit own scripts"})
-			return
-		}
-		if len(request.Groups) > 0 {
-			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "User scripts cannot have groups"})
-			return
+	// Permission check (bypass in leaf mode)
+	if !cfg.LeafNode {
+		if script.IsUserScript() {
+			if script.UserId != user.Id && !user.HasPermission(model.PermissionManageScripts) {
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to edit this script"})
+				return
+			}
+			if script.UserId == user.Id && !user.HasPermission(model.PermissionManageOwnScripts) {
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to edit own scripts"})
+				return
+			}
+			if len(request.Groups) > 0 {
+				rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "User scripts cannot have groups"})
+				return
+			}
+		} else {
+			if !user.HasPermission(model.PermissionManageScripts) {
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to edit global scripts"})
+				return
+			}
 		}
 	} else {
-		if !user.HasPermission(model.PermissionManageScripts) {
-			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to edit global scripts"})
+		// In leaf mode, user scripts cannot have groups
+		if script.IsUserScript() && len(request.Groups) > 0 {
+			rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "User scripts cannot have groups"})
 			return
 		}
 	}
@@ -442,6 +460,7 @@ func HandleDeleteScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := r.Context().Value("user").(*model.User)
+	cfg := config.GetServerConfig()
 	db := database.GetInstance()
 
 	script, err := db.GetScript(scriptId)
@@ -456,20 +475,22 @@ func HandleDeleteScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Permission check
-	if script.IsUserScript() {
-		if script.UserId != user.Id && !user.HasPermission(model.PermissionManageScripts) {
-			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to delete this script"})
-			return
-		}
-		if script.UserId == user.Id && !user.HasPermission(model.PermissionManageOwnScripts) {
-			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to delete own scripts"})
-			return
-		}
-	} else {
-		if !user.HasPermission(model.PermissionManageScripts) {
-			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to delete global scripts"})
-			return
+	// Permission check (bypass in leaf mode)
+	if !cfg.LeafNode {
+		if script.IsUserScript() {
+			if script.UserId != user.Id && !user.HasPermission(model.PermissionManageScripts) {
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to delete this script"})
+				return
+			}
+			if script.UserId == user.Id && !user.HasPermission(model.PermissionManageOwnScripts) {
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to delete own scripts"})
+				return
+			}
+		} else {
+			if !user.HasPermission(model.PermissionManageScripts) {
+				rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to delete global scripts"})
+				return
+			}
 		}
 	}
 

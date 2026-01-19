@@ -1,12 +1,16 @@
 import Alpine from "alpinejs";
 
-window.scriptListComponent = function (userId, zone, permissionManageScripts) {
+window.scriptListComponent = function (userId, zone, permissionManageScripts, isLeafNode) {
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
       document.getElementById("search").focus();
     }
   });
+
+  // Default filters: My Scripts ON, Global Scripts OFF (same for leaf and normal mode)
+  const defaultShowMyScripts = true;
+  const defaultShowGlobalScripts = false;
 
   return {
     loading: true,
@@ -25,11 +29,14 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts) {
     },
     scripts: [],
     availableZones: [],
-    showMyScripts: Alpine.$persist(true)
+    showMyScripts: Alpine.$persist(defaultShowMyScripts)
       .as("script-show-my-scripts")
       .using(sessionStorage),
-    showGlobalScripts: Alpine.$persist(false)
+    showGlobalScripts: Alpine.$persist(defaultShowGlobalScripts)
       .as("script-show-global-scripts")
+      .using(sessionStorage),
+    showLocalScripts: Alpine.$persist(true)
+      .as("script-show-local-scripts")
       .using(sessionStorage),
     showAllZones: Alpine.$persist(false)
       .as("script-show-all-zones")
@@ -40,6 +47,7 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts) {
     currentUserId: userId || "",
     currentZone: zone || "",
     permissionManageScripts: permissionManageScripts || false,
+    isLeafNode: isLeafNode || false,
 
     async init() {
       await this.getScripts();
@@ -195,7 +203,28 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts) {
     },
 
     canEditScript(script) {
+      // In leaf mode, always allow viewing scripts (managed flag will make them read-only)
+      if (this.isLeafNode) return true;
+
       // User can edit their own scripts or global scripts if they have permission
+      if (script.user_id && script.user_id === this.currentUserId) return true;
+      if (!script.user_id) return this.permissionManageScripts; // Global scripts require Manage Scripts permission
+      return false;
+    },
+
+    canActuallyEditScript(script) {
+      // Check if user can truly edit (not just view) - used for UI labels
+      if (script.is_managed) return false;
+      if (script.user_id && script.user_id === this.currentUserId) return true;
+      if (!script.user_id) return this.permissionManageScripts; // Global scripts require Manage Scripts permission
+      return false;
+    },
+
+    canDeleteScript(script) {
+      // In leaf mode, scripts are managed by parent - can't delete
+      if (this.isLeafNode) return false;
+
+      // User can delete their own scripts or global scripts if they have permission
       if (script.user_id && script.user_id === this.currentUserId) return true;
       if (!script.user_id) return this.permissionManageScripts; // Global scripts require Manage Scripts permission
       return false;
@@ -252,6 +281,9 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts) {
         const isMine = s.user_id === this.currentUserId;
         const matchesFilter = (isGlobal && this.showGlobalScripts) || (isMine && this.showMyScripts);
         if (!matchesFilter) showRow = false;
+
+        // Filter by local/remote in leaf mode (when ON, hide remote scripts)
+        if (this.isLeafNode && this.showLocalScripts && s.is_managed) showRow = false;
 
         // Filter by zone (unless showAllZones is true)
         if (!this.showAllZones && this.currentZone) {
