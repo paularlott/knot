@@ -11,7 +11,6 @@ import (
 // ResolveScriptByName resolves a script by name with user override support
 // First checks user scripts, then falls back to global scripts
 // Returns nil if script not found, deleted, inactive, or not valid for current zone
-// Applies variable replacement to global scripts only
 // Supports zone-specific overrides - returns the best match for the current zone
 func ResolveScriptByName(name string, userId string) (*model.Script, error) {
 	db := database.GetInstance()
@@ -46,18 +45,6 @@ func ResolveScriptByName(name string, userId string) (*model.Script, error) {
 			continue
 		}
 
-		// Apply variable replacement to global scripts
-		if script.IsGlobalScript() {
-			variables, err := db.GetTemplateVars()
-			if err == nil {
-				vars := model.FilterVars(variables)
-				content, err := model.ApplyVariablesToScript(script, vars)
-				if err == nil {
-					script.Content = content
-				}
-			}
-		}
-
 		return script, nil
 	}
 
@@ -89,19 +76,4 @@ func CanUserExecuteScript(user *model.User, script *model.Script) bool {
 	}
 
 	return true
-}
-
-
-// ApplyVariablesToScriptIfGlobal applies variable replacement to a script if it's global
-func ApplyVariablesToScriptIfGlobal(script *model.Script, db database.DbDriver) {
-	if script.IsGlobalScript() {
-		variables, err := db.GetTemplateVars()
-		if err == nil {
-			vars := model.FilterVars(variables)
-			content, err := model.ApplyVariablesToScript(script, vars)
-			if err == nil {
-				script.Content = content
-			}
-		}
-	}
 }

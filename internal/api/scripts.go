@@ -220,9 +220,6 @@ func HandleGetScript(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Apply variable replacement to global scripts
-	service.ApplyVariablesToScriptIfGlobal(script, db)
-
 	rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptDetails{
 		Id:                 script.Id,
 		UserId:             script.UserId,
@@ -517,7 +514,6 @@ func HandleGetScriptDetailsByName(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := r.Context().Value("user").(*model.User)
-	db := database.GetInstance()
 
 	// Resolve script with user override
 	script, err := service.ResolveScriptByName(scriptName, user.Id)
@@ -531,9 +527,6 @@ func HandleGetScriptDetailsByName(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Script not found"})
 		return
 	}
-
-	// Apply variable replacement to global scripts
-	service.ApplyVariablesToScriptIfGlobal(script, db)
 
 	rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptDetails{
 		Id:                 script.Id,
@@ -619,9 +612,6 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to execute this script"})
 		return
 	}
-
-	// Apply variable replacement to global scripts
-	service.ApplyVariablesToScriptIfGlobal(script, db)
 
 	var output string
 	var execErr error

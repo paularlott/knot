@@ -91,9 +91,6 @@ go test -v ./internal/service/... -run TestCanUserExecuteScript
 # Unit tests - Zone filtering
 go test -v ./internal/service/... -run TestIsValidForZone
 
-# Unit tests - Variable replacement
-go test -v ./internal/service/... -run TestApplyVariablesToScript
-
 # Unit tests - MCP security
 go test -v ./internal/service/... -run TestMCPScriptlingEnv
 
@@ -163,7 +160,6 @@ go test -v . -run TestSuite15
 | `TestIsValidForZone_MixedZones`                              | Scripts with both positive and negated zones                         |
 | `TestIsGlobalScript`                                         | Identifying global scripts (empty UserId)                            |
 | `TestIsUserScript`                                           | Identifying user scripts (non-empty UserId)                          |
-| `TestApplyVariablesToScript_UserScript`                      | User scripts do NOT get variable replacement                         |
 | `TestMCPScriptlingEnv_CannotImportSubprocess`                | MCP environment blocks subprocess import                             |
 | `TestMCPScriptlingEnv_CannotImportOS`                        | MCP environment blocks os import                                     |
 | `TestMCPScriptlingEnv_CannotImportPathlib`                   | MCP environment blocks pathlib import                                |

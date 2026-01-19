@@ -413,31 +413,6 @@ func TestIsUserScript(t *testing.T) {
 	}
 }
 
-// TestApplyVariablesToScript_UserScript tests that user scripts do NOT get variable replacement
-func TestApplyVariablesToScript_UserScript(t *testing.T) {
-	script := &model.Script{
-		Id:      "script1",
-		Name:    "user_script",
-		UserId:  "user1", // User script
-		Content: `print('${{var.myvar}}')`,
-	}
-
-	variables := map[string]any{
-		"myvar": "test_value",
-	}
-
-	result, err := model.ApplyVariablesToScript(script, variables)
-	if err != nil {
-		t.Fatalf("ApplyVariablesToScript failed: %v", err)
-	}
-
-	// User scripts should NOT have variables replaced
-	expected := `print('${{var.myvar}}')`
-	if result != expected {
-		t.Errorf("User scripts should NOT have variables replaced. Expected '%s', got '%s'", expected, result)
-	}
-}
-
 // TestPermissionModelExecuteOwnVsExecuteScripts tests the distinction between ExecuteOwnScripts and ExecuteScripts
 func TestPermissionModelExecuteOwnVsExecuteScripts(t *testing.T) {
 	userWithOwnScripts := &model.User{

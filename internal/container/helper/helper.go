@@ -476,9 +476,6 @@ func executeSpaceScript(space *model.Space, template *model.Template, user *mode
 		return nil
 	}
 
-	// Apply variable replacement to global scripts
-	service.ApplyVariablesToScriptIfGlobal(script, db)
-
 	return executeScript(space, script, waitForAgent)
 }
 

@@ -1,15 +1,10 @@
 package model
 
 import (
-	"bytes"
-	"encoding/json"
-	"strings"
-	"text/template"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
 )
 
@@ -118,63 +113,4 @@ func (script *Script) IsGlobalScript() bool {
 // IsUserScript returns true if the script is a user script (UserId is not empty)
 func (script *Script) IsUserScript() bool {
 	return script.UserId != ""
-}
-
-
-// ApplyVariablesToScript applies template variable replacement to script content
-// This is ONLY applied to global scripts (user_id is empty), not user scripts
-// Uses the same ${{varname}} syntax as templates
-func ApplyVariablesToScript(script *Script, variables map[string]interface{}) (string, error) {
-	// User scripts do not get variable replacement
-	if script.IsUserScript() {
-		return script.Content, nil
-	}
-
-	// If no variables provided, create empty map
-	if variables == nil {
-		variables = map[string]interface{}{}
-	}
-
-	// Simple template functions
-	funcs := map[string]any{
-		"quote": func(s string) string {
-			return strings.ReplaceAll(s, `"`, `\"`)
-		},
-		"toUpper": strings.ToUpper,
-		"toLower": strings.ToLower,
-		"json": func(v interface{}) string {
-			b, _ := json.Marshal(v)
-			return string(b)
-		},
-	}
-
-	tmpl, err := template.New("script").Funcs(funcs).Delims("${{", "}}").Parse(script.Content)
-	if err != nil {
-		return script.Content, err
-	}
-
-	cfg := config.GetServerConfig()
-	wildcardDomain := cfg.WildcardDomain
-	if wildcardDomain != "" && wildcardDomain[0] == '*' {
-		wildcardDomain = wildcardDomain[1:]
-	}
-
-	data := map[string]interface{}{
-		"server": map[string]interface{}{
-			"url":             strings.TrimSuffix(cfg.URL, "/"),
-			"agent_endpoint":  cfg.AgentEndpoint,
-			"wildcard_domain": wildcardDomain,
-			"zone":            cfg.Zone,
-			"timezone":        cfg.Timezone,
-		},
-		"var": variables,
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, data)
-	if err != nil {
-		return script.Content, err
-	}
-
-	return buf.String(), nil
 }
