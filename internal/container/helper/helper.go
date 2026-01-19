@@ -182,9 +182,11 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 		if err := executeSpaceScript(space, template, user, template.StartupScriptId, true); err != nil {
 			log.WithError(err).Warn("system startup script failed", "space_id", space.Id)
 		}
-		// Execute user startup script
-		if err := executeSpaceScriptByName(space, template, user, template.UserStartupScript, true); err != nil {
-			log.WithError(err).Warn("user startup script failed", "space_id", space.Id)
+		// Execute user startup script from space definition
+		if space.StartupScriptId != "" {
+			if err := executeSpaceScript(space, template, user, space.StartupScriptId, true); err != nil {
+				log.WithError(err).Warn("user startup script failed", "space_id", space.Id)
+			}
 		}
 	}()
 
@@ -226,10 +228,7 @@ func (h *Helper) StopSpace(space *model.Space) error {
 		return err
 	}
 
-	// Execute shutdown scripts (blocking) - user first, then system
-	if err := executeSpaceScriptByName(space, template, user, template.UserShutdownScript, false); err != nil {
-		log.WithError(err).Warn("user shutdown script failed", "space_id", space.Id)
-	}
+	// Execute shutdown script (blocking)
 	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
 		log.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 	}
@@ -288,9 +287,6 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 	}
 
 	// Execute shutdown script if defined (blocking)
-	if err := executeSpaceScriptByName(space, template, user, template.UserShutdownScript, false); err != nil {
-		log.WithError(err).Warn("user shutdown script failed", "space_id", space.Id)
-	}
 	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
 		log.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 	}
@@ -360,10 +356,7 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 				if err != nil {
 					logger.WithError(err).Warn("failed to get user for shutdown scripts")
 				} else {
-					// Execute shutdown scripts (blocking) - user first, then system
-					if err := executeSpaceScriptByName(space, template, user, template.UserShutdownScript, false); err != nil {
-						logger.WithError(err).Warn("user shutdown script failed", "space_id", space.Id)
-					}
+					// Execute shutdown script (blocking)
 					if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
 						logger.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 					}
@@ -485,21 +478,6 @@ func executeSpaceScript(space *model.Space, template *model.Template, user *mode
 
 	// Apply variable replacement to global scripts
 	service.ApplyVariablesToScriptIfGlobal(script, db)
-
-	return executeScript(space, script, waitForAgent)
-}
-
-func executeSpaceScriptByName(space *model.Space, template *model.Template, user *model.User, scriptName string, waitForAgent bool) error {
-	if scriptName == "" || template.IsManual() {
-		return nil
-	}
-
-	// Resolve script with user override
-	script, err := service.ResolveScriptByName(scriptName, user.Id)
-	if err != nil {
-		log.Debug("script not found", "script_name", scriptName, "space_id", space.Id)
-		return nil
-	}
 
 	return executeScript(space, script, waitForAgent)
 }

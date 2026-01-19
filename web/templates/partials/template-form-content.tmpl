@@ -197,19 +197,6 @@
               </div>
             </div>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div>
-              <label for="user_startup_script" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Startup Script Name</label>
-              <input type="text" class="form-field" name="user_startup_script" id="user_startup_script" placeholder="script_name" x-model="formData.user_startup_script">
-              <div class="description text-xs mt-1">Script name to run at startup (user scripts override global)</div>
-            </div>
-            <div>
-              <label for="user_shutdown_script" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Shutdown Script Name</label>
-              <input type="text" class="form-field" name="user_shutdown_script" id="user_shutdown_script" placeholder="script_name" x-model="formData.user_shutdown_script">
-              <div class="description text-xs mt-1">Script name to run at shutdown (user scripts override global)</div>
-            </div>
-          </div>
-          <p class="description mt-2">System scripts run by ID (selected above). User scripts run by name and can be overridden by each user.</p>
         </div>
         <div x-show="formData.platform != 'manual'" x-clock>
           <label class="form-label">Resource Units</label>

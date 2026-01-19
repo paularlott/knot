@@ -93,6 +93,55 @@ func HandleGetScripts(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, response)
 }
 
+// HandleGetGlobalScripts returns global scripts for template editing.
+// Users with PermissionManageTemplates can see global scripts even without PermissionManageScripts.
+func HandleGetGlobalScripts(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
+
+	// Permission check - users can view global scripts if they have ManageTemplates permission
+	if !user.HasPermission(model.PermissionManageTemplates) {
+		rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptList{Count: 0, Scripts: []apiclient.ScriptInfo{}})
+		return
+	}
+
+	allZones := r.URL.Query().Get("all_zones") == "true"
+
+	scriptService := service.GetScriptService()
+	scripts, err := scriptService.ListScripts(service.ScriptListOptions{
+		FilterUserId:         "", // Empty string to get only global scripts
+		User:                 user,
+		IncludeDeleted:       false,
+		CheckZoneRestriction: !allZones,
+	})
+	if err != nil {
+		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	response := apiclient.ScriptList{
+		Count:   0,
+		Scripts: []apiclient.ScriptInfo{},
+	}
+
+	for _, script := range scripts {
+		response.Scripts = append(response.Scripts, apiclient.ScriptInfo{
+			Id:          script.Id,
+			UserId:      script.UserId,
+			Name:        script.Name,
+			Description: script.Description,
+			Groups:      script.Groups,
+			Zones:       script.Zones,
+			Active:      script.Active,
+			ScriptType:  script.ScriptType,
+			Timeout:     script.Timeout,
+			IsManaged:   script.IsManaged,
+		})
+		response.Count++
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, response)
+}
+
 func HandleGetScript(w http.ResponseWriter, r *http.Request) {
 	scriptId := r.PathValue("script_id")
 	if !validate.UUID(scriptId) {

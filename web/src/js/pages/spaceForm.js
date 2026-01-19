@@ -4,6 +4,7 @@ import { focus } from '../focus.js';
 window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, forUserUsername, templateId) {
   return {
     iconList: [],
+    scriptList: [],
     formData: {
       name: "",
       description: "",
@@ -15,7 +16,8 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       custom_fields: [],
       created_at: "",
       created_at_formatted: "",
-      selected_node_id: ""
+      selected_node_id: "",
+      startup_script_id: ""
     },
     template_id: templateId,
     template: {
@@ -64,6 +66,17 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         this.iconList.push(...icons);
       }
 
+      // Fetch user's own scripts for the autocompleter
+      const scriptsResponse = await fetch(`/api/scripts?user_id=${userId}`, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (scriptsResponse.status === 200) {
+        const scripts = await scriptsResponse.json();
+        this.scriptList = scripts.scripts.filter(s => s.script_type === 'script' && s.active);
+      }
+
       if(isEdit) {
         const spaceResponse = await fetch(`/api/spaces/${spaceId}`, {
           headers: {
@@ -84,6 +97,12 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.formData.custom_fields = space.custom_fields;
           this.formData.created_at = space.created_at;
           this.formData.created_at_formatted = space.created_at_formatted;
+          this.formData.startup_script_id = space.startup_script_id || "";
+
+          // Refresh the autocompleter to show the selected script
+          this.$nextTick(() => {
+            this.$dispatch('refresh-autocompleter');
+          });
 
           if(space.user_id !== userId) {
             this.formData.user_id = space.user_id;

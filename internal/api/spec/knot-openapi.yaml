@@ -2949,6 +2949,14 @@ components:
           items:
             $ref: '#/components/schemas/CustomFieldValue'
           description: The values for the custom fields.
+        selected_node_id:
+          type: string
+          format: uuid
+          description: The ID of the node to run the space on, or empty for auto-select.
+        startup_script_id:
+          type: string
+          format: uuid
+          description: The ID of a user script to run after the system startup script.
 
     SpaceVolume:
       type: object
@@ -3048,6 +3056,10 @@ components:
           items:
             $ref: '#/components/schemas/CustomFieldValue'
           description: The values for the custom fields.
+        startup_script_id:
+          type: string
+          format: uuid
+          description: The ID of a user script to run after the system startup script.
         has_code_server:
           type: boolean
           description: Whether the space has code server enabled.

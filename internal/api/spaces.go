@@ -307,6 +307,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	// Create the space
 	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, "", request.IconURL, customFields)
 	space.NodeId = nodeId
+	space.StartupScriptId = request.StartupScriptId
 
 	spaceService := service.GetSpaceService()
 	err = spaceService.CreateSpace(space, user)
@@ -630,6 +631,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.AltNames = request.AltNames
 	space.IconURL = request.IconURL
 	space.CustomFields = customFields
+	space.StartupScriptId = request.StartupScriptId
 
 	err = spaceService.UpdateSpace(space, user)
 	if err != nil {

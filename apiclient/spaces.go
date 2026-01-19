@@ -9,15 +9,16 @@ import (
 )
 
 type SpaceRequest struct {
-	Name           string             `json:"name"`
-	Description    string             `json:"description"`
-	TemplateId     string             `json:"template_id"`
-	Shell          string             `json:"shell"`
-	UserId         string             `json:"user_id"`
-	AltNames       []string           `json:"alt_names"`
-	IconURL        string             `json:"icon_url"`
-	CustomFields   []CustomFieldValue `json:"custom_fields"`
-	SelectedNodeId string             `json:"selected_node_id,omitempty"`
+	Name             string             `json:"name"`
+	Description      string             `json:"description"`
+	TemplateId       string             `json:"template_id"`
+	Shell            string             `json:"shell"`
+	UserId           string             `json:"user_id"`
+	AltNames         []string           `json:"alt_names"`
+	IconURL          string             `json:"icon_url"`
+	CustomFields     []CustomFieldValue `json:"custom_fields"`
+	SelectedNodeId   string             `json:"selected_node_id,omitempty"`
+	StartupScriptId  string             `json:"startup_script_id,omitempty"`
 }
 
 type CreateSpaceResponse struct {
@@ -105,6 +106,7 @@ type SpaceDefinition struct {
 	CreatedAtFormatted string                       `json:"created_at_formatted"`
 	IconURL            string                       `json:"icon_url"`
 	CustomFields       []CustomFieldValue           `json:"custom_fields"`
+	StartupScriptId    string                       `json:"startup_script_id"`
 	HasCodeServer      bool                         `json:"has_code_server"`
 	HasSSH             bool                         `json:"has_ssh"`
 	HasTerminal        bool                         `json:"has_terminal"`
