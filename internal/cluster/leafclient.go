@@ -223,6 +223,9 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 				case leafmsg.MessageGossipScript:
 					c.handleLeafGossipScript(msg)
 
+				case leafmsg.MessageGossipResponse:
+					// Agent responses - not handled by leaf nodes
+
 				case leafmsg.MessageFullSyncEnd:
 					c.logger.Info("leaf full sync complete")
 					fullSyncDone = true
