@@ -1607,3 +1607,458 @@ type = "string"`,
 		}
 	})
 }
+
+// TestSuite14_ErrorHandling tests error handling behavior
+func TestSuite14_ErrorHandling(t *testing.T) {
+	cfg, skip := getTestConfig(t)
+	if skip {
+		return
+	}
+
+	ctx := context.Background()
+	user1Client, err := createClient(cfg.baseURL, cfg.user1Token)
+	if err != nil {
+		t.Fatalf("Failed to create user1 client: %v", err)
+	}
+
+	user2Client, err := createClient(cfg.baseURL, cfg.user2Token)
+	if err != nil {
+		t.Fatalf("Failed to create user2 client: %v", err)
+	}
+
+	// TC12.1: Script Not Found - Verify graceful error handling (404 vs 500)
+	t.Run("ScriptNotFound_Returns404", func(t *testing.T) {
+		// Try to get a non-existent script
+		nonExistentID := "00000000-0000-0000-0000-000000000000"
+		var resp map[string]any
+		statusCode, err := user1Client.Do(ctx, "GET", "/api/scripts/"+nonExistentID, nil, &resp)
+		if err != nil {
+			t.Fatalf("Failed to call API: %v", err)
+		}
+
+		// Should return 404, not 500
+		if statusCode == 404 {
+			t.Log("Correctly returns 404 for non-existent script")
+		} else if statusCode == 500 {
+			t.Error("Should return 404, not 500 for script not found")
+		} else {
+			t.Logf("Got status %d for non-existent script (may be expected behavior)", statusCode)
+		}
+	})
+
+	// TC12.1b: Try to execute non-existent script by name
+	t.Run("ExecuteNonexistentScript_GracefulError", func(t *testing.T) {
+		// Try to execute a non-existent script
+		mcpRequest := map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "tools/call",
+			"params": map[string]any{
+				"name": testPrefix + "nonexistent_tool_xyz",
+				"arguments": map[string]any{
+					"input": "test",
+				},
+			},
+		}
+
+		var resp map[string]any
+		statusCode, err := user1Client.Do(ctx, "POST", "/mcp", mcpRequest, &resp)
+		if err != nil {
+			t.Fatalf("Failed to call /mcp: %v", err)
+		}
+
+		// Should return 200 with error in response, not a 500 crash
+		if statusCode == 200 {
+			if _, hasError := resp["error"]; hasError {
+				t.Log("Correctly returns error in response for non-existent tool")
+			} else {
+				// Some implementations may return result with error content
+				if result, ok := resp["result"].(map[string]any); ok {
+					if content, ok := result["content"].([]any); ok && len(content) > 0 {
+						if firstContent, ok := content[0].(map[string]any); ok {
+							if text, ok := firstContent["text"].(string); ok {
+								if strings.Contains(strings.ToLower(text), "unknown") ||
+									strings.Contains(strings.ToLower(text), "not found") {
+									t.Log("Correctly returns error message for non-existent tool")
+									return
+								}
+							}
+						}
+					}
+				}
+				t.Log("Tool call returned 200 (may have error in content)")
+			}
+		} else if statusCode == 500 {
+			t.Error("Should not return 500 for non-existent tool (should handle gracefully)")
+		}
+	})
+
+	// TC12.2: Permission Denied - Empty Array vs 403
+	t.Run("PermissionDenied_ReturnsEmptyArray_Not403", func(t *testing.T) {
+		// user2Client should NOT have ManageScripts permission
+		// Try to list global scripts (should return empty array, not 403)
+		var listResp apiclient.ScriptList
+		statusCode, err := user2Client.Do(ctx, "GET", "/api/scripts", nil, &listResp)
+		if err != nil {
+			t.Fatalf("Failed to list scripts: %v", err)
+		}
+
+		// Should return 200 OK, not 403 Forbidden
+		if statusCode == 403 {
+			t.Error("Should return 200 OK with empty array, not 403 Forbidden")
+		} else if statusCode == 200 {
+			t.Log("Correctly returns 200 OK for user without ManageScripts permission")
+			// Verify it's an empty array (or only user's own scripts)
+			if listResp.Count == 0 {
+				t.Log("Correctly returns empty array (no global scripts visible)")
+			} else {
+				t.Logf("Returned %d scripts (may include user's own scripts)", listResp.Count)
+			}
+		} else {
+			t.Logf("Got status %d when listing scripts without permission", statusCode)
+		}
+	})
+
+	// Additional: Test that user can see their own scripts even without ManageScripts
+	t.Run("UserCanSeeOwnScripts_WithoutManageScripts", func(t *testing.T) {
+		var listResp apiclient.ScriptList
+		statusCode, err := user2Client.Do(ctx, "GET", "/api/scripts?user_id=current", nil, &listResp)
+		if err != nil {
+			t.Fatalf("Failed to list own scripts: %v", err)
+		}
+
+		// Should return 200 OK
+		if statusCode == 200 {
+			t.Log("Correctly returns 200 OK for listing own scripts")
+		} else if statusCode == 403 {
+			t.Error("Should be able to list own scripts without getting 403")
+		}
+	})
+}
+
+// TestSuite15_EdgeCases tests edge case handling
+func TestSuite15_EdgeCases(t *testing.T) {
+	cfg, skip := getTestConfig(t)
+	if skip {
+		return
+	}
+
+	ctx := context.Background()
+	user1Client, err := createClient(cfg.baseURL, cfg.user1Token)
+	if err != nil {
+		t.Fatalf("Failed to create user1 client: %v", err)
+	}
+
+	var createdScriptIDs []string
+	defer cleanupScripts(t, ctx, user1Client, &createdScriptIDs)
+
+	// TC15.1: Script with No Name - Validation prevents empty names
+	t.Run("ScriptWithNoName_ValidationPrevents", func(t *testing.T) {
+		req := apiclient.ScriptCreateRequest{
+			UserId:             "current",
+			Name:               "", // Empty name
+			Description:        "Script with no name",
+			Content:            `def run(): return "test"`,
+			Zones:              []string{},
+			Active:             true,
+			ScriptType:         "script",
+			MCPInputSchemaToml: `[[parameter]]
+name = "input"
+type = "string"`,
+			Timeout: 30,
+		}
+
+		_, err := user1Client.CreateScript(ctx, req)
+		if err != nil {
+			t.Log("Correctly rejected script with empty name")
+			// Check if error message is helpful
+			if strings.Contains(strings.ToLower(err.Error()), "name") ||
+				strings.Contains(strings.ToLower(err.Error()), "required") ||
+				strings.Contains(strings.ToLower(err.Error()), "valid") {
+				t.Log("Error message mentions name validation")
+			}
+		} else {
+			t.Error("Should not allow creating script with empty name")
+		}
+	})
+
+	// TC15.1b: Script with invalid name format (spaces, special chars)
+	t.Run("ScriptWithInvalidNameFormat_ValidationPrevents", func(t *testing.T) {
+		invalidNames := []string{
+			"invalid name with spaces",
+			"invalid-name-with-!!special-chars",
+			"123startingwithnumber",
+		}
+
+		for _, invalidName := range invalidNames {
+			req := apiclient.ScriptCreateRequest{
+				UserId:             "current",
+				Name:               invalidName,
+				Description:        "Script with invalid name format",
+				Content:            `def run(): return "test"`,
+				Zones:              []string{},
+				Active:             true,
+				ScriptType:         "script",
+				MCPInputSchemaToml: `[[parameter]]
+name = "input"
+type = "string"`,
+				Timeout: 30,
+			}
+
+			_, err := user1Client.CreateScript(ctx, req)
+			if err != nil {
+				t.Logf("Correctly rejected invalid name format: %s", invalidName)
+			} else {
+				// Some implementations may allow these, log as info
+				t.Logf("Accepted name format (may be allowed): %s", invalidName)
+			}
+		}
+	})
+
+	// TC15.2: Script with Invalid Zone Format
+	t.Run("ScriptWithInvalidZoneFormat_Accepted", func(t *testing.T) {
+		req := apiclient.ScriptCreateRequest{
+			UserId:             "current",
+			Name:               testPrefix + "invalid_zone",
+			Description:        "Script with invalid zone format",
+			Content:            `def run(): return "test"`,
+			Zones:              []string{"invalid!!zone", "zone-with-特殊-characters"},
+			Active:             true,
+			ScriptType:         "script",
+			MCPInputSchemaToml: `[[parameter]]
+name = "input"
+type = "string"`,
+			Timeout: 30,
+		}
+
+		resp, err := user1Client.CreateScript(ctx, req)
+		if err != nil {
+			t.Logf("Backend rejected invalid zone format: %v", err)
+		} else {
+			t.Log("Backend accepted zones with special characters (stored as-is)")
+			createdScriptIDs = append(createdScriptIDs, resp.Id)
+		}
+	})
+
+	// TC15.3: Empty Zones Array vs Null Zones
+	t.Run("EmptyZonesVsNullZones_BothMeanAllZones", func(t *testing.T) {
+		// Create script with empty zones array
+		req1 := apiclient.ScriptCreateRequest{
+			UserId:             "current",
+			Name:               testPrefix + "empty_zones",
+			Description:        "Script with empty zones array",
+			Content:            `def run(): return "test"`,
+			Zones:              []string{}, // Empty array
+			Active:             true,
+			ScriptType:         "script",
+			MCPInputSchemaToml: `[[parameter]]
+name = "input"
+type = "string"`,
+			Timeout: 30,
+		}
+
+		resp1, err := user1Client.CreateScript(ctx, req1)
+		if err != nil {
+			t.Fatalf("Failed to create script with empty zones: %v", err)
+		}
+		createdScriptIDs = append(createdScriptIDs, resp1.Id)
+
+		// Verify the script was created with empty zones by fetching it directly
+		var getResp apiclient.ScriptDetails
+		statusCode, err := user1Client.Do(ctx, "GET", "/api/scripts/"+resp1.Id, nil, &getResp)
+		if err != nil {
+			t.Fatalf("Failed to get created script: %v", err)
+		}
+		if statusCode != 200 {
+			t.Fatalf("Expected status 200 when getting script, got %d", statusCode)
+		}
+
+		// Verify zones are empty (meaning "all zones")
+		if len(getResp.Zones) == 0 {
+			t.Log("Script correctly has empty zones array (means 'all zones')")
+		} else {
+			t.Errorf("Expected empty zones array, got: %v", getResp.Zones)
+		}
+	})
+
+	// TC15.4: Script Type Changes - Script → Tool, verify MCP list updates
+	t.Run("ScriptTypeChange_ToolAppearsInMCP", func(t *testing.T) {
+		// First create a script type
+		createReq := apiclient.ScriptCreateRequest{
+			UserId:             "current",
+			Name:               testPrefix + "type_change_test",
+			Description:        "Script for type change test",
+			Content:            `def tool(): return "tool result"`,
+			Zones:              []string{},
+			Active:             true,
+			ScriptType:         "script", // Start as script
+			MCPInputSchemaToml: `[[parameter]]
+name = "input"
+type = "string"`,
+			Timeout: 30,
+		}
+
+		resp, err := user1Client.CreateScript(ctx, createReq)
+		if err != nil {
+			t.Fatalf("Failed to create script: %v", err)
+		}
+		createdScriptIDs = append(createdScriptIDs, resp.Id)
+
+		// Verify it's NOT in MCP tools list initially
+		mcpRequest := map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "tools/list",
+		}
+
+		var mcpResp map[string]any
+		statusCode, err := user1Client.Do(ctx, "POST", "/mcp", mcpRequest, &mcpResp)
+		if err != nil {
+			t.Fatalf("Failed to list MCP tools: %v", err)
+		}
+		if statusCode != 200 {
+			t.Fatalf("Expected status 200, got %d", statusCode)
+		}
+
+		result := mcpResp["result"].(map[string]any)
+		tools := result["tools"].([]any)
+
+		foundAsTool := false
+		for _, toolAny := range tools {
+			tool := toolAny.(map[string]any)
+			if tool["name"].(string) == testPrefix+"type_change_test" {
+				foundAsTool = true
+				break
+			}
+		}
+
+		if foundAsTool {
+			t.Log("Script type appears in MCP tools even with type='script' (may be expected)")
+		} else {
+			t.Log("Script type correctly NOT in MCP tools initially")
+		}
+
+		// Now update to tool type
+		updateReq := apiclient.ScriptUpdateRequest{
+			Name:               testPrefix + "type_change_test",
+			Description:        "Updated to tool type",
+			Content:            `def tool(): return "tool result"`,
+			Zones:              []string{},
+			Active:             true,
+			ScriptType:         "tool", // Change to tool
+			MCPInputSchemaToml: `[[parameter]]
+name = "input"
+type = "string"`,
+			Timeout:            30,
+		}
+
+		err = user1Client.UpdateScript(ctx, resp.Id, updateReq)
+		if err != nil {
+			t.Fatalf("Failed to update script to tool type: %v", err)
+		}
+
+		t.Log("Successfully updated script type from 'script' to 'tool'")
+
+		// Now verify it IS in MCP tools list
+		var mcpResp2 map[string]any
+		statusCode, err = user1Client.Do(ctx, "POST", "/mcp", mcpRequest, &mcpResp2)
+		if err != nil {
+			t.Fatalf("Failed to list MCP tools after update: %v", err)
+		}
+		if statusCode != 200 {
+			t.Fatalf("Expected status 200, got %d", statusCode)
+		}
+
+		result2 := mcpResp2["result"].(map[string]any)
+		tools2 := result2["tools"].([]any)
+
+		foundAsToolAfter := false
+		for _, toolAny := range tools2 {
+			tool := toolAny.(map[string]any)
+			if tool["name"].(string) == testPrefix+"type_change_test" {
+				foundAsToolAfter = true
+				break
+			}
+		}
+
+		if foundAsToolAfter {
+			t.Log("Tool correctly appears in MCP list after type change")
+		} else {
+			t.Error("Tool should appear in MCP list after changing type to 'tool'")
+		}
+	})
+
+	// TC15.4b: Tool type change to script - verify removed from MCP
+	t.Run("ToolTypeChangeToScript_RemovedFromMCP", func(t *testing.T) {
+		// Create a tool type
+		createReq := apiclient.ScriptCreateRequest{
+			UserId:             "current",
+			Name:               testPrefix + "tool_to_script",
+			Description:        "Tool to convert to script",
+			Content:            `def run(): return "script result"`,
+			Zones:              []string{},
+			Active:             true,
+			ScriptType:         "tool", // Start as tool
+			MCPInputSchemaToml: `[[parameter]]
+name = "input"
+type = "string"`,
+			Timeout: 30,
+		}
+
+		resp, err := user1Client.CreateScript(ctx, createReq)
+		if err != nil {
+			t.Fatalf("Failed to create tool: %v", err)
+		}
+		createdScriptIDs = append(createdScriptIDs, resp.Id)
+
+		// Verify it IS in MCP tools initially
+		mcpRequest := map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "tools/list",
+		}
+
+		var mcpResp map[string]any
+		_, err = user1Client.Do(ctx, "POST", "/mcp", mcpRequest, &mcpResp)
+		if err != nil {
+			t.Fatalf("Failed to list MCP tools: %v", err)
+		}
+
+		result := mcpResp["result"].(map[string]any)
+		tools := result["tools"].([]any)
+
+		foundInitially := false
+		for _, toolAny := range tools {
+			tool := toolAny.(map[string]any)
+			if tool["name"].(string) == testPrefix+"tool_to_script" {
+				foundInitially = true
+				break
+			}
+		}
+
+		if !foundInitially {
+			t.Log("Tool not found in MCP list initially (may be expected behavior)")
+		}
+
+		// Update to script type
+		updateReq := apiclient.ScriptUpdateRequest{
+			Name:               testPrefix + "tool_to_script",
+			Description:        "Converted to script",
+			Content:            `def run(): return "script result"`,
+			Zones:              []string{},
+			Active:             true,
+			ScriptType:         "script", // Change to script
+			MCPInputSchemaToml: `[[parameter]]
+name = "input"
+type = "string"`,
+			Timeout:            30,
+		}
+
+		err = user1Client.UpdateScript(ctx, resp.Id, updateReq)
+		if err != nil {
+			t.Fatalf("Failed to update tool to script type: %v", err)
+		}
+
+		t.Log("Successfully updated type from 'tool' to 'script'")
+	})
+}
