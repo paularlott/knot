@@ -1038,9 +1038,11 @@ type = "string"`,
 
 		if !user1HasGlobal {
 			t.Error("User1 should see global tool via /mcp")
+		} else {
+			t.Log("User1 can see global tool via /mcp")
 		}
 
-		// Test User2 (may not see script tools if lacking ExecuteScripts permission)
+		// Test User2 - check if they can see global tools
 		var resp2 map[string]any
 		statusCode, err = user2Client.Do(ctx, "POST", "/mcp", mcpRequest, &resp2)
 		if err != nil {
@@ -1062,8 +1064,14 @@ type = "string"`,
 			}
 		}
 
+		// Log total tools for debugging
+		t.Logf("User2 sees %d total tools via /mcp", len(tools2))
+
 		if !user2HasGlobal {
-			t.Log("User2 cannot see global tool via /mcp - likely lacks ExecuteScripts permission")
+			// Check if this is a permission issue
+			t.Logf("ISSUE: User2 cannot see global tool '%s' via /mcp (has %d tools total)", overrideToolName, len(tools2))
+			t.Log("This may be due to User2 lacking ExecuteScripts permission - global MCP tools may require ExecuteScripts to be visible")
+			t.Log("EXPECTED: Global MCP tools should be visible to all users, regardless of ExecuteScripts permission")
 		} else {
 			t.Log("User2 can see global tool via /mcp")
 		}

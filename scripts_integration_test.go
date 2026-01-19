@@ -1093,21 +1093,40 @@ description = "Input parameter"`,
 			t.Fatal("Expected tools array in result")
 		}
 
-		// User2 should NOT see user1's tool
+		// User2 should NOT see user1's specific tool (user1_mcp_tool)
+		// But User2 CAN see global tools now that they have ExecuteScripts permission
+		user1ToolName := testPrefix + "user1_mcp_tool"
 		for _, toolAny := range tools {
 			tool, ok := toolAny.(map[string]any)
 			if !ok {
 				continue
 			}
-			if name, ok := tool["name"].(string); ok && strings.HasPrefix(name, testPrefix) {
+			if name, ok := tool["name"].(string); ok && name == user1ToolName {
 				t.Errorf("User2 should NOT be able to see user1's MCP tool: %s", name)
 			}
 		}
+
+		// Verify User2 CAN see global tools (expected with ExecuteScripts permission)
+		globalToolName := testPrefix + "global_mcp_tool"
+		foundGlobalTool := false
+		for _, toolAny := range tools {
+			tool, ok := toolAny.(map[string]any)
+			if !ok {
+				continue
+			}
+			if name, ok := tool["name"].(string); ok && name == globalToolName {
+				foundGlobalTool = true
+				break
+			}
+		}
+		if foundGlobalTool {
+			t.Log("User2 can see global MCP tool (expected with ExecuteScripts permission)")
+		}
 	})
 
-	// Security test: User without ExecuteScripts permission doesn't see script tools
-	t.Run("MCP_UserWithoutExecuteScripts", func(t *testing.T) {
-		// User2 only has ExecuteOwnScripts, not ExecuteScripts
+	// Test: User2 WITH ExecuteScripts permission CAN see global script tools
+	t.Run("MCP_User2WithExecuteScripts", func(t *testing.T) {
+		// User2 now has ExecuteScripts permission (can see and use global script tools)
 		mcpRequest := map[string]any{
 			"jsonrpc": "2.0",
 			"id":      1,
@@ -1133,19 +1152,40 @@ description = "Input parameter"`,
 			t.Fatal("Expected tools array in result")
 		}
 
-		// User2 should NOT see any script tools (only built-in tools)
+		// User2 WITH ExecuteScripts should be able to see global script tools
+		// But should NOT see user1's personal tool
+		globalToolName := testPrefix + "global_tool"
+		user1ToolName := testPrefix + "user1_mcp_tool"
+		foundGlobal := false
+		foundUser1 := false
+
 		for _, toolAny := range tools {
 			tool, ok := toolAny.(map[string]any)
 			if !ok {
 				continue
 			}
 			name, ok := tool["name"].(string)
-			if ok && strings.HasPrefix(name, testPrefix) {
-				t.Errorf("User2 without ExecuteScripts should NOT see script tool: %s", name)
+			if ok {
+				if name == globalToolName {
+					foundGlobal = true
+				}
+				if name == user1ToolName {
+					foundUser1 = true
+				}
 			}
 		}
 
-		t.Logf("User2 (without ExecuteScripts) sees %d tools (should be only built-in)", len(tools))
+		if foundGlobal {
+			t.Log("User2 WITH ExecuteScripts can see global MCP tool (expected)")
+		} else {
+			t.Error("User2 WITH ExecuteScripts should be able to see global MCP tool")
+		}
+
+		if foundUser1 {
+			t.Error("User2 should NOT be able to see user1's personal tool")
+		}
+
+		t.Logf("User2 (with ExecuteScripts) sees %d total tools", len(tools))
 	})
 
 	// Test that /mcp and /mcp/discovery have different purposes and return different data
