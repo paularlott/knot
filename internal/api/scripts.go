@@ -42,8 +42,16 @@ func HandleGetScripts(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		// Global scripts: need ManageScripts permission
-		if !user.HasPermission(model.PermissionManageScripts) {
+		// No filter specified
+		// If user has ManageScripts permission, show all scripts
+		// If user only has ManageOwnScripts permission, show only their own scripts
+		if user.HasPermission(model.PermissionManageScripts) {
+			// Admin: show all scripts (filterUserId remains empty)
+		} else if user.HasPermission(model.PermissionManageOwnScripts) {
+			// Regular user: filter to own scripts
+			filterUserId = user.Id
+		} else {
+			// No permission: return empty list
 			rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptList{Count: 0, Scripts: []apiclient.ScriptInfo{}})
 			return
 		}

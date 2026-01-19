@@ -134,7 +134,7 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, args ...objec
 
 	// Call API to execute tool
 	var response *mcp.ToolResponse
-	_, apiErr := client.Do(mcpCtx, "POST", "api/chat/tools/call", req, &response)
+	_, apiErr := client.DoJSON(mcpCtx, "POST", "api/chat/tools/call", req, &response)
 	if apiErr != nil {
 		errMsg := fmt.Sprintf("Tool call failed: %v", apiErr)
 		return &object.Error{Message: errMsg}
@@ -256,7 +256,7 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...ob
 
 	// Call API to execute tool
 	var response *mcp.ToolResponse
-	_, apiErr := client.Do(mcpCtx, "POST", "api/chat/tools/call", req, &response)
+	_, apiErr := client.DoJSON(mcpCtx, "POST", "api/chat/tools/call", req, &response)
 	if apiErr != nil {
 		errMsg := fmt.Sprintf("Tool execution failed: %v", apiErr)
 		return &object.Error{Message: errMsg}
