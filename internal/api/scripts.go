@@ -29,32 +29,39 @@ func HandleGetScripts(w http.ResponseWriter, r *http.Request) {
 	if filterUserId != "" {
 		// User scripts requested
 		if filterUserId == user.Id {
-			// Own scripts: need ManageOwnScripts permission
-			if !user.HasPermission(model.PermissionManageOwnScripts) {
+			// Own scripts: need ManageOwnScripts OR ExecuteOwnScripts permission
+			if !user.HasPermission(model.PermissionManageOwnScripts) && !user.HasPermission(model.PermissionExecuteOwnScripts) {
 				rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptList{Count: 0, Scripts: []apiclient.ScriptInfo{}})
 				return
 			}
 		} else {
-			// Another user's scripts: need ManageScripts permission (admin only)
-			if !user.HasPermission(model.PermissionManageScripts) {
+			// Another user's scripts: need ManageScripts OR ExecuteScripts permission (admin only)
+			if !user.HasPermission(model.PermissionManageScripts) && !user.HasPermission(model.PermissionExecuteScripts) {
 				rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptList{Count: 0, Scripts: []apiclient.ScriptInfo{}})
 				return
 			}
 		}
 	} else {
 		// No filter specified
-		// If user has ManageScripts permission, show all scripts
-		// If user only has ManageOwnScripts permission, show only their own scripts
-		if user.HasPermission(model.PermissionManageScripts) {
-			// Admin: show all scripts (filterUserId remains empty)
-		} else if user.HasPermission(model.PermissionManageOwnScripts) {
-			// Regular user: filter to own scripts
-			filterUserId = user.Id
-		} else {
+		// Users with ManageScripts OR ExecuteScripts can see global scripts
+		// Users with ManageOwnScripts OR ExecuteOwnScripts can see their own scripts
+		canSeeGlobals := user.HasPermission(model.PermissionManageScripts) || user.HasPermission(model.PermissionExecuteScripts)
+		canSeeOwn := user.HasPermission(model.PermissionManageOwnScripts) || user.HasPermission(model.PermissionExecuteOwnScripts)
+
+		if !canSeeGlobals && !canSeeOwn {
 			// No permission: return empty list
 			rest.WriteResponse(http.StatusOK, w, r, apiclient.ScriptList{Count: 0, Scripts: []apiclient.ScriptInfo{}})
 			return
 		}
+
+		// If user can see both, fetch global and own scripts
+		// If user can only see own scripts, filter to own
+		// If user can only see global scripts, leave filter empty (returns only global)
+		if canSeeOwn && !canSeeGlobals {
+			filterUserId = user.Id
+		}
+		// If canSeeGlobals is true, filterUserId remains "" to get global scripts
+		// We'll fetch own scripts separately if needed
 	}
 
 	scriptService := service.GetScriptService()
@@ -74,6 +81,9 @@ func HandleGetScripts(w http.ResponseWriter, r *http.Request) {
 		Scripts: []apiclient.ScriptInfo{},
 	}
 
+	// Track seen script IDs to avoid duplicates
+	seenScripts := make(map[string]bool)
+
 	for _, script := range scripts {
 		response.Scripts = append(response.Scripts, apiclient.ScriptInfo{
 			Id:          script.Id,
@@ -87,7 +97,38 @@ func HandleGetScripts(w http.ResponseWriter, r *http.Request) {
 			Timeout:     script.Timeout,
 			IsManaged:   script.IsManaged,
 		})
+		seenScripts[script.Id] = true
 		response.Count++
+	}
+
+	// If user can see both global and own scripts, and we only fetched globals, also fetch own scripts
+	if filterUserId == "" && (user.HasPermission(model.PermissionManageOwnScripts) || user.HasPermission(model.PermissionExecuteOwnScripts)) {
+		ownScripts, err := scriptService.ListScripts(service.ScriptListOptions{
+			FilterUserId:         user.Id,
+			User:                 user,
+			IncludeDeleted:       false,
+			CheckZoneRestriction: !allZones,
+		})
+		if err == nil {
+			for _, script := range ownScripts {
+				if !seenScripts[script.Id] {
+					response.Scripts = append(response.Scripts, apiclient.ScriptInfo{
+						Id:          script.Id,
+						UserId:      script.UserId,
+						Name:        script.Name,
+						Description: script.Description,
+						Groups:      script.Groups,
+						Zones:       script.Zones,
+						Active:      script.Active,
+						ScriptType:  script.ScriptType,
+						Timeout:     script.Timeout,
+						IsManaged:   script.IsManaged,
+					})
+					seenScripts[script.Id] = true
+					response.Count++
+				}
+			}
+		}
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, response)

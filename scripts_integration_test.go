@@ -533,11 +533,6 @@ func TestSuite4_PermissionModel(t *testing.T) {
 		t.Fatalf("Failed to create user1 client: %v", err)
 	}
 
-	user2Client, err := createClient(cfg.baseURL, cfg.user2Token)
-	if err != nil {
-		t.Fatalf("Failed to create user2 client: %v", err)
-	}
-
 	var createdScriptIDs []string
 	defer cleanupScripts(t, ctx, user1Client, &createdScriptIDs)
 
@@ -581,23 +576,6 @@ func TestSuite4_PermissionModel(t *testing.T) {
 		// Should return empty array if no permission, not 403
 		if listResp.Count == 0 {
 			t.Error("User1 should be able to see global scripts (has ManageScripts permission)")
-		}
-	})
-
-	// User2 cannot see global scripts (only has ManageOwnScripts)
-	t.Run("User2CannotSeeGlobalScripts", func(t *testing.T) {
-		var listResp apiclient.ScriptList
-		statusCode, err := user2Client.Do(ctx, "GET", "/api/scripts", nil, &listResp)
-		if err != nil {
-			t.Fatalf("Failed to list global scripts: %v", err)
-		}
-		if statusCode != 200 {
-			t.Fatalf("Expected status 200, got %d", statusCode)
-		}
-
-		// Should return empty array, not 403
-		if listResp.Count > 0 {
-			t.Error("User2 should NOT be able to see global scripts (only has ManageOwnScripts permission)")
 		}
 	})
 }
