@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/mcp"
 )
 
@@ -23,13 +24,17 @@ func MCPServerContext(mcpServer *mcp.Server, scriptToolsProvider ScriptToolsProv
 			// Add script tools as request-scoped provider in force ondemand mode
 			if scriptToolsProvider != nil {
 				user, ok := ctx.Value("user").(*model.User)
+				log.Debug("MCPServerContext: user from context", "ok", ok, "user", user)
 				if ok && user != nil {
 					if provider := scriptToolsProvider(ctx, user); provider != nil {
+						log.Debug("MCPServerContext: adding script tools provider to context", "user", user.Username)
 						ctx = mcp.WithForceOnDemandMode(ctx, provider)
 					} else {
+						log.Debug("MCPServerContext: scriptToolsProvider returned nil", "user", user.Username, "has_ExecuteScripts", user.HasPermission(model.PermissionExecuteScripts), "has_ExecuteOwnScripts", user.HasPermission(model.PermissionExecuteOwnScripts))
 						ctx = mcp.WithForceOnDemandMode(ctx)
 					}
 				} else {
+					log.Debug("MCPServerContext: user not found in context")
 					ctx = mcp.WithForceOnDemandMode(ctx)
 				}
 			} else {
@@ -50,5 +55,13 @@ func MCPServerContextSimple(mcpServer *mcp.Server) func(http.Handler) http.Handl
 			ctx := context.WithValue(r.Context(), "mcp", mcpServer)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+// HandlerToHandlerFunc converts an http.Handler to an http.HandlerFunc
+// This is useful when you need to use an http.Handler with middleware that expects http.HandlerFunc
+func HandlerToHandlerFunc(h http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(w, r)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/chat"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
@@ -28,11 +29,14 @@ func NewScriptToolsProvider(user *model.User) *scriptToolsProvider {
 // GetTools returns all available script tools for the user
 // Implements user override behavior: user scripts override global scripts with the same name
 func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, error) {
+	log.Debug("scriptToolsProvider.GetTools called", "user", p.user.Username, "user_id", p.user.Id)
 	db := database.GetInstance()
 	scripts, err := db.GetScripts()
 	if err != nil {
+		log.Warn("scriptToolsProvider.GetTools failed to get scripts", "error", err)
 		return nil, err
 	}
+	log.Debug("scriptToolsProvider.GetTools fetched scripts", "count", len(scripts))
 
 	// Use maps to ensure one tool per name (user scripts override global scripts)
 	toolsMap := make(map[string]mcp.MCPTool)
@@ -46,6 +50,13 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 
 		// Check if script is valid for current zone
 		if !service.CanUserExecuteScript(p.user, script) {
+			continue
+		}
+
+		// Check zone restrictions
+		currentZone := config.GetServerConfig().Zone
+		if !script.IsValidForZone(currentZone) {
+			log.Debug("scriptToolsProvider.GetTools: skipping tool due to zone", "tool", script.Name, "zones", script.Zones, "currentZone", currentZone)
 			continue
 		}
 
@@ -94,6 +105,11 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 		tools = append(tools, tool)
 	}
 
+	log.Debug("scriptToolsProvider.GetTools returning tools", "count", len(tools), "user", p.user.Username)
+	for _, tool := range tools {
+		log.Debug("scriptToolsProvider.GetTools tool", "name", tool.Name, "description", tool.Description, "keywords", tool.Keywords)
+	}
+
 	return tools, nil
 }
 
@@ -107,6 +123,12 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 
 	// Check permissions
 	if !service.CanUserExecuteScript(p.user, script) {
+		return nil, nil
+	}
+
+	// Check zone restrictions
+	currentZone := config.GetServerConfig().Zone
+	if !script.IsValidForZone(currentZone) {
 		return nil, nil
 	}
 
