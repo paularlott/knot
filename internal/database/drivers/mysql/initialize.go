@@ -115,6 +115,8 @@ with_ssh TINYINT(1) NOT NULL DEFAULT 0,
 with_run_command TINYINT(1) NOT NULL DEFAULT 0,
 startup_script_id CHAR(36) DEFAULT '',
 shutdown_script_id CHAR(36) DEFAULT '',
+user_startup_script VARCHAR(64) DEFAULT '',
+user_shutdown_script VARCHAR(64) DEFAULT '',
 schedule_enabled TINYINT(1) NOT NULL DEFAULT 0,
 auto_start TINYINT(1) NOT NULL DEFAULT 0,
 is_deleted TINYINT(1) NOT NULL DEFAULT 0,
@@ -197,22 +199,27 @@ INDEX idx_is_deleted (is_deleted)
 	db.logger.Debug("creating scripts table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS scripts (
 script_id CHAR(36) PRIMARY KEY,
-name VARCHAR(64) UNIQUE,
+user_id CHAR(36) DEFAULT '',
+name VARCHAR(64),
 description TEXT DEFAULT '',
 content MEDIUMTEXT,
 groups JSON NOT NULL DEFAULT '[]',
+zones JSON NOT NULL DEFAULT '[]',
 active TINYINT(1) NOT NULL DEFAULT 1,
 script_type VARCHAR(16) DEFAULT 'script',
 mcp_input_schema_toml TEXT DEFAULT '',
 mcp_keywords JSON NOT NULL DEFAULT '[]',
 timeout INT UNSIGNED NOT NULL DEFAULT 0,
 is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+is_managed TINYINT(1) NOT NULL DEFAULT 0,
 created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
 updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX user_id (user_id),
 INDEX idx_is_deleted (is_deleted),
-INDEX script_type (script_type)
+INDEX script_type (script_type),
+INDEX name_user (name, user_id)
 )`)
 	if err != nil {
 		return err

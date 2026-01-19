@@ -38,7 +38,7 @@ Use tool_search to discover tools by keyword or description.`)
 
 			// Add script tools as request-scoped provider (they'll be visible in tools/list)
 			ctx := r.Context()
-			if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
+			if user != nil && (user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts)) {
 				provider := NewScriptToolsProvider(user)
 				ctx = mcp.WithToolProviders(ctx, provider)
 			}
@@ -55,7 +55,7 @@ Use tool_search to discover tools by keyword or description.`)
 			user := r.Context().Value("user").(*model.User)
 
 			ctx := r.Context()
-			if user != nil && user.HasPermission(model.PermissionExecuteScripts) {
+			if user != nil && (user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts)) {
 				provider := NewScriptToolsProvider(user)
 				ctx = mcp.WithForceOnDemandMode(ctx, provider)
 			} else {

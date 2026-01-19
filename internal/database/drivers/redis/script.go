@@ -14,8 +14,9 @@ func (db *RedisDbDriver) SaveScript(script *model.Script, updateFields []string)
 	existingScript, _ := db.GetScript(script.Id)
 
 	if existingScript != nil {
-		if existingScript.Name != script.Name && (len(updateFields) == 0 || util.InArray(updateFields, "Name")) {
-			db.connection.Del(context.Background(), fmt.Sprintf("%sScriptsByName:%s", db.prefix, existingScript.Name))
+		// If name or user_id changed, delete old index
+		if (existingScript.Name != script.Name || existingScript.UserId != script.UserId) && (len(updateFields) == 0 || util.InArray(updateFields, "Name") || util.InArray(updateFields, "UserId")) {
+			db.connection.Del(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, existingScript.UserId, existingScript.Name))
 		}
 
 		if len(updateFields) > 0 {
@@ -34,11 +35,12 @@ func (db *RedisDbDriver) SaveScript(script *model.Script, updateFields []string)
 		return err
 	}
 
-	return db.connection.Set(context.Background(), fmt.Sprintf("%sScriptsByName:%s", db.prefix, script.Name), script.Id, 0).Err()
+	// Create composite index with user_id:name
+	return db.connection.Set(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, script.UserId, script.Name), script.Id, 0).Err()
 }
 
 func (db *RedisDbDriver) DeleteScript(script *model.Script) error {
-	db.connection.Del(context.Background(), fmt.Sprintf("%sScriptsByName:%s", db.prefix, script.Name))
+	db.connection.Del(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, script.UserId, script.Name))
 	return db.connection.Del(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id)).Err()
 }
 
@@ -82,10 +84,84 @@ func (db *RedisDbDriver) GetScripts() ([]*model.Script, error) {
 }
 
 func (db *RedisDbDriver) GetScriptByName(name string) (*model.Script, error) {
-	scriptId, err := db.connection.Get(context.Background(), fmt.Sprintf("%sScriptsByName:%s", db.prefix, name)).Result()
+	scripts, err := db.GetScriptsByName(name)
 	if err != nil {
-		return nil, convertRedisError(err)
+		return nil, err
+	}
+	return scripts[0], nil
+}
+
+// GetScriptsByName returns all scripts matching a name (for zone-specific overrides)
+func (db *RedisDbDriver) GetScriptsByName(name string) ([]*model.Script, error) {
+	scripts, err := db.GetScripts()
+	if err != nil {
+		return nil, err
 	}
 
-	return db.GetScript(scriptId)
+	var result []*model.Script
+	for _, script := range scripts {
+		// Filter by name and global (empty user_id)
+		if script.Name == name && script.UserId == "" {
+			result = append(result, script)
+		}
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("script not found")
+	}
+
+	// Sort by zone specificity (more zones = higher priority)
+	sort.Slice(result, func(i, j int) bool {
+		zonesI := len(result[i].Zones)
+		zonesJ := len(result[j].Zones)
+		if zonesI != zonesJ {
+			return zonesI > zonesJ
+		}
+		return result[i].CreatedAt.Before(result[j].CreatedAt)
+	})
+
+	return result, nil
+}
+
+// GetScriptByNameAndUser gets a script by name for a specific user
+// If userId is empty, it searches for global scripts
+// This supports the user script override functionality
+func (db *RedisDbDriver) GetScriptByNameAndUser(name string, userId string) (*model.Script, error) {
+	scripts, err := db.GetScriptsByNameAndUser(name, userId)
+	if err != nil {
+		return nil, err
+	}
+	return scripts[0], nil
+}
+
+// GetScriptsByNameAndUser returns all scripts matching a name and user_id (for zone-specific overrides)
+func (db *RedisDbDriver) GetScriptsByNameAndUser(name string, userId string) ([]*model.Script, error) {
+	scripts, err := db.GetScripts()
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*model.Script
+	for _, script := range scripts {
+		// Filter by name and user_id
+		if script.Name == name && script.UserId == userId {
+			result = append(result, script)
+		}
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("script not found")
+	}
+
+	// Sort by zone specificity (more zones = higher priority)
+	sort.Slice(result, func(i, j int) bool {
+		zonesI := len(result[i].Zones)
+		zonesJ := len(result[j].Zones)
+		if zonesI != zonesJ {
+			return zonesI > zonesJ
+		}
+		return result[i].CreatedAt.Before(result[j].CreatedAt)
+	})
+
+	return result, nil
 }

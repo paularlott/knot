@@ -351,7 +351,15 @@ func ApiPermissionManageScripts(next http.HandlerFunc) http.HandlerFunc {
 		return next
 	}
 
-	return checkPermission(next, model.PermissionManageScripts, "No permission to manage scripts")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionManageScripts) && !user.HasPermission(model.PermissionManageOwnScripts) {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to manage scripts"})
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func WebAuth(next http.HandlerFunc) http.HandlerFunc {

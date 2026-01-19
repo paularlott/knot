@@ -42,10 +42,10 @@ func GetMCPLibrary(mcpParams map[string]string, openaiClient *openai.Client) *ob
 			}, "call_tool(name, arguments) - Call an MCP tool directly. Arguments should be a dict.").
 		FunctionWithHelp("tool_search", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return mcpToolSearchMCP(ctx, openaiClient, kwargs.Kwargs, args...)
-			}, "tool_search(query[, namespace]) - Search for tools by keyword. Returns list of matching tools.").
+			}, "tool_search(query, max_results=10) - Search for tools by keyword. Returns list of matching tools.").
 		FunctionWithHelp("execute_tool", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 				return mcpExecuteToolMCP(ctx, openaiClient, kwargs.Kwargs, args...)
-			}, "execute_tool(name, arguments[, namespace]) - Execute a discovered tool. Arguments should be a dict.")
+			}, "execute_tool(name, arguments) - Execute a discovered tool. Arguments should be a dict.")
 
 	// Add shared toon functions from scriptling/mcp
 	lib := builder.Build()
@@ -244,18 +244,12 @@ func mcpToolSearchMCP(ctx context.Context, openaiClient *openai.Client, kwargs m
 		return err
 	}
 
-	// Get optional namespace
-	namespace := ""
-	if len(args) >= 2 {
-		if ns, err := args[1].AsString(); err == nil {
-			namespace = ns
+	// Get optional max_results from kwargs (default: 10)
+	maxResults := 10
+	if maxResultsObj, found := kwargs["max_results"]; found {
+		if maxResultsInt, err := maxResultsObj.AsInt(); err == nil {
+			maxResults = int(maxResultsInt)
 		}
-	}
-
-	// Build tool name with namespace prefix if provided
-	toolName := "tool_search"
-	if namespace != "" {
-		toolName = namespace + "/" + toolName
 	}
 
 	// Use call_tool to call tool_search
@@ -265,10 +259,14 @@ func mcpToolSearchMCP(ctx context.Context, openaiClient *openai.Client, kwargs m
 				Key:   &object.String{Value: "query"},
 				Value: &object.String{Value: query},
 			},
+			"max_results": {
+				Key:   &object.String{Value: "max_results"},
+				Value: &object.Integer{Value: int64(maxResults)},
+			},
 		},
 	}
 
-	result := mcpCallToolMCP(ctx, openaiClient, kwargs, &object.String{Value: toolName}, searchArgs)
+	result := mcpCallToolMCP(ctx, openaiClient, kwargs, &object.String{Value: "tool_search"}, searchArgs)
 
 	// The response is a content block (possibly wrapped in a List), extract the tools from the Text field
 	var contentBlock map[string]object.Object
@@ -327,14 +325,6 @@ func mcpExecuteToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 		return err
 	}
 
-	// Get optional namespace
-	namespace := ""
-	if len(args) >= 3 {
-		if ns, err := args[2].AsString(); err == nil {
-			namespace = ns
-		}
-	}
-
 	// Convert arguments to JSON string
 	arguments := make(map[string]interface{})
 	for key, val := range argsDict {
@@ -344,12 +334,6 @@ func mcpExecuteToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 	argumentsJSON, jsonErr := json.Marshal(arguments)
 	if jsonErr != nil {
 		return &object.Error{Message: fmt.Sprintf("Failed to marshal arguments: %v", jsonErr)}
-	}
-
-	// Build tool name with namespace prefix if provided
-	executeToolName := "execute_tool"
-	if namespace != "" {
-		executeToolName = namespace + "/" + executeToolName
 	}
 
 	// Use call_tool to call execute_tool
@@ -366,5 +350,5 @@ func mcpExecuteToolMCP(ctx context.Context, openaiClient *openai.Client, kwargs 
 		},
 	}
 
-	return mcpCallToolMCP(ctx, openaiClient, kwargs, &object.String{Value: executeToolName}, executeArgs)
+	return mcpCallToolMCP(ctx, openaiClient, kwargs, &object.String{Value: "execute_tool"}, executeArgs)
 }

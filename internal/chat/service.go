@@ -97,16 +97,13 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 
 	logger.Debug("Starting chat completion with tools", "user_id", user.Id, "model", s.config.Model)
 
-	// Add user to context for MCP server
-	chatCtx := context.WithValue(ctx, "user", user)
-
-	// Force ondemand mode - only tool_search and execute_tool visible in tools/list
-	// All other tools (native, ondemand, provider, remote) are searchable and callable
-	chatCtx = mcp.WithForceOnDemandMode(chatCtx)
-
-	// Add the tool handler to the context
-	toolHandler := NewWebChatToolHandler(sseWriter)
-	chatCtx = openai.WithToolHandler(chatCtx, toolHandler)
+	// The MCPServerContext middleware has already set up the context with:
+	// - MCP server
+	// - Script tools provider
+	// - Force ondemand mode
+	// Just add the tool handler for web chat
+	chatCtx := ctx
+	chatCtx = openai.WithToolHandler(chatCtx, NewWebChatToolHandler(sseWriter))
 
 	// Start streaming
 	stream := s.openaiClient.StreamChatCompletion(chatCtx, req)
@@ -233,15 +230,12 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 
 	logger.Debug("Starting chat completion with tools", "user_id", user.Id, "model", s.config.Model)
 
-	// Add user to context for MCP server
-	chatCtx := context.WithValue(ctx, "user", user)
-
-	// Force ondemand mode - only tool_search and execute_tool visible in tools/list
-	// All other tools (native, ondemand, provider, remote) are searchable and callable
-	chatCtx = mcp.WithForceOnDemandMode(chatCtx)
-
-	// Use the OpenAI client's non-streaming completion
-	response, err := s.openaiClient.ChatCompletion(chatCtx, req)
+	// The MCPServerContext middleware has already set up the context with:
+	// - MCP server
+	// - Script tools provider
+	// - Force ondemand mode
+	// Use the context directly
+	response, err := s.openaiClient.ChatCompletion(ctx, req)
 	if err != nil {
 		logger.Error("Chat completion failed", "error", err, "user_id", user.Id)
 		return nil, err

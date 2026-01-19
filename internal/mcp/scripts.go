@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/internal/chat"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
@@ -26,23 +27,48 @@ func NewScriptToolsProvider(user *model.User) *scriptToolsProvider {
 }
 
 // GetTools returns all available script tools for the user
+// Implements user override behavior: user scripts override global scripts with the same name
 func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, error) {
+	log.Debug("scriptToolsProvider.GetTools called", "user", p.user.Username, "user_id", p.user.Id)
 	db := database.GetInstance()
 	scripts, err := db.GetScripts()
 	if err != nil {
+		log.Warn("scriptToolsProvider.GetTools failed to get scripts", "error", err)
 		return nil, err
 	}
+	log.Debug("scriptToolsProvider.GetTools fetched scripts", "count", len(scripts))
 
-	var tools []mcp.MCPTool
+	// Use maps to ensure one tool per name (user scripts override global scripts)
+	toolsMap := make(map[string]mcp.MCPTool)
+	userIdMap := make(map[string]string) // Track which tools belong to which user
+
 	for _, script := range scripts {
 		// Skip non-tool scripts, inactive scripts, or deleted scripts
 		if script.ScriptType != "tool" || !script.Active || script.IsDeleted {
 			continue
 		}
 
-		// Check group access
-		if len(script.Groups) > 0 && !p.user.HasAnyGroup(&script.Groups) {
+		// Check if script is valid for current zone
+		if !service.CanUserExecuteScript(p.user, script) {
 			continue
+		}
+
+		// Check zone restrictions
+		currentZone := config.GetServerConfig().Zone
+		if !script.IsValidForZone(currentZone) {
+			log.Debug("scriptToolsProvider.GetTools: skipping tool due to zone", "tool", script.Name, "zones", script.Zones, "currentZone", currentZone)
+			continue
+		}
+
+		// User scripts override global scripts with the same name
+		if _, exists := userIdMap[script.Name]; exists {
+			// If current script is global (UserId is empty)
+			if script.UserId == "" {
+				// Skip if we already have ANY tool (user or global) for this name
+				// Global scripts should never replace existing tools
+				continue
+			}
+			// Current script is a user script - always replace (user scripts override both global and other user scripts)
 		}
 
 		// Build input schema - if TOML schema exists, parse it; otherwise use empty schema
@@ -63,13 +89,25 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 			}
 		}
 
-		// Build MCP tool
-		tools = append(tools, mcp.MCPTool{
+		// Store tool and track ownership
+		toolsMap[script.Name] = mcp.MCPTool{
 			Name:        script.Name,
 			Description: script.Description,
 			InputSchema: inputSchema,
 			Keywords:    script.MCPKeywords,
-		})
+		}
+		userIdMap[script.Name] = script.UserId // Empty string for global scripts
+	}
+
+	// Convert map to slice
+	tools := make([]mcp.MCPTool, 0, len(toolsMap))
+	for _, tool := range toolsMap {
+		tools = append(tools, tool)
+	}
+
+	log.Debug("scriptToolsProvider.GetTools returning tools", "count", len(tools), "user", p.user.Username)
+	for _, tool := range tools {
+		log.Debug("scriptToolsProvider.GetTools tool", "name", tool.Name, "description", tool.Description, "keywords", tool.Keywords)
 	}
 
 	return tools, nil
@@ -77,27 +115,21 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 
 // ExecuteTool executes a script tool by name
 func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
-	db := database.GetInstance()
-	scripts, err := db.GetScripts()
-	if err != nil {
-		return nil, err
-	}
-
-	// Find the script
-	var script *model.Script
-	for _, s := range scripts {
-		if s.Name == name && s.ScriptType == "tool" && s.Active && !s.IsDeleted {
-			// Check group access
-			if len(s.Groups) > 0 && !p.user.HasAnyGroup(&s.Groups) {
-				continue
-			}
-			script = s
-			break
-		}
-	}
-
-	if script == nil {
+	// Resolve script with user override and zone filtering
+	script, err := service.ResolveScriptByName(name, p.user.Id)
+	if err != nil || script.ScriptType != "tool" {
 		return nil, nil // Tool not found - let other providers handle it
+	}
+
+	// Check permissions
+	if !service.CanUserExecuteScript(p.user, script) {
+		return nil, nil
+	}
+
+	// Check zone restrictions
+	currentZone := config.GetServerConfig().Zone
+	if !script.IsValidForZone(currentZone) {
+		return nil, nil
 	}
 
 	// Convert params to string map for script execution
@@ -181,8 +213,8 @@ func RegisterScriptTools(server *mcp.Server, user *model.User) {
 			continue
 		}
 
-		// Check group access
-		if len(script.Groups) > 0 && !user.HasAnyGroup(&script.Groups) {
+		// Check permissions and zone
+		if !service.CanUserExecuteScript(user, script) {
 			continue
 		}
 

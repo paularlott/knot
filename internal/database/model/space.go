@@ -75,6 +75,7 @@ type Space struct {
 	Zone             string             `json:"zone" db:"zone" msgpack:"zone"`
 	NodeId           string             `json:"node_id,omitempty" db:"node_id" msgpack:"node_id,omitempty"`
 	Shell            string             `json:"shell" db:"shell" msgpack:"shell"`
+	StartupScriptId  string             `json:"startup_script_id" db:"startup_script_id" msgpack:"startup_script_id"`
 	TemplateHash     string             `json:"template_hash" db:"template_hash" msgpack:"template_hash"`
 	NomadNamespace   string             `json:"nomad_namespace" db:"nomad_namespace" msgpack:"nomad_namespace"`
 	ContainerId      string             `json:"container_id" db:"container_id" msgpack:"container_id"`
@@ -114,6 +115,7 @@ func NewSpace(name string, description string, userId string, templateId string,
 		Description:      description,
 		AltNames:         *altNames,
 		Shell:            shell,
+		StartupScriptId:  "",
 		TemplateHash:     "",
 		IsDeployed:       false,
 		IsPending:        false,

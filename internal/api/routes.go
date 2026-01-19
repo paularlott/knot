@@ -91,6 +91,7 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Scripts
 	router.HandleFunc("GET /api/scripts", middleware.ApiAuth(HandleGetScripts))
+	router.HandleFunc("GET /api/scripts/global", middleware.ApiAuth(HandleGetGlobalScripts))
 	router.HandleFunc("GET /api/scripts/{script_id}", middleware.ApiAuth(HandleGetScript))
 	router.HandleFunc("GET /api/scripts/name/{script_name}", middleware.ApiAuth(HandleGetScriptDetailsByName))
 	router.HandleFunc("GET /api/scripts/name/{script_name}/{script_type}", middleware.ApiAuth(HandleGetScriptByName))

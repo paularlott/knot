@@ -63,6 +63,9 @@ type DbDriver interface {
 	GetScript(id string) (*model.Script, error)
 	GetScripts() ([]*model.Script, error)
 	GetScriptByName(name string) (*model.Script, error)
+	GetScriptsByName(name string) ([]*model.Script, error)
+	GetScriptByNameAndUser(name string, userId string) (*model.Script, error)
+	GetScriptsByNameAndUser(name string, userId string) ([]*model.Script, error)
 
 	// Groups
 	SaveGroup(group *model.Group) error

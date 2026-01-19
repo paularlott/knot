@@ -105,13 +105,14 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
         this.iconList.push(...icons);
       }
 
-      const scriptsResponse = await fetch('/api/scripts', {
+      const scriptsResponse = await fetch('/api/scripts/global', {
         headers: {
           'Content-Type': 'application/json'
         }
       });
       if (scriptsResponse.status === 200) {
         const scripts = await scriptsResponse.json();
+        // Filter for active scripts of type 'script'
         this.scriptList = scripts.scripts.filter(s => s.script_type === 'script' && s.active);
       }
 

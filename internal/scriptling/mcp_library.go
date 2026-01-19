@@ -26,12 +26,12 @@ func GetMCPToolsLibrary(client *apiclient.ApiClient) *object.Library {
 	}, "call_tool(name, arguments) - Call an MCP tool directly. Arguments should be a dict.")
 
 	builder.FunctionWithHelp("tool_search", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return mcpToolSearch(ctx, client, args...)
-	}, "tool_search(query) - Search for tools by keyword. Returns list of matching tools with names like 'namespace/toolname'.")
+		return mcpToolSearch(ctx, client, kwargs.Kwargs, args...)
+	}, "tool_search(query, max_results=10) - Search for tools by keyword. Returns list of matching tools.")
 
 	builder.FunctionWithHelp("execute_tool", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return mcpExecuteTool(ctx, client, args...)
-	}, "execute_tool(name, arguments) - Execute a discovered tool. Use full name like 'namespace/toolname' for namespaced tools. Arguments should be a dict.")
+	}, "execute_tool(name, arguments) - Execute a discovered tool. Arguments should be a dict.")
 
 	// Add shared toon functions from scriptling/mcp
 	toonReg := &toonRegistrar{builder: builder}
@@ -134,7 +134,7 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, args ...objec
 
 	// Call API to execute tool
 	var response *mcp.ToolResponse
-	_, apiErr := client.Do(mcpCtx, "POST", "api/chat/tools/call", req, &response)
+	_, apiErr := client.DoJSON(mcpCtx, "POST", "api/chat/tools/call", req, &response)
 	if apiErr != nil {
 		errMsg := fmt.Sprintf("Tool call failed: %v", apiErr)
 		return &object.Error{Message: errMsg}
@@ -145,7 +145,7 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, args ...objec
 }
 
 // mcpToolSearch searches for tools by keyword via API
-func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, args ...object.Object) object.Object {
+func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, kwargs map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) < 1 {
 		return &object.Error{Message: "tool_search() requires a search query"}
 	}
@@ -160,12 +160,24 @@ func mcpToolSearch(ctx context.Context, client *apiclient.ApiClient, args ...obj
 		return err
 	}
 
+	// Get optional max_results from kwargs (default: 10)
+	maxResults := 10
+	if maxResultsObj, found := kwargs["max_results"]; found {
+		if maxResultsInt, err := maxResultsObj.AsInt(); err == nil {
+			maxResults = int(maxResultsInt)
+		}
+	}
+
 	// Use call_tool to call tool_search
 	searchArgs := &object.Dict{
 		Pairs: map[string]object.DictPair{
 			"query": {
 				Key:   &object.String{Value: "query"},
 				Value: &object.String{Value: query},
+			},
+			"max_results": {
+				Key:   &object.String{Value: "max_results"},
+				Value: &object.Integer{Value: int64(maxResults)},
 			},
 		},
 	}
@@ -211,7 +223,7 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...ob
 		return &object.Error{Message: "MCP tools not available - API client not configured"}
 	}
 
-	// Get tool name (can be namespaced like "namespace/toolname")
+	// Get tool name
 	toolName, err := args[0].AsString()
 	if err != nil {
 		return err
@@ -244,7 +256,7 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...ob
 
 	// Call API to execute tool
 	var response *mcp.ToolResponse
-	_, apiErr := client.Do(mcpCtx, "POST", "api/chat/tools/call", req, &response)
+	_, apiErr := client.DoJSON(mcpCtx, "POST", "api/chat/tools/call", req, &response)
 	if apiErr != nil {
 		errMsg := fmt.Sprintf("Tool execution failed: %v", apiErr)
 		return &object.Error{Message: errMsg}

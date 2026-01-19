@@ -132,8 +132,9 @@ func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId strin
 	}
 
 	// Call API - the server will handle tool calling via MCP server integration
+	// Use DoJSON because chat completion requires JSON (not msgpack)
 	var response ChatCompletionResponse
-	_, apiErr := client.Do(aiCtx, "POST", "api/chat/completion", req, &response)
+	_, apiErr := client.DoJSON(aiCtx, "POST", "api/chat/completion", req, &response)
 	if apiErr != nil {
 		// Provide more helpful error message
 		errMsg := fmt.Sprintf("AI completion failed: %v", apiErr)
@@ -206,7 +207,7 @@ func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId str
 
 	// Call API to create response
 	var resp CreateResponseResponse
-	_, apiErr := client.Do(aiCtx, "POST", "v1/responses", req, &resp)
+	_, apiErr := client.DoJSON(aiCtx, "POST", "v1/responses", req, &resp)
 	if apiErr != nil {
 		return errors.NewError("Failed to create response: %v", apiErr)
 	}

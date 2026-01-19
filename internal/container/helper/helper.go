@@ -177,7 +177,18 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 	deployFailed = false
 
 	// Execute startup script if defined (non-blocking)
-	go executeSpaceScript(space, template, template.StartupScriptId, true)
+	go func() {
+		// Execute system startup script
+		if err := executeSpaceScript(space, template, user, template.StartupScriptId, true); err != nil {
+			log.WithError(err).Warn("system startup script failed", "space_id", space.Id)
+		}
+		// Execute user startup script from space definition
+		if space.StartupScriptId != "" {
+			if err := executeSpaceScript(space, template, user, space.StartupScriptId, true); err != nil {
+				log.WithError(err).Warn("user startup script failed", "space_id", space.Id)
+			}
+		}
+	}()
 
 	return nil
 }
@@ -189,6 +200,13 @@ func (h *Helper) StopSpace(space *model.Space) error {
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
 		log.WithError(err).Error("StopSpace: failed to get template")
+		return err
+	}
+
+	// Get the user
+	user, err := db.GetUser(space.UserId)
+	if err != nil {
+		log.WithError(err).Error("StopSpace: failed to get user")
 		return err
 	}
 
@@ -210,9 +228,9 @@ func (h *Helper) StopSpace(space *model.Space) error {
 		return err
 	}
 
-	// Execute shutdown script if defined (blocking)
-	if err := executeSpaceScript(space, template, template.ShutdownScriptId, false); err != nil {
-		log.WithError(err).Warn("shutdown script failed", "space_id", space.Id)
+	// Execute shutdown script (blocking)
+	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
+		log.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 	}
 
 	// Stop the job
@@ -269,8 +287,8 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 	}
 
 	// Execute shutdown script if defined (blocking)
-	if err := executeSpaceScript(space, template, template.ShutdownScriptId, false); err != nil {
-		log.WithError(err).Warn("shutdown script failed", "space_id", space.Id)
+	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
+		log.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 	}
 
 	// Stop the job
@@ -333,9 +351,15 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 
 			// If the space is deployed, stop the job
 			if space.IsDeployed {
-				// Execute shutdown script if defined (blocking)
-				if err := executeSpaceScript(space, template, template.ShutdownScriptId, false); err != nil {
-					logger.WithError(err).Warn("shutdown script failed", "space_id", space.Id)
+				// Get user for script execution
+				user, err := db.GetUser(space.UserId)
+				if err != nil {
+					logger.WithError(err).Warn("failed to get user for shutdown scripts")
+				} else {
+					// Execute shutdown script (blocking)
+					if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
+						logger.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
+					}
 				}
 
 				err = containerClient.DeleteSpaceJob(space, nil)
@@ -435,7 +459,7 @@ func (h *Helper) CleanupOnBoot() {
 	logger.Info("finished cleaning spaces...")
 }
 
-func executeSpaceScript(space *model.Space, template *model.Template, scriptId string, waitForAgent bool) error {
+func executeSpaceScript(space *model.Space, template *model.Template, user *model.User, scriptId string, waitForAgent bool) error {
 	if scriptId == "" || template.IsManual() {
 		return nil
 	}
@@ -452,26 +476,13 @@ func executeSpaceScript(space *model.Space, template *model.Template, scriptId s
 		return nil
 	}
 
-	// Check if script groups match template groups (if script has groups)
-	if len(script.Groups) > 0 {
-		hasMatch := false
-		for _, scriptGroup := range script.Groups {
-			for _, templateGroup := range template.Groups {
-				if scriptGroup == templateGroup {
-					hasMatch = true
-					break
-				}
-			}
-			if hasMatch {
-				break
-			}
-		}
-		if !hasMatch {
-			log.Warn("script groups do not match template groups, skipping", "script_id", scriptId, "space_id", space.Id)
-			return nil
-		}
-	}
+	// Apply variable replacement to global scripts
+	service.ApplyVariablesToScriptIfGlobal(script, db)
 
+	return executeScript(space, script, waitForAgent)
+}
+
+func executeScript(space *model.Space, script *model.Script, waitForAgent bool) error {
 	var session *agent_server.Session
 	if waitForAgent {
 		for i := 0; i < 60; i++ {

@@ -164,7 +164,29 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 		c.logger.WithError(err).Error("error while getting scripts:")
 		return
 	}
-	session.SendMessage(leafmsg.MessageGossipScript, &scripts)
+
+	// Filter scripts by zone - only send scripts valid for leaf node
+	filteredScripts := []*model.Script{}
+	for _, script := range scripts {
+		// Skip deleted scripts
+		if script.IsDeleted {
+			continue
+		}
+
+		// Only allow scripts that have empty zones or explicitly mention leaf node zone
+		allowScript := len(script.Zones) == 0
+		for _, zone := range script.Zones {
+			if zone == model.LeafNodeZone {
+				allowScript = true
+				break
+			}
+		}
+
+		if allowScript {
+			filteredScripts = append(filteredScripts, script)
+		}
+	}
+	session.SendMessage(leafmsg.MessageGossipScript, &filteredScripts)
 
 	session.SendMessage(leafmsg.MessageFullSyncEnd, nil)
 }

@@ -30,6 +30,11 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*ApiClien
 	return c, nil
 }
 
+func (c *ApiClient) SetContentType(contentType string) *ApiClient {
+	c.httpClient.SetContentType(contentType)
+	return c
+}
+
 func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {
 	c.httpClient.AppendUserAgent(userAgent)
 	return c
@@ -63,12 +68,8 @@ func (c *ApiClient) GetAuthToken() string {
 	return c.httpClient.GetAuthToken()
 }
 
-// Do makes an arbitrary API request using JSON content type
+// Do makes an arbitrary API request
 func (c *ApiClient) Do(ctx context.Context, method string, path string, requestBody interface{}, responseBody interface{}) (int, error) {
-	// Set content type to JSON for this request
-	c.httpClient.SetContentType("application/json")
-	defer c.httpClient.SetContentType(rest.ContentTypeMsgPack) // Reset to default
-
 	switch method {
 	case "GET":
 		return c.httpClient.Get(ctx, path, responseBody)
@@ -76,6 +77,23 @@ func (c *ApiClient) Do(ctx context.Context, method string, path string, requestB
 		return c.httpClient.Post(ctx, path, requestBody, responseBody, 200)
 	case "PUT":
 		return c.httpClient.Put(ctx, path, requestBody, responseBody, 200)
+	case "DELETE":
+		return c.httpClient.Delete(ctx, path, nil, nil, 200)
+	default:
+		return 0, fmt.Errorf("unsupported HTTP method: %s", method)
+	}
+}
+
+// DoJSON makes an arbitrary API request using JSON content type and JSON accept header (thread-safe)
+// This is needed for endpoints that require JSON, like chat completion and script listing
+func (c *ApiClient) DoJSON(ctx context.Context, method string, path string, requestBody interface{}, responseBody interface{}) (int, error) {
+	switch method {
+	case "GET":
+		return c.httpClient.GetJSON(ctx, path, responseBody)
+	case "POST":
+		return c.httpClient.PostJSON(ctx, path, requestBody, responseBody, 200)
+	case "PUT":
+		return c.httpClient.PutJSON(ctx, path, requestBody, responseBody, 200)
 	case "DELETE":
 		return c.httpClient.Delete(ctx, path, nil, nil, 200)
 	default:

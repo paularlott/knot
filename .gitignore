@@ -1,4 +1,5 @@
 .DS_Store
+/.env
 /bin/*
 !/bin/.gitignore
 /web/agents/*

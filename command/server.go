@@ -821,24 +821,32 @@ var ServerCmd = &cli.Command{
 
 			// API endpoint for chat
 			if chatEnabled {
-				routes.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
-				routes.HandleFunc("POST /api/chat/completion", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatCompletion)))
+				// Create script tools provider for chat endpoints
+				var scriptToolsProvider middleware.ScriptToolsProvider = nil
+				if mcpServer != nil {
+					scriptToolsProvider = func(ctx context.Context, user *model.User) mcp.ToolProvider {
+						if user == nil || (!user.HasPermission(model.PermissionExecuteScripts) && !user.HasPermission(model.PermissionExecuteOwnScripts)) {
+							return nil
+						}
+						return internal_mcp.NewScriptToolsProvider(user)
+					}
+				}
+
+				// Apply MCP server context middleware to chat endpoints if script tools provider is available
+				if scriptToolsProvider != nil {
+					// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
+					routes.Handle("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(chatService.HandleChatStream))))))
+					routes.Handle("POST /api/chat/completion", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(chatService.HandleChatCompletion))))))
+				} else {
+					routes.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
+					routes.HandleFunc("POST /api/chat/completion", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatCompletion)))
+				}
 
 				// Register chat tool endpoints if MCP server is available
 				if mcpServer != nil {
-					// Create a callback that returns a ToolProvider for script tools
-					// This allows tool_search to discover script tools without creating circular imports
-					scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
-						if user == nil || !user.HasPermission(model.PermissionExecuteScripts) {
-							return nil
-						}
-						// Use the newScriptToolsProvider from internal/mcp package
-						return internal_mcp.NewScriptToolsProvider(user)
-					}
-
-					// Apply MCP server context middleware with script tools provider
-					routes.Handle("GET /api/chat/tools", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(api.HandleListTools))))
-					routes.Handle("POST /api/chat/tools/call", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(api.HandleCallTool))))
+					// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
+					routes.Handle("GET /api/chat/tools", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(api.HandleListTools))))))
+					routes.Handle("POST /api/chat/tools/call", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(api.HandleCallTool))))))
 				}
 			}
 		}
@@ -849,19 +857,20 @@ var ServerCmd = &cli.Command{
 
 			// Create script tools provider for OpenAI endpoints
 			scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
-				if user == nil || !user.HasPermission(model.PermissionExecuteScripts) {
+				if user == nil || (!user.HasPermission(model.PermissionExecuteScripts) && !user.HasPermission(model.PermissionExecuteOwnScripts)) {
 					return nil
 				}
 				return internal_mcp.NewScriptToolsProvider(user)
 			}
 
 			service := openai.NewService(openAIClient, cfg.Chat.SystemPrompt)
-			routes.Handle("GET /v1/models", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetModels))))
-			routes.Handle("POST /v1/chat/completions", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleChatCompletions))))
-			routes.Handle("POST /v1/responses", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleCreateResponse))))
-			routes.Handle("GET /v1/responses/{response_id}", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetResponse))))
-			routes.Handle("DELETE /v1/responses/{response_id}", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleDeleteResponse))))
-			routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.MCPServerContext(mcpServer, scriptToolsProvider)(middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleCancelResponse))))
+			// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
+			routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleGetModels))))))
+			routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleChatCompletions))))))
+			routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleCreateResponse))))))
+			routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleGetResponse))))))
+			routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleDeleteResponse))))))
+			routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleCancelResponse))))))
 		}
 
 		// Add support for page not found

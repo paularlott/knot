@@ -153,7 +153,7 @@
           <label class="form-label">Scripts</label>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="startup_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
-              <label for="startup_script_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Startup Script</label>
+              <label for="startup_script_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Startup Script</label>
               <div class="flex items-center">
                 <div class="relative w-full">
                   <input id="startup_script_id" x-model="search" class="form-field" type="search" placeholder="Search scripts..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
@@ -175,7 +175,7 @@
               </div>
             </div>
             <div x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="shutdown_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
-              <label for="shutdown_script_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Shutdown Script</label>
+              <label for="shutdown_script_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">System Shutdown Script</label>
               <div class="flex items-center">
                 <div class="relative w-full">
                   <input id="shutdown_script_id" x-model="search" class="form-field" type="search" placeholder="Search scripts..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
@@ -197,7 +197,6 @@
               </div>
             </div>
           </div>
-          <p class="description">Optional scripts to run when the space starts or stops.</p>
         </div>
         <div x-show="formData.platform != 'manual'" x-clock>
           <label class="form-label">Resource Units</label>

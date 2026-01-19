@@ -105,7 +105,18 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 }
 
 func (db *RedisDbDriver) DeleteUser(user *model.User) error {
-	err := db.connection.Del(context.Background(), fmt.Sprintf("%sUsers:%s", db.prefix, user.Id)).Err()
+	// Cascade delete user scripts
+	scripts, err := db.GetScripts()
+	if err == nil {
+		for _, script := range scripts {
+			if script.UserId == user.Id {
+				db.connection.Del(context.Background(), fmt.Sprintf("%sScripts:%s", db.prefix, script.Id))
+				db.connection.Del(context.Background(), fmt.Sprintf("%sScriptsByName:%s:%s", db.prefix, script.UserId, script.Name))
+			}
+		}
+	}
+
+	err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsers:%s", db.prefix, user.Id)).Err()
 	if err != nil {
 		return err
 	}
