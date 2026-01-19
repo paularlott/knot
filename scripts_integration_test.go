@@ -85,12 +85,15 @@ func createClient(baseURL, token string) (*apiclient.ApiClient, error) {
 }
 
 // cleanupScripts deletes all test scripts created during tests
-func cleanupScripts(t *testing.T, ctx context.Context, client *apiclient.ApiClient, scriptIDs []string) {
+func cleanupScripts(t *testing.T, ctx context.Context, client *apiclient.ApiClient, scriptIDs *[]string) {
 	t.Helper()
 
-	for _, id := range scriptIDs {
+	for _, id := range *scriptIDs {
 		if id != "" {
-			client.DeleteScript(ctx, id)
+			err := client.DeleteScript(ctx, id)
+			if err != nil {
+				t.Logf("Warning: Failed to delete script %s: %v", id, err)
+			}
 		}
 	}
 }
@@ -109,7 +112,7 @@ func TestSuite1_ScriptCRUD(t *testing.T) {
 	}
 
 	var createdScriptIDs []string
-	defer cleanupScripts(t, ctx, client, createdScriptIDs)
+	defer cleanupScripts(t, ctx, client, &createdScriptIDs)
 
 	t.Run("CreateGlobalScript", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
@@ -231,7 +234,7 @@ func TestSuite2_ZoneOverrides(t *testing.T) {
 	}
 
 	var createdScriptIDs []string
-	defer cleanupScripts(t, ctx, client, createdScriptIDs)
+	defer cleanupScripts(t, ctx, client, &createdScriptIDs)
 
 	// Clean up any existing test scripts from previous runs
 	t.Run("CleanupOldTestScripts", func(t *testing.T) {
@@ -373,7 +376,7 @@ func TestSuite3_UserIsolation(t *testing.T) {
 	var createdScriptIDs []string
 	defer func() {
 		// Clean up with user1 client (who has permission)
-		cleanupScripts(t, ctx, user1Client, createdScriptIDs)
+		cleanupScripts(t, ctx, user1Client, &createdScriptIDs)
 	}()
 
 	var user1ScriptID, user2ScriptID string
@@ -536,7 +539,7 @@ func TestSuite4_PermissionModel(t *testing.T) {
 	}
 
 	var createdScriptIDs []string
-	defer cleanupScripts(t, ctx, user1Client, createdScriptIDs)
+	defer cleanupScripts(t, ctx, user1Client, &createdScriptIDs)
 
 	var globalScriptID string
 
@@ -613,7 +616,7 @@ func TestSuite5_ZoneFiltering(t *testing.T) {
 	}
 
 	var createdScriptIDs []string
-	defer cleanupScripts(t, ctx, client, createdScriptIDs)
+	defer cleanupScripts(t, ctx, client, &createdScriptIDs)
 
 	// Create scripts with different zone configurations
 	t.Run("CreateZoneSpecificScript", func(t *testing.T) {
@@ -706,7 +709,7 @@ func TestSuite6_MCPTools(t *testing.T) {
 	}
 
 	var createdScriptIDs []string
-	defer cleanupScripts(t, ctx, user1Client, createdScriptIDs)
+	defer cleanupScripts(t, ctx, user1Client, &createdScriptIDs)
 
 	var globalToolID, user1ToolID string
 
@@ -1291,7 +1294,7 @@ func TestSuite7_LibraryAccess(t *testing.T) {
 	}
 
 	var createdScriptIDs []string
-	defer cleanupScripts(t, ctx, client, createdScriptIDs)
+	defer cleanupScripts(t, ctx, client, &createdScriptIDs)
 
 	var libraryID string
 
@@ -1407,7 +1410,7 @@ func TestScriptResolution(t *testing.T) {
 	}
 
 	var createdScriptIDs []string
-	defer cleanupScripts(t, ctx, client, createdScriptIDs)
+	defer cleanupScripts(t, ctx, client, &createdScriptIDs)
 
 	var globalScriptID, userScriptID string
 
