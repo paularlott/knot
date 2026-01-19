@@ -25,8 +25,11 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts) {
     },
     scripts: [],
     availableZones: [],
-    filterType: Alpine.$persist("user")
-      .as("script-filter-type")
+    showMyScripts: Alpine.$persist(true)
+      .as("script-show-my-scripts")
+      .using(sessionStorage),
+    showGlobalScripts: Alpine.$persist(false)
+      .as("script-show-global-scripts")
       .using(sessionStorage),
     showAllZones: Alpine.$persist(false)
       .as("script-show-all-zones")
@@ -173,6 +176,13 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts) {
       this.scriptFormModal.scriptId = "";
       this.scriptFormModal.isUserScript = isUserScript;
       this.scriptFormModal.show = true;
+
+      // Ensure the relevant filter is enabled so the new script will be visible
+      if (isUserScript) {
+        this.showMyScripts = true;
+      } else {
+        this.showGlobalScripts = true;
+      }
     },
 
     editScript(scriptId) {
@@ -237,10 +247,11 @@ window.scriptListComponent = function (userId, zone, permissionManageScripts) {
       this.scripts.forEach((s) => {
         let showRow = true;
 
-        // Filter by type
-        if (this.filterType === "global" && s.user_id) showRow = false;
-        if (this.filterType === "user" && s.user_id !== this.currentUserId)
-          showRow = false;
+        // Filter by type - show if it matches any enabled filter
+        const isGlobal = !s.user_id;
+        const isMine = s.user_id === this.currentUserId;
+        const matchesFilter = (isGlobal && this.showGlobalScripts) || (isMine && this.showMyScripts);
+        if (!matchesFilter) showRow = false;
 
         // Filter by zone (unless showAllZones is true)
         if (!this.showAllZones && this.currentZone) {

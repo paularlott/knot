@@ -60,7 +60,9 @@
                   </div>
                 </div>
               </td>
-              <td x-text="v.zone" class="px-4 py-3 hidden sm:table-cell"></td>
+              <td x-text="v.zone" class="px-4 py-3 hidden sm:table-cell">
+
+              </td>
               <td class="px-4 py-3 hidden sm:table-cell">
                 <span x-show="v.platform == 'docker'" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Docker Volume</span>
                 <span x-show="v.platform == 'podman'" class="inline-block bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-indigo-400 border border-indigo-400 text-nowrap">Podman Volume</span>

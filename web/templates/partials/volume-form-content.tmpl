@@ -40,8 +40,10 @@
     </div>
     <div>
       <label class="form-label">Volume Definition (YAML)</label>
-      <div :class="{'form-field-error': !volValid, 'editor-wrap': true}" id="vol">
-        <textarea name="vol"></textarea>
+      <div class="mid-editor">
+        <div :class="{'form-field-error': !volValid, 'editor-wrap': true}" id="vol">
+          <textarea name="vol" class="form-field"></textarea>
+        </div>
       </div>
       <div x-show="!volValid" class="error-message" x-cloak>Volume definition must be valid YAML.</div>
     </div>

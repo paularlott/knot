@@ -26,26 +26,21 @@
         </button>
 
         <div x-ref="panel" x-float.teleport.placement.bottom-end.flip @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" x-cloak>
+          {{ if .permissionManageOwnScripts }}
           <div class="mb-2 mt-2">
             <label class="flex items-center cursor-pointer mb-2">
-              <input type="radio" name="filterType" value="all" class="sr-only peer" @change="filterChanged" :checked="filterType === 'all'" x-model="filterType">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">All Scripts</span>
-            </label>
-          </div>
-          <div class="mb-2">
-            <label class="flex items-center cursor-pointer mb-2">
-              <input type="radio" name="filterType" value="global" class="sr-only peer" @change="filterChanged" :checked="filterType === 'global'" x-model="filterType">
-              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
-              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Global Scripts</span>
-            </label>
-          </div>
-          {{ if .permissionManageOwnScripts }}
-          <div class="mb-2">
-            <label class="flex items-center cursor-pointer mb-2">
-              <input type="radio" name="filterType" value="user" class="sr-only peer" @change="filterChanged" :checked="filterType === 'user'" x-model="filterType">
+              <input type="checkbox" class="sr-only peer" @change="filterChanged" :checked="showMyScripts" x-model="showMyScripts">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">My Scripts</span>
+            </label>
+          </div>
+          {{ end }}
+          {{ if .permissionManageScripts }}
+          <div class="mb-2">
+            <label class="flex items-center cursor-pointer mb-2">
+              <input type="checkbox" class="sr-only peer" @change="filterChanged" :checked="showGlobalScripts" x-model="showGlobalScripts">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Global Scripts</span>
             </label>
           </div>
           {{ end }}
