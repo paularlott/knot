@@ -16,8 +16,8 @@ The `knot.mcp` library provides MCP (Model Context Protocol) functionality for s
 ### For All Environments (Tool Access)
 - `list_tools()` - Get a list of all available MCP tools and their parameters
 - `call_tool(name, arguments)` - Call an MCP tool directly
-- `tool_search(query)` - Search for tools by keyword. Returns tools with names like 'namespace/toolname' for namespaced tools
-- `execute_tool(name, arguments)` - Execute a discovered tool. Use full name like 'namespace/toolname' for namespaced tools
+- `tool_search(query, max_results=10)` - Search for tools by keyword. Returns list of matching tools
+- `execute_tool(name, arguments)` - Execute a discovered tool. Arguments should be a dict
 
 ## Availability
 
@@ -235,13 +235,13 @@ for block in multi_result:
 
 ---
 
-### tool_search(query[, namespace])
+### tool_search(query, max_results=10)
 
 Search for tools by keyword. This is a helper function that wraps `call_tool("tool_search", ...)` for convenience.
 
 **Parameters:**
 - `query` (string): Search query to find matching tools
-- `namespace` (string, optional): Namespace prefix for the tool_search tool (e.g., "ai" becomes "ai/tool_search")
+- `max_results` (int, optional): Maximum number of results to return (default: 10)
 
 **Returns:**
 - `list`: Array of tool dictionaries (same format as `list_tools`)
@@ -250,30 +250,29 @@ Search for tools by keyword. This is a helper function that wraps `call_tool("to
 ```python
 import knot.mcp
 
-# Search for space management tools (uses default tool_search)
+# Search for space management tools (default 10 results)
 results = knot.mcp.tool_search("create space")
 print("Found tools:", results)
 
-# Search for file operations
-file_tools = knot.mcp.tool_search("read write file")
+# Search for file operations with custom limit
+file_tools = knot.mcp.tool_search("read write file", max_results=5)
 for tool in file_tools:
     print(f"- {tool['name']}: {tool['description']}")
 
-# Search using a specific namespace (calls "ai/tool_search")
-ai_results = knot.mcp.tool_search("generate code", "ai")
-print("AI tools:", ai_results)
+# Get more results
+all_results = knot.mcp.tool_search("space", max_results=50)
+print(f"Found {len(all_results)} tools")
 ```
 
 ---
 
-### execute_tool(name, arguments[, namespace])
+### execute_tool(name, arguments)
 
 Execute a discovered tool. This is a helper function that wraps `call_tool("execute_tool", ...)` for convenience.
 
 **Parameters:**
 - `name` (string): Name of the tool to execute
 - `arguments` (dict): Arguments to pass to the tool
-- `namespace` (string, optional): Namespace prefix for the execute_tool tool (e.g., "ai" becomes "ai/execute_tool")
 
 **Returns:**
 - `any`: The tool's response content, automatically decoded:
@@ -286,7 +285,7 @@ Execute a discovered tool. This is a helper function that wraps `call_tool("exec
 ```python
 import knot.mcp
 
-# List all spaces (uses default execute_tool)
+# List all spaces
 spaces = knot.mcp.execute_tool("list_spaces", {})
 print("Spaces:", spaces)
 
@@ -302,13 +301,6 @@ new_space = knot.mcp.execute_tool("create_space", {
     "template_name": "python-dev"
 })
 print("Created:", new_space)
-
-# Execute a tool from a specific namespace (calls "ai/execute_tool")
-ai_result = knot.mcp.execute_tool("generate_code", {
-    "prompt": "Write a Python function",
-    "language": "python"
-}, "ai")
-print("AI result:", ai_result)
 ```
 
 ---
