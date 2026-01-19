@@ -3,7 +3,7 @@
 {{ define "pageTitle" }}Scripts{{ end }}
 
 {{ define "mainContent" }}
-<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="scriptListComponent('{{ .user_id }}', '{{ .zone }}')" data-zone="{{ .zone }}">
+<main class="relative w-full h-full overflow-y-auto lg:ml-64 pb-8" x-data="scriptListComponent('{{ .user_id }}', '{{ .zone }}', {{ .permissionManageScripts }})" data-zone="{{ .zone }}">
   <div class="grid grid-cols-1 px-4 pt-6 xl:grid-cols-4 gap-2 xl:gap-4">
 
     <div class="mb-4 col-span-full xl:mb-2">
