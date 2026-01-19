@@ -47,7 +47,13 @@ func (db *MySQLDriver) SaveUser(user *model.User, updateFields []string) error {
 }
 
 func (db *MySQLDriver) DeleteUser(user *model.User) error {
-	_, err := db.connection.Exec("DELETE FROM users WHERE user_id = ?", user.Id)
+	// Cascade delete user scripts
+	_, err := db.connection.Exec("DELETE FROM scripts WHERE user_id = ?", user.Id)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.connection.Exec("DELETE FROM users WHERE user_id = ?", user.Id)
 	return err
 }
 

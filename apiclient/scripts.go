@@ -7,32 +7,40 @@ type ScriptList struct {
 
 type ScriptInfo struct {
 	Id          string   `json:"script_id"`
+	UserId      string   `json:"user_id"`
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Groups      []string `json:"groups"`
+	Zones       []string `json:"zones"`
 	Active      bool     `json:"active"`
 	ScriptType  string   `json:"script_type"`
 	Timeout     int      `json:"timeout"`
+	IsManaged   bool     `json:"is_managed"`
 }
 
 type ScriptDetails struct {
 	Id                 string   `json:"script_id"`
+	UserId             string   `json:"user_id"`
 	Name               string   `json:"name"`
 	Description        string   `json:"description"`
 	Content            string   `json:"content"`
 	Groups             []string `json:"groups"`
+	Zones              []string `json:"zones"`
 	Active             bool     `json:"active"`
 	ScriptType         string   `json:"script_type"`
 	MCPInputSchemaToml string   `json:"mcp_input_schema_toml"`
 	MCPKeywords        []string `json:"mcp_keywords"`
 	Timeout            int      `json:"timeout"`
+	IsManaged          bool     `json:"is_managed"`
 }
 
 type ScriptCreateRequest struct {
+	UserId             string   `json:"user_id"`
 	Name               string   `json:"name"`
 	Description        string   `json:"description"`
 	Content            string   `json:"content"`
 	Groups             []string `json:"groups"`
+	Zones              []string `json:"zones"`
 	Active             bool     `json:"active"`
 	ScriptType         string   `json:"script_type"`
 	MCPInputSchemaToml string   `json:"mcp_input_schema_toml"`
@@ -45,6 +53,7 @@ type ScriptUpdateRequest struct {
 	Description        string   `json:"description"`
 	Content            string   `json:"content"`
 	Groups             []string `json:"groups"`
+	Zones              []string `json:"zones"`
 	Active             bool     `json:"active"`
 	ScriptType         string   `json:"script_type"`
 	MCPInputSchemaToml string   `json:"mcp_input_schema_toml"`

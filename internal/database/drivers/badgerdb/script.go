@@ -15,8 +15,9 @@ func (db *BadgerDbDriver) SaveScript(script *model.Script, updateFields []string
 		existingScript, _ := db.GetScript(script.Id)
 
 		if existingScript != nil {
-			if existingScript.Name != script.Name && (len(updateFields) == 0 || util.InArray(updateFields, "Name")) {
-				err := txn.Delete([]byte(fmt.Sprintf("ScriptsByName:%s", existingScript.Name)))
+			// If name or user_id changed, delete old index
+			if (existingScript.Name != script.Name || existingScript.UserId != script.UserId) && (len(updateFields) == 0 || util.InArray(updateFields, "Name") || util.InArray(updateFields, "UserId")) {
+				err := txn.Delete([]byte(fmt.Sprintf("ScriptsByName:%s:%s", existingScript.UserId, existingScript.Name)))
 				if err != nil {
 					return err
 				}
@@ -38,7 +39,8 @@ func (db *BadgerDbDriver) SaveScript(script *model.Script, updateFields []string
 			return err
 		}
 
-		e = badger.NewEntry([]byte(fmt.Sprintf("ScriptsByName:%s", script.Name)), []byte(script.Id))
+		// Create composite index with user_id:name
+		e = badger.NewEntry([]byte(fmt.Sprintf("ScriptsByName:%s:%s", script.UserId, script.Name)), []byte(script.Id))
 		if err = txn.SetEntry(e); err != nil {
 			return err
 		}
@@ -56,7 +58,7 @@ func (db *BadgerDbDriver) DeleteScript(script *model.Script) error {
 			return err
 		}
 
-		err = txn.Delete([]byte(fmt.Sprintf("ScriptsByName:%s", script.Name)))
+		err = txn.Delete([]byte(fmt.Sprintf("ScriptsByName:%s:%s", script.UserId, script.Name)))
 		if err != nil {
 			return err
 		}
@@ -122,26 +124,38 @@ func (db *BadgerDbDriver) GetScripts() ([]*model.Script, error) {
 }
 
 func (db *BadgerDbDriver) GetScriptByName(name string) (*model.Script, error) {
-	var script = &model.Script{}
+	scripts, err := db.GetScriptsByName(name)
+	if err != nil {
+		return nil, err
+	}
+	return scripts[0], nil
+}
+
+// GetScriptsByName returns all scripts matching a name (for zone-specific overrides)
+func (db *BadgerDbDriver) GetScriptsByName(name string) ([]*model.Script, error) {
+	var scripts []*model.Script
 
 	err := db.connection.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(fmt.Sprintf("ScriptsByName:%s", name)))
-		if err != nil {
-			return err
-		}
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
 
-		var scriptId string
-		err = item.Value(func(val []byte) error {
-			scriptId = string(val)
-			return nil
-		})
-		if err != nil {
-			return err
-		}
+		prefix := []byte("Scripts:")
 
-		script, err = db.GetScript(scriptId)
-		if err != nil {
-			return err
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			var script = &model.Script{}
+
+			err := item.Value(func(val []byte) error {
+				return json.Unmarshal(val, script)
+			})
+			if err != nil {
+				return err
+			}
+
+			// Filter by name and global (empty user_id)
+			if script.Name == name && script.UserId == "" {
+				scripts = append(scripts, script)
+			}
 		}
 
 		return nil
@@ -151,5 +165,81 @@ func (db *BadgerDbDriver) GetScriptByName(name string) (*model.Script, error) {
 		return nil, err
 	}
 
-	return script, nil
+	if len(scripts) == 0 {
+		return nil, fmt.Errorf("script not found")
+	}
+
+	// Sort by zone specificity (more zones = higher priority)
+	sort.Slice(scripts, func(i, j int) bool {
+		zonesI := len(scripts[i].Zones)
+		zonesJ := len(scripts[j].Zones)
+		if zonesI != zonesJ {
+			return zonesI > zonesJ
+		}
+		return scripts[i].CreatedAt.Before(scripts[j].CreatedAt)
+	})
+
+	return scripts, nil
+}
+
+// GetScriptByNameAndUser gets a script by name for a specific user
+// If userId is empty, it searches for global scripts
+// This supports the user script override functionality
+func (db *BadgerDbDriver) GetScriptByNameAndUser(name string, userId string) (*model.Script, error) {
+	scripts, err := db.GetScriptsByNameAndUser(name, userId)
+	if err != nil {
+		return nil, err
+	}
+	return scripts[0], nil
+}
+
+// GetScriptsByNameAndUser returns all scripts matching a name and user_id (for zone-specific overrides)
+func (db *BadgerDbDriver) GetScriptsByNameAndUser(name string, userId string) ([]*model.Script, error) {
+	var scripts []*model.Script
+
+	err := db.connection.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+
+		prefix := []byte("Scripts:")
+
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			var script = &model.Script{}
+
+			err := item.Value(func(val []byte) error {
+				return json.Unmarshal(val, script)
+			})
+			if err != nil {
+				return err
+			}
+
+			// Filter by name and user_id
+			if script.Name == name && script.UserId == userId {
+				scripts = append(scripts, script)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(scripts) == 0 {
+		return nil, fmt.Errorf("script not found")
+	}
+
+	// Sort by zone specificity (more zones = higher priority)
+	sort.Slice(scripts, func(i, j int) bool {
+		zonesI := len(scripts[i].Zones)
+		zonesJ := len(scripts[j].Zones)
+		if zonesI != zonesJ {
+			return zonesI > zonesJ
+		}
+		return scripts[i].CreatedAt.Before(scripts[j].CreatedAt)
+	})
+
+	return scripts, nil
 }

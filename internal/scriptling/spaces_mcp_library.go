@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/internal/agentapi/msg"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/scriptling/object"
@@ -459,21 +460,50 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession f
 		return &object.Error{Message: "no permission to execute scripts in this space"}
 	}
 
-	scripts, scriptsErr := db.GetScripts()
-	if scriptsErr != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to get scripts: %v", scriptsErr)}
+	// Resolve script - try user script first, then global script
+	cfg := config.GetServerConfig()
+	var script *model.Script
+
+	// Try user script first
+	if user.Id != "" {
+		userScript, userErr := db.GetScriptByNameAndUser(scriptName, user.Id)
+		if userErr == nil && !userScript.IsDeleted && userScript.Active && userScript.IsValidForZone(cfg.Zone) {
+			script = userScript
+		}
 	}
 
-	var script *model.Script
-	for _, s := range scripts {
-		if s.Name == scriptName && !s.IsDeleted && s.Active {
-			script = s
-			break
+	// Fall back to global script if user script not found
+	if script == nil {
+		globalScript, globalErr := db.GetScriptByName(scriptName)
+		if globalErr == nil && !globalScript.IsDeleted && globalScript.Active && globalScript.IsValidForZone(cfg.Zone) {
+			script = globalScript
 		}
 	}
 
 	if script == nil {
 		return &object.Error{Message: fmt.Sprintf("script not found: %s", scriptName)}
+	}
+
+	// Check if user has permission to execute this script
+	// User scripts: only owner can execute (with ExecuteOwnScripts permission)
+	// Global scripts: need ExecuteScripts permission
+	if script.IsUserScript() {
+		if script.UserId != user.Id {
+			return &object.Error{Message: "no permission to execute this script"}
+		}
+		if !user.HasPermission(model.PermissionExecuteOwnScripts) {
+			return &object.Error{Message: "no permission to execute own scripts"}
+		}
+	} else {
+		if !user.HasPermission(model.PermissionExecuteScripts) {
+			return &object.Error{Message: "no permission to execute scripts"}
+		}
+		// Check group membership for non-admin users
+		if !user.HasPermission(model.PermissionManageScripts) {
+			if len(script.Groups) > 0 && !user.HasAnyGroup(&script.Groups) {
+				return &object.Error{Message: "no permission to execute this script"}
+			}
+		}
 	}
 
 	scriptArgs := make([]string, 0, len(args)-2)

@@ -101,6 +101,19 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 		}
 	}
 
+	scripts, err := db.GetScripts()
+	if err != nil {
+		c.logger.WithError(err).Error("error while getting scripts from database:")
+	} else {
+		for _, script := range scripts {
+			if script.IsManaged {
+				if err := db.DeleteScript(script); err != nil {
+					c.logger.Error("error while deleting managed script from database:", "script", script.Name)
+				}
+			}
+		}
+	}
+
 	go func() {
 		fullSyncDone := false
 
@@ -323,6 +336,11 @@ func (c *Cluster) handleLeafGossipScript(msg *leafmsg.Message) {
 	if err := msg.UnmarshalPayload(&scripts); err != nil {
 		c.logger.WithError(err).Error("error while unmarshalling leaf script message:")
 		return
+	}
+
+	// Mark the scripts as managed
+	for _, script := range scripts {
+		script.IsManaged = true
 	}
 
 	if err := c.mergeScripts(scripts); err != nil {

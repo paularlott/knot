@@ -65,18 +65,25 @@ func (c *ApiClient) GetAuthToken() string {
 
 // Do makes an arbitrary API request using JSON content type
 func (c *ApiClient) Do(ctx context.Context, method string, path string, requestBody interface{}, responseBody interface{}) (int, error) {
-	// Set content type to JSON for this request
-	c.httpClient.SetContentType("application/json")
-	defer c.httpClient.SetContentType(rest.ContentTypeMsgPack) // Reset to default
-
 	switch method {
 	case "GET":
+		// Set content type to JSON for GET request (affects Accept header)
+		c.httpClient.SetContentType("application/json")
+		defer c.httpClient.SetContentType(rest.ContentTypeMsgPack) // Reset to default
 		return c.httpClient.Get(ctx, path, responseBody)
 	case "POST":
+		// Set content type to JSON for POST request
+		c.httpClient.SetContentType("application/json")
+		defer c.httpClient.SetContentType(rest.ContentTypeMsgPack) // Reset to default
 		return c.httpClient.Post(ctx, path, requestBody, responseBody, 200)
 	case "PUT":
+		// Set content type to JSON for PUT request
+		c.httpClient.SetContentType("application/json")
+		defer c.httpClient.SetContentType(rest.ContentTypeMsgPack) // Reset to default
 		return c.httpClient.Put(ctx, path, requestBody, responseBody, 200)
 	case "DELETE":
+		c.httpClient.SetContentType("application/json")
+		defer c.httpClient.SetContentType(rest.ContentTypeMsgPack) // Reset to default
 		return c.httpClient.Delete(ctx, path, nil, nil, 200)
 	default:
 		return 0, fmt.Errorf("unsupported HTTP method: %s", method)

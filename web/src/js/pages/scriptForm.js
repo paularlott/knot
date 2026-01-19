@@ -7,16 +7,19 @@ import "ace-builds/src-noconflict/theme-github";
 import "ace-builds/src-noconflict/theme-github_dark";
 import "ace-builds/src-noconflict/ext-searchbox";
 import "ace-builds/src-noconflict/ext-language_tools";
+import "ace-builds/src-noconflict/snippets/python";
+import "ace-builds/src-noconflict/snippets/text";
 
 import { focus } from "../focus.js";
 import "./aceEditorCompleter.js"; // Sets up window.AceEditorCompleter
 import { scriptLibraries } from "./scriptCompletions.js";
 
-window.scriptForm = function (isEdit, scriptId) {
+window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
   return {
     loading: true,
     isEdit: isEdit,
     scriptId: scriptId,
+    isUserScript: isUserScript,
     nameValid: true,
     contentValid: true,
     buttonLabel: isEdit ? "Update Script" : "Create Script",
@@ -25,14 +28,17 @@ window.scriptForm = function (isEdit, scriptId) {
       description: "",
       content: "",
       groups: [],
+      zones: [],
       active: true,
       script_type: "script",
       mcp_input_schema_toml: "",
       mcp_keywords: [],
       timeout: "",
+      is_managed: false,
     },
     mcpKeywordsStr: "",
     availableGroups: [],
+    zoneValid: [],
     contentEditor: null,
     schemaEditor: null,
     descriptionEditor: null,
@@ -57,13 +63,20 @@ window.scriptForm = function (isEdit, scriptId) {
                   description: data.description,
                   content: data.content,
                   groups: data.groups || [],
+                  zones: data.zones || [],
                   active: data.active,
                   script_type: data.script_type || "script",
                   mcp_input_schema_toml: data.mcp_input_schema_toml || "",
                   mcp_keywords: data.mcp_keywords || [],
                   timeout: data.timeout || "",
+                  is_managed: data.is_managed || false,
                 };
+                this.isUserScript = data.user_id ? true : false;
                 this.mcpKeywordsStr = this.formData.mcp_keywords.join(", ");
+                this.zoneValid = [];
+                this.formData.zones.forEach(() => {
+                  this.zoneValid.push(true);
+                });
                 this.initEditors();
                 this.loading = false;
               });
@@ -93,6 +106,7 @@ window.scriptForm = function (isEdit, scriptId) {
             darkMode ? "ace/theme/github_dark" : "ace/theme/github"
           );
           this.contentEditor.session.setMode("ace/mode/python");
+          this.contentEditor.setReadOnly(this.formData.is_managed);
 
           // Register custom completer for scriptling/knot libraries
           window.AceEditorCompleter.setup(this.contentEditor, scriptLibraries, {
@@ -124,6 +138,7 @@ window.scriptForm = function (isEdit, scriptId) {
             darkMode ? "ace/theme/github_dark" : "ace/theme/github"
           );
           this.schemaEditor.session.setMode("ace/mode/toml");
+          this.schemaEditor.setReadOnly(this.formData.is_managed);
           this.schemaEditor.setOptions({
             printMargin: false,
             newLineMode: "unix",
@@ -148,6 +163,7 @@ window.scriptForm = function (isEdit, scriptId) {
             darkMode ? "ace/theme/github_dark" : "ace/theme/github"
           );
           this.descriptionEditor.session.setMode("ace/mode/text");
+          this.descriptionEditor.setReadOnly(this.formData.is_managed);
           this.descriptionEditor.setOptions({
             printMargin: false,
             newLineMode: "unix",
@@ -193,6 +209,41 @@ window.scriptForm = function (isEdit, scriptId) {
       this.nameValid = /^[a-zA-Z0-9_]{1,64}$/.test(this.formData.name);
     },
 
+    addZone() {
+      this.zoneValid.push(true);
+      this.formData.zones.push('');
+    },
+
+    removeZone(index) {
+      this.formData.zones.splice(index, 1);
+      this.zoneValid.splice(index, 1);
+    },
+
+    checkZone(index) {
+      if(index >= 0 && index < this.formData.zones.length) {
+        let isValid = this.formData.zones[index].length > 0 && this.formData.zones[index].length <= 64;
+        if(isValid) {
+          for (let i = 0; i < this.formData.zones.length; i++) {
+            if(i !== index && this.formData.zones[i] === this.formData.zones[index]) {
+              isValid = false;
+              break;
+            }
+          }
+        }
+        this.zoneValid[index] = isValid;
+        return isValid;
+      }
+      return false;
+    },
+
+    checkZonesValid() {
+      let zonesValid = true;
+      this.formData.zones.forEach((zone, index) => {
+        zonesValid = zonesValid && this.zoneValid[index];
+      });
+      return zonesValid;
+    },
+
     toggleGroup(groupId) {
       const index = this.formData.groups.indexOf(groupId);
       if (index >= 0) {
@@ -203,10 +254,12 @@ window.scriptForm = function (isEdit, scriptId) {
     },
 
     async submitData() {
+      if (this.formData.is_managed) return;
+
       this.checkName();
       this.contentValid = this.formData.content.length <= 4 * 1024 * 1024;
 
-      if (!this.nameValid || !this.contentValid) {
+      if (!this.nameValid || !this.contentValid || !this.checkZonesValid()) {
         return;
       }
 
@@ -218,6 +271,16 @@ window.scriptForm = function (isEdit, scriptId) {
       const submitData = { ...this.formData };
       submitData.timeout =
         submitData.timeout === "" ? 0 : parseInt(submitData.timeout);
+      
+      // Set user_id for user scripts
+      if (this.isUserScript) {
+        submitData.user_id = "current"; // Backend will set to current user
+        submitData.groups = []; // User scripts don't have groups
+      } else {
+        submitData.user_id = ""; // Global script
+      }
+
+      delete submitData.is_managed; // Don't send this field
 
       this.loading = true;
       const url = this.isEdit

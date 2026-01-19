@@ -2175,10 +2175,25 @@ paths:
   /api/scripts:
     get:
       summary: List Scripts
-      description: Get a list of all scripts accessible to the user.
+      description: Get a list of all scripts accessible to the user. By default returns global scripts only. Use user_id parameter to get user scripts.
       tags:
         - Scripts
       operationId: listScripts
+      parameters:
+        - name: user_id
+          in: query
+          description: Filter by user ID. Use to get user scripts. Empty or omitted returns global scripts only.
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: all_zones
+          in: query
+          description: If true, returns scripts from all zones. If false or omitted, only returns scripts valid for the current zone.
+          required: false
+          schema:
+            type: boolean
+            default: false
       responses:
         '200':
           description: Successful operation
@@ -2195,6 +2210,8 @@ paths:
                       $ref: '#/components/schemas/ScriptInfo'
         '401':
           $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
@@ -3214,11 +3231,19 @@ components:
         startup_script_id:
           type: string
           format: uuid
-          description: The ID of the script to run when the space starts.
+          description: The ID of the system script to run when the space starts.
         shutdown_script_id:
           type: string
           format: uuid
-          description: The ID of the script to run when the space stops.
+          description: The ID of the system script to run when the space stops.
+        user_startup_script:
+          type: string
+          maxLength: 64
+          description: The name of the user script to run when the space starts.
+        user_shutdown_script:
+          type: string
+          maxLength: 64
+          description: The name of the user script to run when the space stops.
         compute_units:
           type: integer
           format: uint32
@@ -3309,11 +3334,19 @@ components:
         startup_script_id:
           type: string
           format: uuid
-          description: The ID of the script to run when the space starts.
+          description: The ID of the system script to run when the space starts.
         shutdown_script_id:
           type: string
           format: uuid
-          description: The ID of the script to run when the space stops.
+          description: The ID of the system script to run when the space stops.
+        user_startup_script:
+          type: string
+          maxLength: 64
+          description: The name of the user script to run when the space starts.
+        user_shutdown_script:
+          type: string
+          maxLength: 64
+          description: The name of the user script to run when the space stops.
         compute_units:
           type: integer
           format: uint32
@@ -3418,11 +3451,19 @@ components:
         startup_script_id:
           type: string
           format: uuid
-          description: The ID of the script to run when the space starts.
+          description: The ID of the system script to run when the space starts.
         shutdown_script_id:
           type: string
           format: uuid
-          description: The ID of the script to run when the space stops.
+          description: The ID of the system script to run when the space stops.
+        user_startup_script:
+          type: string
+          maxLength: 64
+          description: The name of the user script to run when the space starts.
+        user_shutdown_script:
+          type: string
+          maxLength: 64
+          description: The name of the user script to run when the space stops.
         compute_units:
           type: integer
           format: uint32
@@ -4127,6 +4168,10 @@ components:
         id:
           type: string
           format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: The ID of the user who owns this script. Empty string for global scripts.
         name:
           type: string
         description:
@@ -4136,6 +4181,12 @@ components:
           items:
             type: string
             format: uuid
+          description: Group IDs that can access this script. Only applies to global scripts.
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zones where this script is available. Empty array means all zones.
         active:
           type: boolean
         script_type:
@@ -4143,6 +4194,9 @@ components:
           enum: [script, lib, tool]
         timeout:
           type: integer
+        is_managed:
+          type: boolean
+          description: If true, this script is managed by a parent server and cannot be edited.
 
     ScriptDetails:
       type: object
@@ -4150,6 +4204,10 @@ components:
         id:
           type: string
           format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: The ID of the user who owns this script. Empty string for global scripts.
         name:
           type: string
         description:
@@ -4161,6 +4219,12 @@ components:
           items:
             type: string
             format: uuid
+          description: Group IDs that can access this script. Only applies to global scripts.
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zones where this script is available. Empty array means all zones.
         active:
           type: boolean
         script_type:
@@ -4176,6 +4240,9 @@ components:
           description: Keywords for MCP tool discovery
         timeout:
           type: integer
+        is_managed:
+          type: boolean
+          description: If true, this script is managed by a parent server and cannot be edited.
 
     ScriptCreateRequest:
       type: object
@@ -4183,6 +4250,10 @@ components:
         - name
         - content
       properties:
+        user_id:
+          type: string
+          format: uuid
+          description: The ID of the user who will own this script. Use 'current' for the authenticated user. Empty string creates a global script.
         name:
           type: string
         description:
@@ -4194,6 +4265,12 @@ components:
           items:
             type: string
             format: uuid
+          description: Group IDs that can access this script. Only applies to global scripts. User scripts cannot have groups.
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zones where this script is available. Empty array means all zones.
         active:
           type: boolean
           default: true
@@ -4228,6 +4305,12 @@ components:
           items:
             type: string
             format: uuid
+          description: Group IDs that can access this script. Only applies to global scripts. User scripts cannot have groups.
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zones where this script is available. Empty array means all zones.
         active:
           type: boolean
         script_type:

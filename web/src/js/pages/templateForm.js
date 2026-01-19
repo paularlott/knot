@@ -30,6 +30,8 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
       with_run_command: false,
       startup_script_id: '',
       shutdown_script_id: '',
+      user_startup_script: '',
+      user_shutdown_script: '',
       compute_units: 0,
       storage_units: 0,
       active: true,
@@ -169,6 +171,8 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
           this.formData.custom_fields = template.custom_fields;
           this.formData.startup_script_id = template.startup_script_id || '';
           this.formData.shutdown_script_id = template.shutdown_script_id || '';
+          this.formData.user_startup_script = template.user_startup_script || '';
+          this.formData.user_shutdown_script = template.user_shutdown_script || '';
 
           // Set the zones and mark all as valid
           this.formData.zones = template.zones ? template.zones : [];
@@ -348,6 +352,8 @@ window.templateForm = function(isEdit, templateId, isDuplicate = false) {
         with_run_command: this.formData.with_run_command,
         startup_script_id: this.formData.platform === 'manual' ? '' : this.formData.startup_script_id,
         shutdown_script_id: this.formData.platform === 'manual' ? '' : this.formData.shutdown_script_id,
+        user_startup_script: this.formData.platform === 'manual' ? '' : this.formData.user_startup_script,
+        user_shutdown_script: this.formData.platform === 'manual' ? '' : this.formData.user_shutdown_script,
         compute_units: parseInt(this.formData.compute_units),
         storage_units: parseInt(this.formData.storage_units),
         schedule_enabled: this.formData.schedule_enabled && this.formData.platform !== 'manual',

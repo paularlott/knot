@@ -44,6 +44,8 @@ type Template struct {
 	WithRunCommand   bool                   `json:"with_run_command" db:"with_run_command"`
 	StartupScriptId  string                 `json:"startup_script_id" db:"startup_script_id"`
 	ShutdownScriptId string                 `json:"shutdown_script_id" db:"shutdown_script_id"`
+	UserStartupScript  string               `json:"user_startup_script" db:"user_startup_script"`
+	UserShutdownScript string               `json:"user_shutdown_script" db:"user_shutdown_script"`
 	ComputeUnits     uint32                 `json:"compute_units" db:"compute_units"`
 	StorageUnits     uint32                 `json:"storage_units" db:"storage_units"`
 	ScheduleEnabled  bool                   `json:"schedule_enabled" db:"schedule_enabled"`

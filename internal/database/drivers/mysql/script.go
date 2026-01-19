@@ -74,3 +74,51 @@ func (db *MySQLDriver) GetScriptByName(name string) (*model.Script, error) {
 
 	return scripts[0], nil
 }
+
+// GetScriptsByName returns all scripts matching a name (for zone-specific overrides)
+func (db *MySQLDriver) GetScriptsByName(name string) ([]*model.Script, error) {
+	var scripts []*model.Script
+
+	err := db.read("scripts", &scripts, nil, "name = ? ORDER BY JSON_LENGTH(zones) DESC, created_at", name)
+	if err != nil {
+		return nil, err
+	}
+	if len(scripts) == 0 {
+		return nil, fmt.Errorf("script not found")
+	}
+
+	return scripts, nil
+}
+
+
+// GetScriptByNameAndUser gets a script by name for a specific user
+// If userId is empty, it searches for global scripts
+// This supports the user script override functionality
+func (db *MySQLDriver) GetScriptByNameAndUser(name string, userId string) (*model.Script, error) {
+	var scripts []*model.Script
+
+	err := db.read("scripts", &scripts, nil, "name = ? AND user_id = ?", name, userId)
+	if err != nil {
+		return nil, err
+	}
+	if len(scripts) == 0 {
+		return nil, fmt.Errorf("script not found")
+	}
+
+	return scripts[0], nil
+}
+
+// GetScriptsByNameAndUser returns all scripts matching a name and user_id (for zone-specific overrides)
+func (db *MySQLDriver) GetScriptsByNameAndUser(name string, userId string) ([]*model.Script, error) {
+	var scripts []*model.Script
+
+	err := db.read("scripts", &scripts, nil, "name = ? AND user_id = ? ORDER BY JSON_LENGTH(zones) DESC, created_at", name, userId)
+	if err != nil {
+		return nil, err
+	}
+	if len(scripts) == 0 {
+		return nil, fmt.Errorf("script not found")
+	}
+
+	return scripts, nil
+}
