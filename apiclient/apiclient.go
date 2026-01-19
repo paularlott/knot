@@ -30,6 +30,11 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*ApiClien
 	return c, nil
 }
 
+func (c *ApiClient) SetContentType(contentType string) *ApiClient {
+	c.httpClient.SetContentType(contentType)
+	return c
+}
+
 func (c *ApiClient) AppendUserAgent(userAgent string) *ApiClient {
 	c.httpClient.AppendUserAgent(userAgent)
 	return c
@@ -63,27 +68,16 @@ func (c *ApiClient) GetAuthToken() string {
 	return c.httpClient.GetAuthToken()
 }
 
-// Do makes an arbitrary API request using JSON content type
+// Do makes an arbitrary API request
 func (c *ApiClient) Do(ctx context.Context, method string, path string, requestBody interface{}, responseBody interface{}) (int, error) {
 	switch method {
 	case "GET":
-		// Set content type to JSON for GET request (affects Accept header)
-		c.httpClient.SetContentType("application/json")
-		defer c.httpClient.SetContentType(rest.ContentTypeMsgPack) // Reset to default
 		return c.httpClient.Get(ctx, path, responseBody)
 	case "POST":
-		// Set content type to JSON for POST request
-		c.httpClient.SetContentType("application/json")
-		defer c.httpClient.SetContentType(rest.ContentTypeMsgPack) // Reset to default
 		return c.httpClient.Post(ctx, path, requestBody, responseBody, 200)
 	case "PUT":
-		// Set content type to JSON for PUT request
-		c.httpClient.SetContentType("application/json")
-		defer c.httpClient.SetContentType(rest.ContentTypeMsgPack) // Reset to default
 		return c.httpClient.Put(ctx, path, requestBody, responseBody, 200)
 	case "DELETE":
-		c.httpClient.SetContentType("application/json")
-		defer c.httpClient.SetContentType(rest.ContentTypeMsgPack) // Reset to default
 		return c.httpClient.Delete(ctx, path, nil, nil, 200)
 	default:
 		return 0, fmt.Errorf("unsupported HTTP method: %s", method)

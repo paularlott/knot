@@ -38,10 +38,6 @@ func (c *ApiClient) DeleteScript(ctx context.Context, id string) error {
 }
 
 func (c *ApiClient) CreateScript(ctx context.Context, req ScriptCreateRequest) (*ScriptCreateResponse, error) {
-	// Set content type to JSON for this request
-	c.httpClient.SetContentType("application/json")
-	defer c.httpClient.SetContentType("application/msgpack") // Reset to default
-
 	var resp ScriptCreateResponse
 	_, err := c.httpClient.Post(ctx, "/api/scripts", req, &resp, 201)
 	if err != nil {
@@ -51,10 +47,6 @@ func (c *ApiClient) CreateScript(ctx context.Context, req ScriptCreateRequest) (
 }
 
 func (c *ApiClient) UpdateScript(ctx context.Context, scriptId string, req ScriptUpdateRequest) error {
-	// Set content type to JSON for this request
-	c.httpClient.SetContentType("application/json")
-	defer c.httpClient.SetContentType("application/msgpack") // Reset to default
-
 	_, err := c.httpClient.Put(ctx, "/api/scripts/"+scriptId, req, nil, 200)
 	return err
 }

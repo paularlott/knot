@@ -80,6 +80,7 @@ func createClient(baseURL, token string) (*apiclient.ApiClient, error) {
 		return nil, err
 	}
 	client.SetTimeout(30 * time.Second)
+	client.SetContentType("application/json")
 	return client, nil
 }
 
@@ -187,20 +188,20 @@ func TestSuite1_ScriptCRUD(t *testing.T) {
 
 	t.Run("CreateMCPTool", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               testPrefix + "tool",
-			Description:        "Test MCP tool",
-			Content:            `def my_tool(input): return f"Tool result: {input}"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "tool",
+			UserId:      "current",
+			Name:        testPrefix + "tool",
+			Description: "Test MCP tool",
+			Content:     `def my_tool(input): return f"Tool result: {input}"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "tool",
 			MCPInputSchemaToml: `[[parameter]]
 name = "message"
 type = "string"
 description = "Message to process"
 required = true`,
-			MCPKeywords:        []string{"test", "helper"},
-			Timeout:            30,
+			MCPKeywords: []string{"test", "helper"},
+			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -712,19 +713,19 @@ func TestSuite6_MCPTools(t *testing.T) {
 	// Create a global MCP tool
 	t.Run("CreateGlobalMCPTool", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "",
-			Name:               testPrefix + "global_tool",
-			Description:        "Global MCP tool",
-			Content:            `def global_tool(): return "global result"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "tool",
+			UserId:      "",
+			Name:        testPrefix + "global_tool",
+			Description: "Global MCP tool",
+			Content:     `def global_tool(): return "global result"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "tool",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"
 description = "Input parameter"`,
-			MCPKeywords:        []string{"global", "test"},
-			Timeout:            30,
+			MCPKeywords: []string{"global", "test"},
+			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -741,19 +742,19 @@ description = "Input parameter"`,
 	// Create user1's MCP tool with SAME NAME (should override)
 	t.Run("CreateUser1MCPTool_Override", func(t *testing.T) {
 		req := apiclient.ScriptCreateRequest{
-			UserId:             "current",
-			Name:               testPrefix + "global_tool",
-			Description:        "User1's override tool",
-			Content:            `def global_tool(): return "user1 override result"`,
-			Zones:              []string{},
-			Active:             true,
-			ScriptType:         "tool",
+			UserId:      "current",
+			Name:        testPrefix + "global_tool",
+			Description: "User1's override tool",
+			Content:     `def global_tool(): return "user1 override result"`,
+			Zones:       []string{},
+			Active:      true,
+			ScriptType:  "tool",
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"
 description = "Input parameter"`,
-			MCPKeywords:        []string{"user1", "override"},
-			Timeout:            30,
+			MCPKeywords: []string{"user1", "override"},
+			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
