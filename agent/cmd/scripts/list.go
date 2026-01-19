@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/cli"
+	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/command/cmdutil"
 	"github.com/paularlott/knot/internal/util"
 )
@@ -29,26 +30,58 @@ var listCmd = &cli.Command{
 			return nil
 		}
 
-		table := [][]string{
-			{"NAME", "DESCRIPTION", "ACTIVE", "TYPE", "TIMEOUT"},
-		}
-
+		// Separate scripts into user and global
+		var userScripts, globalScripts []apiclient.ScriptInfo
 		for _, script := range scripts.Scripts {
-			active := "No"
-			if script.Active {
-				active = "Yes"
+			if script.UserId != "" {
+				userScripts = append(userScripts, script)
+			} else {
+				globalScripts = append(globalScripts, script)
 			}
-
-			table = append(table, []string{
-				script.Name,
-				script.Description,
-				active,
-				script.ScriptType,
-				fmt.Sprintf("%ds", script.Timeout),
-			})
 		}
 
-		util.PrintTable(table)
+		// Print user scripts first (if any)
+		if len(userScripts) > 0 {
+			fmt.Println("\nUser Scripts:")
+			table := [][]string{
+				{"NAME", "DESCRIPTION", "ACTIVE", "TYPE"},
+			}
+			for _, script := range userScripts {
+				active := "No"
+				if script.Active {
+					active = "Yes"
+				}
+				table = append(table, []string{
+					script.Name,
+					script.Description,
+					active,
+					script.ScriptType,
+				})
+			}
+			util.PrintTable(table)
+		}
+
+		// Print global scripts (if any)
+		if len(globalScripts) > 0 {
+			fmt.Println("\nGlobal Scripts:")
+			table := [][]string{
+				{"NAME", "DESCRIPTION", "ACTIVE", "TYPE"},
+			}
+			for _, script := range globalScripts {
+				active := "No"
+				if script.Active {
+					active = "Yes"
+				}
+				table = append(table, []string{
+					script.Name,
+					script.Description,
+					active,
+					script.ScriptType,
+				})
+			}
+			util.PrintTable(table)
+		}
+
 		return nil
 	},
 }
