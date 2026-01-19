@@ -50,12 +50,14 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 		}
 
 		// User scripts override global scripts with the same name
-		// Only skip if we already have a user script (not global) for this name
-		if existingUserId, exists := userIdMap[script.Name]; exists {
-			if existingUserId != "" && script.UserId == "" {
-				// We have a user script, and this is a global script - skip global
+		if _, exists := userIdMap[script.Name]; exists {
+			// If current script is global (UserId is empty)
+			if script.UserId == "" {
+				// Skip if we already have ANY tool (user or global) for this name
+				// Global scripts should never replace existing tools
 				continue
 			}
+			// Current script is a user script - always replace (user scripts override both global and other user scripts)
 		}
 
 		// Build input schema - if TOML schema exists, parse it; otherwise use empty schema
