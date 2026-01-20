@@ -668,7 +668,7 @@ func TestSuite5_ZoneFiltering(t *testing.T) {
 	})
 }
 
-// TestSuite6_MCPTools tests MCP tool integration via /mcp and /mcp/discovery endpoints
+// TestSuite6_MCPTools tests MCP tool integration via /mcp and /mcp?tool_mode=discovery endpoints
 func TestSuite6_MCPTools(t *testing.T) {
 	cfg, skip := getTestConfig(t)
 	if skip {
@@ -808,7 +808,7 @@ description = "Input parameter"`,
 		t.Logf("User1 sees their override tool: %s", description)
 	})
 
-	// Test /mcp/discovery endpoint - should only show meta tools (tool_search, execute_tool)
+	// Test /mcp?tool_mode=discovery endpoint - should only show meta tools (tool_search, execute_tool)
 	// User's script tools are hidden from tools/list but searchable via tool_search
 	t.Run("MCPDiscovery_OnlyMetaToolsVisible", func(t *testing.T) {
 		// tools/list request
@@ -819,9 +819,9 @@ description = "Input parameter"`,
 		}
 
 		var resp map[string]any
-		statusCode, err := user1Client.Do(ctx, "POST", "/mcp/discovery", mcpRequest, &resp)
+		statusCode, err := user1Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", mcpRequest, &resp)
 		if err != nil {
-			t.Fatalf("Failed to call /mcp/discovery endpoint: %v", err)
+			t.Fatalf("Failed to call /mcp?tool_mode=discovery endpoint: %v", err)
 		}
 		if statusCode != 200 {
 			t.Fatalf("Expected status 200, got %d", statusCode)
@@ -852,21 +852,21 @@ description = "Input parameter"`,
 
 		// Verify tool_search and execute_tool are present
 		if !metaTools["tool_search"] {
-			t.Error("tool_search not found in /mcp/discovery tools/list")
+			t.Error("tool_search not found in /mcp?tool_mode=discovery tools/list")
 		}
 		if !metaTools["execute_tool"] {
-			t.Error("execute_tool not found in /mcp/discovery tools/list")
+			t.Error("execute_tool not found in /mcp?tool_mode=discovery tools/list")
 		}
 
 		// Verify user's script tool is NOT in tools/list (it's hidden but searchable)
 		if metaTools[testPrefix+"global_tool"] {
-			t.Error("User's script tool should not be visible in /mcp/discovery tools/list (should only be searchable via tool_search)")
+			t.Error("User's script tool should not be visible in /mcp?tool_mode=discovery tools/list (should only be searchable via tool_search)")
 		}
 
-		t.Logf("/mcp/discovery shows %d meta tools (tool_search, execute_tool)", len(tools))
+		t.Logf("/mcp?tool_mode=discovery shows %d meta tools (tool_search, execute_tool)", len(tools))
 	})
 
-	// Test tool_search on /mcp/discovery to find scripts
+	// Test tool_search on /mcp?tool_mode=discovery to find scripts
 	t.Run("MCPDiscovery_ToolSearchFindsScripts", func(t *testing.T) {
 		// tool_search request via tools/call
 		mcpRequest := map[string]any{
@@ -883,7 +883,7 @@ description = "Input parameter"`,
 		}
 
 		var resp map[string]any
-		statusCode, err := user1Client.Do(ctx, "POST", "/mcp/discovery", mcpRequest, &resp)
+		statusCode, err := user1Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", mcpRequest, &resp)
 		if err != nil {
 			t.Fatalf("Failed to call tool_search: %v", err)
 		}
@@ -952,7 +952,7 @@ description = "Input parameter"`,
 		t.Logf("tool_search found %d matching tools", len(tools))
 	})
 
-	// Test tool_search on /mcp/discovery with empty query returns all tools
+	// Test tool_search on /mcp?tool_mode=discovery with empty query returns all tools
 	t.Run("MCPDiscovery_ToolSearchReturnsAllTools", func(t *testing.T) {
 		// tool_search request via tools/call with empty query to get all tools
 		mcpRequest := map[string]any{
@@ -969,7 +969,7 @@ description = "Input parameter"`,
 		}
 
 		var resp map[string]any
-		statusCode, err := user1Client.Do(ctx, "POST", "/mcp/discovery", mcpRequest, &resp)
+		statusCode, err := user1Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", mcpRequest, &resp)
 		if err != nil {
 			t.Fatalf("Failed to call tool_search: %v", err)
 		}
@@ -1166,9 +1166,9 @@ description = "Input parameter"`,
 		t.Logf("User2 (with ExecuteScripts) sees %d total tools", len(tools))
 	})
 
-	// Test that /mcp and /mcp/discovery have different purposes and return different data
+	// Test that /mcp and /mcp?tool_mode=discovery have different purposes and return different data
 	// /mcp (native mode): Shows all native tools (built-in + script tools)
-	// /mcp/discovery (force on-demand mode): Only shows meta tools (tool_search, execute_tool)
+	// /mcp?tool_mode=discovery (force on-demand mode): Only shows meta tools (tool_search, execute_tool)
 	t.Run("MCPEndpoints_DifferentData", func(t *testing.T) {
 		mcpRequest := map[string]any{
 			"jsonrpc": "2.0",
@@ -1186,14 +1186,14 @@ description = "Input parameter"`,
 			t.Fatalf("Expected status 200 from /mcp, got %d", statusCode)
 		}
 
-		// Get tools from /mcp/discovery
+		// Get tools from /mcp?tool_mode=discovery
 		var mcpDiscoveryResp map[string]any
-		statusCode, err = user1Client.Do(ctx, "POST", "/mcp/discovery", mcpRequest, &mcpDiscoveryResp)
+		statusCode, err = user1Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", mcpRequest, &mcpDiscoveryResp)
 		if err != nil {
-			t.Fatalf("Failed to call /mcp/discovery: %v", err)
+			t.Fatalf("Failed to call /mcp?tool_mode=discovery: %v", err)
 		}
 		if statusCode != 200 {
-			t.Fatalf("Expected status 200 from /mcp/discovery, got %d", statusCode)
+			t.Fatalf("Expected status 200 from /mcp?tool_mode=discovery, got %d", statusCode)
 		}
 
 		// Compare tool counts
@@ -1202,20 +1202,20 @@ description = "Input parameter"`,
 		mcpDiscoveryResult := mcpDiscoveryResp["result"].(map[string]any)
 		mcpDiscoveryTools := mcpDiscoveryResult["tools"].([]any)
 
-		// /mcp should return more tools than /mcp/discovery
+		// /mcp should return more tools than /mcp?tool_mode=discovery
 		// /mcp: all native tools (built-in + scripts)
-		// /mcp/discovery: only meta tools (tool_search, execute_tool)
+		// /mcp?tool_mode=discovery: only meta tools (tool_search, execute_tool)
 		if len(mcpTools) <= len(mcpDiscoveryTools) {
-			t.Errorf("/mcp should return more tools than /mcp/discovery: %d vs %d", len(mcpTools), len(mcpDiscoveryTools))
+			t.Errorf("/mcp should return more tools than /mcp?tool_mode=discovery: %d vs %d", len(mcpTools), len(mcpDiscoveryTools))
 		}
 
-		// /mcp/discovery should have exactly 2 tools (tool_search, execute_tool)
+		// /mcp?tool_mode=discovery should have exactly 2 tools (tool_search, execute_tool)
 		if len(mcpDiscoveryTools) != 2 {
-			t.Errorf("/mcp/discovery should have exactly 2 meta tools, got %d", len(mcpDiscoveryTools))
+			t.Errorf("/mcp?tool_mode=discovery should have exactly 2 meta tools, got %d", len(mcpDiscoveryTools))
 		}
 
 		t.Logf("/mcp returned %d tools (native mode with all tools)", len(mcpTools))
-		t.Logf("/mcp/discovery returned %d tools (force on-demand mode with only meta tools)", len(mcpDiscoveryTools))
+		t.Logf("/mcp?tool_mode=discovery returned %d tools (force on-demand mode with only meta tools)", len(mcpDiscoveryTools))
 	})
 
 	// Test tool_search behavior on /mcp endpoint (normal mode)

@@ -587,7 +587,7 @@ type = "string"`,
 		t.Logf("User2 MCP tools: total=%d, zone=%v, user1=%v, user2=%v", len(tools), hasGlobalZone, hasUser1Tool, hasUser2Tool)
 	})
 
-	// Test /mcp/discovery endpoint for user1 using tool_search
+	// Test /mcp?tool_mode=discovery endpoint for user1 using tool_search
 	t.Run("MCPDiscovery_User1SeesCorrectTools", func(t *testing.T) {
 		mcpRequest := map[string]any{
 			"jsonrpc": "2.0",
@@ -603,7 +603,7 @@ type = "string"`,
 		}
 
 		var resp map[string]any
-		statusCode, err := user1Client.Do(ctx, "POST", "/mcp/discovery", mcpRequest, &resp)
+		statusCode, err := user1Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", mcpRequest, &resp)
 		if err != nil {
 			t.Fatalf("Failed to call tool_search: %v", err)
 		}
@@ -678,7 +678,7 @@ type = "string"`,
 		t.Logf("User1 MCP discovery: zone=%v, user1=%v, user2=%v", hasGlobalZone, hasUser1Tool, hasUser2Tool)
 	})
 
-	// Test /mcp/discovery endpoint for user2 using tool_search
+	// Test /mcp?tool_mode=discovery endpoint for user2 using tool_search
 	t.Run("MCPDiscovery_User2SeesCorrectTools", func(t *testing.T) {
 		mcpRequest := map[string]any{
 			"jsonrpc": "2.0",
@@ -694,7 +694,7 @@ type = "string"`,
 		}
 
 		var resp map[string]any
-		statusCode, err := user2Client.Do(ctx, "POST", "/mcp/discovery", mcpRequest, &resp)
+		statusCode, err := user2Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", mcpRequest, &resp)
 		if err != nil {
 			t.Fatalf("Failed to call tool_search: %v", err)
 		}
@@ -784,7 +784,7 @@ type = "string"`,
 			t.Fatalf("Failed to call /mcp: status=%d, err=%v", statusCode, err)
 		}
 
-		// Get tools from /mcp/discovery via tool_search
+		// Get tools from /mcp?tool_mode=discovery via tool_search
 		discoverySearchRequest := map[string]any{
 			"jsonrpc": "2.0",
 			"id":      1,
@@ -799,15 +799,15 @@ type = "string"`,
 		}
 
 		var discoveryResp map[string]any
-		statusCode, err = user1Client.Do(ctx, "POST", "/mcp/discovery", discoverySearchRequest, &discoveryResp)
+		statusCode, err = user1Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", discoverySearchRequest, &discoveryResp)
 		if err != nil || statusCode != 200 {
-			t.Fatalf("Failed to call tool_search on /mcp/discovery: status=%d, err=%v", statusCode, err)
+			t.Fatalf("Failed to call tool_search on /mcp?tool_mode=discovery: status=%d, err=%v", statusCode, err)
 		}
 
 		// Parse /mcp tools from tools/list
 		mcpTools := mcpResp["result"].(map[string]any)["tools"].([]any)
 
-		// Parse /mcp/discovery tools from tool_search response
+		// Parse /mcp?tool_mode=discovery tools from tool_search response
 		discoveryResult := discoveryResp["result"].(map[string]any)
 		discoveryContent := discoveryResult["content"].([]any)
 		discoveryFirstContent := discoveryContent[0].(map[string]any)
@@ -844,7 +844,7 @@ type = "string"`,
 		discoveryCount := countTestToolsFromMap(discoveryTools)
 
 		if mcpCount != discoveryCount {
-			t.Errorf("/mcp and /mcp/discovery returned different test tool counts: %d vs %d", mcpCount, discoveryCount)
+			t.Errorf("/mcp and /mcp?tool_mode=discovery returned different test tool counts: %d vs %d", mcpCount, discoveryCount)
 		}
 
 		t.Logf("Both endpoints returned %d test tools consistently", mcpCount)
@@ -1077,7 +1077,7 @@ type = "string"`,
 		}
 	})
 
-	// Step 3: Verify both users can find the global tool via /mcp/discovery
+	// Step 3: Verify both users can find the global tool via /mcp?tool_mode=discovery
 	t.Run("BothUsersSeeGlobalTool_Discovery", func(t *testing.T) {
 		// Test User1
 		mcpRequest := map[string]any{
@@ -1094,7 +1094,7 @@ type = "string"`,
 		}
 
 		var resp map[string]any
-		statusCode, err := user1Client.Do(ctx, "POST", "/mcp/discovery", mcpRequest, &resp)
+		statusCode, err := user1Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", mcpRequest, &resp)
 		if err != nil {
 			t.Fatalf("User1 failed to call tool_search: %v", err)
 		}
@@ -1130,7 +1130,7 @@ type = "string"`,
 
 		// Test User2
 		var resp2 map[string]any
-		statusCode, err = user2Client.Do(ctx, "POST", "/mcp/discovery", mcpRequest, &resp2)
+		statusCode, err = user2Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", mcpRequest, &resp2)
 		if err != nil {
 			t.Fatalf("User2 failed to call tool_search: %v", err)
 		}
@@ -1276,7 +1276,7 @@ type = "string"`,
 		}
 	})
 
-	// Step 7: Verify User1 gets their own version via /mcp/discovery (execute_tool)
+	// Step 7: Verify User1 gets their own version via /mcp?tool_mode=discovery (execute_tool)
 	t.Run("User1GetsOwnVersion_Discovery", func(t *testing.T) {
 		mcpRequest := map[string]any{
 			"jsonrpc": "2.0",
@@ -1294,7 +1294,7 @@ type = "string"`,
 		}
 
 		var resp map[string]any
-		statusCode, err := user1Client.Do(ctx, "POST", "/mcp/discovery", mcpRequest, &resp)
+		statusCode, err := user1Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", mcpRequest, &resp)
 		if err != nil {
 			t.Fatalf("Failed to call execute_tool: %v", err)
 		}
@@ -1308,7 +1308,7 @@ type = "string"`,
 		text := firstContent["text"].(string)
 
 		if strings.Contains(text, "user1 version") {
-			t.Log("User1 correctly gets their own version via /mcp/discovery")
+			t.Log("User1 correctly gets their own version via /mcp?tool_mode=discovery")
 		} else if strings.Contains(text, "global version") {
 			t.Error("User1 should get their own version, not global version")
 		} else if strings.Contains(text, "user2 version") {
@@ -1368,7 +1368,7 @@ type = "string"`,
 		}
 	})
 
-	// Step 9: Verify User2 gets their own version via /mcp/discovery
+	// Step 9: Verify User2 gets their own version via /mcp?tool_mode=discovery
 	t.Run("User2GetsOwnVersion_Discovery", func(t *testing.T) {
 		mcpRequest := map[string]any{
 			"jsonrpc": "2.0",
@@ -1386,7 +1386,7 @@ type = "string"`,
 		}
 
 		var resp map[string]any
-		statusCode, err := user2Client.Do(ctx, "POST", "/mcp/discovery", mcpRequest, &resp)
+		statusCode, err := user2Client.Do(ctx, "POST", "/mcp?tool_mode=discovery", mcpRequest, &resp)
 		if err != nil {
 			t.Fatalf("Failed to call execute_tool: %v", err)
 		}
@@ -1411,7 +1411,7 @@ type = "string"`,
 		text := firstContent["text"].(string)
 
 		if strings.Contains(text, "user2 version") {
-			t.Log("User2 correctly gets their own version via /mcp/discovery")
+			t.Log("User2 correctly gets their own version via /mcp?tool_mode=discovery")
 		} else if strings.Contains(text, "global version") {
 			t.Error("User2 should get their own version, not global version")
 		} else if strings.Contains(text, "user1 version") {

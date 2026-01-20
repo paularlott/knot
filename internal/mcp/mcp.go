@@ -30,43 +30,27 @@ All tools are directly callable on the /mcp endpoint.
 Use tool_search to discover tools by keyword or description.`)
 
 	if enableWebEndpoint {
-		// Create handler for native tools endpoint (/mcp)
-		// This endpoint shows all native tools directly in tools/list
-		nativeHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Create unified handler for /mcp endpoint
+		// Mode is determined from X-MCP-Tool-Mode header or tool_mode query parameter
+		// In discovery mode, only tool_search/execute_tool are visible (all others are searchable)
+		unifiedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
 
-			// Add script tools as request-scoped provider (they'll be visible in tools/list)
+			// Add script tools as request-scoped provider
 			ctx := r.Context()
 			if user != nil && (user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts)) {
 				provider := NewScriptToolsProvider(user)
 				ctx = mcp.WithToolProviders(ctx, provider)
 			}
 
-			// Handle the MCP request - native mode (all tools visible)
+			// Handle the MCP request - mode is determined from header by MCP server
 			server.HandleRequest(w, r.WithContext(ctx))
 		})
 
-		// Apply authentication middleware - native tools endpoint
-		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(nativeHandler.ServeHTTP)))
-
-		// Discovery endpoint with forced ondemand mode (only tool_search/execute_tool visible)
-		discoveryHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user := r.Context().Value("user").(*model.User)
-
-			ctx := r.Context()
-			if user != nil && (user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts)) {
-				provider := NewScriptToolsProvider(user)
-				ctx = mcp.WithForceOnDemandMode(ctx, provider)
-			} else {
-				ctx = mcp.WithForceOnDemandMode(ctx)
-			}
-
-			server.HandleRequest(w, r.WithContext(ctx))
-		})
-
-		// Apply authentication middleware - discovery mode endpoint
-		routes.HandleFunc("POST /mcp/discovery", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(discoveryHandler.ServeHTTP)))
+		// Apply authentication middleware - unified endpoint
+		// Use X-MCP-Tool-Mode: discovery header for discovery mode
+		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(unifiedHandler.ServeHTTP)))
 	}
 
 	// =========================================================================

@@ -12,7 +12,7 @@ Automated tests validate the script integration system through two approaches:
 - **User Isolation**: Users can only see/execute their own scripts
 - **Zone Overrides**: Multiple scripts with the same name for different zones
 - **Permission Model**: Different permission combinations work correctly
-- **MCP Tools**: Both `/mcp` (native MCP protocol) and `/mcp/discovery` (tool_search) endpoints
+- **MCP Tools**: Unified `/mcp` endpoint with mode selection via header or query param
 - **Group Permissions**: Group-based access control for global scripts
 
 ## Test Status
@@ -29,7 +29,7 @@ As of the latest test run, all core and enhanced test suites pass successfully:
 
 1. **Zone Filtering for MCP Tools**: Zone filtering is implemented for API endpoints but NOT for MCP tool endpoints. Script tools are visible via `/mcp` regardless of zone configuration. This is documented as a warning in TestSuite11.
 
-2. **tool_search Behavior**: Users without `ExecuteScripts` permission may receive "No tools found" responses from `tool_search` on `/mcp/discovery`, even when they have access to built-in tools via `/mcp`.
+2. **tool_search Behavior**: Users without `ExecuteScripts` permission may receive "No tools found" responses from `tool_search` in discovery mode, even when they have access to built-in tools via `/mcp` in normal mode.
 
 3. **User Override Logic**: The script tool override logic in [internal/mcp/scripts.go](internal/mcp/scripts.go) ensures global scripts never replace user tools, regardless of database result ordering.
 
@@ -209,12 +209,12 @@ go test -v . -run TestSuite15
 - ✅ Create global MCP tools
 - ✅ Create user MCP tool overrides (same name as global)
 - ✅ User sees their override tool via `/mcp` (native mode)
-- ✅ `/mcp/discovery` shows only meta tools (tool_search, execute_tool) in tools/list
-- ✅ `tool_search` on `/mcp/discovery` finds user's script tools
+- ✅ `/mcp?tool_mode=discovery` shows only meta tools (tool_search, execute_tool) in tools/list
+- ✅ `tool_search` in discovery mode finds user's script tools
 - ✅ `tool_search` with empty query returns all available tools (30+)
 - ✅ User CANNOT see another user's tools via `/mcp`
 - ✅ User without ExecuteScripts permission sees only built-in tools
-- ✅ `/mcp` and `/mcp/discovery` return different tool counts (by design)
+- ✅ Normal mode and discovery mode return different tool counts (by design)
 - ✅ `tool_search` on `/mcp` (normal mode) doesn't find native script tools (expected behavior)
 
 #### Test Suite 7: Library Access
@@ -255,11 +255,11 @@ go test -v . -run TestSuite15
 - ✅ Global tools in wrong zone are NOT visible (zone filtering not implemented for MCP tools - logged as warning)
 - ✅ User1's tools visible to user1 only
 - ✅ User2's tools visible to user2 only
-- ✅ Both `/mcp` and `/mcp/discovery` tested for both users
-- ✅ **User1 on `/mcp`**: Sees global tools and own tools, not User2's tools
-- ✅ **User1 on `/mcp/discovery`**: tool_search finds global tools and own tools, not User2's tools
-- ✅ **User2 on `/mcp`**: Sees only built-in tools (no script tools) - lacks `ExecuteScripts` permission
-- ✅ **User2 on `/mcp/discovery`**: tool_search returns "No tools found" - lacks `ExecuteScripts` permission
+- ✅ Both normal mode and discovery mode tested for both users
+- ✅ **User1 normal mode**: Sees global tools and own tools, not User2's tools
+- ✅ **User1 discovery mode**: tool_search finds global tools and own tools, not User2's tools
+- ✅ **User2 normal mode**: Sees only built-in tools (no script tools) - lacks `ExecuteScripts` permission
+- ✅ **User2 discovery mode**: tool_search returns "No tools found" - lacks `ExecuteScripts` permission
 - ✅ Zone-aware, user-aware, group-aware validation
 
 #### Test Suite 12: Cleanup All
@@ -296,9 +296,9 @@ go test -v . -run TestSuite15
 - ✅ Script type changes from script → tool appear in MCP list
 - ✅ Script type changes from tool → script are handled correctly
 
-## MCP Endpoint Differences
+## MCP Endpoint Modes
 
-### `/mcp` Endpoint (Native Mode)
+### Normal Mode (default)
 
 - Uses native MCP protocol (JSON-RPC 2.0)
 - Method: `tools/list` - Returns all native tools (built-in + scripts)
@@ -306,7 +306,7 @@ go test -v . -run TestSuite15
 - Script tools are visible and directly callable
 - `tool_search` tool exists but only finds on-demand tools (not native script tools)
 
-### `/mcp/discovery` Endpoint (Discovery Mode)
+### Discovery Mode (`X-MCP-Tool-Mode: discovery` or `?tool_mode=discovery`)
 
 - Uses MCP protocol with force on-demand mode
 - Method: `tools/list` - Returns only meta tools (`tool_search`, `execute_tool`)
@@ -316,15 +316,15 @@ go test -v . -run TestSuite15
 - Discovered tools must be called via `execute_tool`
 
 **Key Differences:**
-| Feature | `/mcp` | `/mcp/discovery` |
-|---------|--------|------------------|
+| Feature | Normal Mode | Discovery Mode |
+|---------|-------------|----------------|
 | Tools in `tools/list` | All native tools (30+) | Only meta tools (2) |
 | Script tools visible | Yes (directly in list) | No (hidden but searchable) |
 | Tool discovery | Not needed | Use `tool_search` |
 | Calling tools | Direct via `tools/call` | Via `execute_tool` after discovery |
 | Use case | Direct MCP clients | AI clients needing minimal context |
 
-**Example: Finding all tools on `/mcp/discovery`:**
+**Example: Finding all tools in discovery mode:**
 
 ```json
 {
