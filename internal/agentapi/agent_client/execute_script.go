@@ -12,6 +12,8 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
+	"github.com/paularlott/logger"
+	"github.com/paularlott/scriptling"
 )
 
 var agentClient *AgentClient
@@ -65,7 +67,16 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 		}
 	}
 
-	env, err := service.NewRemoteScriptlingEnv(execMsg.Arguments, client, userId)
+	var env *scriptling.Scriptling
+	var err error
+
+	// Use custom logger when agent client is available (for space startup and run-script commands)
+	var customLogger logger.Logger = nil
+	if agentClient != nil {
+		customLogger = NewAgentClientLogger(agentClient, "script")
+	}
+	env, err = service.NewRemoteScriptlingEnv(execMsg.Arguments, client, userId, customLogger)
+
 	if err != nil {
 		response := msg.ExecuteScriptResponse{
 			Success: false,
