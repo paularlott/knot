@@ -22,7 +22,6 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
     isUserScript: isUserScript,
     nameValid: true,
     contentValid: true,
-    buttonLabel: isEdit ? "Update Script" : "Create Script",
     formData: {
       name: "",
       description: "",
@@ -93,7 +92,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
 
     initEditors() {
       this.$nextTick(() => {
-        let darkMode = this.darkMode;
+        let darkMode = JSON.parse(localStorage.getItem("_x_darkMode"));
         if (darkMode == null) darkMode = true;
 
         if (!this.contentEditor) {
@@ -103,7 +102,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
             this.formData.content = this.contentEditor.getValue();
           });
           this.contentEditor.setTheme(
-            darkMode ? "ace/theme/github_dark" : "ace/theme/github"
+            darkMode ? "ace/theme/github_dark" : "ace/theme/github",
           );
           this.contentEditor.session.setMode("ace/mode/python");
           this.contentEditor.setReadOnly(this.formData.is_managed);
@@ -129,13 +128,13 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
         if (!this.schemaEditor) {
           this.schemaEditor = ace.edit("mcp_schema");
           this.schemaEditor.session.setValue(
-            this.formData.mcp_input_schema_toml
+            this.formData.mcp_input_schema_toml,
           );
           this.schemaEditor.session.on("change", () => {
             this.formData.mcp_input_schema_toml = this.schemaEditor.getValue();
           });
           this.schemaEditor.setTheme(
-            darkMode ? "ace/theme/github_dark" : "ace/theme/github"
+            darkMode ? "ace/theme/github_dark" : "ace/theme/github",
           );
           this.schemaEditor.session.setMode("ace/mode/toml");
           this.schemaEditor.setReadOnly(this.formData.is_managed);
@@ -160,7 +159,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
             this.formData.description = this.descriptionEditor.getValue();
           });
           this.descriptionEditor.setTheme(
-            darkMode ? "ace/theme/github_dark" : "ace/theme/github"
+            darkMode ? "ace/theme/github_dark" : "ace/theme/github",
           );
           this.descriptionEditor.session.setMode("ace/mode/text");
           this.descriptionEditor.setReadOnly(this.formData.is_managed);
@@ -211,7 +210,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
 
     addZone() {
       this.zoneValid.push(true);
-      this.formData.zones.push('');
+      this.formData.zones.push("");
     },
 
     removeZone(index) {
@@ -220,11 +219,16 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
     },
 
     checkZone(index) {
-      if(index >= 0 && index < this.formData.zones.length) {
-        let isValid = this.formData.zones[index].length > 0 && this.formData.zones[index].length <= 64;
-        if(isValid) {
+      if (index >= 0 && index < this.formData.zones.length) {
+        let isValid =
+          this.formData.zones[index].length > 0 &&
+          this.formData.zones[index].length <= 64;
+        if (isValid) {
           for (let i = 0; i < this.formData.zones.length; i++) {
-            if(i !== index && this.formData.zones[i] === this.formData.zones[index]) {
+            if (
+              i !== index &&
+              this.formData.zones[i] === this.formData.zones[index]
+            ) {
               isValid = false;
               break;
             }
@@ -253,7 +257,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
       }
     },
 
-    async submitData() {
+    async submitData(continueEditing = false) {
       if (this.formData.is_managed) return;
 
       this.checkName();
@@ -271,7 +275,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
       const submitData = { ...this.formData };
       submitData.timeout =
         submitData.timeout === "" ? 0 : parseInt(submitData.timeout);
-      
+
       // Set user_id for user scripts
       if (this.isUserScript) {
         submitData.user_id = "current"; // Backend will set to current user
@@ -282,7 +286,10 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
 
       delete submitData.is_managed; // Don't send this field
 
-      this.loading = true;
+      if (!continueEditing) {
+        this.loading = true;
+      }
+
       const url = this.isEdit
         ? `/api/scripts/${this.scriptId}`
         : "/api/scripts";
@@ -301,13 +308,21 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
               msg: "Script updated",
               type: "success",
             });
-            this.$dispatch("close-script-form");
+            if (!continueEditing) {
+              this.$dispatch("close-script-form");
+            }
           } else if (response.status === 201) {
+            const data = await response.json();
             this.$dispatch("show-alert", {
               msg: "Script created",
               type: "success",
             });
-            this.$dispatch("close-script-form");
+            if (continueEditing) {
+              this.scriptId = data.script_id;
+              this.isEdit = true;
+            } else {
+              this.$dispatch("close-script-form");
+            }
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
