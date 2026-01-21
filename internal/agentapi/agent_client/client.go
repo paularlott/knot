@@ -40,7 +40,6 @@ type AgentClient struct {
 	httpsPortMap           map[string]string
 	tcpPortMap             map[string]string
 	logChannel             chan *msg.LogMessage
-	logTempBuffer          []*msg.LogMessage
 }
 
 func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {

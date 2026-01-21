@@ -15,6 +15,7 @@ import (
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/stdlib"
+	"github.com/paularlott/logger"
 )
 
 var (
@@ -41,12 +42,18 @@ func SetLibraryFetcher(fetcher func(string) (string, error)) {
 }
 
 // registerBaseLibraries registers common libraries shared across all environments
-func registerBaseLibraries(env *scriptling.Scriptling) {
+// customLogger is optional - pass nil to use the default logger
+func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logger) {
 	stdlib.RegisterAll(env)
 	extlibs.RegisterRequestsLibrary(env)
 	extlibs.RegisterSecretsLibrary(env)
 	extlibs.RegisterHTMLParserLibrary(env)
 	extlibs.RegisterWaitForLibrary(env)
+	if customLogger != nil {
+		extlibs.RegisterLoggingLibrary(env, customLogger) // Register logging library with custom logger
+	} else {
+		extlibs.RegisterLoggingLibraryDefault(env) // Register standard logging library with default logger
+	}
 
 	// Register external scriptling libraries (sl.ai, sl.mcp, sl.toon) - available in ALL environments
 	scriptlingai.Register(env)
@@ -94,7 +101,7 @@ func setupServerLibraryCallback(env *scriptling.Scriptling, client *apiclient.Ap
 // On-demand loading: Enabled - tries local .py files first, then fetches from server
 func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
-	registerBaseLibraries(env)
+	registerBaseLibraries(env, nil)
 	registerFullSystemLibraries(env)
 
 	if client != nil && userId != "" {
@@ -133,7 +140,7 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 // On-demand loading: Enabled - fetches from server only
 func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]string, user *model.User) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
-	registerBaseLibraries(env)
+	registerBaseLibraries(env, nil)
 
 	if user != nil {
 		env.RegisterLibrary("knot.space", knotscriptling.GetSpaceMCPLibrary(user, GetSpaceService(), GetContainerService(), nil))
@@ -149,9 +156,10 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]strin
 // NewRemoteScriptlingEnv creates a scriptling environment for remote execution in spaces
 // Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
 // On-demand loading: Enabled - fetches from server only
-func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string) (*scriptling.Scriptling, error) {
+// customLogger is optional - pass nil to use the default logger
+func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string, customLogger logger.Logger) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
-	registerBaseLibraries(env)
+	registerBaseLibraries(env, customLogger)
 	registerFullSystemLibraries(env)
 
 	if client != nil && userId != "" {

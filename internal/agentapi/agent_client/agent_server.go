@@ -36,11 +36,12 @@ type agentServer struct {
 	cancel             context.CancelFunc
 	reportingConn      net.Conn // Connection for reporting state
 	logConn            net.Conn // Connection for logging messages
+	logChannel         chan *msg.LogMessage
 }
 
 func NewAgentServer(address, spaceId string, agentClient *AgentClient) *agentServer {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &agentServer{
+	s := &agentServer{
 		agentClient:        agentClient,
 		connectionAttempts: 0,
 		spaceId:            spaceId,
@@ -48,7 +49,10 @@ func NewAgentServer(address, spaceId string, agentClient *AgentClient) *agentSer
 		ctx:                ctx,
 		cancel:             cancel,
 		muxSession:         nil,
+		logChannel:         make(chan *msg.LogMessage, logChannelBufferSize),
 	}
+	go s.logWorker()
+	return s
 }
 
 func (s *agentServer) ConnectAndServe() {
@@ -330,6 +334,41 @@ func (s *agentServer) Shutdown() {
 	if s.conn != nil {
 		s.conn.Close()
 		s.conn = nil
+	}
+}
+
+func (s *agentServer) logWorker() {
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case logMsg := <-s.logChannel:
+			if logMsg == nil {
+				continue
+			}
+
+			if s.muxSession != nil && !s.muxSession.IsClosed() {
+				if s.logConn == nil {
+					log.Debug("opening logging connection to", "agent", s.address)
+
+					var err error
+					s.logConn, err = s.muxSession.Open()
+					if err != nil {
+						log.Error("failed to open mux session for server", "server", s.address)
+						continue
+					}
+				}
+
+				if s.logConn != nil {
+					err := msg.SendLogMessage(s.logConn, logMsg)
+					if err != nil {
+						log.Error("failed to send log message to server", "server", s.address)
+						s.logConn.Close()
+						s.logConn = nil
+					}
+				}
+			}
+		}
 	}
 }
 

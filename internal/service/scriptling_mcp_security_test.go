@@ -176,9 +176,9 @@ func TestMCPScriptlingEnv_CanImportSafeLibraries(t *testing.T) {
 	}
 
 	safeImports := []struct {
-		name    string
-		script  string
-		verify  func(*testing.T, *scriptling.Scriptling, error)
+		name   string
+		script string
+		verify func(*testing.T, *scriptling.Scriptling, error)
 	}{
 		{
 			name: "stdlib_builtins",
@@ -282,7 +282,7 @@ result = "all_system_libs_imported"
 // TestRemoteScriptlingEnv_CanImportSystemLibraries verifies that remote environment
 // CAN import system libraries (contrast with MCP).
 func TestRemoteScriptlingEnv_CanImportSystemLibraries(t *testing.T) {
-	env, err := NewRemoteScriptlingEnv(nil, nil, "")
+	env, err := NewRemoteScriptlingEnv(nil, nil, "", nil)
 	if err != nil {
 		t.Fatalf("NewRemoteScriptlingEnv() failed: %v", err)
 	}

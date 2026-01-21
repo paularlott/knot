@@ -284,18 +284,20 @@ func handleAgentSession(stream net.Conn, session *Session) {
 			session.LogHistory = append(session.LogHistory, &logMsg)
 
 			if len(session.LogHistory) > AGENT_SESSION_LOG_HISTORY {
-				session.LogHistory = session.LogHistory[1:]
+				session.LogHistory = session.LogHistory[len(session.LogHistory)-AGENT_SESSION_LOG_HISTORY:]
 			}
 			session.LogHistoryMutex.Unlock()
 
 			// Notify all log sinks
-			go func() {
-				session.LogListenersMutex.RLock()
-				defer session.LogListenersMutex.RUnlock()
-				for _, c := range session.LogListeners {
-					c <- &logMsg
+			session.LogListenersMutex.RLock()
+			for _, c := range session.LogListeners {
+				select {
+				case c <- &logMsg:
+				default:
+					// Channel full, skip
 				}
-			}()
+			}
+			session.LogListenersMutex.RUnlock()
 
 		case byte(msg.CmdUpdateSpaceNote):
 			var spaceNote msg.SpaceNote

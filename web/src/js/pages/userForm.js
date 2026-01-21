@@ -1,8 +1,8 @@
-import { validate } from '../validators.js';
-import { focus } from '../focus.js';
+import { validate } from "../validators.js";
+import { focus } from "../focus.js";
 
-window.userForm = function(isEdit, userId, isProfile) {
-  const entity = isProfile ? 'Profile' : 'User';
+window.userForm = function (isEdit, userId, isProfile) {
+  const entity = isProfile ? "Profile" : "User";
 
   return {
     roles: [],
@@ -28,7 +28,6 @@ window.userForm = function(isEdit, userId, isProfile) {
     },
     last_login_at: "",
     loading: true,
-    buttonLabel: isEdit ? 'Save Changes' : `Create ${entity}`,
     isEdit,
     usernameValid: true,
     emailValid: true,
@@ -48,31 +47,31 @@ window.userForm = function(isEdit, userId, isProfile) {
     async initUsers() {
       focus.Element('input[name="username"]');
 
-      const rolesResponse = await fetch('/api/roles', {
+      const rolesResponse = await fetch("/api/roles", {
         headers: {
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       });
       const roleList = await rolesResponse.json();
       this.roles = roleList.roles;
 
-      const groupsResponse = await fetch('/api/groups', {
+      const groupsResponse = await fetch("/api/groups", {
         headers: {
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       });
       const groupsList = await groupsResponse.json();
       this.groups = groupsList.groups;
 
-      if(isEdit) {
+      if (isEdit) {
         const userResponse = await fetch(`/api/users/${userId}`, {
           headers: {
-            'Content-Type': 'application/json'
-          }
+            "Content-Type": "application/json",
+          },
         });
 
         if (userResponse.status !== 200) {
-          window.location.href = '/spaces';
+          window.location.href = "/spaces";
         } else {
           const user = await userResponse.json();
           this.formData.username = user.username;
@@ -96,15 +95,16 @@ window.userForm = function(isEdit, userId, isProfile) {
             const date = new Date(user.last_login_at);
             this.last_login_at = date.toLocaleString();
           } else {
-            this.last_login_at = 'Never';
+            this.last_login_at = "Never";
           }
         }
       } else {
-        this.formData.preferred_shell = 'bash';
-        this.formData.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        this.formData.preferred_shell = "bash";
+        this.formData.timezone =
+          Intl.DateTimeFormat().resolvedOptions().timeZone;
       }
 
-      this.$dispatch('refresh-autocompleter');
+      this.$dispatch("refresh-autocompleter");
 
       this.loading = false;
     },
@@ -137,11 +137,17 @@ window.userForm = function(isEdit, userId, isProfile) {
       return this.passwordValid;
     },
     checkConfirmPassword() {
-      this.confirmPasswordValid = this.formData.password === this.formData.password_confirm;
+      this.confirmPasswordValid =
+        this.formData.password === this.formData.password_confirm;
       return this.confirmPasswordValid;
     },
     checkShell() {
-      this.shellValid = validate.isOneOf(this.formData.preferred_shell, ['bash', 'zsh', 'fish', 'sh']);
+      this.shellValid = validate.isOneOf(this.formData.preferred_shell, [
+        "bash",
+        "zsh",
+        "fish",
+        "sh",
+      ]);
       return this.shellValid;
     },
     checkTz() {
@@ -149,19 +155,35 @@ window.userForm = function(isEdit, userId, isProfile) {
       return this.tzValid;
     },
     checkMaxSpaces() {
-      this.maxSpacesValid = validate.isNumber(this.formData.max_spaces, 0, 10000);
+      this.maxSpacesValid = validate.isNumber(
+        this.formData.max_spaces,
+        0,
+        10000,
+      );
       return this.maxSpacesValid;
     },
     checkComputeUnits() {
-      this.computeUnitsValid = validate.isNumber(this.formData.compute_units, 0, Infinity);
+      this.computeUnitsValid = validate.isNumber(
+        this.formData.compute_units,
+        0,
+        Infinity,
+      );
       return this.computeUnitsValid;
     },
     checkStorageUnits() {
-      this.storageUnitsValid = validate.isNumber(this.formData.storage_units, 0, Infinity);
+      this.storageUnitsValid = validate.isNumber(
+        this.formData.storage_units,
+        0,
+        Infinity,
+      );
       return this.storageUnitsValid;
     },
     checkMaxTunnels() {
-      this.maxTunnelsValid = validate.isNumber(this.formData.max_tunnels, 0, 100);
+      this.maxTunnelsValid = validate.isNumber(
+        this.formData.max_tunnels,
+        0,
+        100,
+      );
       return this.maxTunnelsValid;
     },
     checkServicePassword() {
@@ -177,7 +199,11 @@ window.userForm = function(isEdit, userId, isProfile) {
       const self = this;
       err = !this.checkUsername() || err;
       err = !this.checkEmail() || err;
-      if(!isEdit || this.formData.password.length > 0 || this.formData.password_confirm.length > 0) {
+      if (
+        !isEdit ||
+        this.formData.password.length > 0 ||
+        this.formData.password_confirm.length > 0
+      ) {
         err = !this.checkPassword() || err;
         err = !this.checkConfirmPassword() || err;
       }
@@ -189,11 +215,9 @@ window.userForm = function(isEdit, userId, isProfile) {
       err = !this.checkShell() || err;
       err = !this.checkTz() || err;
       err = !this.checkGithubUsername() || err;
-      if(err) {
+      if (err) {
         return;
       }
-
-      this.buttonLabel = `${isEdit ? 'Updating' : 'Creating'} ${entity}...`;
 
       const data = {
         username: this.formData.username,
@@ -213,41 +237,50 @@ window.userForm = function(isEdit, userId, isProfile) {
         timezone: this.formData.timezone,
       };
 
-      fetch(isEdit ? `/api/users/${userId}` : '/api/users', {
-          method: isEdit ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(data)
-        })
+      fetch(isEdit ? `/api/users/${userId}` : "/api/users", {
+        method: isEdit ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
         .then((response) => {
           if (response.status === 200) {
-            self.$dispatch('show-alert', { msg: `${entity} updated`, type: 'success' });
-            if(isProfile) {
-              window.location.href = '/';
+            self.$dispatch("show-alert", {
+              msg: `${entity} updated`,
+              type: "success",
+            });
+            if (isProfile) {
+              window.location.href = "/";
             } else {
-              self.$dispatch('close-user-form');
+              self.$dispatch("close-user-form");
             }
           } else if (response.status === 201) {
-            self.$dispatch('show-alert', { msg: `${entity} created`, type: 'success' });
-            self.$dispatch('close-user-form');
+            self.$dispatch("show-alert", {
+              msg: `${entity} created`,
+              type: "success",
+            });
+            self.$dispatch("close-user-form");
           } else {
             response.json().then((d) => {
-              self.$dispatch('show-alert', { msg: `${isEdit ? "Failed to update user, " : "Failed to create user, "} ${d.error}`, type: 'error' });
+              self.$dispatch("show-alert", {
+                msg: `${isEdit ? "Failed to update user, " : "Failed to create user, "} ${d.error}`,
+                type: "error",
+              });
             });
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
-        })
-        .finally(() => {
-          this.buttonLabel = isEdit ? 'Save Changes' : `Create ${entity}`;
-        })
+          self.$dispatch("show-alert", {
+            msg: `Error!<br />${error.message}`,
+            type: "error",
+          });
+        });
     },
     resetTOTP() {
       this.formData.totp_secret = "";
       this.resetConfirmShow = false;
       this.submitData();
     },
-  }
-}
+  };
+};
