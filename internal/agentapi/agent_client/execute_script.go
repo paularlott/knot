@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
@@ -14,6 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/logger"
 	"github.com/paularlott/scriptling"
+	"github.com/paularlott/scriptling/extlibs"
 )
 
 var agentClient *AgentClient
@@ -90,21 +90,33 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 
 	result, evalErr := env.EvalWithContext(ctx, execMsg.Content)
 
+	// Capture output BEFORE handling sys.exit (output exists even when sys.exit is called)
+	output := env.GetOutput()
+	if result != nil && result.Inspect() != "None" {
+		if output != "" {
+			output += "\n"
+		}
+		output += result.Inspect()
+	}
+
 	response := msg.ExecuteScriptResponse{}
+	exitCode := 0
 	if evalErr != nil {
-		response.Success = false
-		response.Error = evalErr.Error()
-		log.WithError(evalErr).Error("script execution failed")
+		// Check for SystemExit to get the exit code
+		if sysExit, ok := extlibs.GetSysExitCode(evalErr); ok {
+			exitCode = sysExit.Code
+			response.Success = (exitCode == 0)
+			response.ExitCode = exitCode
+			response.Output = output  // Include output even for sys.exit
+		} else {
+			response.Success = false
+			response.Error = evalErr.Error()
+			response.Output = output  // Include output even for errors
+			log.WithError(evalErr).Error("script execution failed")
+		}
 	} else {
 		response.Success = true
-		output := env.GetOutput()
-		if result != nil && result.Inspect() != "None" {
-			if output != "" {
-				output += "\n"
-			}
-			output += result.Inspect()
-		}
-		response.Output = strings.TrimRight(output, "\n")
+		response.Output = output
 	}
 
 	if err := msg.WriteMessage(stream, &response); err != nil {

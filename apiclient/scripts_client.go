@@ -51,17 +51,17 @@ func (c *ApiClient) UpdateScript(ctx context.Context, scriptId string, req Scrip
 	return err
 }
 
-func (c *ApiClient) ExecuteScript(ctx context.Context, spaceId, scriptId string, args []string) (string, error) {
+func (c *ApiClient) ExecuteScript(ctx context.Context, spaceId, scriptId string, args []string) (string, int, error) {
 	req := ScriptExecuteRequest{Arguments: args}
 	var resp ScriptExecuteResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/scripts/"+scriptId+"/execute", req, &resp, 0)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if resp.Error != "" {
-		return resp.Output, fmt.Errorf("%s", resp.Error)
+		return resp.Output, resp.ExitCode, fmt.Errorf("%s", resp.Error)
 	}
-	return resp.Output, nil
+	return resp.Output, resp.ExitCode, nil
 }
 
 func (c *ApiClient) GetScriptLibrary(ctx context.Context, name string) (string, error) {
@@ -73,28 +73,28 @@ func (c *ApiClient) GetScriptLibrary(ctx context.Context, name string) (string, 
 	return content, nil
 }
 
-func (c *ApiClient) ExecuteScriptContent(ctx context.Context, spaceId, content string, args []string) (string, error) {
+func (c *ApiClient) ExecuteScriptContent(ctx context.Context, spaceId, content string, args []string) (string, int, error) {
 	req := ScriptContentExecuteRequest{Content: content, Arguments: args}
 	var resp ScriptExecuteResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/execute-content", req, &resp, 0)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if resp.Error != "" {
-		return resp.Output, fmt.Errorf("%s", resp.Error)
+		return resp.Output, resp.ExitCode, fmt.Errorf("%s", resp.Error)
 	}
-	return resp.Output, nil
+	return resp.Output, resp.ExitCode, nil
 }
 
-func (c *ApiClient) ExecuteScriptByName(ctx context.Context, spaceId, scriptName string, args []string) (string, error) {
+func (c *ApiClient) ExecuteScriptByName(ctx context.Context, spaceId, scriptName string, args []string) (string, int, error) {
 	req := ScriptNameExecuteRequest{ScriptName: scriptName, Arguments: args}
 	var resp ScriptExecuteResponse
 	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/execute-script-name", req, &resp, 0)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	if resp.Error != "" {
-		return resp.Output, fmt.Errorf("%s", resp.Error)
+		return resp.Output, resp.ExitCode, fmt.Errorf("%s", resp.Error)
 	}
-	return resp.Output, nil
+	return resp.Output, resp.ExitCode, nil
 }

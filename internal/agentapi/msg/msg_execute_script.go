@@ -8,7 +8,8 @@ type ExecuteScriptMessage struct {
 }
 
 type ExecuteScriptResponse struct {
-	Success bool   `msgpack:"success"`
-	Error   string `msgpack:"error"`
-	Output  string `msgpack:"output"`
+	Success  bool   `msgpack:"success"`
+	Error    string `msgpack:"error"`
+	Output   string `msgpack:"output"`
+	ExitCode int    `msgpack:"exit_code"`
 }

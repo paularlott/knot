@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -183,16 +184,26 @@ func RunScript(ctx context.Context, scriptContent string, argv []string, client 
 	}
 
 	result, err := env.Eval(scriptContent)
-	if err != nil {
-		return "", err
-	}
 
+	// Capture output BEFORE handling sys.exit
 	output := env.GetOutput()
 	if result != nil && result.Inspect() != "None" {
 		if output != "" {
 			output += "\n"
 		}
 		output += result.Inspect()
+	}
+
+	// Check for SystemExit to exit with the appropriate code
+	if sysExit, ok := extlibs.GetSysExitCode(err); ok {
+		// Print output before exiting
+		if output != "" {
+			fmt.Print(output)
+		}
+		os.Exit(sysExit.Code)
+	}
+	if err != nil {
+		return "", err
 	}
 
 	return output, nil

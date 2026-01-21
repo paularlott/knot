@@ -636,6 +636,7 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 
 	var output string
 	var execErr error
+	var exitCode int
 
 	// Check if space has an agent session (remote execution)
 	session := agent_server.GetSession(space.Id)
@@ -659,6 +660,7 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp := <-respChan
+		exitCode = resp.ExitCode
 		if !resp.Success {
 			output = resp.Output
 			execErr = fmt.Errorf("%s", resp.Error)
@@ -688,7 +690,8 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 	)
 
 	response := apiclient.ScriptExecuteResponse{
-		Output: output,
+		Output:   output,
+		ExitCode: exitCode,
 	}
 	if execErr != nil {
 		response.Error = execErr.Error()
@@ -744,6 +747,7 @@ func HandleExecuteScriptContent(w http.ResponseWriter, r *http.Request) {
 
 	var output string
 	var execErr error
+	var exitCode int
 
 	session := agent_server.GetSession(space.Id)
 	if session != nil {
@@ -766,6 +770,7 @@ func HandleExecuteScriptContent(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp := <-respChan
+		exitCode = resp.ExitCode
 		if !resp.Success {
 			output = resp.Output
 			execErr = fmt.Errorf("%s", resp.Error)
@@ -792,7 +797,8 @@ func HandleExecuteScriptContent(w http.ResponseWriter, r *http.Request) {
 	)
 
 	response := apiclient.ScriptExecuteResponse{
-		Output: output,
+		Output:   output,
+		ExitCode: exitCode,
 	}
 	if execErr != nil {
 		response.Error = execErr.Error()
@@ -850,6 +856,7 @@ func HandleExecuteScriptByName(w http.ResponseWriter, r *http.Request) {
 
 	var output string
 	var execErr error
+	var exitCode int
 
 	session := agent_server.GetSession(space.Id)
 	if session != nil {
@@ -872,6 +879,7 @@ func HandleExecuteScriptByName(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp := <-respChan
+		exitCode = resp.ExitCode
 		if !resp.Success {
 			output = resp.Output
 			execErr = fmt.Errorf("%s", resp.Error)
@@ -901,7 +909,8 @@ func HandleExecuteScriptByName(w http.ResponseWriter, r *http.Request) {
 	)
 
 	response := apiclient.ScriptExecuteResponse{
-		Output: output,
+		Output:   output,
+		ExitCode: exitCode,
 	}
 	if execErr != nil {
 		response.Error = execErr.Error()

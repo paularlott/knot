@@ -43,6 +43,7 @@ var RunScriptCmd = &cli.Command{
 		args := cmd.GetArgs()
 
 		var result string
+		var exitCode int
 
 		// Check if it's a file
 		if _, err := os.Stat(scriptArg); err == nil {
@@ -51,13 +52,13 @@ var RunScriptCmd = &cli.Command{
 			if err != nil {
 				return fmt.Errorf("failed to read script file: %w", err)
 			}
-			result, err = client.ExecuteScriptContent(ctx, space.SpaceId, string(content), args)
+			result, exitCode, err = client.ExecuteScriptContent(ctx, space.SpaceId, string(content), args)
 			if err != nil {
 				return fmt.Errorf("error executing script: %w", err)
 			}
 		} else {
 			// It's a named script - send name to agent to fetch and execute
-			result, err = client.ExecuteScriptByName(ctx, space.SpaceId, scriptArg, args)
+			result, exitCode, err = client.ExecuteScriptByName(ctx, space.SpaceId, scriptArg, args)
 			if err != nil {
 				return fmt.Errorf("error executing script: %w", err)
 			}
@@ -65,6 +66,10 @@ var RunScriptCmd = &cli.Command{
 
 		if result != "" {
 			fmt.Print(result)
+		}
+		// Exit with the script's exit code
+		if exitCode != 0 {
+			os.Exit(exitCode)
 		}
 		return nil
 	},

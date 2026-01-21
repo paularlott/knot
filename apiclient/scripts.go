@@ -71,8 +71,9 @@ type ScriptExecuteRequest struct {
 }
 
 type ScriptExecuteResponse struct {
-	Output string `json:"output"`
-	Error  string `json:"error,omitempty"`
+	Output   string `json:"output"`
+	Error    string `json:"error,omitempty"`
+	ExitCode int    `json:"exit_code"`
 }
 
 type ScriptContentExecuteRequest struct {

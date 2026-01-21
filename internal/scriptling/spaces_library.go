@@ -259,7 +259,7 @@ func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId st
 		scriptArgs = append(scriptArgs, arg)
 	}
 
-	output, apiErr := client.ExecuteScriptByName(ctx, spaceId, scriptName, scriptArgs)
+	output, _, apiErr := client.ExecuteScriptByName(ctx, spaceId, scriptName, scriptArgs)
 	if apiErr != nil {
 		return &object.Error{Message: fmt.Sprintf("failed to execute script: %v", apiErr)}
 	}
