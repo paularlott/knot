@@ -42,6 +42,9 @@ var RunScriptCmd = &cli.Command{
 		scriptArg := cmd.GetStringArg("script")
 		args := cmd.GetArgs()
 
+		// Prepend script name to argv (sys.argv[0] should be the script name)
+		argv := append([]string{scriptArg}, args...)
+
 		var result string
 		var exitCode int
 
@@ -52,13 +55,13 @@ var RunScriptCmd = &cli.Command{
 			if err != nil {
 				return fmt.Errorf("failed to read script file: %w", err)
 			}
-			result, exitCode, err = client.ExecuteScriptContent(ctx, space.SpaceId, string(content), args)
+			result, exitCode, err = client.ExecuteScriptContent(ctx, space.SpaceId, string(content), argv)
 			if err != nil {
 				return fmt.Errorf("error executing script: %w", err)
 			}
 		} else {
 			// It's a named script - send name to agent to fetch and execute
-			result, exitCode, err = client.ExecuteScriptByName(ctx, space.SpaceId, scriptArg, args)
+			result, exitCode, err = client.ExecuteScriptByName(ctx, space.SpaceId, scriptArg, argv)
 			if err != nil {
 				return fmt.Errorf("error executing script: %w", err)
 			}
