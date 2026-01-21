@@ -75,7 +75,7 @@ var RunScriptCmd = &cli.Command{
 		}
 
 		if output != "" {
-			fmt.Println(output)
+			fmt.Print(output)
 		}
 		return nil
 	},
