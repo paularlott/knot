@@ -162,6 +162,8 @@ func (c *ApiClient) executeScriptStream(ctx context.Context, spaceId, scriptName
 			default:
 				n, err := os.Stdin.Read(buf)
 				if err != nil {
+					// Signal EOF to server so it closes stdin on the script
+					ws.WriteMessage(websocket.TextMessage, []byte("stdin_eof"))
 					return
 				}
 				if n > 0 {

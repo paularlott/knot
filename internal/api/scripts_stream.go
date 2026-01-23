@@ -141,9 +141,17 @@ func HandleExecuteScriptStream(w http.ResponseWriter, r *http.Request) {
 				errChan <- err
 				return
 			}
-			if msgType == websocket.TextMessage && string(data) == "stop" {
-				agentConn.Close()
-				return
+			if msgType == websocket.TextMessage {
+				if string(data) == "stop" {
+					agentConn.Close()
+					return
+				}
+				if string(data) == "stdin_eof" {
+					// Close the write side of the agent connection to signal EOF to script
+					// For most connections, closing entirely is fine since script will exit
+					agentConn.Close()
+					return
+				}
 			}
 			if msgType == websocket.BinaryMessage {
 				_, err = agentConn.Write(data)
