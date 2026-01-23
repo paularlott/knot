@@ -45,34 +45,29 @@ var RunScriptCmd = &cli.Command{
 		// Prepend script name to argv (sys.argv[0] should be the script name)
 		argv := append([]string{scriptArg}, args...)
 
-		var result string
-		var exitCode int
-
 		// Check if it's a file
 		if _, err := os.Stat(scriptArg); err == nil {
-			// It's a file - read and execute content
+			// It's a file - read and execute content via streaming
 			content, err := os.ReadFile(scriptArg)
 			if err != nil {
 				return fmt.Errorf("failed to read script file: %w", err)
 			}
-			result, exitCode, err = client.ExecuteScriptContent(ctx, space.SpaceId, string(content), argv)
+			exitCode, err := client.ExecuteScriptContentStream(ctx, space.SpaceId, string(content), argv)
 			if err != nil {
 				return fmt.Errorf("error executing script: %w", err)
+			}
+			if exitCode != 0 {
+				os.Exit(exitCode)
 			}
 		} else {
-			// It's a named script - send name to agent to fetch and execute
-			result, exitCode, err = client.ExecuteScriptByName(ctx, space.SpaceId, scriptArg, argv)
+			// It's a named script - use streaming
+			exitCode, err := client.ExecuteScriptStream(ctx, space.SpaceId, scriptArg, argv)
 			if err != nil {
 				return fmt.Errorf("error executing script: %w", err)
 			}
-		}
-
-		if result != "" {
-			fmt.Print(result)
-		}
-		// Exit with the script's exit code
-		if exitCode != 0 {
-			os.Exit(exitCode)
+			if exitCode != 0 {
+				os.Exit(exitCode)
+			}
 		}
 		return nil
 	},

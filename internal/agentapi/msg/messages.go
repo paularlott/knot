@@ -36,6 +36,7 @@ const (
 	CmdPortList
 	CmdPortStop
 	CmdExecuteScript
+	CmdExecuteScriptStream
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {

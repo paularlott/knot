@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/rest"
 )
@@ -99,4 +100,24 @@ func (c *ApiClient) DoJSON(ctx context.Context, method string, path string, requ
 	default:
 		return 0, fmt.Errorf("unsupported HTTP method: %s", method)
 	}
+}
+
+func (c *ApiClient) GetWebSocketURL() string {
+	baseURL := c.httpClient.GetBaseURL()
+	if len(baseURL) > 8 && baseURL[:8] == "https://" {
+		return "wss://" + baseURL[8:]
+	}
+	if len(baseURL) > 7 && baseURL[:7] == "http://" {
+		return "ws://" + baseURL[7:]
+	}
+	return "ws://" + baseURL
+}
+
+func (c *ApiClient) ConnectWebSocket(ctx context.Context, url string) (*websocket.Conn, error) {
+	header := make(map[string][]string)
+	header["Authorization"] = []string{"Bearer " + c.httpClient.GetAuthToken()}
+	
+	dialer := websocket.Dialer{}
+	ws, _, err := dialer.DialContext(ctx, url, header)
+	return ws, err
 }

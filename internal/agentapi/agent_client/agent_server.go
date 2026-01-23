@@ -555,6 +555,15 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 
 		handleExecuteScript(stream, execMsg)
 
+	case byte(msg.CmdExecuteScriptStream):
+		var execMsg msg.ExecuteScriptStreamMessage
+		if err := msg.ReadMessage(stream, &execMsg); err != nil {
+			log.WithError(err).Error("reading execute script stream message:")
+			return
+		}
+
+		handleExecuteScriptStream(stream, execMsg)
+
 	default:
 		log.Error("unknown command:", "cmd", cmd)
 	}

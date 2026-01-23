@@ -183,6 +183,31 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 	return env, nil
 }
 
+// NewRemoteStreamingScriptlingEnv creates a scriptling environment for streaming remote execution
+// Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
+// On-demand loading: Enabled - fetches from server only
+// customLogger is optional - pass nil to use the default logger
+// Output: Connected to provided writer, input from provided reader
+func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string, customLogger logger.Logger, output io.Writer, input io.Reader) (*scriptling.Scriptling, error) {
+	env := scriptling.New()
+	env.SetOutputWriter(output)
+	env.SetInputReader(input)
+	registerBaseLibraries(env, customLogger)
+	registerFullSystemLibraries(env)
+
+	if client != nil && userId != "" {
+		env.RegisterLibrary("knot.space", knotscriptling.GetSpacesLibrary(client, userId))
+		env.RegisterLibrary("knot.ai", knotscriptling.GetAILibrary(client, userId))
+	}
+	if client != nil {
+		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client))
+	}
+
+	setupServerLibraryCallback(env, client)
+	extlibs.RegisterSysLibrary(env, argv)
+	return env, nil
+}
+
 // RunScript executes a script with local environment
 func RunScript(ctx context.Context, scriptContent string, argv []string, client *apiclient.ApiClient, userId string) (string, error) {
 	env, err := NewLocalScriptlingEnv(argv, client, userId)
