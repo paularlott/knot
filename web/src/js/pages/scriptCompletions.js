@@ -300,10 +300,10 @@ const scriptLibraries = [
   },
 
   // ============================================================================
-  // SCRIPTLING LIBRARIES (sl.*) - Standalone scriptling libraries
+  // SCRIPTLING LIBRARIES (scriptling.*) - Standalone scriptling libraries
   // ============================================================================
   {
-    module: "sl.ai",
+    module: "scriptling.ai",
     description:
       "Full AI client with streaming, custom tools, and MCP integration",
     functions: [
@@ -2774,9 +2774,9 @@ const variableTypes = new Map();
  * e.g., "client = sl.ai.new_client(...)" -> client is OpenAIClient
  */
 const typePatterns = [
-  // sl.ai.new_client returns OpenAIClient
+  // scriptling.ai.new_client returns OpenAIClient
   {
-    regex: /(\w+)\s*=\s*sl\.ai\.new_client\s*\(/,
+    regex: /(\w+)\s*=\s*scriptling\.ai\.new_client\s*\(/,
     type: "OpenAIClient",
   },
   // scriptling.mcp.new_client returns MCPClient
