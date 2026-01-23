@@ -75,7 +75,7 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 	if agentClient != nil {
 		customLogger = NewAgentClientLogger(agentClient, "script")
 	}
-	env, err = service.NewRemoteScriptlingEnv(execMsg.Arguments, client, userId, customLogger)
+	env, err = service.NewRemoteScriptlingEnv(execMsg.Arguments, client, userId, customLogger, execMsg.IsSystemCall)
 
 	if err != nil {
 		response := msg.ExecuteScriptResponse{

@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -11,12 +11,12 @@ import (
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/openai"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
+	"github.com/paularlott/logger"
 	"github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/extlibs"
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/stdlib"
-	"github.com/paularlott/logger"
 )
 
 var (
@@ -51,17 +51,14 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	extlibs.RegisterHTMLParserLibrary(env)
 	extlibs.RegisterWaitForLibrary(env)
 	if customLogger != nil {
-		extlibs.RegisterLoggingLibrary(env, customLogger) // Register logging library with custom logger
+		extlibs.RegisterLoggingLibrary(env, customLogger)
 	} else {
-		extlibs.RegisterLoggingLibraryDefault(env) // Register standard logging library with default logger
+		extlibs.RegisterLoggingLibraryDefault(env)
 	}
 
-	// Register external scriptling libraries (sl.ai, sl.mcp, sl.toon) - available in ALL environments
 	scriptlingai.Register(env)
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
-
-	env.EnableOutputCapture()
 }
 
 // registerFullSystemLibraries registers system access libraries (subprocess, os, pathlib, sl.threads, sl.console, sl.glob)
@@ -100,8 +97,10 @@ func setupServerLibraryCallback(env *scriptling.Scriptling, client *apiclient.Ap
 // NewLocalScriptlingEnv creates a scriptling environment for local execution on desktop/agent
 // Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
 // On-demand loading: Enabled - tries local .py files first, then fetches from server
+// Output: Uses stdin/stdout directly with zero buffering
 func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
+	env.SetOutputWriter(os.Stdout)
 	registerBaseLibraries(env, nil)
 	registerFullSystemLibraries(env)
 
@@ -139,8 +138,10 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 // NewMCPScriptlingEnv creates a scriptling environment for MCP tool execution
 // Libraries: stdlib, requests, secrets, htmlparser, knot.space, knot.ai
 // On-demand loading: Enabled - fetches from server only
+// Output: Captured and returned
 func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]string, user *model.User) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
+	env.EnableOutputCapture()
 	registerBaseLibraries(env, nil)
 
 	if user != nil {
@@ -158,8 +159,14 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]strin
 // Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
 // On-demand loading: Enabled - fetches from server only
 // customLogger is optional - pass nil to use the default logger
-func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string, customLogger logger.Logger) (*scriptling.Scriptling, error) {
+// Output: Captured and returned for user scripts, discarded for system scripts (startup/shutdown)
+func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string, customLogger logger.Logger, isSystemCall bool) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
+	if isSystemCall {
+		env.SetOutputWriter(io.Discard)
+	} else {
+		env.EnableOutputCapture()
+	}
 	registerBaseLibraries(env, customLogger)
 	registerFullSystemLibraries(env)
 
@@ -185,26 +192,18 @@ func RunScript(ctx context.Context, scriptContent string, argv []string, client 
 
 	result, err := env.Eval(scriptContent)
 
-	// Capture output BEFORE handling sys.exit
-	output := env.GetOutput()
-	if result != nil && result.Inspect() != "None" {
-		if output != "" {
-			output += "\n"
-		}
-		output += result.Inspect()
-	}
-
 	// Check for SystemExit to exit with the appropriate code
 	if sysExit, ok := extlibs.GetSysExitCode(err); ok {
-		// Print output before exiting
-		if output != "" {
-			fmt.Print(output)
-		}
 		os.Exit(sysExit.Code)
 	}
 	if err != nil {
 		return "", err
 	}
 
-	return output, nil
+	// Only return result if it's not None
+	if result != nil && result.Inspect() != "None" {
+		return result.Inspect(), nil
+	}
+
+	return "", nil
 }

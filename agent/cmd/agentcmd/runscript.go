@@ -72,13 +72,9 @@ var RunScriptCmd = &cli.Command{
 		// Prepend script name to argv (sys.argv[0] should be the script name)
 		argv := append([]string{script}, args...)
 
-		output, err := service.RunScript(ctx, scriptContent, argv, client, user.Id)
+		_, err = service.RunScript(ctx, scriptContent, argv, client, user.Id)
 		if err != nil {
 			return fmt.Errorf("script execution failed: %w", err)
-		}
-
-		if output != "" {
-			fmt.Print(output)
 		}
 		return nil
 	},
