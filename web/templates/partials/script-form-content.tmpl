@@ -2,12 +2,10 @@
 <div x-data="scriptForm(scriptFormModal.isEdit, scriptFormModal.scriptId, scriptFormModal.isUserScript)" x-init="initData()">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label for="name" class="form-label">Name</label>
-        <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="script_name" x-model="formData.name" :readonly="formData.is_managed">
-        <div x-show="!nameValid" class="error-message" x-cloak>Name can only contain letters, numbers and _, max 64 characters.</div>
-      </div>
+    <div>
+      <label for="name" class="form-label">Name</label>
+      <input type="text" class="form-field" name="name" id="name" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="script_name" x-model="formData.name" :readonly="formData.is_managed">
+      <div x-show="!nameValid" class="error-message" x-cloak>Name can only contain letters, numbers and _, max 64 characters.</div>
     </div>
 
     <div x-show="formData.is_managed" x-cloak class="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
