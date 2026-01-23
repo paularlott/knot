@@ -42,7 +42,6 @@ func TestSuite9_ZoneFiltering(t *testing.T) {
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -67,7 +66,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -91,7 +89,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -232,7 +229,6 @@ func TestSuite10_GroupPermissions(t *testing.T) {
 				MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-				Timeout: 30,
 			}
 
 			resp, err := user1Client.CreateScript(ctx, req)
@@ -260,7 +256,6 @@ type = "string"`,
 				MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-				Timeout: 30,
 			}
 
 			resp, err := user1Client.CreateScript(ctx, req)
@@ -288,7 +283,6 @@ type = "string"`,
 				MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-				Timeout: 30,
 			}
 
 			// Use user1Client since user2 may not have ManageScripts permission
@@ -388,7 +382,6 @@ func TestSuite11_MCPToolsComprehensive(t *testing.T) {
 name = "input"
 type = "string"`,
 			MCPKeywords: []string{"global", "zone"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -412,7 +405,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -436,7 +428,6 @@ type = "string"`,
 name = "input"
 type = "string"`,
 			MCPKeywords: []string{"user1", "private"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -459,7 +450,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout:            30,
 		}
 
 		resp, err := user2Client.CreateScript(ctx, req)
@@ -995,7 +985,6 @@ func TestSuite13_MCPIsolationAndOverrides(t *testing.T) {
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -1185,7 +1174,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -1211,7 +1199,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp, err := user2Client.CreateScript(ctx, req)
@@ -1773,7 +1760,6 @@ func TestSuite15_EdgeCases(t *testing.T) {
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		_, err := user1Client.CreateScript(ctx, req)
@@ -1810,7 +1796,6 @@ type = "string"`,
 				MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-				Timeout: 30,
 			}
 
 			_, err := user1Client.CreateScript(ctx, req)
@@ -1836,7 +1821,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -1862,7 +1846,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp1, err := user1Client.CreateScript(ctx, req1)
@@ -1903,7 +1886,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, createReq)
@@ -1957,7 +1939,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout:            30,
 		}
 
 		err = user1Client.UpdateScript(ctx, resp.Id, updateReq)
@@ -2010,7 +1991,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout: 30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, createReq)
@@ -2059,7 +2039,6 @@ type = "string"`,
 			MCPInputSchemaToml: `[[parameter]]
 name = "input"
 type = "string"`,
-			Timeout:            30,
 		}
 
 		err = user1Client.UpdateScript(ctx, resp.Id, updateReq)

@@ -161,7 +161,6 @@ if not url:
 - **Active:** `true`
 - **Groups:** `["all"]`
 - **Keywords:** `["greeting", "hello", "hi", "welcome"]`
-- **Timeout:** `10`
 
 ### Input Schema (TOML)
 
@@ -263,13 +262,6 @@ Include synonyms and related terms:
 # Too narrow
 ["email"]
 ```
-
-### 7. Set Appropriate Timeouts
-
-Consider the operation's expected duration:
-- Quick operations: 10-30 seconds
-- API calls: 30-60 seconds
-- Long-running tasks: 120+ seconds
 
 ## Testing Your Tool
 
@@ -390,12 +382,6 @@ description = "Database port"
 1. Verify TOML schema is valid
 2. Check parameter names match (case-sensitive)
 3. Add debug output: `print(f"Received: {knot.mcp.get('param_name')}")` to verify parameter values
-
-### Timeout Errors
-
-1. Increase timeout value in script settings
-2. Optimize script performance
-3. Consider breaking into smaller operations
 
 ### JSON Parse Errors
 

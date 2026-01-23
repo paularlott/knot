@@ -32,7 +32,6 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
       script_type: "script",
       mcp_input_schema_toml: "",
       mcp_keywords: [],
-      timeout: "",
       is_managed: false,
     },
     mcpKeywordsStr: "",
@@ -67,7 +66,6 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
                   script_type: data.script_type || "script",
                   mcp_input_schema_toml: data.mcp_input_schema_toml || "",
                   mcp_keywords: data.mcp_keywords || [],
-                  timeout: data.timeout || "",
                   is_managed: data.is_managed || false,
                 };
                 this.isUserScript = data.user_id ? true : false;
@@ -273,8 +271,6 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
         .filter((k) => k.length > 0);
 
       const submitData = { ...this.formData };
-      submitData.timeout =
-        submitData.timeout === "" ? 0 : parseInt(submitData.timeout);
 
       // Set user_id for user scripts
       if (this.isUserScript) {

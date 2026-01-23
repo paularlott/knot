@@ -30,7 +30,7 @@ type ServerConfig struct {
 	LeafNode                  bool
 	AuthIPRateLimiting        bool
 	LocalContainerRuntimePref []string
-	MaxScriptExecutionTime    int
+	MCPToolTimeout            int
 	Origin                    OriginConfig
 	TOTP                      TOTPConfig
 	UI                        UIConfig

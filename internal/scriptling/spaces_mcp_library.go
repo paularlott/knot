@@ -521,16 +521,10 @@ func spaceMCPExecScript(ctx context.Context, user *model.User, getAgentSession f
 		return &object.Error{Message: "space agent is not connected - cannot execute script"}
 	}
 
-	// Execute script via agent
-	timeout := script.Timeout
-	if timeout == 0 {
-		timeout = 60
-	}
-
+	// Execute script via agent (timeout enforced at server level for MCP tools)
 	execMsg := &msg.ExecuteScriptMessage{
 		Content:      script.Content,
 		Arguments:    scriptArgs,
-		Timeout:      timeout,
 		IsSystemCall: false,
 	}
 

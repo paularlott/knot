@@ -98,7 +98,7 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/scripts", middleware.ApiAuth(middleware.ApiPermissionManageScripts(HandleCreateScript)))
 	router.HandleFunc("PUT /api/scripts/{script_id}", middleware.ApiAuth(middleware.ApiPermissionManageScripts(HandleUpdateScript)))
 	router.HandleFunc("DELETE /api/scripts/{script_id}", middleware.ApiAuth(middleware.ApiPermissionManageScripts(HandleDeleteScript)))
-	router.HandleFunc("POST /api/spaces/{space_id}/execute-script", middleware.ApiAuth(HandleExecuteScriptUnified))
+	router.HandleFunc("POST /api/spaces/{space_id}/execute-script", middleware.ApiAuth(HandleExecuteScript))
 	router.HandleFunc("GET /api/spaces/{space_id}/execute-script-stream", middleware.ApiAuth(HandleExecuteScriptStream))
 
 	// Tunnels

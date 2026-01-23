@@ -15,7 +15,7 @@ import (
 )
 
 func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamMessage) {
-	log.Debug("executing script stream", "timeout", execMsg.Timeout)
+	log.Debug("executing script stream")
 
 	cfg := config.GetAgentConfig()
 	if cfg.DisableSpaceIO {
@@ -23,13 +23,8 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 		return
 	}
 
-	timeout := time.Duration(execMsg.Timeout) * time.Second
-	if timeout <= 0 {
-		timeout = 120 * time.Second
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	// Streaming scripts run without timeout - they run until completion or are cancelled
+	ctx := context.Background()
 
 	var client *apiclient.ApiClient
 	var userId string

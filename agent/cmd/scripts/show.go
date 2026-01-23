@@ -30,7 +30,6 @@ var showCmd = &cli.Command{
 		fmt.Printf("Description: %s\n", script.Description)
 		fmt.Printf("Active: %t\n", script.Active)
 		fmt.Printf("Type: %s\n", script.ScriptType)
-		fmt.Printf("Timeout: %ds\n", script.Timeout)
 		fmt.Printf("Groups: %v\n", script.Groups)
 		if script.ScriptType == "tool" {
 			fmt.Printf("MCP Keywords: %v\n", script.MCPKeywords)

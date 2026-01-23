@@ -44,7 +44,6 @@ type = "string"
 description = "Message to process"
 required = true`,
 			MCPKeywords: []string{"chat", "global", "test"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -74,7 +73,6 @@ type = "string"
 description = "Message to process"
 required = true`,
 			MCPKeywords: []string{"chat", "user1", "test"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -428,7 +426,6 @@ name = "input"
 type = "string"
 description = "Input"`,
 			MCPKeywords: []string{"user1", "private"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -592,7 +589,6 @@ name = "input"
 type = "string"
 description = "Input"`,
 			MCPKeywords: []string{"global", "all", "test"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -752,7 +748,6 @@ func TestSuite11b_ChatOpenAI_ZoneFiltering(t *testing.T) {
 			Active:      true,
 			ScriptType:  "tool",
 			MCPKeywords: []string{"zone", "current"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -775,7 +770,6 @@ func TestSuite11b_ChatOpenAI_ZoneFiltering(t *testing.T) {
 			Active:      true,
 			ScriptType:  "tool",
 			MCPKeywords: []string{"zone", "different"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -908,7 +902,6 @@ type = "string"
 description = "Message to echo"
 required = true`,
 			MCPKeywords: []string{"echo", "test"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)

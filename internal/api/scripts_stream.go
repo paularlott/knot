@@ -9,7 +9,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -97,18 +96,13 @@ func HandleExecuteScriptStream(w http.ResponseWriter, r *http.Request) {
 		scriptName = "inline"
 	}
 
-	timeout := config.GetServerConfig().MaxScriptExecutionTime
-	if timeout == 0 {
-		timeout = 120
-	}
-
+	// Streaming scripts run without timeout
 	// Parse arguments from query string
 	args := r.URL.Query()["arg"]
 
 	execMsg := &msg.ExecuteScriptStreamMessage{
 		Content:   scriptContent,
 		Arguments: args,
-		Timeout:   timeout,
 	}
 
 	agentConn, err := session.SendExecuteScriptStream(execMsg)

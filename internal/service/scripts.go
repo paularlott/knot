@@ -82,10 +82,7 @@ func (s *ScriptService) ListScripts(opts ScriptListOptions) ([]*model.Script, er
 }
 
 func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, user *model.User, client *apiclient.ApiClient) (string, error) {
-	timeout := time.Duration(script.Timeout) * time.Second
-	if script.Timeout == 0 {
-		timeout = 300 * time.Second // 5 minutes to allow for AI operations with tool calling
-	}
+	timeout := time.Duration(config.GetServerConfig().MCPToolTimeout) * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()

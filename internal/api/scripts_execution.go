@@ -7,7 +7,6 @@ import (
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
-	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
@@ -23,7 +22,7 @@ type UnifiedScriptExecuteRequest struct {
 	Arguments  []string `json:"arguments"`
 }
 
-func HandleExecuteScriptUnified(w http.ResponseWriter, r *http.Request) {
+func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 	spaceId := r.PathValue("space_id")
 	if !validate.UUID(spaceId) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
@@ -104,16 +103,10 @@ func HandleExecuteScriptUnified(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg := config.GetServerConfig()
-	timeout := cfg.MaxScriptExecutionTime
-	if timeout == 0 {
-		timeout = 120
-	}
-
+	// Unified script execution runs without timeout
 	execMsg := &msg.ExecuteScriptMessage{
 		Content:      scriptContent,
 		Arguments:    request.Arguments,
-		Timeout:      timeout,
 		IsSystemCall: false,
 	}
 

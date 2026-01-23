@@ -23,7 +23,7 @@ func SetAgentClient(client *AgentClient) {
 }
 
 func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
-	log.Debug("executing script", "timeout", execMsg.Timeout, "is_system_call", execMsg.IsSystemCall)
+	log.Debug("executing script", "is_system_call", execMsg.IsSystemCall)
 
 	// Check if user scripts are disabled (system scripts always allowed)
 	if !execMsg.IsSystemCall {
@@ -40,13 +40,8 @@ func handleExecuteScript(stream net.Conn, execMsg msg.ExecuteScriptMessage) {
 		}
 	}
 
-	timeout := time.Duration(execMsg.Timeout) * time.Second
-	if timeout <= 0 {
-		timeout = 120 * time.Second
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	// Scripts run without timeout - they run until completion or are cancelled
+	ctx := context.Background()
 
 	var client *apiclient.ApiClient
 	var userId string

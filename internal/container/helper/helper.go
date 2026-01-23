@@ -500,15 +500,10 @@ func executeScript(space *model.Space, script *model.Script, waitForAgent bool) 
 
 	log.Debug("executing script", "script_id", script.Id, "space_id", space.Id)
 
-	timeout := script.Timeout
-	if timeout == 0 {
-		timeout = config.GetServerConfig().MaxScriptExecutionTime
-	}
-
+	// Startup and system scripts run without timeout
 	execMsg := &msg.ExecuteScriptMessage{
 		Content:      script.Content,
 		Arguments:    []string{},
-		Timeout:      timeout,
 		IsSystemCall: true,
 	}
 

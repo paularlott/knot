@@ -174,11 +174,11 @@ var ServerCmd = &cli.Command{
 			DefaultValue: 90,
 		},
 		&cli.IntFlag{
-			Name:         "max-script-execution-time",
-			Usage:        "The default maximum script execution time in seconds.",
-			ConfigPath:   []string{"server.max_script_execution_time"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MAX_SCRIPT_EXECUTION_TIME"},
-			DefaultValue: 120,
+			Name:         "mcp-tool-timeout",
+			Usage:        "The maximum execution time in seconds for MCP tool calls (allows for LLM operations with tool calling).",
+			ConfigPath:   []string{"server.mcp_tool_timeout"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_TOOL_TIMEOUT"},
+			DefaultValue: 180,
 		},
 		&cli.BoolFlag{
 			Name:         "disable-space-create",
@@ -1177,8 +1177,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		Hostname:               hostname,
 		Timezone:               cmd.GetString("timezone"),
 		LeafNode:               cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
-		AuthIPRateLimiting:     cmd.GetBool("auth-ip-rate-limiting"),
-		MaxScriptExecutionTime: cmd.GetInt("max-script-execution-time"),
+		AuthIPRateLimiting: cmd.GetBool("auth-ip-rate-limiting"),
+		MCPToolTimeout:     cmd.GetInt("mcp-tool-timeout"),
 		Origin: config.OriginConfig{
 			Server: cmd.GetString("origin-server"),
 			Token:  cmd.GetString("origin-token"),

@@ -14,7 +14,6 @@ type ScriptInfo struct {
 	Zones       []string `json:"zones"`
 	Active      bool     `json:"active"`
 	ScriptType  string   `json:"script_type"`
-	Timeout     int      `json:"timeout"`
 	IsManaged   bool     `json:"is_managed"`
 }
 
@@ -30,7 +29,6 @@ type ScriptDetails struct {
 	ScriptType         string   `json:"script_type"`
 	MCPInputSchemaToml string   `json:"mcp_input_schema_toml"`
 	MCPKeywords        []string `json:"mcp_keywords"`
-	Timeout            int      `json:"timeout"`
 	IsManaged          bool     `json:"is_managed"`
 }
 
@@ -45,7 +43,6 @@ type ScriptCreateRequest struct {
 	ScriptType         string   `json:"script_type"`
 	MCPInputSchemaToml string   `json:"mcp_input_schema_toml"`
 	MCPKeywords        []string `json:"mcp_keywords"`
-	Timeout            int      `json:"timeout"`
 }
 
 type ScriptUpdateRequest struct {
@@ -58,7 +55,6 @@ type ScriptUpdateRequest struct {
 	ScriptType         string   `json:"script_type"`
 	MCPInputSchemaToml string   `json:"mcp_input_schema_toml"`
 	MCPKeywords        []string `json:"mcp_keywords"`
-	Timeout            int      `json:"timeout"`
 }
 
 type ScriptCreateResponse struct {

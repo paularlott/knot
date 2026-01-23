@@ -123,7 +123,6 @@ func TestSuite1_ScriptCRUD(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -150,7 +149,6 @@ func TestSuite1_ScriptCRUD(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -174,7 +172,6 @@ func TestSuite1_ScriptCRUD(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "lib",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -204,7 +201,6 @@ type = "string"
 description = "Message to process"
 required = true`,
 			MCPKeywords: []string{"test", "helper"},
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -266,7 +262,6 @@ func TestSuite2_ZoneOverrides(t *testing.T) {
 			Zones:       []string{"zone1"},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -290,7 +285,6 @@ func TestSuite2_ZoneOverrides(t *testing.T) {
 			Zones:       []string{"zone2"},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -314,7 +308,6 @@ func TestSuite2_ZoneOverrides(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -391,7 +384,6 @@ func TestSuite3_UserIsolation(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -415,7 +407,6 @@ func TestSuite3_UserIsolation(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := user2Client.CreateScript(ctx, req)
@@ -548,7 +539,6 @@ func TestSuite4_PermissionModel(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -606,7 +596,6 @@ func TestSuite5_ZoneFiltering(t *testing.T) {
 			Zones:       []string{"zone1"},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -626,7 +615,6 @@ func TestSuite5_ZoneFiltering(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -706,7 +694,6 @@ name = "input"
 type = "string"
 description = "Input parameter"`,
 			MCPKeywords: []string{"global", "test"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -735,7 +722,6 @@ name = "input"
 type = "string"
 description = "Input parameter"`,
 			MCPKeywords: []string{"user1", "override"},
-			Timeout:     30,
 		}
 
 		resp, err := user1Client.CreateScript(ctx, req)
@@ -1326,7 +1312,6 @@ func TestSuite7_LibraryAccess(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "lib",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -1379,7 +1364,6 @@ func TestSuite8_Cleanup(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "script",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -1442,7 +1426,6 @@ func TestScriptResolution(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "lib",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)
@@ -1465,7 +1448,6 @@ func TestScriptResolution(t *testing.T) {
 			Zones:       []string{},
 			Active:      true,
 			ScriptType:  "lib",
-			Timeout:     30,
 		}
 
 		resp, err := client.CreateScript(ctx, req)

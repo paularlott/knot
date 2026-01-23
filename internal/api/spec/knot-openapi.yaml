@@ -4321,8 +4321,6 @@ components:
         script_type:
           type: string
           enum: [script, lib, tool]
-        timeout:
-          type: integer
         is_managed:
           type: boolean
           description: If true, this script is managed by a parent server and cannot be edited.
@@ -4367,8 +4365,6 @@ components:
           items:
             type: string
           description: Keywords for MCP tool discovery
-        timeout:
-          type: integer
         is_managed:
           type: boolean
           description: If true, this script is managed by a parent server and cannot be edited.
@@ -4413,9 +4409,6 @@ components:
           type: array
           items:
             type: string
-        timeout:
-          type: integer
-          default: 0
 
     ScriptUpdateRequest:
       type: object
@@ -4451,8 +4444,6 @@ components:
           type: array
           items:
             type: string
-        timeout:
-          type: integer
 
   responses:
     bad-request:
