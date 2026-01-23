@@ -2,7 +2,7 @@
  * ACE Editor Custom Completer
  *
  * Provides intelligent autocompletion for ACE editor instances with support for:
- * - Module imports (e.g., "import sl.mcp")
+ * - Module imports (e.g., "import scriptling.mcp")
  * - Module functions (e.g., "mcp.get()")
  * - Class instance methods based on type inference from factory function calls
  *

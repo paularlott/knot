@@ -61,14 +61,14 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	scriptlingmcp.RegisterToon(env)
 }
 
-// registerFullSystemLibraries registers system access libraries (subprocess, os, pathlib, sl.threads, sl.console, sl.glob)
+// registerFullSystemLibraries registers system access libraries (subprocess, os, pathlib, scriptling.threads, scriptling.console, scriptling.glob)
 func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterSubprocessLibrary(env)
-	extlibs.RegisterThreadsLibrary(env) // sl.threads
-	extlibs.RegisterConsoleLibrary(env) // sl.console
+	extlibs.RegisterThreadsLibrary(env) // scriptling.threads
+	extlibs.RegisterConsoleLibrary(env) // scriptling.console
 	extlibs.RegisterOSLibrary(env, []string{})
 	extlibs.RegisterPathlibLibrary(env, []string{})
-	extlibs.RegisterGlobLibrary(env, []string{}) // sl.glob
+	extlibs.RegisterGlobLibrary(env, []string{}) // scriptling.glob
 }
 
 // setupServerLibraryCallback sets up on-demand library loading from server

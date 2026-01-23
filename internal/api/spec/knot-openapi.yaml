@@ -2340,20 +2340,23 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
-  /api/scripts/library/{library_name}:
+  /api/scripts/global:
     get:
-      summary: Get Script Library
-      description: Fetch a single script library by name for dynamic loading.
+      summary: Get Global Scripts
+      description: |
+        Get a list of global scripts. This endpoint is specifically for users with ManageTemplates permission
+        to view global scripts when editing templates, even if they don't have ManageScripts permission.
       tags:
         - Scripts
-      operationId: getScriptLibrary
+      operationId: getGlobalScripts
       parameters:
-        - in: path
-          name: library_name
+        - name: all_zones
+          in: query
+          description: If true, returns scripts from all zones. If false or omitted, only returns scripts valid for the current zone.
+          required: false
           schema:
-            type: string
-          required: true
-          description: The name of the library script to fetch.
+            type: boolean
+            default: false
       responses:
         '200':
           description: Successful operation
@@ -2362,12 +2365,50 @@ paths:
               schema:
                 type: object
                 properties:
-                  name:
-                    type: string
-                    description: The name of the library
-                  content:
-                    type: string
-                    description: The library script content
+                  count:
+                    type: integer
+                  scripts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScriptInfo'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
+  /api/scripts/name/{script_name}/{script_type}:
+    get:
+      summary: Get Script Content by Name and Type
+      description: |
+        Get the raw content of a script by its name and type. Returns plain text content.
+        Used for dynamic loading of scripts and libraries.
+      tags:
+        - Scripts
+      operationId: getScriptContentByNameAndType
+      parameters:
+        - in: path
+          name: script_name
+          schema:
+            type: string
+          required: true
+          description: The name of the script.
+        - in: path
+          name: script_type
+          schema:
+            type: string
+            enum: [script, lib, tool]
+          required: true
+          description: The type of the script.
+      responses:
+        '200':
+          description: Successful operation - returns raw script content
+          content:
+            text/plain:
+              schema:
+                type: string
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -2408,13 +2449,19 @@ paths:
           $ref: '#/components/responses/internal-server-error'
       security: [BearerAuth: []]
 
-
+  /api/spaces/{space_id}/execute-script:
     post:
-      summary: Execute Script
-      description: Execute a script in a specific space.
+      summary: Execute Script (Unified)
+      description: |
+        Execute a script in a specific space. Supports three execution modes:
+        1. By script ID - provide `script_id`
+        2. By script name - provide `script_name`
+        3. Inline content - provide `content`
+        
+        Returns the complete output after script execution completes.
       tags:
         - Scripts
-      operationId: executeScript
+      operationId: executeScriptUnified
       parameters:
         - in: path
           name: space_id
@@ -2422,14 +2469,7 @@ paths:
             type: string
             format: uuid
           required: true
-          description: The ID of the space.
-        - in: path
-          name: script_id
-          schema:
-            type: string
-            format: uuid
-          required: true
-          description: The ID of the script.
+          description: The ID of the space to execute the script in.
       requestBody:
         required: true
         content:
@@ -2437,11 +2477,21 @@ paths:
             schema:
               type: object
               properties:
+                script_id:
+                  type: string
+                  format: uuid
+                  description: The ID of the script to execute (mutually exclusive with script_name and content).
+                script_name:
+                  type: string
+                  description: The name of the script to execute (mutually exclusive with script_id and content).
+                content:
+                  type: string
+                  description: Inline script content to execute (mutually exclusive with script_id and script_name). Max 4MB.
                 arguments:
                   type: array
                   items:
                     type: string
-                  description: Array of arguments to pass to the script
+                  description: Array of arguments to pass to the script.
       responses:
         '200':
           description: Script executed successfully
@@ -2452,10 +2502,13 @@ paths:
                 properties:
                   output:
                     type: string
-                    description: Script output
+                    description: Script output (stdout/stderr)
                   error:
                     type: string
                     description: Error message if execution failed
+                  exit_code:
+                    type: integer
+                    description: Script exit code
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -2466,6 +2519,70 @@ paths:
           $ref: '#/components/responses/not-found'
         '500':
           $ref: '#/components/responses/internal-server-error'
+        '503':
+          $ref: '#/components/responses/service-unavailable'
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/execute-script-stream:
+    get:
+      summary: Execute Script (Streaming)
+      description: |
+        Execute a script in a specific space with real-time streaming output via WebSocket.
+        
+        Supports two modes:
+        1. By script name - provide `script` query parameter
+        2. Inline content - set `content=true` and send script content as first WebSocket message
+        
+        The WebSocket connection provides bidirectional communication:
+        - Server sends script output as binary messages
+        - Client can send binary messages as stdin to the script
+        - Client can send "stop" text message to terminate execution
+        - Server sends "exit:N" text message when script completes (N is exit code)
+      tags:
+        - Scripts
+      operationId: executeScriptStream
+      parameters:
+        - in: path
+          name: space_id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: The ID of the space to execute the script in.
+        - in: query
+          name: script
+          schema:
+            type: string
+          required: false
+          description: The name of the script to execute (required if content=false).
+        - in: query
+          name: content
+          schema:
+            type: boolean
+            default: false
+          required: false
+          description: If true, expects script content as first WebSocket message.
+        - in: query
+          name: arg
+          schema:
+            type: array
+            items:
+              type: string
+          required: false
+          description: Script arguments (can be specified multiple times).
+      responses:
+        '101':
+          description: Switching Protocols - WebSocket connection established
+        '400':
+          description: Bad Request - Invalid space ID or script name
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - No permission to access space or execute script
+        '404':
+          description: Not Found - Space or script not found
+        '503':
+          description: Service Unavailable - Space agent not connected
       security: [BearerAuth: []]
 
   /api/ping:

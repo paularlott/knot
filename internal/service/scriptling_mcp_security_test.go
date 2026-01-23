@@ -115,15 +115,15 @@ func TestMCPScriptlingEnv_CannotImportThreads(t *testing.T) {
 
 	// Try to import threads - should fail
 	scriptContent := `
-import threads
+import scriptling.threads
 def background_task():
     pass
-threads.start(background_task)
+scriptling.threads.run(background_task)
 `
 
 	_, err = env.Eval(scriptContent)
 	if err == nil {
-		t.Error("Expected error when importing threads in MCP environment, got nil")
+		t.Error("Expected error when importing scriptling.threads in MCP environment, got nil")
 	} else if !strings.Contains(strings.ToLower(err.Error()), "not found") &&
 		!strings.Contains(strings.ToLower(err.Error()), "unknown") &&
 		!strings.Contains(strings.ToLower(err.Error()), "no module") {
@@ -268,7 +268,6 @@ func TestLocalScriptlingEnv_CanImportSystemLibraries(t *testing.T) {
 import subprocess
 import os
 import pathlib
-import sl.threads
 import sys
 result = "all_system_libs_imported"
 `
@@ -282,7 +281,7 @@ result = "all_system_libs_imported"
 // TestRemoteScriptlingEnv_CanImportSystemLibraries verifies that remote environment
 // CAN import system libraries (contrast with MCP).
 func TestRemoteScriptlingEnv_CanImportSystemLibraries(t *testing.T) {
-	env, err := NewRemoteScriptlingEnv(nil, nil, "", nil)
+	env, err := NewRemoteScriptlingEnv(nil, nil, "", nil, false)
 	if err != nil {
 		t.Fatalf("NewRemoteScriptlingEnv() failed: %v", err)
 	}
@@ -292,7 +291,6 @@ func TestRemoteScriptlingEnv_CanImportSystemLibraries(t *testing.T) {
 import subprocess
 import os
 import pathlib
-import sl.threads
 import sys
 result = "all_system_libs_imported"
 `

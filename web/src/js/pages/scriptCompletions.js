@@ -431,7 +431,7 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "sl.mcp",
+    module: "scriptling.mcp",
     description: "MCP client for connecting to remote MCP servers",
     functions: [
       {
@@ -489,7 +489,7 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "sl.toon",
+    module: "scriptling.toon",
     description:
       "TOON (Token-Oriented Object Notation) encoding/decoding library",
     functions: [
@@ -520,7 +520,7 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "sl.console",
+    module: "scriptling.console",
     description: "Console input/output functions",
     functions: [
       {
@@ -532,7 +532,7 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "sl.threads",
+    module: "scriptling.threads",
     description: "Threading and concurrency primitives for async operations",
     functions: [
       {
@@ -2779,9 +2779,9 @@ const typePatterns = [
     regex: /(\w+)\s*=\s*sl\.ai\.new_client\s*\(/,
     type: "OpenAIClient",
   },
-  // sl.mcp.new_client returns MCPClient
+  // scriptling.mcp.new_client returns MCPClient
   {
-    regex: /(\w+)\s*=\s*sl\.mcp\.new_client\s*\(/,
+    regex: /(\w+)\s*=\s*scriptling\.mcp\.new_client\s*\(/,
     type: "MCPClient",
   },
   // sl.ai.completion_stream returns ChatStream
@@ -2789,9 +2789,9 @@ const typePatterns = [
     regex: /(\w+)\s*=\s*(\w+\.)*completion_stream\s*\(/,
     type: "ChatStream",
   },
-  // sl.threads.run returns Promise
+  // scriptling.threads.run returns Promise
   {
-    regex: /(\w+)\s*=\s*sl\.threads\.run\s*\(/,
+    regex: /(\w+)\s*=\s*scriptling\.threads\.run\s*\(/,
     type: "Promise",
   },
   // requests.get/post/put/delete/patch returns Response
