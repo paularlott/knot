@@ -2,23 +2,64 @@
 
 Knot provides three distinct scriptling execution environments, each tailored for specific use cases with different library availability and security constraints.
 
-## Library Loading
+## Overview
 
-All environments now use **dynamic library loading** via scriptling's on-demand callback mechanism. Libraries are fetched from the server as needed when import statements are encountered, rather than being bulk-loaded at environment creation.
+| Environment | Used By          | System Access    | API Client    | Best For                          |
+| ----------- | ---------------- | ---------------- | ------------- | --------------------------------- |
+| **Local**   | CLI `run-script` | Full (host)      | Yes           | Local development and testing     |
+| **MCP**     | AI tool scripts  | None.            | No (internal) | Safe AI tool execution            |
+| **Remote**  | Space execution  | Full (container) | Yes           | Scripts in user spaces/containers |
 
-## Local Environment
+---
 
-**Used by:** `knot run-script` command on desktop/agent
+## Quick Reference Matrix
+
+| Feature              | Local         | MCP             | Remote      |
+| -------------------- | ------------- | --------------- | ----------- |
+| **System Access**    | ✓ Full (host) | ✗ None          | ✓ Container |
+| **API Client**       | ✓ Yes         | ✗ No (internal) | ✓ Yes       |
+| **knot.space lib**   | ✓ API         | ✓ API           | ✓ API       |
+| **knot.ai lib**      | ✓ API         | ✓ MCP           | ✓ API       |
+| **knot.mcp lib**     | ✓ Tools       | ✓ Special       | ✓ Tools     |
+| **subprocess**       | ✓             | ✗               | ✓           |
+| **threads**          | ✓             | ✗               | ✓           |
+| **os/pathlib**       | ✓             | ✗               | ✓           |
+| **sys**              | ✓             | ✗               | ✓           |
+| **Load from disk**   | ✓ First       | ✗               | ✗           |
+| **Load from server** | ✓ Fallback    | ✓ Only          | ✓ Only      |
+
+---
+
+## Decision Tree: Which Environment?
+
+```
+Is it an MCP tool for AI?
+├─ YES → MCP Environment (NewMCPScriptlingEnv)
+└─ NO → Is it running in a space/container?
+    ├─ YES → Remote Environment (NewRemoteScriptlingEnv)
+    └─ NO → Local Environment (NewLocalScriptlingEnv)
+```
+
+---
+
+## 1. Local Environment
+
+**Function:** `internal/service/scriptling_env.go::NewLocalScriptlingEnv()`
+
+**Used By:**
+
+- Desktop CLI: `knot run-script`
+- Agent CLI: `knot-agent run-script`
 
 **Purpose:** Execute scripts locally with full system access and on-demand library loading from disk or server.
 
-**Available Libraries:**
+### Available Libraries
 
-### Standard Libraries
+#### Standard Libraries
 
 - All Python-like standard libraries via `stdlib.RegisterAll()`
 
-### Extended Libraries
+#### Extended Libraries
 
 - **requests** - HTTP client library
 - **secrets** - Secure random number generation
@@ -38,14 +79,24 @@ All environments now use **dynamic library loading** via scriptling's on-demand 
 - **Priority**: Local `.py` files are tried first, then fetches from server
 - **API**: Uses `GET /api/scripts/library/{library_name}` endpoint
 
-**Example:**
+### Security Characteristics
+
+- Full system access - use with trusted scripts only
+- Can read/write files via pathlib on local machine
+- Can execute system commands via subprocess
+- Can load arbitrary .py files from disk (tried first)
+- Falls back to server libraries if not found locally
+
+### Code Locations
+
+- Environment creation: `internal/service/scriptling_env.go`
+- Command implementation: `command/cmdutil/runscript.go`
+
+### Example
 
 ```bash
 # Run local script with dynamic library loading
 knot run-script myscript.py arg1 arg2
-
-# Execute script in a space
-knot space run-script myspace myscript arg1 arg2
 
 # Import local .py files first, then server libraries
 import mylib  # Tries mylib.py locally, then fetches from server
@@ -53,19 +104,24 @@ import mylib  # Tries mylib.py locally, then fetches from server
 
 ---
 
-## MCP Environment
+## 2. MCP Environment
 
-**Used by:** MCP tool execution via AI assistants
+**Function:** `internal/service/scriptling_env.go::NewMCPScriptlingEnv()`
+
+**Used By:**
+
+- AI assistants executing MCP tools
+- Scripts with `script_type = "tool"`
 
 **Purpose:** Execute tool scripts in a controlled environment for AI integration.
 
-**Available Libraries:**
+### Available Libraries
 
-### Standard Libraries
+#### Standard Libraries
 
 - All Python-like standard libraries via `stdlib.RegisterAll()`
 
-### Extended Libraries
+#### Extended Libraries
 
 - **requests** - HTTP client library
 - **secrets** - Secure random number generation
@@ -73,7 +129,7 @@ import mylib  # Tries mylib.py locally, then fetches from server
 - **knot.space** - Space management operations (via internal API)
 - **knot.ai** - AI completion functions (via MCP server)
 
-### Special Libraries
+#### Special Libraries
 
 - **knot.mcp** - MCP-specific functions with access to tool parameters
 
@@ -83,23 +139,52 @@ import mylib  # Tries mylib.py locally, then fetches from server
 - **API**: Uses `GET /api/scripts/library/{library_name}` endpoint
 - **No filesystem access** for security
 
-**Security Note:** This environment is intentionally restricted to prevent AI tools from executing arbitrary system commands or accessing the filesystem.
+### Security Characteristics
+
+- Restricted for AI safety
+- No filesystem access
+- No command execution
+- Cannot load external files
+- Only fetches libraries from server
+- Limited to safe operations for AI tool usage
+
+### Code Locations
+
+- Environment creation: `internal/service/scriptling_env.go`
+- Tool execution: `internal/service/scripts.go::ExecuteScriptWithMCP()`
+
+### Example
+
+```python
+import knot.mcp
+
+# Access tool parameters
+name = knot.mcp.get("name", "default")
+
+# Return result
+return knot.mcp.return_string(f"Hello, {name}!")
+```
 
 ---
 
-## Remote Environment
+## 3. Remote Environment
 
-**Used by:** Script execution within spaces (containers)
+**Function:** `internal/service/scriptling_env.go::NewRemoteScriptlingEnv()`
+
+**Used By:**
+
+- Space script execution: `knot space run-script`
+- Agent-based script execution in containers
 
 **Purpose:** Execute scripts remotely in user spaces with full capabilities and dynamic library loading.
 
-**Available Libraries:**
+### Available Libraries
 
-### Standard Libraries
+#### Standard Libraries
 
 - All Python-like standard libraries via `stdlib.RegisterAll()`
 
-### Extended Libraries
+#### Extended Libraries
 
 - **requests** - HTTP client library
 - **secrets** - Secure random number generation
@@ -118,11 +203,28 @@ import mylib  # Tries mylib.py locally, then fetches from server
 - **Enabled**: Libraries are loaded dynamically from server only
 - **API**: Uses `GET /api/scripts/library/{library_name}` endpoint
 
-**Example:**
+### Security Characteristics
+
+- Runs in isolated container (space)
+- Full capabilities within container
+- No access to host filesystem
+- Libraries fetched dynamically from server
+- Has API access to spaces, ai, and mcp from within space
+- **Requires active agent connection** - script execution fails if space agent is not connected
+
+### Code Locations
+
+- Environment creation: `internal/service/scriptling_env.go`
+- Agent handler: `internal/agentapi/agent_client/execute_script.go`
+
+### Example
 
 ```bash
 # Execute script in a space
 knot space run-script myspace myscript arg1 arg2
+
+# Or with pipe support
+echo "data" | knot space run-script myspace myscript | jq
 ```
 
 ---
@@ -140,44 +242,42 @@ knot space run-script myspace myscript arg1 arg2
 | os             | ✓                | ✗          | ✓          |
 | pathlib        | ✓                | ✗          | ✓          |
 | sys            | ✓                | ✗          | ✓          |
-| knot.space    | ✓                | ✓          | ✓          |
-| knot.ai        | ✓                | ✓          | ✓          |
-| knot.mcp       | ✓                | ✓          | ✓          |
+| knot.space     | ✓ API            | ✓ API      | ✓ API      |
+| knot.ai        | ✓ API            | ✓ MCP      | ✓ API      |
+| knot.mcp       | ✓ Tools          | ✓ Special  | ✓ Tools    |
 | On-demand libs | ✓ (local+server) | ✓ (server) | ✓ (server) |
 
 ---
 
-## Security Considerations
+## Implementation Details
 
-### Local Environment
+### Dynamic Library Loading
 
-- Full system access - use with trusted scripts only
-- Can read/write files via pathlib on local machine
-- Can execute system commands via subprocess
-- Can load arbitrary .py files from disk (tried first)
-- Falls back to server libraries if not found locally
-- Has API access to spaces, ai, and mcp
+All environments use scriptling's on-demand callback mechanism:
 
-### MCP Environment
+- Libraries loaded when import statements are encountered
+- Not bulk-loaded at environment creation
+- Different sources based on environment
 
-- Restricted for AI safety
-- No filesystem access
-- No command execution
-- Cannot load external files
-- Only fetches libraries from server
-- Limited to safe operations for AI tool usage
+### Authentication Flow
 
-### Remote Environment
+- **Local/Remote**: Use API client with agent token
+- **MCP**: Uses internal API (no network calls)
 
-- Runs in isolated container (space)
-- Full capabilities within container
-- No access to host filesystem
-- Libraries fetched dynamically from server
-- Has API access to spaces, ai, and mcp from within space
-- **Requires active agent connection** - script execution fails if space agent is not connected
+### Security Isolation
+
+- **MCP**: Most restricted (no system access)
+- **Remote**: Container isolated
+- **Local**: Full local system access
+
+### Space Script Execution
+
+Scripts executed in spaces require an active agent connection. If the space agent is not connected, script execution will fail with a "Space agent is not connected" error rather than falling back to server execution for security reasons.
 
 ---
 
 ## Additional Documentation
 
 - [Space Library Reference](scriptling-space-library.md) - Complete documentation for the `knot.space` library
+- [AI Library Reference](scriptling-ai-library.md) - Complete documentation for the `knot.ai` library
+- [MCP Library Reference](scriptling-mcp-library.md) - Complete documentation for the `knot.mcp` library

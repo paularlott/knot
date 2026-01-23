@@ -38,19 +38,17 @@ Remote MCP servers are configured in the `knot.toml` configuration file under th
     namespace = "ai"
     url = "https://ai.example.com/mcp"
     token = "your-bearer-token"
-    hidden = false  # Set to true to hide tools from ListTools
 
   [[server.mcp.remote_servers]]
     namespace = "data"
     url = "https://data.example.com/mcp"
     token = "your-bearer-token"
-    hidden = false
 
   [[server.mcp.remote_servers]]
     namespace = "internal"
     url = "https://internal.example.com/mcp"
     token = "your-internal-bearer-token"
-    hidden = true  # Tools callable but not listed
+    tool_visibility = "ondemand"
 ```
 
 ### Configuration Fields
@@ -58,7 +56,9 @@ Remote MCP servers are configured in the `knot.toml` configuration file under th
 - **namespace**: The namespace prefix for tools from this server (e.g., tools will appear as `ai/generate-text`)
 - **url**: The full URL of the remote MCP server endpoint
 - **token**: Bearer token for authentication
-- **hidden**: Optional boolean (default: false). When true, tools are callable but not listed in `ListTools` responses. Useful for internal tools that should only be used from scripts.
+- **tool_visibility**: Optional string (default: "native"). Controls how tools are exposed:
+  - `"native"` - Full tool definitions sent immediately (default)
+  - `"ondemand"` - Tools discovered on-demand via `tool_search`, reduces context usage
 
 ## How It Works
 
