@@ -11,24 +11,31 @@ import (
 )
 
 type ApiClient struct {
-	httpClient *rest.RESTClient
+	httpClient rest.RESTClient
 	spaceId    string
 }
 
 func NewClient(baseURL string, token string, insecureSkipVerify bool) (*ApiClient, error) {
-
 	client, err := rest.NewClient(baseURL, token, insecureSkipVerify)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &ApiClient{
+	client.SetContentType(rest.ContentTypeMsgPack)
+
+	return &ApiClient{
+		httpClient: client,
+	}, nil
+}
+
+// NewMuxClient creates an ApiClient that uses MuxClient for direct API calls
+func NewMuxClient(user *model.User) *ApiClient {
+	client := rest.NewMuxClient(user)
+	client.SetContentType(rest.ContentTypeMsgPack)
+
+	return &ApiClient{
 		httpClient: client,
 	}
-
-	c.httpClient.SetContentType(rest.ContentTypeMsgPack)
-
-	return c, nil
 }
 
 func (c *ApiClient) SetContentType(contentType string) *ApiClient {
@@ -86,7 +93,6 @@ func (c *ApiClient) Do(ctx context.Context, method string, path string, requestB
 }
 
 // DoJSON makes an arbitrary API request using JSON content type and JSON accept header (thread-safe)
-// This is needed for endpoints that require JSON, like chat completion and script listing
 func (c *ApiClient) DoJSON(ctx context.Context, method string, path string, requestBody interface{}, responseBody interface{}) (int, error) {
 	switch method {
 	case "GET":
@@ -104,6 +110,9 @@ func (c *ApiClient) DoJSON(ctx context.Context, method string, path string, requ
 
 func (c *ApiClient) GetWebSocketURL() string {
 	baseURL := c.httpClient.GetBaseURL()
+	if baseURL == "" {
+		return ""
+	}
 	if len(baseURL) > 8 && baseURL[:8] == "https://" {
 		return "wss://" + baseURL[8:]
 	}
@@ -114,9 +123,14 @@ func (c *ApiClient) GetWebSocketURL() string {
 }
 
 func (c *ApiClient) ConnectWebSocket(ctx context.Context, url string) (*websocket.Conn, error) {
+	token := c.httpClient.GetAuthToken()
+	if token == "" {
+		return nil, fmt.Errorf("no auth token available")
+	}
+
 	header := make(map[string][]string)
-	header["Authorization"] = []string{"Bearer " + c.httpClient.GetAuthToken()}
-	
+	header["Authorization"] = []string{"Bearer " + token}
+
 	dialer := websocket.Dialer{}
 	ws, _, err := dialer.DialContext(ctx, url, header)
 	return ws, err

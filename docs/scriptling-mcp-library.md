@@ -1,42 +1,31 @@
 # Scriptling MCP Library
 
-The `knot.mcp` library provides MCP (Model Context Protocol) functionality for scriptling scripts. This library is available in all environments with functions adapted to the context:
-
-1. **MCP Tool Scripts**: All functions including parameter access (get, return_string, return_object, return_error) plus tool access functions
-2. **Local/Remote/MCP Environments**: MCP tool access functions for calling MCP tools programmatically
+The `knot.mcp` library provides MCP (Model Context Protocol) functionality for scriptling scripts. This library uses a unified API across all environments.
 
 ## Available Functions
 
-### For MCP Tool Scripts (Parameter Access)
+### Parameter Access (MCP Tool Scripts Only)
+These functions are only available when a script is executed as an MCP tool:
+
 - `get(name[, default])` - Get MCP parameter value with automatic type conversion
 - `return_string(value)` - Return a string result
 - `return_object(value)` - Return a structured object as JSON
+- `return_toon(value)` - Return a value encoded as toon
 - `return_error(message)` - Return an error message
 
-### For All Environments (Tool Access)
+### Tool Access (All Environments)
+These functions are available in all scriptling environments:
+
 - `list_tools()` - Get a list of all available MCP tools and their parameters
 - `call_tool(name, arguments)` - Call an MCP tool directly
-- `tool_search(query, max_results=10)` - Search for tools by keyword. Returns list of matching tools
-- `execute_tool(name, arguments)` - Execute a discovered tool. Arguments should be a dict
-
-## Availability
-
-| Function | MCP Tool Scripts | Local | Remote | MCP |
-|----------|------------------|-------|--------|-----|
-| get | ✓ | ✗ | ✗ | ✗ |
-| return_string | ✓ | ✗ | ✗ | ✗ |
-| return_object | ✓ | ✗ | ✗ | ✗ |
-| return_error | ✓ | ✗ | ✗ | ✗ |
-| list_tools | ✓ | ✓ | ✓ | ✓ |
-| call_tool | ✓ | ✓ | ✓ | ✓ |
-| tool_search | ✓ | ✓ | ✓ | ✓ |
-| execute_tool | ✓ | ✓ | ✓ | ✓ |
+- `tool_search(query, max_results=10)` - Search for tools by keyword
+- `execute_tool(name, arguments)` - Execute a discovered tool
 
 ---
 
-## MCP Tool Scripts
+## Parameter Access Functions
 
-When creating scripts that are exposed as MCP tools, use these functions to access parameters and return results.
+These functions are only available when a script is executed as an MCP tool (when mcpParams is provided).
 
 ### get(name[, default])
 
@@ -112,6 +101,26 @@ return knot.mcp.return_object(result)
 
 ---
 
+### return_toon(value)
+
+Return a value encoded as toon (a compact serialization format). The script should exit after calling this.
+
+**Parameters:**
+- `value` (any): The value to encode and return
+
+**Example:**
+```python
+import knot.mcp
+
+result = {
+    "status": "success",
+    "data": [1, 2, 3, 4, 5]
+}
+return knot.mcp.return_toon(result)
+```
+
+---
+
 ### return_error(message)
 
 Return an error message. The script should exit after calling this.
@@ -129,9 +138,9 @@ if not url:
 
 ---
 
-## MCP Tool Access Functions
+## Tool Access Functions
 
-These functions are available in all scriptling environments (Local, Remote, MCP) for programmatically accessing MCP tools.
+These functions are available in all scriptling environments for programmatically accessing MCP tools.
 
 ### list_tools()
 
@@ -308,20 +317,23 @@ print("Created:", new_space)
 ## Implementation Details
 
 ### MCP Tool Scripts
-- `knot.mcp.get()`: Reads from `MCP_PARAM_<name>` environment variables
+- Parameter access functions (get, return_*) are only available when mcpParams is provided
+- `knot.mcp.get()`: Reads from mcpParams map passed to the script
 - Automatically parses JSON for arrays and objects
 - Converts string numbers to int/float
 - Converts string booleans to bool
 
 ### Local and Remote Environments
-- **knot.mcp.list_tools()**: Uses the `api/chat/tools` endpoint to fetch available tools
-- **knot.mcp.call_tool()**: Uses the `api/chat/tools/call` endpoint to execute tools
+- **knot.mcp.list_tools()**: Uses the `api/chat/tools` endpoint via API client
+- **knot.mcp.call_tool()**: Uses the `api/chat/tools/call` endpoint via API client
 - Automatically handles authentication with the server
+- Uses HTTP client for external calls (agent, CLI)
 
-### MCP Environment
-- **knot.mcp.list_tools()**: Calls MCP server's ListTools() method directly
-- **knot.mcp.call_tool()**: Calls MCP server's CallTool() method directly
-- No API calls needed - direct server communication
+### MCP Tool Execution (Internal)
+- Uses MuxClient for direct mux calls (no HTTP overhead)
+- Calls API handlers directly via mux
+- User context passed through middleware
+- Same code paths as HTTP requests
 
 ---
 
@@ -356,8 +368,7 @@ When using `knot.ai.completion()`, the AI handles tool discovery and execution a
 ## Error Handling
 
 If the MCP library is not available, it will return an appropriate error message:
-- Local/Remote: "MCP tools not available - API client not configured"
-- MCP: "MCP tools not available - OpenAI client not configured"
+- "MCP tools not available - API client not configured"
 
 ---
 

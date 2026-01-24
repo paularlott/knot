@@ -147,7 +147,7 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 	}
 
 	// Execute the script
-	result, err := service.ExecuteScriptWithMCP(script, mcpParams, p.user, nil)
+	result, err := service.ExecuteScriptWithMCP(script, mcpParams, p.user)
 	if err != nil {
 		return fmt.Sprintf("Error: %s", err.Error()), nil
 	}
@@ -258,7 +258,7 @@ func executeScriptTool(script *model.Script) mcp.ToolHandler {
 			}
 		}
 
-		result, err := service.ExecuteScriptWithMCP(script, mcpParams, user, nil)
+		result, err := service.ExecuteScriptWithMCP(script, mcpParams, user)
 		if err != nil {
 			return mcp.NewToolResponseText(fmt.Sprintf("Error: %s", err.Error())), nil
 		}

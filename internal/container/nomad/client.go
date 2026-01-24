@@ -8,7 +8,7 @@ import (
 )
 
 type NomadClient struct {
-	httpClient *rest.RESTClient
+	httpClient rest.RESTClient
 	logger     logger.Logger
 }
 

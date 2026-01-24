@@ -63,6 +63,15 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 		logger := log.WithGroup("auth")
 		ctx := r.Context()
 
+		// Check if user already in context (from MuxClient)
+		if userVal := ctx.Value("user"); userVal != nil {
+			if user, ok := userVal.(*model.User); ok && user != nil {
+				logger.Trace("context user authenticated", "user_id", user.Id)
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
 		// If there's no users in the system then we don't check for authentication
 		if HasUsers {
 			var userId string = ""

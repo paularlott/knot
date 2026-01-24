@@ -10,7 +10,6 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/scriptling"
 )
 
 type ScriptService struct{}
@@ -81,7 +80,7 @@ func (s *ScriptService) ListScripts(opts ScriptListOptions) ([]*model.Script, er
 	return result, nil
 }
 
-func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, user *model.User, client *apiclient.ApiClient) (string, error) {
+func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, user *model.User) (string, error) {
 	timeout := time.Duration(config.GetServerConfig().MCPToolTimeout) * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -89,14 +88,13 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, use
 
 	ctx = context.WithValue(ctx, "user", user)
 
+	// Use MuxClient for direct API calls
+	client := apiclient.NewMuxClient(user)
+
 	env, err := NewMCPScriptlingEnv(client, mcpParams, user)
 	if err != nil {
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}
-
-	// Register MCP library with parameters and tool access
-	mcpLib := scriptling.GetMCPLibrary(mcpParams, GetOpenAIClient())
-	env.RegisterLibrary("knot.mcp", mcpLib)
 
 	result, err := env.EvalWithContext(ctx, script.Content)
 	if err != nil {

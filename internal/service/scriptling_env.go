@@ -109,7 +109,7 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 		env.RegisterLibrary("knot.ai", knotscriptling.GetAILibrary(client, userId))
 	}
 	if client != nil {
-		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client))
+		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client, nil))
 	}
 
 	// Local-first library loading: try filesystem, then server
@@ -136,7 +136,7 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 }
 
 // NewMCPScriptlingEnv creates a scriptling environment for MCP tool execution
-// Libraries: stdlib, requests, secrets, htmlparser, knot.space, knot.ai
+// Libraries: stdlib, requests, secrets, htmlparser, knot.space, knot.ai, knot.mcp
 // On-demand loading: Enabled - fetches from server only
 // Output: Captured and returned
 func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]string, user *model.User) (*scriptling.Scriptling, error) {
@@ -144,11 +144,10 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]strin
 	env.EnableOutputCapture()
 	registerBaseLibraries(env, nil)
 
-	if user != nil {
-		env.RegisterLibrary("knot.space", knotscriptling.GetSpaceMCPLibrary(user, GetSpaceService(), GetContainerService(), nil))
-	}
-	if GetOpenAIClient() != nil && user != nil {
-		env.RegisterLibrary("knot.ai", knotscriptling.GetAIMCPLibrary(GetOpenAIClient()))
+	if client != nil && user != nil {
+		env.RegisterLibrary("knot.space", knotscriptling.GetSpacesLibrary(client, user.Id))
+		env.RegisterLibrary("knot.ai", knotscriptling.GetAILibrary(client, user.Id))
+		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client, mcpParams))
 	}
 
 	setupServerLibraryCallback(env, client)
@@ -175,7 +174,7 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 		env.RegisterLibrary("knot.ai", knotscriptling.GetAILibrary(client, userId))
 	}
 	if client != nil {
-		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client))
+		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client, nil))
 	}
 
 	setupServerLibraryCallback(env, client)
@@ -200,7 +199,7 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 		env.RegisterLibrary("knot.ai", knotscriptling.GetAILibrary(client, userId))
 	}
 	if client != nil {
-		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client))
+		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client, nil))
 	}
 
 	setupServerLibraryCallback(env, client)

@@ -116,6 +116,8 @@ github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
 github.com/paularlott/mcp v0.9.3 h1:PFTYhhu6T6C2W0ug0vZUoqhJhksCCZDoIeQGvSizzEs=
 github.com/paularlott/mcp v0.9.3/go.mod h1:fcgH3hHb9viTNB4kRYETRpaCwwXIvIxZbuXPdAj1vbA=
+github.com/paularlott/mcp v0.9.6 h1:Dyz6CKZorx6S7NPUgFU6hBKZPHJ0ZZ04KpdS4oeu6fg=
+github.com/paularlott/mcp v0.9.6/go.mod h1:fcgH3hHb9viTNB4kRYETRpaCwwXIvIxZbuXPdAj1vbA=
 github.com/paularlott/scriptling v0.0.0-20260121143934-2c234c0584ca h1:Rz0VUQhTJayEEIZE+rrFizNntBQsb52mIh+c+VUNThk=
 github.com/paularlott/scriptling v0.0.0-20260121143934-2c234c0584ca/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
 github.com/paularlott/scriptling v0.0.0-20260122101045-b02c518c5af8 h1:A+qbB8HDkjXvyXZ1L2VzcPdLiV70as+FRlULoXn2xV4=

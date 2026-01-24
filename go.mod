@@ -25,7 +25,7 @@ require (
 	github.com/paularlott/cli v0.7.2
 	github.com/paularlott/gossip v0.12.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.9.3
+	github.com/paularlott/mcp v0.9.6
 	github.com/paularlott/scriptling v0.0.0-20260123170055-2a909e4c8af3
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.2

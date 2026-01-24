@@ -2,11 +2,13 @@ package scriptling
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/mcp"
+	"github.com/paularlott/mcp/toon"
 	scriptlib "github.com/paularlott/scriptling"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/object"
@@ -14,8 +16,30 @@ import (
 
 // GetMCPToolsLibrary returns the MCP tools library for scriptling (used in local/remote environments)
 // This provides only tool access functions that communicate with the server via API calls
-func GetMCPToolsLibrary(client *apiclient.ApiClient) *object.Library {
+func GetMCPToolsLibrary(client *apiclient.ApiClient, mcpParams map[string]string) *object.Library {
 	builder := object.NewLibraryBuilder("knot.mcp", "Knot MCP tool functions")
+
+	if mcpParams != nil {
+		builder.FunctionWithHelp("get", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			return mcpGet(mcpParams, args...)
+		}, "get(name[, default]) - Get MCP parameter value with automatic type conversion")
+
+		builder.FunctionWithHelp("return_string", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			return mcpReturnString(args...)
+		}, "return_string(value) - Return a string result and exit")
+
+		builder.FunctionWithHelp("return_object", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			return mcpReturnObject(args...)
+		}, "return_object(value) - Return a structured object as JSON and exit")
+
+		builder.FunctionWithHelp("return_toon", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			return mcpReturnToon(args...)
+		}, "return_toon(value) - Return a value encoded as toon and exit")
+
+		builder.FunctionWithHelp("return_error", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			return mcpReturnError(args...)
+		}, "return_error(message) - Return an error message and exit with error code")
+	}
 
 	builder.FunctionWithHelp("list_tools", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return mcpListTools(ctx, client, args...)
@@ -264,4 +288,75 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...ob
 
 	// Use the bridge package to decode the response
 	return scriptlingmcp.DecodeToolResponse(response)
+}
+
+// mcpGet retrieves a parameter value with automatic type conversion
+func mcpGet(mcpParams map[string]string, args ...object.Object) object.Object {
+	if len(args) == 0 {
+		return &object.Null{}
+	}
+
+	name, err := args[0].AsString()
+	if err != nil {
+		return err
+	}
+
+	value, found := mcpParams[name]
+	if !found {
+		value = ""
+	}
+
+	// If not found, return default or NULL
+	if value == "" {
+		if len(args) == 2 {
+			return args[1]
+		}
+		return &object.Null{}
+	}
+
+	// Try to parse as JSON first (for arrays/objects)
+	var jsonValue interface{}
+	if err := json.Unmarshal([]byte(value), &jsonValue); err == nil {
+		return scriptlib.FromGo(jsonValue)
+	}
+
+	// Return as string (MCP parameters are always strings)
+	return &object.String{Value: value}
+}
+
+// mcpReturnString returns a string value (script should exit after this)
+func mcpReturnString(args ...object.Object) object.Object {
+	if len(args) == 0 {
+		return &object.String{Value: ""}
+	}
+	return args[0]
+}
+
+// mcpReturnObject returns an object as JSON (script should exit after this)
+func mcpReturnObject(args ...object.Object) object.Object {
+	if len(args) == 0 {
+		return &object.Null{}
+	}
+	return args[0]
+}
+
+// mcpReturnToon returns a value encoded as toon (script should exit after this)
+func mcpReturnToon(args ...object.Object) object.Object {
+	if len(args) == 0 {
+		return &object.Null{}
+	}
+	goValue := scriptlib.ToGo(args[0])
+	encoded, err := toon.Encode(goValue)
+	if err != nil {
+		return &object.Error{Message: fmt.Sprintf("Error encoding to toon: %v", err)}
+	}
+	return &object.String{Value: encoded}
+}
+
+// mcpReturnError returns an error (script should exit after this)
+func mcpReturnError(args ...object.Object) object.Object {
+	if len(args) == 0 {
+		return &object.String{Value: "Error"}
+	}
+	return args[0]
 }

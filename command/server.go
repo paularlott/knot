@@ -34,6 +34,7 @@ import (
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/web"
 
 	"github.com/paularlott/cli"
@@ -766,8 +767,9 @@ var ServerCmd = &cli.Command{
 			logger.Debug("tunnel Server URL", "tunnel", tunnelServerUrl.Host)
 		}
 
-		// Create the application routes
+		// Create the application routes & et for MuxClient / direct API calls
 		routes := http.NewServeMux()
+		rest.SetAPIMux(routes)
 
 		api.ApiRoutes(routes)
 		proxy.Routes(routes, cfg)
@@ -1155,28 +1157,28 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 	}
 
 	serverCfg := &config.ServerConfig{
-		Listen:                 cmd.GetString("listen"),
-		ListenAgent:            cmd.GetString("listen-agent"),
-		URL:                    cmd.GetString("url"),
-		AgentEndpoint:          cmd.GetString("agent-endpoint"),
-		WildcardDomain:         cmd.GetString("wildcard-domain"),
-		HTMLPath:               cmd.GetString("html-path"),
-		TemplatePath:           cmd.GetString("template-path"),
-		AgentPath:              cmd.GetString("agent-path"),
-		PrivateFilesPath:       cmd.GetString("private-files-path"),
-		PublicFilesPath:        cmd.GetString("public-files-path"),
-		SkillsPath:             cmd.GetString("skills-path"),
-		DownloadPath:           cmd.GetString("download-path"),
-		DisableSpaceCreate:     cmd.GetBool("disable-space-create"),
-		ListenTunnel:           cmd.GetString("listen-tunnel"),
-		TunnelDomain:           cmd.GetString("tunnel-domain"),
-		TunnelServer:           cmd.GetString("tunnel-server"),
-		TerminalWebGL:          cmd.GetBool("terminal-webgl"),
-		EncryptionKey:          cmd.GetString("encrypt"),
-		Zone:                   zone,
-		Hostname:               hostname,
-		Timezone:               cmd.GetString("timezone"),
-		LeafNode:               cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
+		Listen:             cmd.GetString("listen"),
+		ListenAgent:        cmd.GetString("listen-agent"),
+		URL:                cmd.GetString("url"),
+		AgentEndpoint:      cmd.GetString("agent-endpoint"),
+		WildcardDomain:     cmd.GetString("wildcard-domain"),
+		HTMLPath:           cmd.GetString("html-path"),
+		TemplatePath:       cmd.GetString("template-path"),
+		AgentPath:          cmd.GetString("agent-path"),
+		PrivateFilesPath:   cmd.GetString("private-files-path"),
+		PublicFilesPath:    cmd.GetString("public-files-path"),
+		SkillsPath:         cmd.GetString("skills-path"),
+		DownloadPath:       cmd.GetString("download-path"),
+		DisableSpaceCreate: cmd.GetBool("disable-space-create"),
+		ListenTunnel:       cmd.GetString("listen-tunnel"),
+		TunnelDomain:       cmd.GetString("tunnel-domain"),
+		TunnelServer:       cmd.GetString("tunnel-server"),
+		TerminalWebGL:      cmd.GetBool("terminal-webgl"),
+		EncryptionKey:      cmd.GetString("encrypt"),
+		Zone:               zone,
+		Hostname:           hostname,
+		Timezone:           cmd.GetString("timezone"),
+		LeafNode:           cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
 		AuthIPRateLimiting: cmd.GetBool("auth-ip-rate-limiting"),
 		MCPToolTimeout:     cmd.GetInt("mcp-tool-timeout"),
 		Origin: config.OriginConfig{

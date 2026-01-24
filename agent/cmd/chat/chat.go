@@ -152,7 +152,7 @@ Type 'exit' or 'quit' to end the session.`,
 	},
 }
 
-func sendChatRequest(client *rest.RESTClient, messages []ChatMessage, showThinking bool) (string, error) {
+func sendChatRequest(client *rest.HTTPClient, messages []ChatMessage, showThinking bool) (string, error) {
 	chatReq := ChatRequest{Messages: messages}
 
 	fmt.Printf("%s%sAssistant:%s ", ColorBold, ColorGreen, ColorReset)

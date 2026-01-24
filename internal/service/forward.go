@@ -16,12 +16,12 @@ import (
 )
 
 var (
-	forwardClient     *rest.RESTClient
+	forwardClient     *rest.HTTPClient
 	forwardClientOnce sync.Once
 )
 
-// getForwardClient returns a shared REST client for forwarding requests
-func getForwardClient() *rest.RESTClient {
+// getForwardClient returns a shared HTTP client for forwarding requests
+func getForwardClient() *rest.HTTPClient {
 	forwardClientOnce.Do(func() {
 		// Create client with insecureSkipVerify=true for internal cluster communication
 		client, err := rest.NewClient("http://localhost", "", true)

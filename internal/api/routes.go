@@ -9,7 +9,6 @@ import (
 )
 
 func ApiRoutes(router *http.ServeMux) {
-
 	// Core
 	router.HandleFunc("GET /api/ping", middleware.ApiAuth(HandlePing))
 	router.HandleFunc("POST /api/auth/logout", middleware.ApiAuth(HandleLogout))
@@ -124,8 +123,6 @@ func ApiRoutes(router *http.ServeMux) {
 	// OAuth2 routes
 	router.HandleFunc("GET /authorize", middleware.WebAuth(oauth2.HandleAuthorize))
 	router.HandleFunc("POST /token", oauth2.HandleToken)
-	//router.HandleFunc("GET /oauth/authorize", middleware.WebAuth(oauth2.HandleAuthorize))
-	//router.HandleFunc("POST /oauth/token", oauth2.HandleToken)
 
 	// OAuth2 Discovery
 	router.HandleFunc("GET /.well-known/oauth-authorization-server", oauth2.HandleAuthorizationServerMetadata)
