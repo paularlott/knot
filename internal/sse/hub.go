@@ -203,13 +203,6 @@ func (h *Hub) InvalidateSession(sessionId string) {
 	h.mu.RUnlock()
 }
 
-// ClientCount returns the number of connected clients
-func (h *Hub) ClientCount() int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return len(h.clients)
-}
-
 // Shutdown closes all client connections and stops the hub
 func (h *Hub) Shutdown() {
 	if hubStarted {

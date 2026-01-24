@@ -46,18 +46,6 @@ func MCPServerContext(mcpServer *mcp.Server, scriptToolsProvider ScriptToolsProv
 	}
 }
 
-// MCPServerContextSimple adds only the MCP server to the request context (without script tools)
-// Use this when you don't need access to script tools via tool_search
-func MCPServerContextSimple(mcpServer *mcp.Server) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Add MCP server to context
-			ctx := context.WithValue(r.Context(), "mcp", mcpServer)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
 // HandlerToHandlerFunc converts an http.Handler to an http.HandlerFunc
 // This is useful when you need to use an http.Handler with middleware that expects http.HandlerFunc
 func HandlerToHandlerFunc(h http.Handler) http.HandlerFunc {

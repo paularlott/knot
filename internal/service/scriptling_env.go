@@ -32,16 +32,6 @@ func SetOpenAIClient(client *openai.Client) {
 	})
 }
 
-// GetOpenAIClient returns the global OpenAI client
-func GetOpenAIClient() *openai.Client {
-	return openaiClient
-}
-
-// SetLibraryFetcher sets a callback for fetching libraries when API client is not available
-func SetLibraryFetcher(fetcher func(string) (string, error)) {
-	libraryFetcher = fetcher
-}
-
 // registerBaseLibraries registers common libraries shared across all environments
 // customLogger is optional - pass nil to use the default logger
 func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logger) {
