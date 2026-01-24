@@ -32,6 +32,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
       script_type: "script",
       mcp_input_schema_toml: "",
       mcp_keywords: [],
+      on_demand_tool: false,
       is_managed: false,
     },
     mcpKeywordsStr: "",
@@ -66,6 +67,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
                   script_type: data.script_type || "script",
                   mcp_input_schema_toml: data.mcp_input_schema_toml || "",
                   mcp_keywords: data.mcp_keywords || [],
+                  on_demand_tool: data.on_demand_tool || false,
                   is_managed: data.is_managed || false,
                 };
                 this.isUserScript = data.user_id ? true : false;

@@ -84,15 +84,16 @@ func HandleGetScripts(w http.ResponseWriter, r *http.Request) {
 
 	for _, script := range scripts {
 		response.Scripts = append(response.Scripts, apiclient.ScriptInfo{
-			Id:          script.Id,
-			UserId:      script.UserId,
-			Name:        script.Name,
-			Description: script.Description,
-			Groups:      script.Groups,
-			Zones:       script.Zones,
-			Active:      script.Active,
-			ScriptType:  script.ScriptType,
-			IsManaged:   script.IsManaged,
+			Id:           script.Id,
+			UserId:       script.UserId,
+			Name:         script.Name,
+			Description:  script.Description,
+			Groups:       script.Groups,
+			Zones:        script.Zones,
+			Active:       script.Active,
+			ScriptType:   script.ScriptType,
+			OnDemandTool: script.OnDemandTool,
+			IsManaged:    script.IsManaged,
 		})
 		seenScripts[script.Id] = true
 		response.Count++
@@ -110,15 +111,16 @@ func HandleGetScripts(w http.ResponseWriter, r *http.Request) {
 			for _, script := range ownScripts {
 				if !seenScripts[script.Id] {
 					response.Scripts = append(response.Scripts, apiclient.ScriptInfo{
-						Id:          script.Id,
-						UserId:      script.UserId,
-						Name:        script.Name,
-						Description: script.Description,
-						Groups:      script.Groups,
-						Zones:       script.Zones,
-						Active:      script.Active,
-						ScriptType:  script.ScriptType,
-						IsManaged:   script.IsManaged,
+						Id:           script.Id,
+						UserId:       script.UserId,
+						Name:         script.Name,
+						Description:  script.Description,
+						Groups:       script.Groups,
+						Zones:        script.Zones,
+						Active:       script.Active,
+						ScriptType:   script.ScriptType,
+						OnDemandTool: script.OnDemandTool,
+						IsManaged:    script.IsManaged,
 					})
 					seenScripts[script.Id] = true
 					response.Count++
@@ -162,15 +164,16 @@ func HandleGetGlobalScripts(w http.ResponseWriter, r *http.Request) {
 
 	for _, script := range scripts {
 		response.Scripts = append(response.Scripts, apiclient.ScriptInfo{
-			Id:          script.Id,
-			UserId:      script.UserId,
-			Name:        script.Name,
-			Description: script.Description,
-			Groups:      script.Groups,
-			Zones:       script.Zones,
-			Active:      script.Active,
-			ScriptType:  script.ScriptType,
-			IsManaged:   script.IsManaged,
+			Id:           script.Id,
+			UserId:       script.UserId,
+			Name:         script.Name,
+			Description:  script.Description,
+			Groups:       script.Groups,
+			Zones:        script.Zones,
+			Active:       script.Active,
+			ScriptType:   script.ScriptType,
+			OnDemandTool: script.OnDemandTool,
+			IsManaged:    script.IsManaged,
 		})
 		response.Count++
 	}
@@ -227,6 +230,7 @@ func HandleGetScript(w http.ResponseWriter, r *http.Request) {
 		ScriptType:         script.ScriptType,
 		MCPInputSchemaToml: script.MCPInputSchemaToml,
 		MCPKeywords:        script.MCPKeywords,
+		OnDemandTool:       script.OnDemandTool,
 		IsManaged:          script.IsManaged,
 	})
 }
@@ -302,6 +306,7 @@ func HandleCreateScript(w http.ResponseWriter, r *http.Request) {
 		request.ScriptType,
 		request.MCPInputSchemaToml,
 		request.MCPKeywords,
+		request.OnDemandTool,
 		ownerUserId,
 		user.Id,
 	)
@@ -414,6 +419,7 @@ func HandleUpdateScript(w http.ResponseWriter, r *http.Request) {
 	script.ScriptType = request.ScriptType
 	script.MCPInputSchemaToml = request.MCPInputSchemaToml
 	script.MCPKeywords = request.MCPKeywords
+	script.OnDemandTool = request.OnDemandTool
 	script.UpdatedUserId = user.Id
 	script.UpdatedAt = hlc.Now()
 
@@ -553,6 +559,7 @@ func HandleGetScriptDetailsByName(w http.ResponseWriter, r *http.Request) {
 		ScriptType:         script.ScriptType,
 		MCPInputSchemaToml: script.MCPInputSchemaToml,
 		MCPKeywords:        script.MCPKeywords,
+		OnDemandTool:       script.OnDemandTool,
 		IsManaged:          script.IsManaged,
 	})
 }
