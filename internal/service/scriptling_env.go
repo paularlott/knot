@@ -149,22 +149,19 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]strin
 		env.RegisterLibrary("knot.space", knotscriptling.GetSpacesLibrary(client, user.Id))
 		env.RegisterLibrary("knot.ai", knotscriptling.GetAILibrary(client, user.Id))
 		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client, mcpParams))
-		
-		// Set up library callback with user context
+
+		// Set up library callback with user context for MuxClient
 		env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
-			// Create context with user for MuxClient
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			ctx = context.WithValue(ctx, "user", user)
-			
+
 			content, err := client.GetScriptLibrary(ctx, libName)
 			if err == nil {
 				return p.RegisterScriptLibrary(libName, content) == nil
 			}
 			return false
 		})
-	} else {
-		setupServerLibraryCallback(env, client)
 	}
 
 	return env, nil
