@@ -23,30 +23,37 @@
 
     <div class="mb-4">
       <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Script Type</label>
-      <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
-        <template x-for="type in [{value: 'script', label: 'Script'}, {value: 'lib', label: 'Library'}, {value: 'tool', label: 'MCP Tool'}]" :key="type.value">
-          <label class="relative">
-            <input
-              type="radio"
-              name="script_type"
-              :value="type.value"
-              x-model="formData.script_type"
-              class="sr-only peer"
-              :disabled="formData.is_managed"
-            >
-            <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
-              peer-checked:bg-blue-600 peer-checked:text-white
-              peer-focus:ring-2 peer-focus:ring-blue-300
-              transition-colors duration-200 ease-in-out
-              text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
-              hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600"
-              :class="{'opacity-50 cursor-not-allowed': formData.is_managed}">
-              <span x-text="type.label"></span>
-            </div>
-          </label>
-        </template>
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+          <template x-for="type in [{value: 'script', label: 'Script'}, {value: 'lib', label: 'Library'}, {value: 'tool', label: 'MCP Tool'}]" :key="type.value">
+            <label class="relative">
+              <input
+                type="radio"
+                name="script_type"
+                :value="type.value"
+                x-model="formData.script_type"
+                class="sr-only peer"
+                :disabled="formData.is_managed"
+              >
+              <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
+                peer-checked:bg-blue-600 peer-checked:text-white
+                peer-focus:ring-2 peer-focus:ring-blue-300
+                transition-colors duration-200 ease-in-out
+                text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600"
+                :class="{'opacity-50 cursor-not-allowed': formData.is_managed}">
+                <span x-text="type.label"></span>
+              </div>
+            </label>
+          </template>
+        </div>
+        <label class="inline-flex items-center cursor-pointer" x-show="formData.script_type === 'tool'" x-cloak>
+          <input type="checkbox" name="on_demand_tool" id="on_demand_tool" x-model="formData.on_demand_tool" class="sr-only peer" :disabled="formData.is_managed">
+          <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+          <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Discoverable</span>
+        </label>
       </div>
-      <div class="description mt-2">Script: executable, Library: reusable code, MCP Tool: AI assistant integration.</div>
+      <div class="description mt-2" x-show="formData.script_type === 'tool'" x-cloak>Discoverable tools are only available via tool_search.</div>
     </div>
 
     <div x-show="formData.script_type === 'tool'" x-cloak>

@@ -44,18 +44,27 @@ var listCmd = &cli.Command{
 		if len(userScripts) > 0 {
 			fmt.Println("\nUser Scripts:")
 			table := [][]string{
-				{"NAME", "DESCRIPTION", "ACTIVE", "TYPE"},
+				{"NAME", "DESCRIPTION", "ACTIVE", "TYPE", "ON-DEMAND"},
 			}
 			for _, script := range userScripts {
 				active := "No"
 				if script.Active {
 					active = "Yes"
 				}
+				onDemand := ""
+				if script.ScriptType == "tool" {
+					if script.OnDemandTool {
+						onDemand = "Yes"
+					} else {
+						onDemand = "No"
+					}
+				}
 				table = append(table, []string{
 					script.Name,
 					script.Description,
 					active,
 					script.ScriptType,
+					onDemand,
 				})
 			}
 			util.PrintTable(table)
@@ -65,18 +74,27 @@ var listCmd = &cli.Command{
 		if len(globalScripts) > 0 {
 			fmt.Println("\nGlobal Scripts:")
 			table := [][]string{
-				{"NAME", "DESCRIPTION", "ACTIVE", "TYPE"},
+				{"NAME", "DESCRIPTION", "ACTIVE", "TYPE", "ON-DEMAND"},
 			}
 			for _, script := range globalScripts {
 				active := "No"
 				if script.Active {
 					active = "Yes"
 				}
+				onDemand := ""
+				if script.ScriptType == "tool" {
+					if script.OnDemandTool {
+						onDemand = "Yes"
+					} else {
+						onDemand = "No"
+					}
+				}
 				table = append(table, []string{
 					script.Name,
 					script.Description,
 					active,
 					script.ScriptType,
+					onDemand,
 				})
 			}
 			util.PrintTable(table)
