@@ -16,14 +16,20 @@ import (
 	"github.com/paularlott/mcp"
 )
 
-// scriptToolsProvider implements mcp.ToolProvider for dynamic script tools
+// scriptToolsProvider implements mcp.ToolProvider for native script tools
 type scriptToolsProvider struct {
-	user *model.User
+	user       *model.User
+	onDemandOnly bool
 }
 
 // NewScriptToolsProvider creates a new script tools provider for a user
 func NewScriptToolsProvider(user *model.User) *scriptToolsProvider {
-	return &scriptToolsProvider{user: user}
+	return &scriptToolsProvider{user: user, onDemandOnly: false}
+}
+
+// NewOnDemandScriptToolsProvider creates a new on-demand script tools provider for a user
+func NewOnDemandScriptToolsProvider(user *model.User) *scriptToolsProvider {
+	return &scriptToolsProvider{user: user, onDemandOnly: true}
 }
 
 // GetTools returns all available script tools for the user
@@ -69,6 +75,19 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 				continue
 			}
 			// Current script is a user script - always replace (user scripts override both global and other user scripts)
+		}
+
+		// Filter based on provider type
+		if p.onDemandOnly {
+			// On-demand provider: only return discoverable tools
+			if !script.OnDemandTool {
+				continue
+			}
+		} else {
+			// Native provider: only return non-discoverable tools
+			if script.OnDemandTool {
+				continue
+			}
 		}
 
 		// Build input schema - if TOML schema exists, parse it; otherwise use empty schema

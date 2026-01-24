@@ -39,8 +39,10 @@ Use tool_search to discover tools by keyword or description.`)
 			// Add script tools as request-scoped provider
 			ctx := r.Context()
 			if user != nil && (user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts)) {
-				provider := NewScriptToolsProvider(user)
-				ctx = mcp.WithToolProviders(ctx, provider)
+				nativeProvider := NewScriptToolsProvider(user)
+				onDemandProvider := NewOnDemandScriptToolsProvider(user)
+				ctx = mcp.WithToolProviders(ctx, nativeProvider)
+				ctx = mcp.WithOnDemandToolProviders(ctx, onDemandProvider)
 			}
 
 			// Handle the MCP request - mode is determined from header by MCP server
