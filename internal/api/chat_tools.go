@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/util/rest"
 
 	"github.com/paularlott/knot/internal/log"
@@ -102,10 +101,4 @@ func HandleCallTool(w http.ResponseWriter, r *http.Request) {
 
 	// Return the result - *mcp.ToolResponse marshals correctly as JSON
 	rest.WriteResponse(http.StatusOK, w, r, response)
-}
-
-// RegisterChatToolRoutes registers the chat tool API routes
-func RegisterChatToolRoutes(router *http.ServeMux) {
-	router.HandleFunc("GET /api/chat/tools", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(HandleListTools)))
-	router.HandleFunc("POST /api/chat/tools/call", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(HandleCallTool)))
 }

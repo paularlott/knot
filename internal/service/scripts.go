@@ -15,10 +15,10 @@ import (
 type ScriptService struct{}
 
 type ScriptListOptions struct {
-	FilterUserId          string
-	User                  *model.User
-	IncludeDeleted        bool
-	CheckZoneRestriction  bool
+	FilterUserId         string
+	User                 *model.User
+	IncludeDeleted       bool
+	CheckZoneRestriction bool
 }
 
 var scriptService *ScriptService
@@ -110,10 +110,4 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, use
 	}
 
 	return strings.TrimRight(output, "\n"), nil
-}
-
-// ExecuteScriptLocally is deprecated - scripts should not run on the server
-// This function now returns an error to prevent security risks
-func ExecuteScriptLocally(script *model.Script, args []string) (string, error) {
-	return "", fmt.Errorf("script execution requires an active agent connection")
 }
