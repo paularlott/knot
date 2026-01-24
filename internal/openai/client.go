@@ -25,7 +25,6 @@ type (
 	Usage                  = mcpopenai.Usage
 	ChatStream             = mcpopenai.ChatStream
 	ToolHandler            = mcpopenai.ToolHandler
-	ToolFilter             = mcpopenai.ToolFilter
 	ResponseObject         = mcpopenai.ResponseObject
 	CreateResponseRequest  = mcpopenai.CreateResponseRequest
 	APIError               = mcpopenai.APIError
@@ -72,11 +71,6 @@ func New(config Config, mcpServer MCPServer) (*Client, error) {
 		BaseURL:     config.BaseURL,
 		LocalServer: mcpServer,
 	}
-	
-	return mcpopenai.New(newConfig)
-}
 
-// GetMCPServer returns the local MCP server from the client
-func GetMCPServer(client *Client) MCPServer {
-	return client.GetLocalServer()
+	return mcpopenai.New(newConfig)
 }

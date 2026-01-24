@@ -182,25 +182,6 @@ func (h *Hub) Broadcast(event *Event) {
 	}
 }
 
-// BroadcastToUser sends an event to all clients for a specific user
-func (h *Hub) BroadcastToUser(userId string, event *Event) {
-	data, err := json.Marshal(event)
-	if err != nil {
-		return
-	}
-	h.mu.RLock()
-	for client := range h.clients {
-		if client.userId == userId {
-			select {
-			case client.send <- data:
-			default:
-				// Client buffer is full
-			}
-		}
-	}
-	h.mu.RUnlock()
-}
-
 // InvalidateSession sends an auth required event to all clients with a specific session
 func (h *Hub) InvalidateSession(sessionId string) {
 	event := &Event{

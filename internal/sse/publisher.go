@@ -147,22 +147,6 @@ func PublishSessionsDeleted(sessionId string) {
 	})
 }
 
-// PublishTunnelsChanged notifies clients that a tunnel has changed
-func PublishTunnelsChanged(tunnelId string) {
-	GetHub().Broadcast(&Event{
-		Type:    EventTunnelsChanged,
-		Payload: ResourcePayload{Id: tunnelId},
-	})
-}
-
-// PublishTunnelsDeleted notifies clients that a tunnel was deleted
-func PublishTunnelsDeleted(tunnelId string) {
-	GetHub().Broadcast(&Event{
-		Type:    EventTunnelsDeleted,
-		Payload: ResourcePayload{Id: tunnelId},
-	})
-}
-
 // PublishAuditLogsChanged notifies clients that audit logs have changed
 func PublishAuditLogsChanged() {
 	GetHub().Broadcast(&Event{
