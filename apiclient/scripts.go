@@ -82,6 +82,13 @@ type ScriptNameExecuteRequest struct {
 	Arguments  []string `json:"arguments"`
 }
 
+type UnifiedScriptExecuteRequest struct {
+	ScriptId   string   `json:"script_id,omitempty"`
+	ScriptName string   `json:"script_name,omitempty"`
+	Content    string   `json:"content,omitempty"`
+	Arguments  []string `json:"arguments"`
+}
+
 type ScriptLibraryResponse struct {
 	Name    string `json:"name"`
 	Content string `json:"content"`

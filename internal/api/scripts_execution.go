@@ -104,9 +104,11 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Unified script execution runs without timeout
+	// Prepend script name to arguments (argv[0] convention)
+	argv := append([]string{scriptName}, request.Arguments...)
 	execMsg := &msg.ExecuteScriptMessage{
 		Content:      scriptContent,
-		Arguments:    request.Arguments,
+		Arguments:    argv,
 		IsSystemCall: false,
 	}
 

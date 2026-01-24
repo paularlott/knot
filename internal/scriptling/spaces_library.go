@@ -128,7 +128,7 @@ func GetSpacesLibrary(client *apiclient.ApiClient, userId string) *object.Librar
 
 	builder.FunctionWithHelp("run_script", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spaceExecScript(ctx, client, userId, args...)
-	}, "run_script(space_name, script_name, *args) - Execute a script in a space")
+	}, "run_script(space_name, script_name, *args) - Execute a script in a space, returns {output: str, exit_code: int}")
 
 	builder.FunctionWithHelp("run", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spaceExecCommand(ctx, client, userId, kwargs, args...)
@@ -252,19 +252,20 @@ func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId st
 
 	scriptArgs := make([]string, 0, len(args)-2)
 	for i := 2; i < len(args); i++ {
-		arg, err := args[i].AsString()
-		if err != nil {
-			return errors.ParameterError(fmt.Sprintf("arg[%d]", i-2), err)
-		}
-		scriptArgs = append(scriptArgs, arg)
+		// Support multiple types by using Inspect() which converts to string representation
+		scriptArgs = append(scriptArgs, args[i].Inspect())
 	}
 
-	output, _, apiErr := client.ExecuteScriptByName(ctx, spaceId, scriptName, scriptArgs)
+	output, exitCode, apiErr := client.ExecuteScriptByName(ctx, spaceId, scriptName, scriptArgs)
 	if apiErr != nil {
-		return &object.Error{Message: fmt.Sprintf("failed to execute script: %v", apiErr)}
+		return &object.Error{Message: fmt.Sprintf("script execution failed: %v", apiErr)}
 	}
 
-	return &object.String{Value: output}
+	// Return dict with output and exit_code
+	pairs := make(map[string]object.DictPair)
+	pairs["output"] = object.DictPair{Key: &object.String{Value: "output"}, Value: &object.String{Value: output}}
+	pairs["exit_code"] = object.DictPair{Key: &object.String{Value: "exit_code"}, Value: &object.Integer{Value: int64(exitCode)}}
+	return &object.Dict{Pairs: pairs}
 }
 
 func spaceExecCommand(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs object.Kwargs, args ...object.Object) object.Object {

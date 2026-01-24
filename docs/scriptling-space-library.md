@@ -15,7 +15,7 @@ The `knot.space` library provides direct space management functions for scriptli
 - `set_description(name, description)` - Set the description of a space
 - `get_field(name, field)` - Get a custom field value from a space
 - `set_field(name, field, value)` - Set a custom field value on a space
-- `run_script(space_name, script_name, *args)` - Execute a script in a space
+- `run_script(space_name, script_name, *args)` - Execute a script in a space, returns {output: str, exit_code: int}
 - `run(space_name, command, args=[], timeout=30, workdir='')` - Execute a command in a space
 - `port_forward(source_space, local_port, remote_space, remote_port)` - Forward a local port to a remote space port
 - `port_list(space)` - List active port forwards for a space
@@ -309,7 +309,7 @@ knot.space.set_field("dev-space", "environment", "production")
 
 ### run_script(space_name, script_name, *args)
 
-Execute a named script in a space.
+Execute a named script in a space and capture its output and exit code.
 
 **Parameters:**
 - `space_name` (string): Name of the space
@@ -317,23 +317,31 @@ Execute a named script in a space.
 - `*args` (strings, optional): Additional arguments to pass to the script
 
 **Returns:**
-- `string`: The script output
+- `dict`: Dictionary containing:
+  - `output` (string): The script output
+  - `exit_code` (int): The script exit code
 
 **Example:**
 ```python
 import knot.space
 
 # Run a script without arguments
-output = knot.space.run_script("dev-space", "status")
-print(output)
+result = knot.space.run_script("dev-space", "status")
+print(result['output'])
+if result['exit_code'] == 0:
+    print("Script succeeded")
+else:
+    print(f"Script failed with exit code {result['exit_code']}")
 
 # Run a script with arguments
-output = knot.space.run_script("dev-space", "deploy", "production", "force")
-print(output)
+result = knot.space.run_script("dev-space", "deploy", "production", "force")
+print(result['output'])
 
-# Run a test script
-output = knot.space.run_script("test-space", "run_tests", "--verbose", "--coverage")
-print(output)
+# Run a test script and check exit code
+result = knot.space.run_script("test-space", "run_tests", "--verbose", "--coverage")
+if result['exit_code'] != 0:
+    print(f"Tests failed!\n{result['output']}")
+    exit(1)
 ```
 
 ---
@@ -553,8 +561,12 @@ def deploy_application():
 
     # Run deployment script
     print("Running deployment script...")
-    output = knot.space.run_script(space_name, "deploy", "production")
-    print(output)
+    result = knot.space.run_script(space_name, "deploy", "production")
+    print(result['output'])
+    
+    if result['exit_code'] != 0:
+        print(f"Deployment failed with exit code {result['exit_code']}")
+        return
 
     # Update deployment metadata
     import datetime
@@ -619,8 +631,11 @@ def setup_microservices():
     print("\nRunning health checks...")
     for service in services:
         name = f"{service['name']}-service"
-        output = knot.space.run_script(name, "health-check")
-        print(f"{name}: {output.strip()}")
+        result = knot.space.run_script(name, "health-check")
+        status = "OK" if result['exit_code'] == 0 else "FAILED"
+        print(f"{name}: {status}")
+        if result['exit_code'] != 0:
+            print(f"  Error: {result['output']}")
 
 setup_microservices()
 ```
@@ -662,8 +677,11 @@ def dev_workflow():
 
     # Run tests
     print("\nRunning tests...")
-    output = knot.space.run_script(space_name, "test")
-    print(output)
+    result = knot.space.run_script(space_name, "test")
+    print(result['output'])
+    if result['exit_code'] != 0:
+        print("Tests failed!")
+        return
 
     # Run linting
     print("\nRunning linter...")

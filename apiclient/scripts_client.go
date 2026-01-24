@@ -94,9 +94,9 @@ func (c *ApiClient) ExecuteScriptContent(ctx context.Context, spaceId, content s
 }
 
 func (c *ApiClient) ExecuteScriptByName(ctx context.Context, spaceId, scriptName string, args []string) (string, int, error) {
-	req := ScriptNameExecuteRequest{ScriptName: scriptName, Arguments: args}
+	req := UnifiedScriptExecuteRequest{ScriptName: scriptName, Arguments: args}
 	var resp ScriptExecuteResponse
-	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/execute-script-name", req, &resp, 0)
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/execute-script", req, &resp, 0)
 	if err != nil {
 		return "", 0, err
 	}
