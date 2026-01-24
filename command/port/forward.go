@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/command"
+	"github.com/paularlott/knot/command/cmdutil"
 
 	"github.com/paularlott/cli"
 )
@@ -52,7 +52,7 @@ var ForwardCmd = &cli.Command{
 		}
 
 		// Get the space ID from the space name
-		client, err := command.GetClient(cmd)
+		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
 			return fmt.Errorf("failed to create API client: %w", err)
 		}
