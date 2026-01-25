@@ -38,7 +38,7 @@ tags:
     description: |
       Operations for working with scripts and MCP tools.
 paths:
-  $ref: './chat.yaml#/paths'
+  $ref: "./chat.yaml#/paths"
 
   /api/auth/using-totp:
     get:
@@ -48,7 +48,7 @@ paths:
       description: Check if the server has TOTP enabled or not.
       operationId: getUsingTOTP
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
@@ -63,61 +63,61 @@ paths:
   /api/audit-logs:
     get:
       tags:
-      - Audit Logs
+        - Audit Logs
       summary: Get Audit Logs
       description: Retrieve the audit logs.
       operationId: getAuditLogs
       parameters:
-      - name: start
-        in: query
-        description: The item to start at.
-        required: false
-        schema:
-          type: integer
-          format: int32
-      - name: max-items
-        in: query
-        description: The maximum number of items to return.
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 10
+        - name: start
+          in: query
+          description: The item to start at.
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: max-items
+          in: query
+          description: The maximum number of items to return.
+          required: false
+          schema:
+            type: integer
+            format: int32
+            default: 10
       responses:
-        '200':
+        "200":
           description: A list of audited operations.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/AuditLogs'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                  $ref: "#/components/schemas/AuditLogs"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
-  /api/clister-info:
+  /api/cluster-info:
     get:
       tags:
-      - Cluster
+        - Cluster
       summary: Get Cluster Info
       description: Retrieve an overview of the cluster.
       operationId: getClusterInfo
       responses:
-        '200':
+        "200":
           description: A list of cluster nodes.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ClusterNodeInfo'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                  $ref: "#/components/schemas/ClusterNodeInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/tunnels/{tunnel_name}:
@@ -135,14 +135,14 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Tunnel deleted successfully.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/tunnels:
@@ -153,18 +153,18 @@ paths:
       description: Retrieve all tunnels for the authenticated user.
       operationId: getTunnels
       responses:
-        '200':
+        "200":
           description: A list of tunnels.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TunnelInfo'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                  $ref: "#/components/schemas/TunnelInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/tunnels/server-info:
@@ -175,18 +175,18 @@ paths:
       description: Retrieve the server information used for tunnels.
       operationId: getTunnelServerInfo
       responses:
-        '200':
+        "200":
           description: The server information.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TunnelServerInfo'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                  $ref: "#/components/schemas/TunnelServerInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/users:
@@ -205,9 +205,9 @@ paths:
           application/json:
             schema:
               type: object
-              $ref: '#/components/schemas/userRequest'
+              $ref: "#/components/schemas/userRequest"
       responses:
-        '201':
+        "201":
           description: User created successfully
           content:
             application/json:
@@ -221,12 +221,12 @@ paths:
                     type: string
                     format: uuid
                     description: The ID or username of the user.
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
       security: [BearerAuth: []]
 
     get:
@@ -260,7 +260,7 @@ paths:
           schema:
             type: boolean
       responses:
-        '200':
+        "200":
           description: A list of users
           content:
             application/json:
@@ -273,15 +273,15 @@ paths:
                   users:
                     type: array
                     items:
-                      $ref: '#/components/schemas/UserInfo'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                      $ref: "#/components/schemas/UserInfo"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/users/{user_id}:
@@ -299,20 +299,20 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: A user object
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
     put:
@@ -334,18 +334,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/userRequest'
+              $ref: "#/components/schemas/userRequest"
       responses:
-        '200':
+        "200":
           description: User updated successfully
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
     delete:
@@ -363,16 +363,16 @@ paths:
           required: true
           description: The ID or username of the user to delete.
       responses:
-        '200':
+        "200":
           description: Successful operation.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/users/{user_id}/quota:
@@ -390,20 +390,20 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: A user object
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserQuota'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
+                $ref: "#/components/schemas/UserQuota"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
   /api/users/{user_id}/permissions:
@@ -422,7 +422,7 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: A list of permission IDs
           content:
             application/json:
@@ -434,14 +434,14 @@ paths:
                     items:
                       type: integer
                     description: The list of permission IDs the user has.
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
   /api/users/{user_id}/has-permission:
@@ -466,7 +466,7 @@ paths:
           schema:
             type: integer
       responses:
-        '200':
+        "200":
           description: Permission check result
           content:
             application/json:
@@ -476,14 +476,14 @@ paths:
                   has_permission:
                     type: boolean
                     description: True if the user has the permission.
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
   /api/users/whoami:
@@ -493,16 +493,16 @@ paths:
       summary: Get Logged In User
       operationId: getWhoAmI
       responses:
-        '200':
+        "200":
           description: A user object for the currently authenticated user.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
       security: [BearerAuth: []]
 
   /api/permissions:
@@ -513,16 +513,16 @@ paths:
       tags:
         - Permissions
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PermissionInfoList'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/PermissionInfoList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/groups:
@@ -533,16 +533,16 @@ paths:
       tags:
         - Groups
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GroupInfoList'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/GroupInfoList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     post:
@@ -556,20 +556,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GroupRequest'
+              $ref: "#/components/schemas/GroupRequest"
       responses:
-        '201':
+        "201":
           description: Group created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GroupResponse'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
+                $ref: "#/components/schemas/GroupResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
       security: [BearerAuth: []]
 
   /api/groups/{group_id}:
@@ -592,20 +592,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GroupRequest'
+              $ref: "#/components/schemas/GroupRequest"
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     delete:
@@ -623,18 +623,18 @@ paths:
           required: true
           description: The ID of the group to delete.
       responses:
-        '200':
+        "200":
           description: Successful operation.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     get:
@@ -652,18 +652,18 @@ paths:
           required: true
           description: The ID of the group to get.
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GroupInfo'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
+                $ref: "#/components/schemas/GroupInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
   /api/roles:
@@ -674,7 +674,7 @@ paths:
       description: Get the list of roles defined within the system.
       operationId: listRoles
       responses:
-        '200':
+        "200":
           description: A list of roles
           content:
             application/json:
@@ -688,8 +688,8 @@ paths:
                       format: uuid
                     role_name:
                       type: string
-        '401':
-          $ref: '#/components/responses/unauthorized'
+        "401":
+          $ref: "#/components/responses/unauthorized"
       security: [BearerAuth: []]
 
     post:
@@ -703,20 +703,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RoleRequest'
+              $ref: "#/components/schemas/RoleRequest"
       responses:
-        '201':
+        "201":
           description: Group created successfully.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleResponse'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
+                $ref: "#/components/schemas/RoleResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
       security: [BearerAuth: []]
 
   /api/roles/{role_id}:
@@ -739,20 +739,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RoleRequest'
+              $ref: "#/components/schemas/RoleRequest"
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     delete:
@@ -770,18 +770,18 @@ paths:
           required: true
           description: The ID of the role to delete.
       responses:
-        '200':
+        "200":
           description: Successful operation.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     get:
@@ -799,18 +799,18 @@ paths:
           required: true
           description: The ID of the role to get.
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleDetails'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
+                $ref: "#/components/schemas/RoleDetails"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
       security: [BearerAuth: []]
 
   /api/sessions:
@@ -821,18 +821,18 @@ paths:
       description: Retrieve all sessions for the authenticated user.
       operationId: GetSessions
       responses:
-        '200':
+        "200":
           description: A list of sessions.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/SessionResponse'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                  $ref: "#/components/schemas/SessionResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/sessions/{session_id}:
@@ -850,14 +850,14 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Session deleted successfully.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/auth:
@@ -875,20 +875,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AuthLoginRequest'
+              $ref: "#/components/schemas/AuthLoginRequest"
       responses:
-        '200':
+        "200":
           description: User authenticated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthLoginResponse'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/AuthLoginResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: []
 
   /api/auth/web:
@@ -906,20 +906,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AuthLoginRequest'
+              $ref: "#/components/schemas/AuthLoginRequest"
       responses:
-        '200':
+        "200":
           description: User authenticated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthLoginResponse'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/AuthLoginResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: []
 
   /api/auth/logout:
@@ -931,16 +931,16 @@ paths:
         Terminate the users current session.
       operationId: LogoutUser
       responses:
-        '200':
+        "200":
           description: User logged out successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthLogoutResponse'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/AuthLogoutResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /authorize:
@@ -986,20 +986,20 @@ paths:
           schema:
             type: string
       responses:
-        '302':
+        "302":
           description: Redirect to authorization grant page or redirect URI
-        '400':
+        "400":
           description: Invalid request parameters
           content:
             application/json:
               schema:
-                $ref: '#/components/responses/bad-request'
-        '401':
+                $ref: "#/components/responses/bad-request"
+        "401":
           description: User not authenticated
           content:
             application/json:
               schema:
-                $ref: '#/components/responses/unauthorized'
+                $ref: "#/components/responses/unauthorized"
       security: []
 
   /token:
@@ -1038,7 +1038,7 @@ paths:
                   format: uri
                   description: The redirect URI used in the authorization request
       responses:
-        '200':
+        "200":
           description: Access token granted successfully
           content:
             application/json:
@@ -1060,7 +1060,7 @@ paths:
                   - access_token
                   - token_type
                   - expires_in
-        '400':
+        "400":
           description: Invalid request or authorization code
           content:
             application/json:
@@ -1069,13 +1069,14 @@ paths:
                 properties:
                   error:
                     type: string
-                    enum: [invalid_request, invalid_grant, unsupported_grant_type]
+                    enum:
+                      [invalid_request, invalid_grant, unsupported_grant_type]
                     description: Error code
                   error_description:
                     type: string
                     description: Human-readable error description
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: []
 
   /api/tokens:
@@ -1086,16 +1087,16 @@ paths:
         - Tokens
       operationId: GetTokens
       responses:
-        '200':
+        "200":
           description: Successful operation.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TokenInfo'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                  $ref: "#/components/schemas/TokenInfo"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     post:
@@ -1109,18 +1110,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateTokenRequest'
+              $ref: "#/components/schemas/CreateTokenRequest"
       responses:
-        '201':
+        "201":
           description: Successful operation. Returns the created token ID.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateTokenResponse'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
+                $ref: "#/components/schemas/CreateTokenResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
       security: [BearerAuth: []]
 
   /api/tokens/{token_id}:
@@ -1138,14 +1139,14 @@ paths:
           required: true
           description: The ID of the token to delete.
       responses:
-        '200':
+        "200":
           description: Successful operation.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/spaces:
@@ -1164,16 +1165,16 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SpaceInfoList'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/SpaceInfoList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     post:
@@ -1187,9 +1188,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SpaceRequest'
+              $ref: "#/components/schemas/SpaceRequest"
       responses:
-        '201':
+        "201":
           description: Space created successfully
           content:
             application/json:
@@ -1203,16 +1204,16 @@ paths:
                     type: string
                     format: uuid
                     description: The ID of the created space.
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-        '507':
-          $ref: '#/components/responses/insufficient-storage'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        "507":
+          $ref: "#/components/responses/insufficient-storage"
       security: [BearerAuth: []]
 
   /api/spaces/{space_id}:
@@ -1230,16 +1231,16 @@ paths:
             type: string
             description: The ID or name of the space to delete.
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     put:
@@ -1260,18 +1261,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SpaceRequest'
+              $ref: "#/components/schemas/SpaceRequest"
       responses:
-        '200':
+        "200":
           description: Space update successfully
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     get:
@@ -1288,20 +1289,20 @@ paths:
             type: string
             description: The ID or name of the space to get.
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/SpaceDefinition'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                  $ref: "#/components/schemas/SpaceDefinition"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/spaces/{space_id}/custom-field:
@@ -1323,18 +1324,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetCustomFieldRequest'
+              $ref: "#/components/schemas/SetCustomFieldRequest"
       responses:
-        '200':
+        "200":
           description: Custom field set successfully
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/spaces/{space_id}/custom-field/{field_name}:
@@ -1359,20 +1360,20 @@ paths:
             type: string
             description: The name of the custom field to retrieve.
       responses:
-        '200':
+        "200":
           description: Custom field retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetCustomFieldResponse'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/GetCustomFieldResponse"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/spaces/{space_id}/transfer:
@@ -1394,25 +1395,25 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SpaceTransferRequest'
+              $ref: "#/components/schemas/SpaceTransferRequest"
 
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '406':
-          $ref: '#/components/responses/not-acceptable'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-        '503':
-          $ref: '#/components/responses/service-unavailable'
-        '507':
-          $ref: '#/components/responses/insufficient-storage'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "406":
+          $ref: "#/components/responses/not-acceptable"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+        "507":
+          $ref: "#/components/responses/insufficient-storage"
       security: [BearerAuth: []]
 
   /api/spaces/{space_id}/share:
@@ -1434,24 +1435,24 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SpaceTransferRequest'
+              $ref: "#/components/schemas/SpaceTransferRequest"
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '406':
-          $ref: '#/components/responses/not-acceptable'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-        '503':
-          $ref: '#/components/responses/service-unavailable'
-        '507':
-          $ref: '#/components/responses/insufficient-storage'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "406":
+          $ref: "#/components/responses/not-acceptable"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+        "507":
+          $ref: "#/components/responses/insufficient-storage"
       security: [BearerAuth: []]
 
     delete:
@@ -1468,22 +1469,22 @@ paths:
             type: string
             description: The ID or name of the space to cease sharing.
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '406':
-          $ref: '#/components/responses/not-acceptable'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-        '503':
-          $ref: '#/components/responses/service-unavailable'
-        '507':
-          $ref: '#/components/responses/insufficient-storage'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "406":
+          $ref: "#/components/responses/not-acceptable"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+        "507":
+          $ref: "#/components/responses/insufficient-storage"
       security: [BearerAuth: []]
 
   /api/spaces/{space_id}/start:
@@ -1501,22 +1502,22 @@ paths:
             type: string
             description: The ID or name of the space to start.
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '406':
-          $ref: '#/components/responses/not-acceptable'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-        '503':
-          $ref: '#/components/responses/service-unavailable'
-        '507':
-          $ref: '#/components/responses/insufficient-storage'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "406":
+          $ref: "#/components/responses/not-acceptable"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+        "507":
+          $ref: "#/components/responses/insufficient-storage"
       security: [BearerAuth: []]
 
   /api/spaces/{space_id}/stop:
@@ -1534,16 +1535,16 @@ paths:
             type: string
             description: The ID or name of the space to stop.
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/spaces/{space_id}/restart:
@@ -1561,16 +1562,16 @@ paths:
             type: string
             description: The ID or name of the space to restart.
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/spaces/{user_id}/stop-for-user:
@@ -1588,14 +1589,14 @@ paths:
           required: true
           description: The ID or username of the user to stop the spaces for.
       responses:
-        '200':
+        "200":
           description: Successful operation.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /space-io/{space_id}/port/forward:
@@ -1618,20 +1619,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PortForwardRequest'
+              $ref: "#/components/schemas/PortForwardRequest"
       responses:
-        '200':
+        "200":
           description: Port forward established successfully
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /space-io/{space_id}/port/list:
@@ -1650,20 +1651,20 @@ paths:
             format: uuid
             description: The ID or name of the space.
       responses:
-        '200':
+        "200":
           description: List of active port forwards
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PortListSuccess'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/PortListSuccess"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /space-io/{space_id}/port/stop:
@@ -1686,20 +1687,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PortStopRequest'
+              $ref: "#/components/schemas/PortStopRequest"
       responses:
-        '200':
+        "200":
           description: Port forward stopped successfully
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/templates:
@@ -1717,20 +1718,20 @@ paths:
             type: string
             format: uuid
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TemplateList'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/TemplateList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     post:
@@ -1744,9 +1745,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TemplateCreateRequest'
+              $ref: "#/components/schemas/TemplateCreateRequest"
       responses:
-        '201':
+        "201":
           description: Template created successfully
           content:
             application/json:
@@ -1760,14 +1761,14 @@ paths:
                     type: string
                     format: uuid
                     description: The ID of the created template.
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/templates/{template_id}:
@@ -1790,20 +1791,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TemplateUpdateRequest'
+              $ref: "#/components/schemas/TemplateUpdateRequest"
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     delete:
@@ -1821,20 +1822,20 @@ paths:
           required: true
           description: The ID or name of the template to delete.
       responses:
-        '200':
+        "200":
           description: Successful operation.
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     get:
@@ -1851,20 +1852,20 @@ paths:
           required: true
           description: The ID or name of the template to get.
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TemplateDetails'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/TemplateDetails"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/templates/{template_id}/nodes:
@@ -1882,7 +1883,7 @@ paths:
           required: true
           description: The ID or name of the template to get nodes for.
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
@@ -1903,12 +1904,12 @@ paths:
                     total_spaces:
                       type: integer
                       description: The total number of spaces on the node.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/templatevars:
@@ -1919,18 +1920,18 @@ paths:
       tags:
         - TemplateVars
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TemplateVarList'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/TemplateVarList"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     post:
@@ -1944,9 +1945,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TemplateVar'
+              $ref: "#/components/schemas/TemplateVar"
       responses:
-        '201':
+        "201":
           description: Template variable created successfully
           content:
             application/json:
@@ -1960,12 +1961,12 @@ paths:
                     type: string
                     format: uuid
                     description: The ID of the created template variable.
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
       security: [BearerAuth: []]
 
   /api/templatevars/{templatevar_id}:
@@ -1987,20 +1988,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TemplateVarValue'
+              $ref: "#/components/schemas/TemplateVarValue"
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     delete:
@@ -2018,14 +2019,14 @@ paths:
           required: true
           description: The ID or name of the template variable to delete.
       responses:
-        '200':
+        "200":
           description: Successful operation.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     get:
@@ -2043,20 +2044,20 @@ paths:
       tags:
         - TemplateVars
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TemplateVarValue'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/TemplateVarValue"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/volumes:
@@ -2067,7 +2068,7 @@ paths:
       tags:
         - Volumes
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
@@ -2080,13 +2081,13 @@ paths:
                   volumes:
                     type: array
                     items:
-                      $ref: '#/components/schemas/VolumeInfo'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                      $ref: "#/components/schemas/VolumeInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     post:
@@ -2100,9 +2101,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VolumeCreateRequest'
+              $ref: "#/components/schemas/VolumeCreateRequest"
       responses:
-        '201':
+        "201":
           description: Volume created successfully
           content:
             application/json:
@@ -2116,14 +2117,14 @@ paths:
                     type: string
                     format: uuid
                     description: The ID of the created volume.
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/volumes/{volume_id}:
@@ -2144,18 +2145,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VolumeUpdateRequest'
+              $ref: "#/components/schemas/VolumeUpdateRequest"
       responses:
-        '200':
+        "200":
           description: Successful operation
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     delete:
@@ -2173,16 +2174,16 @@ paths:
           required: true
           description: The ID or name of the volume to delete.
       responses:
-        '200':
+        "200":
           description: Successful operation.
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
     get:
@@ -2199,18 +2200,18 @@ paths:
           required: true
           description: The ID or name of the volume to get.
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VolumeDefinition'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/VolumeDefinition"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/volumes/{volume_id}/start:
@@ -2228,7 +2229,7 @@ paths:
           required: true
           description: The ID or name of the volume to start.
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
@@ -2241,16 +2242,16 @@ paths:
                   zone:
                     type: string
                     description: The zone of the volume.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/volumes/{volume_id}/stop:
@@ -2268,18 +2269,18 @@ paths:
           required: true
           description: The ID or name of the volume to stop.
       responses:
-        '200':
+        "200":
           description: Successful operation.
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '423':
-          $ref: '#/components/responses/locked'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "423":
+          $ref: "#/components/responses/locked"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/scripts:
@@ -2305,7 +2306,7 @@ paths:
             type: boolean
             default: false
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
@@ -2317,13 +2318,13 @@ paths:
                   scripts:
                     type: array
                     items:
-                      $ref: '#/components/schemas/ScriptInfo'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                      $ref: "#/components/schemas/ScriptInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
     post:
       summary: Create Script
@@ -2336,9 +2337,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ScriptCreateRequest'
+              $ref: "#/components/schemas/ScriptCreateRequest"
       responses:
-        '201':
+        "201":
           description: Script created successfully
           content:
             application/json:
@@ -2350,14 +2351,14 @@ paths:
                   id:
                     type: string
                     format: uuid
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/scripts/{script_id}:
@@ -2376,18 +2377,18 @@ paths:
           required: true
           description: The ID of the script.
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScriptDetails'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/ScriptDetails"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
     put:
       summary: Update Script
@@ -2408,20 +2409,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ScriptUpdateRequest'
+              $ref: "#/components/schemas/ScriptUpdateRequest"
       responses:
-        '200':
+        "200":
           description: Script updated successfully
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
     delete:
       summary: Delete Script
@@ -2438,16 +2439,16 @@ paths:
           required: true
           description: The ID of the script.
       responses:
-        '200':
+        "200":
           description: Script deleted successfully
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/scripts/global:
@@ -2468,7 +2469,7 @@ paths:
             type: boolean
             default: false
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
@@ -2480,13 +2481,13 @@ paths:
                   scripts:
                     type: array
                     items:
-                      $ref: '#/components/schemas/ScriptInfo'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                      $ref: "#/components/schemas/ScriptInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/scripts/name/{script_name}/{script_type}:
@@ -2513,20 +2514,20 @@ paths:
           required: true
           description: The type of the script.
       responses:
-        '200':
+        "200":
           description: Successful operation - returns raw script content
           content:
             text/plain:
               schema:
                 type: string
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
   /api/scripts/name/{script_name}:
     get:
@@ -2543,20 +2544,20 @@ paths:
           required: true
           description: The name of the script.
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ScriptDetails'
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
+                $ref: "#/components/schemas/ScriptDetails"
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
   /api/spaces/{space_id}/execute-script:
@@ -2602,7 +2603,7 @@ paths:
                     type: string
                   description: Array of arguments to pass to the script.
       responses:
-        '200':
+        "200":
           description: Script executed successfully
           content:
             application/json:
@@ -2618,18 +2619,18 @@ paths:
                   exit_code:
                     type: integer
                     description: Script exit code
-        '400':
-          $ref: '#/components/responses/bad-request'
-        '401':
-          $ref: '#/components/responses/unauthorized'
-        '403':
-          $ref: '#/components/responses/forbidden'
-        '404':
-          $ref: '#/components/responses/not-found'
-        '500':
-          $ref: '#/components/responses/internal-server-error'
-        '503':
-          $ref: '#/components/responses/service-unavailable'
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
       security: [BearerAuth: []]
 
   /api/spaces/{space_id}/execute-script-stream:
@@ -2637,11 +2638,11 @@ paths:
       summary: Execute Script (Streaming)
       description: |
         Execute a script in a specific space with real-time streaming output via WebSocket.
-        
+
         Supports two modes:
         1. By script name - provide `script` query parameter
         2. Inline content - set `content=true` and send script content as first WebSocket message
-        
+
         The WebSocket connection provides bidirectional communication:
         - Server sends script output as binary messages
         - Client can send binary messages as stdin to the script
@@ -2679,17 +2680,17 @@ paths:
           required: false
           description: Script arguments (can be specified multiple times).
       responses:
-        '101':
+        "101":
           description: Switching Protocols - WebSocket connection established
-        '400':
+        "400":
           description: Bad Request - Invalid space ID or script name
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Forbidden - No permission to access space or execute script
-        '404':
+        "404":
           description: Not Found - Space or script not found
-        '503':
+        "503":
           description: Service Unavailable - Space agent not connected
       security: [BearerAuth: []]
 
@@ -2700,14 +2701,14 @@ paths:
       summary: Ping
       description: Ping the server and get a health response.
       responses:
-        '200':
+        "200":
           description: Server is healthy
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PingResponse'
-        '401':
-          $ref: '#/components/responses/unauthorized'
+                $ref: "#/components/schemas/PingResponse"
+        "401":
+          $ref: "#/components/responses/unauthorized"
       security: [BearerAuth: []]
 
 components:
@@ -2716,7 +2717,7 @@ components:
       type: http
       scheme: bearer
   schemas:
-    $ref: './chat.yaml#/components/schemas'
+    $ref: "./chat.yaml#/components/schemas"
 
     AuthLoginRequest:
       type: object
@@ -2781,7 +2782,7 @@ components:
         permissions:
           type: array
           items:
-            $ref: '#/components/schemas/PermissionInfo'
+            $ref: "#/components/schemas/PermissionInfo"
 
     GroupInfo:
       type: object
@@ -2820,7 +2821,7 @@ components:
         groups:
           type: array
           items:
-            $ref: '#/components/schemas/GroupInfo'
+            $ref: "#/components/schemas/GroupInfo"
 
     GroupRequest:
       type: object
@@ -2965,7 +2966,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/AuditLogEntry'
+            $ref: "#/components/schemas/AuditLogEntry"
 
     ClusterNodeInfo:
       type: object
@@ -3052,7 +3053,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: [ "manual", "docker", "podman", "nomad", "apple" ]
+          enum: ["manual", "docker", "podman", "nomad", "apple"]
         shared_user_id:
           type: string
           format: uuid
@@ -3124,7 +3125,7 @@ components:
         spaces:
           type: array
           items:
-            $ref: '#/components/schemas/SpaceInfo'
+            $ref: "#/components/schemas/SpaceInfo"
 
     CustomFieldValue:
       type: object
@@ -3172,7 +3173,7 @@ components:
         custom_fields:
           type: array
           items:
-            $ref: '#/components/schemas/CustomFieldValue'
+            $ref: "#/components/schemas/CustomFieldValue"
           description: The values for the custom fields.
         selected_node_id:
           type: string
@@ -3261,7 +3262,7 @@ components:
         volume_data:
           type: array
           items:
-            $ref: '#/components/schemas/SpaceVolume'
+            $ref: "#/components/schemas/SpaceVolume"
         started_at:
           type: string
           format: date-time
@@ -3279,7 +3280,7 @@ components:
         custom_fields:
           type: array
           items:
-            $ref: '#/components/schemas/CustomFieldValue'
+            $ref: "#/components/schemas/CustomFieldValue"
           description: The values for the custom fields.
         startup_script_id:
           type: string
@@ -3349,7 +3350,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: [ "manual", "docker", "podman", "nomad", "apple" ]
+          enum: ["manual", "docker", "podman", "nomad", "apple"]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -3376,7 +3377,7 @@ components:
           minItems: 7
           maxItems: 7
           items:
-            $ref: '#/components/schemas/TemplateDetailsDay'
+            $ref: "#/components/schemas/TemplateDetailsDay"
           x-condition:
             property: schedule_enabled
             value: true
@@ -3408,7 +3409,7 @@ components:
         templates:
           type: array
           items:
-            $ref: '#/components/schemas/TemplateInfo'
+            $ref: "#/components/schemas/TemplateInfo"
 
     CustomFieldDef:
       type: object
@@ -3449,7 +3450,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: [ "manual", "docker", "podman", "nomad", "apple" ]
+          enum: ["manual", "docker", "podman", "nomad", "apple"]
         active:
           type: boolean
           description: If the template is active.
@@ -3501,7 +3502,7 @@ components:
           minItems: 7
           maxItems: 7
           items:
-            $ref: '#/components/schemas/TemplateDetailsDay'
+            $ref: "#/components/schemas/TemplateDetailsDay"
         max_uptime:
           type: integer
           format: uint32
@@ -3522,7 +3523,7 @@ components:
         custom_fields:
           type: array
           items:
-            $ref: '#/components/schemas/CustomFieldDef'
+            $ref: "#/components/schemas/CustomFieldDef"
           description: The custom fields for the template.
 
     TemplateUpdateRequest:
@@ -3555,7 +3556,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: [ "manual", "docker", "podman", "nomad", "apple" ]
+          enum: ["manual", "docker", "podman", "nomad", "apple"]
         with_terminal:
           type: boolean
           description: If the space should support a web terminal.
@@ -3604,7 +3605,7 @@ components:
           minItems: 7
           maxItems: 7
           items:
-            $ref: '#/components/schemas/TemplateDetailsDay'
+            $ref: "#/components/schemas/TemplateDetailsDay"
         max_uptime:
           type: integer
           format: uint32
@@ -3625,7 +3626,7 @@ components:
         custom_fields:
           type: array
           items:
-            $ref: '#/components/schemas/CustomFieldDef'
+            $ref: "#/components/schemas/CustomFieldDef"
           description: The custom fields for the template.
 
     TemplateDetails:
@@ -3666,7 +3667,7 @@ components:
         platform:
           type: string
           description: The container platform to run the template on.
-          enum: [ "manual", "docker", "podman", "nomad", "apple" ]
+          enum: ["manual", "docker", "podman", "nomad", "apple"]
         is_managed:
           type: boolean
           description: If the template is managed by an origin server.
@@ -3721,7 +3722,7 @@ components:
           minItems: 7
           maxItems: 7
           items:
-            $ref: '#/components/schemas/TemplateDetailsDay'
+            $ref: "#/components/schemas/TemplateDetailsDay"
         max_uptime:
           type: integer
           format: uint32
@@ -3742,7 +3743,7 @@ components:
         custom_fields:
           type: array
           items:
-            $ref: '#/components/schemas/CustomFieldDef'
+            $ref: "#/components/schemas/CustomFieldDef"
           description: The custom fields for the template.
 
     TemplateDetailsDay:
@@ -3799,7 +3800,7 @@ components:
         variables:
           type: array
           items:
-            $ref: '#/components/schemas/TemplateVar'
+            $ref: "#/components/schemas/TemplateVar"
 
     TemplateVarValue:
       type: object
@@ -4185,7 +4186,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: [ "docker", "podman", "nomad", "apple" ]
+          enum: ["docker", "podman", "nomad", "apple"]
 
     VolumeCreateRequest:
       type: object
@@ -4199,7 +4200,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: [ "docker", "podman", "nomad", "apple" ]
+          enum: ["docker", "podman", "nomad", "apple"]
 
     VolumeUpdateRequest:
       type: object
@@ -4213,7 +4214,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: [ "docker", "podman", "nomad", "apple" ]
+          enum: ["docker", "podman", "nomad", "apple"]
 
     VolumeDefinition:
       type: object
@@ -4239,7 +4240,7 @@ components:
         platform:
           type: string
           description: The container platform to run the volume on.
-          enum: [ "docker", "podman", "nomad", "apple" ]
+          enum: ["docker", "podman", "nomad", "apple"]
 
     SpaceTransferRequest:
       type: object
@@ -4285,7 +4286,8 @@ components:
           items:
             type: string
             format: address
-          example: ["https://server1.example.com", "https://server2.example.com"]
+          example:
+            ["https://server1.example.com", "https://server2.example.com"]
           description: A list of tunnel servers. If this list is present then these servers should be used for the tunnel connections.
 
     PortForwardRequest:
@@ -4354,7 +4356,7 @@ components:
         forwards:
           type: array
           items:
-            $ref: '#/components/schemas/PortForwardInfo'
+            $ref: "#/components/schemas/PortForwardInfo"
           description: List of active port forwards.
 
     PortListError:
@@ -4559,52 +4561,52 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/error'
+            $ref: "#/components/schemas/error"
     forbidden:
       description: Forbidden
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/error'
+            $ref: "#/components/schemas/error"
     not-found:
       description: Not Found
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/error'
+            $ref: "#/components/schemas/error"
     internal-server-error:
       description: Internal Server Error
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/error'
+            $ref: "#/components/schemas/error"
     locked:
       description: Locked
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/error'
+            $ref: "#/components/schemas/error"
     unauthorized:
       description: Unauthorized
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/error'
+            $ref: "#/components/schemas/error"
     insufficient-storage:
       description: Insufficient Storage
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/error'
+            $ref: "#/components/schemas/error"
     not-acceptable:
       description: Not Acceptable
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/error'
+            $ref: "#/components/schemas/error"
     service-unavailable:
       description: Service Unavailable
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/error'
+            $ref: "#/components/schemas/error"
