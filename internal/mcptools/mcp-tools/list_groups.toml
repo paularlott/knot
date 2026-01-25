@@ -1,0 +1,4 @@
+name = "list_groups"
+description = "List all user groups. Use to find group IDs for template restrictions and user management."
+keywords = ["groups", "users", "permissions", "restrictions", "rbac", "access", "team", "organization"]
+visibility = "native"

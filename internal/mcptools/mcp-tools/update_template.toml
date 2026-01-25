@@ -1,0 +1,104 @@
+name = "update_template"
+description = "Update an existing template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide."
+keywords = ["update", "template", "modify", "edit", "docker", "nomad", "podman", "platform", "job", "specification", "blueprint"]
+visibility = "native"
+
+[parameters.template_name]
+type = "string"
+description = "Name of the template to update"
+required = true
+
+[parameters.name]
+type = "string"
+description = "New template name"
+required = false
+
+[parameters.platform]
+type = "string"
+description = "Platform: 'manual', 'docker', 'podman', or 'nomad'"
+required = false
+
+[parameters.job]
+type = "string"
+description = "Job specification"
+required = false
+
+[parameters.description]
+type = "string"
+description = "Template description"
+required = false
+
+[parameters.volumes]
+type = "string"
+description = "Volume specification"
+required = false
+
+[parameters.compute_units]
+type = "number"
+description = "Compute units required"
+required = false
+
+[parameters.storage_units]
+type = "number"
+description = "Storage units required"
+required = false
+
+[parameters.with_terminal]
+type = "boolean"
+description = "Enable terminal access"
+required = false
+
+[parameters.with_vscode_tunnel]
+type = "boolean"
+description = "Enable VSCode tunnel"
+required = false
+
+[parameters.with_code_server]
+type = "boolean"
+description = "Enable code server"
+required = false
+
+[parameters.with_ssh]
+type = "boolean"
+description = "Enable SSH access"
+required = false
+
+[parameters.with_run_command]
+type = "boolean"
+description = "Enable command execution and file operations (read/write/copy) in the space"
+required = false
+
+[parameters.active]
+type = "boolean"
+description = "Template active status"
+required = false
+
+[parameters.icon_url]
+type = "string"
+description = "Icon URL. Use list_icons to find available URLs"
+required = false
+
+[parameters.groups]
+type = "array"
+description = "Group UUIDs. Use list_groups for UUIDs"
+required = false
+
+[parameters.zones]
+type = "array"
+description = "Zone names"
+required = false
+
+[parameters.schedule_enabled]
+type = "boolean"
+description = "Enable schedule restrictions"
+required = false
+
+[parameters.schedule]
+type = "array"
+description = "Array of 7 schedule objects (Sunday=0 to Saturday=6). Times in '3:04pm' format"
+required = false
+
+[parameters.custom_fields]
+type = "array"
+description = "Custom field definitions"
+required = false

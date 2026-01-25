@@ -1,0 +1,9 @@
+name = "get_space"
+description = "Get detailed space information including configuration and status."
+keywords = ["get", "space", "details", "information", "configuration", "environment"]
+visibility = "native"
+
+[parameters.space_name]
+type = "string"
+description = "Name of the space to retrieve"
+required = true

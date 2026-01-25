@@ -1,0 +1,9 @@
+name = "get_template"
+description = "Get detailed template information including configuration and job specification."
+keywords = ["get", "template", "view", "details", "configuration", "docker", "nomad", "podman", "platform", "job", "specification"]
+visibility = "native"
+
+[parameters.template_name]
+type = "string"
+description = "Template name to retrieve"
+required = true

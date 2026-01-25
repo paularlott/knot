@@ -1,0 +1,9 @@
+name = "restart_space"
+description = "Restart a space."
+keywords = ["restart", "space", "reboot", "reload", "environment"]
+visibility = "native"
+
+[parameters.space_name]
+type = "string"
+description = "Name of the space to restart"
+required = true

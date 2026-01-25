@@ -1,0 +1,29 @@
+name = "run_command"
+description = "Execute a command in a running space and return results."
+keywords = ["run", "execute", "command", "shell", "terminal", "bash", "sh", "script", "output"]
+visibility = "native"
+
+[parameters.space_name]
+type = "string"
+description = "Name of the space to run command in"
+required = true
+
+[parameters.command]
+type = "string"
+description = "Command to execute"
+required = true
+
+[parameters.arguments]
+type = "array"
+description = "Command arguments"
+required = false
+
+[parameters.timeout]
+type = "number"
+description = "Timeout in seconds (default: 30)"
+required = false
+
+[parameters.workdir]
+type = "string"
+description = "Working directory"
+required = false

@@ -1,0 +1,24 @@
+name = "update_space"
+description = "Update an existing space."
+keywords = ["update", "space", "modify", "edit", "configure"]
+visibility = "native"
+
+[parameters.space_name]
+type = "string"
+description = "Name of the space to update"
+required = true
+
+[parameters.name]
+type = "string"
+description = "New space name"
+required = false
+
+[parameters.description]
+type = "string"
+description = "Space description"
+required = false
+
+[parameters.shell]
+type = "string"
+description = "Preferred shell (bash, zsh, fish, sh)"
+required = false

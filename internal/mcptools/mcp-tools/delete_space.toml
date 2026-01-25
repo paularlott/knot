@@ -1,0 +1,9 @@
+name = "delete_space"
+description = "Permanently delete a space and all its data. Cannot be undone."
+keywords = ["delete", "space", "remove", "destroy", "clean"]
+visibility = "native"
+
+[parameters.space_name]
+type = "string"
+description = "Name of the space to delete"
+required = true
