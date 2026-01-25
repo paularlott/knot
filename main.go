@@ -94,6 +94,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			command.ScaffoldCmd,
 			command.GenkeyCmd,
 			command.LegalCmd,
+			cli.GenerateCompletionCommand(),
 		},
 		PreRun: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			config.InitCommonConfig(cmd)
