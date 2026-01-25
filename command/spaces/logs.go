@@ -40,35 +40,10 @@ var LogsCmd = &cli.Command{
 			return fmt.Errorf("Failed to create API client: %w", err)
 		}
 
-		// Get the current user
-		user, err := client.WhoAmI(context.Background())
-		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
-		}
-
-		// Get a list of available spaces
-		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
-		if err != nil {
-			return fmt.Errorf("Error getting spaces: %w", err)
-		}
-
-		// Find the space by name
-		var spaceId string
-		for _, space := range spaces.Spaces {
-			if space.Name == spaceName {
-				spaceId = space.Id
-				break
-			}
-		}
-
-		if spaceId == "" {
-			return fmt.Errorf("Space not found: %s", spaceName)
-		}
-
 		// Get server info from client
 		baseURL := client.GetBaseURL()
 		token := client.GetAuthToken()
-		wsURL := "ws" + baseURL[4:] + fmt.Sprintf("/logs/%s/stream", spaceId)
+		wsURL := "ws" + baseURL[4:] + fmt.Sprintf("/logs/%s/stream", spaceName)
 		header := http.Header{"Authorization": []string{fmt.Sprintf("Bearer %s", token)}}
 
 		// Connect to the websocket at /logs/<spaceId>/stream and print the logs

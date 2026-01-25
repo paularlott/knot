@@ -24,10 +24,6 @@ type UnifiedScriptExecuteRequest struct {
 
 func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 	spaceId := r.PathValue("space_id")
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
 
 	request := UnifiedScriptExecuteRequest{}
 	err := rest.DecodeRequestBody(w, r, &request)
@@ -39,11 +35,18 @@ func HandleExecuteScript(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	db := database.GetInstance()
 
-	space, err := db.GetSpace(spaceId)
+	// Support lookup by both ID and name
+	var space *model.Space
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil || space.IsDeleted {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Space not found"})
 		return
 	}
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	if !user.HasPermission(model.PermissionManageSpaces) && space.UserId != user.Id {
 		rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "No permission to access this space"})

@@ -29,33 +29,8 @@ var RestartCmd = &cli.Command{
 			return fmt.Errorf("Failed to create API client: %w", err)
 		}
 
-		// Get the current user
-		user, err := client.WhoAmI(context.Background())
-		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
-		}
-
-		// Get a list of available spaces
-		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
-		if err != nil {
-			return fmt.Errorf("Error getting spaces: %w", err)
-		}
-
-		// Find the space by name
-		var spaceId string
-		for _, space := range spaces.Spaces {
-			if space.Name == spaceName {
-				spaceId = space.Id
-				break
-			}
-		}
-
-		if spaceId == "" {
-			return fmt.Errorf("Space not found: %s", spaceName)
-		}
-
-		// Stop the space
-		_, err = client.RestartSpace(context.Background(), spaceId)
+		// Restart the space (API supports both name and ID)
+		_, err = client.RestartSpace(context.Background(), spaceName)
 		if err != nil {
 			return fmt.Errorf("Error restarting space: %w", err)
 		}

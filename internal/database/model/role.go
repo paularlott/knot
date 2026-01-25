@@ -203,3 +203,20 @@ func RoleExists(roleId string) bool {
 	_, ok := roleCache[roleId]
 	return ok
 }
+
+// GetUserPermissions returns all permission integers for a user (resolves from roles)
+func GetUserPermissions(user *User) []uint16 {
+	permissions := make(map[uint16]bool)
+	for _, role := range user.Roles {
+		if r, ok := roleCache[role]; ok {
+			for _, p := range r.Permissions {
+				permissions[p] = true
+			}
+		}
+	}
+	result := make([]uint16, 0, len(permissions))
+	for p := range permissions {
+		result = append(result, p)
+	}
+	return result
+}

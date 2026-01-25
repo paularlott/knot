@@ -40,33 +40,8 @@ var SetFieldCmd = &cli.Command{
 			return fmt.Errorf("Failed to create API client: %w", err)
 		}
 
-		// Get the current user
-		user, err := client.WhoAmI(context.Background())
-		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
-		}
-
-		// Get a list of available spaces
-		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
-		if err != nil {
-			return fmt.Errorf("Error getting spaces: %w", err)
-		}
-
-		// Find the space by name
-		var spaceId string
-		for _, space := range spaces.Spaces {
-			if space.Name == spaceName {
-				spaceId = space.Id
-				break
-			}
-		}
-
-		if spaceId == "" {
-			return fmt.Errorf("Space not found: %s", spaceName)
-		}
-
-		// Set the custom field using the dedicated endpoint
-		_, err = client.SetSpaceCustomField(context.Background(), spaceId, fieldName, fieldValue)
+		// Set the custom field (API supports both name and ID)
+		_, err = client.SetSpaceCustomField(context.Background(), spaceName, fieldName, fieldValue)
 		if err != nil {
 			return fmt.Errorf("Error setting custom field: %w", err)
 		}

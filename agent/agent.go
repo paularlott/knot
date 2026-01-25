@@ -77,6 +77,7 @@ The agent connects environments to the knot server.`,
 			port.PortCmd,
 			agentcmd.RunScriptCmd,
 			scripts.ScriptsCmd,
+			cli.GenerateCompletionCommand(),
 		},
 		PreRun: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			config.InitCommonConfig(cmd)

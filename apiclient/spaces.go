@@ -247,6 +247,18 @@ func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId st
 	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/transfer", request, nil, 200)
 }
 
+func (c *ApiClient) AddShare(ctx context.Context, spaceId string, userId string) (int, error) {
+	request := &SpaceTransferRequest{
+		UserId: userId,
+	}
+
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/share", request, nil, 200)
+}
+
+func (c *ApiClient) RemoveShare(ctx context.Context, spaceId string) (int, error) {
+	return c.httpClient.Delete(ctx, "/api/spaces/"+spaceId+"/share", nil, nil, 200)
+}
+
 func (c *ApiClient) ForwardPort(ctx context.Context, spaceId string, request *PortForwardRequest) (int, error) {
 	return c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/forward", request, nil, 200)
 }

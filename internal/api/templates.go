@@ -18,6 +18,7 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 
 	// Get the query parameter user_id if present load the user
+	// Supports both UUID and username
 	userId := r.URL.Query().Get("user_id")
 	if userId != "" {
 		if !user.HasPermission(model.PermissionManageSpaces) {
@@ -27,15 +28,22 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 
 		db := database.GetInstance()
 		var err error
-		user, err = db.GetUser(userId)
+		var lookupUser *model.User
+		// Support lookup by both ID and username
+		if validate.UUID(userId) {
+			lookupUser, err = db.GetUser(userId)
+		} else {
+			lookupUser, err = db.GetUserByUsername(userId)
+		}
 		if err != nil {
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}
-		if user == nil {
+		if lookupUser == nil {
 			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "User not found"})
 			return
 		}
+		user = lookupUser
 	}
 
 	templateService := service.GetTemplateService()
@@ -107,10 +115,6 @@ func HandleGetTemplates(w http.ResponseWriter, r *http.Request) {
 
 func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	templateId := r.PathValue("template_id")
-	if !validate.UUID(templateId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
-		return
-	}
 
 	request := apiclient.TemplateUpdateRequest{}
 	err := rest.DecodeRequestBody(w, r, &request)
@@ -126,14 +130,23 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.MaxUptimeUnit = "disabled"
 	}
 
-	user := r.Context().Value("user").(*model.User)
-
-	templateService := service.GetTemplateService()
-	template, err := templateService.GetTemplate(templateId)
+	// Support lookup by both ID and name
+	db := database.GetInstance()
+	var template *model.Template
+	if validate.UUID(templateId) {
+		template, err = db.GetTemplate(templateId)
+	} else {
+		template, err = db.GetTemplateByName(templateId)
+	}
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	templateId = template.Id // Use the resolved ID for subsequent operations
+
+	user := r.Context().Value("user").(*model.User)
+
+	templateService := service.GetTemplateService()
 
 	// Update template with request data
 	template.Name = request.Name
@@ -302,16 +315,19 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	templateId := r.PathValue("template_id")
-	if !validate.UUID(templateId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
-		return
-	}
 
 	user := r.Context().Value("user").(*model.User)
 	templateService := service.GetTemplateService()
 
-	// Get template name for audit log before deletion
-	template, err := templateService.GetTemplate(templateId)
+	// Support lookup by both ID and name
+	db := database.GetInstance()
+	var template *model.Template
+	var err error
+	if validate.UUID(templateId) {
+		template, err = db.GetTemplate(templateId)
+	} else {
+		template, err = db.GetTemplateByName(templateId)
+	}
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Template not found"})
@@ -321,6 +337,7 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	templateName := template.Name
+	templateId = template.Id // Use the resolved ID for subsequent operations
 
 	err = templateService.DeleteTemplate(templateId, user)
 	if err != nil {
@@ -353,14 +370,29 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetTemplate(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
 	templateId := r.PathValue("template_id")
-	if !validate.UUID(templateId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid template ID"})
+
+	// Support lookup by both ID and name
+	var template *model.Template
+	var err error
+	db := database.GetInstance()
+
+	if validate.UUID(templateId) {
+		// Lookup by ID
+		template, err = db.GetTemplate(templateId)
+	} else {
+		// Lookup by name
+		template, err = db.GetTemplateByName(templateId)
+	}
+
+	if err != nil || template == nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
 		return
 	}
 
-	user := r.Context().Value("user").(*model.User)
-	data, err := api_utils.GetTemplateDetails(templateId, user)
+	// Now use GetTemplateDetails with the resolved ID
+	data, err := api_utils.GetTemplateDetails(template.Id, user)
 	if err != nil {
 		if err.Error() == "Template not found: sql: no rows in result set" {
 			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Template not found"})

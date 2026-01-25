@@ -4,15 +4,17 @@ The `knot.mcp` library provides MCP (Model Context Protocol) functionality for s
 
 ## Available Functions
 
-- `get(name[, default])` - Get MCP parameter value with automatic type conversion
-- `return_string(value)` - Return a string result
-- `return_object(value)` - Return a structured object as JSON
-- `return_toon(value)` - Return a value encoded as toon
-- `return_error(message)` - Return an error message
-- `list_tools()` - Get a list of all available MCP tools and their parameters
-- `call_tool(name, arguments)` - Call an MCP tool directly
-- `tool_search(query, max_results=10)` - Search for tools by keyword
-- `execute_tool(name, arguments)` - Execute a discovered tool
+| Function | Description |
+|----------|-------------|
+| `get(name[, default])` | Get MCP parameter value with automatic type conversion |
+| `return_string(value)` | Return a string result |
+| `return_object(value)` | Return a structured object as JSON |
+| `return_toon(value)` | Return a value encoded as toon |
+| `return_error(message)` | Return an error message |
+| `list_tools()` | Get a list of all available MCP tools and their parameters |
+| `call_tool(name, arguments)` | Call an MCP tool directly |
+| `tool_search(query, max_results=10)` | Search for tools by keyword |
+| `execute_tool(name, arguments)` | Execute a discovered tool |
 
 ---
 

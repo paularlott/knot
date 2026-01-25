@@ -55,6 +55,7 @@ type DbDriver interface {
 	SaveTemplate(template *model.Template, updateFields []string) error
 	DeleteTemplate(template *model.Template) error
 	GetTemplate(id string) (*model.Template, error)
+	GetTemplateByName(name string) (*model.Template, error)
 	GetTemplates() ([]*model.Template, error)
 
 	// Scripts
@@ -85,12 +86,14 @@ type DbDriver interface {
 	SaveTemplateVar(variable *model.TemplateVar) error
 	DeleteTemplateVar(variable *model.TemplateVar) error
 	GetTemplateVar(id string) (*model.TemplateVar, error)
+	GetTemplateVarByName(name string) (*model.TemplateVar, error)
 	GetTemplateVars() ([]*model.TemplateVar, error)
 
 	// Volumes
 	SaveVolume(volume *model.Volume, updateFields []string) error
 	DeleteVolume(volume *model.Volume) error
 	GetVolume(id string) (*model.Volume, error)
+	GetVolumeByName(name string) (*model.Volume, error)
 	GetVolumes() ([]*model.Volume, error)
 
 	// Roles

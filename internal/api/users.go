@@ -146,14 +146,15 @@ func HandleGetUser(w http.ResponseWriter, r *http.Request) {
 
 	userId := r.PathValue("user_id")
 
-	if !validate.UUID(userId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
-		return
+	// Support lookup by both ID and username
+	if validate.UUID(userId) {
+		user, err = db.GetUser(userId)
+	} else {
+		user, err = db.GetUserByUsername(userId)
 	}
 
-	user, err = db.GetUser(userId)
 	if err != nil {
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
 		return
 	}
 
@@ -336,11 +337,6 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	activeUser := r.Context().Value("user").(*model.User)
 	userId := r.PathValue("user_id")
 
-	if !validate.UUID(userId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
-		return
-	}
-
 	request := apiclient.UpdateUserRequest{}
 	db := database.GetInstance()
 
@@ -376,11 +372,18 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := db.GetUser(userId)
+	// Support lookup by both ID and username
+	var user *model.User
+	if validate.UUID(userId) {
+		user, err = db.GetUser(userId)
+	} else {
+		user, err = db.GetUserByUsername(userId)
+	}
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	userId = user.Id // Use the resolved ID for subsequent operations
 
 	user.Email = request.Email
 	user.SSHPublicKey = request.SSHPublicKey
@@ -496,21 +499,22 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	userId := r.PathValue("user_id")
 
-	if !validate.UUID(userId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+	// Support lookup by both ID and username
+	var toDelete *model.User
+	var err error
+	if validate.UUID(userId) {
+		toDelete, err = db.GetUser(userId)
+	} else {
+		toDelete, err = db.GetUserByUsername(userId)
+	}
+	if err != nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user %s not found", userId)})
 		return
 	}
 
 	// If trying to delete self then fail
-	if user.Id == userId {
+	if user.Id == toDelete.Id {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Cannot delete self"})
-		return
-	}
-
-	// Load the user to delete
-	toDelete, err := db.GetUser(userId)
-	if err != nil {
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user %s not found", userId)})
 		return
 	}
 
@@ -545,19 +549,21 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	userId := r.PathValue("user_id")
 
-	if !validate.UUID(userId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
-		return
+	// Support lookup by both ID and username
+	var user *model.User
+	var err error
+	if validate.UUID(userId) {
+		user, err = db.GetUser(userId)
+	} else {
+		user, err = db.GetUserByUsername(userId)
 	}
 
-	// Load the user, if not found return 404
-	user, err := db.GetUser(userId)
 	if err != nil || user == nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
 		return
 	}
 
-	usage, err := database.GetUserUsage(userId, "")
+	usage, err := database.GetUserUsage(user.Id, "")
 	if err != nil {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -583,4 +589,69 @@ func HandleGetUserQuota(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, quota)
+}
+
+func HandleGetUserPermissions(w http.ResponseWriter, r *http.Request) {
+	db := database.GetInstance()
+	userId := r.PathValue("user_id")
+
+	// Support lookup by both ID and username
+	var user *model.User
+	var err error
+	if validate.UUID(userId) {
+		user, err = db.GetUser(userId)
+	} else {
+		user, err = db.GetUserByUsername(userId)
+	}
+
+	if err != nil || user == nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		return
+	}
+
+	// Get all permissions for the user (resolved from roles)
+	permissions := model.GetUserPermissions(user)
+
+	rest.WriteResponse(http.StatusOK, w, r, map[string]interface{}{
+		"permissions": permissions,
+	})
+}
+
+func HandleGetUserHasPermission(w http.ResponseWriter, r *http.Request) {
+	db := database.GetInstance()
+	userId := r.PathValue("user_id")
+	permissionID := r.URL.Query().Get("permission")
+
+	if permissionID == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "permission query parameter is required"})
+		return
+	}
+
+	// Parse permission ID as integer
+	var permission uint16
+	if _, err := fmt.Sscanf(permissionID, "%d", &permission); err != nil {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "invalid permission ID, must be an integer"})
+		return
+	}
+
+	// Support lookup by both ID and username
+	var user *model.User
+	var err error
+	if validate.UUID(userId) {
+		user, err = db.GetUser(userId)
+	} else {
+		user, err = db.GetUserByUsername(userId)
+	}
+
+	if err != nil || user == nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "user not found"})
+		return
+	}
+
+	// Check if user has the permission
+	hasPermission := user.HasPermission(permission)
+
+	rest.WriteResponse(http.StatusOK, w, r, map[string]interface{}{
+		"has_permission": hasPermission,
+	})
 }

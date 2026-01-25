@@ -124,6 +124,24 @@ var RestoreCmd = &cli.Command{
 			fmt.Println("Restored role: ", role.Name)
 		}
 
+		fmt.Println("Restoring scripts...")
+		for _, script := range backupData.Scripts {
+			err := db.SaveScript(script, nil)
+			if err != nil {
+				return fmt.Errorf("Error restoring script: %w", err)
+			}
+			fmt.Println("Restored script: ", script.Name)
+		}
+
+		fmt.Println("Restoring responses...")
+		for _, response := range backupData.Responses {
+			err := db.SaveResponse(response)
+			if err != nil {
+				return fmt.Errorf("Error restoring response: %w", err)
+			}
+			fmt.Println("Restored response: ", response.Id)
+		}
+
 		fmt.Println("Restoring users...")
 		for _, user := range backupData.Users {
 			err := db.SaveUser(user.User, nil)

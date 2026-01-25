@@ -73,3 +73,18 @@ func (db *RedisDbDriver) GetVolumes() ([]*model.Volume, error) {
 
 	return volumes, nil
 }
+
+func (db *RedisDbDriver) GetVolumeByName(name string) (*model.Volume, error) {
+	volumes, err := db.GetVolumes()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, volume := range volumes {
+		if volume.Name == name {
+			return volume, nil
+		}
+	}
+
+	return nil, fmt.Errorf("volume not found")
+}

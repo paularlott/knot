@@ -173,26 +173,26 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 	var user *model.User = nil
 	spaceId := r.PathValue("space_id")
 
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
 	db := database.GetInstance()
 
 	if r.Context().Value("user") != nil {
 		user = r.Context().Value("user").(*model.User)
 	}
 
-	spaceService := service.GetSpaceService()
-
-	// Get space name for audit log before deletion
-	space, err := spaceService.GetSpace(spaceId, user)
+	// Support lookup by both ID and name
+	var space *model.Space
+	var err error
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("space %s not found", spaceId)})
 		return
 	}
 	spaceName := space.Name
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	// Check if request should be forwarded to another node
 	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
@@ -348,21 +348,23 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 
 	spaceId := r.PathValue("space_id")
 
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
 	user := r.Context().Value("user").(*model.User)
 	db := database.GetInstance()
 	cfg := config.GetServerConfig()
 
-	space, err = db.GetSpace(spaceId)
+	// Support lookup by both ID and name
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil {
 		logger.WithError(err).Error("get space failed")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	// Check if request should be forwarded to another node
 	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
@@ -465,20 +467,22 @@ func HandleSpaceStop(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
 
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
 	db := database.GetInstance()
 	cfg := config.GetServerConfig()
 
-	space, err = db.GetSpace(spaceId)
+	// Support lookup by both ID and name
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceStop:")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	// Check if request should be forwarded to another node
 	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
@@ -524,33 +528,28 @@ func HandleSpaceRestart(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
 
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
 	db := database.GetInstance()
 	cfg := config.GetServerConfig()
 
-	space, err = db.GetSpace(spaceId)
+	// Support lookup by both ID and name
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceRestart")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	// Check if request should be forwarded to another node
 	if shouldForward, nodeId := service.ShouldForwardToNode(space.NodeId); shouldForward {
 		if err := service.ForwardToNode(w, r, nodeId); err != nil {
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to forward request"})
 		}
-		return
-	}
-
-	space, err = db.GetSpace(spaceId)
-	if err != nil {
-		log.WithError(err).Error("HandleSpaceRestart")
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -586,23 +585,27 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	var user *model.User = nil
 	spaceId := r.PathValue("space_id")
 
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
 	if r.Context().Value("user") != nil {
 		user = r.Context().Value("user").(*model.User)
 	}
 
-	spaceService := service.GetSpaceService()
-	space, err := spaceService.GetSpace(spaceId, user)
+	db := database.GetInstance()
+	// Support lookup by both ID and name
+	var space *model.Space
+	var err error
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil {
 		log.WithError(err).Error("HandleUpdateSpace:")
-		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
+	spaceService := service.GetSpaceService()
 	request := apiclient.SpaceRequest{}
 	err = rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
@@ -654,7 +657,6 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	)
 
 	// API-specific logic for updating shell on deployed spaces
-	db := database.GetInstance()
 	template, templateErr := db.GetTemplate(space.TemplateId)
 	if templateErr == nil && template != nil && (space.IsDeployed || template.IsManual()) {
 		// Get the agent state
@@ -671,11 +673,6 @@ func HandleSetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 	var user *model.User = nil
 	spaceId := r.PathValue("space_id")
 
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
 	if r.Context().Value("user") != nil {
 		user = r.Context().Value("user").(*model.User)
 	}
@@ -688,6 +685,21 @@ func HandleSetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Support lookup by both ID and name
+	db := database.GetInstance()
+	var space *model.Space
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
+	if err != nil {
+		log.WithError(err).Error("HandleSetSpaceCustomField:")
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	spaceId = space.Id // Use the resolved ID for subsequent operations
+
 	spaceService := service.GetSpaceService()
 	err = spaceService.SetSpaceCustomField(spaceId, request.Name, request.Value, user)
 	if err != nil {
@@ -696,12 +708,8 @@ func HandleSetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the space for audit logging
-	space, _ := spaceService.GetSpace(spaceId, user)
-	spaceName := spaceId
-	if space != nil {
-		spaceName = space.Name
-	}
+	// Use the space we already looked up for audit logging
+	spaceName := space.Name
 
 	audit.Log(
 		user.Username,
@@ -726,11 +734,6 @@ func HandleGetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 	spaceId := r.PathValue("space_id")
 	fieldName := r.PathValue("field_name")
 
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
 	if fieldName == "" {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Field name is required"})
 		return
@@ -739,6 +742,22 @@ func HandleGetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 	if r.Context().Value("user") != nil {
 		user = r.Context().Value("user").(*model.User)
 	}
+
+	// Support lookup by both ID and name
+	db := database.GetInstance()
+	var space *model.Space
+	var err error
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
+	if err != nil {
+		log.WithError(err).Error("HandleGetSpaceCustomField:")
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
+	}
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	spaceService := service.GetSpaceService()
 	value, err := spaceService.GetSpaceCustomField(spaceId, fieldName, user)
@@ -758,10 +777,21 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	userId := r.PathValue("user_id")
 
-	if !validate.UUID(userId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
+	db := database.GetInstance()
+
+	// Support lookup by both ID and username
+	var targetUser *model.User
+	var err error
+	if validate.UUID(userId) {
+		targetUser, err = db.GetUser(userId)
+	} else {
+		targetUser, err = db.GetUserByUsername(userId)
+	}
+	if err != nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "User not found"})
 		return
 	}
+	userId = targetUser.Id // Use the resolved ID for subsequent operations
 
 	// If the user isn't self then check permissions
 	if user.Id != userId && !user.HasPermission(model.PermissionManageUsers) {
@@ -770,7 +800,6 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Stop all spaces
-	db := database.GetInstance()
 	spaces, err := db.GetSpacesForUser(userId)
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
@@ -792,14 +821,29 @@ func HandleSpaceStopUsersSpaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetSpace(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
+
+	// Support lookup by both ID and name
+	var space *model.Space
+	var err error
+	db := database.GetInstance()
+
+	if validate.UUID(spaceId) {
+		// Lookup by ID
+		space, err = db.GetSpace(spaceId)
+	} else {
+		// Lookup by name
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
+
+	if err != nil || space == nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "space not found"})
 		return
 	}
 
-	user := r.Context().Value("user").(*model.User)
-	data, err := api_utils.GetSpaceDetails(spaceId, user)
+	// Now use GetSpaceDetails with the resolved ID
+	data, err := api_utils.GetSpaceDetails(space.Id, user)
 	if err != nil {
 		if err.Error() == "Space not found: sql: no rows in result set" {
 			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "Space not found"})
@@ -829,11 +873,6 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
 	if !validate.UUID(request.UserId) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
 		return
@@ -841,12 +880,18 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 
 	db := database.GetInstance()
 
-	space, err = db.GetSpace(spaceId)
+	// Support lookup by both ID and name
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceTransfer:")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	// If user doesn't own the space and doesn't have transfer permission then 404
 	if space.UserId != user.Id && !user.HasPermission(model.PermissionTransferSpaces) {
@@ -1005,11 +1050,6 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
 	if !validate.UUID(request.UserId) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
 		return
@@ -1017,12 +1057,18 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 
 	db := database.GetInstance()
 
-	space, err = db.GetSpace(spaceId)
+	// Support lookup by both ID and name
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceAddShare:")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	// If user doesn't own the space then 404
 	if space.UserId != user.Id {
@@ -1104,19 +1150,20 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
 
-	if !validate.UUID(spaceId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid space ID"})
-		return
-	}
-
 	db := database.GetInstance()
 
-	space, err = db.GetSpace(spaceId)
+	// Support lookup by both ID and name
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceRemoveShare:")
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	// If user doesn't own the space or space not shared with the user then 404
 	if space.UserId != user.Id && space.SharedWithUserId != user.Id {

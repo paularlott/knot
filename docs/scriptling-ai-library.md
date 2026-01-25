@@ -4,12 +4,14 @@ The `knot.ai` library provides AI completion functionality for scriptling script
 
 ## Available Functions
 
-- `completion(messages)` - Get an AI completion from a list of messages
-- `response_create(input, model=None, instructions=None, previous_response_id=None, background=False)` - Create an AI response
-- `response_get(id)` - Get the status and result of a response
-- `response_wait(id, timeout=300)` - Wait for a response to complete
-- `response_cancel(id)` - Cancel an in-progress response
-- `response_delete(id)` - Delete a response
+| Function | Description |
+|----------|-------------|
+| `completion(messages)` | Get an AI completion from a list of messages |
+| `response_create(input, model=None, instructions=None, previous_response_id=None, background=False)` | Create an AI response |
+| `response_get(id)` | Get the status and result of a response |
+| `response_wait(id, timeout=300)` | Wait for a response to complete |
+| `response_cancel(id)` | Cancel an in-progress response |
+| `response_delete(id)` | Delete a response |
 
 ## Usage
 
