@@ -4,18 +4,11 @@ The `knot.mcp` library provides MCP (Model Context Protocol) functionality for s
 
 ## Available Functions
 
-### Parameter Access (MCP Tool Scripts Only)
-These functions are only available when a script is executed as an MCP tool:
-
 - `get(name[, default])` - Get MCP parameter value with automatic type conversion
 - `return_string(value)` - Return a string result
 - `return_object(value)` - Return a structured object as JSON
 - `return_toon(value)` - Return a value encoded as toon
 - `return_error(message)` - Return an error message
-
-### Tool Access (All Environments)
-These functions are available in all scriptling environments:
-
 - `list_tools()` - Get a list of all available MCP tools and their parameters
 - `call_tool(name, arguments)` - Call an MCP tool directly
 - `tool_search(query, max_results=10)` - Search for tools by keyword
@@ -32,15 +25,18 @@ These functions are only available when a script is executed as an MCP tool (whe
 Get a parameter value with automatic type conversion.
 
 **Parameters:**
+
 - `name` (string): The parameter name
 - `default` (any, optional): Default value if parameter is not provided
 
 **Returns:**
+
 - The parameter value with automatic type conversion (string, number, boolean, list, or dict)
 - Returns `default` if provided and parameter is missing
 - Returns `None` if parameter is missing and no default provided
 
 **Example:**
+
 ```python
 import knot.mcp
 
@@ -68,9 +64,11 @@ config = knot.mcp.get("config", {})
 Return a string result from the MCP tool. The script should exit after calling this.
 
 **Parameters:**
+
 - `value` (string): The string value to return
 
 **Example:**
+
 ```python
 import knot.mcp
 
@@ -85,9 +83,11 @@ return knot.mcp.return_string(result)
 Return a structured object (automatically converted to JSON). The script should exit after calling this.
 
 **Parameters:**
+
 - `value` (dict or list): The object to return
 
 **Example:**
+
 ```python
 import knot.mcp
 
@@ -106,9 +106,11 @@ return knot.mcp.return_object(result)
 Return a value encoded as toon (a compact serialization format). The script should exit after calling this.
 
 **Parameters:**
+
 - `value` (any): The value to encode and return
 
 **Example:**
+
 ```python
 import knot.mcp
 
@@ -126,9 +128,11 @@ return knot.mcp.return_toon(result)
 Return an error message. The script should exit after calling this.
 
 **Parameters:**
+
 - `message` (string): The error message
 
 **Example:**
+
 ```python
 import knot.mcp
 
@@ -149,12 +153,14 @@ Get a list of all available MCP tools and their parameters, including tools from
 **Parameters:** None
 
 **Returns:**
+
 - `list`: List of tool objects, each containing:
   - `name` (string): The tool's name (remote tools have namespace prefix like `ai/generate-text`)
   - `description` (string): Description of what the tool does
   - `parameters` (object): JSON Schema describing the tool's parameters
 
 **Example:**
+
 ```python
 import knot.mcp
 
@@ -192,10 +198,12 @@ Call an MCP tool directly. This is the low-level function for tool execution.
 **Important:** The MCP server uses a discovery pattern. Only `tool_search` and `execute_tool` are directly callable. Other tools must first be discovered using `tool_search`, then executed using `execute_tool`. Consider using `knot.mcp.tool_search()` and `knot.mcp.execute_tool()` helper functions instead.
 
 **Parameters:**
+
 - `name` (string): Name of the tool to call
 - `arguments` (dict): Arguments to pass to the tool
 
 **Returns:**
+
 - `any`: The tool's response content, automatically decoded:
   - **Single text response**: Returns as a string
   - **JSON in text**: Automatically parsed and returned as objects (dict/list)
@@ -203,6 +211,7 @@ Call an MCP tool directly. This is the low-level function for tool execution.
   - **Image/Resource blocks**: Returns as a dict with `Type`, `Data`, `MimeType`, etc.
 
 **Example:**
+
 ```python
 import knot.mcp
 
@@ -249,13 +258,16 @@ for block in multi_result:
 Search for tools by keyword. This is a helper function that wraps `call_tool("tool_search", ...)` for convenience.
 
 **Parameters:**
+
 - `query` (string): Search query to find matching tools
 - `max_results` (int, optional): Maximum number of results to return (default: 10)
 
 **Returns:**
+
 - `list`: Array of tool dictionaries (same format as `list_tools`)
 
 **Example:**
+
 ```python
 import knot.mcp
 
@@ -280,10 +292,12 @@ print(f"Found {len(all_results)} tools")
 Execute a discovered tool. This is a helper function that wraps `call_tool("execute_tool", ...)` for convenience.
 
 **Parameters:**
+
 - `name` (string): Name of the tool to execute
 - `arguments` (dict): Arguments to pass to the tool
 
 **Returns:**
+
 - `any`: The tool's response content, automatically decoded:
   - **Single text response**: Returns as a string
   - **JSON in text**: Automatically parsed and returned as objects (dict/list)
@@ -291,6 +305,7 @@ Execute a discovered tool. This is a helper function that wraps `call_tool("exec
   - **Image/Resource blocks**: Returns as a dict with `Type`, `Data`, `MimeType`, etc.
 
 **Example:**
+
 ```python
 import knot.mcp
 
@@ -317,19 +332,22 @@ print("Created:", new_space)
 ## Implementation Details
 
 ### MCP Tool Scripts
-- Parameter access functions (get, return_*) are only available when mcpParams is provided
+
+- Parameter access functions (get, return\_\*) are only available when mcpParams is provided
 - `knot.mcp.get()`: Reads from mcpParams map passed to the script
 - Automatically parses JSON for arrays and objects
 - Converts string numbers to int/float
 - Converts string booleans to bool
 
 ### Local and Remote Environments
+
 - **knot.mcp.list_tools()**: Uses the `api/chat/tools` endpoint via API client
 - **knot.mcp.call_tool()**: Uses the `api/chat/tools/call` endpoint via API client
 - Automatically handles authentication with the server
 - Uses HTTP client for external calls (agent, CLI)
 
 ### MCP Tool Execution (Internal)
+
 - Uses MuxClient for direct mux calls (no HTTP overhead)
 - Calls API handlers directly via mux
 - User context passed through middleware
@@ -340,6 +358,7 @@ print("Created:", new_space)
 ## Tool Categories
 
 ### Local Tools
+
 - **Space Management**: List, start, stop, create, and delete spaces
 - **File Operations**: Read, write, and manage files
 - **Command Execution**: Run commands in spaces
@@ -348,6 +367,7 @@ print("Created:", new_space)
 - **User and Group Management**: Manage users and access control
 
 ### Remote Tools (if configured)
+
 - Tools from external MCP servers with namespace prefixes (e.g., `ai/generate-text`, `data/query`)
 - These are automatically discovered and available alongside local tools
 
@@ -356,6 +376,7 @@ print("Created:", new_space)
 ## MCP Tool Discovery Pattern
 
 The MCP server uses a discovery pattern where:
+
 1. **tool_search**: Search for tools based on keywords and descriptions
 2. **execute_tool**: Execute a specific tool by name with arguments
 
@@ -368,6 +389,7 @@ When using `knot.ai.completion()`, the AI handles tool discovery and execution a
 ## Error Handling
 
 If the MCP library is not available, it will return an appropriate error message:
+
 - "MCP tools not available - API client not configured"
 
 ---

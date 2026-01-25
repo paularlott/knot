@@ -11,14 +11,6 @@ The `knot.ai` library provides AI completion functionality for scriptling script
 - `response_cancel(id)` - Cancel an in-progress response
 - `response_delete(id)` - Delete a response
 
-## Availability
-
-| Environment | Available | Implementation |
-|-------------|-----------|----------------|
-| Local       | ✓         | API Client     |
-| MCP         | ✓         | Direct OpenAI  |
-| Remote      | ✓         | API Client     |
-
 ## Usage
 
 ```python
@@ -39,18 +31,22 @@ print(response)
 Get an AI completion from a list of messages. The AI will automatically have access to all MCP tools and can use them during the conversation.
 
 **Parameters:**
+
 - `messages` (list): List of message objects, each containing:
   - `role` (string): Message role ("system", "user", "assistant", or "tool")
   - `content` (string): Message content
 
 **Returns:**
+
 - `string`: The AI's response content
 
 **System Messages:**
+
 - If you include a `system` role message in your messages, it will be used as the system prompt
 - If no `system` message is provided, the server's configured system prompt will be used automatically
 
 **Example:**
+
 ```python
 import knot.ai
 
@@ -84,6 +80,7 @@ print(response)
 Create an AI response. By default, processes synchronously and returns the full response. Set `background=True` for async processing.
 
 **Parameters:**
+
 - `input` (string, dict, or list): The input for the AI response. Can be a simple string, a structured dict, or a list of items
 - `model` (string, optional): The AI model to use (if not specified, uses server default)
 - `instructions` (string, optional): System (or developer) message inserted into the model's context. When using with previous_response_id, instructions from the previous response will NOT be carried over, making it simple to swap out system messages in new responses
@@ -91,6 +88,7 @@ Create an AI response. By default, processes synchronously and returns the full 
 - `background` (bool, optional): If `True`, process asynchronously and return just the response_id. If `False` (default), process synchronously and return the full response
 
 **Returns:**
+
 - `dict` (default): A dictionary containing the response data when `background=False`
   - `response_id` (string): The response ID
   - `status` (string): Response status ("completed", "failed", etc.)
@@ -99,6 +97,7 @@ Create an AI response. By default, processes synchronously and returns the full 
 - `string` (background=True): Just the response ID for async processing
 
 **Example:**
+
 ```python
 import knot.ai
 
@@ -128,9 +127,11 @@ result = knot.ai.response_wait(response_id, timeout=300)
 Get the current status and result of an async response.
 
 **Parameters:**
+
 - `id` (string): The response ID returned from response_create()
 
 **Returns:**
+
 - `dict`: A dictionary containing:
   - `response_id` (string): The response ID
   - `status` (string): Current status ("pending", "in_progress", "completed", "failed", or "cancelled")
@@ -139,6 +140,7 @@ Get the current status and result of an async response.
   - `error` (string, optional): Error message (only present if failed)
 
 **Example:**
+
 ```python
 import knot.ai
 
@@ -157,13 +159,16 @@ elif status['status'] == 'failed':
 Wait for an async response to complete. This will block until the response is finished or the timeout is reached.
 
 **Parameters:**
+
 - `id` (string): The response ID returned from response_create()
 - `timeout` (int, optional): Maximum time to wait in seconds (default: 300)
 
 **Returns:**
+
 - `dict`: Same format as response_get() - a dictionary with the final response status and result
 
 **Example:**
+
 ```python
 import knot.ai
 
@@ -186,12 +191,15 @@ else:
 Cancel an in-progress async response.
 
 **Parameters:**
+
 - `id` (string): The response ID returned from response_create()
 
 **Returns:**
+
 - `bool`: True if successfully cancelled
 
 **Example:**
+
 ```python
 import knot.ai
 import time
@@ -212,12 +220,15 @@ print("Response cancelled")
 Delete a response and clean up its data.
 
 **Parameters:**
+
 - `id` (string): The response ID returned from response_create()
 
 **Returns:**
+
 - `bool`: True if successfully deleted
 
 **Example:**
+
 ```python
 import knot.ai
 
@@ -237,12 +248,14 @@ The `response_create()` function supports two modes:
 - **Asynchronous**: `background=True` - The function returns immediately with a `response_id`. You can then use `response_wait()` or `response_get()` to check status and retrieve results later. This is useful for long-running operations or when you want to start multiple operations in parallel.
 
 ### Local and Remote Environments
+
 - **knot.ai.completion()**: Uses the `api/chat/completion` endpoint via REST API
 - **knot.ai.response_create()**: Uses the `v1/responses` endpoint via REST API
 - Automatically handles authentication with the server
 - Returns complete response without streaming
 
 ### MCP Environment
+
 - **knot.ai.completion()**: Uses the MCP server's direct OpenAI client integration
 - **knot.ai.response_create()**: Uses direct database access with synchronous or asynchronous processing
 - No API calls needed - direct server communication
@@ -250,6 +263,7 @@ The `response_create()` function supports two modes:
 ## Error Handling
 
 If the AI library is not available, it will return an appropriate error message:
+
 - Local/Remote: "AI completion not available - API client not configured"
 - MCP: "AI completion not available - OpenAI client not configured"
 

@@ -21,14 +21,6 @@ The `knot.space` library provides direct space management functions for scriptli
 - `port_list(space)` - List active port forwards for a space
 - `port_stop(space, local_port)` - Stop a port forward
 
-## Availability
-
-| Environment | Available | Implementation |
-|-------------|-----------|----------------|
-| Local       | ✓         | API Client     |
-| MCP         | ✓         | Internal API   |
-| Remote      | ✓         | API Client     |
-
 ## Usage
 
 ```python
@@ -54,15 +46,18 @@ print(output)
 Create a new space.
 
 **Parameters:**
+
 - `name` (string): Name for the new space
 - `template_name` (string): Name of the template to use
 - `description` (string, optional): Description for the space (default: "")
 - `shell` (string, optional): Shell to use (default: "bash")
 
 **Returns:**
+
 - `string`: The space ID of the newly created space
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -86,12 +81,15 @@ space_id = knot.space.create("test-space", "ubuntu")
 Delete a space and all its data.
 
 **Parameters:**
+
 - `name` (string): Name of the space to delete
 
 **Returns:**
+
 - `bool`: True if successfully deleted, raises error on failure
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -107,12 +105,15 @@ if knot.space.delete("old-space"):
 Start a stopped space.
 
 **Parameters:**
+
 - `name` (string): Name of the space to start
 
 **Returns:**
+
 - `bool`: True if successfully started, raises error on failure
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -128,12 +129,15 @@ if knot.space.start("dev-space"):
 Stop a running space.
 
 **Parameters:**
+
 - `name` (string): Name of the space to stop
 
 **Returns:**
+
 - `bool`: True if successfully stopped, raises error on failure
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -149,12 +153,15 @@ if knot.space.stop("dev-space"):
 Restart a running space.
 
 **Parameters:**
+
 - `name` (string): Name of the space to restart
 
 **Returns:**
+
 - `bool`: True if successfully restarted, raises error on failure
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -172,6 +179,7 @@ List all spaces for the current user.
 **Parameters:** None
 
 **Returns:**
+
 - `list`: List of space objects, each containing:
   - `name` (string): Space name
   - `id` (string): Space ID
@@ -179,6 +187,7 @@ List all spaces for the current user.
   - `description` (string): Space description
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -200,12 +209,15 @@ for space in spaces:
 Check if a space is currently running.
 
 **Parameters:**
+
 - `name` (string): Name of the space to check
 
 **Returns:**
+
 - `bool`: True if the space is running, False otherwise
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -227,12 +239,15 @@ if not knot.space.is_running("dev-space"):
 Get the description of a space.
 
 **Parameters:**
+
 - `name` (string): Name of the space
 
 **Returns:**
+
 - `string`: The space's description
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -247,13 +262,16 @@ print(f"Description: {desc}")
 Set the description of a space.
 
 **Parameters:**
+
 - `name` (string): Name of the space
 - `description` (string): New description
 
 **Returns:**
+
 - `bool`: True if successfully updated, raises error on failure
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -267,13 +285,16 @@ knot.space.set_description("dev-space", "My main development environment")
 Get a custom field value from a space.
 
 **Parameters:**
+
 - `name` (string): Name of the space
 - `field` (string): Field name
 
 **Returns:**
+
 - `string`: The field value
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -289,14 +310,17 @@ print(f"API Key: {api_key}")
 Set a custom field value on a space.
 
 **Parameters:**
+
 - `name` (string): Name of the space
 - `field` (string): Field name
 - `value` (string): Field value
 
 **Returns:**
+
 - `bool`: True if successfully set, raises error on failure
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -307,21 +331,24 @@ knot.space.set_field("dev-space", "environment", "production")
 
 ---
 
-### run_script(space_name, script_name, *args)
+### run_script(space_name, script_name, \*args)
 
 Execute a named script in a space and capture its output and exit code.
 
 **Parameters:**
+
 - `space_name` (string): Name of the space
 - `script_name` (string): Name of the script to execute
 - `*args` (strings, optional): Additional arguments to pass to the script
 
 **Returns:**
+
 - `dict`: Dictionary containing:
   - `output` (string): The script output
   - `exit_code` (int): The script exit code
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -351,6 +378,7 @@ if result['exit_code'] != 0:
 Execute a command in a space.
 
 **Parameters:**
+
 - `space_name` (string): Name of the space
 - `command` (string): Command to execute
 - `args` (list, optional): Command arguments (default: [])
@@ -358,9 +386,11 @@ Execute a command in a space.
 - `workdir` (string, optional): Working directory (default: "")
 
 **Returns:**
+
 - `string`: The command output
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -400,15 +430,18 @@ print(output)
 Forward a local port from one space to a port in another space.
 
 **Parameters:**
+
 - `source_space` (string): Name of the space that will receive the forwarded connection
 - `local_port` (int): Local port in the source space
 - `remote_space` (string): Name of the space with the target service
 - `remote_port` (int): Port in the remote space to forward to
 
 **Returns:**
+
 - `bool`: True if successfully created, raises error on failure
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -428,15 +461,18 @@ print("Can now access database at localhost:5432 from app-space")
 List all active port forwards for a space.
 
 **Parameters:**
+
 - `space` (string): Name of the space
 
 **Returns:**
+
 - `list`: List of port forward objects, each containing:
   - `local_port` (int): Local port number
   - `space` (string): Remote space name
   - `remote_port` (int): Remote port number
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -455,13 +491,16 @@ for forward in forwards:
 Stop an active port forward.
 
 **Parameters:**
+
 - `space` (string): Name of the space
 - `local_port` (int): Local port to stop forwarding
 
 **Returns:**
+
 - `bool`: True if successfully stopped, raises error on failure
 
 **Example:**
+
 ```python
 import knot.space
 
@@ -481,17 +520,20 @@ print("All port forwards stopped")
 ## Implementation Details
 
 ### Local and Remote Environments
+
 - All functions use the Knot API client to communicate with the server
 - Space names are automatically resolved to space IDs
 - Authentication is handled automatically via the API client
 
 ### MCP Environment
+
 - Functions use internal services (SpaceService, ContainerService) for direct access
 - Space names are automatically resolved to space IDs via database queries
 - No network calls - direct server communication
 - Same 16 functions available as Local/Remote environments
 
 ### Space Name Resolution
+
 All functions that accept a `name` parameter automatically resolve the space name to its ID by querying the user's spaces. This means you can use human-readable names instead of IDs.
 
 ---
@@ -563,7 +605,7 @@ def deploy_application():
     print("Running deployment script...")
     result = knot.space.run_script(space_name, "deploy", "production")
     print(result['output'])
-    
+
     if result['exit_code'] != 0:
         print(f"Deployment failed with exit code {result['exit_code']}")
         return
