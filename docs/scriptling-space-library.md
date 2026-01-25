@@ -4,22 +4,24 @@ The `knot.space` library provides direct space management functions for scriptli
 
 ## Available Functions
 
-- `create(name, template_name, description='', shell='bash')` - Create a new space
-- `delete(name)` - Delete a space by name
-- `start(name)` - Start a space by name
-- `stop(name)` - Stop a space by name
-- `restart(name)` - Restart a space by name
-- `list()` - List all spaces for the current user
-- `is_running(name)` - Check if a space is running
-- `get_description(name)` - Get the description of a space
-- `set_description(name, description)` - Set the description of a space
-- `get_field(name, field)` - Get a custom field value from a space
-- `set_field(name, field, value)` - Set a custom field value on a space
-- `run_script(space_name, script_name, *args)` - Execute a script in a space, returns {output: str, exit_code: int}
-- `run(space_name, command, args=[], timeout=30, workdir='')` - Execute a command in a space
-- `port_forward(source_space, local_port, remote_space, remote_port)` - Forward a local port to a remote space port
-- `port_list(space)` - List active port forwards for a space
-- `port_stop(space, local_port)` - Stop a port forward
+| Function | Description |
+|----------|-------------|
+| `create(name, template_name, description='', shell='bash')` | Create a new space |
+| `delete(name)` | Delete a space by name |
+| `start(name)` | Start a space by name |
+| `stop(name)` | Stop a space by name |
+| `restart(name)` | Restart a space by name |
+| `list()` | List all spaces for the current user |
+| `is_running(name)` | Check if a space is running |
+| `get_description(name)` | Get the description of a space |
+| `set_description(name, description)` | Set the description of a space |
+| `get_field(name, field)` | Get a custom field value from a space |
+| `set_field(name, field, value)` | Set a custom field value on a space |
+| `run_script(space_name, script_name, *args)` | Execute a script in a space, returns {output: str, exit_code: int} |
+| `run(space_name, command, args=[], timeout=30, workdir='')` | Execute a command in a space |
+| `port_forward(source_space, local_port, remote_space, remote_port)` | Forward a local port to a remote space port |
+| `port_list(space)` | List active port forwards for a space |
+| `port_stop(space, local_port)` | Stop a port forward |
 
 ## Usage
 

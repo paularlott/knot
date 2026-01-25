@@ -1286,8 +1286,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the space to get.
+            description: The ID or name of the space to get.
       responses:
         '200':
           description: Successful operation
@@ -1389,8 +1388,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the space to transfer.
+            description: The ID or name of the space to transfer.
       requestBody:
         required: true
         content:
@@ -1430,8 +1428,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the space to share.
+            description: The ID or name of the space to share.
       requestBody:
         required: true
         content:
@@ -1469,8 +1466,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the space to cease sharing.
+            description: The ID or name of the space to cease sharing.
       responses:
         '200':
           description: Successful operation
@@ -1503,8 +1499,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the space to start.
+            description: The ID or name of the space to start.
       responses:
         '200':
           description: Successful operation
@@ -1537,8 +1532,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the space to stop.
+            description: The ID or name of the space to stop.
       responses:
         '200':
           description: Successful operation
@@ -1565,8 +1559,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the space to restart.
+            description: The ID or name of the space to restart.
       responses:
         '200':
           description: Successful operation
@@ -1988,8 +1981,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the template variable to update.
+            description: The ID or name of the template variable to update.
       requestBody:
         required: true
         content:
@@ -2204,9 +2196,8 @@ paths:
           name: volume_id
           schema:
             type: string
-            format: uuid
           required: true
-          description: The ID of the volume to get.
+          description: The ID or name of the volume to get.
       responses:
         '200':
           description: Successful operation
@@ -2234,9 +2225,8 @@ paths:
           name: volume_id
           schema:
             type: string
-            format: uuid
           required: true
-          description: The ID of the volume to start.
+          description: The ID or name of the volume to start.
       responses:
         '200':
           description: Successful operation
@@ -2275,9 +2265,8 @@ paths:
           name: volume_id
           schema:
             type: string
-            format: uuid
           required: true
-          description: The ID of the volume to stop.
+          description: The ID or name of the volume to stop.
       responses:
         '200':
           description: Successful operation.
