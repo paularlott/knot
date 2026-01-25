@@ -335,9 +335,15 @@ func mcpReturnString(args ...object.Object) object.Object {
 // mcpReturnObject returns an object as JSON (script should exit after this)
 func mcpReturnObject(args ...object.Object) object.Object {
 	if len(args) == 0 {
-		return &object.Null{}
+		return &object.String{Value: "null"}
 	}
-	return args[0]
+	// Convert scriptling object to Go value, then to JSON
+	goValue := scriptlib.ToGo(args[0])
+	jsonBytes, err := json.Marshal(goValue)
+	if err != nil {
+		return &object.Error{Message: fmt.Sprintf("Error encoding to JSON: %v", err)}
+	}
+	return &object.String{Value: string(jsonBytes)}
 }
 
 // mcpReturnToon returns a value encoded as toon (script should exit after this)

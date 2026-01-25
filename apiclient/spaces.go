@@ -308,3 +308,54 @@ func (c *ApiClient) RunCommand(ctx context.Context, spaceId string, request *Run
 
 	return response.Output, nil
 }
+
+func (c *ApiClient) ReadSpaceFile(ctx context.Context, spaceId string, filePath string) (string, error) {
+	var request struct {
+		Path string `json:"path"`
+	}
+	request.Path = filePath
+
+	var response struct {
+		Success bool   `json:"success"`
+		Content string `json:"content"`
+		Size    int    `json:"size"`
+		Error   string `json:"error"`
+	}
+
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/read", request, &response, 200)
+	if err != nil {
+		return "", err
+	}
+
+	if !response.Success {
+		return "", fmt.Errorf("%s", response.Error)
+	}
+
+	return response.Content, nil
+}
+
+func (c *ApiClient) WriteSpaceFile(ctx context.Context, spaceId string, filePath string, content string) error {
+	var request struct {
+		Path    string `json:"path"`
+		Content string `json:"content"`
+	}
+	request.Path = filePath
+	request.Content = content
+
+	var response struct {
+		Success      bool   `json:"success"`
+		BytesWritten int    `json:"bytes_written"`
+		Error        string `json:"error"`
+	}
+
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/write", request, &response, 200)
+	if err != nil {
+		return err
+	}
+
+	if !response.Success {
+		return fmt.Errorf("%s", response.Error)
+	}
+
+	return nil
+}

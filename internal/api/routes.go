@@ -34,6 +34,9 @@ func ApiRoutes(router *http.ServeMux) {
 	// Permissions
 	router.HandleFunc("GET /api/permissions", middleware.ApiAuth(HandleGetPermissions))
 
+	// Icons
+	router.HandleFunc("GET /api/icons", middleware.ApiAuth(HandleGetIcons))
+
 	// Roles
 	router.HandleFunc("GET /api/roles", middleware.ApiAuth(HandleGetRoles))
 	router.HandleFunc("POST /api/roles", middleware.ApiAuth(middleware.ApiPermissionManageRoles(HandleCreateRole)))
@@ -65,6 +68,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/spaces/{space_id}/transfer", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceTransfer)))
 	router.HandleFunc("POST /api/spaces/{space_id}/share", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceAddShare)))
 	router.HandleFunc("DELETE /api/spaces/{space_id}/share", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceRemoveShare)))
+	router.HandleFunc("POST /api/spaces/{space_id}/files/read", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleReadSpaceFile)))
+	router.HandleFunc("POST /api/spaces/{space_id}/files/write", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleWriteSpaceFile)))
 
 	// Templates
 	router.HandleFunc("GET /api/templates", middleware.ApiAuth(HandleGetTemplates))

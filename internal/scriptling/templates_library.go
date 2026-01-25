@@ -481,8 +481,8 @@ func templateGetIcons(ctx context.Context, client *apiclient.ApiClient) object.O
 		return &object.Error{Message: fmt.Sprintf("failed to get icons: %v", err)}
 	}
 
-	elements := make([]object.Object, len(icons.Icons))
-	for i, icon := range icons.Icons {
+	elements := make([]object.Object, len(icons))
+	for i, icon := range icons {
 		pairs := make(map[string]object.DictPair)
 		pairs["description"] = object.DictPair{Key: &object.String{Value: "description"}, Value: &object.String{Value: icon.Description}}
 		pairs["source"] = object.DictPair{Key: &object.String{Value: "source"}, Value: &object.String{Value: icon.Source}}

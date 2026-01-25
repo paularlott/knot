@@ -22,6 +22,8 @@ The `knot.space` library provides direct space management functions for scriptli
 | `port_forward(source_space, local_port, remote_space, remote_port)` | Forward a local port to a remote space port |
 | `port_list(space)` | List active port forwards for a space |
 | `port_stop(space, local_port)` | Stop a port forward |
+| `read_file(space_name, file_path)` | Read file contents from a running space |
+| `write_file(space_name, file_path, content)` | Write content to a file in a running space |
 
 ## Usage
 
@@ -515,6 +517,67 @@ forwards = knot.space.port_list("web-space")
 for forward in forwards:
     knot.space.port_stop("web-space", forward['local_port'])
 print("All port forwards stopped")
+```
+
+---
+
+### read_file(space_name, file_path)
+
+Read file contents from a running space.
+
+**Parameters:**
+
+- `space_name` (string): Name of the space
+- `file_path` (string): File path in the space to read
+
+**Returns:**
+
+- `string`: The file contents
+
+**Example:**
+
+```python
+import knot.space
+
+# Read a configuration file
+config = knot.space.read_file("dev-space", "/app/config.json")
+print(config)
+
+# Read a log file
+logs = knot.space.read_file("prod-space", "/var/log/app.log")
+print(logs)
+```
+
+---
+
+### write_file(space_name, file_path, content)
+
+Write content to a file in a running space.
+
+**Parameters:**
+
+- `space_name` (string): Name of the space
+- `file_path` (string): File path in the space to write
+- `content` (string): Content to write to the file
+
+**Returns:**
+
+- `bool`: True if successfully written, raises error on failure
+
+**Example:**
+
+```python
+import knot.space
+
+# Write a configuration file
+config_data = '{"debug": true, "port": 8080}'
+knot.space.write_file("dev-space", "/app/config.json", config_data)
+
+# Write a script
+script = '''#!/bin/bash
+echo "Hello from space"
+'''
+knot.space.write_file("dev-space", "/tmp/hello.sh", script)
 ```
 
 ---

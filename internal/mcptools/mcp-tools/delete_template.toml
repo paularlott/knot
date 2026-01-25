@@ -1,7 +1,6 @@
 name = "delete_template"
 description = "Permanently delete a template. Cannot be undone."
 keywords = ["delete", "template", "remove", "destroy", "blueprint", "platform"]
-visibility = "native"
 
 [parameters.template_name]
 type = "string"

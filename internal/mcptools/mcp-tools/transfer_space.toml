@@ -1,7 +1,6 @@
 name = "transfer_space"
 description = "Transfer space ownership to another user. Use list_users to find user ID if not provided."
 keywords = ["transfer", "space", "ownership", "give", "assign"]
-visibility = "native"
 
 [parameters.space_name]
 type = "string"

@@ -125,6 +125,23 @@ func GetSpacesLibrary(client *apiclient.ApiClient, userId string) *object.Librar
 		return spacePortStop(ctx, client, userId, args...)
 	}, "port_stop(space, local_port) - Stop a port forward")
 
+	builder.FunctionWithHelp("read_file", func(spaceName, filePath string) (string, error) {
+		space, _, err := client.GetSpace(context.Background(), spaceName)
+		if err != nil {
+			return "", err
+		}
+		return client.ReadSpaceFile(context.Background(), space.SpaceId, filePath)
+	}, "read_file(space_name, file_path) - Read file contents from a running space")
+
+	builder.FunctionWithHelp("write_file", func(spaceName, filePath, content string) (bool, error) {
+		space, _, err := client.GetSpace(context.Background(), spaceName)
+		if err != nil {
+			return false, err
+		}
+		err = client.WriteSpaceFile(context.Background(), space.SpaceId, filePath, content)
+		return err == nil, err
+	}, "write_file(space_name, file_path, content) - Write content to a file in a running space")
+
 	return builder.Build()
 }
 

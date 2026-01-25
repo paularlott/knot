@@ -1,7 +1,6 @@
 name = "update_template"
 description = "Update an existing template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide."
 keywords = ["update", "template", "modify", "edit", "docker", "nomad", "podman", "platform", "job", "specification", "blueprint"]
-visibility = "native"
 
 [parameters.template_name]
 type = "string"

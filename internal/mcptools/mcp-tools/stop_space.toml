@@ -1,7 +1,6 @@
 name = "stop_space"
 description = "Stop a space."
 keywords = ["stop", "space", "shutdown", "halt", "deactivate", "environment"]
-visibility = "native"
 
 [parameters.space_name]
 type = "string"

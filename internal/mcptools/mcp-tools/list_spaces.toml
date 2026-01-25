@@ -1,7 +1,6 @@
 name = "list_spaces"
 description = "List all spaces for current user with status and sharing details."
 keywords = ["spaces", "list", "environments", "development", "deploy", "instances"]
-visibility = "native"
 
 [parameters.show_all]
 type = "boolean"

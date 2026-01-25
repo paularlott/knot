@@ -57,42 +57,6 @@ Use tool_search to discover tools by keyword or description.`)
 	// =========================================================================
 	// Register Go-based tools (most tools are now scripted via mcptools)
 	// =========================================================================
-	// NOTE: Space, user, group, icon, and template tools are now implemented
-	// as Python scripts in internal/mcptools/mcp-tools/ and loaded at boot time.
-	// Only complex tools that require special handling remain here.
-
-	// File operations - require special web interface handling
-	server.RegisterTool(
-		mcp.NewTool("read_file", "Read file contents from a running space.",
-			mcp.String("space_name", "Name of the space to read the file from", mcp.Required()),
-			mcp.String("file_path", "File path in the space of the file to read", mcp.Required()),
-			mcp.Output(
-				mcp.String("file_path", "File path in the space of the file read"),
-				mcp.Boolean("success", "True if file read was successful"),
-				mcp.String("error", "Error message if file read failed"),
-				mcp.String("content", "File contents read from the file"),
-				mcp.Number("size", "Size of the file in bytes"),
-			),
-		),
-		readFile,
-		"read", "file", "content", "view", "open", "cat", "text", "document",
-	)
-	server.RegisterTool(
-		mcp.NewTool("write_file", "Write content to a file in a running space.",
-			mcp.String("space_name", "Name of the space to write to", mcp.Required()),
-			mcp.String("file_path", "File path in the space of the file to write", mcp.Required()),
-			mcp.String("content", "Content to write", mcp.Required()),
-			mcp.Output(
-				mcp.String("file_path", "File path in the space of the file read"),
-				mcp.Boolean("success", "True if file read was successful"),
-				mcp.String("error", "Error message if file read failed"),
-				mcp.String("message", "Status message"),
-				mcp.Number("bytes_written", "Number of bytes written to the file"),
-			),
-		),
-		writeFile,
-		"write", "file", "create", "save", "edit", "content", "text", "document",
-	)
 
 	// Skills/Knowledge base
 	server.RegisterTool(

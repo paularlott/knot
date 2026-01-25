@@ -1,7 +1,6 @@
 name = "update_space"
 description = "Update an existing space."
 keywords = ["update", "space", "modify", "edit", "configure"]
-visibility = "native"
 
 [parameters.space_name]
 type = "string"

@@ -1,7 +1,6 @@
 name = "start_space"
 description = "Start a space."
 keywords = ["start", "space", "run", "launch", "activate", "environment"]
-visibility = "native"
 
 [parameters.space_name]
 type = "string"

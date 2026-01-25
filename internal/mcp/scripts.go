@@ -19,7 +19,7 @@ import (
 
 // scriptToolsProvider implements mcp.ToolProvider for native script tools
 type scriptToolsProvider struct {
-	user       *model.User
+	user         *model.User
 	onDemandOnly bool
 }
 
@@ -146,6 +146,8 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 	// Try boot-loaded tools first
 	if result, err := mcptools.ExecuteTool(name, params, p.user); err == nil {
 		return result, nil
+	} else {
+		log.WithError(err).Error("scriptToolsProvider.ExecuteTool: boot-loaded tool failed", "tool", name)
 	}
 
 	// Resolve script with user override and zone filtering

@@ -1,7 +1,6 @@
 name = "run_command"
 description = "Execute a command in a running space and return results."
 keywords = ["run", "execute", "command", "shell", "terminal", "bash", "sh", "script", "output"]
-visibility = "native"
 
 [parameters.space_name]
 type = "string"

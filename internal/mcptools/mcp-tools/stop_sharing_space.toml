@@ -1,7 +1,6 @@
 name = "stop_sharing_space"
 description = "Stop sharing a space."
 keywords = ["stop", "sharing", "revoke", "access", "permissions", "private"]
-visibility = "native"
 
 [parameters.space_name]
 type = "string"

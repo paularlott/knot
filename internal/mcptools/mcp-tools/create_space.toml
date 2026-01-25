@@ -1,7 +1,6 @@
 name = "create_space"
 description = "Create a new development space. ONLY use when explicitly asked to create a space. Spaces are created stopped - use start_space to run them."
 keywords = ["create", "space", "new", "environment", "development", "deploy", "instance"]
-visibility = "native"
 
 [parameters.name]
 type = "string"

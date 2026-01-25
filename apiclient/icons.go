@@ -5,17 +5,20 @@ import (
 )
 
 type Icon struct {
-	Description string `json:"description" msgpack:"description"`
-	Source      string `json:"source" msgpack:"source"`
-	URL         string `json:"url" msgpack:"url"`
+	Description string `json:"description"`
+	Source      string `json:"source"`
+	URL         string `json:"url"`
 }
 
 type IconsResponse struct {
 	Icons []Icon `json:"icons" msgpack:"icons"`
 }
 
-func (c *ApiClient) GetIcons(ctx context.Context) (*IconsResponse, int, error) {
-	var response IconsResponse
-	statusCode, err := c.httpClient.Get(ctx, "api/icons", &response)
-	return &response, statusCode, err
+func (c *ApiClient) GetIcons(ctx context.Context) ([]Icon, int, error) {
+	var icons []Icon
+	statusCode, err := c.httpClient.Get(ctx, "/api/icons", &icons)
+	if err != nil {
+		return nil, statusCode, err
+	}
+	return icons, statusCode, nil
 }

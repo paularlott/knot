@@ -525,6 +525,28 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/icons:
+    get:
+      summary: Get Icons
+      description: Retrieve all available icons with descriptions and URLs.
+      operationId: getIcons
+      tags:
+        - Core
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Icon"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/groups:
     get:
       summary: Get Groups
@@ -1572,6 +1594,129 @@ paths:
           $ref: "#/components/responses/locked"
         "500":
           $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/files/read:
+    post:
+      summary: Read File from Space
+      description: Read file contents from a running space.
+      operationId: readSpaceFile
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID or name of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+              properties:
+                path:
+                  type: string
+                  description: File path in the space to read.
+                  example: "/app/config.json"
+      responses:
+        "200":
+          description: File read successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: True if file was read successfully.
+                  content:
+                    type: string
+                    description: The file contents.
+                  size:
+                    type: integer
+                    description: Size of the file in bytes.
+                  error:
+                    type: string
+                    description: Error message if operation failed.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
+      security: [BearerAuth: []]
+
+  /api/spaces/{space_id}/files/write:
+    post:
+      summary: Write File to Space
+      description: Write content to a file in a running space.
+      operationId: writeSpaceFile
+      tags:
+        - Spaces
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The ID or name of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - path
+                - content
+              properties:
+                path:
+                  type: string
+                  description: File path in the space to write.
+                  example: "/app/config.json"
+                content:
+                  type: string
+                  description: Content to write to the file (can be base64 encoded or plain text).
+      responses:
+        "200":
+          description: File written successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: True if file was written successfully.
+                  bytes_written:
+                    type: integer
+                    description: Number of bytes written.
+                  error:
+                    type: string
+                    description: Error message if operation failed.
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+        "503":
+          $ref: "#/components/responses/service-unavailable"
       security: [BearerAuth: []]
 
   /api/spaces/{user_id}/stop-for-user:
@@ -2771,6 +2916,20 @@ components:
         group:
           type: string
           description: The group of the permission.
+
+    Icon:
+      type: object
+      properties:
+        description:
+          type: string
+          description: The description of the icon.
+        source:
+          type: string
+          description: The source of the icon.
+        url:
+          type: string
+          format: uri
+          description: The URL of the icon.
 
     PermissionInfoList:
       type: object
