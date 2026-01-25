@@ -34,33 +34,8 @@ var GetFieldCmd = &cli.Command{
 			return fmt.Errorf("Failed to create API client: %w", err)
 		}
 
-		// Get the current user
-		user, err := client.WhoAmI(context.Background())
-		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
-		}
-
-		// Get a list of available spaces
-		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
-		if err != nil {
-			return fmt.Errorf("Error getting spaces: %w", err)
-		}
-
-		// Find the space by name
-		var spaceId string
-		for _, space := range spaces.Spaces {
-			if space.Name == spaceName {
-				spaceId = space.Id
-				break
-			}
-		}
-
-		if spaceId == "" {
-			return fmt.Errorf("Space not found: %s", spaceName)
-		}
-
-		// Get the custom field using the dedicated endpoint
-		response, _, err := client.GetSpaceCustomField(context.Background(), spaceId, fieldName)
+		// Get the custom field (API supports both name and ID)
+		response, _, err := client.GetSpaceCustomField(context.Background(), spaceName, fieldName)
 		if err != nil {
 			return fmt.Errorf("Error getting custom field: %w", err)
 		}

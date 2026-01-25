@@ -69,3 +69,18 @@ func (db *MySQLDriver) GetVolumes() ([]*model.Volume, error) {
 
 	return volumes, nil
 }
+
+func (db *MySQLDriver) GetVolumeByName(name string) (*model.Volume, error) {
+	var volumes []*model.Volume
+
+	err := db.read("volumes", &volumes, nil, "name = ?", name)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(volumes) == 0 {
+		return nil, fmt.Errorf("volume not found")
+	}
+
+	return volumes[0], nil
+}

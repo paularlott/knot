@@ -86,3 +86,18 @@ func (db *RedisDbDriver) GetTemplates() ([]*model.Template, error) {
 
 	return templates, nil
 }
+
+func (db *RedisDbDriver) GetTemplateByName(name string) (*model.Template, error) {
+	templates, err := db.GetTemplates()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, template := range templates {
+		if template.Name == name {
+			return template, nil
+		}
+	}
+
+	return nil, fmt.Errorf("template not found")
+}

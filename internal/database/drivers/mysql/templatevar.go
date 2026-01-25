@@ -81,3 +81,21 @@ func (db *MySQLDriver) GetTemplateVars() ([]*model.TemplateVar, error) {
 
 	return templateVars, nil
 }
+
+func (db *MySQLDriver) GetTemplateVarByName(name string) (*model.TemplateVar, error) {
+	var templateVars []*model.TemplateVar
+
+	err := db.read("templatevars", &templateVars, nil, "name = ?", name)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(templateVars) == 0 {
+		return nil, fmt.Errorf("template value not found")
+	}
+
+	// Decrypt the value
+	templateVars[0].DecryptSetValue(templateVars[0].Value)
+
+	return templateVars[0], nil
+}

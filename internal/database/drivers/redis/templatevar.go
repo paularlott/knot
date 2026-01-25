@@ -64,3 +64,18 @@ func (db *RedisDbDriver) GetTemplateVars() ([]*model.TemplateVar, error) {
 
 	return templateVars, nil
 }
+
+func (db *RedisDbDriver) GetTemplateVarByName(name string) (*model.TemplateVar, error) {
+	templateVars, err := db.GetTemplateVars()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, templateVar := range templateVars {
+		if templateVar.Name == name {
+			return templateVar, nil
+		}
+	}
+
+	return nil, fmt.Errorf("template value not found")
+}

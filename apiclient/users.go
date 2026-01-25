@@ -3,6 +3,7 @@ package apiclient
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"time"
 )
@@ -99,6 +100,14 @@ type UserQuota struct {
 	UsedTunnels          uint32 `json:"used_tunnels"`
 }
 
+type UserPermissions struct {
+	Permissions []uint16 `json:"permissions"`
+}
+
+type UserHasPermission struct {
+	HasPermission bool `json:"has_permission"`
+}
+
 func (c *ApiClient) CreateUser(ctx context.Context, request *CreateUserRequest) (string, int, error) {
 	response := CreateUserResponse{}
 
@@ -177,4 +186,34 @@ func (c *ApiClient) GetUserQuota(ctx context.Context, userId string) (*UserQuota
 	}
 
 	return &response, nil
+}
+
+func (c *ApiClient) GetUserPermissions(ctx context.Context, userId string) ([]uint16, error) {
+	response := UserPermissions{}
+
+	code, err := c.httpClient.Get(ctx, "/api/users/"+userId+"/permissions", &response)
+	if err != nil {
+		if code == 404 {
+			return nil, errors.New("user not found")
+		} else {
+			return nil, err
+		}
+	}
+
+	return response.Permissions, nil
+}
+
+func (c *ApiClient) HasUserPermission(ctx context.Context, userId string, permission uint16) (bool, error) {
+	response := UserHasPermission{}
+
+	code, err := c.httpClient.Get(ctx, "/api/users/"+userId+"/has-permission?permission="+url.QueryEscape(fmt.Sprintf("%d", permission)), &response)
+	if err != nil {
+		if code == 404 {
+			return false, errors.New("user not found")
+		} else {
+			return false, err
+		}
+	}
+
+	return response.HasPermission, nil
 }

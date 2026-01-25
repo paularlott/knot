@@ -51,13 +51,26 @@ func HandleGetVolumes(w http.ResponseWriter, r *http.Request) {
 
 func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 	volumeId := r.PathValue("volume_id")
-	if !validate.UUID(volumeId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
+
+	// Support lookup by both ID and name
+	db := database.GetInstance()
+	var volume *model.Volume
+	var err error
+	if validate.UUID(volumeId) {
+		// Lookup by ID
+		volume, err = db.GetVolume(volumeId)
+	} else {
+		// Lookup by name
+		volume, err = db.GetVolumeByName(volumeId)
+	}
+
+	if err != nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "volume not found"})
 		return
 	}
 
 	request := apiclient.VolumeUpdateRequest{}
-	err := rest.DecodeRequestBody(w, r, &request)
+	err = rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -76,14 +89,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db := database.GetInstance()
 	user := r.Context().Value("user").(*model.User)
-
-	volume, err := database.GetInstance().GetVolume(volumeId)
-	if err != nil {
-		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
 
 	// If the volume is active then don't update
 	if volume.Active {
@@ -181,16 +187,21 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 
 func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 	volumeId := r.PathValue("volume_id")
-	if !validate.UUID(volumeId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
-		return
+
+	// Support lookup by both ID and name
+	db := database.GetInstance()
+	var volume *model.Volume
+	var err error
+	if validate.UUID(volumeId) {
+		// Lookup by ID
+		volume, err = db.GetVolume(volumeId)
+	} else {
+		// Lookup by name
+		volume, err = db.GetVolumeByName(volumeId)
 	}
 
-	db := database.GetInstance()
-
-	volume, err := db.GetVolume(volumeId)
 	if err != nil {
-		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "volume not found"})
 		return
 	}
 
@@ -233,15 +244,22 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 
 func HandleGetVolume(w http.ResponseWriter, r *http.Request) {
 	volumeId := r.PathValue("volume_id")
-	if !validate.UUID(volumeId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
-		return
+
+	// Support lookup by both ID and name
+	var volume *model.Volume
+	var err error
+	db := database.GetInstance()
+
+	if validate.UUID(volumeId) {
+		// Lookup by ID
+		volume, err = db.GetVolume(volumeId)
+	} else {
+		// Lookup by name
+		volume, err = db.GetVolumeByName(volumeId)
 	}
 
-	db := database.GetInstance()
-	volume, err := db.GetVolume(volumeId)
-	if err != nil {
-		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+	if err != nil || volume == nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "volume not found"})
 		return
 	}
 
@@ -265,20 +283,31 @@ func HandleVolumeStart(w http.ResponseWriter, r *http.Request) {
 
 	volumeId := r.PathValue("volume_id")
 
-	if !validate.UUID(volumeId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
+	// Support lookup by both ID and name
+	if validate.UUID(volumeId) {
+		// Lookup by ID
+		volume, err = db.GetVolume(volumeId)
+	} else {
+		// Lookup by name
+		volume, err = db.GetVolumeByName(volumeId)
+	}
+
+	if err != nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "volume not found"})
 		return
 	}
 
+	// Use the resolved volume ID for locking
 	transport := service.GetTransport()
-	unlockToken := transport.LockResource(volumeId)
+	unlockToken := transport.LockResource(volume.Id)
 	if unlockToken == "" {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to lock volume"})
 		return
 	}
-	defer transport.UnlockResource(volumeId, unlockToken)
+	defer transport.UnlockResource(volume.Id, unlockToken)
 
-	volume, err = db.GetVolume(volumeId)
+	// Reload to ensure we have the latest state after locking
+	volume, err = db.GetVolume(volume.Id)
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -324,20 +353,32 @@ func HandleVolumeStop(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 
 	volumeId := r.PathValue("volume_id")
-	if !validate.UUID(volumeId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid volume ID"})
+
+	// Support lookup by both ID and name
+	if validate.UUID(volumeId) {
+		// Lookup by ID
+		volume, err = db.GetVolume(volumeId)
+	} else {
+		// Lookup by name
+		volume, err = db.GetVolumeByName(volumeId)
+	}
+
+	if err != nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "volume not found"})
 		return
 	}
 
+	// Use the resolved volume ID for locking
 	transport := service.GetTransport()
-	unlockToken := transport.LockResource(volumeId)
+	unlockToken := transport.LockResource(volume.Id)
 	if unlockToken == "" {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: "Failed to lock volume"})
 		return
 	}
-	defer transport.UnlockResource(volumeId, unlockToken)
+	defer transport.UnlockResource(volume.Id, unlockToken)
 
-	volume, err = db.GetVolume(volumeId)
+	// Reload to ensure we have the latest state after locking
+	volume, err = db.GetVolume(volume.Id)
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return

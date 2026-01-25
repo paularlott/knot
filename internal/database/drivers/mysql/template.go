@@ -84,3 +84,18 @@ func (db *MySQLDriver) GetTemplates() ([]*model.Template, error) {
 	err := db.read("templates", &templates, nil, "1 ORDER BY name")
 	return templates, err
 }
+
+func (db *MySQLDriver) GetTemplateByName(name string) (*model.Template, error) {
+	var templates []*model.Template
+
+	err := db.read("templates", &templates, nil, "name = ?", name)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(templates) == 0 {
+		return nil, fmt.Errorf("template not found")
+	}
+
+	return templates[0], nil
+}

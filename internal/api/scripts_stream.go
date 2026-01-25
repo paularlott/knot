@@ -28,11 +28,6 @@ func HandleExecuteScriptStream(w http.ResponseWriter, r *http.Request) {
 	spaceId := r.PathValue("space_id")
 	scriptName := r.URL.Query().Get("script")
 	isContent := r.URL.Query().Get("content") == "true"
-	
-	if !validate.UUID(spaceId) {
-		http.Error(w, "Invalid space ID", http.StatusBadRequest)
-		return
-	}
 
 	if !isContent && !validate.VarName(scriptName) {
 		http.Error(w, "Invalid script name", http.StatusBadRequest)
@@ -42,11 +37,19 @@ func HandleExecuteScriptStream(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	db := database.GetInstance()
 
-	space, err := db.GetSpace(spaceId)
+	// Support lookup by both ID and name
+	var space *model.Space
+	var err error
+	if validate.UUID(spaceId) {
+		space, err = db.GetSpace(spaceId)
+	} else {
+		space, err = db.GetSpaceByName(user.Id, spaceId)
+	}
 	if err != nil || space.IsDeleted {
 		http.Error(w, "Space not found", http.StatusNotFound)
 		return
 	}
+	spaceId = space.Id // Use the resolved ID for subsequent operations
 
 	if !user.HasPermission(model.PermissionManageSpaces) && space.UserId != user.Id {
 		http.Error(w, "No permission to access this space", http.StatusForbidden)

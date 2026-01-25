@@ -220,7 +220,7 @@ paths:
                   user_id:
                     type: string
                     format: uuid
-                    description: The ID of the user.
+                    description: The ID or username of the user.
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -294,7 +294,7 @@ paths:
         - name: user_id
           in: path
           required: true
-          description: The ID of the user to get.
+          description: The ID or username of the user to get.
           schema:
             type: string
             format: uuid
@@ -325,7 +325,7 @@ paths:
         - name: user_id
           in: path
           required: true
-          description: The ID of the user
+          description: The ID or username of the user
           schema:
             type: string
             format: uuid
@@ -361,7 +361,7 @@ paths:
             type: string
             format: uuid
           required: true
-          description: The ID of the user to delete.
+          description: The ID or username of the user to delete.
       responses:
         '200':
           description: Successful operation.
@@ -385,7 +385,7 @@ paths:
         - name: user_id
           in: path
           required: true
-          description: The ID of the user to get the quota for.
+          description: The ID or username of the user to get the quota for.
           schema:
             type: string
             format: uuid
@@ -396,6 +396,86 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserQuota'
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+      security: [BearerAuth: []]
+
+  /api/users/{user_id}/permissions:
+    get:
+      tags:
+        - Users
+      summary: Get User Permissions
+      description: Retrieve all permissions for a user, resolved from their roles.
+      operationId: getUserPermissions
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID or username of the user to get permissions for.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: A list of permission IDs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permissions:
+                    type: array
+                    items:
+                      type: integer
+                    description: The list of permission IDs the user has.
+        '400':
+          $ref: '#/components/responses/bad-request'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+      security: [BearerAuth: []]
+
+  /api/users/{user_id}/has-permission:
+    get:
+      tags:
+        - Users
+      summary: Check User Permission
+      description: Check if a user has a specific permission.
+      operationId: getUserHasPermission
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: The ID or username of the user to check permissions for.
+          schema:
+            type: string
+            format: uuid
+        - name: permission
+          in: query
+          required: true
+          description: The permission ID to check (integer).
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Permission check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  has_permission:
+                    type: boolean
+                    description: True if the user has the permission.
         '400':
           $ref: '#/components/responses/bad-request'
         '401':
@@ -1148,8 +1228,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the space to delete.
+            description: The ID or name of the space to delete.
       responses:
         '200':
           description: Successful operation
@@ -1175,8 +1254,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the space to update.
+            description: The ID or name of the space to update.
       requestBody:
         required: true
         content:
@@ -1240,8 +1318,7 @@ paths:
           required: true
           schema:
             type: string
-            format: uuid
-            description: The ID of the space to update.
+            description: The ID or name of the space to update.
       requestBody:
         required: true
         content:
@@ -1275,7 +1352,7 @@ paths:
           schema:
             type: string
             format: uuid
-            description: The ID of the space.
+            description: The ID or name of the space.
         - name: field_name
           in: path
           required: true
@@ -1516,7 +1593,7 @@ paths:
           schema:
             type: string
           required: true
-          description: The ID of the user to stop the spaces for.
+          description: The ID or username of the user to stop the spaces for.
       responses:
         '200':
           description: Successful operation.
@@ -1578,7 +1655,7 @@ paths:
           schema:
             type: string
             format: uuid
-            description: The ID of the space.
+            description: The ID or name of the space.
       responses:
         '200':
           description: List of active port forwards
@@ -1610,7 +1687,7 @@ paths:
           schema:
             type: string
             format: uuid
-            description: The ID of the space.
+            description: The ID or name of the space.
       requestBody:
         required: true
         content:
@@ -1714,7 +1791,7 @@ paths:
           schema:
             type: string
             format: uuid
-            description: The ID of the template to update.
+            description: The ID or name of the template to update.
       requestBody:
         required: true
         content:
@@ -1749,7 +1826,7 @@ paths:
             type: string
             format: uuid
           required: true
-          description: The ID of the template to delete.
+          description: The ID or name of the template to delete.
       responses:
         '200':
           description: Successful operation.
@@ -1779,7 +1856,7 @@ paths:
           schema:
             type: string
           required: true
-          description: The ID of the template to get.
+          description: The ID or name of the template to get.
       responses:
         '200':
           description: Successful operation
@@ -1791,6 +1868,50 @@ paths:
           $ref: '#/components/responses/unauthorized'
         '403':
           $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not-found'
+        '500':
+          $ref: '#/components/responses/internal-server-error'
+      security: [BearerAuth: []]
+
+  /api/templates/{template_id}/nodes:
+    get:
+      summary: Get Template Nodes
+      description: Get available nodes for deploying a template.
+      operationId: getTemplateNodes
+      tags:
+        - Templates
+      parameters:
+        - in: path
+          name: template_id
+          schema:
+            type: string
+          required: true
+          description: The ID or name of the template to get nodes for.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    node_id:
+                      type: string
+                      description: The ID of the node.
+                    hostname:
+                      type: string
+                      description: The hostname of the node.
+                    running_spaces:
+                      type: integer
+                      description: The number of running spaces on the node.
+                    total_spaces:
+                      type: integer
+                      description: The total number of spaces on the node.
+        '401':
+          $ref: '#/components/responses/unauthorized'
         '404':
           $ref: '#/components/responses/not-found'
         '500':
@@ -1903,7 +2024,7 @@ paths:
             type: string
             format: uuid
           required: true
-          description: The ID of the template variable to delete.
+          description: The ID or name of the template variable to delete.
       responses:
         '200':
           description: Successful operation.
@@ -1926,7 +2047,7 @@ paths:
             type: string
             format: uuid
           required: true
-          description: The ID of the template variable to get.
+          description: The ID or name of the template variable to get.
       tags:
         - TemplateVars
       responses:
@@ -2058,7 +2179,7 @@ paths:
             type: string
             format: uuid
           required: true
-          description: The ID of the volume to delete.
+          description: The ID or name of the volume to delete.
       responses:
         '200':
           description: Successful operation.
@@ -2457,7 +2578,7 @@ paths:
         1. By script ID - provide `script_id`
         2. By script name - provide `script_name`
         3. Inline content - provide `content`
-        
+
         Returns the complete output after script execution completes.
       tags:
         - Scripts
@@ -2467,9 +2588,8 @@ paths:
           name: space_id
           schema:
             type: string
-            format: uuid
           required: true
-          description: The ID of the space to execute the script in.
+          description: The ID or name of the space to execute the script in.
       requestBody:
         required: true
         content:
@@ -2546,9 +2666,8 @@ paths:
           name: space_id
           schema:
             type: string
-            format: uuid
           required: true
-          description: The ID of the space to execute the script in.
+          description: The ID or name of the space to execute the script in.
         - in: query
           name: script
           schema:
@@ -2940,7 +3059,7 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The ID of the user the space belongs to.
+          description: The ID or username of the user the space belongs to.
         platform:
           type: string
           description: The container platform to run the template on.
@@ -2948,7 +3067,7 @@ components:
         shared_user_id:
           type: string
           format: uuid
-          description: The ID of the user the space is shared with, or an empty string if not shared.
+          description: The ID or username of the user the space is shared with, or an empty string if not shared.
         shared_username:
           type: string
           description: The name of the user the space is shared with, or an empty string if not shared.
@@ -3052,7 +3171,7 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The ID of the user to create the space for.
+          description: The ID or username of the user to create the space for.
         alt_names:
           type: array
           items:
@@ -3097,14 +3216,14 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The ID of the user the space belongs to.
+          description: The ID or username of the user the space belongs to.
         template_id:
           type: string
           format: uuid
           description: The ID of the template the space was created from.
         shared_user_id:
           type: string
-          description: The ID of the user the space is shared with (empty if not shared).
+          description: The ID or username of the user the space is shared with (empty if not shared).
         shared_username:
           type: string
           description: The username of the user the space is shared with (empty if not shared).
@@ -3853,7 +3972,7 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The ID of the user
+          description: The ID or username of the user
         username:
           type: string
           description: The username of the user
@@ -3962,7 +4081,7 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The ID of the user
+          description: The ID or username of the user
         username:
           type: string
           description: The username of the user
@@ -4139,7 +4258,7 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The ID of the user to transfer the space to.
+          description: The ID or username of the user to transfer the space to.
 
     SetCustomFieldRequest:
       type: object
@@ -4300,7 +4419,7 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The ID of the user who owns this script. Empty string for global scripts.
+          description: The ID or username of the user who owns this script. Empty string for global scripts.
         name:
           type: string
         description:
@@ -4334,7 +4453,7 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The ID of the user who owns this script. Empty string for global scripts.
+          description: The ID or username of the user who owns this script. Empty string for global scripts.
         name:
           type: string
         description:
@@ -4378,7 +4497,7 @@ components:
         user_id:
           type: string
           format: uuid
-          description: The ID of the user who will own this script. Use 'current' for the authenticated user. Empty string creates a global script.
+          description: The ID or username of the user who will own this script. Use 'current' for the authenticated user. Empty string creates a global script.
         name:
           type: string
         description:
