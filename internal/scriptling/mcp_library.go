@@ -57,22 +57,7 @@ func GetMCPToolsLibrary(client *apiclient.ApiClient, mcpParams map[string]string
 		return mcpExecuteTool(ctx, client, args...)
 	}, "execute_tool(name, arguments) - Execute a discovered tool. Arguments should be a dict.")
 
-	// Add shared toon functions from scriptling/mcp
-	toonReg := &toonRegistrar{builder: builder}
-	scriptlingmcp.RegisterToon(toonReg)
-
 	return builder.Build()
-}
-
-type toonRegistrar struct {
-	builder *object.LibraryBuilder
-}
-
-func (r *toonRegistrar) RegisterLibrary(name string, lib *object.Library) {
-	funcs := lib.Functions()
-	for fname, fn := range funcs {
-		r.builder.FunctionWithHelp(name+"_"+fname, fn.Fn, fn.HelpText)
-	}
 }
 
 // mcpListTools fetches available tools via API for local/remote environments

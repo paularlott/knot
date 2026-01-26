@@ -54,19 +54,19 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 // registerKnotLibraries registers all Knot-specific libraries for scriptling environments
 func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]string) {
 	if client != nil && userId != "" {
-		env.RegisterLibrary("knot.space", knotscriptling.GetSpacesLibrary(client, userId))
-		env.RegisterLibrary("knot.ai", knotscriptling.GetAILibrary(client, userId))
-		env.RegisterLibrary("knot.user", knotscriptling.GetUsersLibrary(client, userId))
-		env.RegisterLibrary("knot.group", knotscriptling.GetGroupsLibrary(client, userId))
-		env.RegisterLibrary("knot.role", knotscriptling.GetRolesLibrary(client, userId))
-		env.RegisterLibrary("knot.template", knotscriptling.GetTemplatesLibrary(client, userId))
-		env.RegisterLibrary("knot.vars", knotscriptling.GetVarsLibrary(client, userId))
-		env.RegisterLibrary("knot.volume", knotscriptling.GetVolumesLibrary(client, userId))
-		env.RegisterLibrary("knot.skill", knotscriptling.GetSkillsLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetSpacesLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetAILibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetUsersLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetGroupsLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetRolesLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetTemplatesLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetVarsLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetVolumesLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetSkillsLibrary(client, userId))
 	}
 	if client != nil {
-		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client, mcpParams))
-		env.RegisterLibrary("knot.permission", knotscriptling.GetPermissionLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetMCPToolsLibrary(client, mcpParams))
+		env.RegisterLibrary(knotscriptling.GetPermissionLibrary(client, userId))
 	}
 }
 
