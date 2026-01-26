@@ -28,6 +28,8 @@ const (
 	EventSessionsDeleted     EventType = "sessions:deleted"
 	EventScriptsChanged      EventType = "scripts:changed"
 	EventScriptsDeleted      EventType = "scripts:deleted"
+	EventSkillsChanged       EventType = "skills:changed"
+	EventSkillsDeleted       EventType = "skills:deleted"
 	EventTunnelsChanged      EventType = "tunnels:changed"
 	EventTunnelsDeleted      EventType = "tunnels:deleted"
 	EventAuditLogsChanged    EventType = "auditlogs:changed"

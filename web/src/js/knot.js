@@ -38,6 +38,8 @@ import './pages/auditLogComponent.js';
 import './pages/clusterInfoComponent.js';
 import './pages/scriptListComponent.js';
 import './pages/scriptForm.js';
+import './pages/skillListComponent.js';
+import './pages/skillForm.js';
 import './components/chat.js';
 
 import './terminal.js';

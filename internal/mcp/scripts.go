@@ -133,6 +133,11 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 	bootTools := mcptools.GetMCPTools(visibility)
 	tools = append(tools, bootTools...)
 
+	// Add skills tool if user has accessible skills
+	if skillTool := getSkillsTool(ctx, p.user); skillTool != nil {
+		tools = append(tools, *skillTool)
+	}
+
 	log.Debug("scriptToolsProvider.GetTools returning tools", "count", len(tools), "user", p.user.Username)
 	for _, tool := range tools {
 		log.Debug("scriptToolsProvider.GetTools tool", "name", tool.Name, "description", tool.Description, "keywords", tool.Keywords)
@@ -143,6 +148,11 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 
 // ExecuteTool executes a script tool by name
 func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
+	// Handle skills tool
+	if name == "skills" {
+		return executeSkillsTool(ctx, p.user, params)
+	}
+
 	// Try boot-loaded tools first
 	if result, err := mcptools.ExecuteTool(name, params, p.user); err == nil {
 		return result, nil

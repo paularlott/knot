@@ -58,22 +58,7 @@ Use tool_search to discover tools by keyword or description.`)
 	// Register Go-based tools (most tools are now scripted via mcptools)
 	// =========================================================================
 
-	// Skills/Knowledge base
-	server.RegisterTool(
-		mcp.NewTool("skills", "Access knowledge base/skills for guides and best practices. Call without filename to list all, or with filename for specific content. First call skills() to see what's available - don't assume filenames. Standard skills: nomad-spec.md, local-container-spec.md (covers docker, podman, and apple containers).",
-			mcp.String("filename", "Skill filename to retrieve. Omit to list all skills."),
-			mcp.Output(
-				mcp.ObjectArray("skills", "Array of available skills",
-					mcp.String("filename", "Filename of the skill"),
-					mcp.String("description", "Description of the skill"),
-				),
-				mcp.String("filename", "Filename of the skill"),
-				mcp.String("content", "Content of the skill when fetching a specific filename"),
-			),
-		),
-		skills,
-		"skills", "knowledge", "guides", "documentation", "specs", "specifications", "nomad", "docker", "podman", "container",
-	)
+	// Skills tool is now dynamically registered via provider
 
 	// =========================================================================
 	// Register remote MCP servers if configured

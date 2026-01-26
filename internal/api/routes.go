@@ -107,6 +107,14 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/spaces/{space_id}/execute-script", middleware.ApiAuth(HandleExecuteScript))
 	router.HandleFunc("GET /api/spaces/{space_id}/execute-script-stream", middleware.ApiAuth(HandleExecuteScriptStream))
 
+	// Skills
+	router.HandleFunc("GET /api/skill", middleware.ApiAuth(HandleGetSkills))
+	router.HandleFunc("GET /api/skill/search", middleware.ApiAuth(HandleSearchSkills))
+	router.HandleFunc("GET /api/skill/{skill_id}", middleware.ApiAuth(HandleGetSkill))
+	router.HandleFunc("POST /api/skill", middleware.ApiAuth(HandleCreateSkill))
+	router.HandleFunc("PUT /api/skill/{skill_id}", middleware.ApiAuth(HandleUpdateSkill))
+	router.HandleFunc("DELETE /api/skill/{skill_id}", middleware.ApiAuth(HandleDeleteSkill))
+
 	// Tunnels
 	router.HandleFunc("GET /api/tunnels", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnels)))
 	router.HandleFunc("GET /api/tunnels/server-info", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnelServerInfo)))

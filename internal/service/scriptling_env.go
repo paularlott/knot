@@ -62,6 +62,7 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 		env.RegisterLibrary("knot.template", knotscriptling.GetTemplatesLibrary(client, userId))
 		env.RegisterLibrary("knot.vars", knotscriptling.GetVarsLibrary(client, userId))
 		env.RegisterLibrary("knot.volume", knotscriptling.GetVolumesLibrary(client, userId))
+		env.RegisterLibrary("knot.skill", knotscriptling.GetSkillsLibrary(client, userId))
 	}
 	if client != nil {
 		env.RegisterLibrary("knot.mcp", knotscriptling.GetMCPToolsLibrary(client, mcpParams))

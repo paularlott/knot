@@ -1,5 +1,5 @@
 name = "create_template"
-description = "Create a new space template. MANDATORY: Before calling this, you MUST first call skills(filename='<platform>-spec.md') to get the platform specification and use it as your guide for the job definition."
+description = "Create a new space template."
 keywords = ["create", "template", "new", "docker", "nomad", "podman", "platform", "job", "specification", "blueprint"]
 
 [parameters.name]
