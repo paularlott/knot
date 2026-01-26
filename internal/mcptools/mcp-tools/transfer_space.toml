@@ -1,0 +1,13 @@
+name = "transfer_space"
+description = "Transfer space ownership to another user. Use list_users to find user ID if not provided."
+keywords = ["transfer", "space", "ownership", "give", "assign"]
+
+[parameters.space_name]
+type = "string"
+description = "Name of the space to transfer"
+required = true
+
+[parameters.user_id]
+type = "string"
+description = "User ID to transfer to"
+required = true

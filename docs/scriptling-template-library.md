@@ -12,9 +12,10 @@ Templates define the configuration for creating spaces. They specify the contain
 |----------|-------------|
 | `list()` | List all templates |
 | `get(template_id)` | Get template by ID or name |
-| `create(name, job, ...)` | Create a new template |
+| `create(name, ...)` | Create a new template |
 | `update(template_id, ...)` | Update template properties |
 | `delete(template_id)` | Delete a template |
+| `get_icons()` | Get list of available icons |
 
 ## Usage
 
@@ -90,37 +91,29 @@ Get a template by ID or name.
   - `name` (string): Template name
   - `description` (string): Template description
   - `platform` (string): Platform
+  - `job` (string): Container image/job specification
+  - `volumes` (string): Volume configuration
   - `active` (bool): Whether active
   - `is_managed` (bool): Whether managed
   - `compute_units` (int): Compute units required
   - `storage_units` (int): Storage units required
   - `usage` (int): Current usage
   - `deployed` (int): Deployed count
-
-**Additional API Fields:**
-
-The following fields are available in the API but not currently returned by `get()`. To access these, they would need to be added to the scriptling library implementation:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `volumes` | string | Volume configuration |
-| `groups` | list | List of group IDs |
-| `job` | string | Container image/job |
-| `with_terminal` | bool | Web terminal enabled |
-| `with_vscode_tunnel` | bool | VSCode tunnel enabled |
-| `with_code_server` | bool | Code-server enabled |
-| `with_ssh` | bool | SSH enabled |
-| `with_run_command` | bool | Run command enabled |
-| `startup_script_id` | string | Startup script ID |
-| `shutdown_script_id` | string | Shutdown script ID |
-| `schedule_enabled` | bool | Schedule enabled |
-| `auto_start` | bool | Auto-start enabled |
-| `schedule` | list | Schedule configuration |
-| `zones` | list | Allowed zones |
-| `max_uptime` | int | Maximum uptime |
-| `max_uptime_unit` | string | Uptime unit |
-| `icon_url` | string | Icon URL |
-| `custom_fields` | list | Custom field definitions |
+  - `hash` (string): Template hash
+  - `with_terminal` (bool): Web terminal enabled
+  - `with_vscode_tunnel` (bool): VSCode tunnel enabled
+  - `with_code_server` (bool): Code-server enabled
+  - `with_ssh` (bool): SSH enabled
+  - `with_run_command` (bool): Run command enabled
+  - `schedule_enabled` (bool): Schedule enabled
+  - `auto_start` (bool): Auto-start enabled
+  - `max_uptime` (int): Maximum uptime
+  - `max_uptime_unit` (string): Uptime unit
+  - `icon_url` (string): Icon URL
+  - `groups` (list): List of group IDs
+  - `zones` (list): Allowed zones
+  - `schedule` (list): Schedule configuration (7 days, each with `enabled`, `from`, `to`)
+  - `custom_fields` (list): Custom field definitions (each with `name`, `description`)
 
 **Example:**
 
@@ -141,42 +134,34 @@ print(f"Storage units: {tmpl['storage_units']}")
 
 ---
 
-### create(name, job, ...)
+### create(name, ...)
 
 Create a new template.
 
 **Parameters:**
 
-- `name` (string): Template name
-- `job` (string): Container image/job definition
+- `name` (string): Template name (required)
 
 **Optional Keyword Arguments:**
 
+- `job` (string): Container image/job definition
 - `description` (string): Template description
 - `platform` (string): Platform (default: "")
+- `volumes` (string): Volume configuration
 - `active` (bool): Whether template is active (default: true)
 - `compute_units` (int): Compute units required
 - `storage_units` (int): Storage units required
-
-**Additional API Fields:**
-
-The following fields are supported by the API but not currently exposed via kwargs. To use these, they would need to be added to the scriptling library implementation:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `volumes` | string | Volume configuration |
-| `groups` | list | List of group IDs |
-| `with_terminal` | bool | Enable web terminal access |
-| `with_vscode_tunnel` | bool | Enable VSCode tunnel |
-| `with_code_server` | bool | Enable code-server |
-| `with_ssh` | bool | Enable SSH access |
-| `with_run_command` | bool | Enable run command |
-| `startup_script_id` | string | Startup script ID |
-| `shutdown_script_id` | string | Shutdown script ID |
-| `schedule_enabled` | bool | Enable schedule |
-| `auto_start` | bool | Auto-start spaces |
-| `schedule` | list | Schedule configuration |
-| `zones` | list | Allowed zones |
+- `with_terminal` (bool): Enable web terminal access
+- `with_vscode_tunnel` (bool): Enable VSCode tunnel
+- `with_code_server` (bool): Enable code-server
+- `with_ssh` (bool): Enable SSH access
+- `with_run_command` (bool): Enable run command
+- `schedule_enabled` (bool): Enable schedule restrictions
+- `icon_url` (string): Icon URL (use `get_icons()` to find available URLs)
+- `groups` (list): List of group IDs
+- `zones` (list): List of zone names
+- `schedule` (list): Schedule configuration (7 day objects with `enabled`, `from`, `to`)
+- `custom_fields` (list): Custom field definitions (objects with `name`, `description`)
 
 **Returns:**
 
@@ -194,27 +179,47 @@ template_id = knot.template.create(
 )
 print(f"Created template: {template_id}")
 
-# Create a Python development template
+# Create a Python development template with full configuration
 template_id = knot.template.create(
     name="python-dev",
     job="python:3.11-slim",
-    platform="linux/amd64",
+    platform="docker",
     description="Python 3.11 development environment",
     compute_units=10,
     storage_units=20,
-    active=True
+    with_terminal=True,
+    with_ssh=True,
+    with_run_command=True,
+    active=True,
+    icon_url="/icons/python.svg"
 )
 print(f"Created template: {template_id}")
 
-# Create a Node.js template
+# Create template with schedule restrictions
 template_id = knot.template.create(
-    name="nodejs-app",
-    job="node:20-alpine",
-    description="Node.js 20 application template",
-    compute_units=5,
-    storage_units=10
+    name="scheduled-template",
+    job="ubuntu:22.04",
+    schedule_enabled=True,
+    schedule=[
+        {"enabled": False, "from": "12:00am", "to": "11:59pm"},  # Sunday
+        {"enabled": True, "from": "9:00am", "to": "5:00pm"},     # Monday
+        {"enabled": True, "from": "9:00am", "to": "5:00pm"},     # Tuesday
+        {"enabled": True, "from": "9:00am", "to": "5:00pm"},     # Wednesday
+        {"enabled": True, "from": "9:00am", "to": "5:00pm"},     # Thursday
+        {"enabled": True, "from": "9:00am", "to": "5:00pm"},     # Friday
+        {"enabled": False, "from": "12:00am", "to": "11:59pm"},  # Saturday
+    ]
 )
-print(f"Created template: {template_id}")
+
+# Create template with custom fields
+template_id = knot.template.create(
+    name="custom-template",
+    job="ubuntu:22.04",
+    custom_fields=[
+        {"name": "project_name", "description": "Project name"},
+        {"name": "environment", "description": "Environment (dev/staging/prod)"}
+    ]
+)
 ```
 
 ---
@@ -225,41 +230,29 @@ Update a template's properties.
 
 **Parameters:**
 
-- `template_id` (string): Template ID or name
+- `template_id` (string): Template ID or name (required)
 
 **Optional Keyword Arguments:**
 
 - `name` (string): New template name
 - `job` (string): New container image/job
 - `description` (string): New description
+- `volumes` (string): Volume configuration
 - `platform` (string): New platform
 - `active` (bool): Set active/inactive
-
-**Additional API Fields:**
-
-The following fields are supported by the API but not currently exposed via kwargs. To use these, they would need to be added to the scriptling library implementation:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `volumes` | string | Volume configuration |
-| `groups` | list | List of group IDs |
-| `with_terminal` | bool | Enable web terminal access |
-| `with_vscode_tunnel` | bool | Enable VSCode tunnel |
-| `with_code_server` | bool | Enable code-server |
-| `with_ssh` | bool | Enable SSH access |
-| `with_run_command` | bool | Enable run command |
-| `startup_script_id` | string | Startup script ID |
-| `shutdown_script_id` | string | Shutdown script ID |
-| `schedule_enabled` | bool | Enable schedule |
-| `auto_start` | bool | Auto-start spaces |
-| `schedule` | list | Schedule configuration |
-| `compute_units` | int | Compute units |
-| `storage_units` | int | Storage units |
-| `zones` | list | Allowed zones |
-| `max_uptime` | int | Maximum uptime |
-| `max_uptime_unit` | string | Uptime unit (e.g., "hours", "days") |
-| `icon_url` | string | Icon URL |
-| `custom_fields` | list | Custom field definitions |
+- `compute_units` (int): Compute units
+- `storage_units` (int): Storage units
+- `with_terminal` (bool): Enable web terminal access
+- `with_vscode_tunnel` (bool): Enable VSCode tunnel
+- `with_code_server` (bool): Enable code-server
+- `with_ssh` (bool): Enable SSH access
+- `with_run_command` (bool): Enable run command
+- `schedule_enabled` (bool): Enable schedule restrictions
+- `icon_url` (string): Icon URL
+- `groups` (list): List of group IDs
+- `zones` (list): List of zone names
+- `schedule` (list): Schedule configuration (7 day objects with `enabled`, `from`, `to`)
+- `custom_fields` (list): Custom field definitions (objects with `name`, `description`)
 
 **Returns:**
 
@@ -277,8 +270,33 @@ knot.template.update("python-dev", description="Updated description")
 knot.template.update(
     "python-dev",
     job="python:3.12-slim",
-    platform="linux/amd64",
+    platform="docker",
+    compute_units=15,
+    storage_units=25,
     active=True
+)
+
+# Enable features
+knot.template.update(
+    "python-dev",
+    with_terminal=True,
+    with_ssh=True,
+    with_run_command=True
+)
+
+# Update schedule
+knot.template.update(
+    "python-dev",
+    schedule_enabled=True,
+    schedule=[
+        {"enabled": False, "from": "12:00am", "to": "11:59pm"},  # Sunday
+        {"enabled": True, "from": "9:00am", "to": "5:00pm"},     # Monday-Friday
+        {"enabled": True, "from": "9:00am", "to": "5:00pm"},
+        {"enabled": True, "from": "9:00am", "to": "5:00pm"},
+        {"enabled": True, "from": "9:00am", "to": "5:00pm"},
+        {"enabled": True, "from": "9:00am", "to": "5:00pm"},
+        {"enabled": False, "from": "12:00am", "to": "11:59pm"},  # Saturday
+    ]
 )
 
 # Deactivate a template
@@ -307,6 +325,35 @@ import knot.template
 # Delete a template
 if knot.template.delete("old-template"):
     print("Template deleted successfully")
+```
+
+---
+
+### get_icons()
+
+Get list of available icons for templates and spaces.
+
+**Parameters:** None
+
+**Returns:**
+
+- `list`: List of icon objects, each containing:
+  - `description` (string): Icon description
+  - `source` (string): Icon source (e.g., "built-in")
+  - `url` (string): Icon URL
+
+**Example:**
+
+```python
+import knot.template
+
+# Get all available icons
+icons = knot.template.get_icons()
+
+print(f"Total icons: {len(icons)}")
+for icon in icons:
+    print(f"- {icon['description']}: {icon['url']}")
+    print(f"  Source: {icon['source']}")
 ```
 
 ---

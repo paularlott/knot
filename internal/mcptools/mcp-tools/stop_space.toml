@@ -1,0 +1,8 @@
+name = "stop_space"
+description = "Stop a space."
+keywords = ["stop", "space", "shutdown", "halt", "deactivate", "environment"]
+
+[parameters.space_name]
+type = "string"
+description = "Name of the space to stop"
+required = true

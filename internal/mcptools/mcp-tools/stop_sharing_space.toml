@@ -1,0 +1,8 @@
+name = "stop_sharing_space"
+description = "Stop sharing a space."
+keywords = ["stop", "sharing", "revoke", "access", "permissions", "private"]
+
+[parameters.space_name]
+type = "string"
+description = "Name of the space to stop sharing"
+required = true

@@ -52,6 +52,8 @@ var SpacesCmd = &cli.Command{
 		RunCmd,
 		RunScriptCmd,
 		CopyCmd,
+		ReadFileCmd,
+		WriteFileCmd,
 		TunnelPortCmd,
 		SetFieldCmd,
 		GetFieldCmd,

@@ -1,0 +1,8 @@
+name = "delete_template"
+description = "Permanently delete a template. Cannot be undone."
+keywords = ["delete", "template", "remove", "destroy", "blueprint", "platform"]
+
+[parameters.template_name]
+type = "string"
+description = "Template name to delete"
+required = true

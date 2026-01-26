@@ -39,6 +39,7 @@ import (
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/mcp"
 )
 
@@ -215,6 +216,19 @@ var ServerCmd = &cli.Command{
 			ConfigPath:   []string{"server.skills_path"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SKILLS_PATH"},
 			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "mcp-tools-path",
+			Usage:        "Path to mcp-tools directory (overrides embedded tools).",
+			ConfigPath:   []string{"server.mcp_tools_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_TOOLS_PATH"},
+			DefaultValue: "",
+		},
+		&cli.StringSliceFlag{
+			Name:       "mcp-tools-disabled",
+			Usage:      "Comma-separated list of tool names to disable.",
+			ConfigPath: []string{"server.mcp_tools_disabled"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_MCP_TOOLS_DISABLED"},
 		},
 
 		// UI flags
@@ -716,6 +730,11 @@ var ServerCmd = &cli.Command{
 		}
 		model.SetRoleCache(roles)
 
+		// Load MCP tools
+		if err := mcptools.LoadTools(cfg.MCPToolsPath, cfg.MCPToolsDisabled); err != nil {
+			logger.Error("Failed to load mcp-tools", "error", err)
+		}
+
 		// Start the DNS server if enabled
 		if cmd.GetBool("dns-enabled") {
 			dnsServerCfg := dns.DNSServerConfig{
@@ -1168,6 +1187,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		PrivateFilesPath:   cmd.GetString("private-files-path"),
 		PublicFilesPath:    cmd.GetString("public-files-path"),
 		SkillsPath:         cmd.GetString("skills-path"),
+		MCPToolsPath:       cmd.GetString("mcp-tools-path"),
+		MCPToolsDisabled:   cmd.GetStringSlice("mcp-tools-disabled"),
 		DownloadPath:       cmd.GetString("download-path"),
 		DisableSpaceCreate: cmd.GetBool("disable-space-create"),
 		ListenTunnel:       cmd.GetString("listen-tunnel"),

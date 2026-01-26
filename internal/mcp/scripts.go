@@ -12,13 +12,14 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/mcp"
 )
 
 // scriptToolsProvider implements mcp.ToolProvider for native script tools
 type scriptToolsProvider struct {
-	user       *model.User
+	user         *model.User
 	onDemandOnly bool
 }
 
@@ -124,6 +125,14 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 		tools = append(tools, tool)
 	}
 
+	// Add boot-loaded MCP tools with correct visibility
+	visibility := "native"
+	if p.onDemandOnly {
+		visibility = "ondemand"
+	}
+	bootTools := mcptools.GetMCPTools(visibility)
+	tools = append(tools, bootTools...)
+
 	log.Debug("scriptToolsProvider.GetTools returning tools", "count", len(tools), "user", p.user.Username)
 	for _, tool := range tools {
 		log.Debug("scriptToolsProvider.GetTools tool", "name", tool.Name, "description", tool.Description, "keywords", tool.Keywords)
@@ -134,6 +143,13 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 
 // ExecuteTool executes a script tool by name
 func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
+	// Try boot-loaded tools first
+	if result, err := mcptools.ExecuteTool(name, params, p.user); err == nil {
+		return result, nil
+	} else {
+		log.WithError(err).Error("scriptToolsProvider.ExecuteTool: boot-loaded tool failed", "tool", name)
+	}
+
 	// Resolve script with user override and zone filtering
 	script, err := service.ResolveScriptByName(name, p.user.Id)
 	if err != nil || script.ScriptType != "tool" {

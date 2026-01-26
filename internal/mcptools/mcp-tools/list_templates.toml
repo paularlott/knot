@@ -1,0 +1,13 @@
+name = "list_templates"
+description = "List all space templates. Use to find template IDs or check existing templates."
+keywords = ["templates", "list", "blueprint", "definition", "docker", "nomad", "podman", "platform", "job", "specification"]
+
+[parameters.show_all]
+type = "boolean"
+description = "Show template from all zones (default: false)"
+required = false
+
+[parameters.show_inactive]
+type = "boolean"
+description = "Show inactive templates (default: false)"
+required = false

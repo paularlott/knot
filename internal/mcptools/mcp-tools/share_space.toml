@@ -1,0 +1,13 @@
+name = "share_space"
+description = "Share a space with another user. Use list_users to find user ID if not provided."
+keywords = ["share", "space", "grant", "access", "collaborate", "permissions"]
+
+[parameters.space_name]
+type = "string"
+description = "Name of the space to share"
+required = true
+
+[parameters.user_id]
+type = "string"
+description = "User ID to share the space with"
+required = true

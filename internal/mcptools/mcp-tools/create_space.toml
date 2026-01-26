@@ -1,0 +1,28 @@
+name = "create_space"
+description = "Create a new development space. ONLY use when explicitly asked to create a space. Spaces are created stopped - use start_space to run them."
+keywords = ["create", "space", "new", "environment", "development", "deploy", "instance"]
+
+[parameters.name]
+type = "string"
+description = "Name of the space"
+required = true
+
+[parameters.template_name]
+type = "string"
+description = "Template name to use"
+required = true
+
+[parameters.description]
+type = "string"
+description = "Space description"
+required = false
+
+[parameters.shell]
+type = "string"
+description = "Preferred shell (bash, zsh, fish, sh)"
+required = false
+
+[parameters.icon_url]
+type = "string"
+description = "Icon URL. Use list_icons to find available URLs. Leave empty to use the default icon"
+required = false

@@ -46,6 +46,8 @@ type ServerConfig struct {
 	MCP                       MCPConfig
 	Chat                      ChatConfig
 	SkillsPath                string
+	MCPToolsPath              string
+	MCPToolsDisabled          []string
 }
 
 type OriginConfig struct {

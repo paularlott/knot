@@ -168,7 +168,6 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	})
 
 	// Group routes that require authentication
-	router.HandleFunc("GET /api/icons", middleware.WebAuth(HandleGetIcons))
 	router.HandleFunc("GET /clients", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /sessions", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /space-quota-reached", middleware.WebAuth(HandleSimplePage))
