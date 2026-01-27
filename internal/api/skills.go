@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/paularlott/gossip/hlc"
@@ -486,6 +487,9 @@ func HandleSearchSkills(w http.ResponseWriter, r *http.Request) {
 		score float64
 	}
 
+	// Split query into words once (for normalization later)
+	queryWords := strings.Fields(query)
+
 	var scored []scoredSkill
 	seenSkills := make(map[string]bool)
 
@@ -495,7 +499,6 @@ func HandleSearchSkills(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Calculate fuzzy match score
-		queryWords := strings.Fields(query)
 		var score float64
 
 		for _, word := range queryWords {
@@ -523,25 +526,34 @@ func HandleSearchSkills(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	response := apiclient.SkillList{
-		Count:  len(scored),
-		Skills: []apiclient.SkillInfo{},
+	// Sort by score descending
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].score > scored[j].score
+	})
+
+	// Normalize scores to 0-1 range
+	maxPossibleScore := float64(len(queryWords))
+	if maxPossibleScore > 0 {
+		for i := range scored {
+			scored[i].score = scored[i].score / maxPossibleScore
+		}
 	}
 
-	for _, s := range scored {
-		response.Skills = append(response.Skills, apiclient.SkillInfo{
-			Id:          s.skill.Id,
-			UserId:      s.skill.UserId,
-			Name:        s.skill.Name,
-			Description: s.skill.Description,
-			Groups:      s.skill.Groups,
-			Zones:       s.skill.Zones,
-			Active:      s.skill.Active,
-			IsManaged:   s.skill.IsManaged,
-		})
+	// Limit to top 3
+	topN := 3
+	if len(scored) < topN {
+		topN = len(scored)
 	}
 
-	rest.WriteResponse(http.StatusOK, w, r, response)
+	results := make([]apiclient.SkillSearchResult, topN)
+	for i := 0; i < topN; i++ {
+		results[i] = apiclient.SkillSearchResult{
+			Skill: scored[i].skill.Content,
+			Score: scored[i].score,
+		}
+	}
+
+	rest.WriteResponse(http.StatusOK, w, r, results)
 }
 
 func fuzzyMatch(query, target string) float64 {

@@ -148,8 +148,8 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 
 // ExecuteTool executes a script tool by name
 func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, params map[string]interface{}) (interface{}, error) {
-	// Handle skills tool
-	if name == "skills" {
+	// Handle find_skill tool
+	if name == ToolNameFindSkill {
 		return executeSkillsTool(ctx, p.user, params)
 	}
 

@@ -50,6 +50,11 @@ type SkillCreateResponse struct {
 	Id     string `json:"skill_id"`
 }
 
+type SkillSearchResult struct {
+	Skill string  `json:"skill"`
+	Score float64 `json:"score"`
+}
+
 func (c *ApiClient) GetSkills(ctx context.Context) (*SkillList, error) {
 	var skills SkillList
 	_, err := c.httpClient.Get(ctx, "/api/skill", &skills)

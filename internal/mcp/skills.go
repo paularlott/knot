@@ -11,12 +11,9 @@ import (
 	"github.com/paularlott/mcp"
 )
 
-type SkillInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
+const ToolNameFindSkill = "find_skill"
 
-// getSkillsTool returns the skills tool if user has accessible skills
+// getSkillsTool returns the find_skill tool if user has accessible skills
 func getSkillsTool(ctx context.Context, user *model.User) *mcp.MCPTool {
 	if user == nil {
 		return nil
@@ -34,22 +31,22 @@ func getSkillsTool(ctx context.Context, user *model.User) *mcp.MCPTool {
 	for _, skill := range response.Skills {
 		if skill.Active {
 			return &mcp.MCPTool{
-				Name:        "skills",
-				Description: "Access knowledge base/skills for guides and best practices. Call without parameters to list all, with 'query' to search, or with 'name' to get specific content.",
+				Name:        ToolNameFindSkill,
+				Description: "Access instructions, guides, workflows, and scripts for completing specific tasks. Search by topic (e.g., \"deploy\", \"git\", \"testing\") to get step-by-step procedures with examples. Returns full content with relevance scores.",
 				InputSchema: map[string]interface{}{
 					"type": "object",
 					"properties": map[string]interface{}{
-						"query": map[string]interface{}{
-							"type":        "string",
-							"description": "Search query to find skills by name or description (optional)",
-						},
 						"name": map[string]interface{}{
 							"type":        "string",
-							"description": "Skill name to retrieve specific content (optional)",
+							"description": "Find the exact skill by name (optional)",
+						},
+						"query": map[string]interface{}{
+							"type":        "string",
+							"description": "Find skills by name/description (optional)",
 						},
 					},
 				},
-				Keywords: []string{"skills", "knowledge", "guides", "documentation"},
+				Keywords: []string{"skills", "knowledge", "workflows", "instructions", "guides", "documentation"},
 			}
 		}
 	}
@@ -57,22 +54,22 @@ func getSkillsTool(ctx context.Context, user *model.User) *mcp.MCPTool {
 	return nil
 }
 
-// executeSkillsTool executes the skills tool
+// executeSkillsTool executes the find_skill tool
 func executeSkillsTool(ctx context.Context, user *model.User, params map[string]interface{}) (interface{}, error) {
 	query, _ := params["query"].(string)
 	skillName, _ := params["name"].(string)
-
-	// If query is provided, search skills (prioritize search over name)
-	if query != "" {
-		return searchSkills(ctx, user, query)
-	}
 
 	// If name is provided, get specific skill
 	if skillName != "" {
 		return getSkillByName(ctx, user, skillName)
 	}
 
-	// Otherwise list all accessible skills
+	// If query is provided, search skills
+	if query != "" {
+		return searchSkills(ctx, user, query)
+	}
+
+	// Otherwise list all accessible skills (for discovery)
 	return listSkills(ctx, user)
 }
 
@@ -85,14 +82,14 @@ func listSkills(ctx context.Context, user *model.User) (*mcp.ToolResponse, error
 		return nil, fmt.Errorf("failed to list skills: %v", err)
 	}
 
-	skills := make([]SkillInfo, 0, len(response.Skills))
+	skills := make([]map[string]interface{}, 0, len(response.Skills))
 
 	// Add database skills (only active ones)
 	for _, skill := range response.Skills {
 		if skill.Active {
-			skills = append(skills, SkillInfo{
-				Name:        skill.Name,
-				Description: skill.Description,
+			skills = append(skills, map[string]interface{}{
+				"name":        skill.Name,
+				"description": skill.Description,
 			})
 		}
 	}
@@ -112,33 +109,14 @@ func listSkills(ctx context.Context, user *model.User) (*mcp.ToolResponse, error
 func searchSkills(ctx context.Context, user *model.User, query string) (*mcp.ToolResponse, error) {
 	client := apiclient.NewMuxClient(user)
 
-	var response apiclient.SkillList
-	_, err := client.Do(ctx, "GET", fmt.Sprintf("/api/skill/search?q=%s", url.QueryEscape(query)), nil, &response)
+	var results []apiclient.SkillSearchResult
+	_, err := client.Do(ctx, "GET", fmt.Sprintf("/api/skill/search?q=%s", url.QueryEscape(query)), nil, &results)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search skills: %v", err)
 	}
 
-	skills := make([]SkillInfo, 0, len(response.Skills))
-	for _, skill := range response.Skills {
-		if skill.Active {
-			skills = append(skills, SkillInfo{
-				Name:        skill.Name,
-				Description: skill.Description,
-			})
-		}
-	}
-
-	result := map[string]interface{}{
-		"action": "search",
-		"query":  query,
-		"count":  len(skills),
-		"skills": skills,
-	}
-
-	return mcp.NewToolResponseMulti(
-		mcp.NewToolResponseJSON(result),
-		mcp.NewToolResponseStructured(result),
-	), nil
+	// Return JSON only - structured response requires an object
+	return mcp.NewToolResponseJSON(results), nil
 }
 
 func getSkillByName(ctx context.Context, user *model.User, name string) (*mcp.ToolResponse, error) {
@@ -151,16 +129,10 @@ func getSkillByName(ctx context.Context, user *model.User, name string) (*mcp.To
 		return nil, fmt.Errorf("skill not found: %s", name)
 	}
 
-	return createContentResponse(skill.Name, skill.Content), nil
-}
-
-func createContentResponse(name, content string) *mcp.ToolResponse {
-	result := map[string]interface{}{
-		"name":    name,
-		"content": content,
+	// Return same structure as search results, with perfect score
+	result := apiclient.SkillSearchResult{
+		Skill: skill.Content,
+		Score: 1.0,
 	}
-	return mcp.NewToolResponseMulti(
-		mcp.NewToolResponseJSON(result),
-		mcp.NewToolResponseStructured(result),
-	)
+	return mcp.NewToolResponseJSON(result), nil
 }
