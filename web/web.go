@@ -193,6 +193,8 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 
 	router.HandleFunc("GET /scripts", middleware.WebAuth(checkPermissionManageScripts(HandleSimplePage)))
 
+	router.HandleFunc("GET /skills", middleware.WebAuth(checkPermissionManageSkills(HandleSimplePage)))
+
 	router.HandleFunc("GET /users", middleware.WebAuth(checkPermissionManageUsers(HandleSimplePage)))
 
 	router.HandleFunc("GET /groups", middleware.WebAuth(checkPermissionManageGroups(HandleSimplePage)))
@@ -427,6 +429,8 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionExecuteScripts":    user.HasPermission(model.PermissionExecuteScripts),
 		"permissionManageOwnScripts":  user.HasPermission(model.PermissionManageOwnScripts),
 		"permissionExecuteOwnScripts": user.HasPermission(model.PermissionExecuteOwnScripts),
+		"permissionManageSkills":      user.HasPermission(model.PermissionManageGlobalSkills),
+		"permissionManageOwnSkills":   user.HasPermission(model.PermissionManageOwnSkills),
 		"permissionManageSpaces":      user.HasPermission(model.PermissionManageSpaces),
 		"permissionManageVolumes":     user.HasPermission(model.PermissionManageVolumes),
 		"permissionUseSpaces":         user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces),

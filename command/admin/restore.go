@@ -133,6 +133,15 @@ var RestoreCmd = &cli.Command{
 			fmt.Println("Restored script: ", script.Name)
 		}
 
+		fmt.Println("Restoring skills...")
+		for _, skill := range backupData.Skills {
+			err := db.SaveSkill(skill, nil)
+			if err != nil {
+				return fmt.Errorf("Error restoring skill: %w", err)
+			}
+			fmt.Println("Restored skill: ", skill.Name)
+		}
+
 		fmt.Println("Restoring responses...")
 		for _, response := range backupData.Responses {
 			err := db.SaveResponse(response)

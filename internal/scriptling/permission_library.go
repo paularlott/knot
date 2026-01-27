@@ -53,6 +53,10 @@ func GetPermissionLibrary(client *apiclient.ApiClient, userId string) *object.Li
 	builder.Constant("MANAGE_OWN_SCRIPTS", int64(model.PermissionManageOwnScripts))
 	builder.Constant("EXECUTE_OWN_SCRIPTS", int64(model.PermissionExecuteOwnScripts))
 
+	// Skills
+	builder.Constant("MANAGE_GLOBAL_SKILLS", int64(model.PermissionManageGlobalSkills))
+	builder.Constant("MANAGE_OWN_SKILLS", int64(model.PermissionManageOwnSkills))
+
 	// Aliases for convenience
 	builder.Constant("SPACE_MANAGE", int64(model.PermissionManageSpaces))
 	builder.Constant("SPACE_USE", int64(model.PermissionUseSpaces))

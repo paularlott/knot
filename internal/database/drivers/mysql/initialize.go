@@ -206,10 +206,10 @@ description TEXT DEFAULT '',
 content MEDIUMTEXT,
 groups JSON NOT NULL DEFAULT '[]',
 zones JSON NOT NULL DEFAULT '[]',
-active TINYINT(1) NOT NULL DEFAULT 1,
 script_type VARCHAR(16) DEFAULT 'script',
 mcp_input_schema_toml TEXT DEFAULT '',
 mcp_keywords JSON NOT NULL DEFAULT '[]',
+active TINYINT(1) NOT NULL DEFAULT 1,
 on_demand_tool TINYINT(1) NOT NULL DEFAULT 0,
 is_deleted TINYINT(1) NOT NULL DEFAULT 0,
 is_managed TINYINT(1) NOT NULL DEFAULT 0,
@@ -220,6 +220,31 @@ updated_at BIGINT UNSIGNED DEFAULT 0,
 INDEX user_id (user_id),
 INDEX idx_is_deleted (is_deleted),
 INDEX script_type (script_type),
+INDEX name_user (name, user_id)
+)`)
+	if err != nil {
+		return err
+	}
+
+	db.logger.Debug("creating skills table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS skills (
+skill_id CHAR(36) PRIMARY KEY,
+user_id CHAR(36) DEFAULT '',
+name VARCHAR(64),
+description VARCHAR(1024) DEFAULT '',
+content MEDIUMTEXT,
+groups JSON NOT NULL DEFAULT '[]',
+zones JSON NOT NULL DEFAULT '[]',
+active TINYINT(1) NOT NULL DEFAULT 1,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+is_managed TINYINT(1) NOT NULL DEFAULT 0,
+created_user_id CHAR(36),
+created_at TIMESTAMP(6),
+updated_user_id CHAR(36),
+updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX user_id (user_id),
+INDEX idx_is_deleted (is_deleted),
+INDEX active (active),
 INDEX name_user (name, user_id)
 )`)
 	if err != nil {

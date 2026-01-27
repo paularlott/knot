@@ -49,28 +49,48 @@ var CopyCmd = &cli.Command{
 
 		// Determine direction and extract space name from the path with space: prefix
 		var direction, localPath, spacePath, spaceName string
+		var sourceSpaceName, sourceSpacePath, destSpaceName, destSpacePath string
 
-		// Check if source has space: prefix
-		if colonIndex := strings.Index(source, ":"); colonIndex > 0 {
+		// Check if source has space: prefix (space name must be >1 char to avoid Windows drive letters)
+		sourceColonIndex := strings.Index(source, ":")
+		destColonIndex := strings.Index(dest, ":")
+
+		sourceIsSpace := sourceColonIndex > 1
+		destIsSpace := destColonIndex > 1
+
+		if sourceIsSpace && destIsSpace {
+			// Space to space copy
+			direction = "space_to_space"
+			sourceSpaceName = source[:sourceColonIndex]
+			sourceSpacePath = source[sourceColonIndex+1:]
+			destSpaceName = dest[:destColonIndex]
+			destSpacePath = dest[destColonIndex+1:]
+			if sourceSpacePath == "" {
+				return fmt.Errorf("Source space path cannot be empty after '%s:'", sourceSpaceName)
+			}
+			if destSpacePath == "" {
+				return fmt.Errorf("Destination space path cannot be empty after '%s:'", destSpaceName)
+			}
+		} else if sourceIsSpace {
 			// Copy from space to local
 			direction = "from_space"
-			spaceName = source[:colonIndex]
-			spacePath = source[colonIndex+1:]
+			spaceName = source[:sourceColonIndex]
+			spacePath = source[sourceColonIndex+1:]
 			localPath = dest
 			if spacePath == "" {
 				return fmt.Errorf("Space path cannot be empty after '%s:'", spaceName)
 			}
-		} else if colonIndex := strings.Index(dest, ":"); colonIndex > 0 {
+		} else if destIsSpace {
 			// Copy from local to space
 			direction = "to_space"
-			spaceName = dest[:colonIndex]
-			spacePath = dest[colonIndex+1:]
+			spaceName = dest[:destColonIndex]
+			spacePath = dest[destColonIndex+1:]
 			localPath = source
 			if spacePath == "" {
 				return fmt.Errorf("Space path cannot be empty after '%s:'", spaceName)
 			}
 		} else {
-			return fmt.Errorf("One path must use the format 'spacename:path'")
+			return fmt.Errorf("One path must use the format 'spacename:path' (space name must be more than 1 character)")
 		}
 
 		// Create API client
@@ -93,36 +113,139 @@ var CopyCmd = &cli.Command{
 			return fmt.Errorf("Error getting spaces: %w", err)
 		}
 
-		// Find the space by name
-		var spaceId string
-		for _, space := range spaces.Spaces {
-			if space.Name == spaceName {
-				spaceId = space.Id
-				break
+		// Helper function to find space ID by name
+		findSpaceId := func(name string) (string, error) {
+			for _, space := range spaces.Spaces {
+				if space.Name == name {
+					return space.Id, nil
+				}
 			}
+			return "", fmt.Errorf("Space not found: %s", name)
 		}
 
-		if spaceId == "" {
-			return fmt.Errorf("Space not found: %s", spaceName)
+		// Helper function to connect to a space websocket
+		connectToSpace := func(spaceId string) (*websocket.Conn, error) {
+			wsUrl := fmt.Sprintf("%s/space-io/%s/copy", cfg.WsServer, spaceId)
+			header := http.Header{
+				"Authorization": []string{fmt.Sprintf("Bearer %s", cfg.ApiToken)},
+			}
+
+			dialer := websocket.DefaultDialer
+			dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cmd.GetBool("tls-skip-verify")}
+			dialer.HandshakeTimeout = 5 * time.Second
+			ws, response, err := dialer.Dial(wsUrl, header)
+			if err != nil {
+				if response != nil && response.StatusCode == http.StatusUnauthorized {
+					return nil, fmt.Errorf("failed to authenticate with server, check remote token")
+				} else if response != nil && response.StatusCode == http.StatusForbidden {
+					return nil, fmt.Errorf("no permission to copy files in this space")
+				}
+				return nil, fmt.Errorf("Error connecting to websocket: %w", err)
+			}
+			return ws, nil
+		}
+
+		if direction == "space_to_space" {
+			// Find both space IDs
+			sourceSpaceId, err := findSpaceId(sourceSpaceName)
+			if err != nil {
+				return err
+			}
+			destSpaceId, err := findSpaceId(destSpaceName)
+			if err != nil {
+				return err
+			}
+
+			// Connect to source space
+			sourceWs, err := connectToSpace(sourceSpaceId)
+			if err != nil {
+				return err
+			}
+			defer sourceWs.Close()
+
+			// Connect to destination space
+			destWs, err := connectToSpace(destSpaceId)
+			if err != nil {
+				return err
+			}
+			defer destWs.Close()
+
+			// Read from source space
+			sourceRequest := apiclient.CopyFileRequest{
+				Direction: "from_space",
+				SourcePath: sourceSpacePath,
+				Workdir: workdir,
+			}
+
+			fmt.Printf("Copying %s:%s to %s:%s...\n", sourceSpaceName, sourceSpacePath, destSpaceName, destSpacePath)
+
+			err = sourceWs.WriteJSON(sourceRequest)
+			if err != nil {
+				return fmt.Errorf("Error sending source copy request: %w", err)
+			}
+
+			var sourceResult map[string]interface{}
+			err = sourceWs.ReadJSON(&sourceResult)
+			if err != nil {
+				return fmt.Errorf("Error reading source response: %w", err)
+			}
+
+			success, ok := sourceResult["success"].(bool)
+			if !ok || !success {
+				errorMsg, _ := sourceResult["error"].(string)
+				return fmt.Errorf("Source read failed: %s", errorMsg)
+			}
+
+			// Extract content
+			var content []byte
+			if contentStr, ok := sourceResult["content"].(string); ok {
+				content, err = base64.StdEncoding.DecodeString(contentStr)
+				if err != nil {
+					return fmt.Errorf("Error decoding file content: %w", err)
+				}
+			} else {
+				return fmt.Errorf("Invalid content format in response")
+			}
+
+			// Write to destination space
+			destRequest := apiclient.CopyFileRequest{
+				Direction: "to_space",
+				DestPath: destSpacePath,
+				Content: content,
+				Workdir: workdir,
+			}
+
+			err = destWs.WriteJSON(destRequest)
+			if err != nil {
+				return fmt.Errorf("Error sending destination copy request: %w", err)
+			}
+
+			var destResult map[string]interface{}
+			err = destWs.ReadJSON(&destResult)
+			if err != nil {
+				return fmt.Errorf("Error reading destination response: %w", err)
+			}
+
+			success, ok = destResult["success"].(bool)
+			if !ok || !success {
+				errorMsg, _ := destResult["error"].(string)
+				return fmt.Errorf("Destination write failed: %s", errorMsg)
+			}
+
+			fmt.Println("Copy completed successfully")
+			return nil
+		}
+
+		// Handle local to space or space to local
+		spaceId, err := findSpaceId(spaceName)
+		if err != nil {
+			return err
 		}
 
 		// Connect to the websocket for file copy
-		wsUrl := fmt.Sprintf("%s/space-io/%s/copy", cfg.WsServer, spaceId)
-		header := http.Header{
-			"Authorization": []string{fmt.Sprintf("Bearer %s", cfg.ApiToken)},
-		}
-
-		dialer := websocket.DefaultDialer
-		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: cmd.GetBool("tls-skip-verify")}
-		dialer.HandshakeTimeout = 5 * time.Second
-		ws, response, err := dialer.Dial(wsUrl, header)
+		ws, err := connectToSpace(spaceId)
 		if err != nil {
-			if response != nil && response.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("failed to authenticate with server, check remote token")
-			} else if response != nil && response.StatusCode == http.StatusForbidden {
-				return fmt.Errorf("no permission to copy files in this space")
-			}
-			return fmt.Errorf("Error connecting to websocket: %w", err)
+			return err
 		}
 		defer ws.Close()
 

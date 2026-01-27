@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/agent/cmd/agentcmd"
 	command_chat "github.com/paularlott/knot/agent/cmd/chat"
 	command_scripts "github.com/paularlott/knot/agent/cmd/scripts"
+	command_skills "github.com/paularlott/knot/agent/cmd/skills"
 	command_tunnel "github.com/paularlott/knot/agent/cmd/tunnel"
 	"github.com/paularlott/knot/build"
 	"github.com/paularlott/knot/command"
@@ -82,6 +83,7 @@ It offers both a user-friendly web interface and a command line interface to str
 			commands_forward.ForwardCmd,
 			commands_port.PortCmd,
 			command_scripts.ScriptsCmd,
+			command_skills.SkillsCmd,
 			command_spaces.SpacesCmd,
 			command_ssh_config.SshConfigCmd,
 			command_templates.TemplatesCmd,

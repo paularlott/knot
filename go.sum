@@ -112,8 +112,12 @@ github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
 github.com/paularlott/mcp v0.9.6 h1:Dyz6CKZorx6S7NPUgFU6hBKZPHJ0ZZ04KpdS4oeu6fg=
 github.com/paularlott/mcp v0.9.6/go.mod h1:fcgH3hHb9viTNB4kRYETRpaCwwXIvIxZbuXPdAj1vbA=
-github.com/paularlott/scriptling v0.0.0-20260123170055-2a909e4c8af3 h1:zxIsqcwtW3/NoiYzPUqwLG/vQnLjw7Ts+lgvMm9nSFQ=
-github.com/paularlott/scriptling v0.0.0-20260123170055-2a909e4c8af3/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
+github.com/paularlott/scriptling v0.0.0-20260126144149-e39af7dcfcfb h1:jjRBFJMAnQVUtYYA/Gq/yOnby7uw1/L3yhbeEs8YODU=
+github.com/paularlott/scriptling v0.0.0-20260126144149-e39af7dcfcfb/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
+github.com/paularlott/scriptling v0.0.0-20260126153755-594d4a9b9e31 h1:OylaaGhbWep5e60PmNwbdOGbGdIIKOQ6OAB/fyRCW8Q=
+github.com/paularlott/scriptling v0.0.0-20260126153755-594d4a9b9e31/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
+github.com/paularlott/scriptling v0.0.0-20260127101818-bf6fdcd7b28b h1:jxwXz/SAhBhw64vNvNJqQZSnrYOo+quLmojXi2ro+78=
+github.com/paularlott/scriptling v0.0.0-20260127101818-bf6fdcd7b28b/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.13.10 h1:+5FbKNTe5Z9aspU88DPIKJ9z2KZoaGCu6Sr6kKR/5mU=

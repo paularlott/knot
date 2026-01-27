@@ -68,6 +68,14 @@ type DbDriver interface {
 	GetScriptByNameAndUser(name string, userId string) (*model.Script, error)
 	GetScriptsByNameAndUser(name string, userId string) ([]*model.Script, error)
 
+	// Skills
+	SaveSkill(skill *model.Skill, updateFields []string) error
+	DeleteSkill(skill *model.Skill) error
+	GetSkill(id string) (*model.Skill, error)
+	GetSkills() ([]*model.Skill, error)
+	GetSkillsByName(name string) ([]*model.Skill, error)
+	GetSkillsByNameAndUser(name string, userId string) ([]*model.Skill, error)
+
 	// Groups
 	SaveGroup(group *model.Group) error
 	DeleteGroup(group *model.Group) error

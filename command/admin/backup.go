@@ -29,6 +29,7 @@ type backupData struct {
 	Roles        []*model.Role
 	Users        []backupUser
 	Scripts      []*model.Script
+	Skills       []*model.Skill
 	Responses    []*model.Response
 	CfgValues    []*model.CfgValue
 	AuditLogs    []*model.AuditLogEntry
@@ -118,6 +119,13 @@ var BackupCmd = &cli.Command{
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SCRIPTS"},
 		},
 		&cli.BoolFlag{
+			Name:       "skills",
+			Aliases:    []string{"i"},
+			Usage:      "Backup skills",
+			ConfigPath: []string{"backup.skills"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SKILLS"},
+		},
+		&cli.BoolFlag{
 			Name:       "responses",
 			Aliases:    []string{"p"},
 			Usage:      "Backup responses",
@@ -171,13 +179,14 @@ var BackupCmd = &cli.Command{
 		backupSpaces := cmd.GetBool("spaces")
 		backupTokens := cmd.GetBool("tokens")
 		backupScripts := cmd.GetBool("scripts")
+		backupSkills := cmd.GetBool("skills")
 		backupResponses := cmd.GetBool("responses")
 		backupCfgValues := cmd.GetBool("cfg-values")
 		backupAuditLogs := cmd.GetBool("audit-logs")
 		backupAll := cmd.GetBool("all")
 
 		// If any specific backup flags are set, do not use the "all" flag
-		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupScripts || backupResponses || backupCfgValues || backupAuditLogs {
+		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupScripts || backupSkills || backupResponses || backupCfgValues || backupAuditLogs {
 			backupAll = false
 		}
 
@@ -191,6 +200,7 @@ var BackupCmd = &cli.Command{
 			backupSpaces = true
 			backupTokens = true
 			backupScripts = true
+			backupSkills = true
 			backupResponses = true
 			backupCfgValues = true
 			backupAuditLogs = true
@@ -292,6 +302,16 @@ var BackupCmd = &cli.Command{
 			}
 			backupData.Scripts = make([]*model.Script, len(scripts))
 			copy(backupData.Scripts, scripts)
+		}
+
+		if backupSkills {
+			fmt.Println("Backing up skills...")
+			skills, err := db.GetSkills()
+			if err != nil {
+				return fmt.Errorf("Error getting skills: %w", err)
+			}
+			backupData.Skills = make([]*model.Skill, len(skills))
+			copy(backupData.Skills, skills)
 		}
 
 		if backupResponses {

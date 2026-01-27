@@ -38,6 +38,8 @@ const (
 	PermissionExecuteScripts            // Can Execute System/Global Scripts
 	PermissionManageOwnScripts          // Can Manage Own Scripts
 	PermissionExecuteOwnScripts         // Can Execute Own Scripts
+	PermissionManageGlobalSkills        // Can Manage Global Skills
+	PermissionManageOwnSkills           // Can Manage Own Skills
 )
 
 type PermissionName struct {
@@ -67,6 +69,9 @@ var PermissionNames = []PermissionName{
 	{PermissionExecuteScripts, "Scripting", "Execute System Scripts"},
 	{PermissionManageOwnScripts, "Scripting", "Manage Own Scripts"},
 	{PermissionExecuteOwnScripts, "Scripting", "Execute Own Scripts"},
+
+	{PermissionManageGlobalSkills, "Skills", "Manage Global Skills"},
+	{PermissionManageOwnSkills, "Skills", "Manage Own Skills"},
 
 	{PermissionUseSpaces, "Space Operations", "Use Spaces"},
 	{PermissionShareSpaces, "Space Operations", "Share Spaces"},
@@ -141,6 +146,8 @@ func SetRoleCache(roles []*Role) {
 			PermissionExecuteScripts,
 			PermissionManageOwnScripts,
 			PermissionExecuteOwnScripts,
+			PermissionManageGlobalSkills,
+			PermissionManageOwnSkills,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),

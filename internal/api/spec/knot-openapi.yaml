@@ -37,6 +37,9 @@ tags:
   - name: Scripts
     description: |
       Operations for working with scripts and MCP tools.
+  - name: Skills
+    description: |
+      Operations for working with skills (knowledge base content).
 paths:
   $ref: "./chat.yaml#/paths"
 
@@ -2839,6 +2842,212 @@ paths:
           description: Service Unavailable - Space agent not connected
       security: [BearerAuth: []]
 
+  /api/skill:
+    get:
+      summary: List Skills
+      description: Get a list of all skills accessible to the user. Respects user permissions, group membership, and zone restrictions.
+      tags:
+        - Skills
+      operationId: listSkills
+      parameters:
+        - name: user_id
+          in: query
+          description: Filter by user ID. Use to get user skills. Empty or omitted returns global skills only.
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: all_zones
+          in: query
+          description: If true, returns skills from all zones. If false or omitted, only returns skills valid for the current zone.
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  skills:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SkillInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    post:
+      summary: Create Skill
+      description: Create a new skill. Frontmatter (name and description) is extracted from the content on save.
+      tags:
+        - Skills
+      operationId: createSkill
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillCreateRequest"
+      responses:
+        "201":
+          description: Skill created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: boolean
+                  skill_id:
+                    type: string
+                    format: uuid
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/skill/search:
+    get:
+      summary: Search Skills
+      description: Fuzzy search skills by name and description. Respects user permissions, group membership, and zone restrictions.
+      tags:
+        - Skills
+      operationId: searchSkills
+      parameters:
+        - name: q
+          in: query
+          description: Search query
+          required: true
+          schema:
+            type: string
+        - name: all_zones
+          in: query
+          description: If true, searches skills from all zones.
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  skills:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SkillInfo"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/skill/{skill_id}:
+    get:
+      summary: Get Skill
+      description: Get details of a specific skill by UUID or name. If skill_id is a valid UUID, lookup by ID. Otherwise, lookup by name with user shadowing (user skills override global skills).
+      tags:
+        - Skills
+      operationId: getSkill
+      parameters:
+        - in: path
+          name: skill_id
+          schema:
+            type: string
+          required: true
+          description: The ID (UUID) or name of the skill.
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillDetails"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    put:
+      summary: Update Skill
+      description: Update an existing skill by UUID or name. Frontmatter is re-extracted from content. Cannot update managed skills.
+      tags:
+        - Skills
+      operationId: updateSkill
+      parameters:
+        - in: path
+          name: skill_id
+          schema:
+            type: string
+          required: true
+          description: The ID (UUID) or name of the skill.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillUpdateRequest"
+      responses:
+        "200":
+          description: Skill updated successfully
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+    delete:
+      summary: Delete Skill
+      description: Soft delete a skill by UUID or name. Cannot delete managed skills.
+      tags:
+        - Skills
+      operationId: deleteSkill
+      parameters:
+        - in: path
+          name: skill_id
+          schema:
+            type: string
+          required: true
+          description: The ID (UUID) or name of the skill.
+      responses:
+        "200":
+          description: Skill deleted successfully
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/ping:
     get:
       tags:
@@ -4713,6 +4922,128 @@ components:
           type: array
           items:
             type: string
+
+    SkillInfo:
+      type: object
+      properties:
+        skill_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: Empty string for global skills
+        name:
+          type: string
+          description: Extracted from frontmatter
+        description:
+          type: string
+          description: Extracted from frontmatter
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Group IDs that can access this skill. Only applies to global skills.
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zones where this skill is available. Empty array means all zones.
+        active:
+          type: boolean
+          description: If the skill is active
+        is_managed:
+          type: boolean
+          description: True if managed by parent server (read-only on leaf nodes)
+
+    SkillDetails:
+      type: object
+      properties:
+        skill_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          description: Empty string for global skills
+        name:
+          type: string
+          description: Extracted from frontmatter
+        description:
+          type: string
+          description: Extracted from frontmatter
+        content:
+          type: string
+          description: Full markdown content with frontmatter
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Group IDs that can access this skill. Only applies to global skills.
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zones where this skill is available. Empty array means all zones.
+        active:
+          type: boolean
+          description: If the skill is active
+        is_managed:
+          type: boolean
+          description: True if managed by parent server (read-only on leaf nodes)
+
+    SkillCreateRequest:
+      type: object
+      required:
+        - content
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: User ID for user skills, empty for global skills. Use "current" for current user.
+        content:
+          type: string
+          description: Markdown content with YAML or TOML frontmatter containing name and description
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Group IDs that can access this skill. Only applies to global skills. User skills cannot have groups.
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zones where this skill is available. Empty array means all zones.
+        active:
+          type: boolean
+          default: true
+          description: If the skill is active
+
+    SkillUpdateRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          description: Markdown content with YAML or TOML frontmatter containing name and description
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Group IDs that can access this skill. Only applies to global skills. User skills cannot have groups.
+        zones:
+          type: array
+          items:
+            type: string
+          description: Zones where this skill is available. Empty array means all zones.
+        active:
+          type: boolean
+          description: If the skill is active
 
   responses:
     bad-request:

@@ -66,6 +66,11 @@ const (
 	AuditEventScriptUpdate  = "Script Update"
 	AuditEventScriptDelete  = "Script Delete"
 	AuditEventScriptExecute = "Script Execute"
+
+	// Skills
+	AuditEventSkillCreate = "Skill Create"
+	AuditEventSkillUpdate = "Skill Update"
+	AuditEventSkillDelete = "Skill Delete"
 )
 
 type AuditLogEntry struct {

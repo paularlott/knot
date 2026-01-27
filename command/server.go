@@ -211,13 +211,6 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "",
 		},
 		&cli.StringFlag{
-			Name:         "skills-path",
-			Usage:        "The path to the skills/knowledgebase directory for MCP access.",
-			ConfigPath:   []string{"server.skills_path"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SKILLS_PATH"},
-			DefaultValue: "",
-		},
-		&cli.StringFlag{
 			Name:         "mcp-tools-path",
 			Usage:        "Path to mcp-tools directory (overrides embedded tools).",
 			ConfigPath:   []string{"server.mcp_tools_path"},
@@ -1186,7 +1179,6 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		AgentPath:          cmd.GetString("agent-path"),
 		PrivateFilesPath:   cmd.GetString("private-files-path"),
 		PublicFilesPath:    cmd.GetString("public-files-path"),
-		SkillsPath:         cmd.GetString("skills-path"),
 		MCPToolsPath:       cmd.GetString("mcp-tools-path"),
 		MCPToolsDisabled:   cmd.GetStringSlice("mcp-tools-disabled"),
 		DownloadPath:       cmd.GetString("download-path"),

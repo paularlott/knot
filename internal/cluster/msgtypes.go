@@ -28,6 +28,8 @@ const (
 	ResourceUnlockMsg
 	ScriptFullSyncMsg
 	ScriptGossipMsg
+	SkillFullSyncMsg
+	SkillGossipMsg
 	ResponseFullSyncMsg
 	ResponseGossipMsg
 )

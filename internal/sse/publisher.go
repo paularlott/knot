@@ -131,6 +131,22 @@ func PublishScriptsDeleted(scriptId string) {
 	})
 }
 
+// PublishSkillsChanged notifies clients that a skill has changed
+func PublishSkillsChanged(skillId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventSkillsChanged,
+		Payload: ResourcePayload{Id: skillId},
+	})
+}
+
+// PublishSkillsDeleted notifies clients that a skill was deleted
+func PublishSkillsDeleted(skillId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventSkillsDeleted,
+		Payload: ResourcePayload{Id: skillId},
+	})
+}
+
 // PublishSessionsChanged notifies clients that a session has changed
 func PublishSessionsChanged(sessionId string) {
 	GetHub().Broadcast(&Event{
