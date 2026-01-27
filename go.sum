@@ -116,6 +116,8 @@ github.com/paularlott/scriptling v0.0.0-20260126144149-e39af7dcfcfb h1:jjRBFJMAn
 github.com/paularlott/scriptling v0.0.0-20260126144149-e39af7dcfcfb/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
 github.com/paularlott/scriptling v0.0.0-20260126153755-594d4a9b9e31 h1:OylaaGhbWep5e60PmNwbdOGbGdIIKOQ6OAB/fyRCW8Q=
 github.com/paularlott/scriptling v0.0.0-20260126153755-594d4a9b9e31/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
+github.com/paularlott/scriptling v0.0.0-20260127101818-bf6fdcd7b28b h1:jxwXz/SAhBhw64vNvNJqQZSnrYOo+quLmojXi2ro+78=
+github.com/paularlott/scriptling v0.0.0-20260127101818-bf6fdcd7b28b/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.13.10 h1:+5FbKNTe5Z9aspU88DPIKJ9z2KZoaGCu6Sr6kKR/5mU=
