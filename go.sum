@@ -110,14 +110,8 @@ github.com/paularlott/gossip v0.12.0 h1:DtWLL3V0Jtx7u37zzYq/P4WSzD/5m3zZHyJO1ydL
 github.com/paularlott/gossip v0.12.0/go.mod h1:6SQJAV1wiWoa+RHNdjV6yzwYGe091ZTwWwNmoowE36E=
 github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7ng=
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
-github.com/paularlott/mcp v0.9.6 h1:Dyz6CKZorx6S7NPUgFU6hBKZPHJ0ZZ04KpdS4oeu6fg=
-github.com/paularlott/mcp v0.9.6/go.mod h1:fcgH3hHb9viTNB4kRYETRpaCwwXIvIxZbuXPdAj1vbA=
-github.com/paularlott/mcp v0.9.7 h1:FoS1Q6R3mnbxzZx8m72ZcUto0GwQTz7F60V623WBwQE=
-github.com/paularlott/mcp v0.9.7/go.mod h1:fcgH3hHb9viTNB4kRYETRpaCwwXIvIxZbuXPdAj1vbA=
-github.com/paularlott/scriptling v0.0.0-20260126144149-e39af7dcfcfb h1:jjRBFJMAnQVUtYYA/Gq/yOnby7uw1/L3yhbeEs8YODU=
-github.com/paularlott/scriptling v0.0.0-20260126144149-e39af7dcfcfb/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
-github.com/paularlott/scriptling v0.0.0-20260126153755-594d4a9b9e31 h1:OylaaGhbWep5e60PmNwbdOGbGdIIKOQ6OAB/fyRCW8Q=
-github.com/paularlott/scriptling v0.0.0-20260126153755-594d4a9b9e31/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
+github.com/paularlott/mcp v0.9.8 h1:MeXcyNDhus2itu8r0y+XtuQN2no7ziFvaiCFnFkJsSo=
+github.com/paularlott/mcp v0.9.8/go.mod h1:fcgH3hHb9viTNB4kRYETRpaCwwXIvIxZbuXPdAj1vbA=
 github.com/paularlott/scriptling v0.0.0-20260127101818-bf6fdcd7b28b h1:jxwXz/SAhBhw64vNvNJqQZSnrYOo+quLmojXi2ro+78=
 github.com/paularlott/scriptling v0.0.0-20260127101818-bf6fdcd7b28b/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
@@ -128,8 +122,6 @@ github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRI
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 h1:o4JXh1EVt9k/+g42oCprj/FisM4qX9L3sZB3upGN2ZU=
 github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55/go.mod h1:OmDBASR4679mdNQnz2pUhc2G8CO2JrUAVFDRBDP/hJE=
-github.com/redis/go-redis/v9 v9.17.2 h1:P2EGsA4qVIM3Pp+aPocCJ7DguDHhqrXNhVcEp4ViluI=
-github.com/redis/go-redis/v9 v9.17.2/go.mod h1:u410H11HMLoB+TP67dz8rL9s6QW2j76l0//kSOd3370=
 github.com/redis/go-redis/v9 v9.17.3 h1:fN29NdNrE17KttK5Ndf20buqfDZwGNgoUr9qjl1DQx4=
 github.com/redis/go-redis/v9 v9.17.3/go.mod h1:u410H11HMLoB+TP67dz8rL9s6QW2j76l0//kSOd3370=
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
