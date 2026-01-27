@@ -38,11 +38,11 @@ func getSkillsTool(ctx context.Context, user *model.User) *mcp.MCPTool {
 					"properties": map[string]interface{}{
 						"name": map[string]interface{}{
 							"type":        "string",
-							"description": "Find the exact skill by name (optional)",
+							"description": "Find the exact skill by name (optional if query given)",
 						},
 						"query": map[string]interface{}{
 							"type":        "string",
-							"description": "Find skills by name/description (optional)",
+							"description": "Find skills by name/description (optional if name given)",
 						},
 					},
 				},
@@ -58,6 +58,16 @@ func getSkillsTool(ctx context.Context, user *model.User) *mcp.MCPTool {
 func executeSkillsTool(ctx context.Context, user *model.User, params map[string]interface{}) (interface{}, error) {
 	query, _ := params["query"].(string)
 	skillName, _ := params["name"].(string)
+
+	// If both name and query are provided, try name first, then search as fallback
+	if skillName != "" && query != "" {
+		result, err := getSkillByName(ctx, user, skillName)
+		if err == nil {
+			return result, nil
+		}
+		// Name lookup failed, fall back to search
+		return searchSkills(ctx, user, query)
+	}
 
 	// If name is provided, get specific skill
 	if skillName != "" {
@@ -127,6 +137,11 @@ func getSkillByName(ctx context.Context, user *model.User, name string) (*mcp.To
 	_, err := client.Do(ctx, "GET", fmt.Sprintf("/api/skill/%s", name), nil, &skill)
 	if err != nil {
 		return nil, fmt.Errorf("skill not found: %s", name)
+	}
+
+	// Check if content is empty (shouldn't happen but handle it)
+	if skill.Content == "" {
+		return nil, fmt.Errorf("skill content is empty: %s", name)
 	}
 
 	// Return same structure as search results, with perfect score
