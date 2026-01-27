@@ -46,7 +46,8 @@ func getSkillsTool(ctx context.Context, user *model.User) *mcp.MCPTool {
 						},
 					},
 				},
-				Keywords: []string{"skills", "knowledge", "workflows", "instructions", "guides", "documentation"},
+				Keywords:      []string{"skills", "knowledge", "workflows", "instructions", "guides", "documentation"},
+				AlwaysVisible: true, // Keep visible even in force on-demand mode for discovery
 			}
 		}
 	}
