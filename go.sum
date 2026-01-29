@@ -110,8 +110,8 @@ github.com/paularlott/gossip v0.12.0 h1:DtWLL3V0Jtx7u37zzYq/P4WSzD/5m3zZHyJO1ydL
 github.com/paularlott/gossip v0.12.0/go.mod h1:6SQJAV1wiWoa+RHNdjV6yzwYGe091ZTwWwNmoowE36E=
 github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7ng=
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
-github.com/paularlott/mcp v0.9.8 h1:MeXcyNDhus2itu8r0y+XtuQN2no7ziFvaiCFnFkJsSo=
-github.com/paularlott/mcp v0.9.8/go.mod h1:fcgH3hHb9viTNB4kRYETRpaCwwXIvIxZbuXPdAj1vbA=
+github.com/paularlott/mcp v0.9.9 h1:SPo/vJxiFN1tVfoAUgGileFHVId+joPcj4dDqmL8zps=
+github.com/paularlott/mcp v0.9.9/go.mod h1:fcgH3hHb9viTNB4kRYETRpaCwwXIvIxZbuXPdAj1vbA=
 github.com/paularlott/scriptling v0.0.0-20260127101818-bf6fdcd7b28b h1:jxwXz/SAhBhw64vNvNJqQZSnrYOo+quLmojXi2ro+78=
 github.com/paularlott/scriptling v0.0.0-20260127101818-bf6fdcd7b28b/go.mod h1:nU5g//PFs/elUGh+ruu/HIlc8WZ1T1viQgDAth5EGDo=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
