@@ -31,6 +31,7 @@ import (
 	"github.com/paularlott/knot/internal/proxy"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
+	"github.com/paularlott/knot/internal/systemprompt"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
@@ -806,6 +807,14 @@ var ServerCmd = &cli.Command{
 		var openAIClient *openai.Client
 		if chatEnabled || openaiEndpointEnabled {
 			logger.Info("AI chat enabled")
+
+			// Load system prompt (from file or embedded default)
+			cfg.Chat.SystemPrompt = systemprompt.GetSystemPrompt(cfg.Chat.SystemPromptFile)
+			if cfg.Chat.SystemPromptFile != "" {
+				logger.Info("loaded system prompt from file", "file", cfg.Chat.SystemPromptFile, "length", len(cfg.Chat.SystemPrompt))
+			} else {
+				logger.Info("using embedded system prompt", "length", len(cfg.Chat.SystemPrompt))
+			}
 
 			// Initialize chat service with main MCP server
 			// The OpenAI client will use forced ondemand mode via context

@@ -326,6 +326,11 @@ window.chatComponent = function () {
       const messageHistory = [];
 
       for (const msg of this.messages) {
+        // Skip empty assistant messages (placeholders for current streaming response)
+        if (msg.role === 'assistant' && msg.fragments && !msg.fragments.content && !msg.fragments.thinking && (!msg.toolCalls || msg.toolCalls.length === 0)) {
+          continue;
+        }
+
         let content = msg.fragments ? msg.fragments.content.trim() : msg.content.trim();
 
         // Strip any think tags that might exist in the content to prevent LLM template errors
@@ -351,11 +356,8 @@ window.chatComponent = function () {
             }
           }));
 
-          // When there are tool calls, content should be minimal or empty
-          // Only keep content if it's substantial and not just tool call descriptions
-          if (content.length < 50 || content.includes('I\'ll') || content.includes('Let me')) {
-            historyMsg.content = '';
-          }
+          // When there are tool calls, content MUST be empty per OpenAI spec
+          historyMsg.content = '';
         }
 
         messageHistory.push(historyMsg);
@@ -367,6 +369,15 @@ window.chatComponent = function () {
               role: 'tool',
               content: toolResult.result.trim() || '',
               tool_call_id: toolResult.tool_call_id,
+              timestamp: msg.timestamp
+            });
+          }
+          
+          // Add another assistant message with the actual response content after tool results
+          if (content) {
+            messageHistory.push({
+              role: 'assistant',
+              content: content,
               timestamp: msg.timestamp
             });
           }
