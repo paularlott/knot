@@ -363,7 +363,7 @@ window.chatComponent = function () {
         messageHistory.push(historyMsg);
 
         // Add tool results as separate tool messages for API context
-        if (msg.role === 'assistant' && msg.fragments?.toolResults) {
+        if (msg.role === 'assistant' && msg.fragments?.toolResults && msg.fragments.toolResults.length > 0) {
           for (const toolResult of msg.fragments.toolResults) {
             messageHistory.push({
               role: 'tool',
@@ -374,6 +374,7 @@ window.chatComponent = function () {
           }
           
           // Add another assistant message with the actual response content after tool results
+          // ONLY if there's actual content (not empty)
           if (content) {
             messageHistory.push({
               role: 'assistant',
