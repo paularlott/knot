@@ -98,7 +98,7 @@ func (c *Cluster) GossipTemplateVar(templateVar *model.TemplateVar) {
 			copied.Zones = []string{}
 			leafVarToGossip = &copied
 		}
-		c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, []*model.TemplateVar{leafVarToGossip})
+		c.sendToLeafNodes(leafmsg.MessageGossipTemplateVar, &[]*model.TemplateVar{leafVarToGossip})
 	}
 }
 

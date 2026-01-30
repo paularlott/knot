@@ -83,7 +83,7 @@ var updateCmd = &cli.Command{
 			req.Active = false
 		}
 
-		err = client.UpdateSkill(ctx, skill.Id, &req)
+		_, err = client.UpdateSkill(ctx, skill.Id, &req)
 		if err != nil {
 			return fmt.Errorf("error updating skill: %w", err)
 		}

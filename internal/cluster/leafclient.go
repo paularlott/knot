@@ -114,6 +114,19 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 		}
 	}
 
+	skills, err := db.GetSkills()
+	if err != nil {
+		c.logger.WithError(err).Error("error while getting skills from database:")
+	} else {
+		for _, skill := range skills {
+			if skill.IsManaged {
+				if err := db.DeleteSkill(skill); err != nil {
+					c.logger.Error("error while deleting managed skill from database:", "skill", skill.Name)
+				}
+			}
+		}
+	}
+
 	go func() {
 		fullSyncDone := false
 
@@ -222,6 +235,9 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 
 				case leafmsg.MessageGossipScript:
 					c.handleLeafGossipScript(msg)
+
+				case leafmsg.MessageGossipSkill:
+					c.handleLeafGossipSkill(msg)
 
 				case leafmsg.MessageGossipResponse:
 					// Agent responses - not handled by leaf nodes
@@ -351,3 +367,22 @@ func (c *Cluster) handleLeafGossipScript(msg *leafmsg.Message) {
 		return
 	}
 }
+
+func (c *Cluster) handleLeafGossipSkill(msg *leafmsg.Message) {
+	skills := []*model.Skill{}
+	if err := msg.UnmarshalPayload(&skills); err != nil {
+		c.logger.WithError(err).Error("error while unmarshalling leaf skill message:")
+		return
+	}
+
+	// Mark the skills as managed
+	for _, skill := range skills {
+		skill.IsManaged = true
+	}
+
+	if err := c.mergeSkills(skills); err != nil {
+		c.logger.WithError(err).Error("error while merging skills from leaf:")
+		return
+	}
+}
+

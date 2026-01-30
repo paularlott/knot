@@ -63,7 +63,7 @@ func (c *Cluster) GossipScript(script *model.Script) {
 		c.logger.Debug("Updating script on leaf nodes")
 
 		scripts := []*model.Script{script}
-		c.sendToLeafNodes(leafmsg.MessageGossipScript, scripts)
+		c.sendToLeafNodes(leafmsg.MessageGossipScript, &scripts)
 	}
 }
 
@@ -141,6 +141,14 @@ func (c *Cluster) gossipScripts() {
 		return
 	}
 
+	// Filter to only active scripts for leaf nodes
+	activeScripts := []*model.Script{}
+	for _, script := range scripts {
+		if script.Active {
+			activeScripts = append(activeScripts, script)
+		}
+	}
+
 	rand.Shuffle(len(scripts), func(i, j int) {
 		scripts[i], scripts[j] = scripts[j], scripts[i]
 	})
@@ -154,11 +162,14 @@ func (c *Cluster) gossipScripts() {
 		}
 	}
 
-	if len(c.leafSessions) > 0 {
-		batchSize := c.CalcLeafPayloadSize(len(scripts))
+	if len(c.leafSessions) > 0 && len(activeScripts) > 0 {
+		rand.Shuffle(len(activeScripts), func(i, j int) {
+			activeScripts[i], activeScripts[j] = activeScripts[j], activeScripts[i]
+		})
+		batchSize := c.CalcLeafPayloadSize(len(activeScripts))
 		if batchSize > 0 {
-			c.logger.Debug("Scripts to leaf nodes", "batch_size", batchSize, "total", len(scripts))
-			leafScripts := scripts[:batchSize]
+			c.logger.Debug("Scripts to leaf nodes", "batch_size", batchSize, "total", len(activeScripts))
+			leafScripts := activeScripts[:batchSize]
 			c.sendToLeafNodes(leafmsg.MessageGossipScript, &leafScripts)
 		}
 	}

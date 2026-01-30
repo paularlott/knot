@@ -72,7 +72,7 @@ func (c *Cluster) GossipTemplate(template *model.Template) {
 		c.logger.Debug("Updating template on leaf nodes")
 
 		templates := []*model.Template{template}
-		c.sendToLeafNodes(leafmsg.MessageGossipTemplate, templates)
+		c.sendToLeafNodes(leafmsg.MessageGossipTemplate, &templates)
 	}
 }
 

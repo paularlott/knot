@@ -69,7 +69,7 @@ func (c *Cluster) GossipRole(role *model.Role) {
 		c.logger.Debug("Updating role on leaf nodes")
 
 		roles := []*model.Role{role}
-		c.sendToLeafNodes(leafmsg.MessageGossipRole, roles)
+		c.sendToLeafNodes(leafmsg.MessageGossipRole, &roles)
 	}
 }
 

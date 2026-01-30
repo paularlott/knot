@@ -88,7 +88,10 @@ Add your skill documentation here in markdown format.
             darkMode ? "ace/theme/github_dark" : "ace/theme/github",
           );
           this.contentEditor.session.setMode("ace/mode/markdown");
-          this.contentEditor.setReadOnly(this.formData.is_managed);
+          if (this.formData.is_managed) {
+            this.contentEditor.setReadOnly(true);
+            this.contentEditor.renderer.$cursorLayer.element.style.display = "none";
+          }
 
           this.contentEditor.setOptions({
             printMargin: false,
@@ -235,19 +238,11 @@ Add your skill documentation here in markdown format.
           } else if (response.status === 401) {
             window.location.href = "/logout";
           } else {
-            try {
-              const data = await response.json();
-              this.$dispatch("show-alert", {
-                msg: data.error || "Failed to save skill",
-                type: "error",
-              });
-            } catch (e) {
-              const text = await response.text();
-              this.$dispatch("show-alert", {
-                msg: text || "Failed to save skill",
-                type: "error",
-              });
-            }
+            const text = await response.text();
+            this.$dispatch("show-alert", {
+              msg: text || "Failed to save skill",
+              type: "error",
+            });
           }
           this.loading = false;
         })

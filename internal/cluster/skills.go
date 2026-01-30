@@ -63,7 +63,7 @@ func (c *Cluster) GossipSkill(skill *model.Skill) {
 		c.logger.Debug("Updating skill on leaf nodes")
 
 		skills := []*model.Skill{skill}
-		c.sendToLeafNodes(leafmsg.MessageGossipSkill, skills)
+		c.sendToLeafNodes(leafmsg.MessageGossipSkill, &skills)
 	}
 }
 
@@ -141,6 +141,14 @@ func (c *Cluster) gossipSkills() {
 		return
 	}
 
+	// Filter to only active skills for leaf nodes
+	activeSkills := []*model.Skill{}
+	for _, skill := range skills {
+		if skill.Active {
+			activeSkills = append(activeSkills, skill)
+		}
+	}
+
 	rand.Shuffle(len(skills), func(i, j int) {
 		skills[i], skills[j] = skills[j], skills[i]
 	})
@@ -154,11 +162,14 @@ func (c *Cluster) gossipSkills() {
 		}
 	}
 
-	if len(c.leafSessions) > 0 {
-		batchSize := c.CalcLeafPayloadSize(len(skills))
+	if len(c.leafSessions) > 0 && len(activeSkills) > 0 {
+		rand.Shuffle(len(activeSkills), func(i, j int) {
+			activeSkills[i], activeSkills[j] = activeSkills[j], activeSkills[i]
+		})
+		batchSize := c.CalcLeafPayloadSize(len(activeSkills))
 		if batchSize > 0 {
-			c.logger.Debug("Skills to leaf nodes", "batch_size", batchSize, "total", len(skills))
-			leafSkills := skills[:batchSize]
+			c.logger.Debug("Skills to leaf nodes", "batch_size", batchSize, "total", len(activeSkills))
+			leafSkills := activeSkills[:batchSize]
 			c.sendToLeafNodes(leafmsg.MessageGossipSkill, &leafSkills)
 		}
 	}

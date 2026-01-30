@@ -105,7 +105,10 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
             darkMode ? "ace/theme/github_dark" : "ace/theme/github",
           );
           this.contentEditor.session.setMode("ace/mode/python");
-          this.contentEditor.setReadOnly(this.formData.is_managed);
+          if (this.formData.is_managed) {
+            this.contentEditor.setReadOnly(true);
+            this.contentEditor.renderer.$cursorLayer.element.style.display = "none";
+          }
 
           // Register custom completer for scriptling/knot libraries
           window.AceEditorCompleter.setup(this.contentEditor, scriptLibraries, {
@@ -137,7 +140,10 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
             darkMode ? "ace/theme/github_dark" : "ace/theme/github",
           );
           this.schemaEditor.session.setMode("ace/mode/toml");
-          this.schemaEditor.setReadOnly(this.formData.is_managed);
+          if (this.formData.is_managed) {
+            this.schemaEditor.setReadOnly(true);
+            this.schemaEditor.renderer.$cursorLayer.element.style.display = "none";
+          }
           this.schemaEditor.setOptions({
             printMargin: false,
             newLineMode: "unix",
@@ -162,7 +168,10 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
             darkMode ? "ace/theme/github_dark" : "ace/theme/github",
           );
           this.descriptionEditor.session.setMode("ace/mode/text");
-          this.descriptionEditor.setReadOnly(this.formData.is_managed);
+          if (this.formData.is_managed) {
+            this.descriptionEditor.setReadOnly(true);
+            this.descriptionEditor.renderer.$cursorLayer.element.style.display = "none";
+          }
           this.descriptionEditor.setOptions({
             printMargin: false,
             newLineMode: "unix",

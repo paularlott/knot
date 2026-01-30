@@ -50,6 +50,10 @@ type SkillCreateResponse struct {
 	Id     string `json:"skill_id"`
 }
 
+type SkillUpdateResponse struct {
+	Status bool `json:"status"`
+}
+
 type SkillSearchResult struct {
 	Skill string  `json:"skill"`
 	Score float64 `json:"score"`
@@ -76,9 +80,13 @@ func (c *ApiClient) CreateSkill(ctx context.Context, req *SkillCreateRequest) (*
 	return &resp, nil
 }
 
-func (c *ApiClient) UpdateSkill(ctx context.Context, nameOrId string, req *SkillUpdateRequest) error {
-	_, err := c.httpClient.Put(ctx, "/api/skill/"+nameOrId, req, nil, 200)
-	return err
+func (c *ApiClient) UpdateSkill(ctx context.Context, nameOrId string, req *SkillUpdateRequest) (*SkillUpdateResponse, error) {
+	var resp SkillUpdateResponse
+	_, err := c.httpClient.Put(ctx, "/api/skill/"+nameOrId, req, &resp, 200)
+	if err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
 
 func (c *ApiClient) DeleteSkill(ctx context.Context, nameOrId string) error {

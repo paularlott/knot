@@ -95,7 +95,7 @@
               <th scope="col" class="px-4 py-3 hidden md:table-cell">Status</th>
               <th scope="col" class="px-4 py-3 hidden md:table-cell">Script Type</th>
               <th scope="col" class="px-4 py-3 hidden lg:table-cell" x-show="!isLeafNode">Zones</th>
-              <th scope="col" class="px-4 py-3 hidden xl:table-cell" x-show="!isLeafNode">Groups</th>
+              <th scope="col" class="px-4 py-3 hidden xl:table-cell">Groups</th>
               <th scope="col" class="px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
@@ -136,7 +136,7 @@
                       <span class="text-xs text-gray-500 dark:text-gray-400">All</span>
                     </template>
                   </td>
-                  <td class="px-4 py-3 hidden xl:table-cell" x-show="!isLeafNode">
+                  <td class="px-4 py-3 hidden xl:table-cell">
                     <template x-if="s.group_names && s.group_names.length">
                       <div>
                         <div class="flex flex-wrap gap-1">

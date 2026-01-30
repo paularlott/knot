@@ -131,7 +131,28 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 		c.logger.WithError(err).Error("error while getting templates:")
 		return
 	}
-	session.SendMessage(leafmsg.MessageGossipTemplate, &templates)
+
+	// Filter templates by groups - only send templates with matching groups or no groups
+	filteredTemplates := []*model.Template{}
+	for _, template := range templates {
+		if template.IsDeleted {
+			continue
+		}
+		if len(template.Groups) == 0 {
+			filteredTemplates = append(filteredTemplates, template)
+			continue
+		}
+		for _, groupId := range template.Groups {
+			for _, userGroupId := range user.Groups {
+				if groupId == userGroupId {
+					filteredTemplates = append(filteredTemplates, template)
+					goto nextTemplate
+				}
+			}
+		}
+		nextTemplate:
+	}
+	session.SendMessage(leafmsg.MessageGossipTemplate, &filteredTemplates)
 
 	templateVars, err := db.GetTemplateVars()
 	if err != nil {
@@ -187,6 +208,34 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 		}
 	}
 	session.SendMessage(leafmsg.MessageGossipScript, &filteredScripts)
+
+	skills, err := db.GetSkills()
+	if err != nil {
+		c.logger.WithError(err).Error("error while getting skills:")
+		return
+	}
+
+	// Filter skills by groups - only send skills with matching groups or no groups
+	filteredSkills := []*model.Skill{}
+	for _, skill := range skills {
+		if skill.IsDeleted {
+			continue
+		}
+		if len(skill.Groups) == 0 {
+			filteredSkills = append(filteredSkills, skill)
+			continue
+		}
+		for _, groupId := range skill.Groups {
+			for _, userGroupId := range user.Groups {
+				if groupId == userGroupId {
+					filteredSkills = append(filteredSkills, skill)
+					goto nextSkill
+				}
+			}
+		}
+		nextSkill:
+	}
+	session.SendMessage(leafmsg.MessageGossipSkill, &filteredSkills)
 
 	session.SendMessage(leafmsg.MessageFullSyncEnd, nil)
 }

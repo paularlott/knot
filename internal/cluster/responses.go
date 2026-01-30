@@ -68,7 +68,7 @@ func (c *Cluster) GossipResponse(response *model.Response) {
 		c.logger.Debug("Updating response on leaf nodes")
 
 		responses := []*model.Response{response}
-		c.sendToLeafNodes(leafmsg.MessageGossipResponse, responses)
+		c.sendToLeafNodes(leafmsg.MessageGossipResponse, &responses)
 	}
 }
 
