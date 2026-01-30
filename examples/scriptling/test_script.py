@@ -1,4 +1,3 @@
-#!/usr/bin/env scriptling
 # Example script demonstrating on-demand library loading
 
 import sys

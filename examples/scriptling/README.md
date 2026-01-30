@@ -28,4 +28,4 @@ knot run-script --alias production scriptname arg1 arg2
 ### Example Files
 
 - `test_script.py` - Main script that imports mylib
-- `mylib.py` - Library that will be loaded on-demand when imported
+- `testlib.py` - Library that will be loaded on-demand when imported
