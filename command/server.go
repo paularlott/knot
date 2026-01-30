@@ -219,10 +219,10 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "",
 		},
 		&cli.StringSliceFlag{
-			Name:       "mcp-tools-disabled",
+			Name:       "mcp-disable-builtin-tools",
 			Usage:      "Comma-separated list of built-in tool names to disable.",
-			ConfigPath: []string{"server.mcp_tools_disabled"},
-			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_MCP_TOOLS_DISABLED"},
+			ConfigPath: []string{"server.mcp.disable_builtin_tools"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_MCP_DISABLE_BUILTIN_TOOLS"},
 		},
 
 		// UI flags
@@ -1189,7 +1189,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		PrivateFilesPath:   cmd.GetString("private-files-path"),
 		PublicFilesPath:    cmd.GetString("public-files-path"),
 		MCPToolsPath:       cmd.GetString("mcp-tools-path"),
-		MCPToolsDisabled:   cmd.GetStringSlice("mcp-tools-disabled"),
+		MCPToolsDisabled:   cmd.GetStringSlice("mcp-disable-builtin-tools"),
 		DownloadPath:       cmd.GetString("download-path"),
 		DisableSpaceCreate: cmd.GetBool("disable-space-create"),
 		ListenTunnel:       cmd.GetString("listen-tunnel"),

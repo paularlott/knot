@@ -55,6 +55,7 @@ token = ""
 # MCP (Model Context Protocol) server
 [server.mcp]
 enabled = false
+#disable_builtin_tools = []  # List of built-in tool names to disable
 
 # Remote MCP servers (optional)
 # Uncomment and configure to connect to external MCP servers
