@@ -9,8 +9,10 @@
     </div>
     <div>
       <label class="form-label">Value</label>
-      <div :class="{'form-field-error': !valueValid, 'editor-wrap': true}" id="value">
-        <textarea name="value"></textarea>
+      <div class="mid-editor">
+        <div :class="{'form-field-error': !valueValid, 'editor-wrap': true}" id="value">
+          <textarea name="value"></textarea>
+        </div>
       </div>
       <div x-show="!valueValid" class="error-message" x-cloak>Value must be less than 10MB.</div>
     </div>
