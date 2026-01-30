@@ -220,7 +220,7 @@ var ServerCmd = &cli.Command{
 		},
 		&cli.StringSliceFlag{
 			Name:       "mcp-tools-disabled",
-			Usage:      "Comma-separated list of tool names to disable.",
+			Usage:      "Comma-separated list of built-in tool names to disable.",
 			ConfigPath: []string{"server.mcp_tools_disabled"},
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_MCP_TOOLS_DISABLED"},
 		},
