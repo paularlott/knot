@@ -26,16 +26,23 @@ This server uses tool discovery to minimize context usage. ALL tools require the
    - Create: `execute_tool("create_template", ...)`
    - NEVER skip skills - required for proper formatting
 
-4. **Space Workflow:**
-   - Always: `tool_search("<operation>")` then `execute_tool()`
-   - For creation: Check skills first if needed
+4. **Space Creation Workflow:**
+   - If user mentions a template name:
+     a. `tool_search("list templates")` → `execute_tool("list_templates")` to get available templates
+     b. Find the exact template name from the list (match user's description)
+     c. `tool_search("create space")` → `execute_tool("create_space", {name, template_name})`
+   - NEVER guess template names - always list them first
+   - If template not found in list, tell user and show available templates
 
-5. **Error Handling:**
+5. **General Space Operations:**
+   - Always: `tool_search("<operation>")` then `execute_tool()`
+
+6. **Error Handling:**
    - One error = stop immediately
    - No retries, no alternate tools
    - Report clearly, wait for user
 
-6. **Not Found:** If a space/template isn't in tool results, report it (don't guess).
+7. **Not Found:** If a space/template isn't in tool results, report it (don't guess).
 
 ## **Communication & Style**
 
