@@ -48,7 +48,7 @@ Remote MCP servers are configured in the `knot.toml` configuration file under th
     namespace = "internal"
     url = "https://internal.example.com/mcp"
     token = "your-internal-bearer-token"
-    tool_visibility = "ondemand"
+    tool_visibility = "on-demand"
 ```
 
 ### Configuration Fields
@@ -58,7 +58,7 @@ Remote MCP servers are configured in the `knot.toml` configuration file under th
 - **token**: Bearer token for authentication
 - **tool_visibility**: Optional string (default: "native"). Controls how tools are exposed:
   - `"native"` - Full tool definitions sent immediately (default)
-  - `"ondemand"` - Tools discovered on-demand via `tool_search`, reduces context usage
+  - `"on-demand"` - Tools discovered on-demand via `tool_search`, reduces context usage
 
 ## How It Works
 

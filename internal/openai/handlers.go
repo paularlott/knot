@@ -63,7 +63,7 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 
 // handleNonStreamingChatCompletion handles non-streaming chat completions
 func (s *Service) handleNonStreamingChatCompletion(ctx context.Context, w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
-	// Context is already configured by MCPServerContext middleware with force ondemand mode and script tools provider
+	// Context is already configured by MCPServerContext middleware with force on-demand mode and script tools provider
 	// Do not call mcp.WithForceOnDemandMode here as it would overwrite the context
 
 	response, err := s.client.ChatCompletion(ctx, req)
@@ -80,7 +80,7 @@ func (s *Service) handleNonStreamingChatCompletion(ctx context.Context, w http.R
 
 // handleStreamingChatCompletion handles streaming chat completions
 func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
-	// Context is already configured by MCPServerContext middleware with force ondemand mode and script tools provider
+	// Context is already configured by MCPServerContext middleware with force on-demand mode and script tools provider
 	// Do not call mcp.WithForceOnDemandMode here as it would overwrite the context
 
 	streamWriter := rest.NewStreamWriter(w, r)

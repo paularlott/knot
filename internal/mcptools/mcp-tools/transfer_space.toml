@@ -1,6 +1,7 @@
 name = "transfer_space"
 description = "Transfer space ownership to another user. You will no longer own this space."
 keywords = ["transfer", "space", "ownership", "give", "assign", "handover"]
+visibility = "on-demand"
 
 [parameters.space_name]
 type = "string"

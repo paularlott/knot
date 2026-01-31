@@ -21,7 +21,7 @@ func MCPServerContext(mcpServer *mcp.Server, scriptToolsProvider ScriptToolsProv
 			// Add MCP server to context
 			ctx = context.WithValue(ctx, "mcp", mcpServer)
 
-			// Add script tools as request-scoped provider in force ondemand mode
+			// Add script tools as request-scoped provider in force on-demand mode
 			if scriptToolsProvider != nil {
 				user, ok := ctx.Value("user").(*model.User)
 				log.Debug("MCPServerContext: user from context", "ok", ok, "user", user)

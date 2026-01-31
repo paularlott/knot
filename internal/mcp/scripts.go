@@ -128,7 +128,7 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 	// Add boot-loaded MCP tools with correct visibility
 	visibility := "native"
 	if p.onDemandOnly {
-		visibility = "ondemand"
+		visibility = "on-demand"
 	}
 	bootTools := mcptools.GetMCPTools(visibility)
 	tools = append(tools, bootTools...)

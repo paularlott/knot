@@ -1,6 +1,7 @@
 name = "restart_space"
 description = "Restart a running space (stop and start it)."
 keywords = ["restart", "space", "reboot", "reload", "cycle"]
+visibility = "on-demand"
 
 [parameters.space_name]
 type = "string"

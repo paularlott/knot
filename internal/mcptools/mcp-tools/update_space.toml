@@ -1,6 +1,7 @@
 name = "update_space"
 description = "Update properties of an existing space (description, shell, or name)."
 keywords = ["update", "space", "modify", "edit", "configure", "rename"]
+visibility = "on-demand"
 
 [parameters.space_name]
 type = "string"

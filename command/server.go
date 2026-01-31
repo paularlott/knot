@@ -817,7 +817,7 @@ var ServerCmd = &cli.Command{
 			}
 
 			// Initialize chat service with main MCP server
-			// The OpenAI client will use forced ondemand mode via context
+			// The OpenAI client will use forced on-demand mode via context
 			chatService, err := chat.NewService(cfg.Chat, mcpServer)
 			if err != nil {
 				logger.WithError(err).Fatal("failed to create chat service:")

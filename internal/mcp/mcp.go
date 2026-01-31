@@ -83,10 +83,10 @@ Use tool_search to discover tools by keyword or description.`)
 
 			// Register based on visibility setting
 			var err error
-			if visibility == "ondemand" {
+			if visibility == "on-demand" {
 				// OnDemand mode: tools only available via tool_search, not in tools/list
 				err = server.RegisterRemoteServerOnDemand(client)
-				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "mode", "ondemand")
+				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "mode", "on-demand")
 			} else {
 				// Native mode: tools visible in tools/list
 				err = server.RegisterRemoteServer(client)

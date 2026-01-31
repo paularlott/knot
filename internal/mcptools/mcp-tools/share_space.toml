@@ -1,6 +1,7 @@
 name = "share_space"
 description = "Share a space with another user, granting them access to use it."
 keywords = ["share", "space", "grant", "access", "collaborate", "permissions", "invite"]
+visibility = "on-demand"
 
 [parameters.space_name]
 type = "string"

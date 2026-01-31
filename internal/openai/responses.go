@@ -162,7 +162,7 @@ func (s *Service) HandleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	// Synchronous: process directly in this HTTP handler (bypass queue)
 	log.Info("Processing response synchronously", "id", response.Id)
 
-	// Force ondemand mode for synchronous response processing
+	// Force on-demand mode for synchronous response processing
 	ctx = mcp.WithForceOnDemandMode(ctx)
 
 	// Update status to in_progress

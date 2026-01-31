@@ -97,7 +97,7 @@ required = true`,
 			t.Fatalf("Expected status 200, got %d", statusCode)
 		}
 
-		// Should only show meta tools (tool_search, execute_tool) in force ondemand mode
+		// Should only show meta tools (tool_search, execute_tool) in force on-demand mode
 		metaTools := make(map[string]bool)
 		for _, tool := range toolsResp {
 			// MCP server returns capitalized field names (Name, Description, etc.)
@@ -128,7 +128,7 @@ required = true`,
 			}
 		}
 
-		t.Logf("/api/chat/tools returned %d tools (meta tools only in force ondemand mode)", len(toolsResp))
+		t.Logf("/api/chat/tools returned %d tools (meta tools only in force on-demand mode)", len(toolsResp))
 	})
 
 	// Test /api/chat/tools/call with tool_search to find scripts
@@ -300,7 +300,7 @@ required = true`,
 		t.Logf("/v1/models is accessible")
 	})
 
-	// Test that scripted tools are NOT visible in force ondemand mode tools/list
+	// Test that scripted tools are NOT visible in force on-demand mode tools/list
 	// but ARE available via tool_search
 	t.Run("ForceOnDemand_ScriptToolsBehavior", func(t *testing.T) {
 		// First verify tools/list only shows meta tools
@@ -324,7 +324,7 @@ required = true`,
 		}
 
 		if metaToolCount != 2 {
-			t.Errorf("Expected exactly 2 meta tools in force ondemand mode, got %d", metaToolCount)
+			t.Errorf("Expected exactly 2 meta tools in force on-demand mode, got %d", metaToolCount)
 		}
 
 		// Now use tool_search to find script tools
@@ -383,7 +383,7 @@ required = true`,
 		}
 
 		if !foundTestTools {
-			t.Error("tool_search should find our test scripts in force ondemand mode")
+			t.Error("tool_search should find our test scripts in force on-demand mode")
 		}
 	})
 }

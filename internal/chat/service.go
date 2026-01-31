@@ -100,7 +100,7 @@ func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *
 	// The MCPServerContext middleware has already set up the context with:
 	// - MCP server
 	// - Script tools provider
-	// - Force ondemand mode
+	// - Force on-demand mode
 	// Just add the tool handler for web chat
 	chatCtx := ctx
 	chatCtx = openai.WithToolHandler(chatCtx, NewWebChatToolHandler(sseWriter))
@@ -233,7 +233,7 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 	// The MCPServerContext middleware has already set up the context with:
 	// - MCP server
 	// - Script tools provider
-	// - Force ondemand mode
+	// - Force on-demand mode
 	// Use the context directly
 	response, err := s.openaiClient.ChatCompletion(ctx, req)
 	if err != nil {

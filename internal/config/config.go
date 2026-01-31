@@ -134,7 +134,7 @@ type MCPRemoteServerConfig struct {
 	Namespace      string `toml:"namespace"`
 	URL            string `toml:"url"`
 	Token          string `toml:"token"`
-	ToolVisibility string `toml:"tool_visibility"` // "native" or "ondemand"
+	ToolVisibility string `toml:"tool_visibility"` // "native" or "on-demand"
 }
 
 type MCPConfig struct {

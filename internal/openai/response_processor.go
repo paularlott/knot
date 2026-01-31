@@ -19,7 +19,7 @@ type responseProcessor struct {
 
 // Process processes a response request and returns the result
 func (p *responseProcessor) Process(ctx context.Context, response *model.Response) (map[string]interface{}, error) {
-	// Force ondemand mode for response processing
+	// Force on-demand mode for response processing
 	ctx = mcp.WithForceOnDemandMode(ctx)
 
 	// Extract the request

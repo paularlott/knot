@@ -25,7 +25,7 @@ func HandleListTools(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get tools from MCP server with context to respect force ondemand mode
+	// Get tools from MCP server with context to respect force on-demand mode
 	tools := mcpServer.ListToolsWithContext(ctx)
 	log.Debug("HandleListTools: returning tools", "count", len(tools))
 	for i, tool := range tools {
