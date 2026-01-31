@@ -1,3 +1,0 @@
-name = "list_users"
-description = "List all users details (id, username, email, active, groups). Use to find user IDs for sharing or transfers."
-keywords = ["users", "list", "accounts", "people", "team", "directory"]

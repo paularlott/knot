@@ -4615,8 +4615,7 @@ components:
       properties:
         user_id:
           type: string
-          format: uuid
-          description: The ID or username of the user to transfer the space to.
+          description: The username, email address, or UUID of the user to transfer or share the space with.
 
     SetCustomFieldRequest:
       type: object

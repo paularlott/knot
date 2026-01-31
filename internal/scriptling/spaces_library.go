@@ -91,11 +91,11 @@ func GetSpacesLibrary(client *apiclient.ApiClient, userId string) *object.Librar
 
 	builder.FunctionWithHelp("transfer", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spaceTransfer(ctx, client, args...)
-	}, "transfer(name, user_id) - Transfer space to another user")
+	}, "transfer(name, user_id) - Transfer space to another user (user_id can be username, email, or UUID)")
 
 	builder.FunctionWithHelp("share", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spaceShare(ctx, client, args...)
-	}, "share(name, user_id) - Share space with another user")
+	}, "share(name, user_id) - Share space with another user (user_id can be username, email, or UUID)")
 
 	builder.FunctionWithHelp("unshare", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spaceUnshare(ctx, client, args...)

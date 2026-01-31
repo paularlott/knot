@@ -1,5 +1,5 @@
 name = "share_space"
-description = "Share a space with another user. Use list_users to find user ID if not provided."
+description = "Share a space with another user."
 keywords = ["share", "space", "grant", "access", "collaborate", "permissions"]
 
 [parameters.space_name]
@@ -9,5 +9,5 @@ required = true
 
 [parameters.user_id]
 type = "string"
-description = "User ID to share the space with"
+description = "Username, email, or user ID to share the space with"
 required = true

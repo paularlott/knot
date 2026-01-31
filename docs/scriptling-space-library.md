@@ -8,6 +8,8 @@ The `knot.space` library provides direct space management functions for scriptli
 |----------|-------------|
 | `create(name, template_name, description='', shell='bash')` | Create a new space |
 | `delete(name)` | Delete a space by name |
+| `get(name)` | Get detailed space information as a dict |
+| `update(name, description='', shell='')` | Update space properties |
 | `start(name)` | Start a space by name |
 | `stop(name)` | Stop a space by name |
 | `restart(name)` | Restart a space by name |
@@ -17,6 +19,9 @@ The `knot.space` library provides direct space management functions for scriptli
 | `set_description(name, description)` | Set the description of a space |
 | `get_field(name, field)` | Get a custom field value from a space |
 | `set_field(name, field, value)` | Set a custom field value on a space |
+| `transfer(name, user_id)` | Transfer space ownership to another user (user_id can be username, email, or UUID) |
+| `share(name, user_id)` | Share space with another user (user_id can be username, email, or UUID) |
+| `unshare(name)` | Remove space share |
 | `run_script(space_name, script_name, *args)` | Execute a script in a space, returns {output: str, exit_code: int} |
 | `run(space_name, command, args=[], timeout=30, workdir='')` | Execute a command in a space |
 | `port_forward(source_space, local_port, remote_space, remote_port)` | Forward a local port to a remote space port |
@@ -100,6 +105,70 @@ import knot.space
 # Delete a space
 if knot.space.delete("old-space"):
     print("Space deleted successfully")
+```
+
+---
+
+### get(name)
+
+Get detailed information about a space.
+
+**Parameters:**
+
+- `name` (string): Name of the space
+
+**Returns:**
+
+- `dict`: Dictionary containing space details including id, name, description, template_name, username, shared_username, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, and created_at
+
+**Example:**
+
+```python
+import knot.space
+
+# Get space details
+space = knot.space.get("dev-space")
+print(f"Space: {space['name']}")
+print(f"Template: {space['template_name']}")
+print(f"Owner: {space['username']}")
+print(f"Running: {space['is_running']}")
+if space['shared_username']:
+    print(f"Shared with: {space['shared_username']}")
+```
+
+---
+
+### update(name, description='', shell='')
+
+Update space properties.
+
+**Parameters:**
+
+- `name` (string): Name of the space to update
+- `description` (string, optional): New description
+- `shell` (string, optional): New shell (bash, zsh, fish, sh)
+
+**Returns:**
+
+- `bool`: True if successfully updated, raises error on failure
+
+**Example:**
+
+```python
+import knot.space
+
+# Update description only
+knot.space.update("dev-space", description="Updated development environment")
+
+# Update shell only
+knot.space.update("dev-space", shell="zsh")
+
+# Update both
+knot.space.update(
+    "dev-space",
+    description="My main workspace",
+    shell="fish"
+)
 ```
 
 ---
@@ -331,6 +400,90 @@ import knot.space
 # Store custom data
 knot.space.set_field("dev-space", "last_deploy", "2024-01-15")
 knot.space.set_field("dev-space", "environment", "production")
+```
+
+---
+
+### transfer(name, user_id)
+
+Transfer space ownership to another user.
+
+**Parameters:**
+
+- `name` (string): Name of the space to transfer
+- `user_id` (string): Username, email address, or UUID of the user to transfer to
+
+**Returns:**
+
+- `bool`: True if successfully transferred, raises error on failure
+
+**Example:**
+
+```python
+import knot.space
+
+# Transfer by username
+knot.space.transfer("my-space", "alice")
+
+# Transfer by email
+knot.space.transfer("dev-space", "bob@example.com")
+
+# Transfer by UUID
+knot.space.transfer("test-space", "550e8400-e29b-41d4-a716-446655440000")
+```
+
+---
+
+### share(name, user_id)
+
+Share a space with another user, granting them access.
+
+**Parameters:**
+
+- `name` (string): Name of the space to share
+- `user_id` (string): Username, email address, or UUID of the user to share with
+
+**Returns:**
+
+- `bool`: True if successfully shared, raises error on failure
+
+**Example:**
+
+```python
+import knot.space
+
+# Share by username
+knot.space.share("my-space", "alice")
+
+# Share by email
+knot.space.share("dev-space", "bob@example.com")
+
+# Share by UUID
+knot.space.share("test-space", "550e8400-e29b-41d4-a716-446655440000")
+```
+
+---
+
+### unshare(name)
+
+Remove space sharing, revoking access from the shared user.
+
+**Parameters:**
+
+- `name` (string): Name of the space to unshare
+
+**Returns:**
+
+- `bool`: True if successfully unshared, raises error on failure
+
+**Example:**
+
+```python
+import knot.space
+
+# Stop sharing a space
+knot.space.unshare("my-space")
+print("Space is no longer shared")
 ```
 
 ---

@@ -21,8 +21,3 @@ required = false
 type = "string"
 description = "Preferred shell (bash, zsh, fish, sh)"
 required = false
-
-[parameters.icon_url]
-type = "string"
-description = "Icon URL. Use list_icons to find available URLs. Leave empty to use the default icon"
-required = false

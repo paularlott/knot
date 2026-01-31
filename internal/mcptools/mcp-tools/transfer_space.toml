@@ -1,5 +1,5 @@
 name = "transfer_space"
-description = "Transfer space ownership to another user. Use list_users to find user ID if not provided."
+description = "Transfer space ownership to another user."
 keywords = ["transfer", "space", "ownership", "give", "assign"]
 
 [parameters.space_name]
@@ -9,5 +9,5 @@ required = true
 
 [parameters.user_id]
 type = "string"
-description = "User ID to transfer to"
+description = "Username, email, or user ID to transfer to"
 required = true

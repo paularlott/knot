@@ -873,12 +873,29 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validate.UUID(request.UserId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
-		return
-	}
-
 	db := database.GetInstance()
+
+	// Resolve user_id to UUID (supports UUID, username, or email)
+	var targetUserId string
+	if validate.UUID(request.UserId) {
+		targetUserId = request.UserId
+	} else if strings.Contains(request.UserId, "@") {
+		// Lookup by email
+		targetUser, err := db.GetUserByEmail(request.UserId)
+		if err != nil || targetUser == nil {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", request.UserId)})
+			return
+		}
+		targetUserId = targetUser.Id
+	} else {
+		// Lookup by username
+		targetUser, err := db.GetUserByUsername(request.UserId)
+		if err != nil || targetUser == nil {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", request.UserId)})
+			return
+		}
+		targetUserId = targetUser.Id
+	}
 
 	// Support lookup by both ID and name
 	if validate.UUID(spaceId) {
@@ -913,13 +930,13 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the user is transferring to themselves then fail
-	if space.UserId == request.UserId {
+	if space.UserId == targetUserId {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "cannot transfer to yourself"})
 		return
 	}
 
 	// Load the new user
-	newUser, err := db.GetUser(request.UserId)
+	newUser, err := db.GetUser(targetUserId)
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceTransfer:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
@@ -984,7 +1001,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	name := space.Name
 	attempt := 1
 	for {
-		existing, err := db.GetSpaceByName(request.UserId, name)
+		existing, err := db.GetSpaceByName(targetUserId, name)
 		if err == nil && existing != nil {
 			name = fmt.Sprintf("%s-%d", space.Name, attempt)
 			attempt++
@@ -1000,7 +1017,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 
 		// Move the space
 		space.Name = name
-		space.UserId = request.UserId
+		space.UserId = targetUserId
 		space.UpdatedAt = hlc.Now()
 		err = db.SaveSpace(space, []string{"Name", "UserId", "UpdatedAt"})
 		if err != nil {
@@ -1050,12 +1067,29 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !validate.UUID(request.UserId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid user ID"})
-		return
-	}
-
 	db := database.GetInstance()
+
+	// Resolve user_id to UUID (supports UUID, username, or email)
+	var targetUserId string
+	if validate.UUID(request.UserId) {
+		targetUserId = request.UserId
+	} else if strings.Contains(request.UserId, "@") {
+		// Lookup by email
+		targetUser, err := db.GetUserByEmail(request.UserId)
+		if err != nil || targetUser == nil {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", request.UserId)})
+			return
+		}
+		targetUserId = targetUser.Id
+	} else {
+		// Lookup by username
+		targetUser, err := db.GetUserByUsername(request.UserId)
+		if err != nil || targetUser == nil {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", request.UserId)})
+			return
+		}
+		targetUserId = targetUser.Id
+	}
 
 	// Support lookup by both ID and name
 	if validate.UUID(spaceId) {
@@ -1090,13 +1124,13 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the user is sharing with themselves then fail
-	if space.UserId == request.UserId {
+	if space.UserId == targetUserId {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "cannot share with yourself"})
 		return
 	}
 
 	// Load the new user
-	newUser, err := db.GetUser(request.UserId)
+	newUser, err := db.GetUser(targetUserId)
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceAddShare:")
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: err.Error()})
