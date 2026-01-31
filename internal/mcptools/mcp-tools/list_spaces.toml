@@ -4,5 +4,5 @@ keywords = ["spaces", "list", "environments", "development", "deploy", "instance
 
 [parameters.show_all]
 type = "boolean"
-description = "Show spaces from all zones"
+description = "Show spaces from all zones (default: false, shows only current zone)"
 required = false

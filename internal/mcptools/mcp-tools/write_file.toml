@@ -9,10 +9,10 @@ required = true
 
 [parameters.file_path]
 type = "string"
-description = "File path in the space of the file to write"
+description = "Path to the file within the space (e.g., /app/config.json)"
 required = true
 
 [parameters.content]
 type = "string"
-description = "Content to write"
+description = "Content to write to the file"
 required = true

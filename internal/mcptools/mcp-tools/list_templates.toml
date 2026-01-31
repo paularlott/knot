@@ -1,10 +1,10 @@
 name = "list_templates"
-description = "List all space templates. Use to find template IDs or check existing templates."
-keywords = ["templates", "list", "blueprint", "definition", "docker", "nomad", "podman", "platform", "job", "specification"]
+description = "List available space templates to choose from when creating spaces."
+keywords = ["templates", "list", "available", "blueprint", "definition"]
 
 [parameters.show_all]
 type = "boolean"
-description = "Show template from all zones (default: false)"
+description = "Show templates from all zones (default: false, shows only current zone)"
 required = false
 
 [parameters.show_inactive]

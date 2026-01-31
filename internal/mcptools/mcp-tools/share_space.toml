@@ -1,6 +1,6 @@
 name = "share_space"
-description = "Share a space with another user."
-keywords = ["share", "space", "grant", "access", "collaborate", "permissions"]
+description = "Share a space with another user, granting them access to use it."
+keywords = ["share", "space", "grant", "access", "collaborate", "permissions", "invite"]
 
 [parameters.space_name]
 type = "string"

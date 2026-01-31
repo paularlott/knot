@@ -1,6 +1,6 @@
 name = "restart_space"
-description = "Restart a space."
-keywords = ["restart", "space", "reboot", "reload", "environment"]
+description = "Restart a running space (stop and start it)."
+keywords = ["restart", "space", "reboot", "reload", "cycle"]
 
 [parameters.space_name]
 type = "string"

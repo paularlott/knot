@@ -9,5 +9,5 @@ required = true
 
 [parameters.file_path]
 type = "string"
-description = "File path in the space of the file to read"
+description = "Path to the file within the space (e.g., /app/config.json)"
 required = true

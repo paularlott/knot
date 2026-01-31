@@ -1,6 +1,6 @@
 name = "stop_space"
-description = "Stop a space."
-keywords = ["stop", "space", "shutdown", "halt", "deactivate", "environment"]
+description = "Stop a running space to free up resources."
+keywords = ["stop", "space", "shutdown", "halt", "deactivate"]
 
 [parameters.space_name]
 type = "string"

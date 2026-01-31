@@ -1,6 +1,6 @@
 name = "start_space"
-description = "Start a space."
-keywords = ["start", "space", "run", "launch", "activate", "environment"]
+description = "Start a stopped space to make it available for use."
+keywords = ["start", "space", "run", "launch", "activate", "boot"]
 
 [parameters.space_name]
 type = "string"

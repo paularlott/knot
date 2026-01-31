@@ -1,6 +1,6 @@
 name = "transfer_space"
-description = "Transfer space ownership to another user."
-keywords = ["transfer", "space", "ownership", "give", "assign"]
+description = "Transfer space ownership to another user. You will no longer own this space."
+keywords = ["transfer", "space", "ownership", "give", "assign", "handover"]
 
 [parameters.space_name]
 type = "string"

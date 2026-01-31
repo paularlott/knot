@@ -1,5 +1,5 @@
 name = "create_space"
-description = "Create a new development space. ONLY use when explicitly asked to create a space. Spaces are created stopped - use start_space to run them."
+description = "Create a new development space. Spaces are created in stopped state - use start_space to run them."
 keywords = ["create", "space", "new", "environment", "development", "deploy", "instance"]
 
 [parameters.name]
@@ -9,12 +9,12 @@ required = true
 
 [parameters.template_name]
 type = "string"
-description = "Template name to use"
+description = "Name of the template to use for this space"
 required = true
 
 [parameters.description]
 type = "string"
-description = "Space description"
+description = "Optional description for the space"
 required = false
 
 [parameters.shell]

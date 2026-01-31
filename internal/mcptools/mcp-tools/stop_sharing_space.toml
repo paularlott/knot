@@ -1,6 +1,6 @@
 name = "stop_sharing_space"
-description = "Stop sharing a space."
-keywords = ["stop", "sharing", "revoke", "access", "permissions", "private"]
+description = "Stop sharing a space, revoking access from the shared user."
+keywords = ["stop", "sharing", "unshare", "revoke", "access", "permissions", "private"]
 
 [parameters.space_name]
 type = "string"

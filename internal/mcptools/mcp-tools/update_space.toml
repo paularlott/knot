@@ -1,6 +1,6 @@
 name = "update_space"
-description = "Update an existing space."
-keywords = ["update", "space", "modify", "edit", "configure"]
+description = "Update properties of an existing space (description, shell, or name)."
+keywords = ["update", "space", "modify", "edit", "configure", "rename"]
 
 [parameters.space_name]
 type = "string"
@@ -9,15 +9,15 @@ required = true
 
 [parameters.name]
 type = "string"
-description = "New space name"
+description = "New name for the space (to rename it)"
 required = false
 
 [parameters.description]
 type = "string"
-description = "Space description"
+description = "New description for the space"
 required = false
 
 [parameters.shell]
 type = "string"
-description = "Preferred shell (bash, zsh, fish, sh)"
+description = "New preferred shell (bash, zsh, fish, sh)"
 required = false

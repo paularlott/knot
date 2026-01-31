@@ -1,6 +1,6 @@
 name = "run_command"
-description = "Execute a command in a running space and return results."
-keywords = ["run", "execute", "command", "shell", "terminal", "bash", "sh", "script", "output"]
+description = "Execute a command in a running space and capture its output."
+keywords = ["run", "execute", "command", "shell", "terminal", "bash", "sh", "script", "output", "exec"]
 
 [parameters.space_name]
 type = "string"
@@ -9,12 +9,12 @@ required = true
 
 [parameters.command]
 type = "string"
-description = "Command to execute"
+description = "Command to execute (e.g., 'ls', 'npm', 'python')"
 required = true
 
 [parameters.arguments]
 type = "array"
-description = "Command arguments"
+description = "Command arguments as an array (e.g., ['-la', '/tmp'])"
 required = false
 
 [parameters.timeout]
@@ -24,5 +24,5 @@ required = false
 
 [parameters.workdir]
 type = "string"
-description = "Working directory"
+description = "Working directory for command execution (e.g., '/app')"
 required = false
