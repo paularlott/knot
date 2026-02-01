@@ -1,7 +1,7 @@
 name = "list_templates"
 description = "List available space templates to choose from when creating spaces."
 keywords = ["templates", "list", "available", "blueprint", "definition"]
-visibility = "on-demand"
+visibility = "discoverable"
 
 [parameters.show_all]
 type = "boolean"

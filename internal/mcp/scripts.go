@@ -17,23 +17,20 @@ import (
 	"github.com/paularlott/mcp"
 )
 
-// scriptToolsProvider implements mcp.ToolProvider for native script tools
+// scriptToolsProvider implements mcp.ToolProvider for script tools
+// Returns all tools with their Visibility field set appropriately
 type scriptToolsProvider struct {
-	user         *model.User
-	onDemandOnly bool
+	user *model.User
 }
 
 // NewScriptToolsProvider creates a new script tools provider for a user
+// Returns all tools (native and discoverable) with their visibility set
 func NewScriptToolsProvider(user *model.User) *scriptToolsProvider {
-	return &scriptToolsProvider{user: user, onDemandOnly: false}
-}
-
-// NewOnDemandScriptToolsProvider creates a new on-demand script tools provider for a user
-func NewOnDemandScriptToolsProvider(user *model.User) *scriptToolsProvider {
-	return &scriptToolsProvider{user: user, onDemandOnly: true}
+	return &scriptToolsProvider{user: user}
 }
 
 // GetTools returns all available script tools for the user
+// Each tool has its Visibility field set based on the script's Discoverable flag
 // Implements user override behavior: user scripts override global scripts with the same name
 func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, error) {
 	log.Debug("scriptToolsProvider.GetTools called", "user", p.user.Username, "user_id", p.user.Id)
@@ -78,17 +75,10 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 			// Current script is a user script - always replace (user scripts override both global and other user scripts)
 		}
 
-		// Filter based on provider type
-		if p.onDemandOnly {
-			// On-demand provider: only return discoverable tools
-			if !script.OnDemandTool {
-				continue
-			}
-		} else {
-			// Native provider: only return non-discoverable tools
-			if script.OnDemandTool {
-				continue
-			}
+		// Determine visibility based on script's Discoverable flag
+		visibility := mcp.ToolVisibilityNative
+		if script.Discoverable {
+			visibility = mcp.ToolVisibilityDiscoverable
 		}
 
 		// Build input schema - if TOML schema exists, parse it; otherwise use empty schema
@@ -109,12 +99,13 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 			}
 		}
 
-		// Store tool and track ownership
+		// Store tool with visibility and track ownership
 		toolsMap[script.Name] = mcp.MCPTool{
 			Name:        script.Name,
 			Description: script.Description,
 			InputSchema: inputSchema,
 			Keywords:    script.MCPKeywords,
+			Visibility:  visibility,
 		}
 		userIdMap[script.Name] = script.UserId // Empty string for global scripts
 	}
@@ -125,12 +116,8 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 		tools = append(tools, tool)
 	}
 
-	// Add boot-loaded MCP tools with correct visibility
-	visibility := "native"
-	if p.onDemandOnly {
-		visibility = "on-demand"
-	}
-	bootTools := mcptools.GetMCPTools(visibility)
+	// Add boot-loaded MCP tools (they set their own visibility)
+	bootTools := mcptools.GetAllMCPTools()
 	tools = append(tools, bootTools...)
 
 	// Add skills tool if user has accessible skills
@@ -140,7 +127,7 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 
 	log.Debug("scriptToolsProvider.GetTools returning tools", "count", len(tools), "user", p.user.Username)
 	for _, tool := range tools {
-		log.Debug("scriptToolsProvider.GetTools tool", "name", tool.Name, "description", tool.Description, "keywords", tool.Keywords)
+		log.Debug("scriptToolsProvider.GetTools tool", "name", tool.Name, "description", tool.Description, "keywords", tool.Keywords, "visibility", tool.Visibility)
 	}
 
 	return tools, nil
@@ -154,11 +141,18 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 	}
 
 	// Try boot-loaded tools first
-	if result, err := mcptools.ExecuteTool(name, params, p.user); err == nil {
-		return result, nil
-	} else {
-		log.WithError(err).Error("scriptToolsProvider.ExecuteTool: boot-loaded tool failed", "tool", name)
+	toolResult, toolErr := mcptools.ExecuteTool(name, params, p.user)
+	if toolErr == nil {
+		// Boot-loaded tool executed successfully
+		return toolResult, nil
 	}
+	// Check if tool exists in mcptools (error is "tool not found") vs execution failed
+	if _, exists := mcptools.GetTool(name); exists {
+		// Tool exists in mcptools but execution failed - return the error
+		log.WithError(toolErr).Error("scriptToolsProvider.ExecuteTool: boot-loaded tool execution failed", "tool", name)
+		return nil, toolErr
+	}
+	// Tool not in mcptools, try database scripts
 
 	// Resolve script with user override and zone filtering
 	script, err := service.ResolveScriptByName(name, p.user.Id)

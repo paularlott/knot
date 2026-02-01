@@ -30,8 +30,7 @@ Use tool_search to discover tools by keyword or description.`)
 
 	if enableWebEndpoint {
 		// Create unified handler for /mcp endpoint
-		// Mode is determined from X-MCP-Tool-Mode header or tool_mode query parameter
-		// In discovery mode, only tool_search/execute_tool are visible (all others are searchable)
+		// Mode is determined from X-MCP-Show-All header or show_all query parameter
 		unifiedHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// The authentication middleware has already run and set the user in the context
 			user := r.Context().Value("user").(*model.User)
@@ -39,18 +38,21 @@ Use tool_search to discover tools by keyword or description.`)
 			// Add script tools as request-scoped provider
 			ctx := r.Context()
 			if user != nil && (user.HasPermission(model.PermissionExecuteScripts) || user.HasPermission(model.PermissionExecuteOwnScripts)) {
-				nativeProvider := NewScriptToolsProvider(user)
-				onDemandProvider := NewOnDemandScriptToolsProvider(user)
-				ctx = mcp.WithToolProviders(ctx, nativeProvider)
-				ctx = mcp.WithOnDemandToolProviders(ctx, onDemandProvider)
+				provider := NewScriptToolsProvider(user)
+				ctx = mcp.WithToolProviders(ctx, provider)
 			}
 
-			// Handle the MCP request - mode is determined from header by MCP server
+			// Check for show-all mode (MCP chaining)
+			if mcp.GetShowAllFromRequest(r) {
+				ctx = mcp.WithShowAllTools(ctx)
+			}
+
+			// Handle the MCP request
 			server.HandleRequest(w, r.WithContext(ctx))
 		})
 
 		// Apply authentication middleware - unified endpoint
-		// Use X-MCP-Tool-Mode: discovery header for discovery mode
+		// Use X-MCP-Show-All: true header for show-all mode
 		routes.HandleFunc("POST /mcp", middleware.ApiAuth(middleware.ApiPermissionUseMCPServer(unifiedHandler.ServeHTTP)))
 	}
 
@@ -76,6 +78,10 @@ Use tool_search to discover tools by keyword or description.`)
 			if visibility == "" {
 				visibility = "native"
 			}
+			// Normalize legacy "on-demand" to "discoverable"
+			if visibility == "on-demand" {
+				visibility = "discoverable"
+			}
 			log.WithGroup("mcp").Info("Processing remote server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "tool_visibility_config", remoteServer.ToolVisibility, "tool_visibility_resolved", visibility)
 
 			// Create MCP client for remote server
@@ -83,10 +89,10 @@ Use tool_search to discover tools by keyword or description.`)
 
 			// Register based on visibility setting
 			var err error
-			if visibility == "on-demand" {
-				// OnDemand mode: tools only available via tool_search, not in tools/list
-				err = server.RegisterRemoteServerOnDemand(client)
-				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "mode", "on-demand")
+			if visibility == "discoverable" {
+				// Discoverable mode: tools only available via tool_search, not in tools/list
+				err = server.RegisterRemoteServerDiscoverable(client)
+				log.WithGroup("mcp").Info("Registered remote MCP server", "namespace", remoteServer.Namespace, "url", remoteServer.URL, "mode", "discoverable")
 			} else {
 				// Native mode: tools visible in tools/list
 				err = server.RegisterRemoteServer(client)

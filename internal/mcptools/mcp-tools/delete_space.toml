@@ -1,9 +1,9 @@
 name = "delete_space"
-description = "Permanently delete a space and all its data. Cannot be undone."
-keywords = ["delete", "space", "remove", "destroy", "clean"]
-visibility = "on-demand"
+description = "Permanently delete a space and destroy all its data. This action cannot be undone - use this to completely remove a space."
+keywords = ["delete", "destroy", "remove", "permanently", "cleanup"]
+visibility = "discoverable"
 
-[parameters.space_name]
+[parameters.name]
 type = "string"
-description = "Name of the space to delete"
+description = "Name of the space to permanently delete"
 required = true

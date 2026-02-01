@@ -1,11 +1,14 @@
 import knot.space
 import knot.mcp
 
-space_name = knot.mcp.get("space_name")
+space_name = knot.mcp.get("name")
+new_name = knot.mcp.get("new_name", None)
 description = knot.mcp.get("description", None)
 shell = knot.mcp.get("shell", None)
 
 kwargs = {}
+if new_name is not None:
+    kwargs["name"] = new_name
 if description is not None:
     kwargs["description"] = description
 if shell is not None:

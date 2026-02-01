@@ -32,7 +32,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
       script_type: "script",
       mcp_input_schema_toml: "",
       mcp_keywords: [],
-      on_demand_tool: false,
+      discoverable: false,
       is_managed: false,
     },
     mcpKeywordsStr: "",
@@ -67,7 +67,7 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
                   script_type: data.script_type || "script",
                   mcp_input_schema_toml: data.mcp_input_schema_toml || "",
                   mcp_keywords: data.mcp_keywords || [],
-                  on_demand_tool: data.on_demand_tool || false,
+                  discoverable: data.discoverable || false,
                   is_managed: data.is_managed || false,
                 };
                 this.isUserScript = data.user_id ? true : false;
@@ -107,7 +107,8 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
           this.contentEditor.session.setMode("ace/mode/python");
           if (this.formData.is_managed) {
             this.contentEditor.setReadOnly(true);
-            this.contentEditor.renderer.$cursorLayer.element.style.display = "none";
+            this.contentEditor.renderer.$cursorLayer.element.style.display =
+              "none";
           }
 
           // Register custom completer for scriptling/knot libraries
@@ -142,7 +143,8 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
           this.schemaEditor.session.setMode("ace/mode/toml");
           if (this.formData.is_managed) {
             this.schemaEditor.setReadOnly(true);
-            this.schemaEditor.renderer.$cursorLayer.element.style.display = "none";
+            this.schemaEditor.renderer.$cursorLayer.element.style.display =
+              "none";
           }
           this.schemaEditor.setOptions({
             printMargin: false,
@@ -170,7 +172,8 @@ window.scriptForm = function (isEdit, scriptId, isUserScript = false) {
           this.descriptionEditor.session.setMode("ace/mode/text");
           if (this.formData.is_managed) {
             this.descriptionEditor.setReadOnly(true);
-            this.descriptionEditor.renderer.$cursorLayer.element.style.display = "none";
+            this.descriptionEditor.renderer.$cursorLayer.element.style.display =
+              "none";
           }
           this.descriptionEditor.setOptions({
             printMargin: false,

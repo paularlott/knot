@@ -15,10 +15,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type contextKey string
-
-const userContextKey contextKey = "user"
-
 var apiMux *http.ServeMux
 
 // SetAPIMux stores the API mux for direct calls
@@ -93,7 +89,7 @@ func (c *MuxClient) ClearHeaders() RESTClient {
 
 func (c *MuxClient) Get(ctx context.Context, path string, response interface{}) (int, error) {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	ctx = context.WithValue(ctx, userContextKey, c.user)
+	ctx = context.WithValue(ctx, "user", c.user)
 	req = req.WithContext(ctx)
 
 	req.Header.Set("Accept", strings.Join(c.accept, ", "))
@@ -132,7 +128,7 @@ func (c *MuxClient) sendData(ctx context.Context, method string, path string, re
 	}
 
 	req := httptest.NewRequest(method, path, bytes.NewReader(data))
-	ctx = context.WithValue(ctx, userContextKey, c.user)
+	ctx = context.WithValue(ctx, "user", c.user)
 	req = req.WithContext(ctx)
 
 	req.Header.Set("Accept", strings.Join(c.accept, ", "))

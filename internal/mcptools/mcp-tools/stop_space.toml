@@ -1,8 +1,8 @@
 name = "stop_space"
-description = "Stop a running space to free up resources."
-keywords = ["stop", "space", "shutdown", "halt", "deactivate"]
+description = "Stop a running space to free up resources. The space still exists and can be started again later."
+keywords = ["stop", "shutdown", "halt", "deactivate", "pause"]
 
-[parameters.space_name]
+[parameters.name]
 type = "string"
 description = "Name of the space to stop"
 required = true

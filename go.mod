@@ -6,7 +6,7 @@ go 1.25.6
 
 //replace github.com/paularlott/cli => ../cli/
 
-//replace github.com/paularlott/mcp => ../mcp
+replace github.com/paularlott/mcp => ../mcp
 
 //replace github.com/paularlott/scriptling => ../scriptling/
 

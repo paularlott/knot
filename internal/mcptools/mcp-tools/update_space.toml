@@ -1,14 +1,14 @@
 name = "update_space"
 description = "Update properties of an existing space (description, shell, or name)."
 keywords = ["update", "space", "modify", "edit", "configure", "rename"]
-visibility = "on-demand"
+visibility = "discoverable"
 
-[parameters.space_name]
+[parameters.name]
 type = "string"
 description = "Name of the space to update"
 required = true
 
-[parameters.name]
+[parameters.new_name]
 type = "string"
 description = "New name for the space (to rename it)"
 required = false

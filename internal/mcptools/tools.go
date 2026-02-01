@@ -205,11 +205,69 @@ func GetMCPTools(visibility string) []mcp.MCPTool {
 			}
 		}
 
+		// Determine MCP visibility
+		mcpVisibility := mcp.ToolVisibilityNative
+		if tool.Metadata.Visibility == "discoverable" {
+			mcpVisibility = mcp.ToolVisibilityDiscoverable
+		}
+
 		tools = append(tools, mcp.MCPTool{
 			Name:        tool.Metadata.Name,
 			Description: tool.Metadata.Description,
 			InputSchema: inputSchema,
 			Keywords:    tool.Metadata.Keywords,
+			Visibility:  mcpVisibility,
+		})
+	}
+
+	return tools
+}
+
+// GetAllMCPTools returns all MCP tools with their Visibility field set appropriately
+func GetAllMCPTools() []mcp.MCPTool {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	tools := make([]mcp.MCPTool, 0, len(registry))
+	for _, tool := range registry {
+		// Build input schema from metadata
+		inputSchema := map[string]interface{}{
+			"type":       "object",
+			"properties": map[string]interface{}{},
+		}
+
+		if len(tool.Metadata.Parameters) > 0 {
+			properties := make(map[string]interface{})
+			required := make([]string, 0)
+
+			for paramName, param := range tool.Metadata.Parameters {
+				properties[paramName] = map[string]interface{}{
+					"type":        param.Type,
+					"description": param.Description,
+				}
+				if param.Required {
+					required = append(required, paramName)
+				}
+			}
+
+			inputSchema["properties"] = properties
+			if len(required) > 0 {
+				inputSchema["required"] = required
+			}
+		}
+
+		// Determine MCP visibility
+		mcpVisibility := mcp.ToolVisibilityNative
+		if tool.Metadata.Visibility == "discoverable" {
+			mcpVisibility = mcp.ToolVisibilityDiscoverable
+		}
+
+		tools = append(tools, mcp.MCPTool{
+			Name:        tool.Metadata.Name,
+			Description: tool.Metadata.Description,
+			InputSchema: inputSchema,
+			Keywords:    tool.Metadata.Keywords,
+			Visibility:  mcpVisibility,
 		})
 	}
 
