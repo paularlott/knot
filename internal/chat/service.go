@@ -2,37 +2,21 @@ package chat
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/openai"
-	"github.com/paularlott/knot/internal/util/rest"
+	"github.com/paularlott/mcp"
 
 	"github.com/paularlott/knot/internal/log"
-	"github.com/paularlott/mcp"
-)
-
-const (
-	CONTENT_BATCH_SIZE = 150                    // characters - smaller for more responsive streaming
-	CONTENT_BATCH_TIME = 100 * time.Millisecond // shorter time for more responsive streaming
 )
 
 type Service struct {
 	config       config.ChatConfig
 	openaiClient *openai.Client
-}
-
-type streamState struct {
-	inThinking    bool
-	inReasoning   bool
-	contentBuffer strings.Builder // Content batching
-	lastFlushTime time.Time
 }
 
 func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, error) {
@@ -57,152 +41,6 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, erro
 
 func (s *Service) GetOpenAIClient() *openai.Client {
 	return s.openaiClient
-}
-
-func (s *Service) streamChat(ctx context.Context, messages []ChatMessage, user *model.User, w http.ResponseWriter, r *http.Request) error {
-	logger := log.WithGroup("chat")
-
-	if len(messages) == 0 {
-		logger.Warn("No messages provided", "user_id", user.Id)
-		return nil
-	}
-
-	// Check if client disconnected before starting
-	select {
-	case <-ctx.Done():
-		logger.Trace("Client disconnected before processing", "user_id", user.Id)
-		return ctx.Err()
-	default:
-	}
-
-	sseWriter := rest.NewStreamWriter(w, r)
-	defer sseWriter.Close()
-
-	// Initialize stream state for content batching
-	streamState := &streamState{
-		lastFlushTime: time.Now(),
-	}
-
-	// Convert messages to OpenAI format
-	openAIMessages := s.convertMessagesToOpenAI(messages)
-
-	// Create request
-	req := openai.ChatCompletionRequest{
-		Model:           s.config.Model,
-		Messages:        openAIMessages,
-		MaxTokens:       s.config.MaxTokens,
-		Temperature:     s.config.Temperature,
-		ReasoningEffort: s.config.ReasoningEffort,
-	}
-
-	logger.Debug("Starting chat completion with tools", "user_id", user.Id, "model", s.config.Model)
-
-	// The MCPServerContext middleware has already set up the context with:
-	// - MCP server
-	// - Script tools provider
-	// - Force on-demand mode
-	// Just add the tool handler for web chat
-	chatCtx := ctx
-	chatCtx = openai.WithToolHandler(chatCtx, NewWebChatToolHandler(sseWriter))
-
-	// Start streaming
-	stream := s.openaiClient.StreamChatCompletion(chatCtx, req)
-	for stream.Next() {
-		response := stream.Current()
-
-		// Process OpenAI response
-		if len(response.Choices) > 0 {
-			choice := response.Choices[0]
-
-			if choice.Delta.Content != "" {
-				if err := s.handleContentStream(choice.Delta.Content, streamState, sseWriter); err != nil {
-					return err
-				}
-			}
-
-			if choice.Delta.ReasoningContent != "" {
-				if err := s.handleReasoningStream(choice.Delta.ReasoningContent, streamState, sseWriter); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	// Check for errors after the loop - much cleaner!
-	if err := stream.Err(); err != nil {
-		logger.Error("Chat completion with tools failed", "error", err, "user_id", user.Id)
-		sseWriter.WriteChunk(SSEEvent{
-			Type: "error",
-			Data: map[string]string{"error": s.formatUserFriendlyError(err)},
-		})
-		return err
-	}
-
-	// Stream completed successfully
-	return s.handleDoneStream(streamState, sseWriter)
-}
-
-func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []openai.Message {
-	openAIMessages := make([]openai.Message, 0, len(messages)+1)
-
-	// Check if first message is a system message
-	hasSystemMessage := len(messages) > 0 && messages[0].Role == "system"
-
-	// Add system prompt only if no system message is present
-	if !hasSystemMessage && s.config.SystemPrompt != "" {
-		systemMessage := openai.Message{
-			Role: "system",
-		}
-		systemMessage.SetContentAsString(s.config.SystemPrompt)
-		openAIMessages = append(openAIMessages, systemMessage)
-	}
-
-	// Convert all messages (including any system messages from input)
-	for _, msg := range messages {
-		openAIMessage := openai.Message{
-			Role:       msg.Role,
-			ToolCalls:  msg.ToolCalls,
-			ToolCallID: msg.ToolCallID,
-		}
-		openAIMessage.SetContentAsString(msg.Content)
-		openAIMessages = append(openAIMessages, openAIMessage)
-	}
-
-	return openAIMessages
-}
-
-func (s *Service) HandleChatStream(w http.ResponseWriter, r *http.Request) {
-	logger := log.WithGroup("chat")
-
-	user := r.Context().Value("user").(*model.User)
-	if user == nil {
-		logger.Error("User not found in context")
-		rest.WriteResponse(http.StatusUnauthorized, w, r, map[string]string{
-			"error": "User not found",
-		})
-		return
-	}
-
-	var req ChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logger.WithError(err).Error("Failed to decode request body")
-		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
-			"error": "Invalid request body",
-		})
-		return
-	}
-
-	if len(req.Messages) == 0 {
-		logger.Error("No messages provided in request")
-		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
-			"error": "No messages provided",
-		})
-		return
-	}
-
-	logger.Debug("Starting chat stream", "user_id", user.Id, "message_count", len(req.Messages))
-
-	s.streamChat(r.Context(), req.Messages, user, w, r)
 }
 
 // ChatCompletion performs a non-streaming chat completion
@@ -255,172 +93,38 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 	}, nil
 }
 
-// ChatCompletionResponse represents the response from non-streaming chat completion
-type ChatCompletionResponse struct {
-	Content string `json:"content"`
-}
+func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []openai.Message {
+	openAIMessages := make([]openai.Message, 0, len(messages)+1)
 
-// HandleChatCompletion handles non-streaming chat completion requests
-func (s *Service) HandleChatCompletion(w http.ResponseWriter, r *http.Request) {
-	logger := log.WithGroup("chat")
+	// Check if first message is a system message
+	hasSystemMessage := len(messages) > 0 && messages[0].Role == "system"
 
-	user := r.Context().Value("user").(*model.User)
-	if user == nil {
-		logger.Error("User not found in context")
-		rest.WriteResponse(http.StatusUnauthorized, w, r, map[string]string{
-			"error": "User not found",
-		})
-		return
-	}
-
-	var req ChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		logger.WithError(err).Error("Failed to decode request body")
-		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
-			"error": "Invalid request body",
-		})
-		return
-	}
-
-	if len(req.Messages) == 0 {
-		logger.Error("No messages provided in request")
-		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
-			"error": "No messages provided",
-		})
-		return
-	}
-
-	logger.Debug("Starting chat completion", "user_id", user.Id, "message_count", len(req.Messages))
-
-	response, err := s.ChatCompletion(r.Context(), req.Messages, user)
-	if err != nil {
-		logger.Error("Chat completion failed", "error", err, "user_id", user.Id)
-		rest.WriteResponse(http.StatusInternalServerError, w, r, map[string]string{
-			"error": s.formatUserFriendlyError(err),
-		})
-		return
-	}
-
-	rest.WriteResponse(http.StatusOK, w, r, response)
-}
-
-// formatUserFriendlyError converts technical errors to user-friendly messages
-func (s *Service) formatUserFriendlyError(err error) string {
-	if err == nil {
-		return "An unknown error occurred"
-	}
-
-	originalErr := err.Error()
-	errStr := strings.ToLower(originalErr)
-
-	// Check for common error patterns and provide user-friendly messages
-	switch {
-	case strings.Contains(errStr, "context deadline exceeded") || strings.Contains(errStr, "timeout"):
-		return "The AI service is taking too long to respond. Please try again."
-	case strings.Contains(errStr, "connection refused") || strings.Contains(errStr, "no such host"):
-		return "Unable to connect to the AI service. Please check your connection and try again."
-	case strings.Contains(errStr, "rate limit") || strings.Contains(errStr, "429"):
-		return "The AI service is currently busy. Please wait a moment and try again."
-	case strings.Contains(errStr, "401") || strings.Contains(errStr, "unauthorized"):
-		return "AI service authentication failed. Please contact your administrator."
-	case strings.Contains(errStr, "does not support tools"):
-		return "The AI model does not support tool calling. Please use a model that supports tools."
-	case strings.Contains(errStr, "400") || strings.Contains(errStr, "bad request"):
-		return "Invalid request sent to AI service. Please try rephrasing your message."
-	case strings.Contains(errStr, "500") || strings.Contains(errStr, "internal server error"):
-		return "The AI service encountered an internal error. Please try again later."
-	case strings.Contains(originalErr, "MCP"): // Keep original case for MCP errors
-		return originalErr
-	default:
-		return "The AI service is currently unavailable. Please try again in a moment."
-	}
-}
-
-// addToContentBuffer adds content to the buffer and flushes if needed
-func (s *Service) addToContentBuffer(content string, streamState *streamState, sseWriter *rest.StreamWriter) error {
-	if content == "" {
-		return nil
-	}
-
-	streamState.contentBuffer.WriteString(content)
-
-	// Flush if buffer is large enough or maximum time has passed
-	if streamState.contentBuffer.Len() >= CONTENT_BATCH_SIZE || time.Since(streamState.lastFlushTime) >= CONTENT_BATCH_TIME {
-		return s.flushContentBuffer(streamState, sseWriter)
-	}
-
-	return nil
-}
-
-// flushContentBuffer sends accumulated content to the client
-func (s *Service) flushContentBuffer(streamState *streamState, sseWriter *rest.StreamWriter) error {
-	if streamState.contentBuffer.Len() == 0 {
-		return nil
-	}
-
-	content := streamState.contentBuffer.String()
-	streamState.contentBuffer.Reset()
-	streamState.lastFlushTime = time.Now()
-
-	return sseWriter.WriteChunk(SSEEvent{
-		Type: "content",
-		Data: content,
-	})
-}
-
-// Stream handler methods for different event types
-
-func (s *Service) handleContentStream(content string, streamState *streamState, sseWriter *rest.StreamWriter) error {
-	if streamState.inReasoning {
-		// Wrap content in think tags for frontend processing
-		if err := s.addToContentBuffer("</think>", streamState, sseWriter); err != nil {
-			return err
+	// Add system prompt only if no system message is present
+	if !hasSystemMessage && s.config.SystemPrompt != "" {
+		systemMessage := openai.Message{
+			Role: "system",
 		}
-		streamState.inReasoning = false
+		systemMessage.SetContentAsString(s.config.SystemPrompt)
+		openAIMessages = append(openAIMessages, systemMessage)
 	}
 
-	if content == "<think>" {
-		streamState.inThinking = true
-	} else if content == "</think>" {
-		streamState.inThinking = false
-	}
-
-	return s.addToContentBuffer(content, streamState, sseWriter)
-}
-
-func (s *Service) handleReasoningStream(content string, streamState *streamState, sseWriter *rest.StreamWriter) error {
-	if !streamState.inReasoning {
-		// Wrap reasoning content in think tags for frontend processing
-		if err := s.addToContentBuffer("<think>", streamState, sseWriter); err != nil {
-			return err
+	// Convert all messages (including any system messages from input)
+	for _, msg := range messages {
+		openAIMessage := openai.Message{
+			Role:       msg.Role,
+			ToolCalls:  msg.ToolCalls,
+			ToolCallID: msg.ToolCallID,
 		}
-		streamState.inReasoning = true
+		openAIMessage.SetContentAsString(msg.Content)
+		openAIMessages = append(openAIMessages, openAIMessage)
 	}
 
-	return s.addToContentBuffer(content, streamState, sseWriter)
+	return openAIMessages
 }
 
-func (s *Service) handleDoneStream(streamState *streamState, sseWriter *rest.StreamWriter) error {
-	// Flush any remaining content
-	if streamState.inReasoning {
-		if err := s.addToContentBuffer("</think>", streamState, sseWriter); err != nil {
-			return err
-		}
-		streamState.inReasoning = false
-	}
-	if err := s.flushContentBuffer(streamState, sseWriter); err != nil {
-		return err
-	}
-
-	return sseWriter.WriteChunk(SSEEvent{
-		Type: "done",
-		Data: nil,
-	})
-}
-
-// stripThinkTags removes </think>...</think> tags from content to prevent LLM template errors
+// stripThinkTags removes <think>...</think> tags from content to prevent LLM template errors
 func stripThinkTags(content string) string {
 	// Use regex to remove think tags and their content
-	re := regexp.MustCompile(`</think>[\s\S]*?</think>`)
+	re := regexp.MustCompile(`(?s)<think>.*?</think>`)
 	return strings.TrimSpace(re.ReplaceAllString(content, ""))
 }

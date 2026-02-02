@@ -10,16 +10,7 @@ type ChatMessage struct {
 	ToolCallID string            `json:"tool_call_id,omitempty"`
 }
 
-type ChatRequest struct {
-	Messages []ChatMessage `json:"messages"`
-}
-
-type ToolResult struct {
-	ToolCallID string `json:"tool_call_id"`
-	Content    string `json:"content"`
-}
-
-type SSEEvent struct {
-	Type string `json:"type"`
-	Data any    `json:"data"`
+// ChatCompletionResponse represents the response from non-streaming chat completion
+type ChatCompletionResponse struct {
+	Content string `json:"content"`
 }

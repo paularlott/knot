@@ -30,10 +30,10 @@ func getSkillsTool(ctx context.Context, user *model.User) *mcp.MCPTool {
 	// Check if user has any active skills
 	for _, skill := range response.Skills {
 		if skill.Active {
-			tool := mcp.NewTool("find_skill", "Access instructions, guides, workflows, and scripts for completing specific tasks. Search by topic (e.g., \"deploy\", \"git\", \"testing\") to get step-by-step procedures with examples. Returns full content with relevance scores.",
+			tool := mcp.NewTool(ToolNameFindSkill, "Access instructions, guides, workflows, and scripts for completing specific tasks. Search by topic (e.g., \"deploy\", \"git\", \"testing\") to get step-by-step procedures with examples. Returns full content with relevance scores.",
 				mcp.String("name", "Find the exact skill by name (optional if query given)"),
 				mcp.String("query", "Find skills by name/description (optional if name given)"),
-			).Discoverable("skills", "knowledge", "workflows", "instructions", "guides", "documentation").ToMCPTool()
+			).ToMCPTool()
 			return &tool
 		}
 	}

@@ -19,9 +19,9 @@ tags:
       This API is authenticated using a bearer token. The token is passed in the Authorization header as a Bearer token.
 
       A token can be obtained by logging in with the login endpoint and providing a valid username and password, or by creating a token with the create token endpoint.
-  - name: Chat
+  - name: OpenAI
     description: |
-      Operations for AI chat functionality.
+      OpenAI-compatible endpoints for AI chat functionality.
   - name: Tokens
     description: |
       Operations for working with API tokens.
@@ -41,7 +41,101 @@ tags:
     description: |
       Operations for working with skills (knowledge base content).
 paths:
-  $ref: "./chat.yaml#/paths"
+  /v1/models:
+    get:
+      tags:
+        - OpenAI
+      summary: List Models
+      description: List the available AI models.
+      operationId: listModels
+      responses:
+        "200":
+          description: Successful response with model list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    example: "list"
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Model identifier
+                        created:
+                          type: integer
+                          description: Creation timestamp
+                        object:
+                          type: string
+                          example: "model"
+                        owned_by:
+                          type: string
+                          example: "knot"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
+  /v1/chat/completions:
+    post:
+      tags:
+        - OpenAI
+      summary: Chat Completions
+      description: Create a chat completion with streaming support and tool calling.
+      operationId: chatCompletions
+      parameters:
+        - name: X-Knot-Api-Version
+          in: header
+          required: false
+          schema:
+            type: string
+            default: "2025-03-10"
+          description: API version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                messages:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ChatMessage"
+                model:
+                  type: string
+                  description: Model to use (empty string uses default)
+                stream:
+                  type: boolean
+                  description: Whether to stream responses
+                  default: true
+                tools:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Tool"
+                  description: List of tools available to the model
+              required:
+                - messages
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream with tool status in comments
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
 
   /api/auth/using-totp:
     get:
@@ -3071,7 +3165,181 @@ components:
       type: http
       scheme: bearer
   schemas:
-    $ref: "./chat.yaml#/components/schemas"
+    error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system, tool]
+          description: The role of the message sender
+        content:
+          type: string
+          description: The content of the message
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+          description: Tool calls made in this message
+        tool_call_id:
+          type: string
+          description: ID of the tool call this message responds to
+
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the chat completion
+        object:
+          type: string
+          example: "chat.completion"
+        created:
+          type: integer
+          description: Creation timestamp
+        model:
+          type: string
+          description: Model used for the completion
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Choice"
+        usage:
+          $ref: "#/components/schemas/Usage"
+
+    Choice:
+      type: object
+      properties:
+        index:
+          type: integer
+          description: Index of the choice
+        message:
+          $ref: "#/components/schemas/Message"
+        delta:
+          $ref: "#/components/schemas/Delta"
+        finish_reason:
+          type: string
+          description: Reason for completion (stop, length, tool_calls, etc.)
+
+    Message:
+      type: object
+      properties:
+        role:
+          type: string
+          description: Message role
+        content:
+          type: string
+          description: Message content
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+
+    Delta:
+      type: object
+      properties:
+        role:
+          type: string
+          description: Message role
+        content:
+          type: string
+          description: Message content delta
+        reasoning_content:
+          type: string
+          description: Reasoning/thinking content
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeltaToolCall"
+
+    ToolCall:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the tool call
+        type:
+          type: string
+          description: Type of the tool call (function)
+        function:
+          $ref: "#/components/schemas/ToolCallFunction"
+        index:
+          type: integer
+          description: Index of the tool call
+
+    DeltaToolCall:
+      type: object
+      properties:
+        index:
+          type: integer
+          description: Index of the tool call
+        id:
+          type: string
+          description: Unique identifier for the tool call
+        type:
+          type: string
+          description: Type of the tool call
+        function:
+          $ref: "#/components/schemas/DeltaFunction"
+
+    ToolCallFunction:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the function to call
+        arguments:
+          type: object
+          additionalProperties: true
+          description: Arguments to pass to the function
+
+    DeltaFunction:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the function
+        arguments:
+          type: string
+          description: Partial arguments string (streamed)
+
+    Tool:
+      type: object
+      properties:
+        type:
+          type: string
+          example: "function"
+        function:
+          type: object
+          properties:
+            name:
+              type: string
+              description: Function name
+            description:
+              type: string
+              description: Function description
+            parameters:
+              type: object
+              description: JSON Schema for function parameters
+
+    Usage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+          description: Number of tokens in the prompt
+        completion_tokens:
+          type: integer
+          description: Number of tokens in the completion
+        total_tokens:
+          type: integer
+          description: Total number of tokens
 
     AuthLoginRequest:
       type: object
@@ -4314,15 +4582,6 @@ components:
         - password
         - email
         - roles
-
-    error:
-      type: object
-      required:
-        - error
-      properties:
-        error:
-          type: string
-          description: The error message.
 
     UserInfo:
       type: object

@@ -334,7 +334,7 @@ window.chatComponent = function () {
         let content = msg.fragments ? msg.fragments.content.trim() : msg.content.trim();
 
         // Strip any think tags that might exist in the content to prevent LLM template errors
-        content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        content = content.replace(/<\/?think[^>]*>/gi, '').trim();
 
         const historyMsg = {
           role: msg.role,
@@ -372,7 +372,7 @@ window.chatComponent = function () {
               timestamp: msg.timestamp
             });
           }
-          
+
           // Add another assistant message with the actual response content after tool results
           // ONLY if there's actual content (not empty)
           if (content) {
@@ -423,10 +423,14 @@ window.chatComponent = function () {
 
       try {
         const messageHistory = this.prepareMessageHistory();
-        const response = await fetch('/api/chat/stream', {
+        const response = await fetch('/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: messageHistory }),
+          body: JSON.stringify({
+            messages: messageHistory,
+            stream: true,
+            model: ''  // Server will use default model
+          }),
           signal: this.abortController.signal
         });
 
@@ -434,7 +438,7 @@ window.chatComponent = function () {
           throw new Error('Failed to send message');
         }
 
-        await this.processStream(response);
+        await this.processOpenAIStream(response);
 
       } catch (error) {
         if (error.name !== 'AbortError') {
@@ -451,14 +455,17 @@ window.chatComponent = function () {
       }
     },
 
-    async processStream(response) {
+    async processOpenAIStream(response) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       const assistantMessage = this.messages[this.messages.length - 1];
 
-      let contentBuffer = '';
       let inThinking = false;
       let codeBlockOpen = false; // Track if we're inside a code block
+
+      // Accumulator for streaming tool calls
+      let toolCallAccumulator = {};
+      let currentToolCallIndex = 0;
 
       try {
         while (true) {
@@ -471,63 +478,134 @@ window.chatComponent = function () {
           const lines = chunk.split('\n');
 
           for (const line of lines) {
+            // Parse SSE comment events for tool status (:tool_start: and :tool_end:)
+            if (line.startsWith(':')) {
+              try {
+                const colonIndex = line.indexOf(':', 1); // Find second colon
+                if (colonIndex > 1) {
+                  const eventType = line.substring(1, colonIndex);
+                  const eventData = line.substring(colonIndex + 1);
+                  const event = JSON.parse(eventData);
+
+                  if (eventType === 'tool_start') {
+                    // Tool execution started - add to tool calls
+                    if (!assistantMessage.toolCalls) {
+                      assistantMessage.toolCalls = [];
+                    }
+                    // Check if tool call already exists
+                    const existingCall = assistantMessage.toolCalls.find(tc => tc.id === event.tool_call_id);
+                    if (!existingCall) {
+                      // Convert arguments to JSON string for display
+                      const argsStr = (event.arguments && Object.keys(event.arguments).length > 0)
+                        ? JSON.stringify(event.arguments, null, 2)
+                        : '{}';
+                      assistantMessage.toolCalls.push({
+                        id: event.tool_call_id,
+                        type: 'function',
+                        function: {
+                          name: event.tool_name,
+                          arguments: argsStr
+                        }
+                      });
+                    }
+                  } else if (eventType === 'tool_end') {
+                    // Tool execution completed - add result
+                    if (!assistantMessage.fragments.toolResults) {
+                      assistantMessage.fragments.toolResults = [];
+                    }
+                    assistantMessage.fragments.toolResults.push({
+                      tool_call_id: event.tool_call_id,
+                      tool_name: event.tool_name,
+                      result: event.result || ''
+                    });
+                  }
+                  this.scrollToBottom();
+                }
+              } catch (e) {
+                // Skip malformed comment events
+              }
+              continue;
+            }
+
+            // Parse standard OpenAI SSE data lines
             if (!line.startsWith('data: ')) continue;
 
             const data = line.slice(6);
             if (data === '[DONE]') continue;
 
             try {
-              const event = JSON.parse(data);
+              const openaiResponse = JSON.parse(data);
 
-              if (event.type === 'content') {
-                contentBuffer += event.data;
+              // Extract content from OpenAI response
+              if (openaiResponse.choices && openaiResponse.choices[0]) {
+                const choice = openaiResponse.choices[0];
+                const delta = choice.delta;
 
-                // Process thinking tags
-                while (contentBuffer.length > 0) {
-                  if (!inThinking && contentBuffer.includes('<think>')) {
-                    const idx = contentBuffer.indexOf('<think>');
-                    if (idx > 0) {
-                      const beforeThink = contentBuffer.substring(0, idx);
-                      assistantMessage.fragments.content += beforeThink;
-                      // Track code blocks in the content before thinking
-                      codeBlockOpen = this.trackCodeBlocks(beforeThink, codeBlockOpen);
-                    }
-                    contentBuffer = contentBuffer.substring(idx + 7);
+                // Handle reasoning content (thinking) - support both field names
+                const reasoningContent = delta.reasoning_content || delta.reasoning;
+                if (reasoningContent) {
+                  if (!inThinking) {
                     inThinking = true;
-                  } else if (inThinking && contentBuffer.includes('</think>')) {
-                    const idx = contentBuffer.indexOf('</think>');
-                    assistantMessage.fragments.thinking += contentBuffer.substring(0, idx);
-                    contentBuffer = contentBuffer.substring(idx + 8);
+                  }
+                  assistantMessage.fragments.thinking += reasoningContent;
+                }
+
+                // Handle regular content
+                if (delta.content) {
+                  if (inThinking) {
                     inThinking = false;
-                  } else {
-                    // Add remaining content to appropriate fragment
-                    if (inThinking) {
-                      assistantMessage.fragments.thinking += contentBuffer;
-                    } else {
-                      assistantMessage.fragments.content += contentBuffer;
-                      // Track code blocks in regular content
-                      codeBlockOpen = this.trackCodeBlocks(contentBuffer, codeBlockOpen);
+                  }
+                  assistantMessage.fragments.content += delta.content;
+                  codeBlockOpen = this.trackCodeBlocks(delta.content, codeBlockOpen);
+                }
+
+                // Handle tool calls in OpenAI format
+                if (delta.tool_calls) {
+                  if (!assistantMessage.toolCalls) {
+                    assistantMessage.toolCalls = [];
+                  }
+
+                  for (const tc of delta.tool_calls) {
+                    if (tc.index !== undefined) {
+                      currentToolCallIndex = tc.index;
                     }
-                    contentBuffer = '';
+                    if (!toolCallAccumulator[currentToolCallIndex]) {
+                      toolCallAccumulator[currentToolCallIndex] = {
+                        id: tc.id,
+                        type: tc.type || 'function',
+                        function: {
+                          name: tc.function?.name || '',
+                          arguments: ''
+                        }
+                      };
+                      // Add to tool calls if not already present
+                      if (!assistantMessage.toolCalls.find(existing => existing.id === tc.id)) {
+                        assistantMessage.toolCalls.push(toolCallAccumulator[currentToolCallIndex]);
+                      }
+                    }
+                    // Accumulate function arguments
+                    if (tc.function?.arguments) {
+                      toolCallAccumulator[currentToolCallIndex].function.arguments += tc.function.arguments;
+                    }
                   }
                 }
-                // Auto-scroll after content updates
-                this.scrollToBottom();
-              } else if (event.type === 'tool_calls') {
-                if (!assistantMessage.toolCalls) {
-                  assistantMessage.toolCalls = [];
-                }
 
-                // Add new tool calls, avoiding duplicates based on ID
-                const existingIds = new Set(assistantMessage.toolCalls.map(tc => tc.id));
-                const newToolCalls = event.data.filter(tc => !existingIds.has(tc.id));
-                assistantMessage.toolCalls.push(...newToolCalls);
-              } else if (event.type === 'tool_result') {
-                assistantMessage.fragments.toolResults.push(event.data);
-              } else if (event.type === 'error') {
-                assistantMessage.fragments.content = '⚠️ ' + (event.data.error || 'An error occurred');
-                assistantMessage.hasError = true;
+                // Handle finish_reason to detect completion
+                if (choice.finish_reason === 'tool_calls' && assistantMessage.toolCalls) {
+                  // Parse accumulated arguments as JSON
+                  for (const tc of assistantMessage.toolCalls) {
+                    if (typeof tc.function.arguments === 'string' && tc.function.arguments) {
+                      try {
+                        tc.function.arguments = JSON.parse(tc.function.arguments);
+                      } catch (e) {
+                        // Keep as string if not valid JSON
+                      }
+                    }
+                  }
+                }
               }
+
+              this.scrollToBottom();
             } catch (e) {
               // Skip malformed events
             }
@@ -555,7 +633,7 @@ window.chatComponent = function () {
 
     scrollToBottom() {
       if (this.userHasScrolled) return; // Don't auto-scroll if user has scrolled
-      
+
       this.$nextTick(() => {
         const container = this.$refs.messagesContainer;
         if (container) {
@@ -567,7 +645,7 @@ window.chatComponent = function () {
     handleScroll(event) {
       const container = event.target;
       const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
-      
+
       // If user scrolls up, disable auto-scroll
       if (!isAtBottom && this.isLoading) {
         this.userHasScrolled = true;
@@ -623,14 +701,14 @@ window.chatComponent = function () {
 
     shouldNavigateHistory(direction, textarea) {
       const { selectionStart, selectionEnd, value } = textarea;
-      
+
       // Only navigate if cursor is at a single position (no text selected)
       if (selectionStart !== selectionEnd) return false;
-      
+
       const lines = value.split('\n');
       const beforeCursor = value.substring(0, selectionStart);
       const currentLineIndex = beforeCursor.split('\n').length - 1;
-      
+
       if (direction === 'up') {
         // Navigate history only if cursor is on the first line
         return currentLineIndex === 0;
@@ -638,7 +716,7 @@ window.chatComponent = function () {
         // Navigate history only if cursor is on the last line
         return currentLineIndex === lines.length - 1;
       }
-      
+
       return false;
     },
 

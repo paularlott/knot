@@ -147,3 +147,28 @@ func (sw *StreamWriter) Close() error {
 	sw.closed = true
 	return nil
 }
+
+// WriteEvent writes an SSE comment event in the format ":eventType:jsonData\n\n"
+// This is used for tool status notifications that standard OpenAI clients ignore
+func (sw *StreamWriter) WriteEvent(eventType string, data any) error {
+	if sw.closed {
+		return errors.New("stream writer is closed")
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event data: %w", err)
+	}
+
+	// Write as SSE comment: :eventType:jsonData
+	_, err = fmt.Fprintf(sw.w, ":%s:%s\n\n", eventType, jsonData)
+	if err != nil {
+		return fmt.Errorf("failed to write SSE event: %w", err)
+	}
+
+	if sw.flusher != nil {
+		sw.flusher.Flush()
+	}
+
+	return nil
+}
