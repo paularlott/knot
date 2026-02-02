@@ -461,6 +461,8 @@ window.chatComponent = function () {
       const assistantMessage = this.messages[this.messages.length - 1];
 
       let inThinking = false;
+      let inThink = false; // Track if we're inside a think tag
+      let tagBuffer = ''; // Buffer for accumulating partial think tags
       let codeBlockOpen = false; // Track if we're inside a code block
 
       // Accumulator for streaming tool calls
@@ -552,11 +554,46 @@ window.chatComponent = function () {
 
                 // Handle regular content
                 if (delta.content) {
-                  if (inThinking) {
-                    inThinking = false;
+                  // Process content for think tags (used by some models like falcon)
+                  // Models may send tags split across chunks, so use a tag buffer
+                  tagBuffer += delta.content;
+
+                  while (tagBuffer) {
+                    if (inThink) {
+                      // Look for closing tag: </think>
+                      const closeIndex = tagBuffer.indexOf('</think>');
+                      if (closeIndex === -1) {
+                        // No closing tag yet, all remaining content is thinking
+                        assistantMessage.fragments.thinking += tagBuffer;
+                        tagBuffer = '';
+                        break;
+                      } else {
+                        // Found closing tag - content before it is thinking
+                        assistantMessage.fragments.thinking += tagBuffer.substring(0, closeIndex);
+                        tagBuffer = tagBuffer.substring(closeIndex + 8); // Skip closing tag
+                        inThink = false;
+                        inThinking = false;
+                        // Continue processing to check for more content
+                      }
+                    } else {
+                      // Look for opening tag: <think>
+                      const openIndex = tagBuffer.indexOf('<think>');
+                      if (openIndex === -1) {
+                        // No opening tag, all content is regular
+                        assistantMessage.fragments.content += tagBuffer;
+                        codeBlockOpen = this.trackCodeBlocks(tagBuffer, codeBlockOpen);
+                        tagBuffer = '';
+                        break;
+                      } else {
+                        // Found opening tag - content before is regular, after starts thinking
+                        assistantMessage.fragments.content += tagBuffer.substring(0, openIndex);
+                        tagBuffer = tagBuffer.substring(openIndex + 7); // Skip opening tag
+                        inThink = true;
+                        inThinking = true;
+                        // Continue processing to check for closing tag or more content
+                      }
+                    }
                   }
-                  assistantMessage.fragments.content += delta.content;
-                  codeBlockOpen = this.trackCodeBlocks(delta.content, codeBlockOpen);
                 }
 
                 // Handle tool calls in OpenAI format
