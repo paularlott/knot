@@ -825,9 +825,6 @@ var ServerCmd = &cli.Command{
 			}
 			openAIClient = chatService.GetOpenAIClient()
 
-			// Set OpenAI client for scriptling environments
-			service.SetOpenAIClient(openAIClient)
-
 			// Set chat service for MCP tools
 			if mcpServer != nil {
 				internal_mcp.SetChatService(chatService)

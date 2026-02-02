@@ -4,17 +4,8 @@ import (
 	"testing"
 
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/openai"
 )
-
-// Test data structures
-func createTestUser() *model.User {
-	return &model.User{
-		Id:       "test-user-123",
-		Username: "testuser",
-	}
-}
 
 func createTestConfig() config.ChatConfig {
 	return config.ChatConfig{

@@ -4,12 +4,10 @@ import (
 	"context"
 	"io"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/openai"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/logger"
 	"github.com/paularlott/scriptling"
@@ -20,17 +18,8 @@ import (
 )
 
 var (
-	openaiClient     *openai.Client
-	openaiClientOnce sync.Once
-	libraryFetcher   func(string) (string, error)
+	libraryFetcher func(string) (string, error)
 )
-
-// SetOpenAIClient sets the global OpenAI client for scriptling environments
-func SetOpenAIClient(client *openai.Client) {
-	openaiClientOnce.Do(func() {
-		openaiClient = client
-	})
-}
 
 // registerBaseLibraries registers common libraries shared across all environments
 // customLogger is optional - pass nil to use the default logger

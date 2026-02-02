@@ -12,7 +12,6 @@ import (
 
 type ApiClient struct {
 	httpClient rest.RESTClient
-	spaceId    string
 }
 
 func NewClient(baseURL string, token string, insecureSkipVerify bool) (*ApiClient, error) {

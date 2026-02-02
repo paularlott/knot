@@ -36,15 +36,6 @@ func checkPermission(next http.HandlerFunc, permission uint16) http.HandlerFunc 
 	})
 }
 
-func checkPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
-	cfg := config.GetServerConfig()
-	if cfg.LeafNode {
-		return next
-	}
-
-	return checkPermission(next, model.PermissionManageTemplates)
-}
-
 func checkPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
 	cfg := config.GetServerConfig()
 	if cfg.LeafNode {

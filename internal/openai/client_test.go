@@ -7,26 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/paularlott/mcp"
 )
-
-// Mock MCP Server for testing
-type mockMCPServer struct {
-	tools []mcp.MCPTool
-}
-
-func (m *mockMCPServer) ListTools() []mcp.MCPTool {
-	return m.tools
-}
-
-func (m *mockMCPServer) CallTool(ctx context.Context, name string, args map[string]any) (*mcp.ToolResponse, error) {
-	return &mcp.ToolResponse{
-		Content: []mcp.ToolContent{
-			{Type: "text", Text: "Tool executed successfully"},
-		},
-	}, nil
-}
 
 func TestNew(t *testing.T) {
 	tests := []struct {
