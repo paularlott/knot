@@ -8,7 +8,7 @@ go 1.25.6
 
 replace github.com/paularlott/mcp => ../mcp
 
-//replace github.com/paularlott/scriptling => ../scriptling/
+replace github.com/paularlott/scriptling => ../scriptling/
 
 require (
 	github.com/BurntSushi/toml v1.6.0
@@ -26,7 +26,7 @@ require (
 	github.com/paularlott/gossip v0.12.0
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.9.9
-	github.com/paularlott/scriptling v0.0.0-20260131111734-ac836288d38b
+	github.com/paularlott/scriptling v0.0.0-20260202174455-d99dd6b23586
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/vmihailenco/msgpack/v5 v5.4.1

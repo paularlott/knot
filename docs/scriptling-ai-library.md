@@ -4,14 +4,20 @@ The `knot.ai` library provides AI completion functionality for scriptling script
 
 ## Available Functions
 
-| Function | Description |
-|----------|-------------|
-| `completion(messages)` | Get an AI completion from a list of messages |
-| `response_create(input, model=None, instructions=None, previous_response_id=None, background=False)` | Create an AI response |
-| `response_get(id)` | Get the status and result of a response |
-| `response_wait(id, timeout=300)` | Wait for a response to complete |
-| `response_cancel(id)` | Cancel an in-progress response |
-| `response_delete(id)` | Delete a response |
+| Function                                                                                              | Description                                                      |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `completion(messages, tools=None)`                                                                    | Get an AI completion from a list of messages with optional tools |
+| `response_create(input, instructions=None, previous_response_id=None, background=False)`               | Create an AI response (uses server-configured model)              |
+| `response_get(id)`                                                                                    | Get the status and result of a response                          |
+| `response_wait(id, timeout=300)`                                                                     | Wait for a response to complete                                  |
+| `response_cancel(id)`                                                                                | Cancel an in-progress response                                   |
+| `response_delete(id)`                                                                                | Delete a response                                                |
+
+## Available Classes
+
+| Class      | Description                                       |
+| ---------- | ------------------------------------------------- |
+| `Client()` | Client wrapper for use with `scriptling.ai.agent` |
 
 ## Usage
 
@@ -23,29 +29,40 @@ messages = [
     {"role": "user", "content": "What spaces do I have and what's their status?"}
 ]
 response = knot.ai.completion(messages)
-print(response)
+print(response.choices[0].message.content)
 ```
 
 ## Functions
 
-### completion(messages)
+### completion(messages, tools=None)
 
-Get an AI completion from a list of messages. The AI will automatically have access to all MCP tools and can use them during the conversation.
+Get an AI completion from a list of messages. When no tools are provided, the AI will automatically have access to all MCP tools and can use them during the conversation. When tools are provided, server-side tool injection is skipped.
 
 **Parameters:**
 
 - `messages` (list): List of message objects, each containing:
   - `role` (string): Message role ("system", "user", "assistant", or "tool")
   - `content` (string): Message content
+  - `tool_calls` (list, optional): Tool calls for assistant messages
+  - `tool_call_id` (string, optional): Tool call ID for tool response messages
+- `tools` (list, optional): List of tool definitions from `ToolRegistry.build()`. When provided, server-side tool injection is skipped.
 
 **Returns:**
 
-- `string`: The AI's response content
+- `dict`: OpenAI-compatible response object with:
+  - `choices` (list): List of choices, each containing:
+    - `message` (dict): The assistant's message with `role`, `content`, and optionally `tool_calls`
+  - `id`, `model`, `usage`, etc.
 
 **System Messages:**
 
 - If you include a `system` role message in your messages, it will be used as the system prompt
 - If no `system` message is provided, the server's configured system prompt will be used automatically
+
+**Model Configuration:**
+
+- The AI model is always configured server-side via `[server.chat] model` in `.knot.toml`
+- Any model specified in the request is ignored and the server-configured model is used
 
 **Example:**
 
@@ -57,7 +74,7 @@ messages = [
     {"role": "user", "content": "What is the capital of France?"}
 ]
 response = knot.ai.completion(messages)
-print(response)  # "The capital of France is Paris."
+print(response.choices[0].message.content)  # "The capital of France is Paris."
 
 # With custom system prompt
 messages = [
@@ -65,29 +82,29 @@ messages = [
     {"role": "user", "content": "What is the capital of France?"}
 ]
 response = knot.ai.completion(messages)
-print(response)  # Uses your custom system prompt
+print(response.choices[0].message.content)
 
 # Example with automatic tool usage
 messages = [
     {"role": "user", "content": "Check what spaces I have and start any that are stopped"}
 ]
 response = knot.ai.completion(messages)
-print(response)
-# AI might respond: "I found 3 spaces. 'dev-space' was stopped so I started it for you.
-# The other two ('web-space' and 'test-space') are already running."
+print(response.choices[0].message.content)
+# AI might respond: "I found 3 spaces. 'dev-space' was stopped so I started it for you."
 ```
 
-### response_create(input, model=None, instructions=None, previous_response_id=None, background=False)
+### response_create(input, instructions=None, previous_response_id=None, background=False)
 
 Create an AI response. By default, processes synchronously and returns the full response. Set `background=True` for async processing.
 
 **Parameters:**
 
 - `input` (string, dict, or list): The input for the AI response. Can be a simple string, a structured dict, or a list of items
-- `model` (string, optional): The AI model to use (if not specified, uses server default)
 - `instructions` (string, optional): System (or developer) message inserted into the model's context. When using with previous_response_id, instructions from the previous response will NOT be carried over, making it simple to swap out system messages in new responses
 - `previous_response_id` (string, optional): ID of a previous response to continue from. The conversation history will be included, but instructions will not carry forward
 - `background` (bool, optional): If `True`, process asynchronously and return just the response_id. If `False` (default), process synchronously and return the full response
+
+> **Note:** The AI model is always configured server-side (via `[server.chat] model` in `.knot.toml`). Any model specified in the request is ignored and the server-configured model is used.
 
 **Returns:**
 
@@ -238,6 +255,21 @@ import knot.ai
 knot.ai.response_delete(response_id)
 print("Response deleted")
 ```
+
+## Server Configuration
+
+The AI model is configured server-side in the `.knot.toml` configuration file:
+
+```toml
+[server.chat]
+    enabled = true
+    openai_api_key = "your-api-key"
+    openai_base_url = "https://api.openai.com/v1"
+    model = "gpt-4o"          # The model to use for all AI completions
+    system_prompt = "You are a helpful assistant."
+```
+
+**Important:** All AI functions (`completion`, `response_create`, `Client.completion`) use the server-configured model. Any model parameter passed in client code is ignored and the server-configured model is always used.
 
 ## Implementation Details
 
@@ -402,18 +434,93 @@ def chat_conversation():
     # First turn
     messages.append({"role": "user", "content": "What is Python?"})
     response = knot.ai.completion(messages)
-    print("AI:", response)
-    messages.append({"role": "assistant", "content": response})
+    print("AI:", response.choices[0].message.content)
+    messages.append({"role": "assistant", "content": response.choices[0].message.content})
 
     # Second turn (context is preserved)
     messages.append({"role": "user", "content": "What are its main use cases?"})
     response = knot.ai.completion(messages)
-    print("AI:", response)
+    print("AI:", response.choices[0].message.content)
 
 chat_conversation()
 ```
+
+## Client Class
+
+### knot.ai.Client()
+
+A client wrapper that adapts `knot.ai.completion()` to the interface expected by `scriptling.ai.agent`. This allows you to use the standard scriptling agent library with Knot's AI backend.
+
+The Client class implements the interface required by `scriptling.ai.agent`:
+
+- `set_tools(schemas)` - Set tool schemas (called automatically by the agent)
+- `completion(model, messages)` - Call knot.ai.completion with the messages and any configured tools. The `model` parameter is present for API compatibility but is ignored - the server-configured model is always used.
+
+**Basic Usage:**
+
+```python
+import knot.ai as ai
+import scriptling.ai as sai
+import scriptling.ai.agent as agent
+
+# Define tools
+def greet(args):
+    return f"Hello, {args.get('name', 'World')}!"
+
+def add_numbers(args):
+    return f"The sum is {args['a'] + args['b']}"
+
+tools = sai.ToolRegistry()
+tools.add("greet", "Greet someone by name", {"name": "string?"}, greet)
+tools.add("add", "Add two numbers", {"a": "number", "b": "number"}, add_numbers)
+
+# Create client wrapper and agent
+client = ai.Client()
+bot = agent.Agent(
+    client=client,
+    tools=tools,
+    system_prompt="You are a helpful assistant. Use tools when needed."
+)
+
+# Trigger the agent
+response = bot.trigger("Please greet Paul", max_iterations=5)
+print(response.content)
+```
+
+**Interactive Mode:**
+
+```python
+import knot.ai as ai
+import scriptling.ai as sai
+import scriptling.ai.agent.interact as interact
+
+# Create tools
+tools = sai.ToolRegistry()
+tools.add("search", "Search for information", {"query": "string"}, lambda args: f"Results for: {args['query']}")
+
+# Create agent with interactive capability
+client = ai.Client()
+bot = interact.Agent(
+    client=client,
+    tools=tools,
+    system_prompt="You are a helpful search assistant."
+)
+
+# Start interactive session
+bot.interact()
+```
+
+**Why Use knot.ai.Client?**
+
+- Uses Knot's built-in AI infrastructure (no separate API keys needed)
+- Automatic integration with Knot's tool system
+- Works with the standard `scriptling.ai.agent` library
+- Consistent API across different environments
 
 ## Related Libraries
 
 - **knot.mcp** - For direct MCP tool access (list_tools, call_tool, tool_search, execute_tool)
 - **knot.space** - For space management functions
+- **scriptling.ai** - Core AI library with ToolRegistry
+- **scriptling.ai.agent** - Agentic AI loop with automatic tool execution
+- **scriptling.ai.agent.interact** - Interactive CLI agent with colored output

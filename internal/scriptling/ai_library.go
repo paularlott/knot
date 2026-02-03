@@ -2,32 +2,17 @@ package scriptling
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
+	mcpopenai "github.com/paularlott/mcp/openai"
 	scriptlib "github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/errors"
 	"github.com/paularlott/scriptling/object"
 )
-
-// ChatMessage represents a chat message
-type ChatMessage struct {
-	Role      string `json:"role"`
-	Content   string `json:"content"`
-	Timestamp int64  `json:"timestamp,omitempty"`
-}
-
-// ChatCompletionRequest represents a chat completion request
-type ChatCompletionRequest struct {
-	Messages []ChatMessage `json:"messages"`
-}
-
-// ChatCompletionResponse represents a chat completion response
-type ChatCompletionResponse struct {
-	Content string `json:"content"`
-}
 
 // CreateResponseRequest represents a request to create a response
 type CreateResponseRequest struct {
@@ -57,17 +42,83 @@ type GetResponseResponse struct {
 	Error      string                 `json:"error,omitempty"`
 }
 
+// getClientClass returns the Client class for wrapping knot.ai.completion
+// The class is created with a closure over the completion function
+func getClientClass(completionFn func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object) *object.Class {
+	cb := object.NewClassBuilder("Client")
+
+	cb.MethodWithHelp("__init__", func(self *object.Instance, ctx context.Context) {
+		self.Fields["_tools"] = &object.Null{}
+	}, "__init__() - Initialize the client wrapper")
+
+	cb.MethodWithHelp("set_tools", func(self *object.Instance, ctx context.Context, schemas object.Object) {
+		self.Fields["_tools"] = schemas
+	}, "set_tools(schemas) - Set the tool schemas (required by scriptling.ai.agent)")
+
+	cb.MethodWithHelp("completion", func(self *object.Instance, ctx context.Context, args ...object.Object) object.Object {
+		if len(args) < 2 {
+			return &object.Error{Message: "completion() requires model and messages arguments"}
+		}
+
+		// First arg is model (ignored - knot uses server config)
+		// Second arg is messages
+		messages := args[1]
+
+		tools := self.Fields["_tools"]
+		var kwargsMap map[string]object.Object
+		if _, isNull := tools.(*object.Null); !isNull {
+			kwargsMap = map[string]object.Object{"tools": tools}
+		}
+		return completionFn(ctx, object.NewKwargs(kwargsMap), messages)
+	}, `completion(model, messages) - Call knot.ai.completion with the given messages.
+
+Args:
+    model: Model name (ignored - knot uses server-configured model).
+    messages: List of message dicts with 'role' and 'content' keys.
+
+Returns:
+    Response object with choices[0].message structure.`)
+
+	return cb.Build()
+}
+
 // GetAILibrary returns the AI helper library for scriptling (local/remote environments)
 func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
 	builder := object.NewLibraryBuilder("knot.ai", "Knot AI completion functions")
 
-	builder.FunctionWithHelp("completion", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return aiCompletion(ctx, client, userId, args...)
-	}, "completion(messages) - Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys.")
+	// Create the completion function that we'll use for both the library function and Client class
+	completionFn := func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		return aiCompletion(ctx, client, userId, kwargs, args...)
+	}
+
+	builder.FunctionWithHelp("completion", completionFn, `completion(messages, tools=None) - Get AI completion from a list of messages.
+
+Parameters:
+  messages (list): List of message dicts with 'role' and 'content' keys.
+                   For tool results, include 'tool_call_id' key.
+  tools (list): Optional list of tool definitions from ToolRegistry.build().
+                When tools are provided, server-side tool injection is skipped.
+
+Returns:
+  dict: OpenAI-compatible response with 'choices' containing messages.
+        If tool_calls are present, they will be in choices[0].message.tool_calls.
+
+Example:
+  # Simple completion
+  response = ai.completion([{"role": "user", "content": "Hello"}])
+  print(response.choices[0].message.content)
+
+  # With tools
+  tools = ai.ToolRegistry()
+  tools.add("my_tool", "Description", {"arg": "string"}, handler)
+  response = ai.completion(messages, tools=tools.build())
+  if response.choices[0].message.tool_calls:
+      # Handle tool calls
+      pass`)
 
 	builder.FunctionWithHelp("response_create", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return responseCreate(ctx, client, userId, kwargs, args...)
-	}, "response_create(input, model=None, instructions=None, previous_response_id=None, background=False) - Create AI response. Returns response dict by default, or response_id if background=True.")
+	}, "response_create(input, instructions=None, previous_response_id=None, background=False) - Create AI response. Returns response dict by default, or response_id if background=True.")
 
 	builder.FunctionWithHelp("response_get", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return responseGet(ctx, client, args...)
@@ -85,12 +136,15 @@ func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
 		return responseDelete(ctx, client, args...)
 	}, "response_delete(id) - Delete response.")
 
+	// Add the Client class for use with scriptling.ai.agent
+	builder.Constant("Client", getClientClass(completionFn))
+
 	return builder.Build()
 }
 
-// aiCompletion gets AI completion via API
-func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
-	if err := errors.ExactArgs(args, 1); err != nil {
+// aiCompletion gets AI completion via /v1/chat/completions API
+func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs object.Kwargs, args ...object.Object) object.Object {
+	if err := errors.MinArgs(args, 1); err != nil {
 		return err
 	}
 
@@ -103,40 +157,70 @@ func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId strin
 		return errors.ParameterError("messages", err)
 	}
 
-	messages := make([]ChatMessage, 0, len(messagesList))
+	// Convert messages to OpenAI format
+	messages := make([]mcpopenai.Message, 0, len(messagesList))
 	for i, msgObj := range messagesList {
 		msgDict, err := msgObj.AsDict()
 		if err != nil {
-			return errors.NewError("message %d must be a dict with 'role' and 'content' keys", i)
+			return errors.NewError("message %d must be a dict", i)
 		}
 
-		role, content := "", ""
+		msg := mcpopenai.Message{}
 		for key, val := range msgDict {
-			if key == "role" {
+			switch key {
+			case "role":
 				if roleStr, err := val.AsString(); err == nil {
-					role = roleStr
+					msg.Role = roleStr
 				}
-			} else if key == "content" {
+			case "content":
 				if contentStr, err := val.AsString(); err == nil {
-					content = contentStr
+					msg.SetContentAsString(contentStr)
+				}
+			case "tool_call_id":
+				if idStr, err := val.AsString(); err == nil {
+					msg.ToolCallID = idStr
+				}
+			case "tool_calls":
+				// Convert tool_calls from script to Go
+				toolCallsList, err := val.AsList()
+				if err == nil {
+					for _, tcObj := range toolCallsList {
+						// Use JSON marshaling to convert
+						tcBytes, _ := json.Marshal(scriptlib.ToGo(tcObj))
+						var tc mcpopenai.ToolCall
+						json.Unmarshal(tcBytes, &tc)
+						msg.ToolCalls = append(msg.ToolCalls, tc)
+					}
 				}
 			}
 		}
 
-		if role == "" || content == "" {
-			return errors.NewError("message %d missing 'role' or 'content' key", i)
+		if msg.Role == "" {
+			return errors.NewError("message %d missing 'role' key", i)
 		}
 
-		messages = append(messages, ChatMessage{
-			Role:      role,
-			Content:   content,
-			Timestamp: time.Now().Unix(),
-		})
+		messages = append(messages, msg)
 	}
 
 	// Create request
-	req := ChatCompletionRequest{
+	req := mcpopenai.ChatCompletionRequest{
 		Messages: messages,
+	}
+
+	// Check for tools in kwargs
+	if toolsObj := kwargs.Get("tools"); toolsObj != nil {
+		toolsList, err := toolsObj.AsList()
+		if err == nil && len(toolsList) > 0 {
+			tools := make([]mcpopenai.Tool, 0, len(toolsList))
+			for _, toolObj := range toolsList {
+				// Convert each tool definition
+				toolBytes, _ := json.Marshal(scriptlib.ToGo(toolObj))
+				var tool mcpopenai.Tool
+				json.Unmarshal(toolBytes, &tool)
+				tools = append(tools, tool)
+			}
+			req.Tools = tools
+		}
 	}
 
 	// Create independent context for AI completion to prevent script timeout from canceling AI operations
@@ -148,12 +232,11 @@ func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId strin
 		aiCtx = context.WithValue(aiCtx, "user", user)
 	}
 
-	// Call API - the server will handle tool calling via MCP server integration
-	// Use DoJSON because chat completion requires JSON (not msgpack)
-	var response ChatCompletionResponse
-	_, apiErr := client.DoJSON(aiCtx, "POST", "api/chat/completion", req, &response)
+	// Call the OpenAI-compatible endpoint
+	// When tools are provided in the request, the server will skip its own tool injection
+	var response mcpopenai.ChatCompletionResponse
+	_, apiErr := client.DoJSON(aiCtx, "POST", "v1/chat/completions", req, &response)
 	if apiErr != nil {
-		// Provide more helpful error message
 		errMsg := fmt.Sprintf("AI completion failed: %v", apiErr)
 		if strings.Contains(apiErr.Error(), "timeout") || strings.Contains(apiErr.Error(), "deadline exceeded") {
 			errMsg += "\nNote: Make sure the server has AI chat enabled with valid OpenAI credentials"
@@ -163,7 +246,8 @@ func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId strin
 		return errors.NewError("%s", errMsg)
 	}
 
-	return &object.String{Value: response.Content}
+	// Convert response to scriptling object
+	return scriptlib.FromGo(response)
 }
 
 // responseCreate creates a new async response via API
@@ -184,12 +268,6 @@ func responseCreate(ctx context.Context, client *apiclient.ApiClient, userId str
 	req.Input = scriptlib.ToGo(args[0])
 
 	// Get optional parameters from kwargs
-	if model, err := kwargs.GetString("model", ""); err != nil {
-		return err
-	} else if model != "" {
-		req.Model = model
-	}
-
 	if instructions, err := kwargs.GetString("instructions", ""); err != nil {
 		return err
 	} else if instructions != "" {

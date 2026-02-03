@@ -105,13 +105,8 @@ func (s *Service) HandleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	user := userI.(*model.User)
 
-	// Validate request
-	if req.Model == "" {
-		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
-			"error": "model is required",
-		})
-		return
-	}
+	// Always use the system-configured model, ignoring any client-provided model
+	req.Model = s.model
 
 	// Create response object
 	response := model.NewResponse(user.Id, "", DefaultResponseTTL)

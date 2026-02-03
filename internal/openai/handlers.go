@@ -14,12 +14,14 @@ import (
 type Service struct {
 	client       *Client
 	systemPrompt string
+	model        string
 }
 
-func NewService(client *Client, systemPrompt string) *Service {
+func NewService(client *Client, systemPrompt string, model string) *Service {
 	return &Service{
 		client:       client,
 		systemPrompt: systemPrompt,
+		model:        model,
 	}
 }
 
@@ -52,6 +54,9 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Always use the system-configured model, ignoring any client-provided model
+	req.Model = s.model
+
 	// Strip existing system messages and add our system prompt
 	req.Messages = s.replaceSystemPrompt(req.Messages)
 
@@ -81,11 +86,9 @@ func (s *Service) handleNonStreamingChatCompletion(ctx context.Context, w http.R
 // handleStreamingChatCompletion handles streaming chat completions
 func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
 	// Context is already configured by MCPServerContext middleware with script tools provider
-	// Just add the tool handler for web chat to send tool status events
 	streamWriter := rest.NewStreamWriter(w, r)
 	defer streamWriter.Close()
 
-	// Set up tool handler to send tool status events as SSE comments
 	toolHandler := mcpopenai.NewSSEToolHandler(streamWriter, func(err error, eventType, toolName string) {
 		log.Debug("Failed to write tool event", "error", err, "event", eventType, "tool", toolName)
 	})

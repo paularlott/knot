@@ -41,7 +41,7 @@ func TestHandlers_GetModels(t *testing.T) {
 	}
 
 	// Create service and test the models endpoint directly
-	service := NewService(client, "")
+	service := NewService(client, "", "test-model")
 	req := httptest.NewRequest("GET", "/v1/models", nil)
 	w := httptest.NewRecorder()
 
@@ -101,7 +101,7 @@ func TestHandlers_ChatCompletions_NonStreaming(t *testing.T) {
 	}
 
 	// Create service and test chat completions directly
-	service := NewService(client, "")
+	service := NewService(client, "", "test-model")
 
 	// Create request body
 	message := Message{Role: "user"}

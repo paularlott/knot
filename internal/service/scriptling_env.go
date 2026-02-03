@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/logger"
 	"github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/extlibs"
+	"github.com/paularlott/scriptling/extlibs/agent"
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/stdlib"
@@ -29,6 +30,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	extlibs.RegisterSecretsLibrary(env)
 	extlibs.RegisterHTMLParserLibrary(env)
 	extlibs.RegisterWaitForLibrary(env)
+	extlibs.RegisterYAMLLibrary(env)
 	if customLogger != nil {
 		extlibs.RegisterLoggingLibrary(env, customLogger)
 	} else {
@@ -36,6 +38,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	}
 
 	scriptlingai.Register(env)
+	agent.Register(env)
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
 }
@@ -44,7 +47,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]string) {
 	if client != nil && userId != "" {
 		env.RegisterLibrary(knotscriptling.GetSpacesLibrary(client, userId))
-		env.RegisterLibrary(knotscriptling.GetAILibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetAILibrary(client, userId)) // includes knot.ai.Client class
 		env.RegisterLibrary(knotscriptling.GetUsersLibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetGroupsLibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetRolesLibrary(client, userId))
@@ -60,6 +63,7 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 }
 
 // registerFullSystemLibraries registers system access libraries (subprocess, os, pathlib, scriptling.threads, scriptling.console, scriptling.glob)
+// and interactive agent support
 func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterSubprocessLibrary(env)
 	extlibs.RegisterThreadsLibrary(env) // scriptling.threads
@@ -67,6 +71,7 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterOSLibrary(env, []string{})
 	extlibs.RegisterPathlibLibrary(env, []string{})
 	extlibs.RegisterGlobLibrary(env, []string{}) // scriptling.glob
+	agent.RegisterInteract(env)                   // scriptling.ai.agent.interact (extends Agent with interact())
 }
 
 // setupServerLibraryCallback sets up on-demand library loading from server

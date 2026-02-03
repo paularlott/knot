@@ -858,7 +858,7 @@ var ServerCmd = &cli.Command{
 				return internal_mcp.NewScriptToolsProvider(user)
 			}
 
-			openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt)
+			openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)
 			// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
 			routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetModels))))))
 			routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
