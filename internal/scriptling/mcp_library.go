@@ -24,6 +24,14 @@ func GetMCPToolsLibrary(client *apiclient.ApiClient, mcpParams map[string]string
 			return mcpGet(mcpParams, args...)
 		}, "get(name[, default]) - Get MCP parameter value with automatic type conversion")
 
+		builder.FunctionWithHelp("get_int", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			return mcpGetInt(mcpParams, args...)
+		}, "get_int(name[, default=0]) - Get MCP parameter value as an integer, handling None, empty strings, and whitespace")
+
+		builder.FunctionWithHelp("get_string", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+			return mcpGetString(mcpParams, args...)
+		}, "get_string(name[, default=\"\"]) - Get MCP parameter value as a trimmed string, handling None and whitespace")
+
 		builder.FunctionWithHelp("return_string", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 			return mcpReturnString(args...)
 		}, "return_string(value) - Return a string result and exit")
@@ -307,6 +315,87 @@ func mcpGet(mcpParams map[string]string, args ...object.Object) object.Object {
 
 	// Return as string (MCP parameters are always strings)
 	return &object.String{Value: value}
+}
+
+// mcpGetInt retrieves a parameter value as an integer with safe handling of None, empty strings, and whitespace
+func mcpGetInt(mcpParams map[string]string, args ...object.Object) object.Object {
+	if len(args) == 0 {
+		return &object.Integer{Value: 0}
+	}
+
+	name, err := args[0].AsString()
+	if err != nil {
+		return err
+	}
+
+	// Default value is 0
+	defaultValue := int64(0)
+	if len(args) == 2 {
+		if defaultInt, ok := args[1].(*object.Integer); ok {
+			defaultValue = defaultInt.Value
+		}
+	}
+
+	value, found := mcpParams[name]
+	if !found || value == "" {
+		return &object.Integer{Value: defaultValue}
+	}
+
+	// Try to parse as integer
+	var intValue int64
+	if _, err := fmt.Sscanf(value, "%d", &intValue); err != nil {
+		// If parsing fails, return default
+		return &object.Integer{Value: defaultValue}
+	}
+
+	return &object.Integer{Value: intValue}
+}
+
+// mcpGetString retrieves a parameter value as a trimmed string with safe handling of None and whitespace
+func mcpGetString(mcpParams map[string]string, args ...object.Object) object.Object {
+	if len(args) == 0 {
+		return &object.String{Value: ""}
+	}
+
+	name, err := args[0].AsString()
+	if err != nil {
+		return err
+	}
+
+	// Default value is empty string
+	defaultValue := ""
+	if len(args) == 2 {
+		if defaultStr, ok := args[1].(*object.String); ok {
+			defaultValue = defaultStr.Value
+		}
+	}
+
+	value, found := mcpParams[name]
+	if !found {
+		return &object.String{Value: defaultValue}
+	}
+
+	// Trim whitespace from the value
+	trimmedValue := value
+	if len(trimmedValue) > 0 {
+		// Simple trim of leading/trailing whitespace
+		start := 0
+		end := len(trimmedValue)
+		for start < end && (trimmedValue[start] == ' ' || trimmedValue[start] == '\t' || trimmedValue[start] == '\n' || trimmedValue[start] == '\r') {
+			start++
+		}
+		for end > start && (trimmedValue[end-1] == ' ' || trimmedValue[end-1] == '\t' || trimmedValue[end-1] == '\n' || trimmedValue[end-1] == '\r') {
+			end--
+		}
+		trimmedValue = trimmedValue[start:end]
+	}
+
+	// If after trimming it's empty, return default
+	if trimmedValue == "" {
+		return &object.String{Value: defaultValue}
+	}
+
+	return &object.String{Value: trimmedValue}
 }
 
 // mcpReturnString returns a string value (script should exit after this)

@@ -7,6 +7,8 @@ The `knot.mcp` library provides MCP (Model Context Protocol) functionality for s
 | Function | Description |
 |----------|-------------|
 | `get(name[, default])` | Get MCP parameter value with automatic type conversion |
+| `get_int(name[, default=0])` | Get MCP parameter value as an integer, handling None, empty strings, and whitespace |
+| `get_string(name[, default=""])` | Get MCP parameter value as a trimmed string, handling None and whitespace |
 | `return_string(value)` | Return a string result |
 | `return_object(value)` | Return a structured object as JSON |
 | `return_toon(value)` | Return a value encoded as toon |
@@ -57,6 +59,63 @@ items = knot.mcp.get("items", [])
 
 # Object (auto-parsed from JSON)
 config = knot.mcp.get("config", {})
+```
+
+---
+
+### get_int(name[, default=0])
+
+Get a parameter value as an integer with safe handling of None, empty strings, and whitespace.
+
+**Parameters:**
+
+- `name` (string): The parameter name
+- `default` (int, optional): Default value if parameter is not provided, is None, empty, or whitespace (defaults to 0)
+
+**Returns:**
+
+- The parameter value as an integer
+- Returns `default` if parameter is missing, None, empty, or whitespace
+
+**Example:**
+
+```python
+import knot.mcp
+
+# Get integer parameters with automatic handling of empty/None values
+project_id = knot.mcp.get_int("project_id", 0)  # Returns 0 if empty or None
+limit = knot.mcp.get_int("limit", 100)           # Returns 100 if empty or None
+offset = knot.mcp.get_int("offset", 0)           # Returns 0 if empty or None
+```
+
+---
+
+### get_string(name[, default=""])
+
+Get a parameter value as a trimmed string with safe handling of None and whitespace.
+
+**Parameters:**
+
+- `name` (string): The parameter name
+- `default` (string, optional): Default value if parameter is not provided, is None, empty, or whitespace-only (defaults to "")
+
+**Returns:**
+
+- The parameter value as a trimmed string (whitespace automatically removed)
+- Returns `default` if parameter is missing, None, empty, or whitespace-only
+
+**Example:**
+
+```python
+import knot.mcp
+
+# Get string parameters with automatic trimming and default handling
+status = knot.mcp.get_string("status", "pending")  # Returns "pending" if empty/None/whitespace
+format = knot.mcp.get_string("format", "json")     # Returns "json" if empty/None/whitespace
+query = knot.mcp.get_string("query", "")           # Returns "" if empty/None/whitespace
+
+# Whitespace is automatically trimmed
+name = knot.mcp.get_string("name", "unknown")  # "  hello  " becomes "hello"
 ```
 
 ---
