@@ -44,7 +44,8 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 }
 
 // registerKnotLibraries registers all Knot-specific libraries for scriptling environments
-func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]string) {
+// If mcpLib is provided, it will be registered instead of creating a new one via GetMCPToolsLibrary
+func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]string, mcpLib *knotscriptling.MCPLibrary) {
 	if client != nil && userId != "" {
 		env.RegisterLibrary(knotscriptling.GetSpacesLibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetAILibrary(client, userId)) // includes knot.ai.Client class
@@ -55,10 +56,14 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 		env.RegisterLibrary(knotscriptling.GetVarsLibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetVolumesLibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetSkillsLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetPermissionLibrary(client))
 	}
 	if client != nil {
-		env.RegisterLibrary(knotscriptling.GetMCPToolsLibrary(client, mcpParams))
-		env.RegisterLibrary(knotscriptling.GetPermissionLibrary(client, userId))
+		if mcpLib != nil {
+			env.RegisterLibrary(mcpLib.GetLibrary())
+		} else {
+			env.RegisterLibrary(knotscriptling.GetMCPToolsLibrary(client, mcpParams))
+		}
 	}
 }
 
@@ -71,7 +76,7 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterOSLibrary(env, []string{})
 	extlibs.RegisterPathlibLibrary(env, []string{})
 	extlibs.RegisterGlobLibrary(env, []string{}) // scriptling.glob
-	agent.RegisterInteract(env)                   // scriptling.ai.agent.interact (extends Agent with interact())
+	agent.RegisterInteract(env)                  // scriptling.ai.agent.interact (extends Agent with interact())
 }
 
 // setupServerLibraryCallback sets up on-demand library loading from server
@@ -108,7 +113,7 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 	registerBaseLibraries(env, nil)
 	registerFullSystemLibraries(env)
 
-	registerKnotLibraries(env, client, userId, nil)
+	registerKnotLibraries(env, client, userId, nil, nil)
 
 	// Local-first library loading: try filesystem, then server
 	env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
@@ -137,13 +142,16 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 // Libraries: stdlib, requests, secrets, htmlparser, knot.space, knot.ai, knot.mcp, knot.user, knot.group, knot.role, knot.template, knot.vars, knot.volume, knot.permission
 // On-demand loading: Enabled - fetches from server only
 // Output: Captured and returned
-func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]string, user *model.User) (*scriptling.Scriptling, error) {
+// Returns the environment and the MCP library instance for result retrieval
+func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]string, user *model.User) (*scriptling.Scriptling, *knotscriptling.MCPLibrary, error) {
 	env := scriptling.New()
 	env.EnableOutputCapture()
 	registerBaseLibraries(env, nil)
 
+	var mcpLib *knotscriptling.MCPLibrary
 	if client != nil && user != nil {
-		registerKnotLibraries(env, client, user.Id, mcpParams)
+		mcpLib = knotscriptling.GetMCPLibraryInstance(client, mcpParams)
+		registerKnotLibraries(env, client, user.Id, mcpParams, mcpLib)
 
 		// Set up library callback with user context for MuxClient
 		env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
@@ -159,7 +167,7 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]strin
 		})
 	}
 
-	return env, nil
+	return env, mcpLib, nil
 }
 
 // NewRemoteScriptlingEnv creates a scriptling environment for remote execution in spaces
@@ -177,7 +185,7 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 	registerBaseLibraries(env, customLogger)
 	registerFullSystemLibraries(env)
 
-	registerKnotLibraries(env, client, userId, nil)
+	registerKnotLibraries(env, client, userId, nil, nil)
 
 	setupServerLibraryCallback(env, client)
 	extlibs.RegisterSysLibrary(env, argv)
@@ -196,7 +204,7 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	registerBaseLibraries(env, customLogger)
 	registerFullSystemLibraries(env)
 
-	registerKnotLibraries(env, client, userId, nil)
+	registerKnotLibraries(env, client, userId, nil, nil)
 
 	setupServerLibraryCallback(env, client)
 	extlibs.RegisterSysLibrary(env, argv)

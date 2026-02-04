@@ -17,7 +17,7 @@ func TestMCPScriptlingEnv_CannotImportSubprocess(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestMCPScriptlingEnv_CannotImportOS(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestMCPScriptlingEnv_CannotImportPathlib(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestMCPScriptlingEnv_CannotImportThreads(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestMCPScriptlingEnv_CannotImportSys(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestMCPScriptlingEnv_CanImportSafeLibraries(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	env, err := NewMCPScriptlingEnv(nil, nil, user)
+	env, _, err := NewMCPScriptlingEnv(nil, nil, user)
 	if err != nil {
 		t.Fatalf("NewMCPScriptlingEnv() failed: %v", err)
 	}

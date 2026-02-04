@@ -15,9 +15,48 @@ import (
 	"github.com/paularlott/scriptling/object"
 )
 
+type mcpLibrary struct {
+	result *string
+}
+
+// MCPLibrary is the exported type for accessing the result
+type MCPLibrary struct {
+	*mcpLibrary
+	lib *object.Library
+}
+
+// GetLibrary returns the scriptling library
+func (m *MCPLibrary) GetLibrary() *object.Library {
+	return m.lib
+}
+
+// GetResult returns the stored result from mcp.return_* functions
+func (m *MCPLibrary) GetResult() *string {
+	if m.mcpLibrary == nil {
+		return nil
+	}
+	return m.mcpLibrary.result
+}
+
+// GetMCPLibraryInstance creates a new MCP library instance that can be used to retrieve results
+func GetMCPLibraryInstance(client *apiclient.ApiClient, mcpParams map[string]string) *MCPLibrary {
+	m := &mcpLibrary{}
+	lib := buildMCPLibrary(m, client, mcpParams)
+	return &MCPLibrary{
+		mcpLibrary: m,
+		lib:        lib,
+	}
+}
+
 // GetMCPToolsLibrary returns the MCP tools library for scriptling (used in local/remote environments)
 // This provides only tool access functions that communicate with the server via API calls
 func GetMCPToolsLibrary(client *apiclient.ApiClient, mcpParams map[string]string) *object.Library {
+	m := &mcpLibrary{}
+	return buildMCPLibrary(m, client, mcpParams)
+}
+
+// buildMCPLibrary builds the MCP library with the given instance
+func buildMCPLibrary(m *mcpLibrary, client *apiclient.ApiClient, mcpParams map[string]string) *object.Library {
 	builder := object.NewLibraryBuilder("knot.mcp", "Knot MCP tool functions")
 
 	if mcpParams != nil {
@@ -103,7 +142,7 @@ Example:
   filters = mcp.get_list("filters")      # Already array → unchanged`)
 
 		builder.FunctionWithHelp("return_string", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-			return mcpReturnString(args...)
+			return m.mcpReturnString(args...)
 		}, `return_string(text) - Return a string result from the tool and stop execution
 
 Sets the tool's return value to the given string and stops script execution.
@@ -114,7 +153,7 @@ Example:
   # Code here will not execute`)
 
 		builder.FunctionWithHelp("return_object", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-			return mcpReturnObject(args...)
+			return m.mcpReturnObject(args...)
 		}, `return_object(obj) - Return an object as JSON from the tool and stop execution
 
 Serializes the object to JSON and sets it as the tool's return value.
@@ -125,7 +164,7 @@ Example:
   # Code here will not execute`)
 
 		builder.FunctionWithHelp("return_toon", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-			return mcpReturnToon(args...)
+			return m.mcpReturnToon(args...)
 		}, `return_toon(obj) - Return an object encoded as TOON from the tool and stop execution
 
 Serializes the object to TOON format and sets it as the tool's return value.
@@ -603,24 +642,24 @@ func mcpGetString(mcpParams map[string]string, args ...object.Object) object.Obj
 }
 
 // mcpReturnString returns a string value and stops script execution
-func mcpReturnString(args ...object.Object) object.Object {
+func (m *mcpLibrary) mcpReturnString(args ...object.Object) object.Object {
 	if len(args) == 0 {
 		return &object.Exception{Message: "SystemExit: 0", ExceptionType: "SystemExit"}
 	}
 
 	// Use CoerceString to allow integers and other types to be converted
-	_, err := args[0].CoerceString()
+	strVal, err := args[0].CoerceString()
 	if err != nil {
 		return err
 	}
 
-	// Use SystemExit to cleanly stop execution
-	// SystemExit is handled specially by scriptling - it doesn't wrap in "Uncaught exception:"
+	// Store result and use SystemExit to cleanly stop execution
+	m.result = &strVal
 	return &object.Exception{Message: "SystemExit: 0", ExceptionType: "SystemExit"}
 }
 
 // mcpReturnObject returns an object as JSON and stops script execution
-func mcpReturnObject(args ...object.Object) object.Object {
+func (m *mcpLibrary) mcpReturnObject(args ...object.Object) object.Object {
 	if len(args) == 0 {
 		return &object.Exception{Message: "SystemExit: 0", ExceptionType: "SystemExit"}
 	}
@@ -629,18 +668,19 @@ func mcpReturnObject(args ...object.Object) object.Object {
 	goObj := scriptlib.ToGo(args[0])
 
 	// Marshal to JSON
-	_, err := json.Marshal(goObj)
+	jsonBytes, err := json.Marshal(goObj)
 	if err != nil {
 		return &object.Error{Message: fmt.Sprintf("Failed to serialize object to JSON: %v", err)}
 	}
 
-	// Use SystemExit to cleanly stop execution
-	// SystemExit is handled specially by scriptling - it doesn't wrap in "Uncaught exception:"
+	// Store result
+	jsonStr := string(jsonBytes)
+	m.result = &jsonStr
 	return &object.Exception{Message: "SystemExit: 0", ExceptionType: "SystemExit"}
 }
 
 // mcpReturnToon returns a value encoded as toon and stops script execution
-func mcpReturnToon(args ...object.Object) object.Object {
+func (m *mcpLibrary) mcpReturnToon(args ...object.Object) object.Object {
 	if len(args) == 0 {
 		return &object.Exception{Message: "SystemExit: 0", ExceptionType: "SystemExit"}
 	}
@@ -648,13 +688,14 @@ func mcpReturnToon(args ...object.Object) object.Object {
 	// Convert to Go object
 	goObj := scriptlib.ToGo(args[0])
 
-	_, err := mcptoon.Encode(goObj)
+	toonBytes, err := mcptoon.Encode(goObj)
 	if err != nil {
 		return &object.Error{Message: fmt.Sprintf("Failed to encode to TOON: %v", err)}
 	}
 
-	// Use SystemExit to cleanly stop execution
-	// SystemExit is handled specially by scriptling - it doesn't wrap in "Uncaught exception:"
+	// Store result
+	toonStr := string(toonBytes)
+	m.result = &toonStr
 	return &object.Exception{Message: "SystemExit: 0", ExceptionType: "SystemExit"}
 }
 

@@ -8,4 +8,4 @@ shell = knot.mcp.get_string("shell", "bash")
 
 space_id = knot.space.create(name, template_name, description=description, shell=shell)
 
-knot.mcp.return_object({"status": True, "space_id": space_id})
+knot.mcp.return_string(f"Space '{name}' created successfully with ID: {space_id}")
