@@ -1,17 +1,17 @@
 import knot.space
 import knot.mcp
 
-space_name = knot.mcp.get("name")
-new_name = knot.mcp.get("new_name", None)
-description = knot.mcp.get("description", None)
-shell = knot.mcp.get("shell", None)
+space_name = knot.mcp.get_string("name")
+new_name = knot.mcp.get_string("new_name", "")
+description = knot.mcp.get_string("description", "")
+shell = knot.mcp.get_string("shell", "")
 
 kwargs = {}
-if new_name is not None:
+if new_name:
     kwargs["name"] = new_name
-if description is not None:
+if description:
     kwargs["description"] = description
-if shell is not None:
+if shell:
     kwargs["shell"] = shell
 
 success = knot.space.update(space_name, **kwargs)

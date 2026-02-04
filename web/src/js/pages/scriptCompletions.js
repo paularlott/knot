@@ -168,10 +168,34 @@ const scriptLibraries = [
     description: "Knot MCP tool functions - parameter access and tool calling",
     functions: [
       {
-        name: "get",
-        signature: "get(name, default=None)",
-        description: "Get MCP parameter value with automatic type conversion",
-        returns: "any - Parameter value or default",
+        name: "get_string",
+        signature: "get_string(name, default=\"\")",
+        description: "Get MCP parameter value as a trimmed string, handling None and whitespace",
+        returns: "str - Parameter value as trimmed string or default",
+      },
+      {
+        name: "get_int",
+        signature: "get_int(name, default=0)",
+        description: "Get MCP parameter value as an integer, handling None, empty strings, and whitespace",
+        returns: "int - Parameter value as integer or default",
+      },
+      {
+        name: "get_float",
+        signature: "get_float(name, default=0.0)",
+        description: "Get MCP parameter value as a float, handling None, empty strings, and whitespace",
+        returns: "float - Parameter value as float or default",
+      },
+      {
+        name: "get_bool",
+        signature: "get_bool(name, default=False)",
+        description: "Get MCP parameter value as a boolean, handling None, empty strings, and various string representations",
+        returns: "bool - Parameter value as boolean or default",
+      },
+      {
+        name: "get_list",
+        signature: "get_list(name, default=[])",
+        description: "Get MCP parameter value as a list, handling comma-separated strings or arrays",
+        returns: "list - Parameter value as list or default",
       },
       {
         name: "return_string",
@@ -184,6 +208,12 @@ const scriptLibraries = [
         signature: "return_object(value)",
         description: "Return a structured object as JSON and exit",
         returns: "str - JSON string representation",
+      },
+      {
+        name: "return_toon",
+        signature: "return_toon(value)",
+        description: "Return a value encoded as toon (compact serialization) and exit",
+        returns: "str - Toon-encoded value",
       },
       {
         name: "return_error",
@@ -205,16 +235,14 @@ const scriptLibraries = [
       },
       {
         name: "tool_search",
-        signature: "tool_search(query)",
-        description:
-          "Search for tools by keyword. Returns list of matching tools",
+        signature: "tool_search(query, max_results=10)",
+        description: "Search for tools by keyword. Returns list of matching tools",
         returns: "list - List of matching tool dicts",
       },
       {
         name: "execute_tool",
         signature: "execute_tool(name, arguments)",
-        description:
-          "Execute a discovered tool. Use full name for namespaced tools",
+        description: "Execute a discovered tool. Use full name for namespaced tools",
         returns: "any - Tool response",
       },
     ],

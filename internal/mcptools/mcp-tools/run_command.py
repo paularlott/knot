@@ -1,11 +1,11 @@
 import knot.space
 import knot.mcp
 
-space_name = knot.mcp.get("name")
-command = knot.mcp.get("command")
-args = knot.mcp.get("arguments", [])
-timeout = knot.mcp.get("timeout", 30)
-workdir = knot.mcp.get("workdir", "")
+space_name = knot.mcp.get_string("name")
+command = knot.mcp.get_string("command")
+args = knot.mcp.get_list("arguments", [])
+timeout = knot.mcp.get_int("timeout", 30)
+workdir = knot.mcp.get_string("workdir", "")
 
 kwargs = {"args": args, "timeout": timeout}
 if workdir:

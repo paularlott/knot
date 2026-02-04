@@ -1,7 +1,7 @@
 import knot.space
 import knot.mcp
 
-space_name = knot.mcp.get("name")
+space_name = knot.mcp.get_string("name")
 success = knot.space.delete(space_name)
 
 if success:

@@ -2,12 +2,14 @@
 import knot.space
 import knot.mcp
 
-args = knot.mcp.get_args()
-knot.space.write_file(args['space_name'], args['file_path'], args['content'])
+space_name = knot.mcp.get_string("space_name")
+file_path = knot.mcp.get_string("file_path")
+content = knot.mcp.get_string("content")
+knot.space.write_file(space_name, file_path, content)
 
 knot.mcp.return_object({
-    'file_path': args['file_path'],
+    'file_path': file_path,
     'success': True,
-    'message': f"Successfully wrote to {args['file_path']}",
-    'bytes_written': len(args['content'])
+    'message': f"Successfully wrote to {file_path}",
+    'bytes_written': len(content)
 })

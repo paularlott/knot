@@ -20,9 +20,9 @@ When creating a script, set the `script_type` field:
 # Import the MCP helper library
 import knot.mcp
 
-# Access parameters (automatically handles env vars and JSON parsing)
-name = knot.mcp.get("name")
-greeting_type = knot.mcp.get("greeting_type", "hello")  # with default
+# Access parameters with type-safe functions
+name = knot.mcp.get_string("name")
+greeting_type = knot.mcp.get_string("greeting_type", "hello")  # with default
 
 # Do your work
 greeting = f"{greeting_type.capitalize()}, {name}!"
@@ -82,29 +82,27 @@ Assign groups to control which users can access the tool:
 
 ## Accessing Parameters
 
-The `knot.mcp` library handles all parameter access and type conversion:
+The `knot.mcp` library provides type-safe functions for accessing tool parameters:
 
 ```python
 import knot.mcp
 
 # String parameter
-name = knot.mcp.get("name")
+name = knot.mcp.get_string("name")
 
-# Number parameter (automatically converted)
-count = knot.mcp.get("count", 10)  # default: 10
+# Integer parameter
+count = knot.mcp.get_int("count", 10)  # default: 10
 
-# Boolean parameter (automatically converted)
-enabled = knot.mcp.get("enabled", False)
+# Float parameter
+rate = knot.mcp.get_float("rate", 1.5)  # default: 1.5
 
-# Array parameter (automatically parsed from JSON)
-headers = knot.mcp.get("headers", [])
+# Boolean parameter (handles various string representations)
+enabled = knot.mcp.get_bool("enabled", False)
+
+# List parameter (handles comma-separated strings or JSON arrays)
+headers = knot.mcp.get_list("headers", [])
 for header in headers:
     print(f"Header: {header}")
-
-# Object parameter (automatically parsed from JSON)
-config = knot.mcp.get("config", {})
-retry = config.get('retry', False)
-max_attempts = config.get('max_attempts', 3)
 ```
 
 ## Returning Results
@@ -182,8 +180,8 @@ required = false
 import knot.mcp
 
 # Get parameters using MCP library
-name = knot.mcp.get("name")
-greeting_type = knot.mcp.get("greeting_type", "hello")
+name = knot.mcp.get_string("name")
+greeting_type = knot.mcp.get_string("greeting_type", "hello")
 
 # Build greeting
 greeting = f"{greeting_type.capitalize()}, {name}!"
@@ -201,7 +199,7 @@ Always validate required parameters:
 ```python
 import knot.mcp
 
-url = knot.mcp.get("url")
+url = knot.mcp.get_string("url")
 if not url:
     return knot.mcp.return_error("url parameter is required")
 ```
@@ -213,8 +211,8 @@ Use sensible defaults for optional parameters:
 ```python
 import knot.mcp
 
-timeout = knot.mcp.get("timeout", 30)
-method = knot.mcp.get("method", "GET")
+timeout = knot.mcp.get_int("timeout", 30)
+method = knot.mcp.get_string("method", "GET")
 ```
 
 ### 3. Handle Errors Gracefully
@@ -269,18 +267,21 @@ MCP tools are designed to be executed by AI assistants through the Model Context
 
 1. The AI assistant discovers your tool using `tool_search`
 2. The AI executes it using `execute_tool` with the appropriate parameters
-3. Your tool receives parameters via `knot.mcp.get()` and returns results
+3. Your tool receives parameters via `knot.mcp.get_string()`, `get_int()`, etc. and returns results
 
 This is the recommended way to test MCP tools as it exercises the full MCP integration.
 
 ## MCP Library Reference
 
-### Parameter Access
+### Parameter Access Functions
 
-The `knot.mcp` library provides a simple interface for accessing tool parameters:
+The `knot.mcp` library provides type-safe functions for accessing tool parameters:
 
-- `knot.mcp.get("name")` - Get parameter value with automatic type conversion and JSON parsing
-- `knot.mcp.get("name", default)` - Get parameter with default value if not provided
+- `knot.mcp.get_string(name, default="")` - Get parameter as a trimmed string
+- `knot.mcp.get_int(name, default=0)` - Get parameter as an integer
+- `knot.mcp.get_float(name, default=0.0)` - Get parameter as a float
+- `knot.mcp.get_bool(name, default=False)` - Get parameter as a boolean
+- `knot.mcp.get_list(name, default=[])` - Get parameter as a list
 
 ### Return Functions
 
@@ -381,7 +382,7 @@ description = "Database port"
 
 1. Verify TOML schema is valid
 2. Check parameter names match (case-sensitive)
-3. Add debug output: `print(f"Received: {knot.mcp.get('param_name')}")` to verify parameter values
+3. Add debug output: `print(f"Received: {knot.mcp.get_string('param_name')}")` to verify parameter values
 
 ### JSON Parse Errors
 
@@ -409,25 +410,40 @@ The `knot.mcp` library is automatically available in all MCP tool scripts.
 
 ### Functions
 
-#### `knot.mcp.get(name, default=None)`
-Get a parameter value with automatic type conversion.
+#### `knot.mcp.get_string(name, default="")`
+Get a parameter value as a trimmed string.
 
 ```python
-# String
-name = knot.mcp.get("name")
-name = knot.mcp.get("name", "default")
+name = knot.mcp.get_string("name")
+name = knot.mcp.get_string("name", "default")
+```
 
-# Number (auto-converted)
-count = knot.mcp.get("count", 0)
+#### `knot.mcp.get_int(name, default=0)`
+Get a parameter value as an integer.
 
-# Boolean (auto-converted)
-enabled = knot.mcp.get("enabled", False)
+```python
+count = knot.mcp.get_int("count", 0)
+```
 
-# Array (auto-parsed from JSON)
-items = knot.mcp.get("items", [])
+#### `knot.mcp.get_float(name, default=0.0)`
+Get a parameter value as a float.
 
-# Object (auto-parsed from JSON)
-config = knot.mcp.get("config", {})
+```python
+rate = knot.mcp.get_float("rate", 1.5)
+```
+
+#### `knot.mcp.get_bool(name, default=False)`
+Get a parameter value as a boolean. Accepts "true"/"false", "yes"/"no", "1"/"0", "on"/"off", "enabled"/"disabled".
+
+```python
+enabled = knot.mcp.get_bool("enabled", False)
+```
+
+#### `knot.mcp.get_list(name, default=[])`
+Get a parameter value as a list. Handles comma-separated strings or JSON arrays.
+
+```python
+items = knot.mcp.get_list("items", [])
 ```
 
 #### `knot.mcp.return_string(text)`
