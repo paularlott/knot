@@ -10,6 +10,6 @@ else:
     success = knot.space.start(space_name)
 
     if success:
-        knot.mcp.return_object({"status": True})
+        knot.mcp.return_string(f"Space '{space_name}' started successfully")
     else:
         knot.mcp.return_error("Failed to start space")

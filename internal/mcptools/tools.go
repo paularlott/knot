@@ -163,7 +163,11 @@ func ExecuteTool(name string, params map[string]interface{}, user *model.User) (
 	// Execute via scriptling
 	result, err := service.ExecuteScriptWithMCP(script, mcpParams, user)
 	if err != nil {
-		return nil, fmt.Errorf("tool execution failed: %w", err)
+		// Strip MCP_TOOL_ERROR prefix if present
+		if strings.HasPrefix(err.Error(), "MCP_TOOL_ERROR: ") {
+			return nil, fmt.Errorf("%s", strings.TrimPrefix(err.Error(), "MCP_TOOL_ERROR: "))
+		}
+		return nil, err
 	}
 
 	return result, nil

@@ -188,7 +188,11 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 	// Execute the script
 	result, err := service.ExecuteScriptWithMCP(script, mcpParams, p.user)
 	if err != nil {
-		return fmt.Sprintf("Error: %s", err.Error()), nil
+		// Strip MCP_TOOL_ERROR prefix if present
+		if strings.HasPrefix(err.Error(), "MCP_TOOL_ERROR: ") {
+			return nil, fmt.Errorf("%s", strings.TrimPrefix(err.Error(), "MCP_TOOL_ERROR: "))
+		}
+		return nil, err
 	}
 
 	// Check if the result contains an AI completion request

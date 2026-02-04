@@ -10,6 +10,6 @@ else:
     success = knot.space.stop(space_name)
 
     if success:
-        knot.mcp.return_object({"status": True})
+        knot.mcp.return_string(f"Space '{space_name}' stopped successfully")
     else:
         knot.mcp.return_error("Failed to stop space")

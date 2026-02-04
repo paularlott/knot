@@ -99,22 +99,24 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, use
 
 	result, err := env.EvalWithContext(ctx, script.Content)
 	if err != nil {
-		// Check for SystemExit - exit code 0 means success (e.g., knot.mcp.return_object was called)
+		// Check for SystemExit
 		if sysExit, ok := extlibs.GetSysExitCode(err); ok {
-			// Exit code 0 is success - check if result was stored
-			if sysExit.Code == 0 {
-				if storedResult := mcpLib.GetResult(); storedResult != nil {
+			if storedResult := mcpLib.GetResult(); storedResult != nil {
+				if sysExit.Code == 0 {
+					// Success - return the stored result
 					return *storedResult, nil
 				}
-				// No result stored, return empty
+				// Error case - return with MCP_TOOL_ERROR prefix intact
+				return "", fmt.Errorf("%s", *storedResult)
+			}
+			// No result stored
+			if sysExit.Code == 0 {
 				return "", nil
 			}
-			// Non-zero exit code is an error
-			return "", fmt.Errorf("script execution failed with exit code %d", sysExit.Code)
-		} else {
-			// Other errors are treated as failures
-			return "", fmt.Errorf("script execution failed: %v", err)
+			return "", fmt.Errorf("script exited with code %d", sysExit.Code)
 		}
+		// Other errors
+		return "", err
 	}
 
 	// Check if mcp.return_* was called (result stored without SystemExit)

@@ -710,9 +710,6 @@ func mcpReturnError(args ...object.Object) object.Object {
 		return err
 	}
 
-	// Store error message with prefix that executor.go can recognize
-	errorResult := fmt.Sprintf("MCP_TOOL_ERROR: %s", message)
-
 	// Return as Error which will stop execution
-	return &object.Error{Message: errorResult}
+	return &object.Error{Message: fmt.Sprintf("MCP_TOOL_ERROR: %s", message)}
 }
