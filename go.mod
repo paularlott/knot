@@ -6,14 +6,14 @@ go 1.25.6
 
 //replace github.com/paularlott/cli => ../cli/
 
-replace github.com/paularlott/mcp => ../mcp
+//replace github.com/paularlott/mcp => ../mcp
 
-replace github.com/paularlott/scriptling => ../scriptling/
+//replace github.com/paularlott/scriptling => ../scriptling/
 
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/creack/pty v1.1.24
-	github.com/dgraph-io/badger/v4 v4.9.0
+	github.com/dgraph-io/badger/v4 v4.9.1
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/gliderlabs/ssh v0.3.8
@@ -25,8 +25,8 @@ require (
 	github.com/paularlott/cli v0.7.2
 	github.com/paularlott/gossip v0.12.0
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.9.9
-	github.com/paularlott/scriptling v0.0.0-20260202174455-d99dd6b23586
+	github.com/paularlott/mcp v0.9.10-0.20260204100436-be8ebb793fd0
+	github.com/paularlott/scriptling v0.0.0-20260205030252-661927c29e84
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/vmihailenco/msgpack/v5 v5.4.1
@@ -85,11 +85,11 @@ require (
 	github.com/yeqown/reedsolomon v1.0.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.64.0 // indirect
-	go.opentelemetry.io/otel v1.39.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0 // indirect
+	go.opentelemetry.io/otel v1.40.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.33.0 // indirect
-	go.opentelemetry.io/otel/metric v1.39.0 // indirect
-	go.opentelemetry.io/otel/trace v1.39.0 // indirect
+	go.opentelemetry.io/otel/metric v1.40.0 // indirect
+	go.opentelemetry.io/otel/trace v1.40.0 // indirect
 	golang.org/x/image v0.35.0 // indirect
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect

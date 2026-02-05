@@ -10,7 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/scriptling/extlibs"
+	"github.com/paularlott/scriptling/object"
 )
 
 type ScriptService struct{}
@@ -89,7 +89,6 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, use
 
 	ctx = context.WithValue(ctx, "user", user)
 
-	// Use MuxClient for direct API calls
 	client := apiclient.NewMuxClient(user)
 
 	env, mcpLib, err := NewMCPScriptlingEnv(client, mcpParams, user)
@@ -98,28 +97,26 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, use
 	}
 
 	result, err := env.EvalWithContext(ctx, script.Content)
-	if err != nil {
-		// Check for SystemExit
-		if sysExit, ok := extlibs.GetSysExitCode(err); ok {
-			if storedResult := mcpLib.GetResult(); storedResult != nil {
-				if sysExit.Code == 0 {
-					// Success - return the stored result
-					return *storedResult, nil
-				}
-				// Error case - return with MCP_TOOL_ERROR prefix intact
-				return "", fmt.Errorf("%s", *storedResult)
+
+	// Check for SystemExit first
+	if ex, ok := object.AsException(result); ok && ex.IsSystemExit() {
+		if storedResult := mcpLib.GetResult(); storedResult != nil {
+			if ex.GetExitCode() == 0 {
+				return *storedResult, nil
 			}
-			// No result stored
-			if sysExit.Code == 0 {
-				return "", nil
-			}
-			return "", fmt.Errorf("script exited with code %d", sysExit.Code)
+			return "", fmt.Errorf("%s", *storedResult)
 		}
-		// Other errors
+		if ex.GetExitCode() != 0 {
+			return "", fmt.Errorf("script exited with code %d", ex.GetExitCode())
+		}
+		return "", nil
+	}
+
+	if err != nil {
 		return "", err
 	}
 
-	// Check if mcp.return_* was called (result stored without SystemExit)
+	// Check if mcp.return_* was called without SystemExit
 	if storedResult := mcpLib.GetResult(); storedResult != nil {
 		return *storedResult, nil
 	}

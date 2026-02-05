@@ -11,7 +11,6 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
-	"github.com/paularlott/scriptling/extlibs"
 )
 
 func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamMessage) {
@@ -53,21 +52,15 @@ func handleExecuteScriptStream(stream net.Conn, execMsg msg.ExecuteScriptStreamM
 		return
 	}
 
-	result, evalErr := env.EvalWithContext(ctx, execMsg.Content)
+	result, err := env.EvalWithContext(ctx, execMsg.Content)
+	exitCode, output, evalErr := service.HandleScriptResult(result, err, "")
 
-	exitCode := 0
 	if evalErr != nil {
-		if sysExit, ok := extlibs.GetSysExitCode(evalErr); ok {
-			exitCode = sysExit.Code
-		} else {
-			log.WithError(evalErr).Error("script execution failed")
-			exitCode = 1
-		}
-	} else if result != nil && result.Inspect() != "None" {
-		fmt.Fprintln(stream, result.Inspect())
+		log.WithError(evalErr).Error("script execution failed")
+	} else if output != "" {
+		fmt.Fprintln(stream, output)
 	}
 
-	// Send exit code as final message before closing
 	fmt.Fprintf(stream, "\nexit:%d\n", exitCode)
 	stream.Close()
 	log.Debug("script stream execution completed", "exit_code", exitCode)

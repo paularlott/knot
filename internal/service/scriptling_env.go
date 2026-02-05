@@ -219,16 +219,12 @@ func RunScript(ctx context.Context, scriptContent string, argv []string, client 
 	}
 
 	result, err := env.Eval(scriptContent)
+	ExitOnSystemExit(result)
 
-	// Check for SystemExit to exit with the appropriate code
-	if sysExit, ok := extlibs.GetSysExitCode(err); ok {
-		os.Exit(sysExit.Code)
-	}
 	if err != nil {
 		return "", err
 	}
 
-	// Only return result if it's not None
 	if result != nil && result.Inspect() != "None" {
 		return result.Inspect(), nil
 	}
