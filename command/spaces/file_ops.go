@@ -78,7 +78,7 @@ var WriteFileCmd = &cli.Command{
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:    "content",
-			Aliases: []string{"t"},
+			Aliases: []string{"d"},
 			Usage:   "Content to write (use - to read from stdin)",
 		},
 	},
