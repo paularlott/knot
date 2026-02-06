@@ -43,7 +43,7 @@ var RunCmd = &cli.Command{
 			Usage:    "The command to run in the space",
 		},
 	},
-	MinArgs: 1,
+	MinArgs: cli.NoArgs,
 	MaxArgs: cli.UnlimitedArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		timeout := cmd.GetInt("timeout")
