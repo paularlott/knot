@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/base64"
 	"fmt"
 	"net/http"
 
@@ -164,16 +163,9 @@ func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var contentBytes []byte
-	if decoded, err := base64.StdEncoding.DecodeString(req.Content); err == nil {
-		contentBytes = decoded
-	} else {
-		contentBytes = []byte(req.Content)
-	}
-
 	copyCmd := &msg.CopyFileMessage{
 		DestPath:  req.Path,
-		Content:   contentBytes,
+		Content:   []byte(req.Content),
 		Direction: "to_space",
 		Workdir:   "",
 	}
@@ -197,7 +189,7 @@ func HandleWriteSpaceFile(w http.ResponseWriter, r *http.Request) {
 	if !response.Success {
 		result.Error = response.Error
 	} else {
-		result.BytesWritten = len(contentBytes)
+		result.BytesWritten = len(req.Content)
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, result)
