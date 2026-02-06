@@ -106,8 +106,8 @@ func GetSpacesLibrary(client *apiclient.ApiClient, userId string) *object.Librar
 	}, "list() - List all spaces for the current user")
 
 	builder.FunctionWithHelp("run_script", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return spaceExecScript(ctx, client, userId, args...)
-	}, "run_script(space_name, script_name, *args) - Execute a script in a space, returns {output: str, exit_code: int}")
+		return spaceExecScript(ctx, client, userId, kwargs, args...)
+	}, "run_script(space_name, script_name, args=[]) - Execute a script in a space, returns {output: str, exit_code: int}")
 
 	builder.FunctionWithHelp("run", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		return spaceExecCommand(ctx, client, userId, kwargs, args...)
@@ -211,7 +211,7 @@ func spaceList(ctx context.Context, client *apiclient.ApiClient, userId string) 
 	return &object.List{Elements: elements}
 }
 
-func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId string, args ...object.Object) object.Object {
+func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId string, kwargs object.Kwargs, args ...object.Object) object.Object {
 	if err := errors.MinArgs(args, 2); err != nil {
 		return err
 	}
@@ -226,10 +226,36 @@ func spaceExecScript(ctx context.Context, client *apiclient.ApiClient, userId st
 		return errors.ParameterError("script_name", err)
 	}
 
-	scriptArgs := make([]string, 0, len(args)-2)
-	for i := 2; i < len(args); i++ {
-		// Support multiple types by using Inspect() which converts to string representation
-		scriptArgs = append(scriptArgs, args[i].Inspect())
+	// Check for args kwarg first (for backward compatibility with args= syntax)
+	argsList, err := kwargs.GetList("args", []object.Object{})
+	if err != nil {
+		return err
+	}
+
+	var scriptArgs []string
+
+	// If args kwarg was provided, use it
+	if len(argsList) > 0 {
+		scriptArgs = make([]string, len(argsList))
+		for i, elem := range argsList {
+			arg, err := elem.AsString()
+			if err != nil {
+				return errors.ParameterError(fmt.Sprintf("args[%d]", i), err)
+			}
+			scriptArgs[i] = arg
+		}
+	} else if len(args) > 2 {
+		// Otherwise, collect extra positional arguments (from *args unpacking)
+		scriptArgs = make([]string, len(args)-2)
+		for i := 2; i < len(args); i++ {
+			arg, err := args[i].AsString()
+			if err != nil {
+				return errors.ParameterError(fmt.Sprintf("arg[%d]", i-2), err)
+			}
+			scriptArgs[i-2] = arg
+		}
+	} else {
+		scriptArgs = []string{}
 	}
 
 	output, exitCode, apiErr := client.ExecuteScriptByName(ctx, spaceName, scriptName, scriptArgs)
