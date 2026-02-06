@@ -81,7 +81,7 @@ func (s *ScriptService) ListScripts(opts ScriptListOptions) ([]*model.Script, er
 	return result, nil
 }
 
-func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, user *model.User) (string, error) {
+func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]object.Object, user *model.User) (string, error) {
 	timeout := time.Duration(config.GetServerConfig().MCPToolTimeout) * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)

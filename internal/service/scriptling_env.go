@@ -16,6 +16,7 @@ import (
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/stdlib"
+	"github.com/paularlott/scriptling/object"
 )
 
 var (
@@ -45,7 +46,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 
 // registerKnotLibraries registers all Knot-specific libraries for scriptling environments
 // If mcpLib is provided, it will be registered instead of creating a new one via GetMCPToolsLibrary
-func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]string, mcpLib *knotscriptling.MCPLibrary) {
+func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]object.Object, mcpLib *knotscriptling.MCPLibrary) {
 	if client != nil && userId != "" {
 		env.RegisterLibrary(knotscriptling.GetSpacesLibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetAILibrary(client, userId)) // includes knot.ai.Client class
@@ -143,7 +144,7 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 // On-demand loading: Enabled - fetches from server only
 // Output: Captured and returned
 // Returns the environment and the MCP library instance for result retrieval
-func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]string, user *model.User) (*scriptling.Scriptling, *knotscriptling.MCPLibrary, error) {
+func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]object.Object, user *model.User) (*scriptling.Scriptling, *knotscriptling.MCPLibrary, error) {
 	env := scriptling.New()
 	env.EnableOutputCapture()
 	registerBaseLibraries(env, nil)

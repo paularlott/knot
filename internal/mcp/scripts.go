@@ -15,6 +15,8 @@ import (
 	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/mcp"
+	scriptlib "github.com/paularlott/scriptling"
+	"github.com/paularlott/scriptling/object"
 )
 
 // scriptToolsProvider implements mcp.ToolProvider for script tools
@@ -171,18 +173,10 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 		return nil, nil
 	}
 
-	// Convert params to string map for script execution
-	mcpParams := make(map[string]string)
+	// Convert params to scriptling objects for script execution
+	mcpParams := make(map[string]object.Object)
 	for key, value := range params {
-		switch v := value.(type) {
-		case string:
-			mcpParams[key] = v
-		case int, int64, float64, bool:
-			mcpParams[key] = fmt.Sprintf("%v", v)
-		default:
-			jsonBytes, _ := json.Marshal(v)
-			mcpParams[key] = string(jsonBytes)
-		}
+		mcpParams[key] = scriptlib.FromGo(value)
 	}
 
 	// Execute the script
@@ -216,15 +210,15 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 				// Get completion
 				response, err := chatService.ChatCompletion(ctx, chatMessages, p.user)
 				if err != nil {
-					return fmt.Sprintf("AI completion failed: %s", err.Error()), nil
+					return nil, fmt.Errorf("AI completion failed: %s", err.Error())
 				}
-				return response.Content, nil
+				return nil, fmt.Errorf("__AI_COMPLETION_REQUEST__:%s", response.Content)
 			}
 		}
-		return "AI completion not available in MCP environment", nil
+		return nil, fmt.Errorf("AI completion not available in MCP environment")
 	}
 
-	return result, nil
+	return nil, nil
 }
 
 var chatService *chat.Service

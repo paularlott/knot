@@ -39,7 +39,7 @@ func (m *MCPLibrary) GetResult() *string {
 }
 
 // GetMCPLibraryInstance creates a new MCP library instance that can be used to retrieve results
-func GetMCPLibraryInstance(client *apiclient.ApiClient, mcpParams map[string]string) *MCPLibrary {
+func GetMCPLibraryInstance(client *apiclient.ApiClient, mcpParams map[string]object.Object) *MCPLibrary {
 	m := &mcpLibrary{}
 	lib := buildMCPLibrary(m, client, mcpParams)
 	return &MCPLibrary{
@@ -50,13 +50,13 @@ func GetMCPLibraryInstance(client *apiclient.ApiClient, mcpParams map[string]str
 
 // GetMCPToolsLibrary returns the MCP tools library for scriptling (used in local/remote environments)
 // This provides only tool access functions that communicate with the server via API calls
-func GetMCPToolsLibrary(client *apiclient.ApiClient, mcpParams map[string]string) *object.Library {
+func GetMCPToolsLibrary(client *apiclient.ApiClient, mcpParams map[string]object.Object) *object.Library {
 	m := &mcpLibrary{}
 	return buildMCPLibrary(m, client, mcpParams)
 }
 
 // buildMCPLibrary builds the MCP library with the given instance
-func buildMCPLibrary(m *mcpLibrary, client *apiclient.ApiClient, mcpParams map[string]string) *object.Library {
+func buildMCPLibrary(m *mcpLibrary, client *apiclient.ApiClient, mcpParams map[string]object.Object) *object.Library {
 	builder := object.NewLibraryBuilder("knot.mcp", "Knot MCP tool functions")
 
 	if mcpParams != nil {
@@ -424,7 +424,7 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...ob
 }
 
 // mcpGetFloat retrieves a parameter value as a float with safe handling of None, empty strings, and whitespace
-func mcpGetFloat(mcpParams map[string]string, args ...object.Object) object.Object {
+func mcpGetFloat(mcpParams map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) == 0 {
 		return &object.Float{Value: 0.0}
 	}
@@ -442,15 +442,12 @@ func mcpGetFloat(mcpParams map[string]string, args ...object.Object) object.Obje
 	}
 
 	value, exists := mcpParams[name]
-	if !exists || value == "" {
+	if !exists || value == nil {
 		return &object.Float{Value: defaultFloat}
 	}
 
-	// Convert to scriptling object
-	obj := scriptlib.FromGo(value)
-
 	// Use CoerceFloat for automatic conversion
-	floatVal, errObj := obj.CoerceFloat()
+	floatVal, errObj := value.CoerceFloat()
 	if errObj != nil {
 		// Return default on conversion error
 		return &object.Float{Value: defaultFloat}
@@ -458,8 +455,8 @@ func mcpGetFloat(mcpParams map[string]string, args ...object.Object) object.Obje
 	return &object.Float{Value: floatVal}
 }
 
-// mcpGetBool retrieves a parameter value as a boolean with safe handling of various string representations
-func mcpGetBool(mcpParams map[string]string, args ...object.Object) object.Object {
+// mcpGetBool retrieves a parameter value as a boolean
+func mcpGetBool(mcpParams map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) == 0 {
 		return &object.Boolean{Value: false}
 	}
@@ -476,15 +473,12 @@ func mcpGetBool(mcpParams map[string]string, args ...object.Object) object.Objec
 	}
 
 	value, exists := mcpParams[name]
-	if !exists || value == "" {
+	if !exists || value == nil {
 		return &object.Boolean{Value: defaultBool}
 	}
 
-	// Convert to scriptling object
-	obj := scriptlib.FromGo(value)
-
 	// Handle strings - check for common boolean representations
-	if strObj, ok := obj.(*object.String); ok {
+	if strObj, ok := value.(*object.String); ok {
 		trimmed := strings.ToLower(strings.TrimSpace(strObj.Value))
 		if trimmed == "" {
 			return &object.Boolean{Value: defaultBool}
@@ -502,15 +496,15 @@ func mcpGetBool(mcpParams map[string]string, args ...object.Object) object.Objec
 	}
 
 	// Try direct boolean conversion
-	boolVal, err := obj.AsBool()
+	boolVal, err := value.AsBool()
 	if err != nil {
 		return &object.Boolean{Value: defaultBool}
 	}
 	return &object.Boolean{Value: boolVal}
 }
 
-// mcpGetList retrieves a parameter value as a list, handling comma-separated strings or arrays
-func mcpGetList(mcpParams map[string]string, args ...object.Object) object.Object {
+// mcpGetList retrieves a parameter value as a list
+func mcpGetList(mcpParams map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) == 0 {
 		return &object.List{Elements: []object.Object{}}
 	}
@@ -532,48 +526,26 @@ func mcpGetList(mcpParams map[string]string, args ...object.Object) object.Objec
 	}
 
 	value, exists := mcpParams[name]
-	if !exists || value == "" {
+	if !exists || value == nil {
 		return &object.List{Elements: defaultList}
 	}
 
-	// Convert to scriptling object
-	obj := scriptlib.FromGo(value)
-
-	// Handle strings - split by comma
-	if strObj, ok := obj.(*object.String); ok {
-		trimmed := strings.TrimSpace(strObj.Value)
-		if trimmed == "" {
-			return &object.List{Elements: defaultList}
-		}
-
-		// Split by comma and trim each item
-		parts := strings.Split(trimmed, ",")
-		result := make([]object.Object, 0, len(parts))
-		for _, part := range parts {
-			trimmedPart := strings.TrimSpace(part)
-			if trimmedPart != "" {
-				result = append(result, &object.String{Value: trimmedPart})
-			}
-		}
-		return &object.List{Elements: result}
-	}
-
 	// Handle already lists
-	if listObj, ok := obj.(*object.List); ok {
+	if listObj, ok := value.(*object.List); ok {
 		return listObj
 	}
 
 	// Try list conversion
-	listVal, err := obj.AsList()
+	listVal, err := value.AsList()
 	if err != nil {
 		// If not a list, treat as single item
-		return &object.List{Elements: []object.Object{obj}}
+		return &object.List{Elements: []object.Object{value}}
 	}
 	return &object.List{Elements: listVal}
 }
 
-// mcpGetInt retrieves a parameter value as an integer with safe handling of None, empty strings, and whitespace
-func mcpGetInt(mcpParams map[string]string, args ...object.Object) object.Object {
+// mcpGetInt retrieves a parameter value as an integer with safe handling of None
+func mcpGetInt(mcpParams map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) == 0 {
 		return &object.Integer{Value: 0}
 	}
@@ -591,15 +563,12 @@ func mcpGetInt(mcpParams map[string]string, args ...object.Object) object.Object
 	}
 
 	value, exists := mcpParams[name]
-	if !exists || value == "" {
+	if !exists || value == nil {
 		return &object.Integer{Value: defaultInt}
 	}
 
-	// Convert to scriptling object
-	obj := scriptlib.FromGo(value)
-
 	// Use CoerceInt which handles type conversion automatically
-	intVal, errObj := obj.CoerceInt()
+	intVal, errObj := value.CoerceInt()
 	if errObj != nil {
 		// Return default on conversion error
 		return &object.Integer{Value: defaultInt}
@@ -607,8 +576,8 @@ func mcpGetInt(mcpParams map[string]string, args ...object.Object) object.Object
 	return &object.Integer{Value: intVal}
 }
 
-// mcpGetString retrieves a parameter value as a trimmed string with safe handling of None and whitespace
-func mcpGetString(mcpParams map[string]string, args ...object.Object) object.Object {
+// mcpGetString retrieves a parameter value as a string with safe handling of None
+func mcpGetString(mcpParams map[string]object.Object, args ...object.Object) object.Object {
 	if len(args) == 0 {
 		return &object.String{Value: ""}
 	}
@@ -625,20 +594,16 @@ func mcpGetString(mcpParams map[string]string, args ...object.Object) object.Obj
 	}
 
 	value, exists := mcpParams[name]
-	if !exists || value == "" {
+	if !exists || value == nil {
 		return &object.String{Value: defaultValue}
 	}
 
-	// Convert to scriptling object
-	obj := scriptlib.FromGo(value)
-
-	// Use CoerceString for automatic conversion, then trim
-	strVal, _ := obj.CoerceString()
-	trimmed := strings.TrimSpace(strVal)
-	if trimmed == "" {
+	// Use CoerceString for automatic conversion
+	strVal, _ := value.CoerceString()
+	if strVal == "" {
 		return &object.String{Value: defaultValue}
 	}
-	return &object.String{Value: trimmed}
+	return &object.String{Value: strVal}
 }
 
 // mcpReturnString returns a string value and stops script execution

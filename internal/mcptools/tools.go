@@ -11,6 +11,8 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/mcp"
+	scriptlib "github.com/paularlott/scriptling"
+	"github.com/paularlott/scriptling/object"
 )
 
 type Tool struct {
@@ -144,26 +146,10 @@ func ExecuteTool(name string, params map[string]interface{}, user *model.User) (
 		return nil, fmt.Errorf("tool not found: %s", name)
 	}
 
-	// Convert params to string map for scriptling
-	mcpParams := make(map[string]string)
+	// Convert params to scriptling objects for mcp library
+	mcpParams := make(map[string]object.Object)
 	for key, value := range params {
-		switch v := value.(type) {
-		case string:
-			mcpParams[key] = v
-		case []interface{}:
-			// Convert array to comma-separated string for mcpGetList
-			strs := make([]string, len(v))
-			for i, elem := range v {
-				if strVal, ok := elem.(string); ok {
-					strs[i] = strVal
-				} else {
-					strs[i] = fmt.Sprintf("%v", elem)
-				}
-			}
-			mcpParams[key] = strings.Join(strs, ",")
-		default:
-			mcpParams[key] = fmt.Sprintf("%v", v)
-		}
+		mcpParams[key] = scriptlib.FromGo(value)
 	}
 
 	// Create a temporary script model for execution
