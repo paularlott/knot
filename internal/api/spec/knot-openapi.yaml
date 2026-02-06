@@ -217,6 +217,69 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/cluster/node:
+    get:
+      tags:
+        - Cluster
+      summary: Get Cluster Node Status
+      description: |
+        Returns information about the current cluster node.
+
+        This endpoint is used internally by cluster nodes to report their status.
+        It requires cluster authentication via the X-Cluster-Key header.
+      operationId: getClusterNode
+      responses:
+        "200":
+          description: Node status information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClusterNodeInfo"
+        "401":
+          description: Invalid or missing cluster key
+      security: []
+      x-internal: true
+
+  /api/events:
+    get:
+      tags:
+        - Events
+      summary: Server-Sent Events Stream
+      description: |
+        Establishes a Server-Sent Events (SSE) connection for real-time updates.
+
+        This endpoint provides a continuous stream of events for the authenticated user,
+        including space changes, session updates, and other system events.
+
+        The connection requires authentication and will remain open as long as the client
+        maintains the connection. Events are sent as JSON data with event types.
+
+        **Event Types:**
+        - `connected` - Initial connection confirmation
+        - `message` - JSON data containing event information
+
+        **Reconnecting:**
+        Clients should implement automatic reconnection with exponential backoff
+        if the connection is lost.
+      operationId: events
+      responses:
+        "200":
+          description: SSE stream established successfully
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream with JSON event data
+              example: |
+                event: connected
+                data: {"status":"ok"}
+
+                event: message
+                data: {"type":"space_changed","space_id":"..."}
+        "401":
+          $ref: "#/components/responses/unauthorized"
+      security: [BearerAuth: []]
+
   /api/tunnels/{tunnel_name}:
     delete:
       tags:
@@ -5358,3 +5421,79 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/error"
+
+  /api/spaces/{space_id}/run-command:
+    post:
+      tags:
+        - Spaces
+      summary: Run Command in Space
+      description: |
+        Execute a command in a space and capture the output.
+
+        This endpoint allows running a shell command within a running space's container.
+        The command is executed synchronously and will wait for completion or timeout.
+
+        **Note:** This is different from `execute-script` which runs named scripts.
+        This endpoint runs arbitrary shell commands directly.
+      operationId: runCommand
+      parameters:
+        - name: space_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID or name of the space.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - command
+              properties:
+                command:
+                  type: string
+                  description: The command to execute.
+                args:
+                  type: array
+                  items:
+                    type: string
+                  description: Command arguments.
+                timeout:
+                  type: integer
+                  default: 30
+                  description: Timeout in seconds.
+                workdir:
+                  type: string
+                  description: Working directory for the command.
+            example:
+              command: "ls"
+              args: ["-la", "/tmp"]
+              timeout: 30
+      responses:
+        "200":
+          description: Command executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: True if the command succeeded
+                  output:
+                    type: string
+                    description: The command output (stdout + stderr)
+                  error:
+                    type: string
+                    description: Error message if the command failed
+        "400":
+          $ref: "#/components/responses/bad-request"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
