@@ -150,6 +150,17 @@ func ExecuteTool(name string, params map[string]interface{}, user *model.User) (
 		switch v := value.(type) {
 		case string:
 			mcpParams[key] = v
+		case []interface{}:
+			// Convert array to comma-separated string for mcpGetList
+			strs := make([]string, len(v))
+			for i, elem := range v {
+				if strVal, ok := elem.(string); ok {
+					strs[i] = strVal
+				} else {
+					strs[i] = fmt.Sprintf("%v", elem)
+				}
+			}
+			mcpParams[key] = strings.Join(strs, ",")
 		default:
 			mcpParams[key] = fmt.Sprintf("%v", v)
 		}
