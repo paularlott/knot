@@ -2,7 +2,7 @@
 import knot.space
 import knot.mcp
 
-space_name = knot.mcp.get_string("space_name")
+space_name = knot.mcp.get_string("name")
 file_path = knot.mcp.get_string("file_path")
 content = knot.mcp.get_string("content")
 knot.space.write_file(space_name, file_path, content)

@@ -9,7 +9,7 @@ required = true
 
 [parameters.file_path]
 type = "string"
-description = "Path to the file within the space (e.g., /app/config.json)"
+description = "Path to the file within the space (e.g., app/config.json)"
 required = true
 
 [parameters.content]
