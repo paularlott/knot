@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/internal/util/rest"
-	mcpopenai "github.com/paularlott/mcp/openai"
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 
 	"github.com/paularlott/knot/internal/log"
 )

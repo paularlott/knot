@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/paularlott/mcp"
-	mcpopenai "github.com/paularlott/mcp/openai"
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 )
 
 // Re-export types from mcp/openai for convenience

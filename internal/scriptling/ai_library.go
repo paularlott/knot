@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
-	mcpopenai "github.com/paularlott/mcp/openai"
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 	scriptlib "github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/errors"
 	"github.com/paularlott/scriptling/object"
@@ -55,7 +55,7 @@ func getClientClass(completionFn func(ctx context.Context, kwargs object.Kwargs,
 		self.Fields["_tools"] = schemas
 	}, "set_tools(schemas) - Set the tool schemas (required by scriptling.ai.agent)")
 
-	cb.MethodWithHelp("completion", func(self *object.Instance, ctx context.Context, args ...object.Object) object.Object {
+	cb.MethodWithHelp("completion", func(self *object.Instance, ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		if len(args) < 2 {
 			return &object.Error{Message: "completion() requires model and messages arguments"}
 		}
@@ -64,17 +64,32 @@ func getClientClass(completionFn func(ctx context.Context, kwargs object.Kwargs,
 		// Second arg is messages
 		messages := args[1]
 
-		tools := self.Fields["_tools"]
-		var kwargsMap map[string]object.Object
-		if _, isNull := tools.(*object.Null); !isNull {
-			kwargsMap = map[string]object.Object{"tools": tools}
+		// Build kwargs to forward to completionFn
+		kwargsMap := make(map[string]object.Object)
+
+		// Check for tools kwarg first (from Agent), fallback to set_tools()
+		if toolsKwarg := kwargs.Get("tools"); toolsKwarg != nil {
+			kwargsMap["tools"] = toolsKwarg
+		} else {
+			tools := self.Fields["_tools"]
+			if _, isNull := tools.(*object.Null); !isNull {
+				kwargsMap["tools"] = tools
+			}
 		}
+
+		// Forward system_prompt kwarg if present
+		if sp := kwargs.Get("system_prompt"); sp != nil {
+			kwargsMap["system_prompt"] = sp
+		}
+
 		return completionFn(ctx, object.NewKwargs(kwargsMap), messages)
-	}, `completion(model, messages) - Call knot.ai.completion with the given messages.
+	}, `completion(model, messages, tools=None, system_prompt=None) - Call knot.ai.completion.
 
 Args:
     model: Model name (ignored - knot uses server-configured model).
-    messages: List of message dicts with 'role' and 'content' keys.
+    messages: A string (user message) or list of message dicts with 'role' and 'content' keys.
+    tools: Optional list of tool definitions from ToolRegistry.build().
+    system_prompt: Optional system prompt (only when messages is a string).
 
 Returns:
     Response object with choices[0].message structure.`)
@@ -91,20 +106,29 @@ func GetAILibrary(client *apiclient.ApiClient, userId string) *object.Library {
 		return aiCompletion(ctx, client, userId, kwargs, args...)
 	}
 
-	builder.FunctionWithHelp("completion", completionFn, `completion(messages, tools=None) - Get AI completion from a list of messages.
+	builder.FunctionWithHelp("completion", completionFn, `completion(messages, tools=None, system_prompt=None) - Get AI completion.
 
 Parameters:
-  messages (list): List of message dicts with 'role' and 'content' keys.
-                   For tool results, include 'tool_call_id' key.
+  messages (str or list): Either a string (user message) or a list of message dicts
+                          with 'role' and 'content' keys.
+                          For tool results, include 'tool_call_id' key.
   tools (list): Optional list of tool definitions from ToolRegistry.build().
                 When tools are provided, server-side tool injection is skipped.
+  system_prompt (str): Optional system prompt. Only valid when messages is a string.
 
 Returns:
   dict: OpenAI-compatible response with 'choices' containing messages.
         If tool_calls are present, they will be in choices[0].message.tool_calls.
 
 Example:
-  # Simple completion
+  # String shorthand
+  response = ai.completion("Hello")
+  print(response.choices[0].message.content)
+
+  # String with system prompt
+  response = ai.completion("Hello", system_prompt="You are helpful")
+
+  # Full messages array
   response = ai.completion([{"role": "user", "content": "Hello"}])
   print(response.choices[0].message.content)
 
@@ -152,9 +176,41 @@ func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId strin
 		return &object.Error{Message: "AI completion not available - API client not configured"}
 	}
 
-	messagesList, err := args[0].AsList()
-	if err != nil {
-		return errors.ParameterError("messages", err)
+	// Support string shorthand: completion("Hello") or completion("Hello", system_prompt="You are helpful")
+	var messagesList []object.Object
+	if msgStr, strErr := args[0].AsString(); strErr == nil {
+		// String shorthand - build messages list from string
+		userMsg := &object.Dict{Pairs: map[string]object.DictPair{
+			"role":    {Key: &object.String{Value: "role"}, Value: &object.String{Value: "user"}},
+			"content": {Key: &object.String{Value: "content"}, Value: &object.String{Value: msgStr}},
+		}}
+
+		// Add system_prompt as first message if provided
+		if spObj := kwargs.Get("system_prompt"); spObj != nil {
+			if sp, spErr := spObj.AsString(); spErr == nil && sp != "" {
+				sysMsg := &object.Dict{Pairs: map[string]object.DictPair{
+					"role":    {Key: &object.String{Value: "role"}, Value: &object.String{Value: "system"}},
+					"content": {Key: &object.String{Value: "content"}, Value: &object.String{Value: sp}},
+				}}
+				messagesList = []object.Object{sysMsg, userMsg}
+			} else {
+				messagesList = []object.Object{userMsg}
+			}
+		} else {
+			messagesList = []object.Object{userMsg}
+		}
+	} else {
+		// List of message dicts
+		var listErr object.Object
+		messagesList, listErr = args[0].AsList()
+		if listErr != nil {
+			return errors.NewError("messages must be a string or a list of message dicts")
+		}
+
+		// system_prompt kwarg not valid with messages array
+		if kwargs.Get("system_prompt") != nil {
+			return errors.NewError("system_prompt kwarg is only valid when passing a string, not a messages array")
+		}
 	}
 
 	// Convert messages to OpenAI format
@@ -189,6 +245,12 @@ func aiCompletion(ctx context.Context, client *apiclient.ApiClient, userId strin
 						tcBytes, _ := json.Marshal(scriptlib.ToGo(tcObj))
 						var tc mcpopenai.ToolCall
 						json.Unmarshal(tcBytes, &tc)
+
+						// Default to "function" if type is not specified or empty (Mistral fix)
+						if tc.Type == "" {
+							tc.Type = "function"
+						}
+
 						msg.ToolCalls = append(msg.ToolCalls, tc)
 					}
 				}

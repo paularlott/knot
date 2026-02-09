@@ -110,10 +110,12 @@ github.com/paularlott/gossip v0.12.0 h1:DtWLL3V0Jtx7u37zzYq/P4WSzD/5m3zZHyJO1ydL
 github.com/paularlott/gossip v0.12.0/go.mod h1:6SQJAV1wiWoa+RHNdjV6yzwYGe091ZTwWwNmoowE36E=
 github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7ng=
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
-github.com/paularlott/mcp v0.10.0 h1:OGfj4rCNzgGWXQhRX+IEp7lD2Ee/XQy0wPmGlSmhPV0=
-github.com/paularlott/mcp v0.10.0/go.mod h1:fcgH3hHb9viTNB4kRYETRpaCwwXIvIxZbuXPdAj1vbA=
-github.com/paularlott/scriptling v0.0.0-20260206171137-0380bb1a13aa h1:Y0ONTOStsDGNSxbK+psiKJxnsqXgNwwL0Fu/DA9ZfCg=
-github.com/paularlott/scriptling v0.0.0-20260206171137-0380bb1a13aa/go.mod h1:Ec98bmlqLx2r12ZwPLS/cgi5x8fGmAMkLkge+0714aE=
+github.com/paularlott/mcp v0.10.1-0.20260208143825-aac1bd5944c2 h1:UoLmq73WI7hMgSA34KJrVGGzfRn7V0JwA88eb0waloA=
+github.com/paularlott/mcp v0.10.1-0.20260208143825-aac1bd5944c2/go.mod h1:fcgH3hHb9viTNB4kRYETRpaCwwXIvIxZbuXPdAj1vbA=
+github.com/paularlott/scriptling v0.0.0-20260209022018-05005d99416e h1:QIupHQW8BP98SbAjhuBkGYJK8nagIGmyhW0cP7mqoW4=
+github.com/paularlott/scriptling v0.0.0-20260209022018-05005d99416e/go.mod h1:+0xgBKnaxojGofjJlVct/8DSX79p80DaQct/LanG8Wo=
+github.com/paularlott/scriptling v0.0.0-20260209030748-80b503546e6f h1:hHpq+/So89yt3/p0pQ93t/JB5VcujgF+APbOD6LLhyU=
+github.com/paularlott/scriptling v0.0.0-20260209030748-80b503546e6f/go.mod h1:+0xgBKnaxojGofjJlVct/8DSX79p80DaQct/LanG8Wo=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.13.10 h1:+5FbKNTe5Z9aspU88DPIKJ9z2KZoaGCu6Sr6kKR/5mU=
