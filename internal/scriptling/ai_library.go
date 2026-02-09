@@ -47,14 +47,6 @@ type GetResponseResponse struct {
 func getClientClass(completionFn func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object) *object.Class {
 	cb := object.NewClassBuilder("Client")
 
-	cb.MethodWithHelp("__init__", func(self *object.Instance, ctx context.Context) {
-		self.Fields["_tools"] = &object.Null{}
-	}, "__init__() - Initialize the client wrapper")
-
-	cb.MethodWithHelp("set_tools", func(self *object.Instance, ctx context.Context, schemas object.Object) {
-		self.Fields["_tools"] = schemas
-	}, "set_tools(schemas) - Set the tool schemas (required by scriptling.ai.agent)")
-
 	cb.MethodWithHelp("completion", func(self *object.Instance, ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		if len(args) < 2 {
 			return &object.Error{Message: "completion() requires model and messages arguments"}
@@ -64,20 +56,13 @@ func getClientClass(completionFn func(ctx context.Context, kwargs object.Kwargs,
 		// Second arg is messages
 		messages := args[1]
 
-		// Build kwargs to forward to completionFn
+		// Forward kwargs to completionFn
 		kwargsMap := make(map[string]object.Object)
 
-		// Check for tools kwarg first (from Agent), fallback to set_tools()
 		if toolsKwarg := kwargs.Get("tools"); toolsKwarg != nil {
 			kwargsMap["tools"] = toolsKwarg
-		} else {
-			tools := self.Fields["_tools"]
-			if _, isNull := tools.(*object.Null); !isNull {
-				kwargsMap["tools"] = tools
-			}
 		}
 
-		// Forward system_prompt kwarg if present
 		if sp := kwargs.Get("system_prompt"); sp != nil {
 			kwargsMap["system_prompt"] = sp
 		}
