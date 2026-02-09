@@ -54,10 +54,12 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Always use the system-configured model, ignoring any client-provided model
-	req.Model = s.model
+	// Only set model if not provided by the caller
+	if req.Model == "" {
+		req.Model = s.model
+	}
 
-	// Strip existing system messages and add our system prompt
+	// Inject system prompt only if no system message is present
 	req.Messages = s.replaceSystemPrompt(req.Messages)
 
 	if req.Stream {

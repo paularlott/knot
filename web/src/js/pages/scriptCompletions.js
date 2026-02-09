@@ -115,51 +115,66 @@ const scriptLibraries = [
         description: "Stop a port forward",
         returns: "bool - True if successful",
       },
+      {
+        name: "get",
+        signature: "get(name)",
+        description: "Get space details as a dict",
+        returns: "dict - Space details with id, name, description, template_id, template_name, user_id, username, shared_user_id, shared_username, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, created_at",
+      },
+      {
+        name: "update",
+        signature: "update(name, description='', shell='')",
+        description: "Update space properties",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "transfer",
+        signature: "transfer(name, user_id)",
+        description: "Transfer space to another user (user_id can be username, email, or UUID)",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "share",
+        signature: "share(name, user_id)",
+        description: "Share space with another user (user_id can be username, email, or UUID)",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "unshare",
+        signature: "unshare(name)",
+        description: "Remove space share",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "read_file",
+        signature: "read_file(space_name, file_path)",
+        description: "Read file contents from a running space",
+        returns: "str - File contents",
+      },
+      {
+        name: "write_file",
+        signature: "write_file(space_name, file_path, content)",
+        description: "Write content to a file in a running space",
+        returns: "bool - True if successful",
+      },
     ],
   },
   {
     module: "knot.ai",
-    description: "Knot AI completion functions",
+    description: "Knot AI client library - returns pre-configured AI client and default model",
     functions: [
       {
-        name: "completion",
-        signature: "completion(messages)",
+        name: "Client",
+        signature: "Client()",
         description:
-          "Get AI completion from a list of messages. Each message should be a dict with 'role' and 'content' keys",
-        returns: "str - AI response content",
+          "Get a pre-configured AI client instance connected to the server's AI provider with MCP tools available",
+        returns: "Client - A pre-configured AI client instance with completion(), stream_completion(), and other methods",
       },
       {
-        name: "response_create",
-        signature:
-          "response_create(input, model=None, instructions=None, previous_response_id=None, background=False)",
-        description:
-          "Create AI response. Returns response dict by default, or response_id if background=True",
-        returns: "dict or str - Response object or response ID",
-      },
-      {
-        name: "response_get",
-        signature: "response_get(id)",
-        description: "Get response by ID",
-        returns: "dict - Response dict with status and result",
-      },
-      {
-        name: "response_wait",
-        signature: "response_wait(id, timeout=300)",
-        description:
-          "Wait for response completion. timeout is in seconds (default 300)",
-        returns: "dict - Response dict",
-      },
-      {
-        name: "response_cancel",
-        signature: "response_cancel(id)",
-        description: "Cancel in-progress response",
-        returns: "bool - True if successful",
-      },
-      {
-        name: "response_delete",
-        signature: "response_delete(id)",
-        description: "Delete response",
-        returns: "bool - True if successful",
+        name: "get_default_model",
+        signature: "get_default_model()",
+        description: "Get the server-configured default model name",
+        returns: "str - The model name (e.g. 'gpt-4o', 'claude-sonnet-4-20250514'), or empty string if not configured",
       },
     ],
   },
@@ -253,9 +268,9 @@ const scriptLibraries = [
     functions: [
       {
         name: "list",
-        signature: "list()",
-        description: "List all users",
-        returns: "list - List of user dicts with id, username, email, fullname, is_admin, roles, groups",
+        signature: "list(state='', zone='')",
+        description: "List all users with optional state/zone filter",
+        returns: "list - List of user dicts with id, username, email, active, number_spaces",
       },
       {
         name: "get",
@@ -304,6 +319,12 @@ const scriptLibraries = [
         signature: "set_password(user_id, new_password)",
         description: "Set user password",
         returns: "bool - True if successfully updated",
+      },
+      {
+        name: "get_quota",
+        signature: "get_quota(user_id)",
+        description: "Get user quota and usage",
+        returns: "dict - Quota details with max_spaces, compute_units, storage_units, max_tunnels, number_spaces, number_spaces_deployed, used_compute_units, used_storage_units, used_tunnels",
       },
     ],
   },
@@ -458,6 +479,12 @@ const scriptLibraries = [
         description: "Delete a template by ID or name",
         returns: "bool - True if successfully deleted",
       },
+      {
+        name: "get_icons",
+        signature: "get_icons()",
+        description: "Get list of available icons",
+        returns: "list - List of icon dicts with description, source, url",
+      },
     ],
   },
   {
@@ -547,6 +574,48 @@ const scriptLibraries = [
         signature: "is_running(volume_id)",
         description: "Check if a volume is currently running",
         returns: "bool - True if the volume is running",
+      },
+    ],
+  },
+  {
+    module: "knot.skill",
+    description: "Knot skill management functions",
+    functions: [
+      {
+        name: "create",
+        signature: "create(content, global=False, groups=[], zones=[])",
+        description: "Create a new skill",
+        returns: "str - ID of the newly created skill",
+      },
+      {
+        name: "get",
+        signature: "get(name_or_id)",
+        description: "Get skill by name or UUID",
+        returns: "dict - Skill object with id, user_id, name, description, content, is_managed, groups, zones",
+      },
+      {
+        name: "update",
+        signature: "update(name_or_id, content=None, groups=None, zones=None)",
+        description: "Update skill",
+        returns: "bool - True if successfully updated",
+      },
+      {
+        name: "delete",
+        signature: "delete(name_or_id)",
+        description: "Delete skill",
+        returns: "bool - True if successfully deleted",
+      },
+      {
+        name: "list",
+        signature: "list(owner=None)",
+        description: "List skills (filtered by permissions/groups/zones)",
+        returns: "list - List of skill dicts with id, name, description, user_id, is_managed",
+      },
+      {
+        name: "search",
+        signature: "search(query)",
+        description: "Fuzzy search skills by name/description",
+        returns: "list - List of matching skill dicts",
       },
     ],
   },

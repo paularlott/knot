@@ -7,17 +7,19 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 )
 
 func TestNew(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  Config
+		config  mcpopenai.Config
 		wantErr bool
 	}{
 		{
 			name: "valid config",
-			config: Config{
+			config: mcpopenai.Config{
 				APIKey:  "test-key",
 				BaseURL: "https://api.openai.com/v1/",
 			},
@@ -25,14 +27,14 @@ func TestNew(t *testing.T) {
 		},
 		{
 			name: "empty base URL uses default",
-			config: Config{
+			config: mcpopenai.Config{
 				APIKey: "test-key",
 			},
 			wantErr: false,
 		},
 		{
 			name: "base URL without trailing slash gets one added",
-			config: Config{
+			config: mcpopenai.Config{
 				APIKey:  "test-key",
 				BaseURL: "https://api.openai.com/v1",
 			},
@@ -42,7 +44,7 @@ func TestNew(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := New(tt.config, nil)
+			client, err := mcpopenai.New(tt.config)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -83,12 +85,12 @@ func TestClient_GetModels(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config := Config{
+	config := mcpopenai.Config{
 		APIKey:  "test-key",
 		BaseURL: server.URL + "/",
 	}
 
-	client, err := New(config, nil)
+	client, err := mcpopenai.New(config)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -141,12 +143,12 @@ func TestClient_StreamChatCompletion_Basic(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config := Config{
+	config := mcpopenai.Config{
 		APIKey:  "test-key",
 		BaseURL: server.URL + "/",
 	}
 
-	client, err := New(config, nil)
+	client, err := mcpopenai.New(config)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
@@ -272,16 +274,16 @@ func TestBaseURLTrailingSlash(t *testing.T) {
 			defer server.Close()
 
 			// Create client with the input URL structure
-			config := Config{
+			cfg := mcpopenai.Config{
 				APIKey:  "test-key",
 				BaseURL: tt.inputURL,
 			}
 
 			// Replace the base domain with our test server
-			config.BaseURL = strings.Replace(config.BaseURL, "http://example.com", server.URL, 1)
-			config.BaseURL = strings.Replace(config.BaseURL, "http://localhost:11434", server.URL, 1)
+			cfg.BaseURL = strings.Replace(cfg.BaseURL, "http://example.com", server.URL, 1)
+			cfg.BaseURL = strings.Replace(cfg.BaseURL, "http://localhost:11434", server.URL, 1)
 
-			client, err := New(config, nil)
+			client, err := mcpopenai.New(cfg)
 			if err != nil {
 				t.Fatalf("Failed to create client: %v", err)
 			}

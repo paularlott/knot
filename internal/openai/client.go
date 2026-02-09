@@ -1,13 +1,10 @@
 package openai
 
 import (
-	"context"
-
-	"github.com/paularlott/mcp"
 	mcpopenai "github.com/paularlott/mcp/ai/openai"
 )
 
-// Re-export types from mcp/openai for convenience
+// Re-export types from mcp/openai for convenience within internal/openai package
 type (
 	ChatCompletionRequest  = mcpopenai.ChatCompletionRequest
 	ChatCompletionResponse = mcpopenai.ChatCompletionResponse
@@ -28,6 +25,7 @@ type (
 	ResponseObject         = mcpopenai.ResponseObject
 	CreateResponseRequest  = mcpopenai.CreateResponseRequest
 	APIError               = mcpopenai.APIError
+	Client                 = mcpopenai.Client
 )
 
 // Re-export functions from mcp/openai
@@ -45,32 +43,3 @@ var (
 	ExecuteToolCalls                = mcpopenai.ExecuteToolCalls
 	GenerateToolCallID              = mcpopenai.GenerateToolCallID
 )
-
-// MCPServer interface for MCP server operations
-type MCPServer interface {
-	ListTools() []mcp.MCPTool
-	ListToolsWithContext(ctx context.Context) []mcp.MCPTool
-	CallTool(ctx context.Context, name string, args map[string]any) (*mcp.ToolResponse, error)
-}
-
-// Client is now an alias to mcp/openai.Client
-type Client = mcpopenai.Client
-
-// Config holds configuration for the OpenAI client
-type Config struct {
-	APIKey  string
-	BaseURL string
-}
-
-// New creates a new OpenAI client using mcp/openai.Client
-// Maintains backward compatibility while using the shared HTTP pool
-func New(config Config, mcpServer MCPServer) (*Client, error) {
-	// Convert to new config format
-	newConfig := mcpopenai.Config{
-		APIKey:      config.APIKey,
-		BaseURL:     config.BaseURL,
-		LocalServer: mcpServer,
-	}
-
-	return mcpopenai.New(newConfig)
-}

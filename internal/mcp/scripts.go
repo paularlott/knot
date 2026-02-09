@@ -2,12 +2,9 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/paularlott/knot/internal/chat"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -158,19 +155,22 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 
 	// Resolve script with user override and zone filtering
 	script, err := service.ResolveScriptByName(name, p.user.Id)
-	if err != nil || script.ScriptType != "tool" {
+	if err != nil {
 		return nil, nil // Tool not found - let other providers handle it
+	}
+	if script.ScriptType != "tool" {
+		return nil, fmt.Errorf("script '%s' is not a tool", name)
 	}
 
 	// Check permissions
 	if !service.CanUserExecuteScript(p.user, script) {
-		return nil, nil
+		return nil, fmt.Errorf("permission denied to execute tool '%s'", name)
 	}
 
 	// Check zone restrictions
 	currentZone := config.GetServerConfig().Zone
 	if !script.IsValidForZone(currentZone) {
-		return nil, nil
+		return nil, fmt.Errorf("tool '%s' is not available in zone '%s'", name, currentZone)
 	}
 
 	// Convert params to scriptling objects for script execution
@@ -189,46 +189,6 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 		return nil, err
 	}
 
-	// Check if the result contains an AI completion request
-	if strings.HasPrefix(result, "__AI_COMPLETION_REQUEST__:") {
-		// Extract the messages
-		messagesJSON := strings.TrimPrefix(result, "__AI_COMPLETION_REQUEST__:")
-		var messages []map[string]string
-		if err := json.Unmarshal([]byte(messagesJSON), &messages); err == nil {
-			// Try to get chat service and complete the request
-			if chatService := getChatService(); chatService != nil {
-				// Convert to chat message format
-				chatMessages := make([]chat.ChatMessage, 0, len(messages))
-				for _, msg := range messages {
-					chatMessages = append(chatMessages, chat.ChatMessage{
-						Role:      msg["role"],
-						Content:   msg["content"],
-						Timestamp: time.Now().Unix(),
-					})
-				}
-
-				// Get completion
-				response, err := chatService.ChatCompletion(ctx, chatMessages, p.user)
-				if err != nil {
-					return nil, fmt.Errorf("AI completion failed: %s", err.Error())
-				}
-				return nil, fmt.Errorf("__AI_COMPLETION_REQUEST__:%s", response.Content)
-			}
-		}
-		return nil, fmt.Errorf("AI completion not available in MCP environment")
-	}
-
-	return nil, nil
+	return result, nil
 }
 
-var chatService *chat.Service
-
-// SetChatService sets the global chat service for MCP tools
-func SetChatService(cs *chat.Service) {
-	chatService = cs
-}
-
-// getChatService returns the global chat service
-func getChatService() *chat.Service {
-	return chatService
-}

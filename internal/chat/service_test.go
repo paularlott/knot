@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/paularlott/knot/internal/config"
-	"github.com/paularlott/knot/internal/openai"
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 )
 
 func createTestConfig() config.ChatConfig {
@@ -47,8 +47,8 @@ func TestService_ConvertMessages(t *testing.T) {
 			name: "conversation with tool calls",
 			messages: []ChatMessage{
 				{Role: "user", Content: "What's the weather?"},
-				{Role: "assistant", Content: "I'll check the weather for you.", ToolCalls: []openai.ToolCall{
-					{ID: "call_1", Type: "function", Function: openai.ToolCallFunction{Name: "get_weather"}},
+				{Role: "assistant", Content: "I'll check the weather for you.", ToolCalls: []mcpopenai.ToolCall{
+					{ID: "call_1", Type: "function", Function: mcpopenai.ToolCallFunction{Name: "get_weather"}},
 				}},
 				{Role: "tool", Content: "Sunny, 25°C", ToolCallID: "call_1"},
 			},

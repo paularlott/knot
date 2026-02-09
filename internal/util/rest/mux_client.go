@@ -228,3 +228,28 @@ func (c *MuxClient) SetTokenKey(key string) RESTClient {
 func (c *MuxClient) SetTokenFormat(format string) RESTClient {
 	return c
 }
+
+// RoundTrip implements http.RoundTripper by routing the request through the API
+// mux with the user injected into context for authentication.
+func (c *MuxClient) RoundTrip(req *http.Request) (*http.Response, error) {
+	ctx := context.WithValue(req.Context(), "user", c.user)
+	muxReq := req.Clone(ctx)
+
+	rec := httptest.NewRecorder()
+	apiMux.ServeHTTP(rec, muxReq)
+
+	return rec.Result(), nil
+}
+
+// NewMuxHTTPClient creates an *http.Client that routes requests through the API
+// mux with the given user injected into context for authentication. This allows
+// standard HTTP clients (like mcpopenai.Client) to make in-process API calls
+// without needing a valid auth token.
+func NewMuxHTTPClient(user *model.User) *http.Client {
+	if apiMux == nil {
+		panic("apiMux not set - call rest.SetAPIMux() first")
+	}
+	return &http.Client{
+		Transport: &MuxClient{user: user},
+	}
+}

@@ -8,25 +8,24 @@ import (
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/mcp"
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 
 	"github.com/paularlott/knot/internal/log"
 )
 
 type Service struct {
 	config       config.ChatConfig
-	openaiClient *openai.Client
+	openaiClient *mcpopenai.Client
 }
 
 func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, error) {
-	// Create OpenAI client
-	openaiConfig := openai.Config{
-		APIKey:  config.OpenAIAPIKey,
-		BaseURL: config.OpenAIBaseURL,
-	}
-
-	openaiClient, err := openai.New(openaiConfig, mcpServer)
+	// Create OpenAI client directly using mcp/ai/openai
+	openaiClient, err := mcpopenai.New(mcpopenai.Config{
+		APIKey:      config.OpenAIAPIKey,
+		BaseURL:     config.OpenAIBaseURL,
+		LocalServer: mcpServer,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OpenAI client: %w", err)
 	}
@@ -39,7 +38,7 @@ func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, erro
 	return chatService, nil
 }
 
-func (s *Service) GetOpenAIClient() *openai.Client {
+func (s *Service) GetOpenAIClient() *mcpopenai.Client {
 	return s.openaiClient
 }
 
@@ -58,7 +57,7 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 	openAIMessages := s.convertMessagesToOpenAI(messages)
 
 	// Create request
-	req := openai.ChatCompletionRequest{
+	req := mcpopenai.ChatCompletionRequest{
 		Model:           s.config.Model,
 		Messages:        openAIMessages,
 		MaxTokens:       s.config.MaxTokens,
@@ -93,15 +92,15 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 	}, nil
 }
 
-func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []openai.Message {
-	openAIMessages := make([]openai.Message, 0, len(messages)+1)
+func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []mcpopenai.Message {
+	openAIMessages := make([]mcpopenai.Message, 0, len(messages)+1)
 
 	// Check if first message is a system message
 	hasSystemMessage := len(messages) > 0 && messages[0].Role == "system"
 
 	// Add system prompt only if no system message is present
 	if !hasSystemMessage && s.config.SystemPrompt != "" {
-		systemMessage := openai.Message{
+		systemMessage := mcpopenai.Message{
 			Role: "system",
 		}
 		systemMessage.SetContentAsString(s.config.SystemPrompt)
@@ -110,7 +109,7 @@ func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []openai.Messa
 
 	// Convert all messages (including any system messages from input)
 	for _, msg := range messages {
-		openAIMessage := openai.Message{
+		openAIMessage := mcpopenai.Message{
 			Role:       msg.Role,
 			ToolCalls:  msg.ToolCalls,
 			ToolCallID: msg.ToolCallID,

@@ -157,7 +157,7 @@ func ExecuteTool(name string, params map[string]interface{}, user *model.User) (
 		Content: tool.Script,
 	}
 
-	// Execute via scriptling
+	// Execute via scriptling (boot-loaded tools don't have AI client access)
 	result, err := service.ExecuteScriptWithMCP(script, mcpParams, user)
 	if err != nil {
 		// Strip MCP_TOOL_ERROR prefix if present

@@ -29,6 +29,7 @@ import (
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/proxy"
+	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/systemprompt"
@@ -825,10 +826,8 @@ var ServerCmd = &cli.Command{
 			}
 			openAIClient = chatService.GetOpenAIClient()
 
-			// Set chat service for MCP tools
-			if mcpServer != nil {
-				internal_mcp.SetChatService(chatService)
-			}
+			// Set default model for knot.ai library
+			knotscriptling.SetDefaultModel(cfg.Chat.Model)
 
 			// Initialize response worker pool for Responses API
 			if openaiEndpointEnabled || chatEnabled {
