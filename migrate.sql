@@ -51,3 +51,6 @@ DROP COLUMN user_startup_script;
 
 ALTER TABLE templates
 DROP COLUMN user_shutdown_script;
+
+/* Rename on_demand_tool to discoverable for consistency */
+ALTER TABLE scripts CHANGE COLUMN on_demand_tool discoverable TINYINT (1) NOT NULL DEFAULT 0;

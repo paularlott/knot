@@ -10,11 +10,9 @@ import (
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
-
-	"github.com/paularlott/knot/internal/log"
-	"github.com/paularlott/mcp"
 )
 
 const (
@@ -30,7 +28,7 @@ var (
 )
 
 // InitResponseWorker initializes the global response worker pool
-func InitResponseWorker(client *Client, poolSize int, gossipFunc GossipCallback) {
+func InitResponseWorker(client AIClient, poolSize int, gossipFunc GossipCallback) {
 	if globalResponseWorkerPool != nil {
 		return
 	}
@@ -51,7 +49,7 @@ func ShutdownResponseWorker() {
 }
 
 // recoverIncompleteResponses finds and re-queues incomplete responses on startup
-func recoverIncompleteResponses(client *Client) {
+func recoverIncompleteResponses(client AIClient) {
 	db := database.GetInstance()
 
 	// Get in_progress and pending responses
@@ -107,13 +105,8 @@ func (s *Service) HandleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	user := userI.(*model.User)
 
-	// Validate request
-	if req.Model == "" {
-		rest.WriteResponse(http.StatusBadRequest, w, r, map[string]string{
-			"error": "model is required",
-		})
-		return
-	}
+	// Always use the system-configured model, ignoring any client-provided model
+	req.Model = s.model
 
 	// Create response object
 	response := model.NewResponse(user.Id, "", DefaultResponseTTL)
@@ -162,8 +155,7 @@ func (s *Service) HandleCreateResponse(w http.ResponseWriter, r *http.Request) {
 	// Synchronous: process directly in this HTTP handler (bypass queue)
 	log.Info("Processing response synchronously", "id", response.Id)
 
-	// Force on-demand mode for synchronous response processing
-	ctx = mcp.WithForceOnDemandMode(ctx)
+	// Note: Response processing uses whatever tools are in the context from middleware
 
 	// Update status to in_progress
 	response.Status = model.StatusInProgress

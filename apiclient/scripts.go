@@ -14,7 +14,7 @@ type ScriptInfo struct {
 	Zones       []string `json:"zones"`
 	Active      bool     `json:"active"`
 	ScriptType  string   `json:"script_type"`
-	OnDemandTool bool    `json:"on_demand_tool"`
+	Discoverable bool    `json:"discoverable"`
 	IsManaged   bool     `json:"is_managed"`
 }
 
@@ -30,7 +30,7 @@ type ScriptDetails struct {
 	ScriptType         string   `json:"script_type"`
 	MCPInputSchemaToml string   `json:"mcp_input_schema_toml"`
 	MCPKeywords        []string `json:"mcp_keywords"`
-	OnDemandTool       bool     `json:"on_demand_tool"`
+	Discoverable       bool     `json:"discoverable"`
 	IsManaged          bool     `json:"is_managed"`
 }
 
@@ -45,7 +45,7 @@ type ScriptCreateRequest struct {
 	ScriptType         string   `json:"script_type"`
 	MCPInputSchemaToml string   `json:"mcp_input_schema_toml"`
 	MCPKeywords        []string `json:"mcp_keywords"`
-	OnDemandTool       bool     `json:"on_demand_tool"`
+	Discoverable       bool     `json:"discoverable"`
 }
 
 type ScriptUpdateRequest struct {
@@ -58,7 +58,7 @@ type ScriptUpdateRequest struct {
 	ScriptType         string   `json:"script_type"`
 	MCPInputSchemaToml string   `json:"mcp_input_schema_toml"`
 	MCPKeywords        []string `json:"mcp_keywords"`
-	OnDemandTool       bool     `json:"on_demand_tool"`
+	Discoverable       bool     `json:"discoverable"`
 }
 
 type ScriptCreateResponse struct {

@@ -92,7 +92,7 @@ func HandleGetScripts(w http.ResponseWriter, r *http.Request) {
 			Zones:        script.Zones,
 			Active:       script.Active,
 			ScriptType:   script.ScriptType,
-			OnDemandTool: script.OnDemandTool,
+			Discoverable: script.Discoverable,
 			IsManaged:    script.IsManaged,
 		})
 		seenScripts[script.Id] = true
@@ -119,7 +119,7 @@ func HandleGetScripts(w http.ResponseWriter, r *http.Request) {
 						Zones:        script.Zones,
 						Active:       script.Active,
 						ScriptType:   script.ScriptType,
-						OnDemandTool: script.OnDemandTool,
+						Discoverable: script.Discoverable,
 						IsManaged:    script.IsManaged,
 					})
 					seenScripts[script.Id] = true
@@ -172,7 +172,7 @@ func HandleGetGlobalScripts(w http.ResponseWriter, r *http.Request) {
 			Zones:        script.Zones,
 			Active:       script.Active,
 			ScriptType:   script.ScriptType,
-			OnDemandTool: script.OnDemandTool,
+			Discoverable: script.Discoverable,
 			IsManaged:    script.IsManaged,
 		})
 		response.Count++
@@ -230,7 +230,7 @@ func HandleGetScript(w http.ResponseWriter, r *http.Request) {
 		ScriptType:         script.ScriptType,
 		MCPInputSchemaToml: script.MCPInputSchemaToml,
 		MCPKeywords:        script.MCPKeywords,
-		OnDemandTool:       script.OnDemandTool,
+		Discoverable:       script.Discoverable,
 		IsManaged:          script.IsManaged,
 	})
 }
@@ -306,7 +306,7 @@ func HandleCreateScript(w http.ResponseWriter, r *http.Request) {
 		request.ScriptType,
 		request.MCPInputSchemaToml,
 		request.MCPKeywords,
-		request.OnDemandTool,
+		request.Discoverable,
 		ownerUserId,
 		user.Id,
 	)
@@ -419,7 +419,7 @@ func HandleUpdateScript(w http.ResponseWriter, r *http.Request) {
 	script.ScriptType = request.ScriptType
 	script.MCPInputSchemaToml = request.MCPInputSchemaToml
 	script.MCPKeywords = request.MCPKeywords
-	script.OnDemandTool = request.OnDemandTool
+	script.Discoverable = request.Discoverable
 	script.UpdatedUserId = user.Id
 	script.UpdatedAt = hlc.Now()
 
@@ -559,7 +559,7 @@ func HandleGetScriptDetailsByName(w http.ResponseWriter, r *http.Request) {
 		ScriptType:         script.ScriptType,
 		MCPInputSchemaToml: script.MCPInputSchemaToml,
 		MCPKeywords:        script.MCPKeywords,
-		OnDemandTool:       script.OnDemandTool,
+		Discoverable:       script.Discoverable,
 		IsManaged:          script.IsManaged,
 	})
 }

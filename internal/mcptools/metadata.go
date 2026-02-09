@@ -10,7 +10,7 @@ type ToolMetadata struct {
 	Name        string                       `toml:"name"`
 	Description string                       `toml:"description"`
 	Keywords    []string                     `toml:"keywords"`
-	Visibility  string                       `toml:"visibility"` // "native" or "on-demand"
+	Visibility  string                       `toml:"visibility"` // "native" or "discoverable" (legacy: "on-demand")
 	Parameters  map[string]ParameterMetadata `toml:"parameters"`
 	Output      *OutputMetadata              `toml:"output"`
 }
@@ -49,8 +49,12 @@ func ParseMetadata(tomlContent []byte) (*ToolMetadata, error) {
 	if metadata.Visibility == "" {
 		metadata.Visibility = "native"
 	}
-	if metadata.Visibility != "native" && metadata.Visibility != "on-demand" {
-		return nil, fmt.Errorf("visibility must be 'native' or 'on-demand'")
+	// Normalize legacy "on-demand" to "discoverable"
+	if metadata.Visibility == "on-demand" {
+		metadata.Visibility = "discoverable"
+	}
+	if metadata.Visibility != "native" && metadata.Visibility != "discoverable" {
+		return nil, fmt.Errorf("visibility must be 'native' or 'discoverable'")
 	}
 
 	return &metadata, nil

@@ -1,10 +1,15 @@
 import knot.space
 import knot.mcp
 
-space_name = knot.mcp.get("space_name")
-success = knot.space.start(space_name)
+space_name = knot.mcp.get_string("name")
 
-if success:
-    knot.mcp.return_object({"status": True})
+# Check if space is already running
+if knot.space.is_running(space_name):
+    knot.mcp.return_error("Space is already running")
 else:
-    knot.mcp.return_error("Failed to start space")
+    success = knot.space.start(space_name)
+
+    if success:
+        knot.mcp.return_string(f"Space '{space_name}' started successfully")
+    else:
+        knot.mcp.return_error("Failed to start space")

@@ -21,24 +21,25 @@ func MCPServerContext(mcpServer *mcp.Server, scriptToolsProvider ScriptToolsProv
 			// Add MCP server to context
 			ctx = context.WithValue(ctx, "mcp", mcpServer)
 
-			// Add script tools as request-scoped provider in force on-demand mode
+			// Add script tools as request-scoped provider
 			if scriptToolsProvider != nil {
 				user, ok := ctx.Value("user").(*model.User)
 				log.Debug("MCPServerContext: user from context", "ok", ok, "user", user)
 				if ok && user != nil {
 					if provider := scriptToolsProvider(ctx, user); provider != nil {
 						log.Debug("MCPServerContext: adding script tools provider to context", "user", user.Username)
-						ctx = mcp.WithForceOnDemandMode(ctx, provider)
+						ctx = mcp.WithToolProviders(ctx, provider)
 					} else {
 						log.Debug("MCPServerContext: scriptToolsProvider returned nil", "user", user.Username, "has_ExecuteScripts", user.HasPermission(model.PermissionExecuteScripts), "has_ExecuteOwnScripts", user.HasPermission(model.PermissionExecuteOwnScripts))
-						ctx = mcp.WithForceOnDemandMode(ctx)
 					}
 				} else {
 					log.Debug("MCPServerContext: user not found in context")
-					ctx = mcp.WithForceOnDemandMode(ctx)
 				}
-			} else {
-				ctx = mcp.WithForceOnDemandMode(ctx)
+			}
+
+			// Check for show-all mode (MCP chaining)
+			if mcp.GetShowAllFromRequest(r) {
+				ctx = mcp.WithShowAllTools(ctx)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))

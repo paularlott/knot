@@ -2,11 +2,12 @@
 import knot.space
 import knot.mcp
 
-args = knot.mcp.get_args()
-content = knot.space.read_file(args['space_name'], args['file_path'])
+space_name = knot.mcp.get_string("name")
+file_path = knot.mcp.get_string("file_path")
+content = knot.space.read_file(space_name, file_path)
 
 knot.mcp.return_object({
-    'file_path': args['file_path'],
+    'file_path': file_path,
     'success': True,
     'content': content,
     'size': len(content)

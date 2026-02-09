@@ -10,6 +10,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/scriptling/object"
 )
 
 type ScriptService struct{}
@@ -80,7 +81,7 @@ func (s *ScriptService) ListScripts(opts ScriptListOptions) ([]*model.Script, er
 	return result, nil
 }
 
-func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, user *model.User) (string, error) {
+func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]object.Object, user *model.User) (string, error) {
 	timeout := time.Duration(config.GetServerConfig().MCPToolTimeout) * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -88,17 +89,36 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]string, use
 
 	ctx = context.WithValue(ctx, "user", user)
 
-	// Use MuxClient for direct API calls
 	client := apiclient.NewMuxClient(user)
 
-	env, err := NewMCPScriptlingEnv(client, mcpParams, user)
+	env, mcpLib, err := NewMCPScriptlingEnv(client, mcpParams, user)
 	if err != nil {
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}
 
 	result, err := env.EvalWithContext(ctx, script.Content)
+
+	// Check for SystemExit first
+	if ex, ok := object.AsException(result); ok && ex.IsSystemExit() {
+		if storedResult := mcpLib.GetResult(); storedResult != nil {
+			if ex.GetExitCode() == 0 {
+				return *storedResult, nil
+			}
+			return "", fmt.Errorf("%s", *storedResult)
+		}
+		if ex.GetExitCode() != 0 {
+			return "", fmt.Errorf("script exited with code %d", ex.GetExitCode())
+		}
+		return "", nil
+	}
+
 	if err != nil {
-		return "", fmt.Errorf("script execution failed: %v", err)
+		return "", err
+	}
+
+	// Check if mcp.return_* was called without SystemExit
+	if storedResult := mcpLib.GetResult(); storedResult != nil {
+		return *storedResult, nil
 	}
 
 	output := env.GetOutput()

@@ -20,7 +20,7 @@ type Script struct {
 	ScriptType          string        `json:"script_type" db:"script_type"`
 	MCPInputSchemaToml  string        `json:"mcp_input_schema_toml" db:"mcp_input_schema_toml"`
 	MCPKeywords         []string      `json:"mcp_keywords" db:"mcp_keywords,json"`
-	OnDemandTool        bool          `json:"on_demand_tool" db:"on_demand_tool"`
+	Discoverable        bool          `json:"discoverable" db:"discoverable"`
 	IsDeleted           bool          `json:"is_deleted" db:"is_deleted"`
 	IsManaged           bool          `json:"is_managed" db:"is_managed"`
 	CreatedUserId       string        `json:"created_user_id" db:"created_user_id"`
@@ -39,7 +39,7 @@ func NewScript(
 	scriptType string,
 	mcpInputSchemaToml string,
 	mcpKeywords []string,
-	onDemandTool bool,
+	discoverable bool,
 	ownerUserId string,
 	createdUserId string,
 ) *Script {
@@ -64,7 +64,7 @@ func NewScript(
 		ScriptType:         scriptType,
 		MCPInputSchemaToml: mcpInputSchemaToml,
 		MCPKeywords:        mcpKeywords,
-		OnDemandTool:       onDemandTool,
+		Discoverable:       discoverable,
 		CreatedUserId:      createdUserId,
 		CreatedAt:          time.Now().UTC(),
 		UpdatedUserId:      createdUserId,

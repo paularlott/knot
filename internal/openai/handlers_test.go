@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 )
 
 func TestHandlers_GetModels(t *testing.T) {
@@ -30,18 +32,18 @@ func TestHandlers_GetModels(t *testing.T) {
 	defer upstream.Close()
 
 	// Create OpenAI client pointing to mock upstream
-	config := Config{
+	cfg := mcpopenai.Config{
 		APIKey:  "test-key",
 		BaseURL: upstream.URL + "/",
 	}
 
-	client, err := New(config, nil)
+	client, err := mcpopenai.New(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
 	// Create service and test the models endpoint directly
-	service := NewService(client, "")
+	service := NewService(client, "", "test-model")
 	req := httptest.NewRequest("GET", "/v1/models", nil)
 	w := httptest.NewRecorder()
 
@@ -90,18 +92,18 @@ func TestHandlers_ChatCompletions_NonStreaming(t *testing.T) {
 	defer upstream.Close()
 
 	// Create OpenAI client pointing to mock upstream
-	config := Config{
+	cfg := mcpopenai.Config{
 		APIKey:  "test-key",
 		BaseURL: upstream.URL + "/",
 	}
 
-	client, err := New(config, nil)
+	client, err := mcpopenai.New(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
 	// Create service and test chat completions directly
-	service := NewService(client, "")
+	service := NewService(client, "", "test-model")
 
 	// Create request body
 	message := Message{Role: "user"}

@@ -5,4 +5,4 @@ import knot.mcp
 spaces = knot.space.list()
 
 # Return as JSON
-knot.mcp.return_object({"spaces": spaces})
+knot.mcp.return_object(spaces)

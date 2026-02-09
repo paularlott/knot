@@ -15,10 +15,6 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type contextKey string
-
-const userContextKey contextKey = "user"
-
 var apiMux *http.ServeMux
 
 // SetAPIMux stores the API mux for direct calls
@@ -93,7 +89,7 @@ func (c *MuxClient) ClearHeaders() RESTClient {
 
 func (c *MuxClient) Get(ctx context.Context, path string, response interface{}) (int, error) {
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	ctx = context.WithValue(ctx, userContextKey, c.user)
+	ctx = context.WithValue(ctx, "user", c.user)
 	req = req.WithContext(ctx)
 
 	req.Header.Set("Accept", strings.Join(c.accept, ", "))
@@ -132,7 +128,7 @@ func (c *MuxClient) sendData(ctx context.Context, method string, path string, re
 	}
 
 	req := httptest.NewRequest(method, path, bytes.NewReader(data))
-	ctx = context.WithValue(ctx, userContextKey, c.user)
+	ctx = context.WithValue(ctx, "user", c.user)
 	req = req.WithContext(ctx)
 
 	req.Header.Set("Accept", strings.Join(c.accept, ", "))
@@ -231,4 +227,29 @@ func (c *MuxClient) SetTokenKey(key string) RESTClient {
 
 func (c *MuxClient) SetTokenFormat(format string) RESTClient {
 	return c
+}
+
+// RoundTrip implements http.RoundTripper by routing the request through the API
+// mux with the user injected into context for authentication.
+func (c *MuxClient) RoundTrip(req *http.Request) (*http.Response, error) {
+	ctx := context.WithValue(req.Context(), "user", c.user)
+	muxReq := req.Clone(ctx)
+
+	rec := httptest.NewRecorder()
+	apiMux.ServeHTTP(rec, muxReq)
+
+	return rec.Result(), nil
+}
+
+// NewMuxHTTPClient creates an *http.Client that routes requests through the API
+// mux with the given user injected into context for authentication. This allows
+// standard HTTP clients (like mcpopenai.Client) to make in-process API calls
+// without needing a valid auth token.
+func NewMuxHTTPClient(user *model.User) *http.Client {
+	if apiMux == nil {
+		panic("apiMux not set - call rest.SetAPIMux() first")
+	}
+	return &http.Client{
+		Transport: &MuxClient{user: user},
+	}
 }

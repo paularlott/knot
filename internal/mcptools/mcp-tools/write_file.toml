@@ -2,14 +2,14 @@ name = "write_file"
 description = "Write content to a file in a running space."
 keywords = ["write", "file", "create", "save", "edit", "content", "text", "document"]
 
-[parameters.space_name]
+[parameters.name]
 type = "string"
 description = "Name of the space to write to"
 required = true
 
 [parameters.file_path]
 type = "string"
-description = "Path to the file within the space (e.g., /app/config.json)"
+description = "Path to the file within the space (e.g., app/config.json)"
 required = true
 
 [parameters.content]

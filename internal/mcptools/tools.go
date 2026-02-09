@@ -11,6 +11,8 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/mcp"
+	scriptlib "github.com/paularlott/scriptling"
+	"github.com/paularlott/scriptling/object"
 )
 
 type Tool struct {
@@ -144,15 +146,10 @@ func ExecuteTool(name string, params map[string]interface{}, user *model.User) (
 		return nil, fmt.Errorf("tool not found: %s", name)
 	}
 
-	// Convert params to string map for scriptling
-	mcpParams := make(map[string]string)
+	// Convert params to scriptling objects for mcp library
+	mcpParams := make(map[string]object.Object)
 	for key, value := range params {
-		switch v := value.(type) {
-		case string:
-			mcpParams[key] = v
-		default:
-			mcpParams[key] = fmt.Sprintf("%v", v)
-		}
+		mcpParams[key] = scriptlib.FromGo(value)
 	}
 
 	// Create a temporary script model for execution
@@ -160,10 +157,14 @@ func ExecuteTool(name string, params map[string]interface{}, user *model.User) (
 		Content: tool.Script,
 	}
 
-	// Execute via scriptling
+	// Execute via scriptling (boot-loaded tools don't have AI client access)
 	result, err := service.ExecuteScriptWithMCP(script, mcpParams, user)
 	if err != nil {
-		return nil, fmt.Errorf("tool execution failed: %w", err)
+		// Strip MCP_TOOL_ERROR prefix if present
+		if strings.HasPrefix(err.Error(), "MCP_TOOL_ERROR: ") {
+			return nil, fmt.Errorf("%s", strings.TrimPrefix(err.Error(), "MCP_TOOL_ERROR: "))
+		}
+		return nil, err
 	}
 
 	return result, nil
@@ -205,11 +206,69 @@ func GetMCPTools(visibility string) []mcp.MCPTool {
 			}
 		}
 
+		// Determine MCP visibility
+		mcpVisibility := mcp.ToolVisibilityNative
+		if tool.Metadata.Visibility == "discoverable" {
+			mcpVisibility = mcp.ToolVisibilityDiscoverable
+		}
+
 		tools = append(tools, mcp.MCPTool{
 			Name:        tool.Metadata.Name,
 			Description: tool.Metadata.Description,
 			InputSchema: inputSchema,
 			Keywords:    tool.Metadata.Keywords,
+			Visibility:  mcpVisibility,
+		})
+	}
+
+	return tools
+}
+
+// GetAllMCPTools returns all MCP tools with their Visibility field set appropriately
+func GetAllMCPTools() []mcp.MCPTool {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	tools := make([]mcp.MCPTool, 0, len(registry))
+	for _, tool := range registry {
+		// Build input schema from metadata
+		inputSchema := map[string]interface{}{
+			"type":       "object",
+			"properties": map[string]interface{}{},
+		}
+
+		if len(tool.Metadata.Parameters) > 0 {
+			properties := make(map[string]interface{})
+			required := make([]string, 0)
+
+			for paramName, param := range tool.Metadata.Parameters {
+				properties[paramName] = map[string]interface{}{
+					"type":        param.Type,
+					"description": param.Description,
+				}
+				if param.Required {
+					required = append(required, paramName)
+				}
+			}
+
+			inputSchema["properties"] = properties
+			if len(required) > 0 {
+				inputSchema["required"] = required
+			}
+		}
+
+		// Determine MCP visibility
+		mcpVisibility := mcp.ToolVisibilityNative
+		if tool.Metadata.Visibility == "discoverable" {
+			mcpVisibility = mcp.ToolVisibilityDiscoverable
+		}
+
+		tools = append(tools, mcp.MCPTool{
+			Name:        tool.Metadata.Name,
+			Description: tool.Metadata.Description,
+			InputSchema: inputSchema,
+			Keywords:    tool.Metadata.Keywords,
+			Visibility:  mcpVisibility,
 		})
 	}
 

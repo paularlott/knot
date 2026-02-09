@@ -15,7 +15,7 @@ type GossipCallback func(response *model.Response)
 
 // ResponseWorkerPool handles async response processing
 type ResponseWorkerPool struct {
-	client       *Client
+	client       AIClient
 	queue        chan *model.Response
 	ctx          context.Context
 	cancel       context.CancelFunc
@@ -26,7 +26,7 @@ type ResponseWorkerPool struct {
 }
 
 // NewResponseWorkerPool creates a new response worker pool
-func NewResponseWorkerPool(client *Client, size int, gossipFunc GossipCallback) *ResponseWorkerPool {
+func NewResponseWorkerPool(client AIClient, size int, gossipFunc GossipCallback) *ResponseWorkerPool {
 	if size <= 0 {
 		size = DefaultResponseWorkerPoolSize
 	}

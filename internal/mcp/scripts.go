@@ -2,12 +2,9 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/paularlott/knot/internal/chat"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
@@ -15,25 +12,24 @@ import (
 	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/mcp"
+	scriptlib "github.com/paularlott/scriptling"
+	"github.com/paularlott/scriptling/object"
 )
 
-// scriptToolsProvider implements mcp.ToolProvider for native script tools
+// scriptToolsProvider implements mcp.ToolProvider for script tools
+// Returns all tools with their Visibility field set appropriately
 type scriptToolsProvider struct {
-	user         *model.User
-	onDemandOnly bool
+	user *model.User
 }
 
 // NewScriptToolsProvider creates a new script tools provider for a user
+// Returns all tools (native and discoverable) with their visibility set
 func NewScriptToolsProvider(user *model.User) *scriptToolsProvider {
-	return &scriptToolsProvider{user: user, onDemandOnly: false}
-}
-
-// NewOnDemandScriptToolsProvider creates a new on-demand script tools provider for a user
-func NewOnDemandScriptToolsProvider(user *model.User) *scriptToolsProvider {
-	return &scriptToolsProvider{user: user, onDemandOnly: true}
+	return &scriptToolsProvider{user: user}
 }
 
 // GetTools returns all available script tools for the user
+// Each tool has its Visibility field set based on the script's Discoverable flag
 // Implements user override behavior: user scripts override global scripts with the same name
 func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, error) {
 	log.Debug("scriptToolsProvider.GetTools called", "user", p.user.Username, "user_id", p.user.Id)
@@ -78,17 +74,10 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 			// Current script is a user script - always replace (user scripts override both global and other user scripts)
 		}
 
-		// Filter based on provider type
-		if p.onDemandOnly {
-			// On-demand provider: only return discoverable tools
-			if !script.OnDemandTool {
-				continue
-			}
-		} else {
-			// Native provider: only return non-discoverable tools
-			if script.OnDemandTool {
-				continue
-			}
+		// Determine visibility based on script's Discoverable flag
+		visibility := mcp.ToolVisibilityNative
+		if script.Discoverable {
+			visibility = mcp.ToolVisibilityDiscoverable
 		}
 
 		// Build input schema - if TOML schema exists, parse it; otherwise use empty schema
@@ -109,12 +98,13 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 			}
 		}
 
-		// Store tool and track ownership
+		// Store tool with visibility and track ownership
 		toolsMap[script.Name] = mcp.MCPTool{
 			Name:        script.Name,
 			Description: script.Description,
 			InputSchema: inputSchema,
 			Keywords:    script.MCPKeywords,
+			Visibility:  visibility,
 		}
 		userIdMap[script.Name] = script.UserId // Empty string for global scripts
 	}
@@ -125,12 +115,8 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 		tools = append(tools, tool)
 	}
 
-	// Add boot-loaded MCP tools with correct visibility
-	visibility := "native"
-	if p.onDemandOnly {
-		visibility = "on-demand"
-	}
-	bootTools := mcptools.GetMCPTools(visibility)
+	// Add boot-loaded MCP tools (they set their own visibility)
+	bootTools := mcptools.GetAllMCPTools()
 	tools = append(tools, bootTools...)
 
 	// Add skills tool if user has accessible skills
@@ -140,7 +126,7 @@ func (p *scriptToolsProvider) GetTools(ctx context.Context) ([]mcp.MCPTool, erro
 
 	log.Debug("scriptToolsProvider.GetTools returning tools", "count", len(tools), "user", p.user.Username)
 	for _, tool := range tools {
-		log.Debug("scriptToolsProvider.GetTools tool", "name", tool.Name, "description", tool.Description, "keywords", tool.Keywords)
+		log.Debug("scriptToolsProvider.GetTools tool", "name", tool.Name, "description", tool.Description, "keywords", tool.Keywords, "visibility", tool.Visibility)
 	}
 
 	return tools, nil
@@ -154,89 +140,55 @@ func (p *scriptToolsProvider) ExecuteTool(ctx context.Context, name string, para
 	}
 
 	// Try boot-loaded tools first
-	if result, err := mcptools.ExecuteTool(name, params, p.user); err == nil {
-		return result, nil
-	} else {
-		log.WithError(err).Error("scriptToolsProvider.ExecuteTool: boot-loaded tool failed", "tool", name)
+	toolResult, toolErr := mcptools.ExecuteTool(name, params, p.user)
+	if toolErr == nil {
+		// Boot-loaded tool executed successfully
+		return toolResult, nil
 	}
+	// Check if tool exists in mcptools (error is "tool not found") vs execution failed
+	if _, exists := mcptools.GetTool(name); exists {
+		// Tool exists in mcptools but execution failed - return the error
+		log.WithError(toolErr).Error("scriptToolsProvider.ExecuteTool: boot-loaded tool execution failed", "tool", name)
+		return nil, toolErr
+	}
+	// Tool not in mcptools, try database scripts
 
 	// Resolve script with user override and zone filtering
 	script, err := service.ResolveScriptByName(name, p.user.Id)
-	if err != nil || script.ScriptType != "tool" {
+	if err != nil {
 		return nil, nil // Tool not found - let other providers handle it
+	}
+	if script.ScriptType != "tool" {
+		return nil, fmt.Errorf("script '%s' is not a tool", name)
 	}
 
 	// Check permissions
 	if !service.CanUserExecuteScript(p.user, script) {
-		return nil, nil
+		return nil, fmt.Errorf("permission denied to execute tool '%s'", name)
 	}
 
 	// Check zone restrictions
 	currentZone := config.GetServerConfig().Zone
 	if !script.IsValidForZone(currentZone) {
-		return nil, nil
+		return nil, fmt.Errorf("tool '%s' is not available in zone '%s'", name, currentZone)
 	}
 
-	// Convert params to string map for script execution
-	mcpParams := make(map[string]string)
+	// Convert params to scriptling objects for script execution
+	mcpParams := make(map[string]object.Object)
 	for key, value := range params {
-		switch v := value.(type) {
-		case string:
-			mcpParams[key] = v
-		case int, int64, float64, bool:
-			mcpParams[key] = fmt.Sprintf("%v", v)
-		default:
-			jsonBytes, _ := json.Marshal(v)
-			mcpParams[key] = string(jsonBytes)
-		}
+		mcpParams[key] = scriptlib.FromGo(value)
 	}
 
 	// Execute the script
 	result, err := service.ExecuteScriptWithMCP(script, mcpParams, p.user)
 	if err != nil {
-		return fmt.Sprintf("Error: %s", err.Error()), nil
-	}
-
-	// Check if the result contains an AI completion request
-	if strings.HasPrefix(result, "__AI_COMPLETION_REQUEST__:") {
-		// Extract the messages
-		messagesJSON := strings.TrimPrefix(result, "__AI_COMPLETION_REQUEST__:")
-		var messages []map[string]string
-		if err := json.Unmarshal([]byte(messagesJSON), &messages); err == nil {
-			// Try to get chat service and complete the request
-			if chatService := getChatService(); chatService != nil {
-				// Convert to chat message format
-				chatMessages := make([]chat.ChatMessage, 0, len(messages))
-				for _, msg := range messages {
-					chatMessages = append(chatMessages, chat.ChatMessage{
-						Role:      msg["role"],
-						Content:   msg["content"],
-						Timestamp: time.Now().Unix(),
-					})
-				}
-
-				// Get completion
-				response, err := chatService.ChatCompletion(ctx, chatMessages, p.user)
-				if err != nil {
-					return fmt.Sprintf("AI completion failed: %s", err.Error()), nil
-				}
-				return response.Content, nil
-			}
+		// Strip MCP_TOOL_ERROR prefix if present
+		if strings.HasPrefix(err.Error(), "MCP_TOOL_ERROR: ") {
+			return nil, fmt.Errorf("%s", strings.TrimPrefix(err.Error(), "MCP_TOOL_ERROR: "))
 		}
-		return "AI completion not available in MCP environment", nil
+		return nil, err
 	}
 
 	return result, nil
 }
 
-var chatService *chat.Service
-
-// SetChatService sets the global chat service for MCP tools
-func SetChatService(cs *chat.Service) {
-	chatService = cs
-}
-
-// getChatService returns the global chat service
-func getChatService() *chat.Service {
-	return chatService
-}

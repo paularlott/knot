@@ -19,9 +19,8 @@ const (
 )
 
 var (
-	sessionMutex     = sync.RWMutex{}
-	sessions         = make(map[string]*Session)
-	createTokenMutex = sync.Mutex{}
+	sessionMutex = sync.RWMutex{}
+	sessions     = make(map[string]*Session)
 )
 
 type stopListItem struct {

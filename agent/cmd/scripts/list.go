@@ -44,19 +44,19 @@ var listCmd = &cli.Command{
 		if len(userScripts) > 0 {
 			fmt.Println("\nUser Scripts:")
 			table := [][]string{
-				{"NAME", "DESCRIPTION", "ACTIVE", "TYPE", "ON-DEMAND"},
+				{"NAME", "DESCRIPTION", "ACTIVE", "TYPE", "DISCOVERABLE"},
 			}
 			for _, script := range userScripts {
 				active := "No"
 				if script.Active {
 					active = "Yes"
 				}
-				onDemand := ""
+				discoverable := ""
 				if script.ScriptType == "tool" {
-					if script.OnDemandTool {
-						onDemand = "Yes"
+					if script.Discoverable {
+						discoverable = "Yes"
 					} else {
-						onDemand = "No"
+						discoverable = "No"
 					}
 				}
 				table = append(table, []string{
@@ -64,7 +64,7 @@ var listCmd = &cli.Command{
 					script.Description,
 					active,
 					script.ScriptType,
-					onDemand,
+					discoverable,
 				})
 			}
 			util.PrintTable(table)
@@ -74,19 +74,19 @@ var listCmd = &cli.Command{
 		if len(globalScripts) > 0 {
 			fmt.Println("\nGlobal Scripts:")
 			table := [][]string{
-				{"NAME", "DESCRIPTION", "ACTIVE", "TYPE", "ON-DEMAND"},
+				{"NAME", "DESCRIPTION", "ACTIVE", "TYPE", "DISCOVERABLE"},
 			}
 			for _, script := range globalScripts {
 				active := "No"
 				if script.Active {
 					active = "Yes"
 				}
-				onDemand := ""
+				discoverable := ""
 				if script.ScriptType == "tool" {
-					if script.OnDemandTool {
-						onDemand = "Yes"
+					if script.Discoverable {
+						discoverable = "Yes"
 					} else {
-						onDemand = "No"
+						discoverable = "No"
 					}
 				}
 				table = append(table, []string{
@@ -94,7 +94,7 @@ var listCmd = &cli.Command{
 					script.Description,
 					active,
 					script.ScriptType,
-					onDemand,
+					discoverable,
 				})
 			}
 			util.PrintTable(table)

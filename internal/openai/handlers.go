@@ -6,19 +6,22 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/internal/util/rest"
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 
 	"github.com/paularlott/knot/internal/log"
 )
 
 type Service struct {
-	client       *Client
+	client       AIClient
 	systemPrompt string
+	model        string
 }
 
-func NewService(client *Client, systemPrompt string) *Service {
+func NewService(client AIClient, systemPrompt string, model string) *Service {
 	return &Service{
 		client:       client,
 		systemPrompt: systemPrompt,
+		model:        model,
 	}
 }
 
@@ -51,7 +54,12 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Strip existing system messages and add our system prompt
+	// Only set model if not provided by the caller
+	if req.Model == "" {
+		req.Model = s.model
+	}
+
+	// Inject system prompt only if no system message is present
 	req.Messages = s.replaceSystemPrompt(req.Messages)
 
 	if req.Stream {
@@ -63,8 +71,7 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 
 // handleNonStreamingChatCompletion handles non-streaming chat completions
 func (s *Service) handleNonStreamingChatCompletion(ctx context.Context, w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
-	// Context is already configured by MCPServerContext middleware with force on-demand mode and script tools provider
-	// Do not call mcp.WithForceOnDemandMode here as it would overwrite the context
+	// Context is already configured by MCPServerContext middleware with script tools provider
 
 	response, err := s.client.ChatCompletion(ctx, req)
 	if err != nil {
@@ -80,11 +87,14 @@ func (s *Service) handleNonStreamingChatCompletion(ctx context.Context, w http.R
 
 // handleStreamingChatCompletion handles streaming chat completions
 func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
-	// Context is already configured by MCPServerContext middleware with force on-demand mode and script tools provider
-	// Do not call mcp.WithForceOnDemandMode here as it would overwrite the context
-
+	// Context is already configured by MCPServerContext middleware with script tools provider
 	streamWriter := rest.NewStreamWriter(w, r)
 	defer streamWriter.Close()
+
+	toolHandler := mcpopenai.NewSSEToolHandler(streamWriter, func(err error, eventType, toolName string) {
+		log.Debug("Failed to write tool event", "error", err, "event", eventType, "tool", toolName)
+	})
+	ctx = mcpopenai.WithToolHandler(ctx, toolHandler)
 
 	stream := s.client.StreamChatCompletion(ctx, req)
 	for stream.Next() {

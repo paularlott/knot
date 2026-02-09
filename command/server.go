@@ -29,6 +29,7 @@ import (
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/proxy"
+	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/systemprompt"
@@ -42,6 +43,7 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/mcp"
+	ai "github.com/paularlott/mcp/ai"
 )
 
 var ServerCmd = &cli.Command{
@@ -587,18 +589,39 @@ var ServerCmd = &cli.Command{
 			DefaultValue: false,
 		},
 		&cli.StringFlag{
+			Name:         "chat-provider",
+			Usage:        "LLM provider for chat functionality (openai, claude, gemini, ollama, mistral, zai).",
+			ConfigPath:   []string{"server.chat.provider"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_PROVIDER"},
+			DefaultValue: "openai",
+		},
+		&cli.StringFlag{
+			Name:         "chat-api-key",
+			Usage:        "API key for chat functionality.",
+			ConfigPath:   []string{"server.chat.api_key"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_API_KEY"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "chat-base-url",
+			Usage:        "Base URL for chat functionality.",
+			ConfigPath:   []string{"server.chat.base_url"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_BASE_URL"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
 			Name:         "chat-openai-api-key",
-			Usage:        "OpenAI API key for chat functionality.",
+			Usage:        "Deprecated: use chat-api-key instead.",
 			ConfigPath:   []string{"server.chat.openai_api_key"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_API_KEY"},
 			DefaultValue: "",
 		},
 		&cli.StringFlag{
 			Name:         "chat-openai-base-url",
-			Usage:        "OpenAI API base URL for chat functionality.",
+			Usage:        "Deprecated: use chat-base-url instead.",
 			ConfigPath:   []string{"server.chat.openai_base_url"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_BASE_URL"},
-			DefaultValue: "http://127.0.0.1:11434/v1",
+			DefaultValue: "",
 		},
 		&cli.StringFlag{
 			Name:         "chat-model",
@@ -804,7 +827,8 @@ var ServerCmd = &cli.Command{
 		}
 
 		// If AI chat enabled then initialize chat service
-		var openAIClient *openai.Client
+		// Note: ChatEnabled now implies OpenAI endpoints are also enabled for web chat
+		var openAIClient ai.Client
 		if chatEnabled || openaiEndpointEnabled {
 			logger.Info("AI chat enabled")
 
@@ -822,18 +846,13 @@ var ServerCmd = &cli.Command{
 			if err != nil {
 				logger.WithError(err).Fatal("failed to create chat service:")
 			}
-			openAIClient = chatService.GetOpenAIClient()
+			openAIClient = chatService.GetAIClient()
 
-			// Set OpenAI client for scriptling environments
-			service.SetOpenAIClient(openAIClient)
-
-			// Set chat service for MCP tools
-			if mcpServer != nil {
-				internal_mcp.SetChatService(chatService)
-			}
+			// Set default model for knot.ai library
+			knotscriptling.SetDefaultModel(cfg.Chat.Model)
 
 			// Initialize response worker pool for Responses API
-			if openaiEndpointEnabled {
+			if openaiEndpointEnabled || chatEnabled {
 				logger.Info("Initializing response worker pool")
 				// Create gossip callback for response updates
 				gossipFunc := func(response *model.Response) {
@@ -841,42 +860,16 @@ var ServerCmd = &cli.Command{
 				}
 				openai.InitResponseWorker(openAIClient, openai.DefaultResponseWorkerPoolSize, gossipFunc)
 			}
-
-			// API endpoint for chat
-			if chatEnabled {
-				// Create script tools provider for chat endpoints
-				var scriptToolsProvider middleware.ScriptToolsProvider = nil
-				if mcpServer != nil {
-					scriptToolsProvider = func(ctx context.Context, user *model.User) mcp.ToolProvider {
-						if user == nil || (!user.HasPermission(model.PermissionExecuteScripts) && !user.HasPermission(model.PermissionExecuteOwnScripts)) {
-							return nil
-						}
-						return internal_mcp.NewScriptToolsProvider(user)
-					}
-				}
-
-				// Apply MCP server context middleware to chat endpoints if script tools provider is available
-				if scriptToolsProvider != nil {
-					// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
-					routes.Handle("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(chatService.HandleChatStream))))))
-					routes.Handle("POST /api/chat/completion", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(chatService.HandleChatCompletion))))))
-				} else {
-					routes.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
-					routes.HandleFunc("POST /api/chat/completion", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatCompletion)))
-				}
-
-				// Register chat tool endpoints if MCP server is available
-				if mcpServer != nil {
-					// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
-					routes.Handle("GET /api/chat/tools", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(api.HandleListTools))))))
-					routes.Handle("POST /api/chat/tools/call", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(api.HandleCallTool))))))
-				}
-			}
 		}
 
 		// If OpenAI chat enabled then initialize OpenAI service
-		if openaiEndpointEnabled {
-			logger.Info("OpenAI endpoints enabled")
+		// Note: This is now enabled when either openaiEndpointEnabled or chatEnabled is true
+		if openaiEndpointEnabled || chatEnabled {
+			if openaiEndpointEnabled {
+				logger.Info("OpenAI endpoints enabled")
+			} else {
+				logger.Info("OpenAI endpoints enabled for web chat")
+			}
 
 			// Create script tools provider for OpenAI endpoints
 			scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
@@ -886,14 +879,14 @@ var ServerCmd = &cli.Command{
 				return internal_mcp.NewScriptToolsProvider(user)
 			}
 
-			service := openai.NewService(openAIClient, cfg.Chat.SystemPrompt)
+			openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)
 			// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
-			routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleGetModels))))))
-			routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleChatCompletions))))))
-			routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleCreateResponse))))))
-			routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleGetResponse))))))
-			routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleDeleteResponse))))))
-			routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(service.HandleCancelResponse))))))
+			routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetModels))))))
+			routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
+			routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCreateResponse))))))
+			routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetResponse))))))
+			routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))
+			routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCancelResponse))))))
 		}
 
 		// Add support for page not found
@@ -1307,18 +1300,37 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 
 			return mcpConfig
 		}(),
-		Chat: config.ChatConfig{
-			Enabled:          cmd.GetBool("chat-enabled"),
-			OpenAIAPIKey:     cmd.GetString("chat-openai-api-key"),
-			OpenAIBaseURL:    cmd.GetString("chat-openai-base-url"),
-			Model:            cmd.GetString("chat-model"),
-			MaxTokens:        cmd.GetInt("chat-max-tokens"),
-			Temperature:      cmd.GetFloat32("chat-temperature"),
-			SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
+		Chat: func() config.ChatConfig {
+			chatCfg := config.ChatConfig{
+				Enabled:          cmd.GetBool("chat-enabled"),
+				Provider:         cmd.GetString("chat-provider"),
+				APIKey:           cmd.GetString("chat-api-key"),
+				BaseURL:          cmd.GetString("chat-base-url"),
+				OpenAIAPIKey:     cmd.GetString("chat-openai-api-key"),
+				OpenAIBaseURL:    cmd.GetString("chat-openai-base-url"),
+				Model:            cmd.GetString("chat-model"),
+				MaxTokens:        cmd.GetInt("chat-max-tokens"),
+				Temperature:      cmd.GetFloat32("chat-temperature"),
+				SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
+				ReasoningEffort:  cmd.GetString("chat-reasoning-effort"),
+				UIStyle:          cmd.GetString("chat-ui-style"),
+			}
 
-			ReasoningEffort: cmd.GetString("chat-reasoning-effort"),
-			UIStyle:         cmd.GetString("chat-ui-style"),
-		},
+			// Fallback to deprecated openai_* keys if new keys are not set
+			if chatCfg.APIKey == "" && chatCfg.OpenAIAPIKey != "" {
+				chatCfg.APIKey = chatCfg.OpenAIAPIKey
+			}
+			if chatCfg.BaseURL == "" && chatCfg.OpenAIBaseURL != "" {
+				chatCfg.BaseURL = chatCfg.OpenAIBaseURL
+			}
+
+			// Default base URL for openai/ollama if still empty
+			if chatCfg.BaseURL == "" && (chatCfg.Provider == string(ai.ProviderOpenAI) || chatCfg.Provider == string(ai.ProviderOllama)) {
+				chatCfg.BaseURL = "http://127.0.0.1:11434/v1"
+			}
+
+			return chatCfg
+		}(),
 		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
 	}
 

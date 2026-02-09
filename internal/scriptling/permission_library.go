@@ -9,7 +9,7 @@ import (
 )
 
 // GetPermissionLibrary returns the permission constants library for scriptling
-func GetPermissionLibrary(client *apiclient.ApiClient, userId string) *object.Library {
+func GetPermissionLibrary(client *apiclient.ApiClient) *object.Library {
 	builder := object.NewLibraryBuilder("knot.permission", "Knot permission constants")
 
 	// User Management

@@ -3,34 +3,30 @@ package service
 import (
 	"context"
 	"io"
+	"net/http"
 	"os"
-	"sync"
+	"strings"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/openai"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
+	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/logger"
+	ai "github.com/paularlott/mcp/ai"
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 	"github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/extlibs"
+	"github.com/paularlott/scriptling/extlibs/agent"
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
+	"github.com/paularlott/scriptling/object"
 	"github.com/paularlott/scriptling/stdlib"
 )
 
 var (
-	openaiClient     *openai.Client
-	openaiClientOnce sync.Once
-	libraryFetcher   func(string) (string, error)
+	libraryFetcher func(string) (string, error)
 )
-
-// SetOpenAIClient sets the global OpenAI client for scriptling environments
-func SetOpenAIClient(client *openai.Client) {
-	openaiClientOnce.Do(func() {
-		openaiClient = client
-	})
-}
 
 // registerBaseLibraries registers common libraries shared across all environments
 // customLogger is optional - pass nil to use the default logger
@@ -40,6 +36,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	extlibs.RegisterSecretsLibrary(env)
 	extlibs.RegisterHTMLParserLibrary(env)
 	extlibs.RegisterWaitForLibrary(env)
+	extlibs.RegisterYAMLLibrary(env)
 	if customLogger != nil {
 		extlibs.RegisterLoggingLibrary(env, customLogger)
 	} else {
@@ -47,15 +44,20 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	}
 
 	scriptlingai.Register(env)
+	agent.Register(env)
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
 }
 
 // registerKnotLibraries registers all Knot-specific libraries for scriptling environments
-func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]string) {
+// If mcpLib is provided, it will be registered instead of creating a new one via GetMCPToolsLibrary
+// aiClient may be nil for local/remote environments where no AI client is available
+func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClient, userId string, mcpParams map[string]object.Object, mcpLib *knotscriptling.MCPLibrary, aiClient ai.Client) {
+	// knot.ai is always registered - Client() will return error if aiClient is nil
+	env.RegisterLibrary(knotscriptling.GetAILibrary(aiClient))
+
 	if client != nil && userId != "" {
 		env.RegisterLibrary(knotscriptling.GetSpacesLibrary(client, userId))
-		env.RegisterLibrary(knotscriptling.GetAILibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetUsersLibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetGroupsLibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetRolesLibrary(client, userId))
@@ -63,14 +65,19 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 		env.RegisterLibrary(knotscriptling.GetVarsLibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetVolumesLibrary(client, userId))
 		env.RegisterLibrary(knotscriptling.GetSkillsLibrary(client, userId))
+		env.RegisterLibrary(knotscriptling.GetPermissionLibrary(client))
 	}
 	if client != nil {
-		env.RegisterLibrary(knotscriptling.GetMCPToolsLibrary(client, mcpParams))
-		env.RegisterLibrary(knotscriptling.GetPermissionLibrary(client, userId))
+		if mcpLib != nil {
+			env.RegisterLibrary(mcpLib.GetLibrary())
+		} else {
+			env.RegisterLibrary(knotscriptling.GetMCPToolsLibrary(client, mcpParams))
+		}
 	}
 }
 
 // registerFullSystemLibraries registers system access libraries (subprocess, os, pathlib, scriptling.threads, scriptling.console, scriptling.glob)
+// and interactive agent support
 func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterSubprocessLibrary(env)
 	extlibs.RegisterThreadsLibrary(env) // scriptling.threads
@@ -78,6 +85,7 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterOSLibrary(env, []string{})
 	extlibs.RegisterPathlibLibrary(env, []string{})
 	extlibs.RegisterGlobLibrary(env, []string{}) // scriptling.glob
+	agent.RegisterInteract(env)                  // scriptling.ai.agent.interact (extends Agent with interact())
 }
 
 // setupServerLibraryCallback sets up on-demand library loading from server
@@ -104,6 +112,58 @@ func setupServerLibraryCallback(env *scriptling.Scriptling, client *apiclient.Ap
 	}
 }
 
+// muxHTTPPool wraps an *http.Client to implement pool.HTTPPool
+type muxHTTPPool struct {
+	httpClient *http.Client
+}
+
+func (p *muxHTTPPool) GetHTTPClient() *http.Client {
+	return p.httpClient
+}
+
+// createServerAIClient creates an AI client that connects to the server's
+// OpenAI-compatible endpoint. The server handles all tool discovery, execution,
+// and per-user scoping via the MCPServerContext middleware. The endpoint only
+// injects the default model if none is specified, and only adds a system prompt
+// if no system message exists.
+// For MuxClient (base URL is empty), requests are routed through the API mux
+// directly with the user injected into context, bypassing real HTTP and auth.
+// Returns nil if client is nil or creation fails.
+func createServerAIClient(client *apiclient.ApiClient, user *model.User) ai.Client {
+	if client == nil {
+		return nil
+	}
+
+	baseURL := client.GetBaseURL()
+	if baseURL == "" {
+		// MuxClient: route through the API mux directly
+		if user == nil {
+			return nil
+		}
+		serverClient, err := mcpopenai.New(mcpopenai.Config{
+			BaseURL:        "http://localhost/v1/",
+			HTTPPool:       &muxHTTPPool{httpClient: rest.NewMuxHTTPClient(user)},
+			RequestTimeout: 0,
+		})
+		if err != nil {
+			return nil
+		}
+		return serverClient
+	}
+
+	// Real HTTP client: use base URL and auth token
+	baseURL = strings.TrimRight(baseURL, "/") + "/v1/"
+	serverClient, err := mcpopenai.New(mcpopenai.Config{
+		BaseURL:        baseURL,
+		APIKey:         client.GetAuthToken(),
+		RequestTimeout: 0,
+	})
+	if err != nil {
+		return nil
+	}
+	return serverClient
+}
+
 // NewLocalScriptlingEnv creates a scriptling environment for local execution on desktop/agent
 // Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
 // On-demand loading: Enabled - tries local .py files first, then fetches from server
@@ -114,7 +174,10 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 	registerBaseLibraries(env, nil)
 	registerFullSystemLibraries(env)
 
-	registerKnotLibraries(env, client, userId, nil)
+	// Create AI client that connects to the server's OpenAI endpoint
+	aiClient := createServerAIClient(client, nil)
+
+	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
 
 	// Local-first library loading: try filesystem, then server
 	env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
@@ -143,13 +206,27 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 // Libraries: stdlib, requests, secrets, htmlparser, knot.space, knot.ai, knot.mcp, knot.user, knot.group, knot.role, knot.template, knot.vars, knot.volume, knot.permission
 // On-demand loading: Enabled - fetches from server only
 // Output: Captured and returned
-func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]string, user *model.User) (*scriptling.Scriptling, error) {
+// The AI client connects to the server's OpenAI-compatible endpoint via createServerAIClient.
+// The MCPServerContext middleware handles per-user tool discovery and execution when
+// requests flow through the endpoint.
+// Returns the environment and the MCP library instance for result retrieval
+func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]object.Object, user *model.User) (*scriptling.Scriptling, *knotscriptling.MCPLibrary, error) {
 	env := scriptling.New()
 	env.EnableOutputCapture()
 	registerBaseLibraries(env, nil)
 
+	// Create AI client that connects to the server's OpenAI endpoint
+	aiClient := createServerAIClient(client, user)
+
+	// Inject AI client as global variable for scriptling.ai
+	if aiClient != nil {
+		env.SetObjectVar("ai_client", scriptlingai.WrapClient(aiClient))
+	}
+
+	var mcpLib *knotscriptling.MCPLibrary
 	if client != nil && user != nil {
-		registerKnotLibraries(env, client, user.Id, mcpParams)
+		mcpLib = knotscriptling.GetMCPLibraryInstance(client, mcpParams)
+		registerKnotLibraries(env, client, user.Id, mcpParams, mcpLib, aiClient)
 
 		// Set up library callback with user context for MuxClient
 		env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
@@ -165,7 +242,7 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]strin
 		})
 	}
 
-	return env, nil
+	return env, mcpLib, nil
 }
 
 // NewRemoteScriptlingEnv creates a scriptling environment for remote execution in spaces
@@ -183,7 +260,8 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 	registerBaseLibraries(env, customLogger)
 	registerFullSystemLibraries(env)
 
-	registerKnotLibraries(env, client, userId, nil)
+	aiClient := createServerAIClient(client, nil)
+	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
 
 	setupServerLibraryCallback(env, client)
 	extlibs.RegisterSysLibrary(env, argv)
@@ -202,7 +280,8 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	registerBaseLibraries(env, customLogger)
 	registerFullSystemLibraries(env)
 
-	registerKnotLibraries(env, client, userId, nil)
+	aiClient := createServerAIClient(client, nil)
+	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
 
 	setupServerLibraryCallback(env, client)
 	extlibs.RegisterSysLibrary(env, argv)
@@ -217,16 +296,12 @@ func RunScript(ctx context.Context, scriptContent string, argv []string, client 
 	}
 
 	result, err := env.Eval(scriptContent)
+	ExitOnSystemExit(result)
 
-	// Check for SystemExit to exit with the appropriate code
-	if sysExit, ok := extlibs.GetSysExitCode(err); ok {
-		os.Exit(sysExit.Code)
-	}
 	if err != nil {
 		return "", err
 	}
 
-	// Only return result if it's not None
 	if result != nil && result.Inspect() != "None" {
 		return result.Inspect(), nil
 	}

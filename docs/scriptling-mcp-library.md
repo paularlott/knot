@@ -6,7 +6,11 @@ The `knot.mcp` library provides MCP (Model Context Protocol) functionality for s
 
 | Function | Description |
 |----------|-------------|
-| `get(name[, default])` | Get MCP parameter value with automatic type conversion |
+| `get_int(name[, default=0])` | Get MCP parameter value as an integer, handling None, empty strings, and whitespace |
+| `get_float(name[, default=0.0])` | Get MCP parameter value as a float, handling None, empty strings, and whitespace |
+| `get_string(name[, default=""])` | Get MCP parameter value as a trimmed string, handling None and whitespace |
+| `get_bool(name[, default=False])` | Get MCP parameter value as a boolean, handling None, empty strings, and various string representations |
+| `get_list(name[, default=[]])` | Get MCP parameter value as a list, handling comma-separated strings or arrays |
 | `return_string(value)` | Return a string result |
 | `return_object(value)` | Return a structured object as JSON |
 | `return_toon(value)` | Return a value encoded as toon |
@@ -22,41 +26,163 @@ The `knot.mcp` library provides MCP (Model Context Protocol) functionality for s
 
 These functions are only available when a script is executed as an MCP tool (when mcpParams is provided).
 
-### get(name[, default])
+### get_int(name[, default=0])
 
-Get a parameter value with automatic type conversion.
+Get a parameter value as an integer with safe handling of None, empty strings, and whitespace.
 
 **Parameters:**
 
 - `name` (string): The parameter name
-- `default` (any, optional): Default value if parameter is not provided
+- `default` (int, optional): Default value if parameter is not provided, is None, empty, or whitespace (defaults to 0)
 
 **Returns:**
 
-- The parameter value with automatic type conversion (string, number, boolean, list, or dict)
-- Returns `default` if provided and parameter is missing
-- Returns `None` if parameter is missing and no default provided
+- The parameter value as an integer
+- Returns `default` if parameter is missing, None, empty, or whitespace
 
 **Example:**
 
 ```python
 import knot.mcp
 
-# String parameter
-name = knot.mcp.get("name")
-name = knot.mcp.get("name", "default")
+# Get integer parameters with automatic handling of empty/None values
+project_id = knot.mcp.get_int("project_id", 0)  # Returns 0 if empty or None
+limit = knot.mcp.get_int("limit", 100)           # Returns 100 if empty or None
+offset = knot.mcp.get_int("offset", 0)           # Returns 0 if empty or None
+```
 
-# Number (auto-converted)
-count = knot.mcp.get("count", 0)
+---
 
-# Boolean (auto-converted)
-enabled = knot.mcp.get("enabled", False)
+### get_string(name[, default=""])
 
-# Array (auto-parsed from JSON)
-items = knot.mcp.get("items", [])
+Get a parameter value as a trimmed string with safe handling of None and whitespace.
 
-# Object (auto-parsed from JSON)
-config = knot.mcp.get("config", {})
+**Parameters:**
+
+- `name` (string): The parameter name
+- `default` (string, optional): Default value if parameter is not provided, is None, empty, or whitespace-only (defaults to "")
+
+**Returns:**
+
+- The parameter value as a trimmed string (whitespace automatically removed)
+- Returns `default` if parameter is missing, None, empty, or whitespace-only
+
+**Example:**
+
+```python
+import knot.mcp
+
+# Get string parameters with automatic trimming and default handling
+status = knot.mcp.get_string("status", "pending")  # Returns "pending" if empty/None/whitespace
+format = knot.mcp.get_string("format", "json")     # Returns "json" if empty/None/whitespace
+query = knot.mcp.get_string("query", "")           # Returns "" if empty/None/whitespace
+
+# Whitespace is automatically trimmed
+name = knot.mcp.get_string("name", "unknown")  # "  hello  " becomes "hello"
+```
+
+---
+
+### get_float(name[, default=0.0])
+
+Get a parameter value as a float with safe handling of None, empty strings, and whitespace.
+
+**Parameters:**
+
+- `name` (string): The parameter name
+- `default` (float, optional): Default value if parameter is not provided, is None, empty, or whitespace (defaults to 0.0)
+
+**Returns:**
+
+- The parameter value as a float
+- Returns `default` if parameter is missing, None, empty, or whitespace
+
+**Example:**
+
+```python
+import knot.mcp
+
+# Get float parameters with automatic handling of empty/None values
+price = knot.mcp.get_float("price", 0.0)           # Returns 0.0 if empty or None
+percentage = knot.mcp.get_float("percentage", 100.0)  # Returns 100.0 if empty or None
+rate = knot.mcp.get_float("rate", 1.5)             # Returns 1.5 if empty or None
+```
+
+---
+
+### get_bool(name[, default=False])
+
+Get a parameter value as a boolean with safe handling of various string representations.
+
+**Parameters:**
+
+- `name` (string): The parameter name
+- `default` (bool, optional): Default value if parameter is not provided, is None, empty, or invalid (defaults to False)
+
+**Returns:**
+
+- The parameter value as a boolean
+- Returns `default` if parameter is missing, None, empty, or invalid
+
+**Accepted Values:**
+- True: `"true"`, `"yes"`, `"1"`, `"on"`, `"enabled"` (case-insensitive)
+- False: `"false"`, `"no"`, `"0"`, `"off"`, `"disabled"` (case-insensitive)
+
+**Example:**
+
+```python
+import knot.mcp
+
+# Get boolean parameters with automatic string conversion
+include_archived = knot.mcp.get_bool("include_archived", False)
+is_active = knot.mcp.get_bool("is_active", True)
+show_deleted = knot.mcp.get_bool("show_deleted", False)
+
+# Handles various formats
+enabled = knot.mcp.get_bool("enabled")  # "yes" → True, "no" → False
+flag = knot.mcp.get_bool("flag")        # "1" → True, "0" → False
+```
+
+---
+
+### get_list(name[, default=[]])
+
+Get a parameter value as a list, handling comma-separated strings or arrays.
+
+**Parameters:**
+
+- `name` (string): The parameter name
+- `default` (list, optional): Default value if parameter doesn't exist or is None (defaults to empty list)
+
+**Returns:**
+
+- The parameter value as a list
+- Returns `default` if parameter is missing or None
+
+**Behavior:**
+- **Comma-separated strings**: Splits by comma, trims whitespace from each item, filters out empty items
+  - `"1,2,3"` → `["1", "2", "3"]`
+  - `"tag1, tag2, tag3"` → `["tag1", "tag2", "tag3"]`
+  - `"a, , b"` → `["a", "b"]` (empty items removed)
+- **Already arrays**: Returns as-is without modification
+- **Empty/None**: Returns the default value
+
+**Example:**
+
+```python
+import knot.mcp
+
+# Get list parameters with automatic comma-splitting
+ids = knot.mcp.get_list("ids")                    # "1,2,3" → ["1", "2", "3"]
+tags = knot.mcp.get_list("tags", ["all"])         # "tag1, tag2" → ["tag1", "tag2"]
+status_filters = knot.mcp.get_list("statuses")    # "pending,active" → ["pending", "active"]
+
+# Handle already-array parameters
+selected_ids = knot.mcp.get_list("selected")      # [1, 2, 3] → [1, 2, 3] (unchanged)
+
+# Iterate over results
+for id in ids:
+    process_item(id)
 ```
 
 ---
@@ -335,11 +461,11 @@ print("Created:", new_space)
 
 ### MCP Tool Scripts
 
-- Parameter access functions (get, return\_\*) are only available when mcpParams is provided
-- `knot.mcp.get()`: Reads from mcpParams map passed to the script
-- Automatically parses JSON for arrays and objects
-- Converts string numbers to int/float
-- Converts string booleans to bool
+- Parameter access functions (get_*, return\_\*) are only available when mcpParams is provided
+- `knot.mcp.get_string()`, `get_int()`, `get_float()`, `get_bool()`, `get_list()`: Read from mcpParams map passed to the script with type conversion
+- Each function handles None, empty strings, and whitespace appropriately for its type
+- `get_bool()` accepts common string representations: "true"/"false", "yes"/"no", "1"/"0", "on"/"off", "enabled"/"disabled"
+- `get_list()` handles both comma-separated strings and JSON arrays
 
 ### Local and Remote Environments
 
@@ -404,9 +530,9 @@ If the MCP library is not available, it will return an appropriate error message
 # A complete MCP tool that greets a user
 import knot.mcp
 
-# Get parameters
-name = knot.mcp.get("name")
-greeting_type = knot.mcp.get("greeting_type", "hello")
+# Get parameters with type safety
+name = knot.mcp.get_string("name")
+greeting_type = knot.mcp.get_string("greeting_type", "hello")
 
 # Validate input
 if not name:

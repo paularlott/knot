@@ -159,7 +159,7 @@ import mylib  # Tries mylib.py locally, then fetches from server
 import knot.mcp
 
 # Access tool parameters
-name = knot.mcp.get("name", "default")
+name = knot.mcp.get_string("name", "default")
 
 # Return result
 return knot.mcp.return_string(f"Hello, {name}!")

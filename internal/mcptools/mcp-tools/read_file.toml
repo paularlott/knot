@@ -2,7 +2,7 @@ name = "read_file"
 description = "Read file contents from a running space."
 keywords = ["read", "file", "content", "view", "open", "cat", "text", "document"]
 
-[parameters.space_name]
+[parameters.name]
 type = "string"
 description = "Name of the space to read the file from"
 required = true

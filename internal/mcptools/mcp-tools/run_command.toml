@@ -2,7 +2,7 @@ name = "run_command"
 description = "Execute a command in a running space and capture its output."
 keywords = ["run", "execute", "command", "shell", "terminal", "bash", "sh", "script", "output", "exec"]
 
-[parameters.space_name]
+[parameters.name]
 type = "string"
 description = "Name of the space to run command in"
 required = true
