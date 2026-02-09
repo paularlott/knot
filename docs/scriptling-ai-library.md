@@ -2,6 +2,8 @@
 
 The `knot.ai` library provides access to the server's AI client for scriptling scripts. It returns a pre-configured client instance connected to the upstream AI provider, ready for use with `scriptling.ai.agent` or direct completion calls.
 
+The server can be configured to use different LLM providers (OpenAI, Claude, Gemini, Ollama, etc.) via the `--chat-provider` flag or `KNOT_CHAT_PROVIDER` environment variable. Scripts automatically connect to whichever provider the server is configured to use.
+
 ## Available Functions
 
 | Function            | Description                                      |

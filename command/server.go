@@ -43,6 +43,7 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/mcp"
+	ai "github.com/paularlott/mcp/ai"
 )
 
 var ServerCmd = &cli.Command{
@@ -588,18 +589,39 @@ var ServerCmd = &cli.Command{
 			DefaultValue: false,
 		},
 		&cli.StringFlag{
+			Name:         "chat-provider",
+			Usage:        "LLM provider for chat functionality (openai, claude, gemini, ollama, mistral, zai).",
+			ConfigPath:   []string{"server.chat.provider"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_PROVIDER"},
+			DefaultValue: "openai",
+		},
+		&cli.StringFlag{
+			Name:         "chat-api-key",
+			Usage:        "API key for chat functionality.",
+			ConfigPath:   []string{"server.chat.api_key"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_API_KEY"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "chat-base-url",
+			Usage:        "Base URL for chat functionality.",
+			ConfigPath:   []string{"server.chat.base_url"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_BASE_URL"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
 			Name:         "chat-openai-api-key",
-			Usage:        "OpenAI API key for chat functionality.",
+			Usage:        "Deprecated: use chat-api-key instead.",
 			ConfigPath:   []string{"server.chat.openai_api_key"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_API_KEY"},
 			DefaultValue: "",
 		},
 		&cli.StringFlag{
 			Name:         "chat-openai-base-url",
-			Usage:        "OpenAI API base URL for chat functionality.",
+			Usage:        "Deprecated: use chat-base-url instead.",
 			ConfigPath:   []string{"server.chat.openai_base_url"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_BASE_URL"},
-			DefaultValue: "http://127.0.0.1:11434/v1",
+			DefaultValue: "",
 		},
 		&cli.StringFlag{
 			Name:         "chat-model",
@@ -806,7 +828,7 @@ var ServerCmd = &cli.Command{
 
 		// If AI chat enabled then initialize chat service
 		// Note: ChatEnabled now implies OpenAI endpoints are also enabled for web chat
-		var openAIClient *openai.Client
+		var openAIClient ai.Client
 		if chatEnabled || openaiEndpointEnabled {
 			logger.Info("AI chat enabled")
 
@@ -824,7 +846,7 @@ var ServerCmd = &cli.Command{
 			if err != nil {
 				logger.WithError(err).Fatal("failed to create chat service:")
 			}
-			openAIClient = chatService.GetOpenAIClient()
+			openAIClient = chatService.GetAIClient()
 
 			// Set default model for knot.ai library
 			knotscriptling.SetDefaultModel(cfg.Chat.Model)
@@ -1278,18 +1300,37 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 
 			return mcpConfig
 		}(),
-		Chat: config.ChatConfig{
-			Enabled:          cmd.GetBool("chat-enabled"),
-			OpenAIAPIKey:     cmd.GetString("chat-openai-api-key"),
-			OpenAIBaseURL:    cmd.GetString("chat-openai-base-url"),
-			Model:            cmd.GetString("chat-model"),
-			MaxTokens:        cmd.GetInt("chat-max-tokens"),
-			Temperature:      cmd.GetFloat32("chat-temperature"),
-			SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
+		Chat: func() config.ChatConfig {
+			chatCfg := config.ChatConfig{
+				Enabled:          cmd.GetBool("chat-enabled"),
+				Provider:         cmd.GetString("chat-provider"),
+				APIKey:           cmd.GetString("chat-api-key"),
+				BaseURL:          cmd.GetString("chat-base-url"),
+				OpenAIAPIKey:     cmd.GetString("chat-openai-api-key"),
+				OpenAIBaseURL:    cmd.GetString("chat-openai-base-url"),
+				Model:            cmd.GetString("chat-model"),
+				MaxTokens:        cmd.GetInt("chat-max-tokens"),
+				Temperature:      cmd.GetFloat32("chat-temperature"),
+				SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
+				ReasoningEffort:  cmd.GetString("chat-reasoning-effort"),
+				UIStyle:          cmd.GetString("chat-ui-style"),
+			}
 
-			ReasoningEffort: cmd.GetString("chat-reasoning-effort"),
-			UIStyle:         cmd.GetString("chat-ui-style"),
-		},
+			// Fallback to deprecated openai_* keys if new keys are not set
+			if chatCfg.APIKey == "" && chatCfg.OpenAIAPIKey != "" {
+				chatCfg.APIKey = chatCfg.OpenAIAPIKey
+			}
+			if chatCfg.BaseURL == "" && chatCfg.OpenAIBaseURL != "" {
+				chatCfg.BaseURL = chatCfg.OpenAIBaseURL
+			}
+
+			// Default base URL for openai/ollama if still empty
+			if chatCfg.BaseURL == "" && (chatCfg.Provider == string(ai.ProviderOpenAI) || chatCfg.Provider == string(ai.ProviderOllama)) {
+				chatCfg.BaseURL = "http://127.0.0.1:11434/v1"
+			}
+
+			return chatCfg
+		}(),
 		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
 	}
 

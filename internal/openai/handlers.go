@@ -12,12 +12,12 @@ import (
 )
 
 type Service struct {
-	client       *Client
+	client       AIClient
 	systemPrompt string
 	model        string
 }
 
-func NewService(client *Client, systemPrompt string, model string) *Service {
+func NewService(client AIClient, systemPrompt string, model string) *Service {
 	return &Service{
 		client:       client,
 		systemPrompt: systemPrompt,

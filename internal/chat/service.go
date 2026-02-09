@@ -9,37 +9,40 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/mcp"
+	ai "github.com/paularlott/mcp/ai"
 	mcpopenai "github.com/paularlott/mcp/ai/openai"
 
 	"github.com/paularlott/knot/internal/log"
 )
 
 type Service struct {
-	config       config.ChatConfig
-	openaiClient *mcpopenai.Client
+	config config.ChatConfig
+	client ai.Client
 }
 
-func NewService(config config.ChatConfig, mcpServer *mcp.Server) (*Service, error) {
-	// Create OpenAI client directly using mcp/ai/openai
-	openaiClient, err := mcpopenai.New(mcpopenai.Config{
-		APIKey:      config.OpenAIAPIKey,
-		BaseURL:     config.OpenAIBaseURL,
-		LocalServer: mcpServer,
+func NewService(cfg config.ChatConfig, mcpServer *mcp.Server) (*Service, error) {
+	aiClient, err := ai.NewClient(ai.Config{
+		Config: mcpopenai.Config{
+			APIKey:      cfg.APIKey,
+			BaseURL:     cfg.BaseURL,
+			LocalServer: mcpServer,
+		},
+		Provider: ai.Provider(cfg.Provider),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create OpenAI client: %w", err)
+		return nil, fmt.Errorf("failed to create AI client: %w", err)
 	}
 
 	chatService := &Service{
-		config:       config,
-		openaiClient: openaiClient,
+		config: cfg,
+		client: aiClient,
 	}
 
 	return chatService, nil
 }
 
-func (s *Service) GetOpenAIClient() *mcpopenai.Client {
-	return s.openaiClient
+func (s *Service) GetAIClient() ai.Client {
+	return s.client
 }
 
 // ChatCompletion performs a non-streaming chat completion
@@ -72,7 +75,7 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 	// - Script tools provider
 	// - Force on-demand mode
 	// Use the context directly
-	response, err := s.openaiClient.ChatCompletion(ctx, req)
+	response, err := s.client.ChatCompletion(ctx, req)
 	if err != nil {
 		logger.Error("Chat completion failed", "error", err, "user_id", user.Id)
 		return nil, err

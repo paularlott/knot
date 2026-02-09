@@ -28,7 +28,7 @@ var (
 )
 
 // InitResponseWorker initializes the global response worker pool
-func InitResponseWorker(client *Client, poolSize int, gossipFunc GossipCallback) {
+func InitResponseWorker(client AIClient, poolSize int, gossipFunc GossipCallback) {
 	if globalResponseWorkerPool != nil {
 		return
 	}
@@ -49,7 +49,7 @@ func ShutdownResponseWorker() {
 }
 
 // recoverIncompleteResponses finds and re-queues incomplete responses on startup
-func recoverIncompleteResponses(client *Client) {
+func recoverIncompleteResponses(client AIClient) {
 	db := database.GetInstance()
 
 	// Get in_progress and pending responses

@@ -13,7 +13,7 @@ import (
 
 // responseProcessor handles the conversion and processing of Responses API requests
 type responseProcessor struct {
-	client *Client
+	client AIClient
 }
 
 // Process processes a response request and returns the result

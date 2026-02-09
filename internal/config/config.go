@@ -144,8 +144,11 @@ type MCPConfig struct {
 
 type ChatConfig struct {
 	Enabled          bool
-	OpenAIAPIKey     string
-	OpenAIBaseURL    string
+	Provider         string
+	APIKey           string
+	BaseURL          string
+	OpenAIAPIKey     string // Deprecated: use APIKey
+	OpenAIBaseURL    string // Deprecated: use BaseURL
 	Model            string
 	MaxTokens        int
 	Temperature      float32

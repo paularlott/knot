@@ -1,6 +1,7 @@
 package openai
 
 import (
+	ai "github.com/paularlott/mcp/ai"
 	mcpopenai "github.com/paularlott/mcp/ai/openai"
 )
 
@@ -25,7 +26,7 @@ type (
 	ResponseObject         = mcpopenai.ResponseObject
 	CreateResponseRequest  = mcpopenai.CreateResponseRequest
 	APIError               = mcpopenai.APIError
-	Client                 = mcpopenai.Client
+	AIClient               = ai.Client
 )
 
 // Re-export functions from mcp/openai
