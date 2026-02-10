@@ -335,8 +335,10 @@ func (s *Service) convertToResponseObject(response *model.Response) ResponseObje
 
 	// Add error if failed
 	if response.Status == model.StatusFailed && response.Error != "" {
-		obj.Error = &APIError{
-			Message: response.Error,
+		obj.Error = &ResponseError{
+			APIError: &APIError{
+				Message: response.Error,
+			},
 		}
 	}
 
@@ -361,7 +363,12 @@ func (s *Service) convertToResponseObject(response *model.Response) ResponseObje
 				obj.Output = output
 			}
 			if usage, ok := respData["usage"].(*Usage); ok {
-				obj.Usage = usage
+				// Convert Usage to ResponseUsage
+				obj.Usage = &ResponseUsage{
+					InputTokens:  usage.PromptTokens,
+					OutputTokens: usage.CompletionTokens,
+					TotalTokens:  usage.TotalTokens,
+				}
 			}
 		}
 	}

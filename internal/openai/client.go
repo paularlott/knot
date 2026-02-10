@@ -21,6 +21,8 @@ type (
 	ModelsResponse         = mcpopenai.ModelsResponse
 	Model                  = mcpopenai.Model
 	Usage                  = mcpopenai.Usage
+	ResponseUsage          = mcpopenai.ResponseUsage
+	ResponseError          = mcpopenai.ResponseError
 	ChatStream             = mcpopenai.ChatStream
 	ToolHandler            = mcpopenai.ToolHandler
 	ResponseObject         = mcpopenai.ResponseObject
