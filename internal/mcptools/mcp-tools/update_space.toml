@@ -8,11 +8,6 @@ type = "string"
 description = "Name of the space to update"
 required = true
 
-[parameters.new_name]
-type = "string"
-description = "New name for the space (to rename it)"
-required = false
-
 [parameters.description]
 type = "string"
 description = "New description for the space"

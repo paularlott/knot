@@ -2,271 +2,40 @@
 
 The `knot.mcp` library provides MCP (Model Context Protocol) functionality for scriptling scripts. This library uses a unified API across all environments.
 
+## Library Selection
+
+**For MCP Tool Development:**
+
+- **Recommended:** Use `scriptling.mcp.tool` for portable, standardized parameter access and result functions that work across all MCP implementations
+- **Use knot.mcp:** When you need additional Knot-specific features like calling other tools via `list_tools()`, `call_tool()`, `tool_search()`, or `execute_tool()`
+
+**Example:**
+
+```python
+# Portable MCP tool using standard helpers
+import scriptling.mcp.tool as tool
+import knot.space
+
+# Get parameters using standard helpers
+name = tool.get_string("name")
+
+# Use Knot-specific functionality
+space = knot.space.get(name)
+
+# Return using standard helpers
+tool.return_object(space)
+```
+
+For complete documentation on `scriptling.mcp.tool`, see the [scriptling MCP tool helpers documentation](https://github.com/paularlott/scriptling/blob/main/docs/libraries/scriptling/mcp.md).
+
 ## Available Functions
 
 | Function | Description |
 |----------|-------------|
-| `get_int(name[, default=0])` | Get MCP parameter value as an integer, handling None, empty strings, and whitespace |
-| `get_float(name[, default=0.0])` | Get MCP parameter value as a float, handling None, empty strings, and whitespace |
-| `get_string(name[, default=""])` | Get MCP parameter value as a trimmed string, handling None and whitespace |
-| `get_bool(name[, default=False])` | Get MCP parameter value as a boolean, handling None, empty strings, and various string representations |
-| `get_list(name[, default=[]])` | Get MCP parameter value as a list, handling comma-separated strings or arrays |
-| `return_string(value)` | Return a string result |
-| `return_object(value)` | Return a structured object as JSON |
-| `return_toon(value)` | Return a value encoded as toon |
-| `return_error(message)` | Return an error message |
 | `list_tools()` | Get a list of all available MCP tools and their parameters |
 | `call_tool(name, arguments)` | Call an MCP tool directly |
 | `tool_search(query, max_results=10)` | Search for tools by keyword |
 | `execute_tool(name, arguments)` | Execute a discovered tool |
-
----
-
-## Parameter Access Functions
-
-These functions are only available when a script is executed as an MCP tool (when mcpParams is provided).
-
-### get_int(name[, default=0])
-
-Get a parameter value as an integer with safe handling of None, empty strings, and whitespace.
-
-**Parameters:**
-
-- `name` (string): The parameter name
-- `default` (int, optional): Default value if parameter is not provided, is None, empty, or whitespace (defaults to 0)
-
-**Returns:**
-
-- The parameter value as an integer
-- Returns `default` if parameter is missing, None, empty, or whitespace
-
-**Example:**
-
-```python
-import knot.mcp
-
-# Get integer parameters with automatic handling of empty/None values
-project_id = knot.mcp.get_int("project_id", 0)  # Returns 0 if empty or None
-limit = knot.mcp.get_int("limit", 100)           # Returns 100 if empty or None
-offset = knot.mcp.get_int("offset", 0)           # Returns 0 if empty or None
-```
-
----
-
-### get_string(name[, default=""])
-
-Get a parameter value as a trimmed string with safe handling of None and whitespace.
-
-**Parameters:**
-
-- `name` (string): The parameter name
-- `default` (string, optional): Default value if parameter is not provided, is None, empty, or whitespace-only (defaults to "")
-
-**Returns:**
-
-- The parameter value as a trimmed string (whitespace automatically removed)
-- Returns `default` if parameter is missing, None, empty, or whitespace-only
-
-**Example:**
-
-```python
-import knot.mcp
-
-# Get string parameters with automatic trimming and default handling
-status = knot.mcp.get_string("status", "pending")  # Returns "pending" if empty/None/whitespace
-format = knot.mcp.get_string("format", "json")     # Returns "json" if empty/None/whitespace
-query = knot.mcp.get_string("query", "")           # Returns "" if empty/None/whitespace
-
-# Whitespace is automatically trimmed
-name = knot.mcp.get_string("name", "unknown")  # "  hello  " becomes "hello"
-```
-
----
-
-### get_float(name[, default=0.0])
-
-Get a parameter value as a float with safe handling of None, empty strings, and whitespace.
-
-**Parameters:**
-
-- `name` (string): The parameter name
-- `default` (float, optional): Default value if parameter is not provided, is None, empty, or whitespace (defaults to 0.0)
-
-**Returns:**
-
-- The parameter value as a float
-- Returns `default` if parameter is missing, None, empty, or whitespace
-
-**Example:**
-
-```python
-import knot.mcp
-
-# Get float parameters with automatic handling of empty/None values
-price = knot.mcp.get_float("price", 0.0)           # Returns 0.0 if empty or None
-percentage = knot.mcp.get_float("percentage", 100.0)  # Returns 100.0 if empty or None
-rate = knot.mcp.get_float("rate", 1.5)             # Returns 1.5 if empty or None
-```
-
----
-
-### get_bool(name[, default=False])
-
-Get a parameter value as a boolean with safe handling of various string representations.
-
-**Parameters:**
-
-- `name` (string): The parameter name
-- `default` (bool, optional): Default value if parameter is not provided, is None, empty, or invalid (defaults to False)
-
-**Returns:**
-
-- The parameter value as a boolean
-- Returns `default` if parameter is missing, None, empty, or invalid
-
-**Accepted Values:**
-- True: `"true"`, `"yes"`, `"1"`, `"on"`, `"enabled"` (case-insensitive)
-- False: `"false"`, `"no"`, `"0"`, `"off"`, `"disabled"` (case-insensitive)
-
-**Example:**
-
-```python
-import knot.mcp
-
-# Get boolean parameters with automatic string conversion
-include_archived = knot.mcp.get_bool("include_archived", False)
-is_active = knot.mcp.get_bool("is_active", True)
-show_deleted = knot.mcp.get_bool("show_deleted", False)
-
-# Handles various formats
-enabled = knot.mcp.get_bool("enabled")  # "yes" → True, "no" → False
-flag = knot.mcp.get_bool("flag")        # "1" → True, "0" → False
-```
-
----
-
-### get_list(name[, default=[]])
-
-Get a parameter value as a list, handling comma-separated strings or arrays.
-
-**Parameters:**
-
-- `name` (string): The parameter name
-- `default` (list, optional): Default value if parameter doesn't exist or is None (defaults to empty list)
-
-**Returns:**
-
-- The parameter value as a list
-- Returns `default` if parameter is missing or None
-
-**Behavior:**
-- **Comma-separated strings**: Splits by comma, trims whitespace from each item, filters out empty items
-  - `"1,2,3"` → `["1", "2", "3"]`
-  - `"tag1, tag2, tag3"` → `["tag1", "tag2", "tag3"]`
-  - `"a, , b"` → `["a", "b"]` (empty items removed)
-- **Already arrays**: Returns as-is without modification
-- **Empty/None**: Returns the default value
-
-**Example:**
-
-```python
-import knot.mcp
-
-# Get list parameters with automatic comma-splitting
-ids = knot.mcp.get_list("ids")                    # "1,2,3" → ["1", "2", "3"]
-tags = knot.mcp.get_list("tags", ["all"])         # "tag1, tag2" → ["tag1", "tag2"]
-status_filters = knot.mcp.get_list("statuses")    # "pending,active" → ["pending", "active"]
-
-# Handle already-array parameters
-selected_ids = knot.mcp.get_list("selected")      # [1, 2, 3] → [1, 2, 3] (unchanged)
-
-# Iterate over results
-for id in ids:
-    process_item(id)
-```
-
----
-
-### return_string(value)
-
-Return a string result from the MCP tool. The script should exit after calling this.
-
-**Parameters:**
-
-- `value` (string): The string value to return
-
-**Example:**
-
-```python
-import knot.mcp
-
-result = "Operation completed successfully"
-return knot.mcp.return_string(result)
-```
-
----
-
-### return_object(value)
-
-Return a structured object (automatically converted to JSON). The script should exit after calling this.
-
-**Parameters:**
-
-- `value` (dict or list): The object to return
-
-**Example:**
-
-```python
-import knot.mcp
-
-result = {
-    "status": "success",
-    "records_processed": 42,
-    "duration_ms": 1234
-}
-return knot.mcp.return_object(result)
-```
-
----
-
-### return_toon(value)
-
-Return a value encoded as toon (a compact serialization format). The script should exit after calling this.
-
-**Parameters:**
-
-- `value` (any): The value to encode and return
-
-**Example:**
-
-```python
-import knot.mcp
-
-result = {
-    "status": "success",
-    "data": [1, 2, 3, 4, 5]
-}
-return knot.mcp.return_toon(result)
-```
-
----
-
-### return_error(message)
-
-Return an error message. The script should exit after calling this.
-
-**Parameters:**
-
-- `message` (string): The error message
-
-**Example:**
-
-```python
-import knot.mcp
-
-if not url:
-    return knot.mcp.return_error("URL parameter is required")
-```
 
 ---
 
@@ -461,11 +230,8 @@ print("Created:", new_space)
 
 ### MCP Tool Scripts
 
-- Parameter access functions (get_*, return\_\*) are only available when mcpParams is provided
-- `knot.mcp.get_string()`, `get_int()`, `get_float()`, `get_bool()`, `get_list()`: Read from mcpParams map passed to the script with type conversion
-- Each function handles None, empty strings, and whitespace appropriately for its type
-- `get_bool()` accepts common string representations: "true"/"false", "yes"/"no", "1"/"0", "on"/"off", "enabled"/"disabled"
-- `get_list()` handles both comma-separated strings and JSON arrays
+- Parameter access and return functions are provided by the portable `scriptling.mcp.tool` library
+- `knot.mcp` provides tool discovery and calling functions specific to Knot's MCP implementation
 
 ### Local and Remote Environments
 
@@ -528,21 +294,21 @@ If the MCP library is not available, it will return an appropriate error message
 
 ```python
 # A complete MCP tool that greets a user
-import knot.mcp
+import scriptling.mcp.tool as tool
 
 # Get parameters with type safety
-name = knot.mcp.get_string("name")
-greeting_type = knot.mcp.get_string("greeting_type", "hello")
+name = tool.get_string("name")
+greeting_type = tool.get_string("greeting_type", "hello")
 
 # Validate input
 if not name:
-    return knot.mcp.return_error("name parameter is required")
+    return tool.return_error("name parameter is required")
 
 # Build greeting
 greeting = f"{greeting_type.capitalize()}, {name}!"
 
 # Return result
-return knot.mcp.return_string(greeting)
+return tool.return_string(greeting)
 ```
 
 ### Example 2: Discovering and Using Tools

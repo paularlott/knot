@@ -91,23 +91,50 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]object.Obje
 
 	client := apiclient.NewMuxClient(user)
 
-	env, mcpLib, err := NewMCPScriptlingEnv(client, mcpParams, user)
+	env, _, err := NewMCPScriptlingEnv(client, mcpParams, user)
 	if err != nil {
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}
 
+	// Set up __mcp_params environment variable for scriptling.mcp.tool helpers
+	// Convert mcpParams map to scriptling Dict
+	paramsDict := &object.Dict{
+		Pairs: make(map[string]object.DictPair),
+	}
+	for key, value := range mcpParams {
+		paramsDict.Pairs[key] = object.DictPair{
+			Key:   &object.String{Value: key},
+			Value: value,
+		}
+	}
+	env.SetObjectVar("__mcp_params", paramsDict)
+
 	result, err := env.EvalWithContext(ctx, script.Content)
 
-	// Check for SystemExit first
-	if ex, ok := object.AsException(result); ok && ex.IsSystemExit() {
-		if storedResult := mcpLib.GetResult(); storedResult != nil {
-			if ex.GetExitCode() == 0 {
-				return *storedResult, nil
-			}
-			return "", fmt.Errorf("%s", *storedResult)
+	// Check for response in __mcp_response
+	responseObj, getErr := env.GetVarAsObject("__mcp_response")
+	var response string
+	if getErr == nil {
+		if strObj, ok := responseObj.(*object.String); ok {
+			response = strObj.Value
 		}
-		if ex.GetExitCode() != 0 {
-			return "", fmt.Errorf("script exited with code %d", ex.GetExitCode())
+	}
+
+	// Check for SystemExit
+	if ex, ok := object.AsException(result); ok && ex.IsSystemExit() {
+		exitCode := ex.GetExitCode()
+		if exitCode != 0 {
+			if err != nil {
+				return "", err
+			}
+			if response != "" {
+				return "", fmt.Errorf("%s", response)
+			}
+			return "", fmt.Errorf("script exited with code %d", exitCode)
+		}
+		// Success exit
+		if response != "" {
+			return response, nil
 		}
 		return "", nil
 	}
@@ -116,11 +143,12 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]object.Obje
 		return "", err
 	}
 
-	// Check if mcp.return_* was called without SystemExit
-	if storedResult := mcpLib.GetResult(); storedResult != nil {
-		return *storedResult, nil
+	// Success - return the response if set
+	if response != "" {
+		return response, nil
 	}
 
+	// Fallback to output if no response was set
 	output := env.GetOutput()
 	if result != nil && result.Inspect() != "None" {
 		if output != "" {

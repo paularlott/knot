@@ -1,5 +1,5 @@
 import knot.template
-import knot.mcp
+import scriptling.mcp.tool as tool
 
 templates = knot.template.list()
-knot.mcp.return_object({"templates": templates})
+tool.return_object({"templates": templates})

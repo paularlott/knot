@@ -1,15 +1,15 @@
 import knot.space
-import knot.mcp
+import scriptling.mcp.tool as tool
 
-space_name = knot.mcp.get_string("name")
+space_name = tool.get_string("name")
 
 # Check if space is already stopped
 if not knot.space.is_running(space_name):
-    knot.mcp.return_error("Space is already stopped")
+    tool.return_error("Space is already stopped")
 else:
     success = knot.space.stop(space_name)
 
     if success:
-        knot.mcp.return_string(f"Space '{space_name}' stopped successfully")
+        tool.return_string(f"Space '{space_name}' stopped successfully")
     else:
-        knot.mcp.return_error("Failed to stop space")
+        tool.return_error("Failed to stop space")

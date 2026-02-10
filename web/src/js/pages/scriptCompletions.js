@@ -94,7 +94,7 @@ const scriptLibraries = [
         name: "run_script",
         signature: "run_script(space_name, script_name, *args)",
         description: "Execute a script in a space",
-        returns: "str - Script output",
+        returns: "dict - Dict with output (str) and exit_code (int)",
       },
       {
         name: "port_forward",
@@ -179,8 +179,8 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "knot.mcp",
-    description: "Knot MCP tool functions - parameter access and tool calling",
+    module: "scriptling.mcp.tool",
+    description: "MCP tool helper functions - parameter access and result functions for MCP tools",
     functions: [
       {
         name: "get_string",
@@ -236,6 +236,12 @@ const scriptLibraries = [
         description: "Return an error message and exit with error code",
         returns: "str - Error message",
       },
+    ],
+  },
+  {
+    module: "knot.mcp",
+    description: "Knot MCP tool functions - tool discovery and calling",
+    functions: [
       {
         name: "list_tools",
         signature: "list_tools()",
@@ -315,12 +321,6 @@ const scriptLibraries = [
         returns: "bool - True if user has the permission",
       },
       {
-        name: "set_password",
-        signature: "set_password(user_id, new_password)",
-        description: "Set user password",
-        returns: "bool - True if successfully updated",
-      },
-      {
         name: "get_quota",
         signature: "get_quota(user_id)",
         description: "Get user quota and usage",
@@ -391,8 +391,8 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(name, description='')",
-        description: "Create a new group",
+        signature: "create(name, ...)",
+        description: "Create a new group (optional kwargs: max_spaces, compute_units, storage_units, max_tunnels)",
         returns: "str - UUID of the newly created group",
       },
       {

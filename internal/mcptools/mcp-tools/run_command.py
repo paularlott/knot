@@ -1,11 +1,11 @@
 import knot.space
-import knot.mcp
+import scriptling.mcp.tool as tool
 
-space_name = knot.mcp.get_string("name")
-command = knot.mcp.get_string("command")
-args = knot.mcp.get_list("arguments", [])
-timeout = knot.mcp.get_int("timeout", 30)
-workdir = knot.mcp.get_string("workdir", "")
+space_name = tool.get_string("name")
+command = tool.get_string("command")
+args = tool.get_list("arguments", [])
+timeout = tool.get_int("timeout", 30)
+workdir = tool.get_string("workdir", "")
 
 kwargs = {"args": args, "timeout": timeout}
 if workdir:
@@ -13,4 +13,4 @@ if workdir:
 
 output = knot.space.run(space_name, command, **kwargs)
 
-knot.mcp.return_object({"output": output, "success": True})
+tool.return_object({"output": output, "success": True})

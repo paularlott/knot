@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import knot.space
-import knot.mcp
+import scriptling.mcp.tool as tool
 
-space_name = knot.mcp.get_string("name")
-file_path = knot.mcp.get_string("file_path")
+space_name = tool.get_string("name")
+file_path = tool.get_string("file_path")
 content = knot.space.read_file(space_name, file_path)
 
-knot.mcp.return_object({
+tool.return_object({
     'file_path': file_path,
     'success': True,
     'content': content,

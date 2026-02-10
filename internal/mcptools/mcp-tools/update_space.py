@@ -1,14 +1,11 @@
 import knot.space
-import knot.mcp
+import scriptling.mcp.tool as tool
 
-space_name = knot.mcp.get_string("name")
-new_name = knot.mcp.get_string("new_name", "")
-description = knot.mcp.get_string("description", "")
-shell = knot.mcp.get_string("shell", "")
+space_name = tool.get_string("name")
+description = tool.get_string("description", "")
+shell = tool.get_string("shell", "")
 
 kwargs = {}
-if new_name:
-    kwargs["name"] = new_name
 if description:
     kwargs["description"] = description
 if shell:
@@ -17,6 +14,6 @@ if shell:
 success = knot.space.update(space_name, **kwargs)
 
 if success:
-  knot.mcp.return_string(f"Space '{space_name}' updated successfully")
+  tool.return_string(f"Space '{space_name}' updated successfully")
 else:
-    knot.mcp.return_error("Failed to update space")
+    tool.return_error("Failed to update space")

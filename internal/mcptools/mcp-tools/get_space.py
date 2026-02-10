@@ -1,7 +1,7 @@
 import knot.space
-import knot.mcp
+import scriptling.mcp.tool as tool
 
-space_name = knot.mcp.get_string("name")
+space_name = tool.get_string("name")
 space = knot.space.get(space_name)
 
-knot.mcp.return_object(space)
+tool.return_object(space)
