@@ -119,7 +119,8 @@ const scriptLibraries = [
         name: "get",
         signature: "get(name)",
         description: "Get space details as a dict",
-        returns: "dict - Space details with id, name, description, template_id, template_name, user_id, username, shared_user_id, shared_username, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, created_at",
+        returns:
+          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shared_user_id, shared_username, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, created_at",
       },
       {
         name: "update",
@@ -130,13 +131,15 @@ const scriptLibraries = [
       {
         name: "transfer",
         signature: "transfer(name, user_id)",
-        description: "Transfer space to another user (user_id can be username, email, or UUID)",
+        description:
+          "Transfer space to another user (user_id can be username, email, or UUID)",
         returns: "bool - True if successful",
       },
       {
         name: "share",
         signature: "share(name, user_id)",
-        description: "Share space with another user (user_id can be username, email, or UUID)",
+        description:
+          "Share space with another user (user_id can be username, email, or UUID)",
         returns: "bool - True if successful",
       },
       {
@@ -161,55 +164,64 @@ const scriptLibraries = [
   },
   {
     module: "knot.ai",
-    description: "Knot AI client library - returns pre-configured AI client and default model",
+    description:
+      "Knot AI client library - returns pre-configured AI client and default model",
     functions: [
       {
         name: "Client",
         signature: "Client()",
         description:
           "Get a pre-configured AI client instance connected to the server's AI provider with MCP tools available",
-        returns: "Client - A pre-configured AI client instance with completion(), stream_completion(), and other methods",
+        returns:
+          "Client - A pre-configured AI client instance with completion(), stream_completion(), and other methods",
       },
       {
         name: "get_default_model",
         signature: "get_default_model()",
         description: "Get the server-configured default model name",
-        returns: "str - The model name (e.g. 'gpt-4o', 'claude-sonnet-4-20250514'), or empty string if not configured",
+        returns:
+          "str - The model name (e.g. 'gpt-4o', 'claude-sonnet-4-20250514'), or empty string if not configured",
       },
     ],
   },
   {
     module: "scriptling.mcp.tool",
-    description: "MCP tool helper functions - parameter access and result functions for MCP tools",
+    description:
+      "MCP tool helper functions - parameter access and result functions for MCP tools",
     functions: [
       {
         name: "get_string",
-        signature: "get_string(name, default=\"\")",
-        description: "Get MCP parameter value as a trimmed string, handling None and whitespace",
+        signature: 'get_string(name, default="")',
+        description:
+          "Get MCP parameter value as a trimmed string, handling None and whitespace",
         returns: "str - Parameter value as trimmed string or default",
       },
       {
         name: "get_int",
         signature: "get_int(name, default=0)",
-        description: "Get MCP parameter value as an integer, handling None, empty strings, and whitespace",
+        description:
+          "Get MCP parameter value as an integer, handling None, empty strings, and whitespace",
         returns: "int - Parameter value as integer or default",
       },
       {
         name: "get_float",
         signature: "get_float(name, default=0.0)",
-        description: "Get MCP parameter value as a float, handling None, empty strings, and whitespace",
+        description:
+          "Get MCP parameter value as a float, handling None, empty strings, and whitespace",
         returns: "float - Parameter value as float or default",
       },
       {
         name: "get_bool",
         signature: "get_bool(name, default=False)",
-        description: "Get MCP parameter value as a boolean, handling None, empty strings, and various string representations",
+        description:
+          "Get MCP parameter value as a boolean, handling None, empty strings, and various string representations",
         returns: "bool - Parameter value as boolean or default",
       },
       {
         name: "get_list",
         signature: "get_list(name, default=[])",
-        description: "Get MCP parameter value as a list, handling comma-separated strings or arrays",
+        description:
+          "Get MCP parameter value as a list, handling comma-separated strings or arrays",
         returns: "list - Parameter value as list or default",
       },
       {
@@ -227,7 +239,8 @@ const scriptLibraries = [
       {
         name: "return_toon",
         signature: "return_toon(value)",
-        description: "Return a value encoded as toon (compact serialization) and exit",
+        description:
+          "Return a value encoded as toon (compact serialization) and exit",
         returns: "str - Toon-encoded value",
       },
       {
@@ -257,13 +270,15 @@ const scriptLibraries = [
       {
         name: "tool_search",
         signature: "tool_search(query, max_results=10)",
-        description: "Search for tools by keyword. Returns list of matching tools",
+        description:
+          "Search for tools by keyword. Returns list of matching tools",
         returns: "list - List of matching tool dicts",
       },
       {
         name: "execute_tool",
         signature: "execute_tool(name, arguments)",
-        description: "Execute a discovered tool. Use full name for namespaced tools",
+        description:
+          "Execute a discovered tool. Use full name for namespaced tools",
         returns: "any - Tool response",
       },
     ],
@@ -276,7 +291,8 @@ const scriptLibraries = [
         name: "list",
         signature: "list(state='', zone='')",
         description: "List all users with optional state/zone filter",
-        returns: "list - List of user dicts with id, username, email, active, number_spaces",
+        returns:
+          "list - List of user dicts with id, username, email, active, number_spaces",
       },
       {
         name: "get",
@@ -324,7 +340,8 @@ const scriptLibraries = [
         name: "get_quota",
         signature: "get_quota(user_id)",
         description: "Get user quota and usage",
-        returns: "dict - Quota details with max_spaces, compute_units, storage_units, max_tunnels, number_spaces, number_spaces_deployed, used_compute_units, used_storage_units, used_tunnels",
+        returns:
+          "dict - Quota details with max_spaces, compute_units, storage_units, max_tunnels, number_spaces, number_spaces_deployed, used_compute_units, used_storage_units, used_tunnels",
       },
     ],
   },
@@ -335,42 +352,151 @@ const scriptLibraries = [
       {
         name: "list",
         signature: "list()",
-        description: "List all available permissions with IDs, names, and groups",
+        description:
+          "List all available permissions with IDs, names, and groups",
         returns: "list - List of permission dicts with id, name, group",
       },
     ],
     constants: [
-      { name: "MANAGE_USERS", value: 0, description: "Permission to manage users" },
-      { name: "MANAGE_TEMPLATES", value: 1, description: "Permission to manage templates" },
-      { name: "MANAGE_SPACES", value: 2, description: "Permission to manage spaces" },
-      { name: "MANAGE_VOLUMES", value: 3, description: "Permission to manage volumes" },
-      { name: "MANAGE_GROUPS", value: 4, description: "Permission to manage groups" },
-      { name: "MANAGE_ROLES", value: 5, description: "Permission to manage roles" },
-      { name: "MANAGE_VARIABLES", value: 6, description: "Permission to manage template variables" },
+      {
+        name: "MANAGE_USERS",
+        value: 0,
+        description: "Permission to manage users",
+      },
+      {
+        name: "MANAGE_TEMPLATES",
+        value: 1,
+        description: "Permission to manage templates",
+      },
+      {
+        name: "MANAGE_SPACES",
+        value: 2,
+        description: "Permission to manage spaces",
+      },
+      {
+        name: "MANAGE_VOLUMES",
+        value: 3,
+        description: "Permission to manage volumes",
+      },
+      {
+        name: "MANAGE_GROUPS",
+        value: 4,
+        description: "Permission to manage groups",
+      },
+      {
+        name: "MANAGE_ROLES",
+        value: 5,
+        description: "Permission to manage roles",
+      },
+      {
+        name: "MANAGE_VARIABLES",
+        value: 6,
+        description: "Permission to manage template variables",
+      },
       { name: "USE_SPACES", value: 7, description: "Permission to use spaces" },
-      { name: "USE_TUNNELS", value: 8, description: "Permission to use tunnels" },
-      { name: "VIEW_AUDIT_LOGS", value: 9, description: "Permission to view audit logs" },
-      { name: "TRANSFER_SPACES", value: 10, description: "Permission to transfer spaces" },
-      { name: "SHARE_SPACES", value: 11, description: "Permission to share spaces" },
-      { name: "CLUSTER_INFO", value: 12, description: "Permission to view cluster info" },
+      {
+        name: "USE_TUNNELS",
+        value: 8,
+        description: "Permission to use tunnels",
+      },
+      {
+        name: "VIEW_AUDIT_LOGS",
+        value: 9,
+        description: "Permission to view audit logs",
+      },
+      {
+        name: "TRANSFER_SPACES",
+        value: 10,
+        description: "Permission to transfer spaces",
+      },
+      {
+        name: "SHARE_SPACES",
+        value: 11,
+        description: "Permission to share spaces",
+      },
+      {
+        name: "CLUSTER_INFO",
+        value: 12,
+        description: "Permission to view cluster info",
+      },
       { name: "USE_VNC", value: 13, description: "Permission to use VNC" },
-      { name: "USE_WEB_TERMINAL", value: 14, description: "Permission to use web terminal" },
-      { name: "USE_SSH", value: 15, description: "Permission to use SSH connections" },
-      { name: "USE_CODE_SERVER", value: 16, description: "Permission to use code-server" },
-      { name: "USE_VSCODE_TUNNEL", value: 17, description: "Permission to use VSCode tunnel" },
+      {
+        name: "USE_WEB_TERMINAL",
+        value: 14,
+        description: "Permission to use web terminal",
+      },
+      {
+        name: "USE_SSH",
+        value: 15,
+        description: "Permission to use SSH connections",
+      },
+      {
+        name: "USE_CODE_SERVER",
+        value: 16,
+        description: "Permission to use code-server",
+      },
+      {
+        name: "USE_VSCODE_TUNNEL",
+        value: 17,
+        description: "Permission to use VSCode tunnel",
+      },
       { name: "USE_LOGS", value: 18, description: "Permission to view logs" },
-      { name: "RUN_COMMANDS", value: 19, description: "Permission to run commands" },
-      { name: "COPY_FILES", value: 20, description: "Permission to copy files" },
-      { name: "USE_MCP_SERVER", value: 21, description: "Permission to use MCP server" },
-      { name: "USE_WEB_ASSISTANT", value: 22, description: "Permission to use web AI assistant" },
-      { name: "MANAGE_SCRIPTS", value: 23, description: "Permission to manage system/global scripts" },
-      { name: "EXECUTE_SCRIPTS", value: 24, description: "Permission to execute system/global scripts" },
-      { name: "MANAGE_OWN_SCRIPTS", value: 25, description: "Permission to manage own scripts" },
-      { name: "EXECUTE_OWN_SCRIPTS", value: 26, description: "Permission to execute own scripts" },
-      { name: "SPACE_MANAGE", value: 2, description: "Alias for MANAGE_SPACES" },
+      {
+        name: "RUN_COMMANDS",
+        value: 19,
+        description: "Permission to run commands",
+      },
+      {
+        name: "COPY_FILES",
+        value: 20,
+        description: "Permission to copy files",
+      },
+      {
+        name: "USE_MCP_SERVER",
+        value: 21,
+        description: "Permission to use MCP server",
+      },
+      {
+        name: "USE_WEB_ASSISTANT",
+        value: 22,
+        description: "Permission to use web AI assistant",
+      },
+      {
+        name: "MANAGE_SCRIPTS",
+        value: 23,
+        description: "Permission to manage system/global scripts",
+      },
+      {
+        name: "EXECUTE_SCRIPTS",
+        value: 24,
+        description: "Permission to execute system/global scripts",
+      },
+      {
+        name: "MANAGE_OWN_SCRIPTS",
+        value: 25,
+        description: "Permission to manage own scripts",
+      },
+      {
+        name: "EXECUTE_OWN_SCRIPTS",
+        value: 26,
+        description: "Permission to execute own scripts",
+      },
+      {
+        name: "SPACE_MANAGE",
+        value: 2,
+        description: "Alias for MANAGE_SPACES",
+      },
       { name: "SPACE_USE", value: 7, description: "Alias for USE_SPACES" },
-      { name: "SCRIPT_MANAGE", value: 23, description: "Alias for MANAGE_SCRIPTS" },
-      { name: "SCRIPT_EXECUTE", value: 24, description: "Alias for EXECUTE_SCRIPTS" },
+      {
+        name: "SCRIPT_MANAGE",
+        value: 23,
+        description: "Alias for MANAGE_SCRIPTS",
+      },
+      {
+        name: "SCRIPT_EXECUTE",
+        value: 24,
+        description: "Alias for EXECUTE_SCRIPTS",
+      },
     ],
   },
   {
@@ -381,7 +507,8 @@ const scriptLibraries = [
         name: "list",
         signature: "list()",
         description: "List all groups",
-        returns: "list - List of group dicts with id, name, max_spaces, compute_units, storage_units",
+        returns:
+          "list - List of group dicts with id, name, max_spaces, compute_units, storage_units",
       },
       {
         name: "get",
@@ -392,7 +519,8 @@ const scriptLibraries = [
       {
         name: "create",
         signature: "create(name, ...)",
-        description: "Create a new group (optional kwargs: max_spaces, compute_units, storage_units, max_tunnels)",
+        description:
+          "Create a new group (optional kwargs: max_spaces, compute_units, storage_units, max_tunnels)",
         returns: "str - UUID of the newly created group",
       },
       {
@@ -453,7 +581,8 @@ const scriptLibraries = [
         name: "list",
         signature: "list()",
         description: "List all templates",
-        returns: "list - List of template dicts with id, name, description, platform, active, usage, deployed",
+        returns:
+          "list - List of template dicts with id, name, description, platform, active, usage, deployed",
       },
       {
         name: "get",
@@ -495,7 +624,8 @@ const scriptLibraries = [
         name: "list",
         signature: "list()",
         description: "List all template variables",
-        returns: "list - List of variable dicts with id, name, local, protected, restricted",
+        returns:
+          "list - List of variable dicts with id, name, local, protected, restricted",
       },
       {
         name: "get",
@@ -531,7 +661,8 @@ const scriptLibraries = [
         name: "list",
         signature: "list()",
         description: "List all volumes",
-        returns: "list - List of volume dicts with id, name, active, zone, platform",
+        returns:
+          "list - List of volume dicts with id, name, active, zone, platform",
       },
       {
         name: "get",
@@ -591,7 +722,8 @@ const scriptLibraries = [
         name: "get",
         signature: "get(name_or_id)",
         description: "Get skill by name or UUID",
-        returns: "dict - Skill object with id, user_id, name, description, content, is_managed, groups, zones",
+        returns:
+          "dict - Skill object with id, user_id, name, description, content, is_managed, groups, zones",
       },
       {
         name: "update",
@@ -609,7 +741,8 @@ const scriptLibraries = [
         name: "list",
         signature: "list(owner=None)",
         description: "List skills (filtered by permissions/groups/zones)",
-        returns: "list - List of skill dicts with id, name, description, user_id, is_managed",
+        returns:
+          "list - List of skill dicts with id, name, description, user_id, is_managed",
       },
       {
         name: "search",
@@ -626,62 +759,89 @@ const scriptLibraries = [
   {
     module: "scriptling.ai",
     description:
-      "Full AI client with streaming, custom tools, and MCP integration",
+      "AI and LLM functions for interacting with multiple AI provider APIs",
+    constants: [
+      {
+        name: "ToolRegistry",
+        description: "Tool registry class for building AI tool schemas",
+        type: "class",
+      },
+      {
+        name: "OPENAI",
+        description: 'Provider constant for OpenAI ("openai")',
+        type: "string",
+      },
+      {
+        name: "CLAUDE",
+        description: 'Provider constant for Anthropic Claude ("claude")',
+        type: "string",
+      },
+      {
+        name: "GEMINI",
+        description: 'Provider constant for Google Gemini ("gemini")',
+        type: "string",
+      },
+      {
+        name: "OLLAMA",
+        description: 'Provider constant for Ollama ("ollama")',
+        type: "string",
+      },
+      {
+        name: "ZAI",
+        description: 'Provider constant for ZAi ("zai")',
+        type: "string",
+      },
+      {
+        name: "MISTRAL",
+        description: 'Provider constant for Mistral AI ("mistral")',
+        type: "string",
+      },
+    ],
     functions: [
       {
-        name: "completion",
-        signature: "completion(model, messages)",
-        description:
-          "Create a chat completion using the specified model and messages",
-        returns: "dict - Response with id, choices, usage",
-      },
-      {
-        name: "models",
-        signature: "models()",
-        description: "List available models",
-        returns: "list - List of model dicts",
-      },
-      {
-        name: "response_create",
-        signature: "response_create(model, input)",
-        description: "Create a Responses API response",
-        returns: "dict - Response object",
-      },
-      {
-        name: "response_get",
-        signature: "response_get(id)",
-        description: "Get response by ID",
-        returns: "dict - Response object",
-      },
-      {
-        name: "response_cancel",
-        signature: "response_cancel(id)",
-        description: "Cancel in-progress response",
-        returns: "dict - Cancelled response",
-      },
-      {
-        name: "new_client",
-        signature: 'new_client(base_url, service="openai", api_key=None)',
+        name: "Client",
+        signature:
+          'Client(base_url, provider="openai", api_key="", max_tokens=0, temperature=0, remote_servers=[])',
         description:
           "Create a new AI client instance for making API calls to supported services",
-        returns: "OpenAIClient - A client instance",
-        returnType: "OpenAIClient",
+        returns: "AIClient - A client instance",
+        returnType: "AIClient",
+      },
+      {
+        name: "extract_thinking",
+        signature: "extract_thinking(text)",
+        description:
+          "Extract thinking blocks from AI response text and return cleaned content",
+        returns: "dict - {'thinking': list of blocks, 'content': cleaned text}",
+      },
+      {
+        name: "text",
+        signature: "text(response)",
+        description:
+          "Get text content from completion response without thinking blocks",
+        returns: "str - Response text with thinking removed",
+      },
+      {
+        name: "thinking",
+        signature: "thinking(response)",
+        description: "Get thinking blocks from completion response",
+        returns: "list - List of thinking block strings",
       },
     ],
     classes: [
       {
-        name: "OpenAIClient",
-        description: "OpenAI-compatible AI client",
+        name: "AIClient",
+        description: "AI client for multiple provider APIs",
         methods: [
           {
             name: "completion",
-            signature: "completion(model, messages)",
+            signature: "completion(model, messages, **kwargs)",
             description: "Create a chat completion",
-            returns: "dict",
+            returns: "dict - Response with id, choices, usage",
           },
           {
             name: "completion_stream",
-            signature: "completion_stream(model, messages)",
+            signature: "completion_stream(model, messages, **kwargs)",
             description: "Create a streaming chat completion",
             returns: "ChatStream - Stream object with next() method",
             returnType: "ChatStream",
@@ -690,50 +850,75 @@ const scriptLibraries = [
             name: "models",
             signature: "models()",
             description: "List available models",
-            returns: "list",
+            returns: "list - List of model dicts",
           },
           {
             name: "response_create",
-            signature: "response_create(model, input)",
+            signature: "response_create(model, input, **kwargs)",
             description: "Create Responses API response",
-            returns: "dict",
+            returns: "dict - Response object",
           },
           {
             name: "response_get",
             signature: "response_get(id)",
             description: "Get response by ID",
-            returns: "dict",
+            returns: "dict - Response object",
           },
           {
             name: "response_cancel",
             signature: "response_cancel(id)",
-            description: "Cancel response",
-            returns: "dict",
+            description: "Cancel in-progress response",
+            returns: "dict - Cancelled response",
           },
           {
-            name: "add_remote_server",
-            signature:
-              'add_remote_server(base_url, namespace="", bearer_token="")',
-            description: "Add remote MCP server for AI tool access",
+            name: "response_delete",
+            signature: "response_delete(id)",
+            description: "Delete a response by ID",
             returns: "None",
           },
           {
-            name: "remove_remote_server",
-            signature: "remove_remote_server(prefix)",
-            description: "Remove remote MCP server",
-            returns: "None",
-          },
-          {
-            name: "set_tools",
-            signature: "set_tools(tools)",
-            description: "Set custom tools for manual execution",
-            returns: "None",
+            name: "response_compact",
+            signature: "response_compact(id)",
+            description:
+              "Compact a response by removing intermediate reasoning steps",
+            returns: "dict - Compacted response object",
           },
           {
             name: "embedding",
             signature: "embedding(model, input)",
             description: "Create embedding vector from input text",
             returns: "dict - Embedding response with vector",
+          },
+          {
+            name: "ask",
+            signature: "ask(model, messages, **kwargs)",
+            description:
+              "Quick completion that returns text directly without thinking blocks",
+            returns: "str - Response text",
+          },
+        ],
+      },
+      {
+        name: "ToolRegistry",
+        description: "Tool registry for building AI tool schemas",
+        methods: [
+          {
+            name: "add",
+            signature: "add(name, description, params, handler)",
+            description: "Add a tool to the registry",
+            returns: "None",
+          },
+          {
+            name: "build",
+            signature: "build()",
+            description: "Build OpenAI-compatible tool schemas",
+            returns: "list - List of tool schema dicts",
+          },
+          {
+            name: "get_handler",
+            signature: "get_handler(name)",
+            description: "Get tool handler by name",
+            returns: "callable - Tool handler function",
           },
         ],
       },
