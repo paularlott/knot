@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -11,14 +12,15 @@ import (
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/mcp"
+	"github.com/paularlott/mcp/toolmetadata"
 	scriptlib "github.com/paularlott/scriptling"
 	"github.com/paularlott/scriptling/object"
 )
 
 type Tool struct {
-	Name       string
-	Script     string
-	Metadata   *ToolMetadata
+	Name     string
+	Script   string
+	Metadata *toolmetadata.ToolMetadata
 }
 
 var (
@@ -64,6 +66,16 @@ func LoadTools(toolsPath string, disabledTools []string) error {
 			return nil
 		}
 
+		// Extract tool name from filename
+		toolName := strings.TrimSuffix(filepath.Base(path), ".toml")
+
+		// Check if disabled
+		if disabled[toolName] {
+			log.WithGroup("mcptools").Info("Skipping disabled tool", "name", toolName)
+			skipped++
+			return nil
+		}
+
 		// Read TOML metadata
 		tomlData, err := fs.ReadFile(toolFS, path)
 		if err != nil {
@@ -79,13 +91,6 @@ func LoadTools(toolsPath string, disabledTools []string) error {
 			return nil
 		}
 
-		// Check if disabled
-		if disabled[metadata.Name] {
-			log.WithGroup("mcptools").Info("Skipping disabled tool", "name", metadata.Name)
-			skipped++
-			return nil
-		}
-
 		// Load corresponding .py file
 		scriptPath := strings.TrimSuffix(path, ".toml") + ".py"
 		scriptData, err := fs.ReadFile(toolFS, scriptPath)
@@ -96,8 +101,8 @@ func LoadTools(toolsPath string, disabledTools []string) error {
 		}
 
 		// Register tool
-		registry[metadata.Name] = &Tool{
-			Name:     metadata.Name,
+		registry[toolName] = &Tool{
+			Name:     toolName,
 			Script:   string(scriptData),
 			Metadata: metadata,
 		}
@@ -176,49 +181,18 @@ func GetMCPTools(visibility string) []mcp.MCPTool {
 
 	tools := make([]mcp.MCPTool, 0)
 	for _, tool := range registry {
-		if tool.Metadata.Visibility != visibility {
+		// Filter by visibility
+		if visibility == "native" && tool.Metadata.Discoverable {
+			continue
+		}
+		if visibility == "discoverable" && !tool.Metadata.Discoverable {
 			continue
 		}
 
-		// Build input schema from metadata
-		inputSchema := map[string]interface{}{
-			"type":       "object",
-			"properties": map[string]interface{}{},
-		}
-
-		if len(tool.Metadata.Parameters) > 0 {
-			properties := make(map[string]interface{})
-			required := make([]string, 0)
-
-			for paramName, param := range tool.Metadata.Parameters {
-				properties[paramName] = map[string]interface{}{
-					"type":        param.Type,
-					"description": param.Description,
-				}
-				if param.Required {
-					required = append(required, paramName)
-				}
-			}
-
-			inputSchema["properties"] = properties
-			if len(required) > 0 {
-				inputSchema["required"] = required
-			}
-		}
-
-		// Determine MCP visibility
-		mcpVisibility := mcp.ToolVisibilityNative
-		if tool.Metadata.Visibility == "discoverable" {
-			mcpVisibility = mcp.ToolVisibilityDiscoverable
-		}
-
-		tools = append(tools, mcp.MCPTool{
-			Name:        tool.Metadata.Name,
-			Description: tool.Metadata.Description,
-			InputSchema: inputSchema,
-			Keywords:    tool.Metadata.Keywords,
-			Visibility:  mcpVisibility,
-		})
+		// Build tool using upstream builder
+		toolBuilder := toolmetadata.BuildMCPTool(tool.Name, tool.Metadata)
+		mcpTool := toolBuilder.ToMCPTool()
+		tools = append(tools, mcpTool)
 	}
 
 	return tools
@@ -231,45 +205,9 @@ func GetAllMCPTools() []mcp.MCPTool {
 
 	tools := make([]mcp.MCPTool, 0, len(registry))
 	for _, tool := range registry {
-		// Build input schema from metadata
-		inputSchema := map[string]interface{}{
-			"type":       "object",
-			"properties": map[string]interface{}{},
-		}
-
-		if len(tool.Metadata.Parameters) > 0 {
-			properties := make(map[string]interface{})
-			required := make([]string, 0)
-
-			for paramName, param := range tool.Metadata.Parameters {
-				properties[paramName] = map[string]interface{}{
-					"type":        param.Type,
-					"description": param.Description,
-				}
-				if param.Required {
-					required = append(required, paramName)
-				}
-			}
-
-			inputSchema["properties"] = properties
-			if len(required) > 0 {
-				inputSchema["required"] = required
-			}
-		}
-
-		// Determine MCP visibility
-		mcpVisibility := mcp.ToolVisibilityNative
-		if tool.Metadata.Visibility == "discoverable" {
-			mcpVisibility = mcp.ToolVisibilityDiscoverable
-		}
-
-		tools = append(tools, mcp.MCPTool{
-			Name:        tool.Metadata.Name,
-			Description: tool.Metadata.Description,
-			InputSchema: inputSchema,
-			Keywords:    tool.Metadata.Keywords,
-			Visibility:  mcpVisibility,
-		})
+		toolBuilder := toolmetadata.BuildMCPTool(tool.Name, tool.Metadata)
+		mcpTool := toolBuilder.ToMCPTool()
+		tools = append(tools, mcpTool)
 	}
 
 	return tools

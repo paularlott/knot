@@ -225,6 +225,34 @@ const scriptLibraries = [
         returns: "list - Parameter value as list or default",
       },
       {
+        name: "get_string_list",
+        signature: "get_string_list(name, default=[])",
+        description:
+          "Get MCP array:string parameter as a list of strings",
+        returns: "list[str] - String array or default",
+      },
+      {
+        name: "get_int_list",
+        signature: "get_int_list(name, default=[])",
+        description:
+          "Get MCP array:int parameter as a list of integers",
+        returns: "list[int] - Integer array or default",
+      },
+      {
+        name: "get_float_list",
+        signature: "get_float_list(name, default=[])",
+        description:
+          "Get MCP array:float parameter as a list of floats",
+        returns: "list[float] - Float array or default",
+      },
+      {
+        name: "get_bool_list",
+        signature: "get_bool_list(name, default=[])",
+        description:
+          "Get MCP array:bool parameter as a list of booleans",
+        returns: "list[bool] - Boolean array or default",
+      },
+      {
         name: "return_string",
         signature: "return_string(value)",
         description: "Return a string result and exit",

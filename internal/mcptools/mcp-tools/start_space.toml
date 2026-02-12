@@ -1,8 +1,8 @@
-name = "start_space"
 description = "Start a stopped space to make it available for use. The space must already exist and be in a stopped state."
 keywords = ["start", "launch", "activate", "boot", "run"]
 
-[parameters.name]
+[[parameters]]
+name = "name"
 type = "string"
 description = "Name of the space to start"
 required = true

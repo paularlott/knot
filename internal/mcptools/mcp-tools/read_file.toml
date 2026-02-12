@@ -1,13 +1,14 @@
-name = "read_file"
 description = "Read file contents from a running space."
 keywords = ["read", "file", "content", "view", "open", "cat", "text", "document"]
 
-[parameters.name]
+[[parameters]]
+name = "name"
 type = "string"
 description = "Name of the space to read the file from"
 required = true
 
-[parameters.file_path]
+[[parameters]]
+name = "file_path"
 type = "string"
 description = "Path to the file within the space (e.g., /app/config.json)"
 required = true

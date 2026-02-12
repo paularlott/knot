@@ -1,9 +1,9 @@
-name = "restart_space"
 description = "Restart a running space (stop and start it)."
 keywords = ["restart", "space", "reboot", "reload", "cycle"]
-visibility = "discoverable"
+discoverable = true
 
-[parameters.name]
+[[parameters]]
+name = "name"
 type = "string"
 description = "Name of the space to restart"
 required = true

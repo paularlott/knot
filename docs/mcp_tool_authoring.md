@@ -37,30 +37,45 @@ tool.return_string(greeting)
 
 Use TOML to define your tool's parameters. This tells the AI what parameters to send.
 
+**Parameter types:**
+- `string` - Text value
+- `number` - Numeric value (integer or float)
+- `bool` or `boolean` - true/false
+- `array:string` - Array of strings
+- `array:number` - Array of numbers
+- `array:bool` or `array:boolean` - Array of booleans
+
+**Type aliases (accepted but not recommended):**
+- `int`, `integer`, `float` - Use `number` instead
+- `array:int`, `array:integer`, `array:float` - Use `array:number` instead
+
 **Simple parameters:**
 ```toml
-[name]
+[[parameters]]
+name = "name"
 type = "string"
 description = "The name to greet"
 required = true
 
-[greeting_type]
+[[parameters]]
+name = "greeting_type"
 type = "string"
 description = "Type of greeting (hello, hi, hey, etc.)"
 required = false
 ```
 
-**Parameter types:**
-- `string` - Text value
-- `number` - Integer or float
-- `boolean` - true/false
-- `array` - List of values (currently string arrays)
-
 **Array parameters:**
 ```toml
-[headers]
-type = "array"
+[[parameters]]
+name = "headers"
+type = "array:string"
 description = "HTTP headers to include"
+required = false
+
+[[parameters]]
+name = "ports"
+type = "array:number"
+description = "Port numbers to check"
 required = false
 ```
 
@@ -101,8 +116,12 @@ rate = tool.get_float("rate", 1.5)  # default: 1.5
 # Boolean parameter (handles various string representations)
 enabled = tool.get_bool("enabled", False)
 
-# List parameter (handles comma-separated strings or JSON arrays)
-headers = tool.get_list("headers", [])
+# Array parameters (typed)
+headers = tool.get_string_list("headers", [])  # array:string
+ports = tool.get_int_list("ports", [])         # array:number (as integers)
+rates = tool.get_float_list("rates", [])       # array:number (as floats)
+flags = tool.get_bool_list("flags", [])        # array:bool
+
 for header in headers:
     print(f"Header: {header}")
 ```
@@ -172,12 +191,17 @@ if not url:
 ### Input Schema (TOML)
 
 ```toml
-[name]
+description = "Generate personalized greetings"
+keywords = ["greeting", "hello", "hi", "welcome"]
+
+[[parameters]]
+name = "name"
 type = "string"
 description = "The name to greet"
 required = true
 
-[greeting_type]
+[[parameters]]
+name = "greeting_type"
 type = "string"
 description = "Type of greeting (hello, hi, hey, etc.)"
 required = false
@@ -292,7 +316,11 @@ The `scriptling.mcp.tool` library provides portable, standardized MCP tool helpe
 - `tool.get_int(name, default=0)` - Get parameter as an integer
 - `tool.get_float(name, default=0.0)` - Get parameter as a float
 - `tool.get_bool(name, default=False)` - Get parameter as a boolean
-- `tool.get_list(name, default=[])` - Get parameter as a list
+- `tool.get_string_list(name, default=[])` - Get array:string parameter as a list
+- `tool.get_int_list(name, default=[])` - Get array:int parameter as a list
+- `tool.get_float_list(name, default=[])` - Get array:float parameter as a list
+- `tool.get_bool_list(name, default=[])` - Get array:bool parameter as a list
+- `tool.get_list(name, default=[])` - Get parameter as a list (backward compatibility)
 
 **Return Functions:**
 
@@ -349,8 +377,152 @@ Additional context may be provided in future versions:
 ### Basic Structure
 
 ```toml
-[parameter_name]
-type = "string|number|boolean|array"
+description = "Tool description shown to AI"
+keywords = ["keyword1", "keyword2", "keyword3"]
+discoverable = true  # Optional: makes tool discoverable via search (default: false)
+
+[[parameters]]
+name = "parameter_name"
+type = "string"
+description = "Parameter description"
+required = true
+
+[[parameters]]
+name = "another_param"
+type = "int"
+description = "Another parameter"
+required = false
+```
+
+### Disk-Based Tools
+
+Disk-based tools are stored as `.toml` files in `/Users/paul/Code/Source/knot/internal/mcptools/mcp-tools/`. The tool name is derived from the filename (e.g., `create_space.toml` → `create_space`).
+
+**Example: `create_space.toml`**
+```toml
+description = "Create a new development space from a template"
+keywords = ["create", "space", "environment", "template", "new"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name for the new space"
+required = true
+
+[[parameters]]
+name = "template"
+type = "string"
+description = "Template name to use"
+required = true
+```
+
+### Database-Based Tools (Scripts)
+
+Database-based tools are created through the Knot UI as scripts with `script_type = "tool"`. The TOML schema is stored in the script's `input_schema` field.
+
+**Key differences from disk-based tools:**
+- Tool name comes from the script name, not the TOML
+- Description and keywords can be in TOML or script metadata (TOML takes precedence)
+- Must set `active = true` and `script_type = "tool"` in script metadata
+- Groups control access (empty = all users)
+
+**Example TOML for database tool:**
+```toml
+description = "Execute a named script in a running space"
+keywords = ["run", "execute", "script", "trigger"]
+
+[[parameters]]
+name = "space_name"
+type = "string"
+description = "Name of the space to run the script in"
+required = true
+
+[[parameters]]
+name = "script_name"
+type = "string"
+description = "Name of the script to execute"
+required = true
+
+[[parameters]]
+name = "arguments"
+type = "array:string"
+description = "Script arguments as an array"
+required = false
+```
+
+### Complete Type Reference
+
+**Scalar Types:**
+```toml
+[[parameters]]
+name = "text"
+type = "string"
+
+[[parameters]]
+name = "count"
+type = "number"
+
+[[parameters]]
+name = "enabled"
+type = "bool"  # or "boolean"
+```
+
+**Array Types:**
+```toml
+[[parameters]]
+name = "tags"
+type = "array:string"
+
+[[parameters]]
+name = "ports"
+type = "array:number"
+
+[[parameters]]
+name = "flags"
+type = "array:bool"  # or "array:boolean"
+```
+
+### Field Reference
+
+**Top-level fields:**
+- `description` (string) - Tool description shown to AI
+- `keywords` (array of strings) - Search keywords for tool discovery
+- `discoverable` (boolean, optional) - Enable keyword-based discovery (default: false)
+
+**Parameter fields:**
+- `name` (string, required) - Parameter name
+- `type` (string, required) - One of: `string`, `number`, `bool`, `array:string`, `array:number`, `array:bool`
+- `description` (string, required) - Parameter description
+- `required` (boolean, required) - Whether parameter is required
+
+**Type aliases:** The following aliases are accepted for backward compatibility:
+- Scalar: `int`, `integer`, `float` → `number`; `boolean` → `bool`
+- Array: `array:int`, `array:integer`, `array:float` → `array:number`; `array:boolean` → `array:bool`
+
+### Migration from Old Format
+
+If you have old TOML files using `[parameters.name]` format:
+
+**Old format:**
+```toml
+[parameters.name]
+type = "string"
+
+[parameters.count]
+type = "integer"
+```
+
+**New format:**
+```toml
+[[parameters]]
+name = "name"
+type = "string"
+
+[[parameters]]
+name = "count"
+type = "number"
+```tring|number|boolean|array"
 description = "Human-readable description"
 required = true|false
 ```

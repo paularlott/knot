@@ -1,23 +1,26 @@
-name = "create_space"
 description = "Create a new development space. Spaces are created in stopped state - use start_space to run them."
 keywords = ["create", "space", "new", "environment", "development", "deploy", "instance"]
 
-[parameters.name]
+[[parameters]]
+name = "name"
 type = "string"
 description = "Name of the space"
 required = true
 
-[parameters.template_name]
+[[parameters]]
+name = "template_name"
 type = "string"
 description = "Name of the template to use for this space"
 required = true
 
-[parameters.description]
+[[parameters]]
+name = "description"
 type = "string"
 description = "Optional description for the space"
 required = false
 
-[parameters.shell]
+[[parameters]]
+name = "shell"
 type = "string"
 description = "Preferred shell (bash, zsh, fish, sh)"
 required = false

@@ -1,14 +1,15 @@
-name = "list_templates"
 description = "List available space templates to choose from when creating spaces."
 keywords = ["templates", "list", "available", "blueprint", "definition"]
-visibility = "discoverable"
+discoverable = true
 
-[parameters.show_all]
-type = "boolean"
+[[parameters]]
+name = "show_all"
+type = "bool"
 description = "Show templates from all zones (default: false, shows only current zone)"
 required = false
 
-[parameters.show_inactive]
-type = "boolean"
+[[parameters]]
+name = "show_inactive"
+type = "bool"
 description = "Show inactive templates (default: false)"
 required = false

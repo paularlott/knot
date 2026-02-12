@@ -1,14 +1,15 @@
-name = "transfer_space"
 description = "Transfer space ownership to another user. You will no longer own this space."
 keywords = ["transfer", "space", "ownership", "give", "assign", "handover"]
-visibility = "discoverable"
+discoverable = true
 
-[parameters.name]
+[[parameters]]
+name = "name"
 type = "string"
 description = "Name of the space to transfer"
 required = true
 
-[parameters.user_id]
+[[parameters]]
+name = "user_id"
 type = "string"
 description = "Username, email, or user ID to transfer to"
 required = true
