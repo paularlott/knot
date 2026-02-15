@@ -13,7 +13,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/mcp"
 	"github.com/paularlott/mcp/toolmetadata"
-	scriptlib "github.com/paularlott/scriptling"
+	"github.com/paularlott/scriptling/conversion"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -154,7 +154,7 @@ func ExecuteTool(name string, params map[string]interface{}, user *model.User) (
 	// Convert params to scriptling objects for mcp library
 	mcpParams := make(map[string]object.Object)
 	for key, value := range params {
-		mcpParams[key] = scriptlib.FromGo(value)
+		mcpParams[key] = conversion.FromGo(value)
 	}
 
 	// Create a temporary script model for execution

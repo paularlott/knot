@@ -23,10 +23,10 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.72
 	github.com/paularlott/cli v0.7.2
-	github.com/paularlott/gossip v0.12.0
+	github.com/paularlott/gossip v0.12.2
 	github.com/paularlott/logger v0.3.0
-	github.com/paularlott/mcp v0.12.2
-	github.com/paularlott/scriptling v0.0.0-20260213102843-4fd954c92359
+	github.com/paularlott/mcp v0.12.3
+	github.com/paularlott/scriptling v0.0.0-20260215134033-dd5e454e87a5
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/vmihailenco/msgpack/v5 v5.4.1

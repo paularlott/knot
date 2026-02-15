@@ -7,7 +7,7 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/mcp"
-	scriptlib "github.com/paularlott/scriptling"
+	"github.com/paularlott/scriptling/conversion"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/object"
 )
@@ -108,7 +108,7 @@ func mcpListTools(ctx context.Context, client *apiclient.ApiClient, args ...obje
 				},
 				"parameters": {
 					Key:   &object.String{Value: "parameters"},
-					Value: scriptlib.FromGo(tool.InputSchema),
+					Value: conversion.FromGo(tool.InputSchema),
 				},
 			},
 		}
@@ -143,7 +143,7 @@ func mcpCallTool(ctx context.Context, client *apiclient.ApiClient, args ...objec
 	// Convert arguments to map
 	arguments := make(map[string]interface{})
 	for key, val := range argsDict {
-		arguments[key] = scriptlib.ToGo(val)
+		arguments[key] = conversion.ToGo(val)
 	}
 
 	// Create request
@@ -262,7 +262,7 @@ func mcpExecuteTool(ctx context.Context, client *apiclient.ApiClient, args ...ob
 	// Convert arguments to map[string]interface{} for the execute_tool call
 	arguments := make(map[string]interface{})
 	for key, val := range argsDict {
-		arguments[key] = scriptlib.ToGo(val)
+		arguments[key] = conversion.ToGo(val)
 	}
 
 	// Create request for execute_tool

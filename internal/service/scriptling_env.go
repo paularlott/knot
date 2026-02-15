@@ -81,7 +81,12 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 // and interactive agent support
 func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterSubprocessLibrary(env)
-	extlibs.RegisterThreadsLibrary(env) // scriptling.threads
+
+	// Register only the core runtime library (background function)
+	extlibs.RegisterRuntimeLibrary(env)
+	extlibs.RegisterRuntimeKVLibrary(env)   // Key-value store
+	extlibs.RegisterRuntimeSyncLibrary(env) // Concurrency primitives
+
 	extlibs.RegisterConsoleLibrary(env) // scriptling.console
 	extlibs.RegisterOSLibrary(env, []string{})
 	extlibs.RegisterPathlibLibrary(env, []string{})
