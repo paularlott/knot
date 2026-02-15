@@ -38,6 +38,7 @@ tool.return_string(greeting)
 Use TOML to define your tool's parameters. This tells the AI what parameters to send.
 
 **Parameter types:**
+
 - `string` - Text value
 - `number` - Numeric value (integer or float)
 - `bool` or `boolean` - true/false
@@ -46,10 +47,12 @@ Use TOML to define your tool's parameters. This tells the AI what parameters to 
 - `array:bool` or `array:boolean` - Array of booleans
 
 **Type aliases (accepted but not recommended):**
+
 - `int`, `integer`, `float` - Use `number` instead
 - `array:int`, `array:integer`, `array:float` - Use `array:number` instead
 
 **Simple parameters:**
+
 ```toml
 [[parameters]]
 name = "name"
@@ -65,6 +68,7 @@ required = false
 ```
 
 **Array parameters:**
+
 ```toml
 [[parameters]]
 name = "headers"
@@ -94,6 +98,7 @@ Only scripts marked as `active = true` are registered as MCP tools.
 ### 5. Group Access Control
 
 Assign groups to control which users can access the tool:
+
 - Empty groups array = available to all users
 - Specific groups = only users in those groups see the tool
 
@@ -399,6 +404,7 @@ required = false
 Disk-based tools are stored as `.toml` files in `/Users/paul/Code/Source/knot/internal/mcptools/mcp-tools/`. The tool name is derived from the filename (e.g., `create_space.toml` → `create_space`).
 
 **Example: `create_space.toml`**
+
 ```toml
 description = "Create a new development space from a template"
 keywords = ["create", "space", "environment", "template", "new"]
@@ -422,12 +428,14 @@ required = true
 Database-based tools are created through the Knot UI as scripts with `script_type = "tool"`. The TOML schema is stored in the script's `input_schema` field.
 
 **Key differences from disk-based tools:**
+
 - Tool name comes from the script name, not the TOML
 - Description and keywords can be in TOML or script metadata (TOML takes precedence)
 - Must set `active = true` and `script_type = "tool"` in script metadata
 - Groups control access (empty = all users)
 
 **Example TOML for database tool:**
+
 ```toml
 description = "Execute a named script in a running space"
 keywords = ["run", "execute", "script", "trigger"]
@@ -454,6 +462,7 @@ required = false
 ### Complete Type Reference
 
 **Scalar Types:**
+
 ```toml
 [[parameters]]
 name = "text"
@@ -469,6 +478,7 @@ type = "bool"  # or "boolean"
 ```
 
 **Array Types:**
+
 ```toml
 [[parameters]]
 name = "tags"
@@ -486,17 +496,20 @@ type = "array:bool"  # or "array:boolean"
 ### Field Reference
 
 **Top-level fields:**
+
 - `description` (string) - Tool description shown to AI
 - `keywords` (array of strings) - Search keywords for tool discovery
 - `discoverable` (boolean, optional) - Enable keyword-based discovery (default: false)
 
 **Parameter fields:**
+
 - `name` (string, required) - Parameter name
 - `type` (string, required) - One of: `string`, `number`, `bool`, `array:string`, `array:number`, `array:bool`
 - `description` (string, required) - Parameter description
 - `required` (boolean, required) - Whether parameter is required
 
 **Type aliases:** The following aliases are accepted for backward compatibility:
+
 - Scalar: `int`, `integer`, `float` → `number`; `boolean` → `bool`
 - Array: `array:int`, `array:integer`, `array:float` → `array:number`; `array:boolean` → `array:bool`
 
@@ -505,6 +518,7 @@ type = "array:bool"  # or "array:boolean"
 If you have old TOML files using `[parameters.name]` format:
 
 **Old format:**
+
 ```toml
 [parameters.name]
 type = "string"
@@ -514,6 +528,7 @@ type = "integer"
 ```
 
 **New format:**
+
 ```toml
 [[parameters]]
 name = "name"
@@ -522,68 +537,6 @@ type = "string"
 [[parameters]]
 name = "count"
 type = "number"
-```tring|number|boolean|array"
-description = "Human-readable description"
-required = true|false
-```
-
-### Supported Types
-
-- **string** - Text values
-- **number** - Integers or floats
-- **boolean** - true/false values
-- **array** - Lists of strings (object arrays coming soon)
-
-### Array Schema
-
-```toml
-[parameter_name]
-type = "array"
-description = "List of items"
-required = false
-```
-
-Currently supports string arrays. Object arrays will be added in a future update.ype = "array"
-description = "List of items"
-items = "string|number|boolean|object"
-required = false
-```
-
-### Object Schema
-
-```toml
-[parameter_name]
-type = "object"
-description = "Complex structure"
-required = false
-
-[parameter_name.properties.field1]
-type = "string"
-description = "First field"
-
-[parameter_name.properties.field2]
-type = "number"
-description = "Second field"
-```
-
-### Nested Objects
-
-```toml
-[config]
-type = "object"
-description = "Configuration"
-
-[config.properties.database]
-type = "object"
-description = "Database settings"
-
-[config.properties.database.properties.host]
-type = "string"
-description = "Database host"
-
-[config.properties.database.properties.port]
-type = "number"
-description = "Database port"
 ```
 
 ## Troubleshooting
@@ -616,6 +569,7 @@ except json.JSONDecodeError as e:
 ## Examples
 
 See the Web UI for example MCP tools:
+
 - `generate_calendar` - Date/time operations
 - `generate_password` - Security utilities
 - `greeting_tool` - Personalized greetings

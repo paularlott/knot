@@ -14,19 +14,25 @@ Knot provides three distinct scriptling execution environments, each tailored fo
 
 ## Quick Reference Matrix
 
-| Feature              | Local         | MCP             | Remote      |
-| -------------------- | ------------- | --------------- | ----------- |
-| **System Access**    | ✓ Full (host) | ✗ None          | ✓ Container |
-| **API Client**       | ✓ Yes         | ✗ No (internal) | ✓ Yes       |
-| **knot.space lib**   | ✓ API         | ✓ API           | ✓ API       |
-| **knot.ai lib**      | ✓ API         | ✓ MCP           | ✓ API       |
-| **knot.mcp lib**     | ✓ Tools       | ✓ Special       | ✓ Tools     |
-| **subprocess**       | ✓             | ✗               | ✓           |
-| **threads**          | ✓             | ✗               | ✓           |
-| **os/pathlib**       | ✓             | ✗               | ✓           |
-| **sys**              | ✓             | ✗               | ✓           |
-| **Load from disk**   | ✓ First       | ✗               | ✗           |
-| **Load from server** | ✓ Fallback    | ✓ Only          | ✓ Only      |
+| Feature                     | Local         | MCP             | Remote      |
+| --------------------------- | ------------- | --------------- | ----------- |
+| **System Access**           | ✓ Full (host) | ✗ None          | ✓ Container |
+| **API Client**              | ✓ Yes         | ✗ No (internal) | ✓ Yes       |
+| **knot.space lib**          | ✓ API         | ✓ API           | ✓ API       |
+| **knot.ai lib**             | ✓ API         | ✓ MCP           | ✓ API       |
+| **knot.mcp lib**            | ✓ Tools       | ✓ Special       | ✓ Tools     |
+| **subprocess**              | ✓             | ✗               | ✓           |
+| **scriptling.runtime**      | ✓             | ✗               | ✓           |
+| **scriptling.runtime.kv**   | ✓             | ✗               | ✓           |
+| **scriptling.runtime.sync** | ✓             | ✗               | ✓           |
+| **os/pathlib**              | ✓             | ✗               | ✓           |
+| **sys**                     | ✓             | ✗               | ✓           |
+| **scriptling.glob**         | ✓             | ✗               | ✓           |
+| **scriptling.console**      | ✓             | ✗               | ✓           |
+| **yaml**                    | ✓             | ✓               | ✓           |
+| **waitFor**                 | ✓             | ✓               | ✓           |
+| **Load from disk**          | ✓ First       | ✗               | ✗           |
+| **Load from server**        | ✓ Fallback    | ✓ Only          | ✓ Only      |
 
 ---
 
@@ -65,10 +71,20 @@ Is it an MCP tool for AI?
 - **secrets** - Secure random number generation
 - **subprocess** - Process execution
 - **htmlparser** - HTML parsing and manipulation
-- **threads** - Threading support
+- **yaml** - YAML parsing and manipulation
+- **waitFor** - Wait for conditions
+- **scriptling.runtime** - Runtime utilities (background functions)
+- **scriptling.runtime.kv** - Key-value store for runtime state
+- **scriptling.runtime.sync** - Concurrency primitives (mutex, wait groups)
+- **scriptling.console** - Console output utilities
+- **scriptling.glob** - File globbing patterns
 - **os** - Operating system interface
 - **pathlib** - Filesystem path operations
 - **sys** - System-specific parameters (argv)
+- **scriptling.ai** - AI agent framework
+- **scriptling.ai.agent** - Agentic AI loop with automatic tool execution
+- **scriptling.ai.agent.interact** - Interactive CLI agent
+- **scriptling.mcp** - MCP tool helpers and TOON encoding
 - **knot.space** - Space management operations (via API)
 - **knot.ai** - AI completion functions (via API)
 - **knot.mcp** - MCP tools library (via API)
@@ -126,11 +142,14 @@ import mylib  # Tries mylib.py locally, then fetches from server
 - **requests** - HTTP client library
 - **secrets** - Secure random number generation
 - **htmlparser** - HTML parsing and manipulation
+- **yaml** - YAML parsing and manipulation
+- **waitFor** - Wait for conditions
+- **scriptling.ai** - AI agent framework
+- **scriptling.ai.agent** - Agentic AI loop with automatic tool execution
+- **scriptling.ai.agent.interact** - Interactive CLI agent
+- **scriptling.mcp** - MCP tool helpers and TOON encoding
 - **knot.space** - Space management operations (via internal API)
 - **knot.ai** - AI completion functions (via MCP server)
-
-#### Special Libraries
-
 - **knot.mcp** - MCP-specific functions with access to tool parameters
 
 ### On-Demand Loading
@@ -190,10 +209,20 @@ return knot.mcp.return_string(f"Hello, {name}!")
 - **secrets** - Secure random number generation
 - **subprocess** - Process execution
 - **htmlparser** - HTML parsing and manipulation
-- **threads** - Threading support
+- **yaml** - YAML parsing and manipulation
+- **waitFor** - Wait for conditions
+- **scriptling.runtime** - Runtime utilities (background functions)
+- **scriptling.runtime.kv** - Key-value store for runtime state
+- **scriptling.runtime.sync** - Concurrency primitives (mutex, wait groups)
+- **scriptling.console** - Console output utilities
+- **scriptling.glob** - File globbing patterns
 - **os** - Operating system interface
 - **pathlib** - Filesystem path operations
 - **sys** - System-specific parameters (argv)
+- **scriptling.ai** - AI agent framework
+- **scriptling.ai.agent** - Agentic AI loop with automatic tool execution
+- **scriptling.ai.agent.interact** - Interactive CLI agent
+- **scriptling.mcp** - MCP tool helpers and TOON encoding
 - **knot.space** - Space management operations (via API)
 - **knot.ai** - AI completion functions (via API)
 - **knot.mcp** - MCP tools library (via API)
@@ -231,21 +260,30 @@ echo "data" | knot space run-script myspace myscript | jq
 
 ## Library Comparison Matrix
 
-| Library        | Local            | MCP        | Remote     |
-| -------------- | ---------------- | ---------- | ---------- |
-| stdlib         | ✓                | ✓          | ✓          |
-| requests       | ✓                | ✓          | ✓          |
-| secrets        | ✓                | ✓          | ✓          |
-| htmlparser     | ✓                | ✓          | ✓          |
-| subprocess     | ✓                | ✗          | ✓          |
-| threads        | ✓                | ✗          | ✓          |
-| os             | ✓                | ✗          | ✓          |
-| pathlib        | ✓                | ✗          | ✓          |
-| sys            | ✓                | ✗          | ✓          |
-| knot.space     | ✓ API            | ✓ API      | ✓ API      |
-| knot.ai        | ✓ API            | ✓ MCP      | ✓ API      |
-| knot.mcp       | ✓ Tools          | ✓ Special  | ✓ Tools    |
-| On-demand libs | ✓ (local+server) | ✓ (server) | ✓ (server) |
+| Library                 | Local            | MCP        | Remote     |
+| ----------------------- | ---------------- | ---------- | ---------- |
+| stdlib                  | ✓                | ✓          | ✓          |
+| requests                | ✓                | ✓          | ✓          |
+| secrets                 | ✓                | ✓          | ✓          |
+| htmlparser              | ✓                | ✓          | ✓          |
+| yaml                    | ✓                | ✓          | ✓          |
+| waitFor                 | ✓                | ✓          | ✓          |
+| subprocess              | ✓                | ✗          | ✓          |
+| scriptling.runtime      | ✓                | ✗          | ✓          |
+| scriptling.runtime.kv   | ✓                | ✗          | ✓          |
+| scriptling.runtime.sync | ✓                | ✗          | ✓          |
+| os                      | ✓                | ✗          | ✓          |
+| pathlib                 | ✓                | ✗          | ✓          |
+| sys                     | ✓                | ✗          | ✓          |
+| scriptling.glob         | ✓                | ✗          | ✓          |
+| scriptling.console      | ✓                | ✗          | ✓          |
+| scriptling.ai           | ✓                | ✓          | ✓          |
+| scriptling.ai.agent     | ✓                | ✓          | ✓          |
+| scriptling.mcp          | ✓                | ✓          | ✓          |
+| knot.space              | ✓ API            | ✓ API      | ✓ API      |
+| knot.ai                 | ✓ API            | ✓ MCP      | ✓ API      |
+| knot.mcp                | ✓ Tools          | ✓ Special  | ✓ Tools    |
+| On-demand libs          | ✓ (local+server) | ✓ (server) | ✓ (server) |
 
 ---
 
