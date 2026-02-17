@@ -1066,6 +1066,30 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.fuzzy",
+    description: "Fuzzy string matching and search utilities",
+    functions: [
+      {
+        name: "search",
+        signature: "search(query, items, max_results=5, threshold=0.5, key='name')",
+        description: "Search for fuzzy matches in a list of items",
+        returns: "list - List of match dicts with id, name, score",
+      },
+      {
+        name: "best",
+        signature: "best(query, items, entity_type='item', key='name', threshold=0.5)",
+        description: "Find best match with error formatting",
+        returns: "dict - {found: bool, id: int, name: str, score: float, error: str}",
+      },
+      {
+        name: "score",
+        signature: "score(s1, s2)",
+        description: "Calculate similarity score between two strings (0.0 to 1.0)",
+        returns: "float - Similarity score",
+      },
+    ],
+  },
+  {
     module: "scriptling.threads",
     description: "Threading and concurrency primitives for async operations",
     functions: [

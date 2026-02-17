@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/paularlott/cli/fuzzy"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
@@ -512,9 +513,9 @@ func HandleSearchSkills(w http.ResponseWriter, r *http.Request) {
 				score += 0.8
 			} else {
 				// Fuzzy match on name
-				if fuzzyScore := fuzzyMatch(word, nameLower); fuzzyScore > 0.6 {
+				if fuzzyScore := fuzzy.Score(word, nameLower); fuzzyScore > 0.6 {
 					score += fuzzyScore * 0.7
-				} else if fuzzyScore := fuzzyMatch(word, descLower); fuzzyScore > 0.6 {
+				} else if fuzzyScore := fuzzy.Score(word, descLower); fuzzyScore > 0.6 {
 					score += fuzzyScore * 0.5
 				}
 			}
@@ -554,55 +555,4 @@ func HandleSearchSkills(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rest.WriteResponse(http.StatusOK, w, r, results)
-}
-
-func fuzzyMatch(query, target string) float64 {
-	if len(query) == 0 || len(target) == 0 {
-		return 0
-	}
-	distance := levenshteinDistance(query, target)
-	maxLen := max(len(query), len(target))
-	return 1.0 - float64(distance)/float64(maxLen)
-}
-
-func levenshteinDistance(s1, s2 string) int {
-	if len(s1) == 0 {
-		return len(s2)
-	}
-	if len(s2) == 0 {
-		return len(s1)
-	}
-	r1 := []rune(s1)
-	r2 := []rune(s2)
-	m := len(r1)
-	n := len(r2)
-	prev := make([]int, n+1)
-	curr := make([]int, n+1)
-	for j := 0; j <= n; j++ {
-		prev[j] = j
-	}
-	for i := 1; i <= m; i++ {
-		curr[0] = i
-		for j := 1; j <= n; j++ {
-			cost := 0
-			if r1[i-1] != r2[j-1] {
-				cost = 1
-			}
-			if prev[j]+1 < curr[j-1]+1 {
-				if prev[j]+1 < prev[j-1]+cost {
-					curr[j] = prev[j] + 1
-				} else {
-					curr[j] = prev[j-1] + cost
-				}
-			} else {
-				if curr[j-1]+1 < prev[j-1]+cost {
-					curr[j] = curr[j-1] + 1
-				} else {
-					curr[j] = prev[j-1] + cost
-				}
-			}
-		}
-		prev, curr = curr, prev
-	}
-	return prev[n]
 }

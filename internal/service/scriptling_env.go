@@ -19,6 +19,7 @@ import (
 	"github.com/paularlott/scriptling/extlibs"
 	"github.com/paularlott/scriptling/extlibs/agent"
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
+	scriptlingfuzzy "github.com/paularlott/scriptling/extlibs/fuzzy"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/object"
 	"github.com/paularlott/scriptling/stdlib"
@@ -45,6 +46,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 
 	scriptlingai.Register(env)
 	agent.Register(env)
+	scriptlingfuzzy.Register(env)
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
