@@ -19,6 +19,8 @@ import (
 	"github.com/paularlott/scriptling/extlibs"
 	"github.com/paularlott/scriptling/extlibs/agent"
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
+	scriptlingaitools "github.com/paularlott/scriptling/extlibs/ai/tools"
+	scriptlingconsole "github.com/paularlott/scriptling/extlibs/console"
 	scriptlingfuzzy "github.com/paularlott/scriptling/extlibs/fuzzy"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/object"
@@ -46,10 +48,12 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 
 	scriptlingai.Register(env)
 	agent.Register(env)
+	scriptlingaitools.Register(env)
 	scriptlingfuzzy.Register(env)
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
+	extlibs.RegisterTOMLLibrary(env)
 }
 
 // registerKnotLibraries registers all Knot-specific libraries for scriptling environments
@@ -89,11 +93,10 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterRuntimeKVLibrary(env)   // Key-value store
 	extlibs.RegisterRuntimeSyncLibrary(env) // Concurrency primitives
 
-	extlibs.RegisterConsoleLibrary(env) // scriptling.console
+	scriptlingconsole.Register(env) // scriptling.console
 	extlibs.RegisterOSLibrary(env, []string{})
 	extlibs.RegisterPathlibLibrary(env, []string{})
 	extlibs.RegisterGlobLibrary(env, []string{}) // scriptling.glob
-	agent.RegisterInteract(env)                  // scriptling.ai.agent.interact (extends Agent with interact())
 }
 
 // setupServerLibraryCallback sets up on-demand library loading from server
