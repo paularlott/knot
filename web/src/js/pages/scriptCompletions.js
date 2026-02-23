@@ -1055,13 +1055,138 @@ const scriptLibraries = [
   },
   {
     module: "scriptling.console",
-    description: "Console input/output functions",
+    description: "TUI console for interactive terminal applications (Local environment only)",
+    constants: [
+      { name: "PRIMARY", description: "Theme primary color", type: "string" },
+      { name: "SECONDARY", description: "Theme secondary color", type: "string" },
+      { name: "ERROR", description: "Theme error color", type: "string" },
+      { name: "DIM", description: "Theme dim color", type: "string" },
+      { name: "USER", description: "Theme user text color", type: "string" },
+      { name: "TEXT", description: "Theme default text color", type: "string" },
+    ],
     functions: [
       {
-        name: "input",
-        signature: "input([prompt])",
-        description: "Read a line from stdin with optional prompt",
-        returns: "str - Line read without trailing newline",
+        name: "Console",
+        signature: "Console()",
+        description: "Create a new TUI console instance",
+        returns: "Console - Console instance",
+        returnType: "Console",
+      },
+    ],
+    classes: [
+      {
+        name: "Console",
+        description: "Interactive TUI console with message display, streaming, and input handling",
+        methods: [
+          {
+            name: "add_message",
+            signature: "add_message(*args, label='')",
+            description: "Add a message to the output area",
+            returns: "None",
+          },
+          {
+            name: "stream_start",
+            signature: "stream_start(label='')",
+            description: "Begin a streaming message",
+            returns: "None",
+          },
+          {
+            name: "stream_chunk",
+            signature: "stream_chunk(text)",
+            description: "Append a chunk to the current stream",
+            returns: "None",
+          },
+          {
+            name: "stream_end",
+            signature: "stream_end()",
+            description: "Finalise the current stream",
+            returns: "None",
+          },
+          {
+            name: "spinner_start",
+            signature: "spinner_start(text='Working')",
+            description: "Show a spinner with optional text",
+            returns: "None",
+          },
+          {
+            name: "spinner_stop",
+            signature: "spinner_stop()",
+            description: "Hide the spinner",
+            returns: "None",
+          },
+          {
+            name: "set_progress",
+            signature: "set_progress(label, pct)",
+            description: "Set progress bar (0.0-1.0, or <0 to clear)",
+            returns: "None",
+          },
+          {
+            name: "set_labels",
+            signature: "set_labels(user, assistant, system)",
+            description: "Set role labels; empty string leaves label unchanged",
+            returns: "None",
+          },
+          {
+            name: "set_status",
+            signature: "set_status(left, right)",
+            description: "Set both status bar texts",
+            returns: "None",
+          },
+          {
+            name: "set_status_left",
+            signature: "set_status_left(text)",
+            description: "Set left status bar text",
+            returns: "None",
+          },
+          {
+            name: "set_status_right",
+            signature: "set_status_right(text)",
+            description: "Set right status bar text",
+            returns: "None",
+          },
+          {
+            name: "register_command",
+            signature: "register_command(name, description, fn)",
+            description: "Register a slash command",
+            returns: "None",
+          },
+          {
+            name: "remove_command",
+            signature: "remove_command(name)",
+            description: "Remove a registered slash command",
+            returns: "None",
+          },
+          {
+            name: "clear_output",
+            signature: "clear_output()",
+            description: "Clear the output area",
+            returns: "None",
+          },
+          {
+            name: "styled",
+            signature: "styled(color, text)",
+            description: "Apply theme color to text (use color constants or #rrggbb)",
+            returns: "str - Styled text string",
+          },
+          {
+            name: "on_escape",
+            signature: "on_escape(fn)",
+            description: "Register a callback for Esc key",
+            returns: "None",
+          },
+          {
+            name: "on_submit",
+            signature: "on_submit(fn)",
+            description: "Register handler called when user submits input",
+            returns: "None",
+          },
+          {
+            name: "run",
+            signature: "run()",
+            description: "Start the console event loop (blocks until exit)",
+            returns: "None",
+          },
+        ],
       },
     ],
   },
@@ -1233,6 +1358,223 @@ const scriptLibraries = [
             returns: "None",
           },
         ],
+      },
+    ],
+  },
+
+  {
+    module: "scriptling.ai.agent",
+    description:
+      "Agentic AI loop with automatic tool execution (all environments)",
+    classes: [
+      {
+        name: "Agent",
+        description: "Agentic AI loop that automatically executes tools",
+        methods: [
+          {
+            name: "trigger",
+            signature: "trigger(message, max_iterations=10)",
+            description: "Start agentic loop with a user message",
+            returns: "AgentResponse - Response with content and tool calls",
+          },
+          {
+            name: "add_message",
+            signature: "add_message(role, content)",
+            description: "Add a message to the conversation history",
+            returns: "None",
+          },
+          {
+            name: "reset",
+            signature: "reset()",
+            description: "Reset conversation history",
+            returns: "None",
+          },
+        ],
+      },
+    ],
+    functions: [
+      {
+        name: "Agent",
+        signature:
+          "Agent(client, model, tools=None, system_prompt='', history=[])",
+        description: "Create an agentic AI loop with automatic tool execution",
+        returns: "Agent - Agent instance",
+        returnType: "Agent",
+      },
+    ],
+  },
+  {
+    module: "scriptling.ai.agent.interact",
+    description:
+      "Interactive CLI agent with colored output (Local environment only)",
+    functions: [
+      {
+        name: "Agent",
+        signature:
+          "Agent(client, model, tools=None, system_prompt='', history=[])",
+        description:
+          "Create an interactive CLI agent with colored terminal output",
+        returns: "InteractAgent - Interactive agent instance",
+        returnType: "InteractAgent",
+      },
+    ],
+    classes: [
+      {
+        name: "InteractAgent",
+        description: "Interactive CLI agent with colored output",
+        methods: [
+          {
+            name: "interact",
+            signature: "interact()",
+            description: "Start interactive CLI session",
+            returns: "None",
+          },
+          {
+            name: "trigger",
+            signature: "trigger(message, max_iterations=10)",
+            description: "Trigger a single agentic loop",
+            returns: "AgentResponse - Response with content and tool calls",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.ai.tools",
+    description: "AI tools registry for building tool schemas (all environments)",
+    functions: [
+      {
+        name: "ToolRegistry",
+        signature: "ToolRegistry()",
+        description: "Create a new tool registry for building AI tool schemas",
+        returns: "ToolRegistry - Tool registry instance",
+        returnType: "ToolRegistry",
+      },
+    ],
+  },
+  {
+    module: "scriptling.runtime",
+    description:
+      "Runtime utilities for background function execution (Local/Remote environments)",
+    functions: [
+      {
+        name: "background",
+        signature: "background(func, *args, **kwargs)",
+        description: "Run a function in the background",
+        returns: "None",
+      },
+    ],
+  },
+  {
+    module: "scriptling.runtime.kv",
+    description:
+      "Key-value store for runtime state sharing (Local/Remote environments)",
+    functions: [
+      {
+        name: "get",
+        signature: "get(key, default=None)",
+        description: "Get a value from the key-value store",
+        returns: "any - Stored value or default",
+      },
+      {
+        name: "set",
+        signature: "set(key, value)",
+        description: "Set a value in the key-value store",
+        returns: "None",
+      },
+      {
+        name: "delete",
+        signature: "delete(key)",
+        description: "Delete a key from the store",
+        returns: "None",
+      },
+      {
+        name: "exists",
+        signature: "exists(key)",
+        description: "Check if a key exists in the store",
+        returns: "bool - True if key exists",
+      },
+      {
+        name: "keys",
+        signature: "keys()",
+        description: "List all keys in the store",
+        returns: "list - List of key strings",
+      },
+    ],
+  },
+  {
+    module: "scriptling.runtime.sync",
+    description:
+      "Concurrency primitives for thread synchronization (Local/Remote environments)",
+    classes: [
+      {
+        name: "Mutex",
+        description: "Mutual exclusion lock",
+        methods: [
+          {
+            name: "lock",
+            signature: "lock()",
+            description: "Acquire the lock",
+            returns: "None",
+          },
+          {
+            name: "unlock",
+            signature: "unlock()",
+            description: "Release the lock",
+            returns: "None",
+          },
+        ],
+      },
+    ],
+    functions: [
+      {
+        name: "Mutex",
+        signature: "Mutex()",
+        description: "Create a new mutex lock",
+        returns: "Mutex - Mutex instance",
+        returnType: "Mutex",
+      },
+    ],
+  },
+  {
+    module: "toml",
+    description: "TOML parsing and manipulation (all environments)",
+    functions: [
+      {
+        name: "loads",
+        signature: "loads(s)",
+        description: "Parse TOML string to dict",
+        returns: "dict - Parsed TOML data",
+      },
+      {
+        name: "dumps",
+        signature: "dumps(obj)",
+        description: "Serialize dict to TOML string",
+        returns: "str - TOML formatted string",
+      },
+    ],
+  },
+  {
+    module: "yaml",
+    description: "YAML parsing and manipulation (all environments)",
+    functions: [
+      {
+        name: "safe_load",
+        signature: "safe_load(s)",
+        description: "Parse YAML string to object (safe, no arbitrary code)",
+        returns: "object - Parsed YAML data",
+      },
+      {
+        name: "dump",
+        signature: "dump(obj)",
+        description: "Serialize object to YAML string",
+        returns: "str - YAML formatted string",
+      },
+      {
+        name: "load",
+        signature: "load(s)",
+        description: "Parse YAML string to object",
+        returns: "object - Parsed YAML data",
       },
     ],
   },
@@ -1484,8 +1826,8 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "glob",
-    description: "Unix shell-style wildcards for file path matching",
+    module: "scriptling.glob",
+    description: "Unix shell-style wildcards for file path matching (Local/Remote environments)",
     functions: [
       {
         name: "glob",
@@ -2740,48 +3082,6 @@ const scriptLibraries = [
             returns: "str - URL",
           },
         ],
-      },
-    ],
-  },
-  {
-    module: "requests",
-    description: "HTTP client",
-    functions: [
-      {
-        name: "get",
-        signature: "get(url, params=None, headers=None)",
-        description: "Send GET request",
-        returns: "Response",
-      },
-      {
-        name: "post",
-        signature: "post(url, data=None, json=None, headers=None)",
-        description: "Send POST request",
-        returns: "Response",
-      },
-    ],
-  },
-  {
-    module: "secrets",
-    description: "Secret management",
-    functions: [
-      {
-        name: "get",
-        signature: "get(key)",
-        description: "Get secret value",
-        returns: "str",
-      },
-    ],
-  },
-  {
-    module: "subprocess",
-    description: "Subprocess execution",
-    functions: [
-      {
-        name: "run",
-        signature: "run(command, args=[])",
-        description: "Run subprocess command",
-        returns: "CompletedProcess",
       },
     ],
   },

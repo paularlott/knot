@@ -94,9 +94,9 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterRuntimeSyncLibrary(env) // Concurrency primitives
 
 	scriptlingconsole.Register(env) // scriptling.console
-	extlibs.RegisterOSLibrary(env, []string{})
-	extlibs.RegisterPathlibLibrary(env, []string{})
-	extlibs.RegisterGlobLibrary(env, []string{}) // scriptling.glob
+	extlibs.RegisterOSLibrary(env, nil)
+	extlibs.RegisterPathlibLibrary(env, nil)
+	extlibs.RegisterGlobLibrary(env, nil) // scriptling.glob
 }
 
 // setupServerLibraryCallback sets up on-demand library loading from server
@@ -184,6 +184,7 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 	env.SetOutputWriter(os.Stdout)
 	registerBaseLibraries(env, nil)
 	registerFullSystemLibraries(env)
+	agent.RegisterInteract(env)
 
 	// Create AI client that connects to the server's OpenAI endpoint
 	aiClient := createServerAIClient(client, nil)
@@ -281,6 +282,7 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 
 // NewRemoteStreamingScriptlingEnv creates a scriptling environment for streaming remote execution
 // Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
+// Note: scriptling.console is not available in remote streaming environments (requires a local terminal)
 // On-demand loading: Enabled - fetches from server only
 // customLogger is optional - pass nil to use the default logger
 // Output: Connected to provided writer, input from provided reader
@@ -289,7 +291,15 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	env.SetOutputWriter(output)
 	env.SetInputReader(input)
 	registerBaseLibraries(env, customLogger)
-	registerFullSystemLibraries(env)
+
+	extlibs.RegisterSubprocessLibrary(env)
+	extlibs.RegisterRuntimeLibrary(env)
+	extlibs.RegisterRuntimeKVLibrary(env)
+	extlibs.RegisterRuntimeSyncLibrary(env)
+	// scriptling.console intentionally not registered — requires a local terminal
+	extlibs.RegisterOSLibrary(env, nil)
+	extlibs.RegisterPathlibLibrary(env, nil)
+	extlibs.RegisterGlobLibrary(env, nil)
 
 	aiClient := createServerAIClient(client, nil)
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
