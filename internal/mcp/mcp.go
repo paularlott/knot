@@ -109,7 +109,7 @@ Use tool_search to discover tools by keyword or description.`)
 				tools := server.ListTools()
 				remoteToolCount := 0
 				for _, tool := range tools {
-					if strings.Contains(tool.Name, remoteServer.Namespace+"/") {
+					if strings.Contains(tool.Name, remoteServer.Namespace+".") {
 						remoteToolCount++
 					}
 				}
