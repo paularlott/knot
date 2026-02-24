@@ -106,8 +106,8 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
-github.com/paularlott/cli v0.7.8 h1:vMq0RQdKEML60wukad8SVS/wmXNPKoy/BayVmah2N6k=
-github.com/paularlott/cli v0.7.8/go.mod h1:pN1JVlAw7EDUVf4mKRUP708jzXKLsb1wBfHgdhDQbfA=
+github.com/paularlott/cli v0.7.9 h1:x3SDa2bcAFlczvKTrbk4nKR2/XK7K7kpplLm61jIBC0=
+github.com/paularlott/cli v0.7.9/go.mod h1:ZSHKSCzhS4y0I4PWCAWo+++plYEocRdsZPBy6OBOKHs=
 github.com/paularlott/gossip v0.12.2 h1:QiaOQg4f3XI7olRTJs4t9Oe06F7njvSHyptTHNeLe7s=
 github.com/paularlott/gossip v0.12.2/go.mod h1:EFGo/SnGMNWzY79b36Sp9RsDxg9LIMHuLwPrv0QHLPo=
 github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7ng=

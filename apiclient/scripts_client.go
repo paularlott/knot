@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 
 	"github.com/gorilla/websocket"
@@ -138,9 +137,6 @@ func (c *ApiClient) executeScriptStream(ctx context.Context, spaceId, scriptName
 	}
 
 	exitCode := 0
-	done := make(chan struct{})
-	var doneOnce sync.Once
-	closeDone := func() { doneOnce.Do(func() { close(done) }) }
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -149,45 +145,78 @@ func (c *ApiClient) executeScriptStream(ctx context.Context, spaceId, scriptName
 	go func() {
 		<-sigChan
 		ws.WriteMessage(websocket.TextMessage, []byte("stop"))
-		closeDone()
-		ws.Close() // Force close to unblock ReadMessage
+		ws.Close()
 	}()
 
-	go func() {
-		buf := make([]byte, 4096)
-		for {
-			select {
-			case <-done:
-				return
-			default:
-				n, err := os.Stdin.Read(buf)
-				if err != nil {
-					// Signal EOF to server so it closes stdin on the script
-					ws.WriteMessage(websocket.TextMessage, []byte("stdin_eof"))
-					return
-				}
-				if n > 0 {
-					if err := ws.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
-						return
-					}
-				}
+	// Read loop: plain stdout until tui:start or exit.
+	tuiCtx, tuiCancel := context.WithCancel(context.Background())
+	defer tuiCancel()
+
+	var pendingMsgs []tuiMsg
+	isTUI := false
+
+	processMsg := func(mt int, d []byte) {
+		if mt == websocket.BinaryMessage {
+			if isTUI {
+				pendingMsgs = append(pendingMsgs, tuiMsg{stdout: d})
+			} else {
+				os.Stdout.Write(d)
 			}
+			return
 		}
-	}()
+		s := string(d)
+		if strings.HasPrefix(s, "exit:") {
+			fmt.Sscanf(s, "exit:%d", &exitCode)
+			tuiCancel()
+			return
+		}
+		if s == "tui:start" {
+			isTUI = true
+		}
+		pendingMsgs = append(pendingMsgs, tuiMsg{ctrl: s})
+	}
 
-	for {
-		msgType, data, err := ws.ReadMessage()
+	// Buffer messages until tui:start or exit, printing plain stdout along the way.
+	for !isTUI {
+		select {
+		case <-tuiCtx.Done():
+			return exitCode, nil
+		default:
+		}
+		mt, d, err := ws.ReadMessage()
 		if err != nil {
 			return exitCode, nil
 		}
-		if msgType == websocket.TextMessage {
-			if strings.HasPrefix(string(data), "exit:") {
-				fmt.Sscanf(string(data), "exit:%d", &exitCode)
-				closeDone()
-				return exitCode, nil
-			}
-		} else if msgType == websocket.BinaryMessage {
-			os.Stdout.Write(data)
-		}
+		processMsg(mt, d)
 	}
+
+	// TUI mode.
+	t, tuiIn, tuiDone := startTUI(ws)
+	go func() {
+		defer close(tuiIn)
+		for _, m := range pendingMsgs {
+			tuiIn <- m
+		}
+		for {
+			mt, d, err := ws.ReadMessage()
+			if err != nil {
+				tuiCancel()
+				return
+			}
+			if mt == websocket.BinaryMessage {
+				tuiIn <- tuiMsg{stdout: d}
+			} else {
+				s := string(d)
+				if strings.HasPrefix(s, "exit:") {
+					fmt.Sscanf(s, "exit:%d", &exitCode)
+					tuiCancel()
+					return
+				}
+				tuiIn <- tuiMsg{ctrl: s}
+			}
+		}
+	}()
+	t.Run(tuiCtx)
+	<-tuiDone
+	return exitCode, nil
 }

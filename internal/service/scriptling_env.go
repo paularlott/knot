@@ -282,7 +282,7 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 
 // NewRemoteStreamingScriptlingEnv creates a scriptling environment for streaming remote execution
 // Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
-// Note: scriptling.console is not available in remote streaming environments (requires a local terminal)
+// Note: scriptling.console and scriptling.ai.agent.interact are registered after env creation in execute_script_stream.go
 // On-demand loading: Enabled - fetches from server only
 // customLogger is optional - pass nil to use the default logger
 // Output: Connected to provided writer, input from provided reader
@@ -296,7 +296,8 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	extlibs.RegisterRuntimeLibrary(env)
 	extlibs.RegisterRuntimeKVLibrary(env)
 	extlibs.RegisterRuntimeSyncLibrary(env)
-	// scriptling.console intentionally not registered — requires a local terminal
+	// scriptling.console intentionally not registered here — registered via registerConsoleStub in execute_script_stream.go
+	// scriptling.ai.agent.interact intentionally not registered here — registered via agent.RegisterInteract in execute_script_stream.go
 	extlibs.RegisterOSLibrary(env, nil)
 	extlibs.RegisterPathlibLibrary(env, nil)
 	extlibs.RegisterGlobLibrary(env, nil)

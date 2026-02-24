@@ -2,11 +2,11 @@ package api
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/websocket"
+	"github.com/paularlott/knot/internal/agentapi/agent_client"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
 	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/database"
@@ -144,58 +144,40 @@ func HandleExecuteScriptStream(w http.ResponseWriter, r *http.Request) {
 				errChan <- err
 				return
 			}
-			if msgType == websocket.TextMessage {
-				if string(data) == "stop" {
-					agentConn.Close()
-					return
-				}
-				if string(data) == "stdin_eof" {
-					// Close the write side of the agent connection to signal EOF to script
-					// For most connections, closing entirely is fine since script will exit
-					agentConn.Close()
-					return
-				}
-			}
+			var frameType byte
 			if msgType == websocket.BinaryMessage {
-				_, err = agentConn.Write(data)
-				if err != nil {
-					errChan <- err
-					return
-				}
+				frameType = agent_client.FrameStdio
+			} else {
+				frameType = agent_client.FrameControl
+			}
+			if err := agent_client.WriteFrame(agentConn, frameType, data); err != nil {
+				errChan <- err
+				return
 			}
 		}
 	}()
 
 	// Agent -> WebSocket (stdout)
 	go func() {
-		buf := make([]byte, 4096)
 		for {
-			n, err := agentConn.Read(buf)
-			if err != nil {
-				if err != io.EOF {
-					errChan <- err
-				}
-				return
-			}
-			data := buf[:n]
-			dataStr := string(data)
-			
-			// Check if data contains exit message
-			if idx := strings.Index(dataStr, "\nexit:"); idx >= 0 {
-				// Send data before exit message
-				if idx > 0 {
-					ws.WriteMessage(websocket.BinaryMessage, data[:idx])
-				}
-				// Send exit message as text
-				exitMsg := strings.TrimSpace(dataStr[idx+1:])
-				ws.WriteMessage(websocket.TextMessage, []byte(exitMsg))
-				return
-			}
-			
-			err = ws.WriteMessage(websocket.BinaryMessage, data)
+			frameType, payload, err := agent_client.ReadFrame(agentConn)
 			if err != nil {
 				errChan <- err
 				return
+			}
+			if frameType == agent_client.FrameStdio {
+				if err := ws.WriteMessage(websocket.BinaryMessage, payload); err != nil {
+					errChan <- err
+					return
+				}
+			} else {
+				if err := ws.WriteMessage(websocket.TextMessage, payload); err != nil {
+					errChan <- err
+					return
+				}
+				if strings.HasPrefix(string(payload), "exit:") {
+					return
+				}
 			}
 		}
 	}()
