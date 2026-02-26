@@ -72,11 +72,12 @@ func (p *responseProcessor) Process(ctx context.Context, response *model.Respons
 	}
 
 	// Create chat completion request
+	defaultTemp := 0.7
 	chatReq := ChatCompletionRequest{
 		Model:       req.Model,
 		Messages:    messages,
 		MaxTokens:   1000, // Default token limit
-		Temperature: 0.7, // Default temperature
+		Temperature: &defaultTemp,
 	}
 
 	// Call ChatCompletion - this handles tool calls internally
@@ -209,7 +210,7 @@ func (p *responseProcessor) convertChatCompletionToResponse(chatResp *ChatComple
 		if content != "" {
 			// Text output
 			output = append(output, map[string]interface{}{
-				"type":  "message",
+				"type":   "message",
 				"id":     generateMessageID(),
 				"status": "completed",
 				"role":   choice.Message.Role,
@@ -225,7 +226,7 @@ func (p *responseProcessor) convertChatCompletionToResponse(chatResp *ChatComple
 		// Handle tool calls
 		for _, toolCall := range choice.Message.ToolCalls {
 			output = append(output, map[string]interface{}{
-				"type":  "message",
+				"type":   "message",
 				"id":     generateMessageID(),
 				"status": "completed",
 				"role":   "assistant",

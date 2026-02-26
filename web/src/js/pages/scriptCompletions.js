@@ -173,7 +173,7 @@ const scriptLibraries = [
         description:
           "Get a pre-configured AI client instance connected to the server's AI provider with MCP tools available",
         returns:
-          "Client - A pre-configured AI client instance with completion(), stream_completion(), and other methods",
+          "Client - A pre-configured AI client instance with completion(), completion_stream(), and other methods",
       },
       {
         name: "get_default_model",
@@ -829,7 +829,7 @@ const scriptLibraries = [
       {
         name: "Client",
         signature:
-          'Client(base_url, provider="openai", api_key="", max_tokens=0, temperature=0, remote_servers=[])',
+          'Client(base_url, provider="openai", api_key="", max_tokens=0, temperature=0, top_p=0, remote_servers=[])',
         description:
           "Create a new AI client instance for making API calls to supported services",
         returns: "AIClient - A client instance",
@@ -918,11 +918,32 @@ const scriptLibraries = [
             returns: "dict - Embedding response with vector",
           },
           {
+            name: "response_stream",
+            signature: "response_stream(model, input, **kwargs)",
+            description:
+              "Stream a Responses API response, returning a ResponseStream object",
+            returns: "ResponseStream - Stream object with next() method",
+            returnType: "ResponseStream",
+          },
+          {
             name: "ask",
             signature: "ask(model, messages, **kwargs)",
             description:
               "Quick completion that returns text directly without thinking blocks",
             returns: "str - Response text",
+          },
+        ],
+      },
+      {
+        name: "ResponseStream",
+        description: "Streaming Responses API event iterator",
+        methods: [
+          {
+            name: "next",
+            signature: "next()",
+            description:
+              "Get next event from stream. Event types include response.output_text.delta, response.completed, etc.",
+            returns: "dict or null - Next event dict or null if complete",
           },
         ],
       },
@@ -959,6 +980,12 @@ const scriptLibraries = [
             signature: "next()",
             description: "Get next chunk from stream",
             returns: "dict or null - Next chunk or null if complete",
+          },
+          {
+            name: "err",
+            signature: "err()",
+            description: "Get any error that caused the stream to stop",
+            returns: "str or None - Error message, or None if no error",
           },
         ],
       },
@@ -3646,6 +3673,11 @@ const typePatterns = [
   {
     regex: /(\w+)\s*=\s*(\w+\.)*completion_stream\s*\(/,
     type: "ChatStream",
+  },
+  // sl.ai.response_stream returns ResponseStream
+  {
+    regex: /(\w+)\s*=\s*(\w+\.)*response_stream\s*\(/,
+    type: "ResponseStream",
   },
   // scriptling.threads.run returns Promise
   {

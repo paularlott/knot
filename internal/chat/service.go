@@ -64,7 +64,7 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 		Model:           s.config.Model,
 		Messages:        openAIMessages,
 		MaxTokens:       s.config.MaxTokens,
-		Temperature:     s.config.Temperature,
+		Temperature:     mcpopenai.Float64Ptr(float64(s.config.Temperature)),
 		ReasoningEffort: s.config.ReasoningEffort,
 	}
 
