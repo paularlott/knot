@@ -3,12 +3,14 @@ package apiclient
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/term"
 )
 
 func (c *ApiClient) GetScripts(ctx context.Context) (*ScriptList, error) {
@@ -137,6 +139,27 @@ func (c *ApiClient) executeScriptStream(ctx context.Context, spaceId, scriptName
 	}
 
 	exitCode := 0
+
+	// Forward piped stdin as binary frames
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		go func() {
+			buf := make([]byte, 4096)
+			for {
+				n, err := os.Stdin.Read(buf)
+				if n > 0 {
+					ws.WriteMessage(websocket.BinaryMessage, buf[:n])
+				}
+				if err != nil {
+					if err != io.EOF {
+						ws.WriteMessage(websocket.TextMessage, []byte("stop"))
+					} else {
+						ws.WriteMessage(websocket.TextMessage, []byte("stdin_eof"))
+					}
+					return
+				}
+			}
+		}()
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)

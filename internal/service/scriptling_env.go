@@ -210,7 +210,7 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 		return false
 	})
 
-	extlibs.RegisterSysLibrary(env, argv)
+	extlibs.RegisterSysLibrary(env, argv, os.Stdin)
 	return env, nil
 }
 
@@ -276,7 +276,7 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
 
 	setupServerLibraryCallback(env, client)
-	extlibs.RegisterSysLibrary(env, argv)
+	extlibs.RegisterSysLibrary(env, argv, nil)
 	return env, nil
 }
 
@@ -306,7 +306,10 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
 
 	setupServerLibraryCallback(env, client)
-	extlibs.RegisterSysLibrary(env, argv)
+	extlibs.RegisterSysLibrary(env, argv, input)
+	if input != nil {
+		env.SetObjectVar("input", extlibs.NewInputBuiltin(input))
+	}
 	return env, nil
 }
 
