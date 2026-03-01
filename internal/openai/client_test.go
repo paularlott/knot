@@ -155,11 +155,12 @@ func TestClient_StreamChatCompletion_Basic(t *testing.T) {
 
 	message := Message{Role: "user"}
 	message.SetContentAsString("Hello")
+	temp := 0.7
 	req := ChatCompletionRequest{
 		Model:       "gpt-4",
 		Messages:    []Message{message},
 		MaxTokens:   100,
-		Temperature: 0.7,
+		Temperature: &temp,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
