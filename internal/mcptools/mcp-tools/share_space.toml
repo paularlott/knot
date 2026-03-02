@@ -1,0 +1,15 @@
+description = "Share a space with another user, granting them access to use it."
+keywords = ["share", "space", "grant", "access", "collaborate", "permissions", "invite"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the space to share"
+required = true
+
+[[parameters]]
+name = "user_id"
+type = "string"
+description = "Username, email, or user ID to share the space with"
+required = true

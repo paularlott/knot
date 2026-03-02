@@ -42,6 +42,8 @@ type Template struct {
 	WithCodeServer   bool                   `json:"with_code_server" db:"with_code_server"`
 	WithSSH          bool                   `json:"with_ssh" db:"with_ssh"`
 	WithRunCommand   bool                   `json:"with_run_command" db:"with_run_command"`
+	StartupScriptId  string                 `json:"startup_script_id" db:"startup_script_id"`
+	ShutdownScriptId string                 `json:"shutdown_script_id" db:"shutdown_script_id"`
 	ComputeUnits     uint32                 `json:"compute_units" db:"compute_units"`
 	StorageUnits     uint32                 `json:"storage_units" db:"storage_units"`
 	ScheduleEnabled  bool                   `json:"schedule_enabled" db:"schedule_enabled"`
@@ -83,6 +85,8 @@ func NewTemplate(
 	withCodeServer bool,
 	withSSH bool,
 	withRunCommand bool,
+	startupScriptId string,
+	shutdownScriptId string,
 	computeUnits uint32,
 	storageUnits uint32,
 	scheduleEnabled bool,
@@ -115,6 +119,8 @@ func NewTemplate(
 		WithCodeServer:   withCodeServer,
 		WithSSH:          withSSH,
 		WithRunCommand:   withRunCommand,
+		StartupScriptId:  startupScriptId,
+		ShutdownScriptId: shutdownScriptId,
 		ComputeUnits:     computeUnits,
 		StorageUnits:     storageUnits,
 		CreatedAt:        time.Now().UTC(),

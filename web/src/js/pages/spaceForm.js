@@ -1,9 +1,18 @@
-import { validate } from '../validators.js';
-import { focus } from '../focus.js';
+import { validate } from "../validators.js";
+import { focus } from "../focus.js";
 
-window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, forUserUsername, templateId) {
+window.spaceForm = function (
+  isEdit,
+  spaceId,
+  userId,
+  preferredShell,
+  forUserId,
+  forUserUsername,
+  templateId,
+) {
   return {
     iconList: [],
+    scriptList: [],
     formData: {
       name: "",
       description: "",
@@ -15,16 +24,16 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       custom_fields: [],
       created_at: "",
       created_at_formatted: "",
-      selected_node_id: ""
+      selected_node_id: "",
+      startup_script_id: "",
     },
     template_id: templateId,
     template: {
-      custom_fields: []
+      custom_fields: [],
     },
     isManual: false,
     loading: true,
-    buttonLabel: isEdit ? 'Save Changes' : 'Create Space',
-    buttonLabelWorking: isEdit ? 'Saving...' : 'Creating...',
+    buttonLabelWorking: isEdit ? "Saving..." : "Creating...",
     nameValid: true,
     addressValid: true,
     forUsername: forUserUsername,
@@ -41,7 +50,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     loadingNodes: false,
 
     formatCreatedAt() {
-      return this.formData.created_at_formatted || '';
+      return this.formData.created_at_formatted || "";
     },
 
     formatNodeLabel(node) {
@@ -49,30 +58,43 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     },
 
     async initData() {
+      focus.Element('input[name="name"]');
+
       // Ensure availableNodes is always an array to prevent Alpine errors
       this.availableNodes = this.availableNodes || [];
 
-      const iconsResponse = await fetch('/api/icons', {
+      const iconsResponse = await fetch("/api/icons", {
         headers: {
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       });
       if (iconsResponse.status === 200) {
         const icons = await iconsResponse.json();
         this.iconList.push(...icons);
       }
 
-      focus.Element('input[name="name"]');
+      // Fetch user's own scripts for the autocompleter
+      const scriptsResponse = await fetch(`/api/scripts?user_id=${userId}`, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (scriptsResponse.status === 200) {
+        const scripts = await scriptsResponse.json();
+        this.scriptList = scripts.scripts.filter(
+          (s) => s.script_type === "script" && s.active,
+        );
+      }
 
-      if(isEdit) {
+      if (isEdit) {
         const spaceResponse = await fetch(`/api/spaces/${spaceId}`, {
           headers: {
-            'Content-Type': 'application/json'
-          }
+            "Content-Type": "application/json",
+          },
         });
 
         if (spaceResponse.status !== 200) {
-          window.location.href = '/spaces';
+          window.location.href = "/spaces";
         } else {
           const space = await spaceResponse.json();
 
@@ -84,8 +106,14 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
           this.formData.custom_fields = space.custom_fields;
           this.formData.created_at = space.created_at;
           this.formData.created_at_formatted = space.created_at_formatted;
+          this.formData.startup_script_id = space.startup_script_id || "";
 
-          if(space.user_id !== userId) {
+          // Refresh the autocompleter to show the selected script
+          this.$nextTick(() => {
+            this.$dispatch("refresh-autocompleter");
+          });
+
+          if (space.user_id !== userId) {
             this.formData.user_id = space.user_id;
             this.forUsername = space.username;
           } else {
@@ -102,48 +130,67 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         }
       }
 
-      const templatesResponse = await fetch('/api/templates/'+(isEdit ? this.formData.template_id : templateId), {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const templatesResponse = await fetch(
+        "/api/templates/" + (isEdit ? this.formData.template_id : templateId),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
       if (templatesResponse.status === 200) {
         this.template = await templatesResponse.json();
       } else {
         // Set a default template to prevent null reference errors
-        this.template = { platform: 'manual', custom_fields: [] };
+        this.template = { platform: "manual", custom_fields: [] };
       }
 
       // Initialize custom fields array immediately to prevent Alpine errors
-      if (this.template.custom_fields && this.template.custom_fields.length > 0) {
+      if (
+        this.template.custom_fields &&
+        this.template.custom_fields.length > 0
+      ) {
         // If editing, preserve existing values; if creating, initialize with empty strings
         const existingFields = isEdit ? this.formData.custom_fields : [];
-        this.formData.custom_fields = this.template.custom_fields.map(field => {
-          return {
-            name: field.name,
-            value: existingFields.find(f => f.name === field.name)?.value || ''
-          };
-        });
+        this.formData.custom_fields = this.template.custom_fields.map(
+          (field) => {
+            return {
+              name: field.name,
+              value:
+                existingFields.find((f) => f.name === field.name)?.value || "",
+            };
+          },
+        );
       } else {
         this.formData.custom_fields = [];
       }
 
       // Get if the template is manual
-      this.isManual = this.template ? this.template.platform === 'manual' : false;
+      this.isManual = this.template
+        ? this.template.platform === "manual"
+        : false;
       this.startOnCreate = !this.isManual;
 
-      if(!isEdit) {
+      if (!isEdit) {
         this.formData.icon_url = this.template.icon_url;
       }
 
       // Fetch available nodes for local container templates
-      if(!isEdit && this.template && this.template.platform !== 'manual' && this.template.platform !== 'nomad') {
+      if (
+        !isEdit &&
+        this.template &&
+        this.template.platform !== "manual" &&
+        this.template.platform !== "nomad"
+      ) {
         this.loadingNodes = true;
-        const nodesResponse = await fetch('/api/templates/'+templateId+'/nodes', {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        const nodesResponse = await fetch(
+          "/api/templates/" + templateId + "/nodes",
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        );
         if (nodesResponse.status === 200) {
           const nodes = await nodesResponse.json();
           this.availableNodes = nodes || [];
@@ -161,7 +208,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
     },
     addAltName() {
       this.altNameValid.push(true);
-      this.formData.alt_names.push('');
+      this.formData.alt_names.push("");
     },
     removeAltName(index) {
       this.formData.alt_names.splice(index, 1);
@@ -172,13 +219,18 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
       return this.nameValid;
     },
     checkAltName(index) {
-      if(index >= 0 && index < this.formData.alt_names.length) {
-        let isValid = validate.name(this.formData.alt_names[index]) && this.formData.alt_names[index] !== this.formData.name;
+      if (index >= 0 && index < this.formData.alt_names.length) {
+        let isValid =
+          validate.name(this.formData.alt_names[index]) &&
+          this.formData.alt_names[index] !== this.formData.name;
 
         // If valid then check for duplicate extra name
-        if(isValid) {
+        if (isValid) {
           for (let i = 0; i < this.formData.alt_names.length; i++) {
-            if(i !== index && this.formData.alt_names[i] === this.formData.alt_names[index]) {
+            if (
+              i !== index &&
+              this.formData.alt_names[i] === this.formData.alt_names[index]
+            ) {
               isValid = false;
               break;
             }
@@ -206,7 +258,7 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
 
       // Remove the blank alt names
       for (let i = this.formData.alt_names.length - 1; i >= 0; i--) {
-        if(this.formData.alt_names[i] === '') {
+        if (this.formData.alt_names[i] === "") {
           this.formData.alt_names.splice(i, 1);
           this.altNameValid.splice(i, 1);
         }
@@ -217,74 +269,109 @@ window.spaceForm = function(isEdit, spaceId, userId, preferredShell, forUserId, 
         err = !this.checkAltName(i) || err;
       }
 
-      if(err) {
+      if (err) {
         self.saving = false;
         return;
       }
 
-      if(this.stayOnPage) {
-        this.buttonLabel = isEdit ? 'Updating space...' : 'Creating space...'
-      }
       this.loading = true;
 
-      fetch(isEdit ? `/api/spaces/${spaceId}` : '/api/spaces', {
-          method: isEdit ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(this.formData)
-        })
+      fetch(isEdit ? `/api/spaces/${spaceId}` : "/api/spaces", {
+        method: isEdit ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(this.formData),
+      })
         .then((response) => {
           if (response.status === 200) {
-            self.$dispatch('show-alert', { msg: "Space updated", type: 'success' });
-            self.$dispatch('close-space-form');
+            self.$dispatch("show-alert", {
+              msg: "Space updated",
+              type: "success",
+            });
+            self.$dispatch("close-space-form");
           } else if (response.status === 201) {
             response.json().then((data) => {
-              self.$dispatch('space-created', { space_id: data.space_id });
-              self.$dispatch('close-space-form');
+              self.$dispatch("space-created", { space_id: data.space_id });
+              self.$dispatch("close-space-form");
 
               // If start on create
               if (this.startOnCreate) {
                 fetch(`/api/spaces/${data.space_id}/start`, {
-                  method: 'POST',
+                  method: "POST",
                   headers: {
-                    'Content-Type': 'application/json'
-                  }
-                }).then((response2) => {
-                  if (response2.status === 200) {
-                    window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: "Space started", type: 'success' } }));
-                  } else {
-                    response2.text().then((text) => {
-                      try {
-                        const d = JSON.parse(text);
-                        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: `Failed to start space, ${d.error}`, type: 'error' } }));
-                      } catch {
-                        window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: `Failed to start space`, type: 'error' } }));
-                      }
-                    });
-                  }
-                }).catch((error) => {
-                  window.dispatchEvent(new CustomEvent('show-alert', { detail: { msg: `Error!<br />${error.message}`, type: 'error' } }));
-                });
+                    "Content-Type": "application/json",
+                  },
+                })
+                  .then((response2) => {
+                    if (response2.status === 200) {
+                      window.dispatchEvent(
+                        new CustomEvent("show-alert", {
+                          detail: { msg: "Space started", type: "success" },
+                        }),
+                      );
+                    } else {
+                      response2.text().then((text) => {
+                        try {
+                          const d = JSON.parse(text);
+                          window.dispatchEvent(
+                            new CustomEvent("show-alert", {
+                              detail: {
+                                msg: `Failed to start space, ${d.error}`,
+                                type: "error",
+                              },
+                            }),
+                          );
+                        } catch {
+                          window.dispatchEvent(
+                            new CustomEvent("show-alert", {
+                              detail: {
+                                msg: `Failed to start space`,
+                                type: "error",
+                              },
+                            }),
+                          );
+                        }
+                      });
+                    }
+                  })
+                  .catch((error) => {
+                    window.dispatchEvent(
+                      new CustomEvent("show-alert", {
+                        detail: {
+                          msg: `Error!<br />${error.message}`,
+                          type: "error",
+                        },
+                      }),
+                    );
+                  });
               }
             });
           } else if (response.status === 507) {
             self.quotaStorageLimitShow = true;
           } else {
             response.json().then((data) => {
-              self.$dispatch('show-alert', { msg: (isEdit ? "Failed to update space, " : "Failed to create space, ") + data.error, type: 'error' });
+              self.$dispatch("show-alert", {
+                msg:
+                  (isEdit
+                    ? "Failed to update space, "
+                    : "Failed to create space, ") + data.error,
+                type: "error",
+              });
             });
           }
         })
         .catch((error) => {
-          self.$dispatch('show-alert', { msg: `Error!<br />${error.message}`, type: 'error' });
+          self.$dispatch("show-alert", {
+            msg: `Error!<br />${error.message}`,
+            type: "error",
+          });
         })
         .finally(() => {
-          this.buttonLabel = isEdit ? 'Update' : 'Create Space';
           this.loading = false;
-        })
+        });
 
       self.saving = false;
     },
-  }
-}
+  };
+};

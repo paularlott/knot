@@ -36,11 +36,12 @@ type agentServer struct {
 	cancel             context.CancelFunc
 	reportingConn      net.Conn // Connection for reporting state
 	logConn            net.Conn // Connection for logging messages
+	logChannel         chan *msg.LogMessage
 }
 
 func NewAgentServer(address, spaceId string, agentClient *AgentClient) *agentServer {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &agentServer{
+	s := &agentServer{
 		agentClient:        agentClient,
 		connectionAttempts: 0,
 		spaceId:            spaceId,
@@ -48,7 +49,10 @@ func NewAgentServer(address, spaceId string, agentClient *AgentClient) *agentSer
 		ctx:                ctx,
 		cancel:             cancel,
 		muxSession:         nil,
+		logChannel:         make(chan *msg.LogMessage, logChannelBufferSize),
 	}
+	go s.logWorker()
+	return s
 }
 
 func (s *agentServer) ConnectAndServe() {
@@ -162,6 +166,16 @@ func (s *agentServer) ConnectAndServe() {
 
 			log.Info("registered with server", "server", serverAddr, "version", response.Version)
 
+		// Store the agent token and server URL at AgentClient level
+		// Note: All servers in the zone generate identical tokens (deterministic HMAC)
+		// so we only need to store once, on first successful registration
+		s.agentClient.credentialsMutex.Lock()
+		if s.agentClient.agentToken == "" {
+			s.agentClient.agentToken = response.AgentToken
+			s.agentClient.serverURL = response.ServerURL
+		}
+		s.agentClient.credentialsMutex.Unlock()
+
 			// If 1st registration then start the ssh server if required
 			s.agentClient.firstRegistrationMutex.Lock()
 			if s.agentClient.firstRegistration {
@@ -225,7 +239,7 @@ func (s *agentServer) ConnectAndServe() {
 				KeepAliveInterval:      30 * time.Second,
 				ConnectionWriteTimeout: 2 * time.Second,
 				MaxStreamWindowSize:    256 * 1024,
-				StreamCloseTimeout:     3 * time.Minute,
+				StreamCloseTimeout:     6 * time.Minute,
 				StreamOpenTimeout:      3 * time.Second,
 				LogOutput:              io.Discard,
 				//Logger:                 logger.NewMuxLogger(),
@@ -320,6 +334,41 @@ func (s *agentServer) Shutdown() {
 	if s.conn != nil {
 		s.conn.Close()
 		s.conn = nil
+	}
+}
+
+func (s *agentServer) logWorker() {
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case logMsg := <-s.logChannel:
+			if logMsg == nil {
+				continue
+			}
+
+			if s.muxSession != nil && !s.muxSession.IsClosed() {
+				if s.logConn == nil {
+					log.Debug("opening logging connection to", "agent", s.address)
+
+					var err error
+					s.logConn, err = s.muxSession.Open()
+					if err != nil {
+						log.Error("failed to open mux session for server", "server", s.address)
+						continue
+					}
+				}
+
+				if s.logConn != nil {
+					err := msg.SendLogMessage(s.logConn, logMsg)
+					if err != nil {
+						log.Error("failed to send log message to server", "server", s.address)
+						s.logConn.Close()
+						s.logConn = nil
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -496,6 +545,24 @@ func (s *agentServer) handleAgentClientStream(stream net.Conn) {
 		if s.agentClient.withRunCommand {
 			handlePortStopExecution(stream, portCmd, s.agentClient)
 		}
+
+	case byte(msg.CmdExecuteScript):
+		var execMsg msg.ExecuteScriptMessage
+		if err := msg.ReadMessage(stream, &execMsg); err != nil {
+			log.WithError(err).Error("reading execute script message:")
+			return
+		}
+
+		handleExecuteScript(stream, execMsg)
+
+	case byte(msg.CmdExecuteScriptStream):
+		var execMsg msg.ExecuteScriptStreamMessage
+		if err := msg.ReadMessage(stream, &execMsg); err != nil {
+			log.WithError(err).Error("reading execute script stream message:")
+			return
+		}
+
+		handleExecuteScriptStream(stream, execMsg)
 
 	default:
 		log.Error("unknown command:", "cmd", cmd)

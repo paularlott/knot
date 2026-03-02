@@ -326,10 +326,15 @@ window.chatComponent = function () {
       const messageHistory = [];
 
       for (const msg of this.messages) {
+        // Skip empty assistant messages (placeholders for current streaming response)
+        if (msg.role === 'assistant' && msg.fragments && !msg.fragments.content && !msg.fragments.thinking && (!msg.toolCalls || msg.toolCalls.length === 0)) {
+          continue;
+        }
+
         let content = msg.fragments ? msg.fragments.content.trim() : msg.content.trim();
 
         // Strip any think tags that might exist in the content to prevent LLM template errors
-        content = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        content = content.replace(/<\/?think[^>]*>/gi, '').trim();
 
         const historyMsg = {
           role: msg.role,
@@ -351,22 +356,29 @@ window.chatComponent = function () {
             }
           }));
 
-          // When there are tool calls, content should be minimal or empty
-          // Only keep content if it's substantial and not just tool call descriptions
-          if (content.length < 50 || content.includes('I\'ll') || content.includes('Let me')) {
-            historyMsg.content = '';
-          }
+          // When there are tool calls, content MUST be empty per OpenAI spec
+          historyMsg.content = '';
         }
 
         messageHistory.push(historyMsg);
 
         // Add tool results as separate tool messages for API context
-        if (msg.role === 'assistant' && msg.fragments?.toolResults) {
+        if (msg.role === 'assistant' && msg.fragments?.toolResults && msg.fragments.toolResults.length > 0) {
           for (const toolResult of msg.fragments.toolResults) {
             messageHistory.push({
               role: 'tool',
               content: toolResult.result.trim() || '',
               tool_call_id: toolResult.tool_call_id,
+              timestamp: msg.timestamp
+            });
+          }
+
+          // Add another assistant message with the actual response content after tool results
+          // ONLY if there's actual content (not empty)
+          if (content) {
+            messageHistory.push({
+              role: 'assistant',
+              content: content,
               timestamp: msg.timestamp
             });
           }
@@ -411,10 +423,14 @@ window.chatComponent = function () {
 
       try {
         const messageHistory = this.prepareMessageHistory();
-        const response = await fetch('/api/chat/stream', {
+        const response = await fetch('/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: messageHistory }),
+          body: JSON.stringify({
+            messages: messageHistory,
+            stream: true,
+            model: ''  // Server will use default model
+          }),
           signal: this.abortController.signal
         });
 
@@ -422,7 +438,7 @@ window.chatComponent = function () {
           throw new Error('Failed to send message');
         }
 
-        await this.processStream(response);
+        await this.processOpenAIStream(response);
 
       } catch (error) {
         if (error.name !== 'AbortError') {
@@ -439,14 +455,19 @@ window.chatComponent = function () {
       }
     },
 
-    async processStream(response) {
+    async processOpenAIStream(response) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       const assistantMessage = this.messages[this.messages.length - 1];
 
-      let contentBuffer = '';
       let inThinking = false;
+      let inThink = false; // Track if we're inside a think tag
+      let tagBuffer = ''; // Buffer for accumulating partial think tags
       let codeBlockOpen = false; // Track if we're inside a code block
+
+      // Accumulator for streaming tool calls
+      let toolCallAccumulator = {};
+      let currentToolCallIndex = 0;
 
       try {
         while (true) {
@@ -459,63 +480,169 @@ window.chatComponent = function () {
           const lines = chunk.split('\n');
 
           for (const line of lines) {
+            // Parse SSE comment events for tool status (:tool_start: and :tool_end:)
+            if (line.startsWith(':')) {
+              try {
+                const colonIndex = line.indexOf(':', 1); // Find second colon
+                if (colonIndex > 1) {
+                  const eventType = line.substring(1, colonIndex);
+                  const eventData = line.substring(colonIndex + 1);
+                  const event = JSON.parse(eventData);
+
+                  if (eventType === 'tool_start') {
+                    // Tool execution started - add to tool calls
+                    if (!assistantMessage.toolCalls) {
+                      assistantMessage.toolCalls = [];
+                    }
+                    // Check if tool call already exists
+                    const existingCall = assistantMessage.toolCalls.find(tc => tc.id === event.tool_call_id);
+                    if (!existingCall) {
+                      // Convert arguments to JSON string for display
+                      const argsStr = (event.arguments && Object.keys(event.arguments).length > 0)
+                        ? JSON.stringify(event.arguments, null, 2)
+                        : '{}';
+                      assistantMessage.toolCalls.push({
+                        id: event.tool_call_id,
+                        type: 'function',
+                        function: {
+                          name: event.tool_name,
+                          arguments: argsStr
+                        }
+                      });
+                    }
+                  } else if (eventType === 'tool_end') {
+                    // Tool execution completed - add result
+                    if (!assistantMessage.fragments.toolResults) {
+                      assistantMessage.fragments.toolResults = [];
+                    }
+                    assistantMessage.fragments.toolResults.push({
+                      tool_call_id: event.tool_call_id,
+                      tool_name: event.tool_name,
+                      result: event.result || ''
+                    });
+                  }
+                  this.scrollToBottom();
+                }
+              } catch (e) {
+                // Skip malformed comment events
+              }
+              continue;
+            }
+
+            // Parse standard OpenAI SSE data lines
             if (!line.startsWith('data: ')) continue;
 
             const data = line.slice(6);
             if (data === '[DONE]') continue;
 
             try {
-              const event = JSON.parse(data);
+              const openaiResponse = JSON.parse(data);
 
-              if (event.type === 'content') {
-                contentBuffer += event.data;
+              // Extract content from OpenAI response
+              if (openaiResponse.choices && openaiResponse.choices[0]) {
+                const choice = openaiResponse.choices[0];
+                const delta = choice.delta;
 
-                // Process thinking tags
-                while (contentBuffer.length > 0) {
-                  if (!inThinking && contentBuffer.includes('<think>')) {
-                    const idx = contentBuffer.indexOf('<think>');
-                    if (idx > 0) {
-                      const beforeThink = contentBuffer.substring(0, idx);
-                      assistantMessage.fragments.content += beforeThink;
-                      // Track code blocks in the content before thinking
-                      codeBlockOpen = this.trackCodeBlocks(beforeThink, codeBlockOpen);
-                    }
-                    contentBuffer = contentBuffer.substring(idx + 7);
+                // Handle reasoning content (thinking) - support both field names
+                const reasoningContent = delta.reasoning_content || delta.reasoning;
+                if (reasoningContent) {
+                  if (!inThinking) {
                     inThinking = true;
-                  } else if (inThinking && contentBuffer.includes('</think>')) {
-                    const idx = contentBuffer.indexOf('</think>');
-                    assistantMessage.fragments.thinking += contentBuffer.substring(0, idx);
-                    contentBuffer = contentBuffer.substring(idx + 8);
-                    inThinking = false;
-                  } else {
-                    // Add remaining content to appropriate fragment
-                    if (inThinking) {
-                      assistantMessage.fragments.thinking += contentBuffer;
+                  }
+                  assistantMessage.fragments.thinking += reasoningContent;
+                }
+
+                // Handle regular content
+                if (delta.content) {
+                  // Process content for think tags (used by some models like falcon)
+                  // Models may send tags split across chunks, so use a tag buffer
+                  tagBuffer += delta.content;
+
+                  while (tagBuffer) {
+                    if (inThink) {
+                      // Look for closing tag: </think>
+                      const closeIndex = tagBuffer.indexOf('</think>');
+                      if (closeIndex === -1) {
+                        // No closing tag yet, all remaining content is thinking
+                        assistantMessage.fragments.thinking += tagBuffer;
+                        tagBuffer = '';
+                        break;
+                      } else {
+                        // Found closing tag - content before it is thinking
+                        assistantMessage.fragments.thinking += tagBuffer.substring(0, closeIndex);
+                        tagBuffer = tagBuffer.substring(closeIndex + 8); // Skip closing tag
+                        inThink = false;
+                        inThinking = false;
+                        // Continue processing to check for more content
+                      }
                     } else {
-                      assistantMessage.fragments.content += contentBuffer;
-                      // Track code blocks in regular content
-                      codeBlockOpen = this.trackCodeBlocks(contentBuffer, codeBlockOpen);
+                      // Look for opening tag: <think>
+                      const openIndex = tagBuffer.indexOf('<think>');
+                      if (openIndex === -1) {
+                        // No opening tag, all content is regular
+                        assistantMessage.fragments.content += tagBuffer;
+                        codeBlockOpen = this.trackCodeBlocks(tagBuffer, codeBlockOpen);
+                        tagBuffer = '';
+                        break;
+                      } else {
+                        // Found opening tag - content before is regular, after starts thinking
+                        assistantMessage.fragments.content += tagBuffer.substring(0, openIndex);
+                        tagBuffer = tagBuffer.substring(openIndex + 7); // Skip opening tag
+                        inThink = true;
+                        inThinking = true;
+                        // Continue processing to check for closing tag or more content
+                      }
                     }
-                    contentBuffer = '';
                   }
                 }
-                // Auto-scroll after content updates
-                this.scrollToBottom();
-              } else if (event.type === 'tool_calls') {
-                if (!assistantMessage.toolCalls) {
-                  assistantMessage.toolCalls = [];
+
+                // Handle tool calls in OpenAI format
+                if (delta.tool_calls) {
+                  if (!assistantMessage.toolCalls) {
+                    assistantMessage.toolCalls = [];
+                  }
+
+                  for (const tc of delta.tool_calls) {
+                    if (tc.index !== undefined) {
+                      currentToolCallIndex = tc.index;
+                    }
+                    if (!toolCallAccumulator[currentToolCallIndex]) {
+                      toolCallAccumulator[currentToolCallIndex] = {
+                        id: tc.id,
+                        type: tc.type || 'function',
+                        function: {
+                          name: tc.function?.name || '',
+                          arguments: ''
+                        }
+                      };
+                      // Add to tool calls if not already present
+                      if (!assistantMessage.toolCalls.find(existing => existing.id === tc.id)) {
+                        assistantMessage.toolCalls.push(toolCallAccumulator[currentToolCallIndex]);
+                      }
+                    }
+                    // Accumulate function arguments
+                    if (tc.function?.arguments) {
+                      toolCallAccumulator[currentToolCallIndex].function.arguments += tc.function.arguments;
+                    }
+                  }
                 }
 
-                // Add new tool calls, avoiding duplicates based on ID
-                const existingIds = new Set(assistantMessage.toolCalls.map(tc => tc.id));
-                const newToolCalls = event.data.filter(tc => !existingIds.has(tc.id));
-                assistantMessage.toolCalls.push(...newToolCalls);
-              } else if (event.type === 'tool_result') {
-                assistantMessage.fragments.toolResults.push(event.data);
-              } else if (event.type === 'error') {
-                assistantMessage.fragments.content = '⚠️ ' + (event.data.error || 'An error occurred');
-                assistantMessage.hasError = true;
+                // Handle finish_reason to detect completion
+                if (choice.finish_reason === 'tool_calls' && assistantMessage.toolCalls) {
+                  // Parse accumulated arguments as JSON
+                  for (const tc of assistantMessage.toolCalls) {
+                    if (typeof tc.function.arguments === 'string' && tc.function.arguments) {
+                      try {
+                        tc.function.arguments = JSON.parse(tc.function.arguments);
+                      } catch (e) {
+                        // Keep as string if not valid JSON
+                      }
+                    }
+                  }
+                }
               }
+
+              this.scrollToBottom();
             } catch (e) {
               // Skip malformed events
             }
@@ -543,7 +670,7 @@ window.chatComponent = function () {
 
     scrollToBottom() {
       if (this.userHasScrolled) return; // Don't auto-scroll if user has scrolled
-      
+
       this.$nextTick(() => {
         const container = this.$refs.messagesContainer;
         if (container) {
@@ -555,7 +682,7 @@ window.chatComponent = function () {
     handleScroll(event) {
       const container = event.target;
       const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
-      
+
       // If user scrolls up, disable auto-scroll
       if (!isAtBottom && this.isLoading) {
         this.userHasScrolled = true;
@@ -611,14 +738,14 @@ window.chatComponent = function () {
 
     shouldNavigateHistory(direction, textarea) {
       const { selectionStart, selectionEnd, value } = textarea;
-      
+
       // Only navigate if cursor is at a single position (no text selected)
       if (selectionStart !== selectionEnd) return false;
-      
+
       const lines = value.split('\n');
       const beforeCursor = value.substring(0, selectionStart);
       const currentLineIndex = beforeCursor.split('\n').length - 1;
-      
+
       if (direction === 'up') {
         // Navigate history only if cursor is on the first line
         return currentLineIndex === 0;
@@ -626,7 +753,7 @@ window.chatComponent = function () {
         // Navigate history only if cursor is on the last line
         return currentLineIndex === lines.length - 1;
       }
-      
+
       return false;
     },
 

@@ -11,29 +11,35 @@ import (
 
 // Permissions
 const (
-	PermissionManageUsers     = iota // Can Manage Users
-	PermissionManageTemplates        // Can Manage Templates
-	PermissionManageSpaces           // Can Manage Spaces
-	PermissionManageVolumes          // Can Manage Volumes
-	PermissionManageGroups           // Can Manage Groups
-	PermissionManageRoles            // Can Manage Roles
-	PermissionManageVariables        // Can Manage Variables
-	PermissionUseSpaces              // Can Use Spaces
-	PermissionUseTunnels             // Can Use Tunnels
-	PermissionViewAuditLogs          // Can View Audit Logs
-	PermissionTransferSpaces         // Can Transfer Spaces
-	PermissionShareSpaces            // Can Share Spaces
-	PermissionClusterInfo            // Can View Cluster Info
-	PermissionUseVNC                 // Can use VNC
-	PermissionUseWebTerminal         // Can use the web terminal
-	PermissionUseSSH                 // Can use ssh connections
-	PermissionUseCodeServer          // Can use code-server
-	PermissionUseVSCodeTunnel        // Can use VSCode Tunnel
-	PermissionUseLogs                // Can use the log window
-	PermissionRunCommands            // Can run commands in spaces
-	PermissionCopyFiles              // Can copy files to/from spaces
-	PermissionUseMCPServer           // Can use MCP server
-	PermissionUseWebAssistant        // Can use web-based AI assistant
+	PermissionManageUsers        = iota // Can Manage Users
+	PermissionManageTemplates           // Can Manage Templates
+	PermissionManageSpaces              // Can Manage Spaces
+	PermissionManageVolumes             // Can Manage Volumes
+	PermissionManageGroups              // Can Manage Groups
+	PermissionManageRoles               // Can Manage Roles
+	PermissionManageVariables           // Can Manage Variables
+	PermissionUseSpaces                 // Can Use Spaces
+	PermissionUseTunnels                // Can Use Tunnels
+	PermissionViewAuditLogs             // Can View Audit Logs
+	PermissionTransferSpaces            // Can Transfer Spaces
+	PermissionShareSpaces               // Can Share Spaces
+	PermissionClusterInfo               // Can View Cluster Info
+	PermissionUseVNC                    // Can use VNC
+	PermissionUseWebTerminal            // Can use the web terminal
+	PermissionUseSSH                    // Can use ssh connections
+	PermissionUseCodeServer             // Can use code-server
+	PermissionUseVSCodeTunnel           // Can use VSCode Tunnel
+	PermissionUseLogs                   // Can use the log window
+	PermissionRunCommands               // Can run commands in spaces
+	PermissionCopyFiles                 // Can copy files to/from spaces
+	PermissionUseMCPServer              // Can use MCP server
+	PermissionUseWebAssistant           // Can use web-based AI assistant
+	PermissionManageScripts             // Can Manage System/Global Scripts
+	PermissionExecuteScripts            // Can Execute System/Global Scripts
+	PermissionManageOwnScripts          // Can Manage Own Scripts
+	PermissionExecuteOwnScripts         // Can Execute Own Scripts
+	PermissionManageGlobalSkills        // Can Manage Global Skills
+	PermissionManageOwnSkills           // Can Manage Own Skills
 )
 
 type PermissionName struct {
@@ -58,6 +64,14 @@ var PermissionNames = []PermissionName{
 
 	{PermissionUseMCPServer, "AI Tools", "Use MCP Server"},
 	{PermissionUseWebAssistant, "AI Tools", "Use Web Assistant"},
+
+	{PermissionManageScripts, "Scripting", "Manage System Scripts"},
+	{PermissionExecuteScripts, "Scripting", "Execute System Scripts"},
+	{PermissionManageOwnScripts, "Scripting", "Manage Own Scripts"},
+	{PermissionExecuteOwnScripts, "Scripting", "Execute Own Scripts"},
+
+	{PermissionManageGlobalSkills, "Skills", "Manage Global Skills"},
+	{PermissionManageOwnSkills, "Skills", "Manage Own Skills"},
 
 	{PermissionUseSpaces, "Space Operations", "Use Spaces"},
 	{PermissionShareSpaces, "Space Operations", "Share Spaces"},
@@ -128,6 +142,12 @@ func SetRoleCache(roles []*Role) {
 			PermissionCopyFiles,
 			PermissionUseMCPServer,
 			PermissionUseWebAssistant,
+			PermissionManageScripts,
+			PermissionExecuteScripts,
+			PermissionManageOwnScripts,
+			PermissionExecuteOwnScripts,
+			PermissionManageGlobalSkills,
+			PermissionManageOwnSkills,
 		},
 		CreatedAt: adminTime,
 		UpdatedAt: hlc.Timestamp(0),
@@ -189,4 +209,21 @@ func NewRole(name string, permissions []uint16, userId string) *Role {
 func RoleExists(roleId string) bool {
 	_, ok := roleCache[roleId]
 	return ok
+}
+
+// GetUserPermissions returns all permission integers for a user (resolves from roles)
+func GetUserPermissions(user *User) []uint16 {
+	permissions := make(map[uint16]bool)
+	for _, role := range user.Roles {
+		if r, ok := roleCache[role]; ok {
+			for _, p := range r.Permissions {
+				permissions[p] = true
+			}
+		}
+	}
+	result := make([]uint16, 0, len(permissions))
+	for p := range permissions {
+		result = append(result, p)
+	}
+	return result
 }

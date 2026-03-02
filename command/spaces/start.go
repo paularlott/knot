@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/paularlott/knot/apiclient"
-	"github.com/paularlott/knot/internal/config"
-
 	"github.com/paularlott/cli"
+	"github.com/paularlott/knot/command/cmdutil"
 )
 
 var StartCmd = &cli.Command{
@@ -26,40 +24,13 @@ var StartCmd = &cli.Command{
 		spaceName := cmd.GetStringArg("space")
 		fmt.Println("Starting space: ", spaceName)
 
-		alias := cmd.GetString("alias")
-		cfg := config.GetServerAddr(alias, cmd)
-		client, err := apiclient.NewClient(cfg.HttpServer, cfg.ApiToken, cmd.GetBool("tls-skip-verify"))
+		client, err := cmdutil.GetClient(cmd)
 		if err != nil {
 			return fmt.Errorf("Failed to create API client: %w", err)
 		}
 
-		// Get the current user
-		user, err := client.WhoAmI(context.Background())
-		if err != nil {
-			return fmt.Errorf("Error getting user: %w", err)
-		}
-
-		// Get a list of available spaces
-		spaces, _, err := client.GetSpaces(context.Background(), user.Id)
-		if err != nil {
-			return fmt.Errorf("Error getting spaces: %w", err)
-		}
-
-		// Find the space by name
-		var spaceId string
-		for _, space := range spaces.Spaces {
-			if space.Name == spaceName {
-				spaceId = space.Id
-				break
-			}
-		}
-
-		if spaceId == "" {
-			return fmt.Errorf("Space not found: %s", spaceName)
-		}
-
-		// Start the space
-		code, err := client.StartSpace(context.Background(), spaceId)
+		// Start the space (API supports both name and ID)
+		code, err := client.StartSpace(context.Background(), spaceName)
 		if err != nil {
 			if code == 503 {
 				return fmt.Errorf("Cannot start space as outside of schedule")

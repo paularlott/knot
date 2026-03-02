@@ -1,6 +1,6 @@
 import Alpine from 'alpinejs';
 
-window.templateListComponent = function(canManageSpaces, zone) {
+window.templateListComponent = function(canManageSpaces, zone, isLeafNode = false) {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
@@ -10,9 +10,11 @@ window.templateListComponent = function(canManageSpaces, zone) {
   );
 
   return {
+    isLeafNode,
     loading: true,
     showAll: Alpine.$persist(false).as('templates-show-all').using(sessionStorage),
     showInactive: Alpine.$persist(false).as('templates-show-inactive').using(sessionStorage),
+    showLocal: Alpine.$persist(false).as('templates-show-local').using(sessionStorage),
     zone,
     deleteConfirm: {
       show: false,
@@ -293,6 +295,11 @@ window.templateListComponent = function(canManageSpaces, zone) {
             }
           }
           // If zones is empty, showRow remains unchanged (no restriction)
+        }
+
+        // Local filtering (hide managed templates)
+        if (this.showLocal && template.is_managed) {
+          showRow = false;
         }
 
         // Search term filtering

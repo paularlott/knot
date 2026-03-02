@@ -109,7 +109,24 @@ func (db *BadgerDbDriver) SaveUser(user *model.User, updateFields []string) erro
 
 func (db *BadgerDbDriver) DeleteUser(user *model.User) error {
 	err := db.connection.Update(func(txn *badger.Txn) error {
-		err := txn.Delete([]byte(fmt.Sprintf("Users:%s", user.Id)))
+		// Cascade delete user scripts
+		scripts, err := db.GetScripts()
+		if err == nil {
+			for _, script := range scripts {
+				if script.UserId == user.Id {
+					err = txn.Delete([]byte(fmt.Sprintf("Scripts:%s", script.Id)))
+					if err != nil {
+						return err
+					}
+					err = txn.Delete([]byte(fmt.Sprintf("ScriptsByName:%s:%s", script.UserId, script.Name)))
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+		err = txn.Delete([]byte(fmt.Sprintf("Users:%s", user.Id)))
 		if err != nil {
 			return err
 		}

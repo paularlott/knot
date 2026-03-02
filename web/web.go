@@ -168,7 +168,6 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	})
 
 	// Group routes that require authentication
-	router.HandleFunc("GET /api/icons", middleware.WebAuth(HandleGetIcons))
 	router.HandleFunc("GET /clients", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /sessions", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /space-quota-reached", middleware.WebAuth(HandleSimplePage))
@@ -191,6 +190,10 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 	router.HandleFunc("GET /templates", middleware.WebAuth(HandleSimplePage))
 
 	router.HandleFunc("GET /variables", middleware.WebAuth(checkPermissionManageVariables(HandleSimplePage)))
+
+	router.HandleFunc("GET /scripts", middleware.WebAuth(checkPermissionManageScripts(HandleSimplePage)))
+
+	router.HandleFunc("GET /skills", middleware.WebAuth(checkPermissionManageSkills(HandleSimplePage)))
 
 	router.HandleFunc("GET /users", middleware.WebAuth(checkPermissionManageUsers(HandleSimplePage)))
 
@@ -408,49 +411,55 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 	}
 
 	return user, map[string]interface{}{
-		"username":                  user.Username,
-		"user_id":                   user.Id,
-		"user_email":                user.Email,
-		"preferredShell":            user.PreferredShell,
-		"user_email_md5":            fmt.Sprintf("%x", md5.Sum([]byte(user.Email))),
-		"withDownloads":             withDownloads,
-		"hideSupportLinks":          cfg.UI.HideSupportLinks,
-		"hideAPITokens":             cfg.UI.HideAPITokens,
-		"useGravatar":               cfg.UI.EnableGravatar,
-		"permissionManageUsers":     user.HasPermission(model.PermissionManageUsers),
-		"permissionManageGroups":    user.HasPermission(model.PermissionManageGroups),
-		"permissionManageRoles":     user.HasPermission(model.PermissionManageRoles),
-		"permissionManageTemplates": user.HasPermission(model.PermissionManageTemplates),
-		"permissionManageVariables": user.HasPermission(model.PermissionManageVariables),
-		"permissionManageSpaces":    user.HasPermission(model.PermissionManageSpaces),
-		"permissionManageVolumes":   user.HasPermission(model.PermissionManageVolumes),
-		"permissionUseSpaces":       user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces),
-		"permissionUseTunnels":      user.HasPermission(model.PermissionUseTunnels) && cfg.ListenTunnel != "",
-		"permissionViewAuditLogs":   user.HasPermission(model.PermissionViewAuditLogs) && database.GetInstance().HasAuditLog(),
-		"permissionTransferSpaces":  user.HasPermission(model.PermissionTransferSpaces),
-		"permissionShareSpaces":     user.HasPermission(model.PermissionShareSpaces),
-		"permissionViewClusterInfo": user.HasPermission(model.PermissionClusterInfo) && cfg.Cluster.AdvertiseAddr != "",
-		"permissionUseVNC":          user.HasPermission(model.PermissionUseVNC) || cfg.LeafNode,
-		"permissionUseWebTerminal":  user.HasPermission(model.PermissionUseWebTerminal) || cfg.LeafNode,
-		"permissionUseSSH":          user.HasPermission(model.PermissionUseSSH) || cfg.LeafNode,
-		"permissionUseCodeServer":   user.HasPermission(model.PermissionUseCodeServer) || cfg.LeafNode,
-		"permissionUseVSCodeTunnel": user.HasPermission(model.PermissionUseVSCodeTunnel) || cfg.LeafNode,
-		"permissionUseLogs":         user.HasPermission(model.PermissionUseLogs) || cfg.LeafNode,
-		"permissionRunCommands":     user.HasPermission(model.PermissionRunCommands) || cfg.LeafNode,
-		"permissionCopyFiles":       user.HasPermission(model.PermissionCopyFiles) || cfg.LeafNode,
-		"permissionUseMCPServer":    user.HasPermission(model.PermissionUseMCPServer),
-		"permissionUseWebAssistant": user.HasPermission(model.PermissionUseWebAssistant),
-		"version":                   build.Version,
-		"buildDate":                 build.Date,
-		"zone":                      cfg.Zone,
-		"timezone":                  cfg.Timezone,
-		"disableSpaceCreate":        cfg.DisableSpaceCreate,
-		"totpEnabled":               cfg.TOTP.Enabled,
-		"clusterMode":               cfg.Cluster.AdvertiseAddr != "",
-		"isLeafNode":                cfg.LeafNode,
-		"logoURL":                   cfg.UI.LogoURL,
-		"logoInvert":                cfg.UI.LogoInvert,
-		"aiChatEnabled":             cfg.Chat.Enabled,
-		"aiChatStyle":               cfg.Chat.UIStyle,
+		"username":                    user.Username,
+		"user_id":                     user.Id,
+		"user_email":                  user.Email,
+		"preferredShell":              user.PreferredShell,
+		"user_email_md5":              fmt.Sprintf("%x", md5.Sum([]byte(user.Email))),
+		"withDownloads":               withDownloads,
+		"hideSupportLinks":            cfg.UI.HideSupportLinks,
+		"hideAPITokens":               cfg.UI.HideAPITokens,
+		"useGravatar":                 cfg.UI.EnableGravatar,
+		"permissionManageUsers":       user.HasPermission(model.PermissionManageUsers),
+		"permissionManageGroups":      user.HasPermission(model.PermissionManageGroups),
+		"permissionManageRoles":       user.HasPermission(model.PermissionManageRoles),
+		"permissionManageTemplates":   user.HasPermission(model.PermissionManageTemplates),
+		"permissionManageVariables":   user.HasPermission(model.PermissionManageVariables),
+		"permissionManageScripts":     user.HasPermission(model.PermissionManageScripts),
+		"permissionExecuteScripts":    user.HasPermission(model.PermissionExecuteScripts),
+		"permissionManageOwnScripts":  user.HasPermission(model.PermissionManageOwnScripts),
+		"permissionExecuteOwnScripts": user.HasPermission(model.PermissionExecuteOwnScripts),
+		"permissionManageSkills":      user.HasPermission(model.PermissionManageGlobalSkills),
+		"permissionManageOwnSkills":   user.HasPermission(model.PermissionManageOwnSkills),
+		"permissionManageSpaces":      user.HasPermission(model.PermissionManageSpaces),
+		"permissionManageVolumes":     user.HasPermission(model.PermissionManageVolumes),
+		"permissionUseSpaces":         user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces),
+		"permissionUseTunnels":        user.HasPermission(model.PermissionUseTunnels) && cfg.ListenTunnel != "",
+		"permissionViewAuditLogs":     user.HasPermission(model.PermissionViewAuditLogs) && database.GetInstance().HasAuditLog(),
+		"permissionTransferSpaces":    user.HasPermission(model.PermissionTransferSpaces),
+		"permissionShareSpaces":       user.HasPermission(model.PermissionShareSpaces),
+		"permissionViewClusterInfo":   user.HasPermission(model.PermissionClusterInfo) && cfg.Cluster.AdvertiseAddr != "",
+		"permissionUseVNC":            user.HasPermission(model.PermissionUseVNC) || cfg.LeafNode,
+		"permissionUseWebTerminal":    user.HasPermission(model.PermissionUseWebTerminal) || cfg.LeafNode,
+		"permissionUseSSH":            user.HasPermission(model.PermissionUseSSH) || cfg.LeafNode,
+		"permissionUseCodeServer":     user.HasPermission(model.PermissionUseCodeServer) || cfg.LeafNode,
+		"permissionUseVSCodeTunnel":   user.HasPermission(model.PermissionUseVSCodeTunnel) || cfg.LeafNode,
+		"permissionUseLogs":           user.HasPermission(model.PermissionUseLogs) || cfg.LeafNode,
+		"permissionRunCommands":       user.HasPermission(model.PermissionRunCommands) || cfg.LeafNode,
+		"permissionCopyFiles":         user.HasPermission(model.PermissionCopyFiles) || cfg.LeafNode,
+		"permissionUseMCPServer":      user.HasPermission(model.PermissionUseMCPServer),
+		"permissionUseWebAssistant":   user.HasPermission(model.PermissionUseWebAssistant),
+		"version":                     build.Version,
+		"buildDate":                   build.Date,
+		"zone":                        cfg.Zone,
+		"timezone":                    cfg.Timezone,
+		"disableSpaceCreate":          cfg.DisableSpaceCreate,
+		"totpEnabled":                 cfg.TOTP.Enabled,
+		"clusterMode":                 cfg.Cluster.AdvertiseAddr != "",
+		"isLeafNode":                  cfg.LeafNode,
+		"logoURL":                     cfg.UI.LogoURL,
+		"logoInvert":                  cfg.UI.LogoInvert,
+		"aiChatEnabled":               cfg.Chat.Enabled,
+		"aiChatStyle":                 cfg.Chat.UIStyle,
 	}
 }

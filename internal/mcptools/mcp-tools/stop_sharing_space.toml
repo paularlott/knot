@@ -1,0 +1,9 @@
+description = "Stop sharing a space, revoking access from the shared user."
+keywords = ["stop", "sharing", "unshare", "revoke", "access", "permissions", "private"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the space to stop sharing"
+required = true

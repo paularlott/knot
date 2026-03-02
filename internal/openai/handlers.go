@@ -6,19 +6,22 @@ import (
 	"net/http"
 
 	"github.com/paularlott/knot/internal/util/rest"
+	mcpopenai "github.com/paularlott/mcp/ai/openai"
 
 	"github.com/paularlott/knot/internal/log"
 )
 
 type Service struct {
-	client       *Client
+	client       AIClient
 	systemPrompt string
+	model        string
 }
 
-func NewService(client *Client, systemPrompt string) *Service {
+func NewService(client AIClient, systemPrompt string, model string) *Service {
 	return &Service{
 		client:       client,
 		systemPrompt: systemPrompt,
+		model:        model,
 	}
 }
 
@@ -51,7 +54,12 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Strip existing system messages and add our system prompt
+	// Only set model if not provided by the caller
+	if req.Model == "" {
+		req.Model = s.model
+	}
+
+	// Inject system prompt only if no system message is present
 	req.Messages = s.replaceSystemPrompt(req.Messages)
 
 	if req.Stream {
@@ -63,6 +71,8 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 
 // handleNonStreamingChatCompletion handles non-streaming chat completions
 func (s *Service) handleNonStreamingChatCompletion(ctx context.Context, w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
+	// Context is already configured by MCPServerContext middleware with script tools provider
+
 	response, err := s.client.ChatCompletion(ctx, req)
 	if err != nil {
 		log.WithError(err).Error("OpenAI: Chat completion failed")
@@ -77,8 +87,14 @@ func (s *Service) handleNonStreamingChatCompletion(ctx context.Context, w http.R
 
 // handleStreamingChatCompletion handles streaming chat completions
 func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.ResponseWriter, r *http.Request, req ChatCompletionRequest) {
+	// Context is already configured by MCPServerContext middleware with script tools provider
 	streamWriter := rest.NewStreamWriter(w, r)
 	defer streamWriter.Close()
+
+	toolHandler := mcpopenai.NewSSEToolHandler(streamWriter, func(err error, eventType, toolName string) {
+		log.Debug("Failed to write tool event", "error", err, "event", eventType, "tool", toolName)
+	})
+	ctx = mcpopenai.WithToolHandler(ctx, toolHandler)
 
 	stream := s.client.StreamChatCompletion(ctx, req)
 	for stream.Next() {
@@ -91,27 +107,17 @@ func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.Resp
 	streamWriter.WriteEnd()
 }
 
-// replaceSystemPrompt strips existing system messages and adds our system prompt
+// replaceSystemPrompt checks for existing system messages and injects system prompt only if none present
 func (s *Service) replaceSystemPrompt(messages []Message) []Message {
-	if s.systemPrompt == "" {
+	if s.systemPrompt == "" || (len(messages) > 0 && messages[0].Role == "system") {
 		return messages
 	}
 
-	// Filter out existing system messages
-	var filteredMessages []Message
-	for _, msg := range messages {
-		if msg.Role != "system" {
-			filteredMessages = append(filteredMessages, msg)
-		}
-	}
-
-	// Add our system prompt at the beginning
 	systemMessage := Message{Role: "system"}
 	systemMessage.SetContentAsString(s.systemPrompt)
 
-	result := make([]Message, 0, len(filteredMessages)+1)
+	result := make([]Message, 0, len(messages)+1)
 	result = append(result, systemMessage)
-	result = append(result, filteredMessages...)
-
+	result = append(result, messages...)
 	return result
 }

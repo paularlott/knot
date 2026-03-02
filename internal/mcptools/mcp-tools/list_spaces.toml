@@ -1,0 +1,8 @@
+description = "List all spaces for current user with status and sharing details."
+keywords = ["spaces", "list", "environments", "development", "deploy", "instances"]
+
+[[parameters]]
+name = "show_all"
+type = "bool"
+description = "Show spaces from all zones (default: false, shows only current zone)"
+required = false

@@ -144,7 +144,7 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 
 			data = bytes.Trim(data, "\x00")
 
-			if mt == websocket.BinaryMessage && len(data) > 0 {
+			if len(data) > 0 {
 				if data[0] == 1 {
 					ttySize := &msg.TerminalWindowSize{}
 					resizeMessage := bytes.Trim(data[1:], " \n\r\t\x00\x01")
@@ -161,6 +161,23 @@ func HandleSpacesTerminalProxy(w http.ResponseWriter, r *http.Request) {
 
 					if err := msg.WriteMessage(stream, ttySize); err != nil {
 						log.WithError(err).Error("error writing message to stream:")
+						return
+					}
+				} else {
+					// Forward as terminal data
+					if err := msg.WriteCommand(stream, msg.MSG_TERMINAL_DATA); err != nil {
+						log.WithError(err).Error("error writing command to stream:")
+						return
+					}
+					payloadSize := uint32(len(data))
+					sizeBytes := make([]byte, 4)
+					binary.BigEndian.PutUint32(sizeBytes, payloadSize)
+					if _, err := stream.Write(sizeBytes); err != nil {
+						log.WithError(err).Error("error writing size to stream:")
+						return
+					}
+					if _, err := stream.Write(data); err != nil {
+						log.WithError(err).Error("error writing buffer to stream:")
 						return
 					}
 				}

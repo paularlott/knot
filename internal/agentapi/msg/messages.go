@@ -26,7 +26,6 @@ const (
 	CmdUpdateSpaceNote
 	CmdUpdateSpaceVar
 	CmdGetSpaceVar
-	CmdCreateToken
 	CmdTunnelPort
 	CmdTunnelPortConnection
 	CmdSpaceStop
@@ -36,6 +35,8 @@ const (
 	CmdPortForward
 	CmdPortList
 	CmdPortStop
+	CmdExecuteScript
+	CmdExecuteScriptStream
 )
 
 func WriteCommand(conn net.Conn, cmdType CmdType) error {
@@ -73,8 +74,12 @@ func WriteMessage(conn net.Conn, payload interface{}) error {
 }
 
 func ReadMessage(conn net.Conn, v interface{}) error {
+	return ReadMessageWithTimeout(conn, v, 5*time.Second)
+}
+
+func ReadMessageWithTimeout(conn net.Conn, v interface{}, timeout time.Duration) error {
 	// Set a read deadline
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(timeout))
 	defer conn.SetReadDeadline(time.Time{})
 
 	// Read the size of the payload

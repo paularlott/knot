@@ -54,11 +54,6 @@ func HandleGetTemplateVars(w http.ResponseWriter, r *http.Request) {
 func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	templateVarId := r.PathValue("templatevar_id")
 
-	if !validate.UUID(templateVarId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid variable ID"})
-		return
-	}
-
 	request := apiclient.TemplateVarValue{}
 	err := rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
@@ -84,9 +79,16 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	db := database.GetInstance()
 	user := r.Context().Value("user").(*model.User)
 
-	templateVar, err := db.GetTemplateVar(templateVarId)
+	var templateVar *model.TemplateVar
+	if validate.UUID(templateVarId) {
+		// Lookup by ID
+		templateVar, err = db.GetTemplateVar(templateVarId)
+	} else {
+		// Lookup by name
+		templateVar, err = db.GetTemplateVarByName(templateVarId)
+	}
 	if err != nil {
-		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template variable not found"})
 		return
 	}
 
@@ -211,13 +213,17 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 	templateVarId := r.PathValue("templatevar_id")
 
-	if !validate.UUID(templateVarId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid variable ID"})
-		return
-	}
-
+	// Support lookup by both ID and name
 	db := database.GetInstance()
-	templateVar, err := db.GetTemplateVar(templateVarId)
+	var templateVar *model.TemplateVar
+	var err error
+	if validate.UUID(templateVarId) {
+		// Lookup by ID
+		templateVar, err = db.GetTemplateVar(templateVarId)
+	} else {
+		// Lookup by name
+		templateVar, err = db.GetTemplateVarByName(templateVarId)
+	}
 	if err != nil {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -258,13 +264,18 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 func HandleGetTemplateVar(w http.ResponseWriter, r *http.Request) {
 	templateVarId := r.PathValue("templatevar_id")
 
-	if !validate.UUID(templateVarId) {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "Invalid variable ID"})
-		return
-	}
-
+	// Support lookup by both ID and name
+	var templateVar *model.TemplateVar
+	var err error
 	db := database.GetInstance()
-	templateVar, err := db.GetTemplateVar(templateVarId)
+
+	if validate.UUID(templateVarId) {
+		// Lookup by ID
+		templateVar, err = db.GetTemplateVar(templateVarId)
+	} else {
+		// Lookup by name
+		templateVar, err = db.GetTemplateVarByName(templateVarId)
+	}
 	if err != nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
 		return

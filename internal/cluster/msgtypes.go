@@ -26,4 +26,10 @@ const (
 	ResourceLockGossipMsg
 	ResourceLockMsg
 	ResourceUnlockMsg
+	ScriptFullSyncMsg
+	ScriptGossipMsg
+	SkillFullSyncMsg
+	SkillGossipMsg
+	ResponseFullSyncMsg
+	ResponseGossipMsg
 )

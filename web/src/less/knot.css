@@ -66,6 +66,10 @@
   @apply w-full px-5 py-3 text-base font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 sm:text-sm sm:w-auto dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-hidden disabled:cursor-not-allowed focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 cursor-pointer;
 }
 
+@utility btn-secondary {
+  @apply px-5 py-3 text-base font-medium text-center text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 sm:text-sm dark:text-white dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 focus:outline-hidden disabled:cursor-not-allowed focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 cursor-pointer;
+}
+
 @utility nav-item {
   @apply flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 border-none my-1 cursor-pointer;
 }

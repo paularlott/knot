@@ -1,0 +1,8 @@
+description = "Stop a running space to free up resources. The space still exists and can be started again later."
+keywords = ["stop", "shutdown", "halt", "deactivate", "pause"]
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the space to stop"
+required = true

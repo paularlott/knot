@@ -24,7 +24,32 @@ const (
 	ContentTypeMsgPack = "application/msgpack"
 )
 
-type RESTClient struct {
+// RESTClient interface for both HTTP and Mux clients
+type RESTClient interface {
+	Get(ctx context.Context, path string, response interface{}) (int, error)
+	Post(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error)
+	Put(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error)
+	Delete(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error)
+	PostJSON(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error)
+	PutJSON(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error)
+	GetJSON(ctx context.Context, path string, response interface{}) (int, error)
+	SetTimeout(timeout time.Duration) RESTClient
+	SetContentType(contentType string) RESTClient
+	SetAccept(accept ...string) RESTClient
+	SetUserAgent(userAgent string) RESTClient
+	AppendUserAgent(userAgent string) RESTClient
+	SetAuthToken(token string) RESTClient
+	SetTokenKey(key string) RESTClient
+	SetTokenFormat(format string) RESTClient
+	SetHeader(key, value string) RESTClient
+	DeleteHeader(key string) RESTClient
+	ClearHeaders() RESTClient
+	GetBaseURL() string
+	GetAuthToken() string
+	SetBaseUrl(baseURL string) (RESTClient, error)
+}
+
+type HTTPClient struct {
 	baseURL     *url.URL
 	token       string
 	tokenKey    string
@@ -36,13 +61,13 @@ type RESTClient struct {
 	accept      []string
 }
 
-func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClient, error) {
+func NewClient(baseURL string, token string, insecureSkipVerify bool) (*HTTPClient, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base URL: %s, error: %v", baseURL, err)
 	}
 
-	restClient := &RESTClient{
+	httpClient := &HTTPClient{
 		baseURL:     parsed,
 		token:       token,
 		tokenKey:    "Authorization",
@@ -56,7 +81,7 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClie
 		accept:  []string{ContentTypeJSON, ContentTypeMsgPack},
 	}
 
-	restClient.HTTPClient.Transport = &http.Transport{
+	httpClient.HTTPClient.Transport = &http.Transport{
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: insecureSkipVerify},
 		MaxConnsPerHost:     32 * 2,
 		MaxIdleConns:        32 * 2,
@@ -66,38 +91,38 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*RESTClie
 	}
 
 	// Configure HTTP/2 support on the transport
-	if err := http2.ConfigureTransport(restClient.HTTPClient.Transport.(*http.Transport)); err != nil {
+	if err := http2.ConfigureTransport(httpClient.HTTPClient.Transport.(*http.Transport)); err != nil {
 		return nil, fmt.Errorf("failed to configure HTTP/2: %w", err)
 	}
 
-	return restClient, nil
+	return httpClient, nil
 }
 
-func (c *RESTClient) Close() {
+func (c *HTTPClient) Close() {
 	c.HTTPClient.CloseIdleConnections()
 }
 
-func (c *RESTClient) SetTimeout(timeout time.Duration) *RESTClient {
+func (c *HTTPClient) SetTimeout(timeout time.Duration) RESTClient {
 	c.HTTPClient.Timeout = timeout
 	return c
 }
 
-func (c *RESTClient) SetContentType(contentType string) *RESTClient {
+func (c *HTTPClient) SetContentType(contentType string) RESTClient {
 	c.contentType = contentType
 	return c
 }
 
-func (c *RESTClient) SetAccept(accept ...string) *RESTClient {
+func (c *HTTPClient) SetAccept(accept ...string) RESTClient {
 	c.accept = accept
 	return c
 }
 
-func (c *RESTClient) SetUserAgent(userAgent string) *RESTClient {
+func (c *HTTPClient) SetUserAgent(userAgent string) RESTClient {
 	c.userAgent = userAgent
 	return c
 }
 
-func (c *RESTClient) SetBaseUrl(baseURL string) (*RESTClient, error) {
+func (c *HTTPClient) SetBaseUrl(baseURL string) (RESTClient, error) {
 	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base URL: %s, error: %v", baseURL, err)
@@ -108,42 +133,50 @@ func (c *RESTClient) SetBaseUrl(baseURL string) (*RESTClient, error) {
 	return c, nil
 }
 
-func (c *RESTClient) AppendUserAgent(userAgent string) *RESTClient {
+func (c *HTTPClient) AppendUserAgent(userAgent string) RESTClient {
 	c.userAgent = strings.TrimSpace(c.userAgent + " " + userAgent)
 	return c
 }
 
-func (c *RESTClient) SetAuthToken(token string) *RESTClient {
+func (c *HTTPClient) SetAuthToken(token string) RESTClient {
 	c.token = token
 	return c
 }
 
-func (c *RESTClient) SetTokenKey(key string) *RESTClient {
+func (c *HTTPClient) SetTokenKey(key string) RESTClient {
 	c.tokenKey = key
 	return c
 }
 
-func (c *RESTClient) SetTokenFormat(format string) *RESTClient {
+func (c *HTTPClient) SetTokenFormat(format string) RESTClient {
 	c.tokenFormat = format
 	return c
 }
 
-func (c *RESTClient) SetHeader(key, value string) *RESTClient {
+func (c *HTTPClient) SetHeader(key, value string) RESTClient {
 	c.headers[key] = value
 	return c
 }
 
-func (c *RESTClient) DeleteHeader(key string) *RESTClient {
+func (c *HTTPClient) DeleteHeader(key string) RESTClient {
 	delete(c.headers, key)
 	return c
 }
 
-func (c *RESTClient) ClearHeaders() *RESTClient {
+func (c *HTTPClient) ClearHeaders() RESTClient {
 	c.headers = make(map[string]string)
 	return c
 }
 
-func (c *RESTClient) setHeaders(req *http.Request) {
+func (c *HTTPClient) GetBaseURL() string {
+	return c.baseURL.String()
+}
+
+func (c *HTTPClient) GetAuthToken() string {
+	return c.token
+}
+
+func (c *HTTPClient) setHeaders(req *http.Request) {
 	req.Header.Set("Accept", strings.Join(c.accept, ", "))
 	req.Header.Set("Content-Type", c.contentType)
 	req.Header.Set("User-Agent", c.userAgent)
@@ -157,7 +190,7 @@ func (c *RESTClient) setHeaders(req *http.Request) {
 	}
 }
 
-func (c *RESTClient) Get(ctx context.Context, path string, response interface{}) (int, error) {
+func (c *HTTPClient) Get(ctx context.Context, path string, response interface{}) (int, error) {
 	rel, err := url.Parse(path)
 	if err != nil {
 		return 0, fmt.Errorf("invalid path: %s, error: %v", path, err)
@@ -189,7 +222,7 @@ func (c *RESTClient) Get(ctx context.Context, path string, response interface{})
 	return resp.StatusCode, err
 }
 
-func (c *RESTClient) SendData(ctx context.Context, method string, path string, request interface{}, response interface{}, successCode int) (int, error) {
+func (c *HTTPClient) SendData(ctx context.Context, method string, path string, request interface{}, response interface{}, successCode int) (int, error) {
 	var data []byte
 	var err error
 
@@ -240,22 +273,147 @@ func (c *RESTClient) SendData(ctx context.Context, method string, path string, r
 	return resp.StatusCode, nil
 }
 
-func (c *RESTClient) Post(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
+// SendDataWithContentType sends a request with a specific content type (thread-safe)
+func (c *HTTPClient) SendDataWithContentType(ctx context.Context, method string, path string, request interface{}, response interface{}, successCode int, contentType string) (int, error) {
+	return c.SendDataWithContentTypeAndAccept(ctx, method, path, request, response, successCode, contentType, strings.Join(c.accept, ", "))
+}
+
+// SendDataWithContentTypeAndAccept sends a request with specific content type and accept header (thread-safe)
+func (c *HTTPClient) SendDataWithContentTypeAndAccept(ctx context.Context, method string, path string, request interface{}, response interface{}, successCode int, contentType string, accept string) (int, error) {
+	var data []byte
+	var err error
+
+	rel, err := url.Parse(path)
+	if err != nil {
+		return 0, fmt.Errorf("invalid path: %s, error: %v", path, err)
+	}
+
+	u := c.baseURL.ResolveReference(rel)
+
+	if contentType == ContentTypeMsgPack {
+		data, err = msgpack.Marshal(request)
+	} else {
+		data, err = json.Marshal(request)
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), bytes.NewReader(data))
+	if err != nil {
+		return 0, err
+	}
+
+	// Set headers with custom content type and accept
+	req.Header.Set("Accept", accept)
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("User-Agent", c.userAgent)
+	if c.token != "" {
+		req.Header.Set(c.tokenKey, fmt.Sprintf(c.tokenFormat, c.token))
+	}
+
+	// Add custom headers
+	for key, value := range c.headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if (successCode == 0 && resp.StatusCode >= http.StatusBadRequest) || (successCode > 0 && resp.StatusCode != successCode) {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, fmt.Errorf("unexpected status code: %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	if response != nil {
+		respContentType := resp.Header.Get("Content-Type")
+		if strings.Contains(respContentType, ContentTypeMsgPack) {
+			err = msgpack.NewDecoder(resp.Body).Decode(response)
+		} else {
+			err = json.NewDecoder(resp.Body).Decode(response)
+		}
+		if err != nil {
+			return resp.StatusCode, err
+		}
+	}
+	return resp.StatusCode, nil
+}
+
+func (c *HTTPClient) Post(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
 	return c.SendData(ctx, http.MethodPost, path, request, response, successCode)
 }
 
-func (c *RESTClient) Put(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
+func (c *HTTPClient) PostWithContentType(ctx context.Context, path string, request interface{}, response interface{}, successCode int, contentType string) (int, error) {
+	return c.SendDataWithContentType(ctx, http.MethodPost, path, request, response, successCode, contentType)
+}
+
+// PostJSON sends a POST request with JSON content type and JSON accept header (thread-safe)
+func (c *HTTPClient) PostJSON(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
+	return c.SendDataWithContentTypeAndAccept(ctx, http.MethodPost, path, request, response, successCode, ContentTypeJSON, ContentTypeJSON)
+}
+
+// PutJSON sends a PUT request with JSON content type and JSON accept header (thread-safe)
+func (c *HTTPClient) PutJSON(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
+	return c.SendDataWithContentTypeAndAccept(ctx, http.MethodPut, path, request, response, successCode, ContentTypeJSON, ContentTypeJSON)
+}
+
+// GetJSON sends a GET request with JSON accept header (thread-safe)
+func (c *HTTPClient) GetJSON(ctx context.Context, path string, response interface{}) (int, error) {
+	rel, err := url.Parse(path)
+	if err != nil {
+		return 0, fmt.Errorf("invalid path: %s, error: %v", path, err)
+	}
+
+	u := c.baseURL.ResolveReference(rel)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return 0, err
+	}
+
+	// Set headers with JSON accept
+	req.Header.Set("Accept", ContentTypeJSON)
+	req.Header.Set("User-Agent", c.userAgent)
+	if c.token != "" {
+		req.Header.Set(c.tokenKey, fmt.Sprintf(c.tokenFormat, c.token))
+	}
+
+	// Add custom headers
+	for key, value := range c.headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if response != nil {
+		err = json.NewDecoder(resp.Body).Decode(response)
+	}
+	return resp.StatusCode, err
+}
+
+func (c *HTTPClient) Put(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
 	return c.SendData(ctx, http.MethodPut, path, request, response, successCode)
 }
 
-func (c *RESTClient) Delete(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
+func (c *HTTPClient) PutWithContentType(ctx context.Context, path string, request interface{}, response interface{}, successCode int, contentType string) (int, error) {
+	return c.SendDataWithContentType(ctx, http.MethodPut, path, request, response, successCode, contentType)
+}
+
+func (c *HTTPClient) Delete(ctx context.Context, path string, request interface{}, response interface{}, successCode int) (int, error) {
 	return c.SendData(ctx, http.MethodDelete, path, request, response, successCode)
 }
 
 type StreamResponseFunc func(chunk interface{}) (isDone bool, err error)
 
 // Core streaming logic - single implementation, no generics, no reflection
-func (c *RESTClient) streamDataCore(
+func (c *HTTPClient) streamDataCore(
 	ctx context.Context,
 	method string,
 	path string,
@@ -388,7 +546,7 @@ type Pointer[T any] interface {
 
 // Thin generic wrapper - only this small function is duplicated per type
 func StreamData[P Pointer[T], T any](
-	c *RESTClient,
+	c *HTTPClient,
 	ctx context.Context,
 	method string,
 	path string,

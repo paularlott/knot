@@ -129,25 +129,38 @@ func executeNonPtyCommand(s ssh.Session, command string) {
 		return
 	}
 
+	// Channel to track output completion
 	done := make(chan struct{}, 2)
+
+	// Copy stdin from session to command (don't wait for this to avoid deadlock)
 	go func() {
 		io.Copy(stdin, s)
 		stdin.Close()
 	}()
+
+	// Copy stdout from command to session
 	go func() {
 		io.Copy(s, stdout)
 		done <- struct{}{}
 	}()
+
+	// Copy stderr from command to session stderr
 	go func() {
 		io.Copy(s.Stderr(), stderr)
 		done <- struct{}{}
 	}()
+
+	// Wait for output streams to finish
 	<-done
 	<-done
+
+	// Wait for command to finish
 	err = cmd.Wait()
-	// Close streams to ensure all data is flushed before exit
+
+	// Close output streams (stdin will be closed by its goroutine)
 	stdout.Close()
 	stderr.Close()
+
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			s.Exit(exitErr.ExitCode())

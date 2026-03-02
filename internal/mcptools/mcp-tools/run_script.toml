@@ -1,0 +1,20 @@
+description = "Execute a named script in a running space and capture its output."
+keywords = ["run", "execute", "script", "python", "space", "trigger", "invoke"]
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the space to run the script in"
+required = true
+
+[[parameters]]
+name = "script"
+type = "string"
+description = "Name of the script to execute (e.g., 'backup', 'deploy', 'test')"
+required = true
+
+[[parameters]]
+name = "arguments"
+type = "array:string"
+description = "Script arguments as an array (e.g., ['--verbose', 'output.txt'])"
+required = false

@@ -9,7 +9,6 @@ import (
 )
 
 func ApiRoutes(router *http.ServeMux) {
-
 	// Core
 	router.HandleFunc("GET /api/ping", middleware.ApiAuth(HandlePing))
 	router.HandleFunc("POST /api/auth/logout", middleware.ApiAuth(HandleLogout))
@@ -22,6 +21,8 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("PUT /api/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleUpdateUser)))
 	router.HandleFunc("DELETE /api/users/{user_id}", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleDeleteUser)))
 	router.HandleFunc("GET /api/users/{user_id}/quota", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserQuota)))
+	router.HandleFunc("GET /api/users/{user_id}/permissions", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserPermissions)))
+	router.HandleFunc("GET /api/users/{user_id}/has-permission", middleware.ApiAuth(middleware.ApiPermissionManageUsersOrSelf(HandleGetUserHasPermission)))
 
 	// Groups
 	router.HandleFunc("GET /api/groups", middleware.ApiAuth(HandleGetGroups))
@@ -32,6 +33,9 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Permissions
 	router.HandleFunc("GET /api/permissions", middleware.ApiAuth(HandleGetPermissions))
+
+	// Icons
+	router.HandleFunc("GET /api/icons", middleware.ApiAuth(HandleGetIcons))
 
 	// Roles
 	router.HandleFunc("GET /api/roles", middleware.ApiAuth(HandleGetRoles))
@@ -64,6 +68,9 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /api/spaces/{space_id}/transfer", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceTransfer)))
 	router.HandleFunc("POST /api/spaces/{space_id}/share", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceAddShare)))
 	router.HandleFunc("DELETE /api/spaces/{space_id}/share", middleware.ApiAuth(middleware.ApiPermissionTransferSpaces(HandleSpaceRemoveShare)))
+	router.HandleFunc("POST /api/spaces/{space_id}/files/read", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleReadSpaceFile)))
+	router.HandleFunc("POST /api/spaces/{space_id}/files/write", middleware.ApiAuth(middleware.ApiPermissionCopyFiles(HandleWriteSpaceFile)))
+	router.HandleFunc("POST /api/spaces/{space_id}/run-command", middleware.ApiAuth(middleware.ApiPermissionRunCommands(HandleRunCommand)))
 
 	// Templates
 	router.HandleFunc("GET /api/templates", middleware.ApiAuth(HandleGetTemplates))
@@ -89,6 +96,26 @@ func ApiRoutes(router *http.ServeMux) {
 	router.HandleFunc("DELETE /api/templatevars/{templatevar_id}", middleware.ApiAuth(middleware.ApiPermissionManageVariables(HandleDeleteTemplateVar)))
 	router.HandleFunc("GET /api/templatevars/{templatevar_id}", middleware.ApiAuth(middleware.ApiPermissionManageVariables(HandleGetTemplateVar)))
 
+	// Scripts
+	router.HandleFunc("GET /api/scripts", middleware.ApiAuth(HandleGetScripts))
+	router.HandleFunc("GET /api/scripts/global", middleware.ApiAuth(HandleGetGlobalScripts))
+	router.HandleFunc("GET /api/scripts/{script_id}", middleware.ApiAuth(HandleGetScript))
+	router.HandleFunc("GET /api/scripts/name/{script_name}", middleware.ApiAuth(HandleGetScriptDetailsByName))
+	router.HandleFunc("GET /api/scripts/name/{script_name}/{script_type}", middleware.ApiAuth(HandleGetScriptByName))
+	router.HandleFunc("POST /api/scripts", middleware.ApiAuth(middleware.ApiPermissionManageScripts(HandleCreateScript)))
+	router.HandleFunc("PUT /api/scripts/{script_id}", middleware.ApiAuth(middleware.ApiPermissionManageScripts(HandleUpdateScript)))
+	router.HandleFunc("DELETE /api/scripts/{script_id}", middleware.ApiAuth(middleware.ApiPermissionManageScripts(HandleDeleteScript)))
+	router.HandleFunc("POST /api/spaces/{space_id}/execute-script", middleware.ApiAuth(HandleExecuteScript))
+	router.HandleFunc("GET /api/spaces/{space_id}/execute-script-stream", middleware.ApiAuth(HandleExecuteScriptStream))
+
+	// Skills
+	router.HandleFunc("GET /api/skill", middleware.ApiAuth(HandleGetSkills))
+	router.HandleFunc("GET /api/skill/search", middleware.ApiAuth(HandleSearchSkills))
+	router.HandleFunc("GET /api/skill/{skill_id}", middleware.ApiAuth(HandleGetSkill))
+	router.HandleFunc("POST /api/skill", middleware.ApiAuth(HandleCreateSkill))
+	router.HandleFunc("PUT /api/skill/{skill_id}", middleware.ApiAuth(HandleUpdateSkill))
+	router.HandleFunc("DELETE /api/skill/{skill_id}", middleware.ApiAuth(HandleDeleteSkill))
+
 	// Tunnels
 	router.HandleFunc("GET /api/tunnels", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnels)))
 	router.HandleFunc("GET /api/tunnels/server-info", middleware.ApiAuth(middleware.ApiPermissionUseTunnels(HandleGetTunnelServerInfo)))
@@ -112,8 +139,6 @@ func ApiRoutes(router *http.ServeMux) {
 	// OAuth2 routes
 	router.HandleFunc("GET /authorize", middleware.WebAuth(oauth2.HandleAuthorize))
 	router.HandleFunc("POST /token", oauth2.HandleToken)
-	//router.HandleFunc("GET /oauth/authorize", middleware.WebAuth(oauth2.HandleAuthorize))
-	//router.HandleFunc("POST /oauth/token", oauth2.HandleToken)
 
 	// OAuth2 Discovery
 	router.HandleFunc("GET /.well-known/oauth-authorization-server", oauth2.HandleAuthorizationServerMetadata)

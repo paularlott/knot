@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/cluster"
 	"github.com/paularlott/knot/internal/util/rest"
+	"github.com/paularlott/knot/internal/util/validate"
 )
 
 type AvailableNode struct {
@@ -24,7 +25,15 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 	templateId := r.PathValue("template_id")
 
 	db := database.GetInstance()
-	template, err := db.GetTemplate(templateId)
+
+	// Support lookup by both ID and name
+	var template *model.Template
+	var err error
+	if validate.UUID(templateId) {
+		template, err = db.GetTemplate(templateId)
+	} else {
+		template, err = db.GetTemplateByName(templateId)
+	}
 	if err != nil || template == nil {
 		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "template not found"})
 		return

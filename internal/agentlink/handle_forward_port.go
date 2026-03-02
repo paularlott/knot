@@ -21,9 +21,10 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 	}
 
 	// Get connection info from agent
-	server, token, err := agentClient.SendRequestToken()
-	if err != nil {
-		log.WithError(err).Error("Failed to get connection info")
+	server := agentClient.GetServerURL()
+	token := agentClient.GetAgentToken()
+	if server == "" || token == "" {
+		log.Error("Failed to get connection info from agent")
 		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "failed to get connection info"})
 		return
 	}

@@ -155,6 +155,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		CreatedAtFormatted: createdAtFormatted,
 		IconURL:            space.IconURL,
 		CustomFields:       make([]apiclient.CustomFieldValue, len(space.CustomFields)),
+		StartupScriptId:    space.StartupScriptId,
 		HasCodeServer:      hasCodeServer,
 		HasSSH:             hasSSH,
 		HasTerminal:        hasTerminal,

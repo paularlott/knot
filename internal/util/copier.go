@@ -33,14 +33,11 @@ func NewCopier(socket net.Conn, wsConnection *websocket.Conn) *copierConnections
 
 func (connections *copierConnections) Run() error {
 	logger := log.WithGroup("copier")
-	done := make(chan struct{}, 2)
+	done := make(chan struct{})
 
 	// Copy tcp to websocket
 	go func() {
-		defer func() {
-			connections.closeWrite()
-			done <- struct{}{}
-		}()
+		defer connections.closeWrite()
 
 		var n int
 		var err error
@@ -119,7 +116,9 @@ func (connections *copierConnections) Run() error {
 		}
 	}()
 
-	<-done
+	// Only wait for the websocket→output direction to finish
+	// This ensures we keep reading responses even after stdin closes
+	// which is critical for protocols like SCP that expect acknowledgments
 	<-done
 	return nil
 }
@@ -127,11 +126,13 @@ func (connections *copierConnections) Run() error {
 func (connections *copierConnections) closeWrite() {
 	connections.closeMutex.Lock()
 	defer connections.closeMutex.Unlock()
-	
+
 	if connections.closed.Load() {
 		return
 	}
-	
+
+	// Close write on the socket side only
+	// Don't close the websocket - we need to keep reading responses
 	if connections.socket != nil {
 		if tcpConn, ok := connections.socket.(*net.TCPConn); ok {
 			tcpConn.CloseWrite()
@@ -142,15 +143,15 @@ func (connections *copierConnections) closeWrite() {
 func (connections *copierConnections) close() {
 	connections.closeMutex.Lock()
 	defer connections.closeMutex.Unlock()
-	
+
 	if connections.closed.Swap(true) {
 		return
 	}
-	
+
 	if connections.socket != nil {
 		connections.socket.Close()
 	}
-	
+
 	connections.wsConnection.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(1*time.Second))
 	connections.wsConnection.Close()
 }

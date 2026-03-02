@@ -71,6 +71,8 @@ func GetTemplateDetails(templateId string, user *model.User) (*apiclient.Templat
 		WithCodeServer:   template.WithCodeServer,
 		WithSSH:          template.WithSSH,
 		WithRunCommand:   template.WithRunCommand,
+		StartupScriptId:  template.StartupScriptId,
+		ShutdownScriptId: template.ShutdownScriptId,
 		ScheduleEnabled:  template.ScheduleEnabled,
 		AutoStart:        template.AutoStart,
 		Schedule:         make([]apiclient.TemplateDetailsDay, 7),

@@ -55,7 +55,26 @@ type DbDriver interface {
 	SaveTemplate(template *model.Template, updateFields []string) error
 	DeleteTemplate(template *model.Template) error
 	GetTemplate(id string) (*model.Template, error)
+	GetTemplateByName(name string) (*model.Template, error)
 	GetTemplates() ([]*model.Template, error)
+
+	// Scripts
+	SaveScript(script *model.Script, updateFields []string) error
+	DeleteScript(script *model.Script) error
+	GetScript(id string) (*model.Script, error)
+	GetScripts() ([]*model.Script, error)
+	GetScriptByName(name string) (*model.Script, error)
+	GetScriptsByName(name string) ([]*model.Script, error)
+	GetScriptByNameAndUser(name string, userId string) (*model.Script, error)
+	GetScriptsByNameAndUser(name string, userId string) ([]*model.Script, error)
+
+	// Skills
+	SaveSkill(skill *model.Skill, updateFields []string) error
+	DeleteSkill(skill *model.Skill) error
+	GetSkill(id string) (*model.Skill, error)
+	GetSkills() ([]*model.Skill, error)
+	GetSkillsByName(name string) ([]*model.Skill, error)
+	GetSkillsByNameAndUser(name string, userId string) ([]*model.Skill, error)
 
 	// Groups
 	SaveGroup(group *model.Group) error
@@ -63,16 +82,26 @@ type DbDriver interface {
 	GetGroup(id string) (*model.Group, error)
 	GetGroups() ([]*model.Group, error)
 
+	// Responses
+	SaveResponse(response *model.Response) error
+	DeleteResponse(response *model.Response) error
+	GetResponse(id string) (*model.Response, error)
+	GetResponses() ([]*model.Response, error)
+	GetResponsesByUser(userId string) ([]*model.Response, error)
+	GetResponsesByStatus(status model.ResponseStatus) ([]*model.Response, error)
+
 	// Template Variables
 	SaveTemplateVar(variable *model.TemplateVar) error
 	DeleteTemplateVar(variable *model.TemplateVar) error
 	GetTemplateVar(id string) (*model.TemplateVar, error)
+	GetTemplateVarByName(name string) (*model.TemplateVar, error)
 	GetTemplateVars() ([]*model.TemplateVar, error)
 
 	// Volumes
 	SaveVolume(volume *model.Volume, updateFields []string) error
 	DeleteVolume(volume *model.Volume) error
 	GetVolume(id string) (*model.Volume, error)
+	GetVolumeByName(name string) (*model.Volume, error)
 	GetVolumes() ([]*model.Volume, error)
 
 	// Roles

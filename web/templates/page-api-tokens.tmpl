@@ -127,9 +127,9 @@
               <input type="text" id="name" name="name" class="form-field" x-on:keyup.debounce.500ms="checkName()" :class="{'form-field-error': !nameValid}" placeholder="Token name" x-model="formData.name">
               <div x-show="!nameValid" class="error-message" x-cloak>The token name is required and must be shorter than 255 characters.</div>
             </div>
-            <div class="flex justify-end gap-2 pt-4 border-t border-neutral-300 dark:border-gray-700">
+            <div class="flex justify-between gap-2 pt-4 border-t border-neutral-300 dark:border-gray-700">
               <button type="button" @click="tokenFormModal.show = false" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-gray-700">Cancel</button>
-              <button type="submit" class="btn-primary" :disabled="loading" x-text="buttonLabel"></button>
+              <button type="submit" class="btn-primary" :disabled="loading">Create Token</button>
             </div>
           </form>
         </template>

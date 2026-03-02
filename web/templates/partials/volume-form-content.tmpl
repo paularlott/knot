@@ -40,14 +40,16 @@
     </div>
     <div>
       <label class="form-label">Volume Definition (YAML)</label>
-      <div :class="{'form-field-error': !volValid, 'editor-wrap': true}" id="vol">
-        <textarea name="vol"></textarea>
+      <div class="mid-editor">
+        <div :class="{'form-field-error': !volValid, 'editor-wrap': true}" id="vol">
+          <textarea name="vol" class="form-field"></textarea>
+        </div>
       </div>
       <div x-show="!volValid" class="error-message" x-cloak>Volume definition must be valid YAML.</div>
     </div>
-    <div class="flex justify-end gap-2 pt-4 border-t border-neutral-300 dark:border-gray-700">
-      <button type="button" @click="volumeFormModal.show = false" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-gray-700">Cancel</button>
-      <button type="submit" class="btn-primary" :disabled="loading" x-text="buttonLabel"></button>
+    <div class="flex justify-between gap-2 pt-4 border-t border-neutral-300 dark:border-gray-700">
+      <button type="button" @click="volumeFormModal.show = false" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-gray-700" x-text="isEdit ? 'Discard' : 'Cancel'"></button>
+      <button type="submit" class="btn-primary" :disabled="loading" x-text="isEdit ? 'Save' : 'Create'"></button>
     </div>
   </form>
   <div x-cloak x-show="showPlatformWarning" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showPlatformWarning" @keydown.esc.window="showPlatformWarning = false" @click.self="showPlatformWarning = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[70] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">

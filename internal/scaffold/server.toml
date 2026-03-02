@@ -52,6 +52,31 @@ db = 0
 addr = "http://127.0.0.1:4646"
 token = ""
 
+# MCP (Model Context Protocol) server
+[server.mcp]
+enabled = false
+#disable_builtin_tools = []  # List of built-in tool names to disable
+
+# Remote MCP servers (optional)
+# Uncomment and configure to connect to external MCP servers
+# [[server.mcp.remote_servers]]
+#   namespace = "ai"
+#   url = "https://ai.example.com/mcp"
+#   token = "your-bearer-token"
+#   hidden = false  # Set to true to hide tools from ListTools (callable but not listed)
+#
+# [[server.mcp.remote_servers]]
+#   namespace = "data"
+#   url = "https://data.example.com/mcp"
+#   token = "your-data-service-bearer-token"
+#   hidden = false
+#
+# [[server.mcp.remote_servers]]
+#   namespace = "internal"
+#   url = "https://internal.example.com/mcp"
+#   token = "your-internal-service-bearer-token"
+#   hidden = true  # Hidden tools - callable from scripts but not listed
+
 # [server.cluster]
 # advertise_addr = "https://knot.example.com/"
 # key = "VF9hmdXZyzNF3rcP6M0P" # knot genkey

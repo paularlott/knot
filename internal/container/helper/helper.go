@@ -3,9 +3,11 @@ package helper
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/agentapi/agent_server"
+	"github.com/paularlott/knot/internal/agentapi/msg"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container"
 	"github.com/paularlott/knot/internal/container/apple"
@@ -174,6 +176,20 @@ func (h *Helper) StartSpace(space *model.Space, template *model.Template, user *
 	// Don't revert the space on success
 	deployFailed = false
 
+	// Execute startup script if defined (non-blocking)
+	go func() {
+		// Execute system startup script
+		if err := executeSpaceScript(space, template, user, template.StartupScriptId, true); err != nil {
+			log.WithError(err).Warn("system startup script failed", "space_id", space.Id)
+		}
+		// Execute user startup script from space definition
+		if space.StartupScriptId != "" {
+			if err := executeSpaceScript(space, template, user, space.StartupScriptId, true); err != nil {
+				log.WithError(err).Warn("user startup script failed", "space_id", space.Id)
+			}
+		}
+	}()
+
 	return nil
 }
 
@@ -184,6 +200,13 @@ func (h *Helper) StopSpace(space *model.Space) error {
 	template, err := db.GetTemplate(space.TemplateId)
 	if err != nil {
 		log.WithError(err).Error("StopSpace: failed to get template")
+		return err
+	}
+
+	// Get the user
+	user, err := db.GetUser(space.UserId)
+	if err != nil {
+		log.WithError(err).Error("StopSpace: failed to get user")
 		return err
 	}
 
@@ -203,6 +226,11 @@ func (h *Helper) StopSpace(space *model.Space) error {
 	if err != nil {
 		log.WithError(err).Error("StopSpace: failed to create container client")
 		return err
+	}
+
+	// Execute shutdown script (blocking)
+	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
+		log.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 	}
 
 	// Stop the job
@@ -256,6 +284,11 @@ func (h *Helper) RestartSpace(space *model.Space) error {
 	if err != nil {
 		log.WithError(err).Error("RestartSpace: failed to create container client")
 		return err
+	}
+
+	// Execute shutdown script if defined (blocking)
+	if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
+		log.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
 	}
 
 	// Stop the job
@@ -318,6 +351,17 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 
 			// If the space is deployed, stop the job
 			if space.IsDeployed {
+				// Get user for script execution
+				user, err := db.GetUser(space.UserId)
+				if err != nil {
+					logger.WithError(err).Warn("failed to get user for shutdown scripts")
+				} else {
+					// Execute shutdown script (blocking)
+					if err := executeSpaceScript(space, template, user, template.ShutdownScriptId, false); err != nil {
+						logger.WithError(err).Warn("system shutdown script failed", "space_id", space.Id)
+					}
+				}
+
 				err = containerClient.DeleteSpaceJob(space, nil)
 				if err != nil {
 					logger.WithError(err).Error("delete space job")
@@ -413,4 +457,69 @@ func (h *Helper) CleanupOnBoot() {
 	}
 
 	logger.Info("finished cleaning spaces...")
+}
+
+func executeSpaceScript(space *model.Space, template *model.Template, user *model.User, scriptId string, waitForAgent bool) error {
+	if scriptId == "" || template.IsManual() {
+		return nil
+	}
+
+	db := database.GetInstance()
+	script, err := db.GetScript(scriptId)
+	if err != nil {
+		log.WithError(err).Error("failed to get script", "script_id", scriptId, "space_id", space.Id)
+		return err
+	}
+
+	if script == nil || script.IsDeleted || !script.Active {
+		log.Debug("script not found or inactive", "script_id", scriptId, "space_id", space.Id)
+		return nil
+	}
+
+	return executeScript(space, script, waitForAgent)
+}
+
+func executeScript(space *model.Space, script *model.Script, waitForAgent bool) error {
+	var session *agent_server.Session
+	if waitForAgent {
+		for i := 0; i < 60; i++ {
+			session = agent_server.GetSession(space.Id)
+			if session != nil {
+				break
+			}
+			time.Sleep(5 * time.Second)
+		}
+	} else {
+		session = agent_server.GetSession(space.Id)
+	}
+
+	if session == nil {
+		log.Warn("agent not connected, skipping script", "space_id", space.Id)
+		return nil
+	}
+
+	log.Debug("executing script", "script_id", script.Id, "space_id", space.Id)
+
+	// Startup and system scripts run without timeout
+	execMsg := &msg.ExecuteScriptMessage{
+		Content:      script.Content,
+		Arguments:    []string{},
+		IsSystemCall: true,
+	}
+
+	respChan, err := session.SendExecuteScript(execMsg)
+	if err != nil {
+		log.WithError(err).Error("failed to send script to agent", "script_id", script.Id, "space_id", space.Id)
+		return err
+	}
+
+	resp := <-respChan
+	if !resp.Success {
+		err := fmt.Errorf("%s", resp.Error)
+		log.WithError(err).Error("script execution failed", "script_id", script.Id, "space_id", space.Id)
+		return err
+	}
+
+	log.Debug("script completed", "script_id", script.Id, "space_id", space.Id)
+	return nil
 }

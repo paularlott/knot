@@ -1,0 +1,9 @@
+description = "Permanently delete a space and destroy all its data. This action cannot be undone - use this to completely remove a space."
+keywords = ["delete", "destroy", "remove", "permanently", "cleanup"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the space to permanently delete"
+required = true

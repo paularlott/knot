@@ -1,70 +1,100 @@
 package mcp
 
 import (
-	"bufio"
 	"context"
 	_ "embed"
 	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
+	"net/url"
 
-	"github.com/paularlott/knot/internal/config"
+	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/mcp"
 )
 
-var (
-	//go:embed specs/local-container-spec.md
-	localContainerSpec string
+const ToolNameFindSkill = "find_skill"
 
-	//go:embed specs/nomad-spec.md
-	nomadSpec string
-)
-
-type SkillInfo struct {
-	Filename    string `json:"filename"`
-	Description string `json:"description"`
-}
-
-func skills(ctx context.Context, req *mcp.ToolRequest) (*mcp.ToolResponse, error) {
-	cfg := config.GetServerConfig()
-	filename := req.StringOr("filename", "")
-
-	if filename == "" {
-		return listSkills(cfg.SkillsPath)
+// getSkillsTool returns the find_skill tool if user has accessible skills
+func getSkillsTool(ctx context.Context, user *model.User) *mcp.MCPTool {
+	if user == nil {
+		return nil
 	}
-	return getSkillContent(cfg.SkillsPath, filename)
-}
 
-func listSkills(skillsPath string) (*mcp.ToolResponse, error) {
-	var skills []SkillInfo
-	var message string
+	client := apiclient.NewMuxClient(user)
 
-	// Add user skills if directory exists and is configured
-	if skillsPath != "" {
-		if _, err := os.Stat(skillsPath); err == nil {
-			userSkills, err := scanUserSkills(skillsPath)
-			if err != nil {
-				return nil, fmt.Errorf("error scanning skills directory: %v", err)
-			}
-			skills = append(skills, userSkills...)
+	var response apiclient.SkillList
+	_, err := client.Do(ctx, "GET", "/api/skill", nil, &response)
+	if err != nil {
+		return nil
+	}
+
+	// Check if user has any active skills
+	for _, skill := range response.Skills {
+		if skill.Active {
+			tool := mcp.NewTool(ToolNameFindSkill, "Access instructions, guides, workflows, and scripts for completing specific tasks. Search by topic (e.g., \"deploy\", \"git\", \"testing\") to get step-by-step procedures with examples. Returns full content with relevance scores.",
+				mcp.String("name", "Find the exact skill by name (optional if query given)"),
+				mcp.String("query", "Find skills by name/description (optional if name given)"),
+			).ToMCPTool()
+			return &tool
 		}
-	} else {
-		message = "Skills path not configured - showing built-in specs only"
 	}
 
-	// Always add internal specs (but skip if user file with same name exists)
-	skills = addInternalSpecs(skills)
+	return nil
+}
+
+// executeSkillsTool executes the find_skill tool
+func executeSkillsTool(ctx context.Context, user *model.User, params map[string]interface{}) (interface{}, error) {
+	query, _ := params["query"].(string)
+	skillName, _ := params["name"].(string)
+
+	// If both name and query are provided, try name first, then search as fallback
+	if skillName != "" && query != "" {
+		result, err := getSkillByName(ctx, user, skillName)
+		if err == nil {
+			return result, nil
+		}
+		// Name lookup failed, fall back to search
+		return searchSkills(ctx, user, query)
+	}
+
+	// If name is provided, get specific skill
+	if skillName != "" {
+		return getSkillByName(ctx, user, skillName)
+	}
+
+	// If query is provided, search skills
+	if query != "" {
+		return searchSkills(ctx, user, query)
+	}
+
+	// Otherwise list all accessible skills (for discovery)
+	return listSkills(ctx, user)
+}
+
+func listSkills(ctx context.Context, user *model.User) (*mcp.ToolResponse, error) {
+	client := apiclient.NewMuxClient(user)
+
+	var response apiclient.SkillList
+	_, err := client.Do(ctx, "GET", "/api/skill", nil, &response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list skills: %v", err)
+	}
+
+	skills := make([]map[string]interface{}, 0, len(response.Skills))
+
+	// Add database skills (only active ones)
+	for _, skill := range response.Skills {
+		if skill.Active {
+			skills = append(skills, map[string]interface{}{
+				"name":        skill.Name,
+				"description": skill.Description,
+			})
+		}
+	}
 
 	result := map[string]interface{}{
 		"action": "list",
 		"count":  len(skills),
 		"skills": skills,
-	}
-
-	if message != "" {
-		result["message"] = message
 	}
 
 	return mcp.NewToolResponseMulti(
@@ -73,274 +103,38 @@ func listSkills(skillsPath string) (*mcp.ToolResponse, error) {
 	), nil
 }
 
-func getSkillContent(skillsPath, filename string) (*mcp.ToolResponse, error) {
-	var content string
-	var err error
+func searchSkills(ctx context.Context, user *model.User, query string) (*mcp.ToolResponse, error) {
+	client := apiclient.NewMuxClient(user)
 
-	// Try to read from user skills directory first (if configured and exists)
-	if skillsPath != "" {
-		if _, statErr := os.Stat(skillsPath); statErr == nil {
-			content, err = readUserSkill(skillsPath, filename)
-			if err == nil {
-				// Successfully read user skill
-				return createContentResponse(filename, content), nil
-			}
-			// If file not found, continue to check internal specs
-			if !os.IsNotExist(err) {
-				// Other error (permission, etc.)
-				return nil, err
-			}
-		}
-	}
-
-	// Fallback to internal specs
-	if internalContent := getInternalSpec(filename); internalContent != "" {
-		return createContentResponse(filename, internalContent), nil
-	}
-
-	// File not found anywhere
-	if skillsPath == "" {
-		return nil, fmt.Errorf("skill file not found: %s (skills path not configured). Available built-in specs: nomad-spec.md, local-container-spec.md. Use skills() without filename to list all available skills", filename)
-	}
-	return nil, fmt.Errorf("skill file not found: %s. Use skills() without filename to list all available skills", filename)
-}
-
-func scanUserSkills(skillsPath string) ([]SkillInfo, error) {
-	var skills []SkillInfo
-
-	err := filepath.Walk(skillsPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		// Only process common text file extensions
-		ext := strings.ToLower(filepath.Ext(path))
-		if ext != ".md" && ext != ".txt" && ext != ".rst" && ext != ".adoc" && ext != "" {
-			return nil
-		}
-
-		// Get relative path from skills directory
-		relPath, err := filepath.Rel(skillsPath, path)
-		if err != nil {
-			return err
-		}
-
-		// Extract description
-		description := extractDescription(path)
-		if description == "" {
-			description = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-		}
-
-		skills = append(skills, SkillInfo{
-			Filename:    relPath,
-			Description: description,
-		})
-
-		return nil
-	})
-
-	return skills, err
-}
-
-func readUserSkill(skillsPath, filename string) (string, error) {
-	// Security checks
-	if filepath.IsAbs(filename) {
-		return "", fmt.Errorf("filename must be relative to skills directory")
-	}
-
-	cleanPath := filepath.Clean(filename)
-	if strings.Contains(cleanPath, "..") {
-		return "", fmt.Errorf("invalid filename: directory traversal not allowed")
-	}
-
-	fullPath := filepath.Join(skillsPath, cleanPath)
-
-	// Ensure the resolved path is still within the skills directory
-	absSkillsPath, err := filepath.Abs(skillsPath)
+	var results []apiclient.SkillSearchResult
+	_, err := client.Do(ctx, "GET", fmt.Sprintf("/api/skill/search?q=%s", url.QueryEscape(query)), nil, &results)
 	if err != nil {
-		return "", fmt.Errorf("error resolving skills path: %v", err)
+		return nil, fmt.Errorf("failed to search skills: %v", err)
 	}
 
-	absFullPath, err := filepath.Abs(fullPath)
+	// Return JSON only - structured response requires an object
+	return mcp.NewToolResponseJSON(results), nil
+}
+
+func getSkillByName(ctx context.Context, user *model.User, name string) (*mcp.ToolResponse, error) {
+	// Get from database
+	client := apiclient.NewMuxClient(user)
+
+	var skill apiclient.SkillDetails
+	_, err := client.Do(ctx, "GET", fmt.Sprintf("/api/skill/%s", name), nil, &skill)
 	if err != nil {
-		return "", fmt.Errorf("error resolving file path: %v", err)
+		return nil, fmt.Errorf("skill not found: %s", name)
 	}
 
-	if !strings.HasPrefix(absFullPath, absSkillsPath) {
-		return "", fmt.Errorf("file path outside skills directory")
+	// Check if content is empty (shouldn't happen but handle it)
+	if skill.Content == "" {
+		return nil, fmt.Errorf("skill content is empty: %s", name)
 	}
 
-	// Read file content
-	content, err := os.ReadFile(fullPath)
-	if err != nil {
-		return "", err
+	// Return same structure as search results, with perfect score
+	result := apiclient.SkillSearchResult{
+		Skill: skill.Content,
+		Score: 1.0,
 	}
-
-	return string(content), nil
-}
-
-func createContentResponse(filename, content string) *mcp.ToolResponse {
-	result := map[string]interface{}{
-		"filename": filename,
-		"content":  content,
-	}
-	return mcp.NewToolResponseMulti(
-		mcp.NewToolResponseJSON(result),
-		mcp.NewToolResponseStructured(result),
-	)
-}
-
-func getInternalSpec(filename string) string {
-	switch filename {
-	case "nomad-spec.md":
-		return nomadSpec
-	case "local-container-spec.md", "docker-spec.md", "podman-spec.md", "apple-spec.md":
-		return localContainerSpec
-	default:
-		return ""
-	}
-}
-
-func addInternalSpecs(skills []SkillInfo) []SkillInfo {
-	internalSpecs := map[string]string{
-		"nomad-spec.md":           nomadSpec,
-		"local-container-spec.md": localContainerSpec,
-	}
-
-	for filename, content := range internalSpecs {
-		// Check if this spec is already in the list (user override)
-		found := false
-		for _, skill := range skills {
-			if skill.Filename == filename {
-				found = true
-				break
-			}
-		}
-
-		// If not found, add the internal spec
-		if !found {
-			title := extractTitleFromContent(content)
-			if title == "" {
-				title = strings.TrimSuffix(filename, filepath.Ext(filename))
-			}
-
-			skills = append(skills, SkillInfo{
-				Filename:    filename,
-				Description: title,
-			})
-		}
-	}
-
-	return skills
-}
-
-func extractDescription(filePath string) string {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return ""
-	}
-	defer file.Close()
-
-	return extractTitleFromReader(file)
-}
-
-func extractTitleFromContent(content string) string {
-	return extractTitleFromReader(strings.NewReader(content))
-}
-
-func extractTitleFromReader(reader interface{ Read([]byte) (int, error) }) string {
-	scanner := bufio.NewScanner(reader)
-	lineCount := 0
-
-	// Look for front matter first (YAML or TOML)
-	if scanner.Scan() {
-		firstLine := strings.TrimSpace(scanner.Text())
-		if firstLine == "---" || firstLine == "+++" {
-			// Parse front matter
-			for scanner.Scan() {
-				line := strings.TrimSpace(scanner.Text())
-				if line == "---" || line == "+++" {
-					break
-				}
-
-				// Look for title field first, then description as fallback
-				if strings.HasPrefix(strings.ToLower(line), "title:") {
-					title := strings.TrimSpace(strings.TrimPrefix(line, "title:"))
-					title = strings.Trim(title, `"'`)
-					if title != "" {
-						return title
-					}
-				} else if strings.HasPrefix(strings.ToLower(line), "description:") {
-					desc := strings.TrimSpace(strings.TrimPrefix(line, "description:"))
-					desc = strings.Trim(desc, `"'`)
-					if desc != "" {
-						return desc
-					}
-				}
-			}
-		} else {
-			// Reset and look for headings
-			lineCount = 1
-		}
-	}
-
-	// Look for first heading or meaningful line
-	for scanner.Scan() && lineCount < 10 {
-		line := strings.TrimSpace(scanner.Text())
-		lineCount++
-
-		if line == "" {
-			continue
-		}
-
-		// Markdown heading
-		if strings.HasPrefix(line, "#") {
-			heading := strings.TrimSpace(strings.TrimLeft(line, "#"))
-			if heading != "" {
-				return heading
-			}
-		}
-
-		// First non-empty line as fallback (but skip common prefixes)
-		if !strings.HasPrefix(line, "//") && !strings.HasPrefix(line, "/*") &&
-			!strings.HasPrefix(line, "<!--") && len(line) > 10 {
-			// Remove common markdown/markup
-			cleaned := regexp.MustCompile(`[*_`+"`"+`]+`).ReplaceAllString(line, "")
-			cleaned = strings.TrimSpace(cleaned)
-			if len(cleaned) > 5 && len(cleaned) < 100 {
-				return cleaned
-			}
-		}
-	}
-
-	return ""
-}
-
-// GetInternalNomadSpec returns the embedded nomad spec (for scaffold command)
-func GetInternalNomadSpec() string {
-	return nomadSpec
-}
-
-// GetInternalLocalContainerSpec returns the embedded local container spec (for scaffold command)
-func GetInternalLocalContainerSpec() string {
-	return localContainerSpec
-}
-
-// Deprecated: Use GetInternalLocalContainerSpec instead
-func GetInternalDockerSpec() string {
-	return localContainerSpec
-}
-
-// Deprecated: Use GetInternalLocalContainerSpec instead
-func GetInternalPodmanSpec() string {
-	return localContainerSpec
-}
-
-// Deprecated: Use GetInternalLocalContainerSpec instead
-func GetInternalAppleSpec() string {
-	return localContainerSpec
+	return mcp.NewToolResponseJSON(result), nil
 }

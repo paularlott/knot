@@ -101,6 +101,32 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 		}
 	}
 
+	scripts, err := db.GetScripts()
+	if err != nil {
+		c.logger.WithError(err).Error("error while getting scripts from database:")
+	} else {
+		for _, script := range scripts {
+			if script.IsManaged {
+				if err := db.DeleteScript(script); err != nil {
+					c.logger.Error("error while deleting managed script from database:", "script", script.Name)
+				}
+			}
+		}
+	}
+
+	skills, err := db.GetSkills()
+	if err != nil {
+		c.logger.WithError(err).Error("error while getting skills from database:")
+	} else {
+		for _, skill := range skills {
+			if skill.IsManaged {
+				if err := db.DeleteSkill(skill); err != nil {
+					c.logger.Error("error while deleting managed skill from database:", "skill", skill.Name)
+				}
+			}
+		}
+	}
+
 	go func() {
 		fullSyncDone := false
 
@@ -206,6 +232,15 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 
 				case leafmsg.MessageGossipTemplateVar:
 					c.handleLeafGossipTemplateVar(msg)
+
+				case leafmsg.MessageGossipScript:
+					c.handleLeafGossipScript(msg)
+
+				case leafmsg.MessageGossipSkill:
+					c.handleLeafGossipSkill(msg)
+
+				case leafmsg.MessageGossipResponse:
+					// Agent responses - not handled by leaf nodes
 
 				case leafmsg.MessageFullSyncEnd:
 					c.logger.Info("leaf full sync complete")
@@ -314,3 +349,40 @@ func (c *Cluster) handleLeafGossipTemplateVar(msg *leafmsg.Message) {
 		}
 	}
 }
+
+func (c *Cluster) handleLeafGossipScript(msg *leafmsg.Message) {
+	scripts := []*model.Script{}
+	if err := msg.UnmarshalPayload(&scripts); err != nil {
+		c.logger.WithError(err).Error("error while unmarshalling leaf script message:")
+		return
+	}
+
+	// Mark the scripts as managed
+	for _, script := range scripts {
+		script.IsManaged = true
+	}
+
+	if err := c.mergeScripts(scripts); err != nil {
+		c.logger.WithError(err).Error("error while merging scripts from leaf:")
+		return
+	}
+}
+
+func (c *Cluster) handleLeafGossipSkill(msg *leafmsg.Message) {
+	skills := []*model.Skill{}
+	if err := msg.UnmarshalPayload(&skills); err != nil {
+		c.logger.WithError(err).Error("error while unmarshalling leaf skill message:")
+		return
+	}
+
+	// Mark the skills as managed
+	for _, skill := range skills {
+		skill.IsManaged = true
+	}
+
+	if err := c.mergeSkills(skills); err != nil {
+		c.logger.WithError(err).Error("error while merging skills from leaf:")
+		return
+	}
+}
+

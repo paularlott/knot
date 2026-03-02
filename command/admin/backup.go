@@ -28,6 +28,9 @@ type backupData struct {
 	Groups       []*model.Group
 	Roles        []*model.Role
 	Users        []backupUser
+	Scripts      []*model.Script
+	Skills       []*model.Skill
+	Responses    []*model.Response
 	CfgValues    []*model.CfgValue
 	AuditLogs    []*model.AuditLogEntry
 }
@@ -109,6 +112,27 @@ var BackupCmd = &cli.Command{
 			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_CFG_VALUES"},
 		},
 		&cli.BoolFlag{
+			Name:       "scripts",
+			Aliases:    []string{"c"},
+			Usage:      "Backup scripts",
+			ConfigPath: []string{"backup.scripts"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SCRIPTS"},
+		},
+		&cli.BoolFlag{
+			Name:       "skills",
+			Aliases:    []string{"i"},
+			Usage:      "Backup skills",
+			ConfigPath: []string{"backup.skills"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_SKILLS"},
+		},
+		&cli.BoolFlag{
+			Name:       "responses",
+			Aliases:    []string{"p"},
+			Usage:      "Backup responses",
+			ConfigPath: []string{"backup.responses"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_BACKUP_RESPONSES"},
+		},
+		&cli.BoolFlag{
 			Name:       "audit-logs",
 			Usage:      "Backup audit logs",
 			ConfigPath: []string{"backup.audit_logs"},
@@ -154,12 +178,15 @@ var BackupCmd = &cli.Command{
 		backupUsers := cmd.GetBool("users")
 		backupSpaces := cmd.GetBool("spaces")
 		backupTokens := cmd.GetBool("tokens")
+		backupScripts := cmd.GetBool("scripts")
+		backupSkills := cmd.GetBool("skills")
+		backupResponses := cmd.GetBool("responses")
 		backupCfgValues := cmd.GetBool("cfg-values")
 		backupAuditLogs := cmd.GetBool("audit-logs")
 		backupAll := cmd.GetBool("all")
 
 		// If any specific backup flags are set, do not use the "all" flag
-		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupCfgValues || backupAuditLogs {
+		if backupTemplates || backupVars || backupVolumes || backupGroups || backupRoles || backupUsers || backupSpaces || backupTokens || backupScripts || backupSkills || backupResponses || backupCfgValues || backupAuditLogs {
 			backupAll = false
 		}
 
@@ -172,6 +199,9 @@ var BackupCmd = &cli.Command{
 			backupUsers = true
 			backupSpaces = true
 			backupTokens = true
+			backupScripts = true
+			backupSkills = true
+			backupResponses = true
 			backupCfgValues = true
 			backupAuditLogs = true
 		}
@@ -262,6 +292,36 @@ var BackupCmd = &cli.Command{
 			}
 			backupData.Roles = make([]*model.Role, len(roles))
 			copy(backupData.Roles, roles)
+		}
+
+		if backupScripts {
+			fmt.Println("Backing up scripts...")
+			scripts, err := db.GetScripts()
+			if err != nil {
+				return fmt.Errorf("Error getting scripts: %w", err)
+			}
+			backupData.Scripts = make([]*model.Script, len(scripts))
+			copy(backupData.Scripts, scripts)
+		}
+
+		if backupSkills {
+			fmt.Println("Backing up skills...")
+			skills, err := db.GetSkills()
+			if err != nil {
+				return fmt.Errorf("Error getting skills: %w", err)
+			}
+			backupData.Skills = make([]*model.Skill, len(skills))
+			copy(backupData.Skills, skills)
+		}
+
+		if backupResponses {
+			fmt.Println("Backing up responses...")
+			responses, err := db.GetResponses()
+			if err != nil {
+				return fmt.Errorf("Error getting responses: %w", err)
+			}
+			backupData.Responses = make([]*model.Response, len(responses))
+			copy(backupData.Responses, responses)
 		}
 
 		if backupUsers {

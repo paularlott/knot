@@ -69,7 +69,7 @@ func (c *Cluster) GossipGroup(group *model.Group) {
 		c.logger.Debug("Updating group on leaf nodes")
 
 		groups := []*model.Group{group}
-		c.sendToLeafNodes(leafmsg.MessageGossipGroup, groups)
+		c.sendToLeafNodes(leafmsg.MessageGossipGroup, &groups)
 	}
 }
 

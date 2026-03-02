@@ -1,6 +1,9 @@
 package apiclient
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 type CustomFieldDef struct {
 	Name        string `json:"name"`
@@ -20,6 +23,8 @@ type TemplateCreateRequest struct {
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
 	WithRunCommand   bool                 `json:"with_run_command"`
+	StartupScriptId  string               `json:"startup_script_id"`
+	ShutdownScriptId string               `json:"shutdown_script_id"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
 	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
@@ -45,6 +50,8 @@ type TemplateUpdateRequest struct {
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
 	WithRunCommand   bool                 `json:"with_run_command"`
+	StartupScriptId  string               `json:"startup_script_id"`
+	ShutdownScriptId string               `json:"shutdown_script_id"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
 	AutoStart        bool                 `json:"auto_start"`
 	Schedule         []TemplateDetailsDay `json:"schedule"`
@@ -112,6 +119,8 @@ type TemplateDetails struct {
 	WithCodeServer   bool                 `json:"with_code_server"`
 	WithSSH          bool                 `json:"with_ssh"`
 	WithRunCommand   bool                 `json:"with_run_command"`
+	StartupScriptId  string               `json:"startup_script_id"`
+	ShutdownScriptId string               `json:"shutdown_script_id"`
 	ComputeUnits     uint32               `json:"compute_units"`
 	StorageUnits     uint32               `json:"storage_units"`
 	ScheduleEnabled  bool                 `json:"schedule_enabled"`
@@ -163,4 +172,18 @@ func (c *ApiClient) GetTemplate(ctx context.Context, templateId string) (*Templa
 	}
 
 	return response, code, nil
+}
+
+func (c *ApiClient) GetTemplateByName(ctx context.Context, name string) (*TemplateDetails, error) {
+	templates, _, err := c.GetTemplates(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range templates.Templates {
+		if t.Name == name {
+			template, _, err := c.GetTemplate(ctx, t.Id)
+			return template, err
+		}
+	}
+	return nil, fmt.Errorf("template not found: %s", name)
 }

@@ -63,6 +63,7 @@ parent_space_id CHAR(36) DEFAULT '',
 user_id CHAR(36),
 template_id CHAR(36) DEFAULT '',
 shared_with_user_id CHAR(36) DEFAULT '',
+startup_script_id CHAR(36) DEFAULT '',
 name VARCHAR(64),
 zone VARCHAR(64),
 node_id VARCHAR(36) DEFAULT '',
@@ -112,6 +113,11 @@ with_terminal TINYINT(1) NOT NULL DEFAULT 1,
 with_vscode_tunnel TINYINT(1) NOT NULL DEFAULT 0,
 with_code_server TINYINT(1) NOT NULL DEFAULT 0,
 with_ssh TINYINT(1) NOT NULL DEFAULT 0,
+with_run_command TINYINT(1) NOT NULL DEFAULT 0,
+startup_script_id CHAR(36) DEFAULT '',
+shutdown_script_id CHAR(36) DEFAULT '',
+user_startup_script VARCHAR(64) DEFAULT '',
+user_shutdown_script VARCHAR(64) DEFAULT '',
 schedule_enabled TINYINT(1) NOT NULL DEFAULT 0,
 auto_start TINYINT(1) NOT NULL DEFAULT 0,
 is_deleted TINYINT(1) NOT NULL DEFAULT 0,
@@ -191,6 +197,60 @@ INDEX idx_is_deleted (is_deleted)
 		return err
 	}
 
+	db.logger.Debug("creating scripts table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS scripts (
+script_id CHAR(36) PRIMARY KEY,
+user_id CHAR(36) DEFAULT '',
+name VARCHAR(64),
+description TEXT DEFAULT '',
+content MEDIUMTEXT,
+groups JSON NOT NULL DEFAULT '[]',
+zones JSON NOT NULL DEFAULT '[]',
+script_type VARCHAR(16) DEFAULT 'script',
+mcp_input_schema_toml TEXT DEFAULT '',
+mcp_keywords JSON NOT NULL DEFAULT '[]',
+active TINYINT(1) NOT NULL DEFAULT 1,
+discoverable TINYINT(1) NOT NULL DEFAULT 0,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+is_managed TINYINT(1) NOT NULL DEFAULT 0,
+created_user_id CHAR(36),
+created_at TIMESTAMP(6),
+updated_user_id CHAR(36),
+updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX user_id (user_id),
+INDEX idx_is_deleted (is_deleted),
+INDEX script_type (script_type),
+INDEX name_user (name, user_id)
+)`)
+	if err != nil {
+		return err
+	}
+
+	db.logger.Debug("creating skills table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS skills (
+skill_id CHAR(36) PRIMARY KEY,
+user_id CHAR(36) DEFAULT '',
+name VARCHAR(64),
+description VARCHAR(1024) DEFAULT '',
+content MEDIUMTEXT,
+groups JSON NOT NULL DEFAULT '[]',
+zones JSON NOT NULL DEFAULT '[]',
+active TINYINT(1) NOT NULL DEFAULT 1,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+is_managed TINYINT(1) NOT NULL DEFAULT 0,
+created_user_id CHAR(36),
+created_at TIMESTAMP(6),
+updated_user_id CHAR(36),
+updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX user_id (user_id),
+INDEX idx_is_deleted (is_deleted),
+INDEX active (active),
+INDEX name_user (name, user_id)
+)`)
+	if err != nil {
+		return err
+	}
+
 	db.logger.Debug("creating roles table")
 	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS roles (
 role_id CHAR(36) PRIMARY KEY,
@@ -201,6 +261,29 @@ created_user_id CHAR(36),
 created_at TIMESTAMP(6),
 updated_user_id CHAR(36),
 updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX idx_is_deleted (is_deleted)
+)`)
+	if err != nil {
+		return err
+	}
+
+	db.logger.Debug("creating responses table")
+	_, err = db.connection.Exec(`CREATE TABLE IF NOT EXISTS responses (
+response_id CHAR(36) PRIMARY KEY,
+status VARCHAR(32) NOT NULL DEFAULT 'pending',
+request JSON DEFAULT NULL,
+response JSON DEFAULT NULL,
+error_text TEXT DEFAULT '',
+previous_response_id CHAR(36) DEFAULT '',
+user_id CHAR(36),
+space_id CHAR(36) DEFAULT '',
+expires_at TIMESTAMP(6) DEFAULT NULL,
+is_deleted TINYINT(1) NOT NULL DEFAULT 0,
+created_at TIMESTAMP(6),
+updated_at BIGINT UNSIGNED DEFAULT 0,
+INDEX user_id (user_id),
+INDEX status (status),
+INDEX expires_at (expires_at),
 INDEX idx_is_deleted (is_deleted)
 )`)
 	if err != nil {

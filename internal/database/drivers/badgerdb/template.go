@@ -121,3 +121,18 @@ func (db *BadgerDbDriver) GetTemplates() ([]*model.Template, error) {
 
 	return templates, err
 }
+
+func (db *BadgerDbDriver) GetTemplateByName(name string) (*model.Template, error) {
+	templates, err := db.GetTemplates()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, template := range templates {
+		if template.Name == name {
+			return template, nil
+		}
+	}
+
+	return nil, fmt.Errorf("template not found")
+}

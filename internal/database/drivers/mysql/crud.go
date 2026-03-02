@@ -262,29 +262,3 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 
 	return nil
 }
-
-func (db *MySQLDriver) delete(tableName string, obj interface{}) error {
-	val := reflect.ValueOf(obj).Elem()
-	typ := val.Type()
-
-	var pkValue interface{}
-	var pkColumn string
-
-	for i := 0; i < val.NumField(); i++ {
-		field := typ.Field(i)
-		tag := field.Tag.Get("db")
-		if strings.Contains(tag, ",pk") {
-			pkValue = val.Field(i).Interface()
-			pkColumn = strings.Replace(tag, ",pk", "", -1)
-			break
-		}
-	}
-
-	if pkColumn == "" {
-		return fmt.Errorf("no primary key field found")
-	}
-
-	query := fmt.Sprintf("DELETE FROM %s WHERE %s = ?", tableName, pkColumn)
-	_, err := db.connection.Exec(query, pkValue)
-	return err
-}

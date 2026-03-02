@@ -97,6 +97,73 @@ func (c *Cluster) sendToLeafNodes(msgType leafmsg.MessageType, payload interface
 	defer c.leafSessionMux.RUnlock()
 
 	for _, session := range c.leafSessions {
-		session.SendMessage(msgType, payload)
+		// Filter templates and skills by user groups
+		if msgType == leafmsg.MessageGossipTemplate {
+			templates := payload.(*[]*model.Template)
+			filteredTemplates := []*model.Template{}
+			for _, template := range *templates {
+				// Check if template matches user's groups
+				matches := len(template.Groups) == 0
+				if !matches {
+					for _, groupId := range template.Groups {
+						for _, userGroupId := range session.user.Groups {
+							if groupId == userGroupId {
+								matches = true
+								break
+							}
+						}
+						if matches {
+							break
+						}
+					}
+				}
+				// If matches, send as-is; if doesn't match and not already deleted, mark as deleted
+				if matches {
+					filteredTemplates = append(filteredTemplates, template)
+				} else if !template.IsDeleted {
+					// Send as deleted to remove from leaf
+					deletedTemplate := *template
+					deletedTemplate.IsDeleted = true
+					filteredTemplates = append(filteredTemplates, &deletedTemplate)
+				}
+			}
+			if len(filteredTemplates) > 0 {
+				session.SendMessage(msgType, &filteredTemplates)
+			}
+		} else if msgType == leafmsg.MessageGossipSkill {
+			skills := payload.(*[]*model.Skill)
+			filteredSkills := []*model.Skill{}
+			for _, skill := range *skills {
+				// Check if skill matches user's groups
+				matches := len(skill.Groups) == 0
+				if !matches {
+					for _, groupId := range skill.Groups {
+						for _, userGroupId := range session.user.Groups {
+							if groupId == userGroupId {
+								matches = true
+								break
+							}
+						}
+						if matches {
+							break
+						}
+					}
+				}
+				// If matches, send as-is; if doesn't match and not already deleted, mark as deleted
+				if matches {
+					filteredSkills = append(filteredSkills, skill)
+				} else if !skill.IsDeleted {
+					// Send as deleted to remove from leaf
+					deletedSkill := *skill
+					deletedSkill.IsDeleted = true
+					filteredSkills = append(filteredSkills, &deletedSkill)
+				}
+			}
+			if len(filteredSkills) > 0 {
+				session.SendMessage(msgType, &filteredSkills)
+			}
+		} else {
+			session.SendMessage(msgType, payload)
+		}
 	}
 }

@@ -26,6 +26,10 @@ const (
 	EventVolumesDeleted      EventType = "volumes:deleted"
 	EventSessionsChanged     EventType = "sessions:changed"
 	EventSessionsDeleted     EventType = "sessions:deleted"
+	EventScriptsChanged      EventType = "scripts:changed"
+	EventScriptsDeleted      EventType = "scripts:deleted"
+	EventSkillsChanged       EventType = "skills:changed"
+	EventSkillsDeleted       EventType = "skills:deleted"
 	EventTunnelsChanged      EventType = "tunnels:changed"
 	EventTunnelsDeleted      EventType = "tunnels:deleted"
 	EventAuditLogsChanged    EventType = "auditlogs:changed"
@@ -180,25 +184,6 @@ func (h *Hub) Broadcast(event *Event) {
 	}
 }
 
-// BroadcastToUser sends an event to all clients for a specific user
-func (h *Hub) BroadcastToUser(userId string, event *Event) {
-	data, err := json.Marshal(event)
-	if err != nil {
-		return
-	}
-	h.mu.RLock()
-	for client := range h.clients {
-		if client.userId == userId {
-			select {
-			case client.send <- data:
-			default:
-				// Client buffer is full
-			}
-		}
-	}
-	h.mu.RUnlock()
-}
-
 // InvalidateSession sends an auth required event to all clients with a specific session
 func (h *Hub) InvalidateSession(sessionId string) {
 	event := &Event{
@@ -218,13 +203,6 @@ func (h *Hub) InvalidateSession(sessionId string) {
 		}
 	}
 	h.mu.RUnlock()
-}
-
-// ClientCount returns the number of connected clients
-func (h *Hub) ClientCount() int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return len(h.clients)
 }
 
 // Shutdown closes all client connections and stops the hub

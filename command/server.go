@@ -29,17 +29,21 @@ import (
 	"github.com/paularlott/knot/internal/middleware"
 	"github.com/paularlott/knot/internal/openai"
 	"github.com/paularlott/knot/internal/proxy"
+	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/systemprompt"
 	"github.com/paularlott/knot/internal/tunnel_server"
 	"github.com/paularlott/knot/internal/util"
 	"github.com/paularlott/knot/internal/util/audit"
+	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/web"
 
 	"github.com/paularlott/cli"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/mcptools"
 	"github.com/paularlott/mcp"
+	ai "github.com/paularlott/mcp/ai"
 )
 
 var ServerCmd = &cli.Command{
@@ -174,6 +178,13 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_RETENTION"},
 			DefaultValue: 90,
 		},
+		&cli.IntFlag{
+			Name:         "mcp-tool-timeout",
+			Usage:        "The maximum execution time in seconds for MCP tool calls (allows for LLM operations with tool calling).",
+			ConfigPath:   []string{"server.mcp_tool_timeout"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_TOOL_TIMEOUT"},
+			DefaultValue: 180,
+		},
 		&cli.BoolFlag{
 			Name:         "disable-space-create",
 			Usage:        "Disable the ability to create spaces.",
@@ -203,11 +214,17 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "",
 		},
 		&cli.StringFlag{
-			Name:         "skills-path",
-			Usage:        "The path to the skills/knowledgebase directory for MCP access.",
-			ConfigPath:   []string{"server.skills_path"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_SKILLS_PATH"},
+			Name:         "mcp-tools-path",
+			Usage:        "Path to mcp-tools directory (overrides embedded tools).",
+			ConfigPath:   []string{"server.mcp_tools_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_TOOLS_PATH"},
 			DefaultValue: "",
+		},
+		&cli.StringSliceFlag{
+			Name:       "mcp-disable-builtin-tools",
+			Usage:      "Comma-separated list of built-in tool names to disable.",
+			ConfigPath: []string{"server.mcp.disable_builtin_tools"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_MCP_DISABLE_BUILTIN_TOOLS"},
 		},
 
 		// UI flags
@@ -555,13 +572,6 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_ENABLED"},
 			DefaultValue: false,
 		},
-		&cli.BoolFlag{
-			Name:         "mcp-native-tools",
-			Usage:        "Use native tool registration instead of discovery-based registration.",
-			ConfigPath:   []string{"server.mcp.native_tools"},
-			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_MCP_NATIVE_TOOLS"},
-			DefaultValue: false,
-		},
 
 		// Chat flags
 		&cli.BoolFlag{
@@ -579,18 +589,39 @@ var ServerCmd = &cli.Command{
 			DefaultValue: false,
 		},
 		&cli.StringFlag{
+			Name:         "chat-provider",
+			Usage:        "LLM provider for chat functionality (openai, claude, gemini, ollama, mistral, zai).",
+			ConfigPath:   []string{"server.chat.provider"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_PROVIDER"},
+			DefaultValue: "openai",
+		},
+		&cli.StringFlag{
+			Name:         "chat-api-key",
+			Usage:        "API key for chat functionality.",
+			ConfigPath:   []string{"server.chat.api_key"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_API_KEY"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
+			Name:         "chat-base-url",
+			Usage:        "Base URL for chat functionality.",
+			ConfigPath:   []string{"server.chat.base_url"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_BASE_URL"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
 			Name:         "chat-openai-api-key",
-			Usage:        "OpenAI API key for chat functionality.",
+			Usage:        "Deprecated: use chat-api-key instead.",
 			ConfigPath:   []string{"server.chat.openai_api_key"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_API_KEY"},
 			DefaultValue: "",
 		},
 		&cli.StringFlag{
 			Name:         "chat-openai-base-url",
-			Usage:        "OpenAI API base URL for chat functionality.",
+			Usage:        "Deprecated: use chat-base-url instead.",
 			ConfigPath:   []string{"server.chat.openai_base_url"},
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CHAT_OPENAI_BASE_URL"},
-			DefaultValue: "http://127.0.0.1:11434/v1",
+			DefaultValue: "",
 		},
 		&cli.StringFlag{
 			Name:         "chat-model",
@@ -716,6 +747,11 @@ var ServerCmd = &cli.Command{
 		}
 		model.SetRoleCache(roles)
 
+		// Load MCP tools
+		if err := mcptools.LoadTools(cfg.MCPToolsPath, cfg.MCPToolsDisabled); err != nil {
+			logger.Error("Failed to load mcp-tools", "error", err)
+		}
+
 		// Start the DNS server if enabled
 		if cmd.GetBool("dns-enabled") {
 			dnsServerCfg := dns.DNSServerConfig{
@@ -767,8 +803,9 @@ var ServerCmd = &cli.Command{
 			logger.Debug("tunnel Server URL", "tunnel", tunnelServerUrl.Host)
 		}
 
-		// Create the application routes
+		// Create the application routes & et for MuxClient / direct API calls
 		routes := http.NewServeMux()
+		rest.SetAPIMux(routes)
 
 		api.ApiRoutes(routes)
 		proxy.Routes(routes, cfg)
@@ -781,44 +818,75 @@ var ServerCmd = &cli.Command{
 		openaiEndpointEnabled := cmd.GetBool("chat-openai-endpoints")
 
 		if mcpEnabled || chatEnabled || openaiEndpointEnabled {
-			nativeTools := cmd.GetBool("mcp-native-tools")
-			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, nativeTools)
+			mcpServer = internal_mcp.InitializeMCPServer(routes, mcpEnabled, &cfg.MCP)
 			if !mcpEnabled {
 				logger.Debug("MCP chat-only mode")
 			} else {
 				logger.Info("MCP server enabled")
 			}
-
-			// Set the appropriate system prompt based on native tools setting
-			systemprompt.SetDefaultSystemPrompt(nativeTools)
 		}
 
 		// If AI chat enabled then initialize chat service
-		var openAIClient *openai.Client
+		// Note: ChatEnabled now implies OpenAI endpoints are also enabled for web chat
+		var openAIClient ai.Client
 		if chatEnabled || openaiEndpointEnabled {
 			logger.Info("AI chat enabled")
 
-			// Initialize chat service with config
+			// Load system prompt (from file or embedded default)
+			cfg.Chat.SystemPrompt = systemprompt.GetSystemPrompt(cfg.Chat.SystemPromptFile)
+			if cfg.Chat.SystemPromptFile != "" {
+				logger.Info("loaded system prompt from file", "file", cfg.Chat.SystemPromptFile, "length", len(cfg.Chat.SystemPrompt))
+			} else {
+				logger.Info("using embedded system prompt", "length", len(cfg.Chat.SystemPrompt))
+			}
+
+			// Initialize chat service with main MCP server
+			// The OpenAI client will use forced on-demand mode via context
 			chatService, err := chat.NewService(cfg.Chat, mcpServer)
 			if err != nil {
 				logger.WithError(err).Fatal("failed to create chat service:")
 			}
-			openAIClient = chatService.GetOpenAIClient()
+			openAIClient = chatService.GetAIClient()
 
-			// API endpoint for chat
-			if chatEnabled {
-				routes.HandleFunc("POST /api/chat/stream", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(chatService.HandleChatStream)))
+			// Set default model for knot.ai library
+			knotscriptling.SetDefaultModel(cfg.Chat.Model)
+
+			// Initialize response worker pool for Responses API
+			if openaiEndpointEnabled || chatEnabled {
+				logger.Info("Initializing response worker pool")
+				// Create gossip callback for response updates
+				gossipFunc := func(response *model.Response) {
+					service.GetTransport().GossipResponse(response)
+				}
+				openai.InitResponseWorker(openAIClient, openai.DefaultResponseWorkerPoolSize, gossipFunc)
 			}
 		}
 
 		// If OpenAI chat enabled then initialize OpenAI service
-		if openaiEndpointEnabled {
-			//openai.SetupOpenAIEndpoints(cfg, routes, mcpServer)
-			logger.Info("OpenAI endpoints enabled")
+		// Note: This is now enabled when either openaiEndpointEnabled or chatEnabled is true
+		if openaiEndpointEnabled || chatEnabled {
+			if openaiEndpointEnabled {
+				logger.Info("OpenAI endpoints enabled")
+			} else {
+				logger.Info("OpenAI endpoints enabled for web chat")
+			}
 
-			service := openai.NewService(openAIClient, cfg.Chat.SystemPrompt)
-			routes.HandleFunc("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleGetModels)))
-			routes.HandleFunc("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(service.HandleChatCompletions)))
+			// Create script tools provider for OpenAI endpoints
+			scriptToolsProvider := func(ctx context.Context, user *model.User) mcp.ToolProvider {
+				if user == nil || (!user.HasPermission(model.PermissionExecuteScripts) && !user.HasPermission(model.PermissionExecuteOwnScripts)) {
+					return nil
+				}
+				return internal_mcp.NewScriptToolsProvider(user)
+			}
+
+			openaiService := openai.NewService(openAIClient, cfg.Chat.SystemPrompt, cfg.Chat.Model)
+			// Apply MCP server context middleware AFTER auth middleware (so user is available in context)
+			routes.Handle("GET /v1/models", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetModels))))))
+			routes.Handle("POST /v1/chat/completions", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleChatCompletions))))))
+			routes.Handle("POST /v1/responses", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCreateResponse))))))
+			routes.Handle("GET /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleGetResponse))))))
+			routes.Handle("DELETE /v1/responses/{response_id}", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleDeleteResponse))))))
+			routes.Handle("POST /v1/responses/{response_id}/cancel", middleware.ApiAuth(middleware.ApiPermissionUseWebAssistant(middleware.HandlerToHandlerFunc(middleware.MCPServerContext(mcpServer, scriptToolsProvider)(http.HandlerFunc(openaiService.HandleCancelResponse))))))
 		}
 
 		// Add support for page not found
@@ -1058,6 +1126,9 @@ var ServerCmd = &cli.Command{
 		// Shutdown SSE hub to close all browser connections immediately
 		sse.GetHub().Shutdown()
 
+		// Shutdown response worker pool
+		openai.ShutdownResponseWorker()
+
 		// Shutdown the HTTP server with a short timeout
 		// If graceful shutdown takes too long, the timeout will force it
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -1110,7 +1181,8 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		AgentPath:          cmd.GetString("agent-path"),
 		PrivateFilesPath:   cmd.GetString("private-files-path"),
 		PublicFilesPath:    cmd.GetString("public-files-path"),
-		SkillsPath:         cmd.GetString("skills-path"),
+		MCPToolsPath:       cmd.GetString("mcp-tools-path"),
+		MCPToolsDisabled:   cmd.GetStringSlice("mcp-disable-builtin-tools"),
 		DownloadPath:       cmd.GetString("download-path"),
 		DisableSpaceCreate: cmd.GetBool("disable-space-create"),
 		ListenTunnel:       cmd.GetString("listen-tunnel"),
@@ -1123,6 +1195,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		Timezone:           cmd.GetString("timezone"),
 		LeafNode:           cmd.GetString("origin-server") != "" && cmd.GetString("origin-token") != "",
 		AuthIPRateLimiting: cmd.GetBool("auth-ip-rate-limiting"),
+		MCPToolTimeout:     cmd.GetInt("mcp-tool-timeout"),
 		Origin: config.OriginConfig{
 			Server: cmd.GetString("origin-server"),
 			Token:  cmd.GetString("origin-token"),
@@ -1192,21 +1265,72 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			AgentUseTLS: cmd.GetBool("agent-use-tls"),
 			SkipVerify:  cmd.GetBool("tls-skip-verify"),
 		},
-		MCP: config.MCPConfig{
-			Enabled: cmd.GetBool("mcp-enabled"),
-		},
-		Chat: config.ChatConfig{
-			Enabled:          cmd.GetBool("chat-enabled"),
-			OpenAIAPIKey:     cmd.GetString("chat-openai-api-key"),
-			OpenAIBaseURL:    cmd.GetString("chat-openai-base-url"),
-			Model:            cmd.GetString("chat-model"),
-			MaxTokens:        cmd.GetInt("chat-max-tokens"),
-			Temperature:      cmd.GetFloat32("chat-temperature"),
-			SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
+		MCP: func() config.MCPConfig {
+			mcpConfig := config.MCPConfig{
+				Enabled: cmd.GetBool("mcp-enabled"),
+			}
 
-			ReasoningEffort: cmd.GetString("chat-reasoning-effort"),
-			UIStyle:         cmd.GetString("chat-ui-style"),
-		},
+			// Load remote servers from TOML configuration
+			if cmd.ConfigFile.FileUsed() != "" {
+				typedConfig := cli.NewTypedConfigFile(cmd.ConfigFile)
+				if remoteServers := typedConfig.GetObjectSlice("server.mcp.remote_servers"); remoteServers != nil {
+					for _, server := range remoteServers {
+						if server, ok := server.(interface {
+							GetString(string) string
+							GetBool(string) bool
+						}); ok {
+							remoteServer := config.MCPRemoteServerConfig{}
+							if ns := server.GetString("namespace"); ns != "" {
+								remoteServer.Namespace = ns
+							}
+							if url := server.GetString("url"); url != "" {
+								remoteServer.URL = url
+							}
+							if token := server.GetString("token"); token != "" {
+								remoteServer.Token = token
+							}
+							if visibility := server.GetString("tool_visibility"); visibility != "" {
+								remoteServer.ToolVisibility = visibility
+							}
+							mcpConfig.RemoteServers = append(mcpConfig.RemoteServers, remoteServer)
+						}
+					}
+				}
+			}
+
+			return mcpConfig
+		}(),
+		Chat: func() config.ChatConfig {
+			chatCfg := config.ChatConfig{
+				Enabled:          cmd.GetBool("chat-enabled"),
+				Provider:         cmd.GetString("chat-provider"),
+				APIKey:           cmd.GetString("chat-api-key"),
+				BaseURL:          cmd.GetString("chat-base-url"),
+				OpenAIAPIKey:     cmd.GetString("chat-openai-api-key"),
+				OpenAIBaseURL:    cmd.GetString("chat-openai-base-url"),
+				Model:            cmd.GetString("chat-model"),
+				MaxTokens:        cmd.GetInt("chat-max-tokens"),
+				Temperature:      cmd.GetFloat32("chat-temperature"),
+				SystemPromptFile: cmd.GetString("chat-system-prompt-file"),
+				ReasoningEffort:  cmd.GetString("chat-reasoning-effort"),
+				UIStyle:          cmd.GetString("chat-ui-style"),
+			}
+
+			// Fallback to deprecated openai_* keys if new keys are not set
+			if chatCfg.APIKey == "" && chatCfg.OpenAIAPIKey != "" {
+				chatCfg.APIKey = chatCfg.OpenAIAPIKey
+			}
+			if chatCfg.BaseURL == "" && chatCfg.OpenAIBaseURL != "" {
+				chatCfg.BaseURL = chatCfg.OpenAIBaseURL
+			}
+
+			// Default base URL for openai/ollama if still empty
+			if chatCfg.BaseURL == "" && (chatCfg.Provider == string(ai.ProviderOpenAI) || chatCfg.Provider == string(ai.ProviderOllama)) {
+				chatCfg.BaseURL = "http://127.0.0.1:11434/v1"
+			}
+
+			return chatCfg
+		}(),
 		LocalContainerRuntimePref: cmd.GetStringSlice("local-container-runtime-pref"),
 	}
 

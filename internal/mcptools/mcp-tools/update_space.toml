@@ -1,0 +1,21 @@
+description = "Update properties of an existing space (description, shell, or name)."
+keywords = ["update", "space", "modify", "edit", "configure", "rename"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the space to update"
+required = true
+
+[[parameters]]
+name = "description"
+type = "string"
+description = "New description for the space"
+required = false
+
+[[parameters]]
+name = "shell"
+type = "string"
+description = "New preferred shell (bash, zsh, fish, sh)"
+required = false

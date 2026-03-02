@@ -36,15 +36,6 @@ func checkPermission(next http.HandlerFunc, permission uint16) http.HandlerFunc 
 	})
 }
 
-func checkPermissionManageTemplates(next http.HandlerFunc) http.HandlerFunc {
-	cfg := config.GetServerConfig()
-	if cfg.LeafNode {
-		return next
-	}
-
-	return checkPermission(next, model.PermissionManageTemplates)
-}
-
 func checkPermissionManageVariables(next http.HandlerFunc) http.HandlerFunc {
 	cfg := config.GetServerConfig()
 	if cfg.LeafNode {
@@ -85,4 +76,28 @@ func checkPermissionManageRoles(next http.HandlerFunc) http.HandlerFunc {
 
 func checkPermissionViewClusterInfo(next http.HandlerFunc) http.HandlerFunc {
 	return checkPermission(next, model.PermissionClusterInfo)
+}
+
+func checkPermissionManageScripts(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionManageScripts) && !user.HasPermission(model.PermissionManageOwnScripts) {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func checkPermissionManageSkills(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(*model.User)
+		if !user.HasPermission(model.PermissionManageGlobalSkills) && !user.HasPermission(model.PermissionManageOwnSkills) {
+			showPageForbidden(w, r)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

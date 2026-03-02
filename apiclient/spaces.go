@@ -2,21 +2,23 @@ package apiclient
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/paularlott/knot/internal/database/model"
 )
 
 type SpaceRequest struct {
-	Name           string             `json:"name"`
-	Description    string             `json:"description"`
-	TemplateId     string             `json:"template_id"`
-	Shell          string             `json:"shell"`
-	UserId         string             `json:"user_id"`
-	AltNames       []string           `json:"alt_names"`
-	IconURL        string             `json:"icon_url"`
-	CustomFields   []CustomFieldValue `json:"custom_fields"`
-	SelectedNodeId string             `json:"selected_node_id,omitempty"`
+	Name             string             `json:"name"`
+	Description      string             `json:"description"`
+	TemplateId       string             `json:"template_id"`
+	Shell            string             `json:"shell"`
+	UserId           string             `json:"user_id"`
+	AltNames         []string           `json:"alt_names"`
+	IconURL          string             `json:"icon_url"`
+	CustomFields     []CustomFieldValue `json:"custom_fields"`
+	SelectedNodeId   string             `json:"selected_node_id,omitempty"`
+	StartupScriptId  string             `json:"startup_script_id,omitempty"`
 }
 
 type CreateSpaceResponse struct {
@@ -104,6 +106,7 @@ type SpaceDefinition struct {
 	CreatedAtFormatted string                       `json:"created_at_formatted"`
 	IconURL            string                       `json:"icon_url"`
 	CustomFields       []CustomFieldValue           `json:"custom_fields"`
+	StartupScriptId    string                       `json:"startup_script_id"`
 	HasCodeServer      bool                         `json:"has_code_server"`
 	HasSSH             bool                         `json:"has_ssh"`
 	HasTerminal        bool                         `json:"has_terminal"`
@@ -244,6 +247,18 @@ func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId st
 	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/transfer", request, nil, 200)
 }
 
+func (c *ApiClient) AddShare(ctx context.Context, spaceId string, userId string) (int, error) {
+	request := &SpaceTransferRequest{
+		UserId: userId,
+	}
+
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/share", request, nil, 200)
+}
+
+func (c *ApiClient) RemoveShare(ctx context.Context, spaceId string) (int, error) {
+	return c.httpClient.Delete(ctx, "/api/spaces/"+spaceId+"/share", nil, nil, 200)
+}
+
 func (c *ApiClient) ForwardPort(ctx context.Context, spaceId string, request *PortForwardRequest) (int, error) {
 	return c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/forward", request, nil, 200)
 }
@@ -259,4 +274,88 @@ func (c *ApiClient) ListPorts(ctx context.Context, spaceId string) (*PortListRes
 
 func (c *ApiClient) StopPort(ctx context.Context, spaceId string, request *PortStopRequest) (int, error) {
 	return c.httpClient.Post(ctx, "/space-io/"+spaceId+"/port/stop", request, nil, 200)
+}
+
+func (c *ApiClient) GetSpaceByName(ctx context.Context, spaceName string) (*SpaceDefinition, error) {
+	spaces, _, err := c.GetSpaces(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range spaces.Spaces {
+		if s.Name == spaceName {
+			space, _, err := c.GetSpace(ctx, s.Id)
+			return space, err
+		}
+	}
+	return nil, fmt.Errorf("space not found")
+}
+
+func (c *ApiClient) RunCommand(ctx context.Context, spaceId string, request *RunCommandRequest) (string, error) {
+	var response struct {
+		Output  string `json:"output"`
+		Success bool   `json:"success"`
+		Error   string `json:"error"`
+	}
+
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/run-command", request, &response, 200)
+	if err != nil {
+		return "", err
+	}
+
+	if !response.Success {
+		return response.Output, fmt.Errorf("%s", response.Error)
+	}
+
+	return response.Output, nil
+}
+
+func (c *ApiClient) ReadSpaceFile(ctx context.Context, spaceId string, filePath string) (string, error) {
+	var request struct {
+		Path string `json:"path"`
+	}
+	request.Path = filePath
+
+	var response struct {
+		Success bool   `json:"success"`
+		Content string `json:"content"`
+		Size    int    `json:"size"`
+		Error   string `json:"error"`
+	}
+
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/read", request, &response, 200)
+	if err != nil {
+		return "", err
+	}
+
+	if !response.Success {
+		return "", fmt.Errorf("%s", response.Error)
+	}
+
+	return response.Content, nil
+}
+
+func (c *ApiClient) WriteSpaceFile(ctx context.Context, spaceId string, filePath string, content string) error {
+	var request struct {
+		Path    string `json:"path"`
+		Content string `json:"content"`
+	}
+	request.Path = filePath
+	request.Content = content
+
+	var response struct {
+		Success      bool   `json:"success"`
+		BytesWritten int    `json:"bytes_written"`
+		Error        string `json:"error"`
+	}
+
+	_, err := c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/files/write", request, &response, 200)
+	if err != nil {
+		return err
+	}
+
+	if !response.Success {
+		return fmt.Errorf("%s", response.Error)
+	}
+
+	return nil
 }

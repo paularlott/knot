@@ -1,0 +1,8 @@
+description = "Get detailed space information including configuration and status."
+keywords = ["get", "space", "details", "information", "configuration", "environment"]
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the space to retrieve"
+required = true

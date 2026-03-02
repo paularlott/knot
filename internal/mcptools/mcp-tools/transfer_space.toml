@@ -1,0 +1,15 @@
+description = "Transfer space ownership to another user. You will no longer own this space."
+keywords = ["transfer", "space", "ownership", "give", "assign", "handover"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the space to transfer"
+required = true
+
+[[parameters]]
+name = "user_id"
+type = "string"
+description = "Username, email, or user ID to transfer to"
+required = true

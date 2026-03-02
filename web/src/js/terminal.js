@@ -9,7 +9,6 @@ import { AttachAddon } from '@xterm/addon-attach';
 window.initializeTerminal = function(options) {
   const terminal = new Terminal({
     allowProposedApi: true,
-    screenKeys: true,
     useStyle: true,
     cursorBlink: true,
     fullscreenWin: true,
@@ -51,6 +50,16 @@ window.initializeTerminal = function(options) {
     terminal.loadAddon(attachAddon);
     terminal._initialized = true;
     terminal.focus();
+
+    terminal.element.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.shiftKey) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(new TextEncoder().encode('\x1b\r'));
+        }
+      }
+    }, true);
 
     // Do an initial resize or the terminal won't wrap correctly
     setTimeout(() => {

@@ -18,6 +18,9 @@ const (
 type AgentClient struct {
 	defaultServerAddress   string // Default server address to connect to
 	spaceId                string // Space ID for the agent client
+	agentToken             string // Agent authentication token (same across all servers in zone)
+	serverURL              string // Server URL for API calls (any server in zone)
+	credentialsMutex       sync.RWMutex
 	serverListMutex        sync.RWMutex
 	serverList             map[string]*agentServer
 	firstRegistrationMutex sync.Mutex
@@ -37,7 +40,6 @@ type AgentClient struct {
 	httpsPortMap           map[string]string
 	tcpPortMap             map[string]string
 	logChannel             chan *msg.LogMessage
-	logTempBuffer          []*msg.LogMessage
 }
 
 func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
@@ -140,4 +142,16 @@ func (c *AgentClient) Shutdown() {
 
 func (c *AgentClient) GetSpaceId() string {
 	return c.spaceId
+}
+
+func (c *AgentClient) GetAgentToken() string {
+	c.credentialsMutex.RLock()
+	defer c.credentialsMutex.RUnlock()
+	return c.agentToken
+}
+
+func (c *AgentClient) GetServerURL() string {
+	c.credentialsMutex.RLock()
+	defer c.credentialsMutex.RUnlock()
+	return c.serverURL
 }

@@ -115,6 +115,38 @@ func PublishVolumesDeleted(volumeId string) {
 	})
 }
 
+// PublishScriptsChanged notifies clients that a script has changed
+func PublishScriptsChanged(scriptId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventScriptsChanged,
+		Payload: ResourcePayload{Id: scriptId},
+	})
+}
+
+// PublishScriptsDeleted notifies clients that a script was deleted
+func PublishScriptsDeleted(scriptId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventScriptsDeleted,
+		Payload: ResourcePayload{Id: scriptId},
+	})
+}
+
+// PublishSkillsChanged notifies clients that a skill has changed
+func PublishSkillsChanged(skillId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventSkillsChanged,
+		Payload: ResourcePayload{Id: skillId},
+	})
+}
+
+// PublishSkillsDeleted notifies clients that a skill was deleted
+func PublishSkillsDeleted(skillId string) {
+	GetHub().Broadcast(&Event{
+		Type:    EventSkillsDeleted,
+		Payload: ResourcePayload{Id: skillId},
+	})
+}
+
 // PublishSessionsChanged notifies clients that a session has changed
 func PublishSessionsChanged(sessionId string) {
 	GetHub().Broadcast(&Event{
@@ -128,22 +160,6 @@ func PublishSessionsDeleted(sessionId string) {
 	GetHub().Broadcast(&Event{
 		Type:    EventSessionsDeleted,
 		Payload: ResourcePayload{Id: sessionId},
-	})
-}
-
-// PublishTunnelsChanged notifies clients that a tunnel has changed
-func PublishTunnelsChanged(tunnelId string) {
-	GetHub().Broadcast(&Event{
-		Type:    EventTunnelsChanged,
-		Payload: ResourcePayload{Id: tunnelId},
-	})
-}
-
-// PublishTunnelsDeleted notifies clients that a tunnel was deleted
-func PublishTunnelsDeleted(tunnelId string) {
-	GetHub().Broadcast(&Event{
-		Type:    EventTunnelsDeleted,
-		Payload: ResourcePayload{Id: tunnelId},
 	})
 }
 

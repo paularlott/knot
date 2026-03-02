@@ -1,0 +1,9 @@
+description = "Restart a running space (stop and start it)."
+keywords = ["restart", "space", "reboot", "reload", "cycle"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name of the space to restart"
+required = true
