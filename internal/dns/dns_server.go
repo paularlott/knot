@@ -396,6 +396,11 @@ func (s *DNSServer) Stop() error {
 
 // handleDNSRequest handles incoming DNS requests
 func (s *DNSServer) handleDNSRequest(w dns.ResponseWriter, r *dns.Msg) {
+	// Guard against malformed packets with no question section
+	if len(r.Question) == 0 {
+		return
+	}
+
 	msg := new(dns.Msg)
 	msg.SetReply(r)
 	msg.Authoritative = true

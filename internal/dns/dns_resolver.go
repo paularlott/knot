@@ -168,17 +168,19 @@ func (r *DNSResolver) checkCache(key string) ([]DNSRecord, bool) {
 		return nil, false
 	}
 
-	r.cacheMu.Lock()
-	defer r.cacheMu.Unlock()
-
+	r.cacheMu.RLock()
 	entry, exists := r.cache[key]
 	if !exists {
+		r.cacheMu.RUnlock()
 		return nil, false
 	}
+	expired := time.Now().After(entry.ExpiresAt)
+	r.cacheMu.RUnlock()
 
-	if time.Now().After(entry.ExpiresAt) {
-		// Cache expired - remove it
+	if expired {
+		r.cacheMu.Lock()
 		delete(r.cache, key)
+		r.cacheMu.Unlock()
 		return nil, false
 	}
 
@@ -241,9 +243,9 @@ func (r *DNSResolver) QueryUpstream(name string, recordType string) ([]DNSRecord
 	ctx, cancel := context.WithTimeout(context.Background(), r.config.QueryTimeout)
 	defer cancel()
 
-	// Response channel - buffered to prevent goroutine leaks
-	respChan := make(chan *dns.Msg, 1) // Only need 1 success
-	errChan := make(chan error, len(nameservers))
+	// Buffered to capacity 1: first success wins; losers drop silently.
+	respChan := make(chan *dns.Msg, 1)
+	errChan := make(chan error, 1)
 
 	var wg sync.WaitGroup
 
@@ -259,33 +261,27 @@ func (r *DNSResolver) QueryUpstream(name string, recordType string) ([]DNSRecord
 				select {
 				case respChan <- response:
 					cancel() // Cancel other queries on first success
-				case <-ctx.Done():
-					// Context already cancelled
+				default:
+					// Another goroutine already won
 				}
 			} else {
 				select {
 				case errChan <- fmt.Errorf("nameserver %s returned no valid response", ns):
-				case <-ctx.Done():
-					// Context already cancelled
+				default:
 				}
 			}
 		}(nameserver)
 	}
 
-	// Close channels when all goroutines complete
+	// Close errChan once all goroutines finish so the drain loop below terminates.
 	go func() {
 		wg.Wait()
-		close(respChan)
 		close(errChan)
 	}()
 
-	// Wait for first success or all failures
+	// Wait for first success or context expiry
 	select {
-	case response, ok := <-respChan:
-		if !ok {
-			// Channel closed, no successful response
-			break
-		}
+	case response := <-respChan:
 		// Success - convert DNS RRs to our internal format
 		var results []DNSRecord
 		for _, rr := range response.Answer {
@@ -293,16 +289,14 @@ func (r *DNSResolver) QueryUpstream(name string, recordType string) ([]DNSRecord
 				results = append(results, *record)
 			}
 		}
-
-		// Cache the results
 		r.addToCache(cacheKey, results)
 		return results, nil
 
 	case <-ctx.Done():
-		// Context timeout/cancellation
+		// Context timeout/cancellation — fall through to error
 	}
 
-	// Collect all errors
+	// Drain errors (errChan is closed by the wg goroutine)
 	var errs []error
 	for err := range errChan {
 		errs = append(errs, err)
