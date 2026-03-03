@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
 	knotscriptling "github.com/paularlott/knot/internal/scriptling"
 	"github.com/paularlott/knot/internal/util/rest"
@@ -23,6 +24,7 @@ import (
 	scriptlingconsole "github.com/paularlott/scriptling/extlibs/console"
 	scriptlingfuzzy "github.com/paularlott/scriptling/extlibs/fuzzy"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
+	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
 	"github.com/paularlott/scriptling/stdlib"
 )
@@ -99,27 +101,66 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 	extlibs.RegisterGlobLibrary(env, nil) // scriptling.glob
 }
 
-// setupServerLibraryCallback sets up on-demand library loading from server
-func setupServerLibraryCallback(env *scriptling.Scriptling, client *apiclient.ApiClient) {
+// newServerLibraryLoader creates a FuncLoader that fetches libraries from the server API
+func newServerLibraryLoader(client *apiclient.ApiClient) libloader.LibraryLoader {
+	return libloader.NewFuncLoader(func(name string) (string, bool, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		content, err := client.GetScriptLibrary(ctx, name)
+		if err != nil {
+			return "", false, nil // Not found or error
+		}
+		return content, true, nil
+	}, "server-api")
+}
+
+// newServerLibraryLoaderWithContext creates a FuncLoader that fetches libraries from the server API with user context
+func newServerLibraryLoaderWithContext(client *apiclient.ApiClient, user *model.User) libloader.LibraryLoader {
+	return libloader.NewFuncLoader(func(name string) (string, bool, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		ctx = context.WithValue(ctx, "user", user)
+		content, err := client.GetScriptLibrary(ctx, name)
+		if err != nil {
+			return "", false, nil // Not found or error
+		}
+		return content, true, nil
+	}, "server-api-with-user")
+}
+
+// newFetcherLoader creates a FuncLoader that uses the global libraryFetcher
+func newFetcherLoader() libloader.LibraryLoader {
+	return libloader.NewFuncLoader(func(name string) (string, bool, error) {
+		if libraryFetcher == nil {
+			return "", false, nil
+		}
+		content, err := libraryFetcher(name)
+		if err != nil {
+			return "", false, nil
+		}
+		return content, true, nil
+	}, "fetcher")
+}
+
+// setupLibraryLoader sets up library loading from configured libdir and/or server
+func setupLibraryLoader(env *scriptling.Scriptling, client *apiclient.ApiClient) {
+	var loaders []libloader.LibraryLoader
+
+	// Add filesystem loader if libdir is configured
+	cfg := config.GetServerConfig()
+	if cfg != nil && cfg.LibDir != "" {
+		loaders = append(loaders, libloader.NewFilesystem(cfg.LibDir))
+	}
+
+	// Add server API loader or fetcher loader
 	if client != nil {
-		env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
-			// Use background context with timeout for library loading
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			content, err := client.GetScriptLibrary(ctx, libName)
-			if err == nil {
-				return p.RegisterScriptLibrary(libName, content) == nil
-			}
-			return false
-		})
+		loaders = append(loaders, newServerLibraryLoader(client))
 	} else if libraryFetcher != nil {
-		env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
-			content, err := libraryFetcher(libName)
-			if err == nil {
-				return p.RegisterScriptLibrary(libName, content) == nil
-			}
-			return false
-		})
+		loaders = append(loaders, newFetcherLoader())
+	}
+
+	if len(loaders) > 0 {
+		env.SetLibraryLoader(libloader.NewChain(loaders...))
 	}
 }
 
@@ -177,7 +218,7 @@ func createServerAIClient(client *apiclient.ApiClient, user *model.User) ai.Clie
 
 // NewLocalScriptlingEnv creates a scriptling environment for local execution on desktop/agent
 // Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
-// On-demand loading: Enabled - tries local .py files first, then fetches from server
+// On-demand loading: Enabled - tries libdir first, then fetches from server
 // Output: Uses stdin/stdout directly with zero buffering
 func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
@@ -191,24 +232,25 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
 
-	// Local-first library loading: try filesystem, then server
-	env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
-		if content, err := os.ReadFile(libName + ".py"); err == nil {
-			return p.RegisterScriptLibrary(libName, string(content)) == nil
-		}
-		if client != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			if content, err := client.GetScriptLibrary(ctx, libName); err == nil {
-				return p.RegisterScriptLibrary(libName, content) == nil
-			}
-		} else if libraryFetcher != nil {
-			if content, err := libraryFetcher(libName); err == nil {
-				return p.RegisterScriptLibrary(libName, content) == nil
-			}
-		}
-		return false
-	})
+	// Set up library loader chain: libdir → server API → fetcher
+	var loaders []libloader.LibraryLoader
+
+	// Add filesystem loader if libdir is configured
+	cfg := config.GetServerConfig()
+	if cfg != nil && cfg.LibDir != "" {
+		loaders = append(loaders, libloader.NewFilesystem(cfg.LibDir))
+	}
+
+	// Add server API loader or fetcher loader
+	if client != nil {
+		loaders = append(loaders, newServerLibraryLoader(client))
+	} else if libraryFetcher != nil {
+		loaders = append(loaders, newFetcherLoader())
+	}
+
+	if len(loaders) > 0 {
+		env.SetLibraryLoader(libloader.NewChain(loaders...))
+	}
 
 	extlibs.RegisterSysLibrary(env, argv, os.Stdin)
 	return env, nil
@@ -240,18 +282,8 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]objec
 		mcpLib = knotscriptling.GetMCPLibraryInstance(client, mcpParams)
 		registerKnotLibraries(env, client, user.Id, mcpParams, mcpLib, aiClient)
 
-		// Set up library callback with user context for MuxClient
-		env.SetOnDemandLibraryCallback(func(p *scriptling.Scriptling, libName string) bool {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			ctx = context.WithValue(ctx, "user", user)
-
-			content, err := client.GetScriptLibrary(ctx, libName)
-			if err == nil {
-				return p.RegisterScriptLibrary(libName, content) == nil
-			}
-			return false
-		})
+		// Set up library loader with user context for MuxClient
+		env.SetLibraryLoader(newServerLibraryLoaderWithContext(client, user))
 	}
 
 	return env, mcpLib, nil
@@ -275,7 +307,7 @@ func NewRemoteScriptlingEnv(argv []string, client *apiclient.ApiClient, userId s
 	aiClient := createServerAIClient(client, nil)
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
 
-	setupServerLibraryCallback(env, client)
+	setupLibraryLoader(env, client)
 	extlibs.RegisterSysLibrary(env, argv, nil)
 	return env, nil
 }
@@ -305,7 +337,7 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	aiClient := createServerAIClient(client, nil)
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
 
-	setupServerLibraryCallback(env, client)
+	setupLibraryLoader(env, client)
 	extlibs.RegisterSysLibrary(env, argv, input)
 	if input != nil {
 		env.SetObjectVar("input", extlibs.NewInputBuiltin(input))

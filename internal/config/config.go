@@ -47,6 +47,7 @@ type ServerConfig struct {
 	Chat                      ChatConfig
 	MCPToolsPath              string
 	MCPToolsDisabled          []string
+	LibDir                    string
 }
 
 type OriginConfig struct {
