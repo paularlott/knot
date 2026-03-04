@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -216,11 +217,43 @@ func createServerAIClient(client *apiclient.ApiClient, user *model.User) ai.Clie
 	return serverClient
 }
 
-// NewLocalScriptlingEnv creates a scriptling environment for local execution on desktop/agent
+// buildLocalLibDirs constructs the ordered list of library search directories for local execution,
+// mirroring scriptling-cli behaviour: script dir (or cwd) first, then extra paths, then configured libdir.
+func buildLocalLibDirs(scriptFile string, extraLibPaths []string) []string {
+	var dirs []string
+
+	// Script dir or cwd first
+	if scriptFile != "" {
+		dirs = append(dirs, filepath.Dir(scriptFile))
+	} else {
+		if cwd, err := os.Getwd(); err == nil {
+			dirs = append(dirs, cwd)
+		}
+	}
+
+	// Additional paths from --libpath
+	for _, d := range extraLibPaths {
+		if d != "" {
+			dirs = append(dirs, d)
+		}
+	}
+
+	// Configured libdir last
+	cfg := config.GetServerConfig()
+	if cfg != nil && cfg.LibDir != "" {
+		dirs = append(dirs, cfg.LibDir)
+	}
+
+	return dirs
+}
+
+// NewLocalScriptlingEnv creates a scriptling environment for local execution on desktop/agent.
+// scriptFile is the path to the script being run (used to derive the lib search dir); pass "" for stdin/interactive.
+// extraLibPaths are additional directories to search for libraries (e.g. from --libpath flags).
 // Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
-// On-demand loading: Enabled - tries libdir first, then fetches from server
+// On-demand loading: script dir → extra paths → libdir → server API
 // Output: Uses stdin/stdout directly with zero buffering
-func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string) (*scriptling.Scriptling, error) {
+func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId string, scriptFile string, extraLibPaths []string) (*scriptling.Scriptling, error) {
 	env := scriptling.New()
 	env.SetOutputWriter(os.Stdout)
 	registerBaseLibraries(env, nil)
@@ -232,13 +265,11 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
 
-	// Set up library loader chain: libdir → server API → fetcher
+	// Set up library loader chain: script dir → extra paths → libdir → server API → fetcher
 	var loaders []libloader.LibraryLoader
 
-	// Add filesystem loader if libdir is configured
-	cfg := config.GetServerConfig()
-	if cfg != nil && cfg.LibDir != "" {
-		loaders = append(loaders, libloader.NewFilesystem(cfg.LibDir))
+	for _, dir := range buildLocalLibDirs(scriptFile, extraLibPaths) {
+		loaders = append(loaders, libloader.NewFilesystem(dir))
 	}
 
 	// Add server API loader or fetcher loader
@@ -345,9 +376,11 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	return env, nil
 }
 
-// RunScript executes a script with local environment
-func RunScript(ctx context.Context, scriptContent string, argv []string, client *apiclient.ApiClient, userId string) (string, error) {
-	env, err := NewLocalScriptlingEnv(argv, client, userId)
+// RunScript executes a script with local environment.
+// scriptFile is the path to the script file on disk (used for lib path resolution); pass "" if not applicable.
+// extraLibPaths are additional directories to search for libraries.
+func RunScript(ctx context.Context, scriptContent string, argv []string, client *apiclient.ApiClient, userId string, scriptFile string, extraLibPaths []string) (string, error) {
+	env, err := NewLocalScriptlingEnv(argv, client, userId, scriptFile, extraLibPaths)
 	if err != nil {
 		return "", err
 	}

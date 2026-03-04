@@ -114,8 +114,8 @@ github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
 github.com/paularlott/mcp v0.14.0 h1:I78TuNCXW0SosNT0Dn7slj/v3WVAbAwnbgLJJDriA7w=
 github.com/paularlott/mcp v0.14.0/go.mod h1:RHtwyZchcdC4oiz0fEaTBDEWNP0YHL7qMFhbmm/l7WI=
-github.com/paularlott/scriptling v0.2.10 h1:2JMrmQtLN/4kCRn5Mkf2ze9L19fnKGwLtxoztjLa+yA=
-github.com/paularlott/scriptling v0.2.10/go.mod h1:r+NhY5JjhRSqhcI/41FptYgOZjm7E93MhfgjEBr/QvA=
+github.com/paularlott/scriptling v0.2.11 h1:WBiYJyOztaDGKMEVW1zAW3G21ItdgiCJmpWlSsT9uo8=
+github.com/paularlott/scriptling v0.2.11/go.mod h1:r+NhY5JjhRSqhcI/41FptYgOZjm7E93MhfgjEBr/QvA=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.13.10 h1:+5FbKNTe5Z9aspU88DPIKJ9z2KZoaGCu6Sr6kKR/5mU=

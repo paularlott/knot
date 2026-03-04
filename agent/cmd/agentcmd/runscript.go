@@ -35,6 +35,12 @@ var RunScriptCmd = &cli.Command{
 			Usage:   "Skip TLS verification.",
 			EnvVars: []string{"KNOT_TLS_SKIP_VERIFY"},
 		},
+		&cli.StringSliceFlag{
+			Name:    "libpath",
+			Aliases: []string{"L"},
+			Usage:   "Additional directories to search for libraries (script dir is always searched first)",
+			EnvVars: []string{"SCRIPTLING_LIBPATH"},
+		},
 	},
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		script := cmd.GetStringArg("script")
@@ -54,6 +60,7 @@ var RunScriptCmd = &cli.Command{
 		}
 
 		var scriptContent string
+		var scriptFile string
 
 		// Check if file exists locally
 		if _, err := os.Stat(script); err == nil {
@@ -62,6 +69,7 @@ var RunScriptCmd = &cli.Command{
 				return fmt.Errorf("failed to read script file: %w", err)
 			}
 			scriptContent = string(content)
+			scriptFile = script
 		} else {
 			scriptContent, err = client.GetScriptByName(ctx, script)
 			if err != nil {
@@ -72,7 +80,7 @@ var RunScriptCmd = &cli.Command{
 		// Prepend script name to argv (sys.argv[0] should be the script name)
 		argv := append([]string{script}, args...)
 
-		_, err = service.RunScript(ctx, scriptContent, argv, client, user.Id)
+		_, err = service.RunScript(ctx, scriptContent, argv, client, user.Id, scriptFile, cmd.GetStringSlice("libpath"))
 		if err != nil {
 			return fmt.Errorf("script execution failed: %w", err)
 		}

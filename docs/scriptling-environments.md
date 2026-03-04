@@ -65,9 +65,17 @@ Is it an MCP tool for AI?
 - Desktop CLI: `knot run-script`
 - Agent CLI: `knot-agent run-script`
 
-**Purpose:** Execute scripts locally with full system access and on-demand library loading from disk or server.
+**Purpose:** Execute scripts locally with full system access and on-demand library loading.
 
-### Available Libraries
+### Library Search Order
+
+Libraries are resolved in this priority order, mirroring scriptling-cli behaviour:
+
+1. **Script directory** — the directory containing the script file (or cwd for stdin/interactive)
+2. **Extra lib paths** — additional directories from `--libpath` / `-L` flags or `SCRIPTLING_LIBPATH` env var
+3. **Configured libdir** — `server.lib_dir` in `knot.toml`
+4. **Server API** — `GET /api/scripts/library/{library_name}`
+5. **Fetcher** — global library fetcher (if no API client)
 
 #### Standard Libraries
 
@@ -105,7 +113,7 @@ Is it an MCP tool for AI?
 ### On-Demand Loading
 
 - **Enabled**: Libraries are loaded dynamically as imports are encountered
-- **Priority**: Local `.py` files are tried first, then fetches from server
+- **Priority**: Script dir → extra lib paths → libdir → server API
 - **API**: Uses `GET /api/scripts/library/{library_name}` endpoint
 
 ### Security Characteristics
@@ -119,16 +127,19 @@ Is it an MCP tool for AI?
 ### Code Locations
 
 - Environment creation: `internal/service/scriptling_env.go`
-- Command implementation: `command/cmdutil/runscript.go`
+- Command implementation: `agent/cmd/agentcmd/runscript.go`
 
 ### Example
 
 ```bash
-# Run local script with dynamic library loading
+# Run local script - libs resolved from script's directory first
 knot run-script myscript.py arg1 arg2
 
-# Import local .py files first, then server libraries
-import mylib  # Tries mylib.py locally, then fetches from server
+# Add extra lib search paths
+knot run-script -L /path/to/libs myscript.py arg1 arg2
+
+# SCRIPTLING_LIBPATH env var also works
+SCRIPTLING_LIBPATH=/path/to/libs knot run-script myscript.py
 ```
 
 ---
