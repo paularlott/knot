@@ -13,22 +13,22 @@
   <form action="" method="POST" @submit.prevent="submitData" class="mt-8 space-y-6">
     <div>
       <label for="username" class="form-label">Username</label>
-      <input type="text" name="username" class="form-field" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username">
+      <input type="text" name="username" id="username" class="form-field" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username">
       <div class="error-message" x-show="!usernameValid" x-cloak>Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
     </div>
     <div>
       <label for="email" class="form-label">Email</label>
-      <input type="email" name="email" class="form-field" x-on:keyup.debounce.500ms="checkEmail()" :class="{'form-field-error': !emailValid}" placeholder="Email address" x-model="formData.email">
+      <input type="email" name="email" id="email" class="form-field" x-on:keyup.debounce.500ms="checkEmail()" :class="{'form-field-error': !emailValid}" placeholder="Email address" x-model="formData.email">
       <div class="error-message" x-show="!emailValid" x-cloak=>Enter a valid email address.</div>
     </div>
     <div>
       <label for="password" class="form-label">Password</label>
-      <input type="password" name="password" class="form-field" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" placeholder="Password" x-model="formData.password">
+      <input type="password" name="password" id="password" class="form-field" x-on:keyup.debounce.500ms="checkPassword()" :class="{'form-field-error': !passwordValid}" placeholder="Password" x-model="formData.password">
       <div class="error-message" x-show="!passwordValid" x-cloak>Password must be at least 8 characters.</div>
     </div>
     <div>
       <label for="confirm_password" class="form-label">Confirm Password</label>
-      <input type="password" name="confirm_password" class="form-field" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
+      <input type="password" name="confirm_password" id="confirm_password" class="form-field" x-on:keyup.debounce.500ms="checkConfirmPassword()" :class="{'form-field-error': !confirmPasswordValid}" placeholder="Confirm password" x-model="formData.password_confirm">
       <div class="error-message" x-show="!confirmPasswordValid" x-cloak>Both passwords must match.</div>
     </div>
 

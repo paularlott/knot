@@ -4,6 +4,7 @@
     {{ template "head-meta" . }}
   </head>
   <body class="bg-gray-50 dark:bg-gray-900 font-nunito" x-data="{ sidebarOpen: false }">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:p-4 focus:bg-blue-700 focus:text-white focus:rounded-br-lg">Skip to main content</a>
     <div class="h-screen">
 
       <!-- Top Nav -->
@@ -11,8 +12,8 @@
         <div class="px-3 py-3 lg:px-5 lg:pl-3">
           <div class="flex items-center justify-between">
             <div class="flex items-center">
-              <button @click="sidebarOpen = !sidebarOpen" aria-label="Toggle sidebar" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5 lg:hidden cursor-pointer">
-                <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" aria-hidden="true" >
+              <button @click="sidebarOpen = !sidebarOpen" aria-label="Toggle sidebar" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 lg:hidden cursor-pointer">
+                <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
                   <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M5 7h14M5 12h14M5 17h10"/>
                 </svg>
               </button>
@@ -27,7 +28,7 @@
               </a>
             </div>
             <div class="flex items-center">
-              <button @click="darkMode = !darkMode; $dispatch('theme-change', {dark_theme: darkMode})" aria-label="Toggle dark mode" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5 cursor-pointer">
+              <button @click="darkMode = !darkMode; $dispatch('theme-change', {dark_theme: darkMode})" aria-label="Toggle dark mode" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 cursor-pointer">
                 <svg x-show="!darkMode" class="w-5 h-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" >
                   <path fill-rule="evenodd" d="M9.528 1.718a.75.75 0 0 1 .162.819A8.97 8.97 0 0 0 9 6a9 9 0 0 0 9 9 8.97 8.97 0 0 0 3.463-.69.75.75 0 0 1 .981.98 10.503 10.503 0 0 1-9.694 6.46c-5.799 0-10.5-4.7-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 0 1 .818.162Z" clip-rule="evenodd" />
                 </svg>
@@ -37,7 +38,7 @@
               </button>
 
               <div class="ml-2 relative" x-data>
-                <button @click="$refs.userMenu.toggle" type="button" class="group flex items-center border border-grey-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5 cursor-pointer" aria-expanded="false">
+                <button @click="$refs.userMenu.toggle" type="button" class="group flex items-center border border-grey-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 cursor-pointer" aria-haspopup="true" aria-label="User menu">
                   {{ if .useGravatar }}
                   <img src="https://www.gravatar.com/avatar/{{ .user_email_md5 }}?s=64&d=mp" alt="User Avatar" class="size-5 rounded-full mr-2">
                   {{ else }}
@@ -48,7 +49,7 @@
                   {{ .username }}
                 </button>
 
-                <div x-ref="userMenu" x-float.teleport.placement.bottom-end.flip @click.away="$refs.userMenu.toggle" x-cloak class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
+                <div x-ref="userMenu" x-float.teleport.placement.bottom-end.flip @click.away="$refs.userMenu.toggle" x-cloak class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap" role="menu">
                   {{ template "menu-user" . }}
                 </div>
               </div>
@@ -81,10 +82,12 @@
             </div>
           </div>
         </aside>
-        <div :class="{'block': sidebarOpen, 'hidden': !sidebarOpen}" @click="sidebarOpen = false" class="fixed inset-0 z-10 bg-gray-900/50 dark:bg-gray-900/90 lg:hidden"></div>
+        <div :class="{'block': sidebarOpen, 'hidden': !sidebarOpen}" @click="sidebarOpen = false" @keydown.escape="sidebarOpen = false" class="fixed inset-0 z-10 bg-gray-900/50 dark:bg-gray-900/90 lg:hidden" aria-hidden="true"></div>
 
         <!-- Main Content -->
+        <div id="main-content" class="contents">
         {{ block "mainContent" . }}{{ end }}
+        </div>
 
       </div>
 

@@ -14,7 +14,7 @@
 
       {{ template "loading" . }}
       <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
+        <table aria-label="Cluster information" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
           <thead class="bg-gray-100 dark:bg-gray-700">
             <tr>
               <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Node</th>
@@ -77,7 +77,7 @@
                       </div>
                     </template>
                     <template x-if="!node.metadata.runtimes">
-                      <span class="text-xs text-gray-400 dark:text-gray-500 italic">none</span>
+                      <span class="text-xs text-gray-500 dark:text-gray-400 italic">none</span>
                     </template>
                   </td>
                 </tr>

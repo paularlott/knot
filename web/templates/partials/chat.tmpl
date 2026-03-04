@@ -56,7 +56,9 @@
     <div
       class="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300"
       x-ref="messagesContainer"
-      @scroll="handleScroll($event)">
+      @scroll="handleScroll($event)"
+      aria-live="polite"
+      aria-label="Chat messages">
       <!-- Empty state -->
       <div x-show="messages.length === 0" class="flex flex-col items-center justify-center h-full text-center py-12">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">knot assistant</h3>
@@ -175,10 +177,11 @@
 
                 <!-- Show loading dots when message is empty and loading -->
                 <template x-if="isLoading && message === messages[messages.length - 1]">
-                  <div class="flex space-x-1 py-2 mt-4">
-                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce"></div>
-                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce [animation-delay:0.1s]"></div>
-                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                  <div class="flex space-x-1 py-2 mt-4" role="status" aria-label="Loading response">
+                    <span class="sr-only">Loading response&hellip;</span>
+                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" aria-hidden="true"></div>
+                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce [animation-delay:0.1s]" aria-hidden="true"></div>
+                    <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce [animation-delay:0.2s]" aria-hidden="true"></div>
                   </div>
                 </template>
               </div>
@@ -195,6 +198,7 @@
       <form @submit.prevent="sendMessage()" class="flex space-x-3 items-end">
         <textarea x-ref="messageInput" x-model="currentMessage" @input="adjustInputSize()"
           @keydown="handleKeyDown($event)" :disabled="isLoading" :rows="inputRows" placeholder="Ask me anything..."
+          aria-label="Chat message"
           class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white resize-none transition-all duration-200 shadow-sm caret-gray-900 dark:caret-white"></textarea>
 
         <div class="flex">

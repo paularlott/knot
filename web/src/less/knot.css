@@ -1,8 +1,8 @@
-@import './ace-editor.less' layer(base);
-@import '../terminal/terminal.less' layer(base);
-@import '../terminal/xterm.less' layer(base);
+@import "./ace-editor.less" layer(base);
+@import "../terminal/terminal.less" layer(base);
+@import "../terminal/xterm.less" layer(base);
 
-@import 'tailwindcss';
+@import "tailwindcss";
 
 @plugin '@tailwindcss/forms';
 
@@ -55,11 +55,11 @@
 }
 
 @utility error-message {
-  @apply pl-0.5 text-red-500 dark:text-red-700 text-sm;
+  @apply pl-0.5 text-red-700 dark:text-red-400 text-sm;
 }
 
 @utility description {
-  @apply text-sm text-gray-600 dark:text-gray-500;
+  @apply text-sm text-gray-600 dark:text-gray-400;
 }
 
 @utility btn-primary {
@@ -71,7 +71,7 @@
 }
 
 @utility nav-item {
-  @apply flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 border-none my-1 cursor-pointer;
+  @apply flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 border-none my-1 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500;
 }
 
 @utility nav-item-icon {
@@ -80,19 +80,19 @@
 
 @layer base {
   @font-face {
-    font-family: 'Nunito';
+    font-family: "Nunito";
     font-style: normal;
     font-weight: 100 700;
     font-display: swap;
-    src: url(fonts/nunito.woff2) format('woff2');
+    src: url(fonts/nunito.woff2) format("woff2");
   }
 
   @font-face {
-    font-family: 'JetBrains Mono';
+    font-family: "JetBrains Mono";
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: url(fonts/jetbrainsmono.woff2) format('woff2');
+    src: url(fonts/jetbrainsmono.woff2) format("woff2");
   }
 }
 
@@ -116,7 +116,6 @@
   opacity: 0.3;
 }
 
-
 /* AI Assistant */
 .ai-assistant {
   width: 40px;
@@ -139,13 +138,18 @@
 
 /* Inner glow effect */
 .ai-assistant .shape::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 2px;
   left: 2px;
   right: 2px;
   bottom: 2px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.2) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.2) 100%
+  );
   clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
   border-radius: 6px;
 }
@@ -171,12 +175,16 @@
   animation: ai-assistant-blink 5s infinite;
 }
 
-.ai-assistant .eye.left { left: 30%; }
-.ai-assistant .eye.right { right: 30%; }
+.ai-assistant .eye.left {
+  left: 30%;
+}
+.ai-assistant .eye.right {
+  right: 30%;
+}
 
 /* Eye highlights */
 .ai-assistant .eye::after {
-  content: '';
+  content: "";
   position: absolute;
   width: 1.5px;
   height: 2.5px;
@@ -224,7 +232,8 @@
 
 /* Animations */
 @keyframes ai-assistant-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     filter: brightness(1);
   }
@@ -235,19 +244,40 @@
 }
 
 @keyframes ai-assistant-smile-wiggle {
-  0%, 100% { transform: translateX(-50%) rotate(0deg); }
-  25% { transform: translateX(-50%) rotate(1deg); }
-  75% { transform: translateX(-50%) rotate(-1deg); }
+  0%,
+  100% {
+    transform: translateX(-50%) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-50%) rotate(1deg);
+  }
+  75% {
+    transform: translateX(-50%) rotate(-1deg);
+  }
 }
 
 @keyframes ai-assistant-blink {
-  0%, 100% { transform: scaleY(1); }
-  49% { transform: scaleY(1); }
-  50% { transform: scaleY(0.1); }
-  51% { transform: scaleY(1); }
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  49% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.1);
+  }
+  51% {
+    transform: scaleY(1);
+  }
 }
 
 @keyframes ai-assistant-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }

@@ -33,7 +33,7 @@
   </form>
 
   <!-- Modal -->
-  <div x-cloak x-show="showTOTP" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showTOTP" @keydown.esc.window="showTOTP = false" @click.self="dshowTOTP = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+  <div x-cloak x-show="showTOTP" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showTOTP" @keydown.esc.window="showTOTP = false" @click.self="showTOTP = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="totpModalTitle">
     <!-- Modal Dialog -->
     <div x-show="showTOTP" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
       <!-- Dialog Header -->
@@ -43,7 +43,7 @@
             <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
           </svg>
         </div>
-        <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">One Time Password</h3>
+        <h3 id="totpModalTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">One Time Password</h3>
         <div></div>
       </div>
       <!-- Dialog Body -->

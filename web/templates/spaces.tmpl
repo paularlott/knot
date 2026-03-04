@@ -32,11 +32,11 @@
           </svg>
         </button>
 
-        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" id="panel-cDV5GZ12" role="menu" style="position: fixed; display: block; left: 492.367px; top: 109px;">
+        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" id="panel-cDV5GZ12" style="position: fixed; display: block; left: 492.367px; top: 109px;">
 
           <div x-show="canManageSpaces && !showingSpecificUser" x-cloak class="mb-4">
             <div x-data="autocompleterUser()" x-init="setDataSource('forUsersList')" data-parent-group="" data-parent-variable="forUserId" data-on-change="userChagned" @refresh-user-autocompleter.window="refresh()" class="relative" @user-selected="userChanged">
-              <input x-model="search" class="form-field" type="search" placeholder="Search..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" />
+              <input x-model="search" class="form-field" type="search" placeholder="Search..." aria-label="Search users" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" />
               <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                 <ul class="list-none">
                   <template x-for="(option, index) in filteredOptions" :key="index">
@@ -101,7 +101,7 @@
       </template>
 
       <div x-show="!loading && (visibleSpaces || searchTerm.length)" x-cloak class="relative overflow-x-auto">
-        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+        <table aria-label="Spaces" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <colgroup>
             <col class="w-1/1.1 lg:w-1/3.5 xl:w-1/3" />
             <col class="w-auto" /> <!-- Services -->
@@ -279,7 +279,7 @@
                         <!-- Multiple Ports Dropdown -->
                         <template x-if="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length > 1)">
                           <div x-data x-show="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length)" x-cloak>
-                            <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
+                            <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5">
                               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
                               </svg><span class="sr-only">Ports</span>
@@ -382,7 +382,7 @@
                     <!-- Multiple Ports Dropdown -->
                     <template x-if="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length > 1)">
                       <div x-data x-show="(s.tcp_ports && Object.entries(s.tcp_ports).length) || (s.http_ports && Object.entries(s.http_ports).length)" x-cloak>
-                        <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5">
+                        <button @click="$refs.panel.toggle" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
                             <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
                           </svg><span class="sr-only">Ports</span>
@@ -470,7 +470,7 @@
                 <!-- More Actions -->
                 <td class="px-4 py-3 text-right">
                   <div x-data x-show="s.is_local" x-cloak>
-                    <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden rounded-lg text-sm p-2.5 cursor-pointer">
+                    <button @click="$refs.panel.toggle" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg text-sm p-2.5 cursor-pointer">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-5" aria-hidden="true" >
                         <path fill-rule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clip-rule="evenodd" />
                       </svg><span class="sr-only">More</span>
@@ -597,7 +597,7 @@
                     </div>
 
                     <div x-ref="panel2" x-float.teleport.placement.left-end.flip.offset="{offset: 16}" @click.away="$refs.panel2.close" @keydown.window.escape="$refs.panel2.close" class="fixed z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap w-full max-w-lg" x-cloak>
-                      <input type="text" x-model="s.sshCmd" readonly class="form-field w-full cursor-pointer" @click="copyToClipboard(s.sshCmd); $refs.panel2.close();" />
+                      <input type="text" x-model="s.sshCmd" readonly aria-label="SSH command" class="form-field w-full cursor-pointer" @click="copyToClipboard(s.sshCmd); $refs.panel2.close();" />
                     </div>
                   </div>
                 </td>
@@ -608,7 +608,7 @@
       </div>
 
       <!-- Modal choose user -->
-      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="chooseUserTitle">
         <!-- Modal Dialog -->
         <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-visible rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -623,9 +623,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
               </svg>
             </div>
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white" x-text="chooseUser.isShare ? 'Share Space With' : 'Transfer Space To'"></h3>
+            <h3 id="chooseUserTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white" x-text="chooseUser.isShare ? 'Share Space With' : 'Transfer Space To'"></h3>
             <button @click="chooseUser.show = false;" aria-label="close modal" class="cursor-pointer">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true" >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
@@ -635,7 +635,7 @@
             <p x-cloak x-show="!chooseUser.isShare">Select the user to transfer the space to.</p>
             <p x-cloak x-show="chooseUser.isShare">Select the user to share the space with.</p>
             <div x-data="autocompleterUser()" x-init="setDataSource('shareUsers')" data-parent-var-group="chooseUser" data-parent-variable="toUserId" data-parent-variable-username="toUserUsername" @refresh-autocompleter.window="refresh()" class="relative mt-2">
-              <input x-model="search" class="form-field" type="search" placeholder="Search..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
+              <input x-model="search" class="form-field" type="search" placeholder="Search..." aria-label="Search users" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
               <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                 <ul class="list-none">
                   <template x-for="(option, index) in filteredOptions" :key="index">
@@ -670,7 +670,7 @@
       </div>
 
       <!-- Modal -->
-      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false; deleteConfirm.space.deleting = false" @click.self="deleteConfirm.show = false; deleteConfirm.space.deleting = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false; deleteConfirm.space.deleting = false" @click.self="deleteConfirm.show = false; deleteConfirm.space.deleting = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
         <!-- Modal Dialog -->
         <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -680,9 +680,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
               </svg>
             </div>
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Confirm Delete</h3>
+            <h3 id="deleteConfirmTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Confirm Delete</h3>
             <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false" aria-label="close modal" class="cursor-pointer">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true" >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
@@ -704,7 +704,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="ceaseShareConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="ceaseShareConfirm.show" @keydown.esc.window="ceaseShareConfirm.show = false" @click.self="ceaseShareConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="ceaseShareConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="ceaseShareConfirm.show" @keydown.esc.window="ceaseShareConfirm.show = false" @click.self="ceaseShareConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="ceaseShareTitle">
         <!-- Modal Dialog -->
         <div x-show="ceaseShareConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -714,9 +714,9 @@
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Stop Sharing</h3>
+            <h3 id="ceaseShareTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Stop Sharing</h3>
             <button @click="ceaseShareConfirm.show = false" aria-label="close modal" class="cursor-pointer">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true" >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
@@ -735,7 +735,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="quotaComputeLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaComputeLimit.show" @keydown.esc.window="quotaComputeLimit.show = false" @click.self="quotaComputeLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="quotaComputeLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaComputeLimit.show" @keydown.esc.window="quotaComputeLimit.show = false" @click.self="quotaComputeLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="quotaComputeTitle">
         <!-- Modal Dialog -->
         <div x-show="quotaComputeLimit.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -745,9 +745,9 @@
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Compute Quota Exceeded</h3>
+            <h3 id="quotaComputeTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Compute Quota Exceeded</h3>
             <button @click="quotaComputeLimit.show = false" aria-label="close modal" class="cursor-pointer">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true" >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
@@ -774,7 +774,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="quotaStorageLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaStorageLimit.show" @keydown.esc.window="quotaStorageLimit.show = false" @click.self="quotaStorageLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="quotaStorageLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaStorageLimit.show" @keydown.esc.window="quotaStorageLimit.show = false" @click.self="quotaStorageLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="quotaStorageTitle">
         <!-- Modal Dialog -->
         <div x-show="quotaStorageLimit.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -784,9 +784,9 @@
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Storage Quota Exceeded</h3>
+            <h3 id="quotaStorageTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Storage Quota Exceeded</h3>
             <button @click="quotaStorageLimit.show = false" aria-label="close modal" class="cursor-pointer">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true" >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
@@ -814,7 +814,7 @@
       </div>
 
 
-      <div x-cloak x-show="badScheduleShow" x-transition.opacity.duration.200ms x-trap.inert.noscroll="badScheduleShow" @keydown.esc.window="badScheduleShow = false" @click.self="badScheduleShow = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="badScheduleShow" x-transition.opacity.duration.200ms x-trap.inert.noscroll="badScheduleShow" @keydown.esc.window="badScheduleShow = false" @click.self="badScheduleShow = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="badScheduleTitle">
         <!-- Modal Dialog -->
         <div x-show="badScheduleShow" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -824,9 +824,9 @@
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Outside of Schedule</h3>
+            <h3 id="badScheduleTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Outside of Schedule</h3>
             <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false" aria-label="close modal">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true" >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
@@ -842,7 +842,7 @@
         </div>
       </div>
 
-      <div x-cloak x-show="spaceDesc.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceDesc.show" @keydown.esc.window="spaceDesc.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="spaceDesc.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceDesc.show" @keydown.esc.window="spaceDesc.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="spaceDescTitle">
         <!-- Modal Dialog -->
         <div x-show="spaceDesc.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
@@ -852,9 +852,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
               </svg>
             </div>
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Description for <span x-text="spaceDesc.space.name"></span></h3>
+            <h3 id="spaceDescTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Description for <span x-text="spaceDesc.space.name"></span></h3>
             <button @click="spaceDesc.show = false" aria-label="close modal" class="cursor-pointer outline-0 ml-4">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true" >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
@@ -879,10 +879,10 @@
       </div>
 
       <!-- Modal: Space Form -->
-      <div x-cloak x-show="spaceFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceFormModal.show" @close-space-form.window="spaceFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="spaceFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceFormModal.show" @close-space-form.window="spaceFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="spaceFormTitle">
         <div x-show="spaceFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-2xl w-full flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white" x-text="spaceFormModal.isEdit ? 'Edit Space' : 'Create Space'"></h3>
+            <h3 id="spaceFormTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white" x-text="spaceFormModal.isEdit ? 'Edit Space' : 'Create Space'"></h3>
             <button @click="spaceFormModal.show = false" aria-label="close modal" class="cursor-pointer outline-0">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -898,14 +898,14 @@
       </div>
 
       <!-- Modal: Template Selector -->
-      <div x-cloak x-show="templateSelector.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="templateSelector.show" @keydown.esc.window="templateSelector.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true">
+      <div x-cloak x-show="templateSelector.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="templateSelector.show" @keydown.esc.window="templateSelector.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="templateSelectorTitle">
         <!-- Modal Dialog -->
         <div x-show="templateSelector.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-4xl w-full flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
           <!-- Dialog Header -->
           <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <h3 class="font-semibold tracking-wide text-neutral-900 dark:text-white">Select a Template</h3>
+            <h3 id="templateSelectorTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Select a Template</h3>
             <button @click="templateSelector.show = false" aria-label="close modal" class="cursor-pointer outline-0">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true" >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
@@ -914,7 +914,7 @@
           <div class="px-4 py-4 overflow-y-auto max-h-[70vh]">
             <!-- Search and Filter -->
             <div class="mb-4">
-              <input type="search" class="form-field bg-white w-full" placeholder="Search templates..." x-model="templateSelector.searchTerm" x-on:input="templateSearchChanged" x-ref="templateSearchInput">
+              <input type="search" class="form-field bg-white w-full" placeholder="Search templates..." aria-label="Search templates" x-model="templateSelector.searchTerm" x-on:input="templateSearchChanged" x-ref="templateSearchInput">
             </div>
 
             <!-- Template List -->
