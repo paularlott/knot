@@ -1,6 +1,6 @@
 module github.com/paularlott/knot
 
-go 1.26.0
+go 1.26.1
 
 //replace github.com/paularlott/gossip => ../gossip/
 
@@ -23,7 +23,7 @@ require (
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.72
 	github.com/paularlott/cli v0.7.11
-	github.com/paularlott/gossip v0.12.2
+	github.com/paularlott/gossip v0.12.3
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.14.1
 	github.com/paularlott/scriptling v0.2.21

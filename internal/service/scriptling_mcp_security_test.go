@@ -258,7 +258,7 @@ result = "wait_for_imported"
 // TestLocalScriptlingEnv_CanImportSystemLibraries verifies that local environment
 // CAN import system libraries (contrast with MCP).
 func TestLocalScriptlingEnv_CanImportSystemLibraries(t *testing.T) {
-	env, err := NewLocalScriptlingEnv(nil, nil, "")
+	env, err := NewLocalScriptlingEnv(nil, nil, "", "", nil)
 	if err != nil {
 		t.Fatalf("NewLocalScriptlingEnv() failed: %v", err)
 	}

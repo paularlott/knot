@@ -78,6 +78,7 @@ type ClusterConfig struct {
 	Peers          []string
 	AllowLeafNodes bool
 	Compression    bool
+	TCPOnly        bool
 }
 
 type TLSConfig struct {

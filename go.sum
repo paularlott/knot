@@ -108,8 +108,8 @@ github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJw
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
 github.com/paularlott/cli v0.7.11 h1:19B1Xto4ulm6bz3y3C91qPEWr79UKHv2UHiMzTrNbbI=
 github.com/paularlott/cli v0.7.11/go.mod h1:ZSHKSCzhS4y0I4PWCAWo+++plYEocRdsZPBy6OBOKHs=
-github.com/paularlott/gossip v0.12.2 h1:QiaOQg4f3XI7olRTJs4t9Oe06F7njvSHyptTHNeLe7s=
-github.com/paularlott/gossip v0.12.2/go.mod h1:EFGo/SnGMNWzY79b36Sp9RsDxg9LIMHuLwPrv0QHLPo=
+github.com/paularlott/gossip v0.12.3 h1:WuA9eN3NSYCQQcu3qJX/WWF5u1cB0Ayi2Hhru24EU0Q=
+github.com/paularlott/gossip v0.12.3/go.mod h1:EFGo/SnGMNWzY79b36Sp9RsDxg9LIMHuLwPrv0QHLPo=
 github.com/paularlott/logger v0.3.0 h1:QwVUoxmlEFkfHI25y5dn56OJvK4Bpe3OvoJu4GZM7ng=
 github.com/paularlott/logger v0.3.0/go.mod h1:vjAOY1vUvYigmJxxQ0eMclryIjDS6VWNK6FprtTMce0=
 github.com/paularlott/mcp v0.14.1 h1:iiTGfHKAxwxr4VKpE5lG5Xld3XPDSvDdiLg26HcKFQM=

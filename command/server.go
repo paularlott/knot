@@ -319,6 +319,12 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_CLUSTER_COMPRESSION"},
 			DefaultValue: true,
 		},
+		&cli.BoolFlag{
+			Name:       "cluster-tcp-only",
+			Usage:      "Disable UDP and use TCP only for cluster communication.",
+			ConfigPath: []string{"server.cluster.tcp_only"},
+			EnvVars:    []string{config.CONFIG_ENV_PREFIX + "_CLUSTER_TCP_ONLY"},
+		},
 
 		// Origin / Leaf server flags
 		&cli.StringFlag{
@@ -1052,6 +1058,7 @@ var ServerCmd = &cli.Command{
 			routes,
 			cfg.Cluster.Compression,
 			cfg.Cluster.AllowLeafNodes,
+			cfg.Cluster.TCPOnly,
 		)
 		service.SetTransport(cluster)
 
@@ -1221,6 +1228,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			Peers:          cmd.GetStringSlice("cluster-peer"),
 			AllowLeafNodes: cmd.GetBool("allow-leaf-nodes"),
 			Compression:    cmd.GetBool("cluster-compression"),
+			TCPOnly:        cmd.GetBool("cluster-tcp-only"),
 		},
 		MySQL: config.MySQLConfig{
 			Enabled:               cmd.GetBool("mysql-enabled"),
