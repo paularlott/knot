@@ -20,7 +20,7 @@
               <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300">Node</th>
               <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden md:table-cell">Zone</th>
               <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden lg:table-cell">Endpoint</th>
-              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden sm:table-cell">Spaces</th>
+              <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden sm:table-cell">Node Spaces</th>
               <th scope="col" class="px-4 py-3 text-xs font-medium tracking-wider text-left text-gray-600 uppercase dark:text-gray-300 hidden xl:table-cell">Runtimes</th>
             </tr>
           </thead>
@@ -41,6 +41,7 @@
                       <div class="text-sm">
                         <span class="font-medium">Spaces:</span>
                         <span x-text="`${node.metadata.running_spaces || 0} / ${node.metadata.allocated_spaces || 0}`" class="text-gray-600 dark:text-gray-300"></span>
+                        <span class="text-xs text-gray-400">(running / allocated)</span>
                       </div>
                     </div>
                     <div class="xl:hidden mt-2 space-y-1">
@@ -66,7 +67,8 @@
                       <span class="text-gray-500 dark:text-gray-400">/</span>
                       <span x-text="node.metadata.allocated_spaces || 0"></span>
                     </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">running / total</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">running / allocated</div>
+                    <div class="text-xs text-gray-400 dark:text-gray-500">(includes pending)</div>
                   </td>
                   <td class="px-4 py-3 text-gray-700 dark:text-gray-200 hidden xl:table-cell">
                     <template x-if="node.metadata.runtimes">

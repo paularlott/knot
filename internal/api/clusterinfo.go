@@ -32,7 +32,7 @@ func HandleGetClusterNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	spaces, _ := db.GetSpaces()
-	allocated, running := countSpaces(spaces, localNodeId)
+	allocated, running := countSpaces(spaces, localNodeId, cfg.Zone)
 
 	rest.WriteResponse(http.StatusOK, w, r, apiclient.ClusterNode{
 		NodeId:          localNodeId,
@@ -61,7 +61,8 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 
 	for i, p := range peers {
 		nodeId := p.ID.String()
-		allocated, running := countSpaces(spaces, nodeId)
+		nodeZone := p.Metadata.GetString("zone")
+		allocated, running := countSpaces(spaces, nodeId, nodeZone)
 
 		var runtimes []string
 		var hostname string
@@ -104,9 +105,13 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 	rest.WriteResponse(http.StatusOK, w, r, response)
 }
 
-func countSpaces(spaces []*model.Space, nodeId string) (allocated int, running int) {
+func countSpaces(spaces []*model.Space, nodeId string, nodeZone string) (allocated int, running int) {
 	for _, space := range spaces {
-		if space.NodeId == nodeId && !space.IsDeleted {
+		if space.IsDeleted {
+			continue
+		}
+		// Count spaces assigned to this node or pending spaces in this zone
+		if space.NodeId == nodeId || (space.NodeId == "" && space.Zone == nodeZone) {
 			allocated++
 			if space.IsDeployed {
 				running++
