@@ -1,0 +1,9 @@
+description = "Permanently delete a template. This action cannot be undone - spaces using this template will continue to run but new spaces cannot be created from it."
+keywords = ["delete", "destroy", "remove", "template", "cleanup"]
+discoverable = true
+
+[[parameters]]
+name = "template_id"
+type = "string"
+description = "ID or name of the template to permanently delete"
+required = true

@@ -1,0 +1,111 @@
+description = "Update properties of an existing template. Only provided parameters will be changed."
+keywords = ["update", "template", "modify", "edit", "configure", "change"]
+discoverable = true
+
+[[parameters]]
+name = "template_id"
+type = "string"
+description = "ID or name of the template to update"
+required = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "New name for the template"
+required = false
+
+[[parameters]]
+name = "job"
+type = "string"
+description = "New job definition"
+required = false
+
+[[parameters]]
+name = "description"
+type = "string"
+description = "New description"
+required = false
+
+[[parameters]]
+name = "platform"
+type = "string"
+description = "New platform (e.g., linux/amd64, linux/arm64)"
+required = false
+
+[[parameters]]
+name = "volumes"
+type = "string"
+description = "New volume configuration"
+required = false
+
+[[parameters]]
+name = "active"
+type = "bool"
+description = "Whether the template is active"
+required = false
+
+[[parameters]]
+name = "compute_units"
+type = "number"
+description = "Compute units required"
+required = false
+
+[[parameters]]
+name = "storage_units"
+type = "number"
+description = "Storage units required"
+required = false
+
+[[parameters]]
+name = "with_terminal"
+type = "bool"
+description = "Enable/disable terminal access"
+required = false
+
+[[parameters]]
+name = "with_vscode_tunnel"
+type = "bool"
+description = "Enable/disable VS Code tunnel"
+required = false
+
+[[parameters]]
+name = "with_code_server"
+type = "bool"
+description = "Enable/disable code server"
+required = false
+
+[[parameters]]
+name = "with_ssh"
+type = "bool"
+description = "Enable/disable SSH access"
+required = false
+
+[[parameters]]
+name = "with_run_command"
+type = "bool"
+description = "Enable/disable run command feature"
+required = false
+
+[[parameters]]
+name = "schedule_enabled"
+type = "bool"
+description = "Enable/disable scheduling"
+required = false
+
+[[parameters]]
+name = "icon_url"
+type = "string"
+description = "New icon URL"
+required = false
+
+[[parameters]]
+name = "groups"
+type = "array:string"
+description = "New list of group names"
+required = false
+
+[[parameters]]
+name = "zones"
+type = "array:string"
+description = "New list of zone names"
+required = false

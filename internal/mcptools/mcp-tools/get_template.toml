@@ -1,0 +1,9 @@
+description = "Retrieve detailed template information including configuration, job specifications, access options, and resource requirements."
+keywords = ["get", "template", "details", "info", "configuration", "specification"]
+discoverable = true
+
+[[parameters]]
+name = "template_id"
+type = "string"
+description = "ID or name of the template to retrieve"
+required = true

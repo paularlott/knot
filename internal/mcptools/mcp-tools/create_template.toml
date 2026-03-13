@@ -1,0 +1,105 @@
+description = "Create a new space template. Templates define the configuration for spaces including job definition, resources, and access options."
+keywords = ["create", "template", "new", "blueprint", "definition", "space"]
+discoverable = true
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Name for the new template"
+required = true
+
+[[parameters]]
+name = "job"
+type = "string"
+description = "Job definition (container configuration, commands, etc.)"
+required = false
+
+[[parameters]]
+name = "description"
+type = "string"
+description = "Description of what this template provides"
+required = false
+
+[[parameters]]
+name = "platform"
+type = "string"
+description = "Platform (e.g., linux/amd64, linux/arm64)"
+required = false
+
+[[parameters]]
+name = "volumes"
+type = "string"
+description = "Volume configuration for the template"
+required = false
+
+[[parameters]]
+name = "active"
+type = "bool"
+description = "Whether the template is active and available for use (default: true)"
+required = false
+
+[[parameters]]
+name = "compute_units"
+type = "number"
+description = "Compute units required (CPU resources)"
+required = false
+
+[[parameters]]
+name = "storage_units"
+type = "number"
+description = "Storage units required (disk space)"
+required = false
+
+[[parameters]]
+name = "with_terminal"
+type = "bool"
+description = "Enable terminal access in spaces created from this template"
+required = false
+
+[[parameters]]
+name = "with_vscode_tunnel"
+type = "bool"
+description = "Enable VS Code tunnel access"
+required = false
+
+[[parameters]]
+name = "with_code_server"
+type = "bool"
+description = "Enable code server (browser-based VS Code)"
+required = false
+
+[[parameters]]
+name = "with_ssh"
+type = "bool"
+description = "Enable SSH access"
+required = false
+
+[[parameters]]
+name = "with_run_command"
+type = "bool"
+description = "Enable run command feature"
+required = false
+
+[[parameters]]
+name = "schedule_enabled"
+type = "bool"
+description = "Enable scheduling for spaces created from this template"
+required = false
+
+[[parameters]]
+name = "icon_url"
+type = "string"
+description = "URL to an icon for this template"
+required = false
+
+[[parameters]]
+name = "groups"
+type = "array:string"
+description = "List of group names that can access this template"
+required = false
+
+[[parameters]]
+name = "zones"
+type = "array:string"
+description = "List of zone names where this template is available"
+required = false
