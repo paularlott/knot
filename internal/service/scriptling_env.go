@@ -93,8 +93,9 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 
 	// Register only the core runtime library (background function)
 	extlibs.RegisterRuntimeLibrary(env)
-	extlibs.RegisterRuntimeKVLibrary(env)   // Key-value store
-	extlibs.RegisterRuntimeSyncLibrary(env) // Concurrency primitives
+	extlibs.RegisterRuntimeKVLibrary(env)     // Key-value store
+	extlibs.RegisterRuntimeSyncLibrary(env)   // Concurrency primitives
+	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
 
 	scriptlingconsole.Register(env) // scriptling.console
 	extlibs.RegisterOSLibrary(env, nil)
@@ -359,6 +360,7 @@ func NewRemoteStreamingScriptlingEnv(argv []string, client *apiclient.ApiClient,
 	extlibs.RegisterRuntimeLibrary(env)
 	extlibs.RegisterRuntimeKVLibrary(env)
 	extlibs.RegisterRuntimeSyncLibrary(env)
+	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
 	// scriptling.console intentionally not registered here — registered via registerConsoleStub in execute_script_stream.go
 	// scriptling.ai.agent.interact intentionally not registered here — registered via agent.RegisterInteract in execute_script_stream.go
 	extlibs.RegisterOSLibrary(env, nil)

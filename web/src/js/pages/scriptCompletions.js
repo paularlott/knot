@@ -1564,6 +1564,152 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.runtime.sandbox",
+    description:
+      "Isolated script execution environments (Local/Remote environments)",
+    classes: [
+      {
+        name: "Sandbox",
+        description: "An isolated script execution context",
+        methods: [
+          {
+            name: "set",
+            signature: "set(name, value)",
+            description: "Set a variable in the sandbox",
+            returns: "None",
+          },
+          {
+            name: "get",
+            signature: "get(name)",
+            description: "Get a variable from the sandbox",
+            returns: "any - Variable value or None",
+          },
+          {
+            name: "exec",
+            signature: "exec(code)",
+            description: "Execute script code in the sandbox",
+            returns: "None",
+          },
+          {
+            name: "exec_file",
+            signature: "exec_file(path)",
+            description: "Load and execute a script file in the sandbox",
+            returns: "None",
+          },
+          {
+            name: "exit_code",
+            signature: "exit_code()",
+            description: "Get the exit code from the last execution (0 = success)",
+            returns: "int - Exit code",
+          },
+        ],
+      },
+    ],
+    functions: [
+      {
+        name: "create",
+        signature: "create(capture_output=False)",
+        description:
+          "Create a new isolated sandbox environment with its own variable scope",
+        returns: "Sandbox - Sandbox instance",
+        returnType: "Sandbox",
+      },
+    ],
+  },
+  {
+    module: "scriptling.runtime.http",
+    description:
+      "HTTP server route registration and response helpers (Local/Remote environments)",
+    classes: [
+      {
+        name: "Request",
+        description: "HTTP request object passed to handlers",
+        methods: [
+          {
+            name: "json",
+            signature: "json()",
+            description: "Parse request body as JSON",
+            returns: "dict/list - Parsed JSON or None if body is empty",
+          },
+        ],
+      },
+    ],
+    functions: [
+      {
+        name: "get",
+        signature: "get(path, handler)",
+        description: 'Register a GET route (handler is "library.function" string)',
+        returns: "None",
+      },
+      {
+        name: "post",
+        signature: "post(path, handler)",
+        description: 'Register a POST route (handler is "library.function" string)',
+        returns: "None",
+      },
+      {
+        name: "put",
+        signature: "put(path, handler)",
+        description: 'Register a PUT route (handler is "library.function" string)',
+        returns: "None",
+      },
+      {
+        name: "delete",
+        signature: "delete(path, handler)",
+        description: 'Register a DELETE route (handler is "library.function" string)',
+        returns: "None",
+      },
+      {
+        name: "route",
+        signature: 'route(path, handler, methods=["GET", "POST", "PUT", "DELETE"])',
+        description: "Register a route for multiple HTTP methods",
+        returns: "None",
+      },
+      {
+        name: "middleware",
+        signature: "middleware(handler)",
+        description: "Register middleware for all routes",
+        returns: "None",
+      },
+      {
+        name: "static",
+        signature: "static(path, directory)",
+        description: "Register a static file serving route",
+        returns: "None",
+      },
+      {
+        name: "json",
+        signature: "json(status_code, data)",
+        description: "Create a JSON response",
+        returns: "dict - Response object",
+      },
+      {
+        name: "html",
+        signature: "html(status_code, content)",
+        description: "Create an HTML response",
+        returns: "dict - Response object",
+      },
+      {
+        name: "text",
+        signature: "text(status_code, content)",
+        description: "Create a plain text response",
+        returns: "dict - Response object",
+      },
+      {
+        name: "redirect",
+        signature: "redirect(location, status=302)",
+        description: "Create a redirect response",
+        returns: "dict - Response object",
+      },
+      {
+        name: "parse_query",
+        signature: "parse_query(query_string)",
+        description: "Parse a URL query string into a dict",
+        returns: "dict - Parsed key-value pairs",
+      },
+    ],
+  },
+  {
     module: "toml",
     description: "TOML parsing and manipulation (all environments)",
     functions: [
@@ -3683,6 +3829,11 @@ const typePatterns = [
   {
     regex: /(\w+)\s*=\s*scriptling\.threads\.run\s*\(/,
     type: "Promise",
+  },
+  // scriptling.runtime.sandbox.create returns Sandbox
+  {
+    regex: /(\w+)\s*=\s*scriptling\.runtime\.sandbox\.create\s*\(/,
+    type: "Sandbox",
   },
   // requests.get/post/put/delete/patch returns Response
   {
