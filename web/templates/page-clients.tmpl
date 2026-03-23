@@ -70,6 +70,12 @@
 
     </div>
 
+    <div class="col-span-2 p-4 bg-white border border-gray-200 rounded-lg shadow-xs dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+      <h2 class="mb-4 text-xl font-semibold dark:text-white">Scriptling Package</h2>
+      <p class="text-gray-800 dark:text-gray-50 mb-4">Use the Knot API client library in your scriptling scripts:</p>
+      <pre class="font-jbmono bg-gray-100 dark:bg-gray-900 p-4 rounded-md text-sm text-gray-800 dark:text-gray-50 overflow-x-auto"><code class="font-jbmono">scriptling --package=https://{{.requestHost}}/packages/knot.zip#sha256={{.knotPackageSha256}} script.py</code></pre>
+    </div>
+
   </div>
 </main>
 {{ end }}

@@ -4,6 +4,8 @@
 !/bin/.gitignore
 /web/agents/*
 !/web/agents/.gitignore
+/web/packages/*
+!/web/packages/.gitkeep
 /node_modules
 /files-test
 /test-skills
@@ -28,3 +30,4 @@
 /web/public_html/terminal.js.map
 /web/public_html/assets/*
 /knot
+/script-apiclient/manifest.toml

@@ -1,33 +1,9 @@
 # knot.template - Template management library for Knot server
-#
-# This library provides functions for managing templates in Knot.
-# Requires knot.api to be configured first.
-#
-# Usage:
-#   import knot.api
-#   import knot.template
-#
-#   knot.api.configure("https://knot.example.com", "your-token")
-#   templates = knot.template.list()
 
-import knot.api as api
+from . import api
 
 def list():
-    """List all templates.
-
-    Returns:
-        A list of template dicts, each containing:
-        - id: Template ID
-        - name: Template name
-        - description: Template description
-        - platform: Platform (e.g., "linux/amd64")
-        - active: Boolean indicating if template is active
-        - usage: Number of spaces using this template
-        - deployed: Number of deployed spaces using this template
-
-    Raises:
-        Exception if not configured or on API error
-    """
+    """List all templates."""
     response = api.get("/api/templates")
 
     result = []
@@ -46,44 +22,7 @@ def list():
 
 
 def get(template_id):
-    """Get template by ID or name.
-
-    Args:
-        template_id: Template ID or name
-
-    Returns:
-        A dict containing template details:
-        - id: Template ID
-        - name: Template name
-        - description: Template description
-        - platform: Platform
-        - job: Job definition
-        - volumes: Volume configuration
-        - active: Boolean indicating if template is active
-        - is_managed: Boolean indicating if template is managed
-        - compute_units: Compute units required
-        - storage_units: Storage units required
-        - usage: Number of spaces using this template
-        - deployed: Number of deployed spaces
-        - hash: Template hash
-        - with_terminal: Terminal access enabled
-        - with_vscode_tunnel: VS Code tunnel enabled
-        - with_code_server: Code server enabled
-        - with_ssh: SSH access enabled
-        - with_run_command: Run command enabled
-        - schedule_enabled: Schedule enabled
-        - auto_start: Auto start enabled
-        - max_uptime: Maximum uptime
-        - max_uptime_unit: Maximum uptime unit
-        - icon_url: Icon URL
-        - groups: List of group names
-        - zones: List of zone names
-        - schedule: List of schedule entries
-        - custom_fields: List of custom field definitions
-
-    Raises:
-        Exception if not configured or on API error
-    """
+    """Get template by ID or name."""
     response = api.get(f"/api/templates/{template_id}")
     return _parse_template(response)
 
@@ -93,33 +32,7 @@ def create(name, job="", description="", platform="", volumes="", active=True,
            with_vscode_tunnel=False, with_code_server=False, with_ssh=False,
            with_run_command=False, schedule_enabled=False, icon_url="",
            groups=None, zones=None):
-    """Create a new template.
-
-    Args:
-        name: Template name
-        job: Job definition (optional)
-        description: Template description (optional)
-        platform: Platform (optional)
-        volumes: Volume configuration (optional)
-        active: Whether template is active (default: True)
-        compute_units: Compute units required (default: 0)
-        storage_units: Storage units required (default: 0)
-        with_terminal: Enable terminal access (default: False)
-        with_vscode_tunnel: Enable VS Code tunnel (default: False)
-        with_code_server: Enable code server (default: False)
-        with_ssh: Enable SSH access (default: False)
-        with_run_command: Enable run command (default: False)
-        schedule_enabled: Enable schedule (default: False)
-        icon_url: Icon URL (optional)
-        groups: List of group names (optional)
-        zones: List of zone names (optional)
-
-    Returns:
-        The new template ID
-
-    Raises:
-        Exception if not configured or on API error
-    """
+    """Create a new template."""
     body = {
         "name": name,
         "job": job,
@@ -151,35 +64,7 @@ def update(template_id, name=None, job=None, description=None, platform=None,
            with_terminal=None, with_vscode_tunnel=None, with_code_server=None,
            with_ssh=None, with_run_command=None, schedule_enabled=None,
            icon_url=None, groups=None, zones=None):
-    """Update template properties.
-
-    Args:
-        template_id: Template ID or name
-        name: Template name (optional)
-        job: Job definition (optional)
-        description: Template description (optional)
-        platform: Platform (optional)
-        volumes: Volume configuration (optional)
-        active: Whether template is active (optional)
-        compute_units: Compute units required (optional)
-        storage_units: Storage units required (optional)
-        with_terminal: Enable terminal access (optional)
-        with_vscode_tunnel: Enable VS Code tunnel (optional)
-        with_code_server: Enable code server (optional)
-        with_ssh: Enable SSH access (optional)
-        with_run_command: Enable run command (optional)
-        schedule_enabled: Enable schedule (optional)
-        icon_url: Icon URL (optional)
-        groups: List of group names (optional)
-        zones: List of zone names (optional)
-
-    Returns:
-        True if successful
-
-    Raises:
-        Exception if not configured or on API error
-    """
-    # Get current template data first
+    """Update template properties."""
     current = api.get(f"/api/templates/{template_id}")
 
     body = {
@@ -214,33 +99,13 @@ def update(template_id, name=None, job=None, description=None, platform=None,
 
 
 def delete(template_id):
-    """Delete a template.
-
-    Args:
-        template_id: Template ID or name
-
-    Returns:
-        True if successful
-
-    Raises:
-        Exception if not configured or on API error
-    """
+    """Delete a template."""
     api.delete(f"/api/templates/{template_id}")
     return True
 
 
 def get_icons():
-    """Get list of available icons.
-
-    Returns:
-        A list of icon dicts, each containing:
-        - description: Icon description
-        - source: Icon source
-        - url: Icon URL
-
-    Raises:
-        Exception if not configured or on API error
-    """
+    """Get list of available icons."""
     response = api.get("/api/icons")
 
     result = []
@@ -256,7 +121,6 @@ def get_icons():
 
 def _parse_template(response):
     """Parse a template response into a standardized dict."""
-    # Parse schedule
     schedule = []
     for day in response.get("schedule", []):
         schedule.append({
@@ -265,7 +129,6 @@ def _parse_template(response):
             "to": day.get("to", "")
         })
 
-    # Parse custom fields
     custom_fields = []
     for cf in response.get("custom_fields", []):
         custom_fields.append({

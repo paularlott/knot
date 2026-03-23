@@ -10,7 +10,7 @@
 #   knot.api.configure("https://knot.example.com", "your-token")
 #   volumes = knot.volume.list()
 
-import knot.api as api
+from . import api
 
 def list():
     """List all volumes.
@@ -20,8 +20,8 @@ def list():
         - id: Volume ID
         - name: Volume name
         - active: Boolean indicating if volume is active
-        - zone: Zone name
-        - platform: Platform
+        - zone: Zone name where volume is running
+        - platform: Platform type
 
     Raises:
         Exception if not configured or on API error
@@ -42,19 +42,19 @@ def list():
 
 
 def get(volume_id):
-    """Get volume by ID or name.
+    """Get detailed information about a volume.
 
     Args:
-        volume_id: Volume ID or name
+        volume_id: Volume name or ID
 
     Returns:
         A dict containing volume details:
         - id: Volume ID
         - name: Volume name
-        - definition: Volume definition
+        - definition: Volume definition YAML
         - active: Boolean indicating if volume is active
         - zone: Zone name
-        - platform: Platform
+        - platform: Platform type
 
     Raises:
         Exception if not configured or on API error
@@ -76,8 +76,8 @@ def create(name, definition, platform=""):
 
     Args:
         name: Volume name
-        definition: Volume definition
-        platform: Platform (optional)
+        definition: Volume definition YAML
+        platform: Platform type (e.g., "docker", "podman", "nomad")
 
     Returns:
         The new volume ID
@@ -99,10 +99,10 @@ def update(volume_id, name=None, definition=None, platform=None):
     """Update volume properties.
 
     Args:
-        volume_id: Volume ID or name
-        name: Volume name (optional)
-        definition: Volume definition (optional)
-        platform: Platform (optional)
+        volume_id: Volume name or ID
+        name: New name (optional)
+        definition: New definition YAML (optional)
+        platform: New platform type (optional)
 
     Returns:
         True if successful
@@ -110,7 +110,6 @@ def update(volume_id, name=None, definition=None, platform=None):
     Raises:
         Exception if not configured or on API error
     """
-    # Get current volume data first
     current = api.get(f"/api/volumes/{volume_id}")
 
     body = {
@@ -127,7 +126,7 @@ def delete(volume_id):
     """Delete a volume.
 
     Args:
-        volume_id: Volume ID or name
+        volume_id: Volume name or ID
 
     Returns:
         True if successful
@@ -143,7 +142,7 @@ def start(volume_id):
     """Start a volume.
 
     Args:
-        volume_id: Volume ID or name
+        volume_id: Volume name or ID
 
     Returns:
         True if successful
@@ -159,7 +158,7 @@ def stop(volume_id):
     """Stop a volume.
 
     Args:
-        volume_id: Volume ID or name
+        volume_id: Volume name or ID
 
     Returns:
         True if successful
@@ -172,16 +171,16 @@ def stop(volume_id):
 
 
 def is_running(volume_id):
-    """Check if volume is running.
+    """Check if a volume is running.
 
     Args:
-        volume_id: Volume ID or name
+        volume_id: Volume name or ID
 
     Returns:
-        True if the volume is running, False otherwise
+        True if the volume is active, False otherwise
 
     Raises:
         Exception if not configured or on API error
     """
-    volume = get(volume_id)
-    return volume.get("active", False)
+    vol = get(volume_id)
+    return vol.get("active", False)

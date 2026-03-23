@@ -15,6 +15,7 @@ type ServerConfig struct {
 	HTMLPath                  string
 	TemplatePath              string
 	AgentPath                 string
+	PackagePath               string
 	PrivateFilesPath          string
 	PublicFilesPath           string
 	DownloadPath              string

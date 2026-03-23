@@ -47,7 +47,7 @@ tasks:
 
   build:
     desc: Build the binary for the current platform
-    deps: [agents, apidocs, webassets]
+    deps: [agents, packages, apidocs, webassets]
     vars:
       GOOS: '{{OS | default "linux"}}'
       GOARCH: '{{ARCH | default "amd64"}}'
@@ -67,7 +67,7 @@ tasks:
 
   build-amd64:
     desc: Build the binary for the current platform
-    deps: [agents, apidocs, webassets]
+    deps: [agents, packages, apidocs, webassets]
     env:
       GOOS: "linux"
       GOARCH: "amd64"
@@ -84,7 +84,7 @@ tasks:
 
   build-arm64:
     desc: Build the binary for the current platform
-    deps: [agents, apidocs, webassets]
+    deps: [agents, packages, apidocs, webassets]
     env:
       GOOS: "linux"
       GOARCH: "arm64"
@@ -132,7 +132,7 @@ tasks:
 
   all:
     desc: Build the binary for all platforms
-    deps: [agents, apidocs, webassets]
+    deps: [agents, packages, apidocs, webassets]
     cmds:
       - task: build-platform
         vars: { PLATFORM: "{{.ITEM}}" }
@@ -193,6 +193,22 @@ tasks:
       - go.sum
     generates:
       - "{{.AGENT_OUTPUT_DIR}}/{{.PROJECT_NAME}}_agent_*.zip" # Pattern for generated files
+
+  packages:
+    desc: Build the scriptling packages
+    cmds:
+      - mkdir -p web/packages
+      - |
+        echo 'name = "knot"' > script-apiclient/manifest.toml
+        echo 'version = "{{.VERSION}}"' >> script-apiclient/manifest.toml
+        echo 'description = "Knot API client library for scriptling"' >> script-apiclient/manifest.toml
+      - cd script-apiclient && zip -r ../web/packages/knot.zip manifest.toml lib/
+      - shasum -a 256 web/packages/knot.zip | cut -d' ' -f1 > web/packages/knot.zip.sha256
+    sources:
+      - ./script-apiclient/lib/**/*.py
+    generates:
+      - web/packages/knot.zip
+      - web/packages/knot.zip.sha256
 
   build-agent:
     internal: true
@@ -394,21 +410,21 @@ tasks:
 
   run-server:
     desc: Run the server for development
-    deps: [agents]
+    deps: [agents, packages]
     cmds:
-      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --agent-path={{.AGENT_OUTPUT_DIR}}
+      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --agent-path={{.AGENT_OUTPUT_DIR}} --package-path=./web/packages
     ignore_error: true
 
   run-leaf:
     desc: Run a leaf server for development
-    deps: [agents]
+    deps: [agents, packages]
     cmds:
-      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --config=.knot-leaf.toml
+      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --package-path=./web/packages --config=.knot-leaf.toml
     ignore_error: true
 
   run-cluster2:
     desc: Run a server as a 2nd cluster member for development
-    deps: [agents]
+    deps: [agents, packages]
     cmds:
-      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --config=.knot-cluster2.toml --hostname=podmanhost
+      - go run . server --log-level=debug --download-path={{.OUTPUT_DIR}} --html-path=./web/public_html --template-path=./web/templates --package-path=./web/packages --config=.knot-cluster2.toml --hostname=podmanhost
     ignore_error: true

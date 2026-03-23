@@ -11,7 +11,7 @@
 #   spaces = knot.space.list()
 #   knot.space.start("my-space")
 
-import knot.api as api
+from . import api
 
 def list():
     """List all spaces for the current user.

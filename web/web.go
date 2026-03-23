@@ -32,6 +32,9 @@ var (
 
 	//go:embed agents/*.zip
 	agentFiles embed.FS
+
+	//go:embed packages/*.zip packages/*.sha256
+	packageFiles embed.FS
 )
 
 func HandlePageNotFound(next *http.ServeMux) http.Handler {
@@ -167,8 +170,67 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 		}
 	})
 
+	// Serve package files
+	router.HandleFunc("GET /packages/{package_file}", func(w http.ResponseWriter, r *http.Request) {
+		fileName := r.PathValue("package_file")
+
+		if strings.Contains(fileName, "..") {
+			http.Error(w, "Invalid file name", http.StatusBadRequest)
+			return
+		}
+
+		packagePath := cfg.PackagePath
+		if packagePath != "" {
+			// Serve from disk
+			filePath := filepath.Join(packagePath, fileName)
+			info, err := os.Stat(filePath)
+			if os.IsNotExist(err) || info.IsDir() {
+				showPageNotFound(w, r)
+				return
+			}
+
+			// Set ETag based on mod time
+			etag := fmt.Sprintf("%x", info.ModTime().Unix())
+			w.Header().Set("ETag", etag)
+			w.Header().Set("Cache-Control", "public, max-age=14400")
+
+			// Check If-None-Match for conditional request
+			if match := r.Header.Get("If-None-Match"); match == etag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+
+			// Serve the file
+			fs := http.StripPrefix("/packages", http.FileServer(http.Dir(packagePath)))
+			fs.ServeHTTP(w, r)
+		} else {
+			// Serve from embedded files
+			fsys := fs.FS(packageFiles)
+			contentStatic, _ := fs.Sub(fsys, "packages")
+			_, err := fs.Stat(packageFiles, "packages/"+fileName)
+			if err != nil {
+				showPageNotFound(w, r)
+				return
+			}
+
+			// Set ETag based on build version
+			w.Header().Set("ETag", build.Version)
+			w.Header().Set("Cache-Control", "public, max-age=14400")
+
+			// Check If-None-Match for conditional request
+			if match := r.Header.Get("If-None-Match"); match == build.Version {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+
+			// Serve the file
+			fs := http.StripPrefix("/packages", http.FileServer(http.FS(contentStatic)))
+			fs.ServeHTTP(w, r)
+		}
+	})
+
 	// Group routes that require authentication
-	router.HandleFunc("GET /clients", middleware.WebAuth(HandleSimplePage))
+	router.HandleFunc("GET /clients", middleware.WebAuth(HandleClientsPage))
 	router.HandleFunc("GET /sessions", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /space-quota-reached", middleware.WebAuth(HandleSimplePage))
 	router.HandleFunc("GET /profile", middleware.WebAuth(HandleUserProfilePage))
@@ -461,5 +523,6 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"logoInvert":                  cfg.UI.LogoInvert,
 		"aiChatEnabled":               cfg.Chat.Enabled,
 		"aiChatStyle":                 cfg.Chat.UIStyle,
+		"requestHost":                 r.Host,
 	}
 }

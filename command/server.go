@@ -158,6 +158,13 @@ var ServerCmd = &cli.Command{
 			DefaultValue: "",
 		},
 		&cli.StringFlag{
+			Name:         "package-path",
+			Usage:        "The optional path to the scriptling packages to serve.",
+			ConfigPath:   []string{"server.package_path"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_PACKAGE_PATH"},
+			DefaultValue: "",
+		},
+		&cli.StringFlag{
 			Name:         "timezone",
 			Usage:        "The timezone to use for the server.",
 			ConfigPath:   []string{"server.timezone"},
@@ -1186,6 +1193,7 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 		HTMLPath:           cmd.GetString("html-path"),
 		TemplatePath:       cmd.GetString("template-path"),
 		AgentPath:          cmd.GetString("agent-path"),
+		PackagePath:        cmd.GetString("package-path"),
 		PrivateFilesPath:   cmd.GetString("private-files-path"),
 		PublicFilesPath:    cmd.GetString("public-files-path"),
 		MCPToolsPath:       cmd.GetString("mcp-tools-path"),

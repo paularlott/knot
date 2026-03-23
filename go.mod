@@ -22,11 +22,11 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/yamux v0.1.2
 	github.com/miekg/dns v1.1.72
-	github.com/paularlott/cli v0.7.11
+	github.com/paularlott/cli v0.7.12
 	github.com/paularlott/gossip v0.12.4
 	github.com/paularlott/logger v0.3.0
 	github.com/paularlott/mcp v0.15.0
-	github.com/paularlott/scriptling v0.2.24
+	github.com/paularlott/scriptling v0.4.0
 	github.com/pkg/sftp v1.13.10
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
@@ -64,7 +64,7 @@ require (
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.25.1 // indirect
 	github.com/hashicorp/go-msgpack/v2 v2.1.5 // indirect
-	github.com/klauspost/compress v1.18.4 // indirect
+	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260216142805-b3301c5f2a88 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
