@@ -35,6 +35,7 @@ Knot provides three distinct scriptling execution environments, each tailored fo
 | **scriptling.mcp.tool**      | ✓             | ✓               | ✓           |
 | **scriptling.toon**          | ✓             | ✓               | ✓           |
 | **scriptling.ai.tools**      | ✓             | ✓               | ✓           |
+| **scriptling.websocket**     | ✓             | ✓               | ✓           |
 | **toml**                     | ✓             | ✓               | ✓           |
 | **logging**                  | ✓             | ✓               | ✓           |
 | **yaml**                     | ✓             | ✓               | ✓           |
@@ -104,6 +105,7 @@ Libraries are resolved in this priority order, mirroring scriptling-cli behaviou
 - **scriptling.mcp.tool** - MCP tool parameter access and output
 - **scriptling.toon** - TOON encoding/decoding
 - **scriptling.ai.tools** - AI tools registry
+- **scriptling.websocket** - WebSocket client library
 - **toml** - TOML parsing and manipulation
 - **logging** - Logging library
 - **knot.space** - Space management operations (via API)
@@ -175,6 +177,7 @@ SCRIPTLING_LIBPATH=/path/to/libs knot run-script myscript.py
 - **scriptling.mcp** - MCP tool helpers
 - **scriptling.mcp.tool** - MCP tool parameter access and output
 - **scriptling.toon** - TOON encoding/decoding
+- **scriptling.websocket** - WebSocket client library
 - **ai.tools** - AI tools registry
 - **toml** - TOML parsing and manipulation
 - **knot.space** - Space management operations (via internal API)
@@ -255,6 +258,7 @@ return knot.mcp.return_string(f"Hello, {name}!")
 - **scriptling.mcp.tool** - MCP tool parameter access and output
 - **scriptling.toon** - TOON encoding/decoding
 - **scriptling.ai.tools** - AI tools registry
+- **scriptling.websocket** - WebSocket client library
 - **toml** - TOML parsing and manipulation
 - **logging** - Logging library
 - **knot.space** - Space management operations (via API)
@@ -319,6 +323,7 @@ echo "data" | knot space run-script myspace myscript | jq
 | scriptling.mcp.tool           | ✓                | ✓          | ✓          |
 | scriptling.toon               | ✓                | ✓          | ✓          |
 | scriptling.ai.tools           | ✓                | ✓          | ✓          |
+| scriptling.websocket          | ✓                | ✓          | ✓          |
 | toml                          | ✓                | ✓          | ✓          |
 | knot.space                    | ✓ API            | ✓ API      | ✓ API      |
 | knot.ai                       | ✓ API            | ✓ MCP      | ✓ API      |
