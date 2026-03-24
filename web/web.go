@@ -2,7 +2,9 @@ package web
 
 import (
 	"crypto/md5"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"html/template"
@@ -10,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/paularlott/knot/build"
@@ -170,6 +173,30 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 		}
 	})
 
+	// Pre-compute ETags for embedded package files at startup from their SHA-256
+	// content hash. This ensures the ETag changes when content changes and prevents
+	// http.FileServer from overwriting our headers with static embedded-file values.
+	embeddedPackageEtags := func() map[string]string {
+		etags := map[string]string{}
+		fsys, _ := fs.Sub(fs.FS(packageFiles), "packages")
+		entries, err := fs.ReadDir(fsys, ".")
+		if err != nil {
+			return etags
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			data, err := fs.ReadFile(fsys, e.Name())
+			if err != nil {
+				continue
+			}
+			h := sha256.Sum256(data)
+			etags[e.Name()] = `"` + hex.EncodeToString(h[:]) + `"`
+		}
+		return etags
+	}()
+
 	// Serve package files
 	router.HandleFunc("GET /packages/{package_file}", func(w http.ResponseWriter, r *http.Request) {
 		fileName := r.PathValue("package_file")
@@ -181,51 +208,51 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 
 		packagePath := cfg.PackagePath
 		if packagePath != "" {
-			// Serve from disk
 			filePath := filepath.Join(packagePath, fileName)
-			info, err := os.Stat(filePath)
-			if os.IsNotExist(err) || info.IsDir() {
-				showPageNotFound(w, r)
-				return
-			}
-
-			// Set ETag based on mod time
-			etag := fmt.Sprintf("%x", info.ModTime().Unix())
-			w.Header().Set("ETag", etag)
-			w.Header().Set("Cache-Control", "public, max-age=14400")
-
-			// Check If-None-Match for conditional request
-			if match := r.Header.Get("If-None-Match"); match == etag {
-				w.WriteHeader(http.StatusNotModified)
-				return
-			}
-
-			// Serve the file
-			fs := http.StripPrefix("/packages", http.FileServer(http.Dir(packagePath)))
-			fs.ServeHTTP(w, r)
-		} else {
-			// Serve from embedded files
-			fsys := fs.FS(packageFiles)
-			contentStatic, _ := fs.Sub(fsys, "packages")
-			_, err := fs.Stat(packageFiles, "packages/"+fileName)
+			data, err := os.ReadFile(filePath)
 			if err != nil {
 				showPageNotFound(w, r)
 				return
 			}
 
-			// Set ETag based on build version
-			w.Header().Set("ETag", build.Version)
+			h := sha256.Sum256(data)
+			etag := `"` + hex.EncodeToString(h[:]) + `"`
+			w.Header().Set("ETag", etag)
 			w.Header().Set("Cache-Control", "public, max-age=14400")
 
-			// Check If-None-Match for conditional request
-			if match := r.Header.Get("If-None-Match"); match == build.Version {
+			if r.Header.Get("If-None-Match") == etag {
 				w.WriteHeader(http.StatusNotModified)
 				return
 			}
 
-			// Serve the file
-			fs := http.StripPrefix("/packages", http.FileServer(http.FS(contentStatic)))
-			fs.ServeHTTP(w, r)
+			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+			w.WriteHeader(http.StatusOK)
+			w.Write(data) //nolint:errcheck
+		} else {
+			etag, ok := embeddedPackageEtags[fileName]
+			if !ok {
+				showPageNotFound(w, r)
+				return
+			}
+
+			w.Header().Set("ETag", etag)
+			w.Header().Set("Cache-Control", "public, max-age=14400")
+
+			if r.Header.Get("If-None-Match") == etag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+
+			// Serve bytes directly — http.FileServer would overwrite our ETag header
+			fsys, _ := fs.Sub(fs.FS(packageFiles), "packages")
+			data, err := fs.ReadFile(fsys, fileName)
+			if err != nil {
+				showPageNotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+			w.WriteHeader(http.StatusOK)
+			w.Write(data) //nolint:errcheck
 		}
 	})
 
