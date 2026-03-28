@@ -18,7 +18,7 @@
 
     <form class="col-span-full sm:flex justify-between">
       <div class="flex" x-data>
-        <div class="w-full sm:w-auth">
+        <div class="w-full sm:w-auto">
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
             <input type="search" name="search" id="search" class="form-field bg-white grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
@@ -26,13 +26,14 @@
           </div>
         </div>
 
-        <button @click.prevent="$refs.panel.toggle" aria-label="Filter" class="text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer mt-1 ml-2 hover:text-gray-700 dark:hover:text-gray-200">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
+        <button @click.prevent="$refs.panel.toggle" aria-label="Filter" class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer mt-1 ml-2 hover:text-gray-700 dark:hover:text-gray-200">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
           </svg>
+          <span x-show="showRunningOnly || !showLocalOnly || showSharedOnly || showSharedWithMeOnly" class="absolute top-2.5 right-2 size-2 rounded-full bg-blue-500" aria-hidden="true"></span>
         </button>
 
-        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap" id="panel-cDV5GZ12" style="position: fixed; display: block; left: 492.367px; top: 109px;">
+        <div x-ref="panel" x-float.teleport.placement.bottom-end.flip="" @click.away="$refs.panel.close" @keydown.window.escape="$refs.panel.close" class="fixed z-50 my-1 text-base p-2 pr-4 list-none bg-white rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 block whitespace-nowrap">
 
           <div x-show="canManageSpaces && !showingSpecificUser" x-cloak class="mb-4">
             <div x-data="autocompleterUser()" x-init="setDataSource('forUsersList')" data-parent-group="" data-parent-variable="forUserId" data-on-change="userChagned" @refresh-user-autocompleter.window="refresh()" class="relative" @user-selected="userChanged">
@@ -65,14 +66,14 @@
 
           <div class="mb-4">
             <label class="flex items-center cursor-pointer mb-4">
-              <input type="checkbox" @change="searchChanged" class="sr-only peer" value="1" :checked="showSharedOnly" x-model="showSharedOnly">
+              <input type="checkbox" @change="showSharedOnly && (showSharedWithMeOnly = false); searchChanged()" class="sr-only peer" value="1" :checked="showSharedOnly" x-model="showSharedOnly">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Shared</span>
             </label>
           </div>
           <div class="mb-4">
             <label class="flex items-center cursor-pointer mb-4">
-              <input type="checkbox" @change="searchChanged" class="sr-only peer" value="1" :checked="showSharedWithMeOnly" x-model="showSharedWithMeOnly">
+              <input type="checkbox" @change="showSharedWithMeOnly && (showSharedOnly = false); searchChanged()" class="sr-only peer" value="1" :checked="showSharedWithMeOnly" x-model="showSharedWithMeOnly">
               <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Shared With Me</span>
             </label>
