@@ -3,13 +3,13 @@ package service
 import (
 	"errors"
 	"math/rand"
+	"strings"
 
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/container/runtime"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
-	"github.com/paularlott/knot/internal/util/cluster"
 )
 
 type nodeCandidate struct {
@@ -91,8 +91,7 @@ func SelectNodeForSpace(template *model.Template, selectedNodeId string) (string
 			if nodeId == localNodeId {
 				runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
 			} else {
-				// Query remote node for runtimes
-				runtimes = cluster.QueryNodeRuntimes(peer.AdvertisedAddr(), cfg.Cluster.Key)
+				runtimes = strings.Split(peer.Metadata.GetString("runtimes"), ",")
 			}
 
 			if hasRequiredRuntime(template, runtimes) {

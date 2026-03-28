@@ -72,6 +72,29 @@ func ApiAuth(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
+		// Check if this is an internal cluster forwarded request
+		cfgCheck := config.GetServerConfig()
+		if clusterKey := r.Header.Get("X-Cluster-Key"); clusterKey != "" && clusterKey == cfgCheck.Cluster.Key {
+			// Authenticated as cluster-internal, look up the forwarded user
+			forwardedUserId := r.Header.Get("X-Cluster-User-Id")
+			if forwardedUserId != "" {
+				db := database.GetInstance()
+				user, err := db.GetUser(forwardedUserId)
+				if err == nil && user != nil && user.Active && !user.IsDeleted {
+					ctx = context.WithValue(ctx, "user", user)
+					apiVersion := r.Header.Get("X-Knot-Api-Version")
+					if apiVersion == "" {
+						apiVersion = "2025-03-10"
+					}
+					ctx = context.WithValue(ctx, "api_version", apiVersion)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+			}
+			returnUnauthorized(w, r)
+			return
+		}
+
 		// If there's no users in the system then we don't check for authentication
 		if HasUsers {
 			var userId string = ""

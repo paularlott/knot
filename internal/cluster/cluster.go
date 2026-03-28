@@ -17,6 +17,7 @@ import (
     "github.com/paularlott/gossip/leader"
     "github.com/paularlott/knot/build"
     "github.com/paularlott/knot/internal/config"
+    "github.com/paularlott/knot/internal/container/runtime"
     "github.com/paularlott/knot/internal/database"
     "github.com/paularlott/knot/internal/dns"
     "github.com/paularlott/knot/internal/middleware"
@@ -196,6 +197,23 @@ func NewCluster(
         metadata.SetString("hostname", cfg.Hostname)
         metadata.SetString("agent_endpoint", cfg.AgentEndpoint)
         metadata.SetString("tunnel_server", cfg.TunnelServer)
+        if runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref); len(runtimes) > 0 {
+            metadata.SetString("runtimes", strings.Join(runtimes, ","))
+        }
+
+        go func() {
+            ticker := time.NewTicker(30 * time.Second)
+            defer ticker.Stop()
+            for range ticker.C {
+                m := cluster.gossipCluster.LocalMetadata()
+                runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
+                if len(runtimes) > 0 {
+                    m.SetString("runtimes", strings.Join(runtimes, ","))
+                } else {
+                    m.SetString("runtimes", "")
+                }
+            }
+        }()
 
         // Set up leader elections within the locality
         electionCfg := leader.DefaultConfig()

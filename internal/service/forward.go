@@ -6,11 +6,14 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/log"
 	"github.com/paularlott/knot/internal/util/rest"
 )
@@ -57,8 +60,8 @@ func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error 
 	}
 
 	// Strip path from targetNode
-	if idx := strings.Index(targetNode[8:], "/"); idx != -1 {
-		targetNode = targetNode[:8+idx]
+	if u, err := url.Parse(targetNode); err == nil {
+		targetNode = u.Scheme + "://" + u.Host
 	}
 
 	// Read request body
@@ -77,11 +80,19 @@ func ForwardToNode(w http.ResponseWriter, r *http.Request, nodeId string) error 
 		return err
 	}
 
-	// Forward all headers from original request
+	// Forward all headers from original request, replacing auth with cluster credentials
 	for key, values := range r.Header {
+		if strings.EqualFold(key, "Authorization") || strings.EqualFold(key, "Cookie") {
+			continue
+		}
 		for _, value := range values {
 			req.Header.Add(key, value)
 		}
+	}
+	cfg := config.GetServerConfig()
+	req.Header.Set("X-Cluster-Key", cfg.Cluster.Key)
+	if user, ok := r.Context().Value("user").(*model.User); ok && user != nil {
+		req.Header.Set("X-Cluster-User-Id", user.Id)
 	}
 
 	// Forward request using shared HTTP client

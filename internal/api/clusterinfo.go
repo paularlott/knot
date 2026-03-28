@@ -12,7 +12,6 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
-	"github.com/paularlott/knot/internal/util/cluster"
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
@@ -64,30 +63,22 @@ func HandleGetClusterInfo(w http.ResponseWriter, r *http.Request) {
 		nodeZone := p.Metadata.GetString("zone")
 		allocated, running := countSpaces(spaces, nodeId, nodeZone)
 
-		var runtimes []string
-		var hostname string
-		if nodeId == localNodeId {
-			runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
-			hostname = cfg.Hostname
-		} else {
-			nodeInfo := cluster.QueryNodeInfo(p.AdvertisedAddr(), cfg.Cluster.Key)
-			runtimes = nodeInfo.Runtimes
-			hostname = nodeInfo.Hostname
-		}
-
-		if hostname == "" {
+		hostname := cfg.Hostname
+		if nodeId != localNodeId {
 			hostname = p.Metadata.GetString("hostname")
-			if hostname == "" {
-				hostname = "unknown"
-			}
+		}
+		if hostname == "" {
+			hostname = "unknown"
 		}
 
 		metadata := p.Metadata.GetAllAsString()
 		metadata["hostname"] = hostname
 		metadata["allocated_spaces"] = fmt.Sprintf("%d", allocated)
 		metadata["running_spaces"] = fmt.Sprintf("%d", running)
-		if len(runtimes) > 0 {
-			metadata["runtimes"] = strings.Join(runtimes, ",")
+		if nodeId == localNodeId {
+			if runtimes := runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref); len(runtimes) > 0 {
+				metadata["runtimes"] = strings.Join(runtimes, ",")
+			}
 		}
 
 		response[i] = apiclient.ClusterNodeInfo{

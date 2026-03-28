@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/paularlott/gossip"
 	"github.com/paularlott/knot/internal/config"
@@ -9,7 +10,6 @@ import (
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/service"
-	"github.com/paularlott/knot/internal/util/cluster"
 	"github.com/paularlott/knot/internal/util/rest"
 	"github.com/paularlott/knot/internal/util/validate"
 )
@@ -102,7 +102,7 @@ func HandleGetTemplateNodes(w http.ResponseWriter, r *http.Request) {
 					runtimes = runtime.DetectAllAvailableRuntimes(cfg.LocalContainerRuntimePref)
 					hostname = cfg.Hostname
 				} else {
-					runtimes = cluster.QueryNodeRuntimes(peer.AdvertisedAddr(), cfg.Cluster.Key)
+					runtimes = strings.Split(peer.Metadata.GetString("runtimes"), ",")
 					hostname = peer.Metadata.GetString("hostname")
 				}
 

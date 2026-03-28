@@ -3,7 +3,7 @@ package cluster
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
+	"net/url"
 	"time"
 )
 
@@ -23,8 +23,8 @@ func QueryNodeInfo(nodeAddr string, clusterKey string) ClusterNodeInfo {
 	client := &http.Client{Timeout: 2 * time.Second}
 
 	// Strip path from nodeAddr (e.g., https://host/cluster -> https://host)
-	if idx := strings.Index(nodeAddr[8:], "/"); idx != -1 {
-		nodeAddr = nodeAddr[:8+idx]
+	if u, err := url.Parse(nodeAddr); err == nil {
+		nodeAddr = u.Scheme + "://" + u.Host
 	}
 
 	req, err := http.NewRequest("GET", nodeAddr+"/api/cluster/node", nil)
