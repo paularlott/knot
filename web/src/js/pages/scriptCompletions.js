@@ -1082,7 +1082,7 @@ const scriptLibraries = [
   },
   {
     module: "scriptling.console",
-    description: "TUI console for interactive terminal applications (Local environment only)",
+    description: "TUI console for interactive terminal applications with multi-panel layouts (Local environment only)",
     constants: [
       { name: "PRIMARY", description: "Theme primary color", type: "string" },
       { name: "SECONDARY", description: "Theme secondary color", type: "string" },
@@ -1093,28 +1093,185 @@ const scriptLibraries = [
     ],
     functions: [
       {
-        name: "Console",
-        signature: "Console()",
-        description: "Create a new TUI console instance",
-        returns: "Console - Console instance",
-        returnType: "Console",
+        name: "panel",
+        signature: 'panel(name="main")',
+        description: "Get an existing Panel instance by name",
+        returns: "Panel or None - Panel instance",
+      },
+      {
+        name: "main_panel",
+        signature: "main_panel()",
+        description: "Get the main panel",
+        returns: "Panel - Main panel instance",
+        returnType: "Panel",
+      },
+      {
+        name: "create_panel",
+        signature:
+          'create_panel(name="", width=0, height=0, min_width=0, scrollable=False, title="", no_border=False, skip_focus=False)',
+        description:
+          "Create a new panel. Attach to layout with add_left, add_right, add_row, or add_column",
+        returns: "Panel - Panel instance",
+        returnType: "Panel",
+      },
+      {
+        name: "add_left",
+        signature: "add_left(panel)",
+        description: "Add a panel to the left of the main panel",
+        returns: "None",
+      },
+      {
+        name: "add_right",
+        signature: "add_right(panel)",
+        description: "Add a panel to the right of the main panel",
+        returns: "None",
+      },
+      {
+        name: "clear_layout",
+        signature: "clear_layout()",
+        description:
+          "Remove the layout tree but keep all panels and their content",
+        returns: "None",
+      },
+      {
+        name: "has_panels",
+        signature: "has_panels()",
+        description: "Check if multi-panel layout is active",
+        returns: "bool - True if multi-panel layout is active",
+      },
+      {
+        name: "styled",
+        signature: "styled(color, text)",
+        description:
+          "Apply theme color to text (use color constants or #rrggbb)",
+        returns: "str - Styled text string",
+      },
+      {
+        name: "set_status",
+        signature: "set_status(left, right)",
+        description: "Set both status bar texts",
+        returns: "None",
+      },
+      {
+        name: "set_status_left",
+        signature: "set_status_left(text)",
+        description: "Set left status bar text",
+        returns: "None",
+      },
+      {
+        name: "set_status_right",
+        signature: "set_status_right(text)",
+        description: "Set right status bar text",
+        returns: "None",
+      },
+      {
+        name: "set_labels",
+        signature: "set_labels(user, assistant, system)",
+        description: "Set role labels; empty string leaves label unchanged",
+        returns: "None",
+      },
+      {
+        name: "register_command",
+        signature: "register_command(name, description, fn)",
+        description: "Register a slash command",
+        returns: "None",
+      },
+      {
+        name: "remove_command",
+        signature: "remove_command(name)",
+        description: "Remove a registered slash command",
+        returns: "None",
+      },
+      {
+        name: "on_submit",
+        signature: "on_submit(fn)",
+        description: "Register handler called when user submits input",
+        returns: "None",
+      },
+      {
+        name: "on_escape",
+        signature: "on_escape(fn)",
+        description: "Register a callback for Esc key",
+        returns: "None",
+      },
+      {
+        name: "spinner_start",
+        signature: "spinner_start(text='Working')",
+        description: "Show a spinner with optional text",
+        returns: "None",
+      },
+      {
+        name: "spinner_stop",
+        signature: "spinner_stop()",
+        description: "Hide the spinner",
+        returns: "None",
+      },
+      {
+        name: "set_progress",
+        signature: "set_progress(label, pct)",
+        description: "Set progress bar (0.0-1.0, or <0 to clear)",
+        returns: "None",
+      },
+      {
+        name: "run",
+        signature: "run()",
+        description: "Start the console event loop (blocks until exit)",
+        returns: "None",
       },
     ],
     classes: [
       {
-        name: "Console",
-        description: "Interactive TUI console with message display, streaming, and input handling",
+        name: "Panel",
+        description:
+          "A content panel within the TUI layout. Supports text content and message-based streaming",
         methods: [
+          {
+            name: "write",
+            signature: "write(text)",
+            description: "Append text to the panel",
+            returns: "None",
+          },
+          {
+            name: "set_content",
+            signature: "set_content(text)",
+            description: "Replace all panel content",
+            returns: "None",
+          },
+          {
+            name: "clear",
+            signature: "clear()",
+            description: "Remove all panel content",
+            returns: "None",
+          },
+          {
+            name: "set_title",
+            signature: "set_title(title)",
+            description: "Set the panel border title (empty string hides title)",
+            returns: "None",
+          },
+          {
+            name: "set_color",
+            signature: "set_color(color)",
+            description:
+              "Set the panel border/accent color (color name or hex #RRGGBB)",
+            returns: "None",
+          },
+          {
+            name: "set_scrollable",
+            signature: "set_scrollable(scrollable)",
+            description: "Set whether panel content scrolls",
+            returns: "None",
+          },
           {
             name: "add_message",
             signature: "add_message(*args, label='')",
-            description: "Add a message to the output area",
+            description: "Add a message to the panel",
             returns: "None",
           },
           {
             name: "stream_start",
             signature: "stream_start(label='')",
-            description: "Begin a streaming message",
+            description: "Begin a streaming message in this panel",
             returns: "None",
           },
           {
@@ -1126,91 +1283,56 @@ const scriptLibraries = [
           {
             name: "stream_end",
             signature: "stream_end()",
-            description: "Finalise the current stream",
+            description: "Finalize the current stream",
             returns: "None",
           },
           {
-            name: "spinner_start",
-            signature: "spinner_start(text='Working')",
-            description: "Show a spinner with optional text",
+            name: "scroll_to_top",
+            signature: "scroll_to_top()",
+            description: "Scroll to top of panel content",
             returns: "None",
           },
           {
-            name: "spinner_stop",
-            signature: "spinner_stop()",
-            description: "Hide the spinner",
+            name: "scroll_to_bottom",
+            signature: "scroll_to_bottom()",
+            description: "Scroll to bottom of panel content",
             returns: "None",
           },
           {
-            name: "set_progress",
-            signature: "set_progress(label, pct)",
-            description: "Set progress bar (0.0-1.0, or <0 to clear)",
-            returns: "None",
-          },
-          {
-            name: "set_labels",
-            signature: "set_labels(user, assistant, system)",
-            description: "Set role labels; empty string leaves label unchanged",
-            returns: "None",
-          },
-          {
-            name: "set_status",
-            signature: "set_status(left, right)",
-            description: "Set both status bar texts",
-            returns: "None",
-          },
-          {
-            name: "set_status_left",
-            signature: "set_status_left(text)",
-            description: "Set left status bar text",
-            returns: "None",
-          },
-          {
-            name: "set_status_right",
-            signature: "set_status_right(text)",
-            description: "Set right status bar text",
-            returns: "None",
-          },
-          {
-            name: "register_command",
-            signature: "register_command(name, description, fn)",
-            description: "Register a slash command",
-            returns: "None",
-          },
-          {
-            name: "remove_command",
-            signature: "remove_command(name)",
-            description: "Remove a registered slash command",
-            returns: "None",
-          },
-          {
-            name: "clear_output",
-            signature: "clear_output()",
-            description: "Clear the output area",
-            returns: "None",
+            name: "size",
+            signature: "size()",
+            description: "Get the panel dimensions",
+            returns: "list - [width, height]",
           },
           {
             name: "styled",
             signature: "styled(color, text)",
-            description: "Apply theme color to text (use color constants or #rrggbb)",
+            description: "Apply theme color to text",
             returns: "str - Styled text string",
           },
           {
-            name: "on_escape",
-            signature: "on_escape(fn)",
-            description: "Register a callback for Esc key",
+            name: "write_at",
+            signature: "write_at(row, col, text)",
+            description: "Write text at a specific position (0-indexed)",
             returns: "None",
           },
           {
-            name: "on_submit",
-            signature: "on_submit(fn)",
-            description: "Register handler called when user submits input",
+            name: "clear_line",
+            signature: "clear_line(row)",
+            description: "Clear a specific line",
             returns: "None",
           },
           {
-            name: "run",
-            signature: "run()",
-            description: "Start the console event loop (blocks until exit)",
+            name: "add_row",
+            signature: "add_row(panel)",
+            description: "Add a child panel as a vertical row (top to bottom)",
+            returns: "None",
+          },
+          {
+            name: "add_column",
+            signature: "add_column(panel)",
+            description:
+              "Add a child panel as a horizontal column (left to right)",
             returns: "None",
           },
         ],
@@ -1238,6 +1360,76 @@ const scriptLibraries = [
         signature: "score(s1, s2)",
         description: "Calculate similarity score between two strings (0.0 to 1.0)",
         returns: "float - Similarity score",
+      },
+    ],
+  },
+  {
+    module: "scriptling.websocket",
+    description: "WebSocket client for connecting to WebSocket servers (all environments)",
+    functions: [
+      {
+        name: "connect",
+        signature: 'connect(url, timeout=10, headers=None)',
+        description: "Connect to a WebSocket server (ws:// or wss://)",
+        returns: "WebSocketClientConn - Connection object",
+        returnType: "WebSocketClientConn",
+      },
+      {
+        name: "is_text",
+        signature: "is_text(message)",
+        description: "Check if a received message is a text message",
+        returns: "bool - True if text message",
+      },
+      {
+        name: "is_binary",
+        signature: "is_binary(message)",
+        description: "Check if a received message is a binary message",
+        returns: "bool - True if binary message",
+      },
+    ],
+    classes: [
+      {
+        name: "WebSocketClientConn",
+        description: "WebSocket client connection for sending/receiving messages",
+        methods: [
+          {
+            name: "send",
+            signature: "send(message)",
+            description:
+              "Send a text message (str or dict, dicts are JSON-encoded)",
+            returns: "None on success, or error if send fails",
+          },
+          {
+            name: "send_binary",
+            signature: "send_binary(data)",
+            description: "Send binary data (list of byte values 0-255)",
+            returns: "None on success, or error if send fails",
+          },
+          {
+            name: "receive",
+            signature: "receive(timeout=30)",
+            description: "Receive a message from the server",
+            returns: "WebSocketMessage or None - Message, or None if timeout/closed",
+          },
+          {
+            name: "connected",
+            signature: "connected()",
+            description: "Check if the connection is still open",
+            returns: "bool - True if connected",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the WebSocket connection",
+            returns: "None",
+          },
+        ],
+        properties: [
+          {
+            name: "remote_addr",
+            description: "Remote address of the connected server",
+          },
+        ],
       },
     ],
   },
@@ -1388,6 +1580,208 @@ const scriptLibraries = [
       },
     ],
   },
+  {
+    module: "scriptling.messaging",
+    description:
+      "Messaging library for building cross-platform bots (Telegram, Discord, Slack, Console)",
+    functions: [
+      {
+        name: "keyboard",
+        signature: "keyboard(rows)",
+        description:
+          "Build a platform-agnostic button keyboard. Rows is a list of button rows, each row is a list of button dicts",
+        returns:
+          "Keyboard - List of button rows for use with send_message",
+      },
+    ],
+    classes: [
+      {
+        name: "MessagingClient",
+        description:
+          "Messaging client shared by all platforms (telegram, discord, slack, console)",
+        methods: [
+          {
+            name: "command",
+            signature: "command(name, help_text, handler)",
+            description:
+              "Register a command handler. Handler receives context dict",
+            returns: "None",
+          },
+          {
+            name: "on_callback",
+            signature: 'on_callback(handler, prefix="")',
+            description:
+              "Register a callback/button handler with optional prefix filter",
+            returns: "None",
+          },
+          {
+            name: "on_message",
+            signature: "on_message(handler)",
+            description: "Register default message handler for non-command messages",
+            returns: "None",
+          },
+          {
+            name: "on_file",
+            signature: "on_file(handler)",
+            description: "Register file attachment handler",
+            returns: "None",
+          },
+          {
+            name: "auth",
+            signature: "auth(handler)",
+            description:
+              "Register auth handler. Return True to allow, False to deny",
+            returns: "None",
+          },
+          {
+            name: "run",
+            signature: "run()",
+            description: "Start the bot event loop (blocks until stopped)",
+            returns: "None",
+          },
+          {
+            name: "capabilities",
+            signature: "capabilities()",
+            description: "Get list of platform capability strings",
+            returns: "list - Platform capabilities",
+          },
+          {
+            name: "send_message",
+            signature: 'send_message(dest, message, parse_mode="", keyboard=None)',
+            description:
+              "Send a message to a destination. Message can be a string or MessageDict",
+            returns: "None",
+          },
+          {
+            name: "send_rich_message",
+            signature: "send_rich_message(dest, message)",
+            description:
+              "Send a rich message with title, body, color, image, url",
+            returns: "None",
+          },
+          {
+            name: "edit_message",
+            signature: "edit_message(dest, message_id, text)",
+            description: "Edit a previously sent message",
+            returns: "None",
+          },
+          {
+            name: "delete_message",
+            signature: "delete_message(dest, message_id)",
+            description: "Delete a message",
+            returns: "None",
+          },
+          {
+            name: "send_file",
+            signature: 'send_file(dest, source, filename="", caption="", base64=False)',
+            description:
+              "Send a file. Source can be file path, URL, or base64 data",
+            returns: "None",
+          },
+          {
+            name: "typing",
+            signature: "typing(dest)",
+            description: "Send typing indicator to a destination",
+            returns: "None",
+          },
+          {
+            name: "answer_callback",
+            signature: 'answer_callback(id, text="", token="")',
+            description: "Acknowledge a button press",
+            returns: "None",
+          },
+          {
+            name: "download",
+            signature: "download(ref)",
+            description: "Download a file by ID or URL",
+            returns: "str - Base64-encoded file data",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    module: "scriptling.messaging.telegram",
+    description: "Telegram bot client for the Telegram messaging platform",
+    functions: [
+      {
+        name: "client",
+        signature: "client(token, *, allowed_users=None)",
+        description:
+          "Create a Telegram bot client using a token from @BotFather",
+        returns: "MessagingClient - Client instance",
+        returnType: "MessagingClient",
+      },
+      {
+        name: "keyboard",
+        signature: "keyboard(rows)",
+        description: "Build a Telegram keyboard",
+        returns: "Keyboard - Button keyboard",
+      },
+    ],
+  },
+  {
+    module: "scriptling.messaging.discord",
+    description: "Discord bot client for the Discord messaging platform",
+    functions: [
+      {
+        name: "client",
+        signature: "client(token, *, allowed_users=None)",
+        description:
+          "Create a Discord bot client using a bot token from Developer Portal",
+        returns: "MessagingClient - Client instance",
+        returnType: "MessagingClient",
+      },
+      {
+        name: "keyboard",
+        signature: "keyboard(rows)",
+        description: "Build a Discord keyboard",
+        returns: "Keyboard - Button keyboard",
+      },
+    ],
+  },
+  {
+    module: "scriptling.messaging.slack",
+    description:
+      "Slack bot client using Socket Mode for the Slack messaging platform",
+    functions: [
+      {
+        name: "client",
+        signature: "client(bot_token, app_token, *, allowed_users=None)",
+        description:
+          "Create a Slack bot client. bot_token is xoxb-..., app_token is xapp-...",
+        returns: "MessagingClient - Client instance",
+        returnType: "MessagingClient",
+      },
+      {
+        name: "keyboard",
+        signature: "keyboard(rows)",
+        description: "Build a Slack keyboard",
+        returns: "Keyboard - Button keyboard",
+      },
+    ],
+  },
+  {
+    module: "scriptling.messaging.console",
+    description:
+      "Local TUI console bot for testing messaging handlers without network",
+    functions: [
+      {
+        name: "client",
+        signature: "client()",
+        description:
+          "Create a console bot client for testing handlers locally",
+        returns: "MessagingClient - Client instance",
+        returnType: "MessagingClient",
+      },
+      {
+        name: "keyboard",
+        signature: "keyboard(rows)",
+        description: "Build a console keyboard",
+        returns: "Keyboard - Button keyboard",
+      },
+    ],
+  },
 
   {
     module: "scriptling.ai.agent",
@@ -1467,6 +1861,86 @@ const scriptLibraries = [
     ],
   },
   {
+    module: "scriptling.ai.memory",
+    description:
+      "Long-term memory storage for AI agents backed by a key-value store (all environments)",
+    constants: [
+      {
+        name: "TYPE_FACT",
+        description: 'Memory type constant for facts ("fact")',
+        type: "string",
+      },
+      {
+        name: "TYPE_PREFERENCE",
+        description: 'Memory type constant for preferences ("preference")',
+        type: "string",
+      },
+      {
+        name: "TYPE_EVENT",
+        description: 'Memory type constant for events ("event")',
+        type: "string",
+      },
+      {
+        name: "TYPE_NOTE",
+        description: 'Memory type constant for notes ("note")',
+        type: "string",
+      },
+    ],
+    functions: [
+      {
+        name: "new",
+        signature: "new(kv_store, ai_client=None, model='')",
+        description:
+          "Create a memory store backed by a kv store. Optionally provide an AI client for LLM-based compaction",
+        returns: "MemoryStore - Memory store instance",
+        returnType: "MemoryStore",
+      },
+    ],
+    classes: [
+      {
+        name: "MemoryStore",
+        description:
+          "Memory store for storing and recalling memories with semantic similarity search",
+        methods: [
+          {
+            name: "remember",
+            signature: 'remember(content, type="note", importance=0.5)',
+            description:
+              "Store a memory for later recall. Content should be a single concise sentence",
+            returns: "dict - Stored memory with id, content, type, importance, created_at, accessed_at",
+          },
+          {
+            name: "recall",
+            signature: 'recall(query="", limit=10, type="")',
+            description:
+              "Search memories by keyword and semantic similarity. Empty query with no type triggers context load mode",
+            returns:
+              "list - List of matching memory dicts ranked by relevance",
+          },
+          {
+            name: "forget",
+            signature: "forget(id)",
+            description: "Remove a memory by ID",
+            returns: "bool - True if a memory was removed",
+          },
+          {
+            name: "count",
+            signature: "count()",
+            description: "Return the total number of stored memories",
+            returns: "int - Count of all stored memories",
+          },
+          {
+            name: "compact",
+            signature: "compact()",
+            description:
+              "Manually trigger compaction (prune + deduplicate)",
+            returns: 'dict - {"removed": int, "remaining": int}',
+          },
+        ],
+      },
+    ],
+  },
+  {
     module: "scriptling.ai.tools",
     description: "AI tools registry for building tool schemas (all environments)",
     functions: [
@@ -1496,36 +1970,82 @@ const scriptLibraries = [
     module: "scriptling.runtime.kv",
     description:
       "Key-value store for runtime state sharing (Local/Remote environments)",
+    constants: [
+      {
+        name: "default",
+        description: "Default system-wide KV store instance",
+        type: "Storage",
+      },
+    ],
     functions: [
       {
-        name: "get",
-        signature: "get(key, default=None)",
-        description: "Get a value from the key-value store",
-        returns: "any - Stored value or default",
+        name: "open",
+        signature: "open(name)",
+        description: "Open or reuse a named KV store",
+        returns: "Storage - Storage instance",
+        returnType: "Storage",
       },
+    ],
+    classes: [
       {
-        name: "set",
-        signature: "set(key, value)",
-        description: "Set a value in the key-value store",
-        returns: "None",
-      },
-      {
-        name: "delete",
-        signature: "delete(key)",
-        description: "Delete a key from the store",
-        returns: "None",
-      },
-      {
-        name: "exists",
-        signature: "exists(key)",
-        description: "Check if a key exists in the store",
-        returns: "bool - True if key exists",
-      },
-      {
-        name: "keys",
-        signature: "keys()",
-        description: "List all keys in the store",
-        returns: "list - List of key strings",
+        name: "Storage",
+        description: "Key-value storage with optional TTL support",
+        methods: [
+          {
+            name: "set",
+            signature: "set(key, value, ttl=0)",
+            description: "Store a value with optional TTL in seconds (0 = no expiry)",
+            returns: "None",
+          },
+          {
+            name: "get",
+            signature: "get(key, default=None)",
+            description: "Get a value from the store",
+            returns: "any - Stored value or default",
+          },
+          {
+            name: "incr",
+            signature: "incr(key, delta=1)",
+            description: "Atomically increment an integer value",
+            returns: "int - New value after increment",
+          },
+          {
+            name: "delete",
+            signature: "delete(key)",
+            description: "Delete a key from the store",
+            returns: "None",
+          },
+          {
+            name: "exists",
+            signature: "exists(key)",
+            description: "Check if a key exists in the store",
+            returns: "bool - True if key exists",
+          },
+          {
+            name: "ttl",
+            signature: "ttl(key)",
+            description: "Get remaining TTL for a key",
+            returns: "int - Remaining seconds, or -1 if no TTL, -2 if not found",
+          },
+          {
+            name: "keys",
+            signature: 'keys(pattern="*")',
+            description: "Get keys matching a glob pattern",
+            returns: "list - List of matching key strings",
+          },
+          {
+            name: "clear",
+            signature: "clear()",
+            description: "Remove all keys from the store",
+            returns: "None",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Release the store reference",
+            returns: "None",
+          },
+        ],
       },
     ],
   },
@@ -1552,6 +2072,108 @@ const scriptLibraries = [
           },
         ],
       },
+      {
+        name: "WaitGroup",
+        description: "Wait for a collection of goroutines to finish",
+        methods: [
+          {
+            name: "add",
+            signature: "add(delta=1)",
+            description: "Add to the counter",
+            returns: "None",
+          },
+          {
+            name: "done",
+            signature: "done()",
+            description: "Decrement the counter",
+            returns: "None",
+          },
+          {
+            name: "wait",
+            signature: "wait()",
+            description: "Block until counter reaches zero",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "Queue",
+        description: "Thread-safe queue for passing data between goroutines",
+        methods: [
+          {
+            name: "put",
+            signature: "put(item)",
+            description: "Add item to the queue (blocks if full)",
+            returns: "None",
+          },
+          {
+            name: "get",
+            signature: "get()",
+            description: "Remove and return an item (blocks if empty)",
+            returns: "any - Retrieved item",
+          },
+          {
+            name: "size",
+            signature: "size()",
+            description: "Get number of items in the queue",
+            returns: "int - Queue size",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the queue",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "Atomic",
+        description: "Atomic integer for thread-safe counting",
+        methods: [
+          {
+            name: "add",
+            signature: "add(delta=1)",
+            description: "Atomically add delta and return new value",
+            returns: "int - New value after addition",
+          },
+          {
+            name: "get",
+            signature: "get()",
+            description: "Atomically read the current value",
+            returns: "int - Current value",
+          },
+          {
+            name: "set",
+            signature: "set(value)",
+            description: "Atomically set the value",
+            returns: "None",
+          },
+        ],
+      },
+      {
+        name: "Shared",
+        description: "Thread-safe shared value container",
+        methods: [
+          {
+            name: "get",
+            signature: "get()",
+            description: "Thread-safe read of the current value",
+            returns: "any - Current value",
+          },
+          {
+            name: "set",
+            signature: "set(value)",
+            description: "Thread-safe set of the value",
+            returns: "None",
+          },
+          {
+            name: "update",
+            signature: "update(fn)",
+            description: "Atomically read-modify-write using a function",
+            returns: "any - New value after update",
+          },
+        ],
+      },
     ],
     functions: [
       {
@@ -1560,6 +2182,34 @@ const scriptLibraries = [
         description: "Create a new mutex lock",
         returns: "Mutex - Mutex instance",
         returnType: "Mutex",
+      },
+      {
+        name: "WaitGroup",
+        signature: "WaitGroup(name)",
+        description: "Get or create a named wait group",
+        returns: "WaitGroup - WaitGroup instance",
+        returnType: "WaitGroup",
+      },
+      {
+        name: "Queue",
+        signature: "Queue(name, maxsize=0)",
+        description: "Get or create a named queue (0 = unbounded)",
+        returns: "Queue - Queue instance",
+        returnType: "Queue",
+      },
+      {
+        name: "Atomic",
+        signature: "Atomic(name, initial=0)",
+        description: "Get or create a named atomic counter",
+        returns: "Atomic - Atomic instance",
+        returnType: "Atomic",
+      },
+      {
+        name: "Shared",
+        signature: "Shared(name, initial=None)",
+        description: "Get or create a named shared variable",
+        returns: "Shared - Shared instance",
+        returnType: "Shared",
       },
     ],
   },
@@ -1632,6 +2282,64 @@ const scriptLibraries = [
             returns: "dict/list - Parsed JSON or None if body is empty",
           },
         ],
+        properties: [
+          {
+            name: "method",
+            description: "HTTP method (GET, POST, etc.)",
+          },
+          {
+            name: "path",
+            description: "Request path",
+          },
+          {
+            name: "body",
+            description: "Raw request body",
+          },
+          {
+            name: "headers",
+            description: "Request headers as dict",
+          },
+          {
+            name: "query",
+            description: "Query parameters as dict",
+          },
+        ],
+      },
+      {
+        name: "WebSocketClient",
+        description: "WebSocket connection for route handlers",
+        methods: [
+          {
+            name: "send",
+            signature: "send(message)",
+            description: "Send a text message to the client",
+            returns: "None",
+          },
+          {
+            name: "send_binary",
+            signature: "send_binary(data)",
+            description: "Send binary data to the client",
+            returns: "None",
+          },
+          {
+            name: "receive",
+            signature: "receive(timeout=30)",
+            description: "Receive a message from the client",
+            returns: "any - Message or None if timeout/closed",
+          },
+          {
+            name: "connected",
+            signature: "connected()",
+            description: "Check if the connection is still open",
+            returns: "bool - True if connected",
+          },
+          {
+            name: "close",
+            signature: "close()",
+            description: "Close the WebSocket connection",
+            returns: "None",
+          },
+        ],
       },
     ],
     functions: [
@@ -1657,6 +2365,13 @@ const scriptLibraries = [
         name: "delete",
         signature: "delete(path, handler)",
         description: 'Register a DELETE route (handler is "library.function" string)',
+        returns: "None",
+      },
+      {
+        name: "websocket",
+        signature: "websocket(path, handler)",
+        description:
+          "Register a WebSocket route. Handler receives a WebSocketClientConn",
         returns: "None",
       },
       {
@@ -3909,6 +4624,66 @@ const typePatterns = [
   {
     regex: /(\w+)\s*=\s*datetime\.timedelta\s*\(/,
     type: "timedelta",
+  },
+  // scriptling.ai.memory.new returns MemoryStore
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?ai\.memory\.new\s*\(/,
+    type: "MemoryStore",
+  },
+  // scriptling.websocket.connect returns WebSocketClientConn
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?websocket\.connect\s*\(/,
+    type: "WebSocketClientConn",
+  },
+  // scriptling.messaging.telegram.client returns MessagingClient
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?messaging\.telegram\.client\s*\(/,
+    type: "MessagingClient",
+  },
+  // scriptling.messaging.discord.client returns MessagingClient
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?messaging\.discord\.client\s*\(/,
+    type: "MessagingClient",
+  },
+  // scriptling.messaging.slack.client returns MessagingClient
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?messaging\.slack\.client\s*\(/,
+    type: "MessagingClient",
+  },
+  // scriptling.messaging.console.client returns MessagingClient
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?messaging\.console\.client\s*\(/,
+    type: "MessagingClient",
+  },
+  // scriptling.console.create_panel returns Panel
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?console\.create_panel\s*\(/,
+    type: "Panel",
+  },
+  // scriptling.runtime.kv.open returns Storage
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?runtime\.kv\.open\s*\(/,
+    type: "Storage",
+  },
+  // scriptling.runtime.sync.WaitGroup returns WaitGroup
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?runtime\.sync\.WaitGroup\s*\(/,
+    type: "WaitGroup",
+  },
+  // scriptling.runtime.sync.Queue returns Queue
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?runtime\.sync\.Queue\s*\(/,
+    type: "Queue",
+  },
+  // scriptling.runtime.sync.Atomic returns Atomic
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?runtime\.sync\.Atomic\s*\(/,
+    type: "Atomic",
+  },
+  // scriptling.runtime.sync.Shared returns Shared
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?runtime\.sync\.Shared\s*\(/,
+    type: "Shared",
   },
 ];
 
