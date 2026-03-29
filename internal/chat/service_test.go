@@ -66,7 +66,7 @@ func TestService_ConvertMessages(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := service.convertMessagesToOpenAI(tt.messages)
+			result := service.convertMessagesToOpenAI(tt.messages, "")
 			if len(result) != tt.expected {
 				t.Errorf("convertMessages() returned %d messages, expected %d", len(result), tt.expected)
 			}

@@ -236,7 +236,7 @@ result = "htmlparser_imported"
 		{
 			name: "wait_for",
 			script: `
-import wait_for
+import scriptling.wait_for
 result = "wait_for_imported"
 `,
 			verify: func(t *testing.T, env *scriptling.Scriptling, err error) {
