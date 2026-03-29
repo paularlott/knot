@@ -5,11 +5,13 @@ import (
 )
 
 type VolumeInfo struct {
-	Id       string `json:"volume_id"`
-	Name     string `json:"name"`
-	Active   bool   `json:"active"`
-	Zone     string `json:"zone"`
-	Platform string `json:"platform"`
+	Id           string `json:"volume_id"`
+	Name         string `json:"name"`
+	Active       bool   `json:"active"`
+	Zone         string `json:"zone"`
+	NodeId       string `json:"node_id"`
+	NodeHostname string `json:"node_hostname"`
+	Platform     string `json:"platform"`
 }
 
 type VolumeInfoList struct {
@@ -18,24 +20,28 @@ type VolumeInfoList struct {
 }
 
 type VolumeDefinition struct {
-	VolumeId   string `json:"volume_id"`
-	Name       string `json:"name"`
-	Definition string `json:"definition"`
-	Zone       string `json:"zone"`
-	Active     bool   `json:"active"`
-	Platform   string `json:"platform"`
+	VolumeId     string `json:"volume_id"`
+	Name         string `json:"name"`
+	Definition   string `json:"definition"`
+	Zone         string `json:"zone"`
+	NodeId       string `json:"node_id"`
+	NodeHostname string `json:"node_hostname"`
+	Active       bool   `json:"active"`
+	Platform     string `json:"platform"`
 }
 
 type VolumeUpdateRequest struct {
 	Name       string `json:"name"`
 	Definition string `json:"definition"`
 	Platform   string `json:"platform"`
+	NodeId     string `json:"node_id"`
 }
 
 type VolumeCreateRequest struct {
 	Name       string `json:"name"`
 	Definition string `json:"definition"`
 	Platform   string `json:"platform"`
+	NodeId     string `json:"node_id"`
 }
 
 type VolumeCreateResponse struct {
@@ -102,6 +108,22 @@ func (c *ApiClient) GetVolume(ctx context.Context, volumeId string) (*VolumeDefi
 	}
 
 	return &response, code, nil
+}
+
+type VolumeNode struct {
+	NodeId   string `json:"node_id"`
+	Hostname string `json:"hostname"`
+}
+
+func (c *ApiClient) GetVolumeNodes(ctx context.Context, platform string) ([]VolumeNode, int, error) {
+	var response []VolumeNode
+
+	code, err := c.httpClient.Get(ctx, "/api/volumes/nodes?platform="+platform, &response)
+	if err != nil {
+		return nil, code, err
+	}
+
+	return response, code, nil
 }
 
 func (c *ApiClient) StartVolume(ctx context.Context, volumeId string) (*StartVolumeResponse, int, error) {

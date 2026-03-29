@@ -182,6 +182,7 @@ INDEX idx_is_deleted (is_deleted)
 volume_id CHAR(36) PRIMARY KEY,
 name VARCHAR(64),
 zone VARCHAR(64),
+node_id VARCHAR(36) DEFAULT '',
 platform VARCHAR(64) DEFAULT '',
 definition MEDIUMTEXT,
 active TINYINT(1) NOT NULL DEFAULT 0,
@@ -318,6 +319,11 @@ value MEDIUMTEXT
 	}
 
 	db.logger.Debug("MySQL is initialized")
+
+	// Run schema migrations for existing databases
+	if err := db.runMigrations(); err != nil {
+		return err
+	}
 
 	// Add a task to clean up expired data
 	db.logger.Debug("starting database GC")

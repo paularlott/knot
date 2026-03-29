@@ -2365,6 +2365,36 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/volumes/nodes:
+    get:
+      summary: Get Volume Nodes
+      description: Retrieve available nodes that can host a volume for the given platform.
+      operationId: getVolumeNodes
+      tags:
+        - Volumes
+      parameters:
+        - name: platform
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: ["docker", "podman", "apple", "container"]
+          description: The container platform to check node availability for.
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VolumeNode"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+      security: [BearerAuth: []]
+
   /api/volumes:
     get:
       summary: Get Volumes
@@ -2522,7 +2552,7 @@ paths:
   /api/volumes/{volume_id}/start:
     post:
       summary: Start a Volume
-      description: Start a specified volume.
+      description: Start a specified volume. The volume will be started on the node it was assigned to at creation time.
       tags:
         - Volumes
       operationId: startVolume
@@ -4855,6 +4885,23 @@ components:
           format: uint32
           description: The number of tunnels the user has active.
 
+    VolumeNode:
+      type: object
+      properties:
+        node_id:
+          type: string
+          description: The ID of the node.
+        hostname:
+          type: string
+          description: The hostname of the node.
+
+    VolumeStartRequest:
+      type: object
+      properties:
+        selected_node_id:
+          type: string
+          description: The ID of the node to start the volume on. If omitted, the server selects automatically.
+
     VolumeInfo:
       type: object
       properties:
@@ -4873,6 +4920,12 @@ components:
           type: string
           maxLength: 64
           description: The zone of the volume.
+        node_id:
+          type: string
+          description: The ID of the node the volume is assigned to.
+        node_hostname:
+          type: string
+          description: The hostname of the node the volume is assigned to.
         platform:
           type: string
           description: The container platform to run the volume on.
@@ -4891,6 +4944,9 @@ components:
           type: string
           description: The container platform to run the volume on.
           enum: ["docker", "podman", "nomad", "apple"]
+        node_id:
+          type: string
+          description: The ID of the node to assign the volume to.
 
     VolumeUpdateRequest:
       type: object
@@ -4905,6 +4961,9 @@ components:
           type: string
           description: The container platform to run the volume on.
           enum: ["docker", "podman", "nomad", "apple"]
+        node_id:
+          type: string
+          description: The ID of the node to assign the volume to (only editable when volume is stopped).
 
     VolumeDefinition:
       type: object
@@ -4924,6 +4983,9 @@ components:
           type: string
           maxLength: 64
           description: The zone of the volume.
+        node_id:
+          type: string
+          description: The ID of the node the volume is running on.
         active:
           type: boolean
           description: Whether the volume is active.

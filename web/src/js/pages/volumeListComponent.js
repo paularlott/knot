@@ -30,6 +30,12 @@ window.volumeListComponent = function() {
         name: '',
       }
     },
+    nodeSelect: {
+      show: false,
+      volumeId: '',
+      nodes: [],
+      selectedNodeId: '',
+    },
     volumes: [],
     searchTerm: Alpine.$persist('').as('vol-search-term').using(sessionStorage),
 
@@ -127,6 +133,15 @@ window.volumeListComponent = function() {
       });
       this.getVolumes();
     },
+    async initiateStart(volumeId) {
+      const volume = this.volumes.find(v => v.volume_id === volumeId);
+      if (!volume) return;
+      volume.starting = true;
+      await this.startVolume(volumeId);
+    },
+    async confirmNodeAndStart() {
+      // No longer used — node selection is in the create/edit form
+    },
     async startVolume(volumeId) {
       const self = this;
 
@@ -134,7 +149,7 @@ window.volumeListComponent = function() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
       }).then((response) => {
         if (response.status === 200) {
           response.json().then((v) => {
@@ -148,11 +163,15 @@ window.volumeListComponent = function() {
         } else if (response.status === 401) {
           window.location.href = '/logout';
         } else {
+          const volume = self.volumes.find(vol => vol.volume_id === volumeId);
+          if (volume) volume.starting = false;
           response.json().then((d) => {
             self.$dispatch('show-alert', { msg: `Volume could not be started: ${d.error}`, type: 'error' });
           });
         }
       }).catch((error) => {
+        const volume = self.volumes.find(vol => vol.volume_id === volumeId);
+        if (volume) volume.starting = false;
         if (error.message && error.message.includes('401')) {
           window.location.href = '/logout';
         } else {

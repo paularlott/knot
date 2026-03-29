@@ -11,13 +11,13 @@
       <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Platform</label>
       <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit">
         <label class="relative">
-          <input type="radio" name="platform" id="platform-nomad-edit" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="volumeFormModal.isEdit" @change="showPlatformWarning = true">
-          <input type="radio" name="platform" id="platform-nomad-new" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="!volumeFormModal.isEdit">
+          <input type="radio" name="platform" id="platform-nomad-edit" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="volumeFormModal.isEdit" @change="showPlatformWarning = true; onPlatformChange()">
+          <input type="radio" name="platform" id="platform-nomad-new" value="nomad" x-model="formData.platform" class="sr-only peer" x-show="!volumeFormModal.isEdit" @change="onPlatformChange()">
           <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium peer-checked:bg-blue-600 peer-checked:text-white peer-focus:ring-2 peer-focus:ring-blue-300 transition-colors duration-200 ease-in-out text-gray-700 dark:text-gray-200 peer-checked:dark:text-white hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600">Nomad</div>
         </label>
         <div class="relative inline-flex" x-data="{ open: false, isLocalContainer() { return ['docker', 'podman', 'apple', 'container'].includes(formData.platform); } }">
           <label class="relative group">
-            <input type="radio" name="platform" id="platform-container" :value="isLocalContainer() ? formData.platform : 'container'" :checked="isLocalContainer()" @change="if (!isLocalContainer()) formData.platform = 'container'; if (volumeFormModal.isEdit) showPlatformWarning = true" class="sr-only peer">
+            <input type="radio" name="platform" id="platform-container" :value="isLocalContainer() ? formData.platform : 'container'" :checked="isLocalContainer()" @change="if (!isLocalContainer()) formData.platform = 'container'; if (volumeFormModal.isEdit) showPlatformWarning = true; onPlatformChange()" class="sr-only peer">
             <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-l-lg text-sm font-medium transition-colors duration-200 ease-in-out" :class="isLocalContainer() ? 'bg-blue-600 text-white peer-focus:ring-2 peer-focus:ring-blue-300 group-hover:bg-blue-500' : 'text-gray-700 dark:text-gray-200 group-hover:bg-gray-200 group-hover:dark:bg-gray-600'">
               <span x-text="formData.platform === 'docker' ? 'Docker' : formData.platform === 'podman' ? 'Podman' : formData.platform === 'apple' ? 'Apple' : 'Local Container'"></span>
             </div>
@@ -29,14 +29,28 @@
           </button>
           <div x-show="open" x-cloak class="absolute top-full mt-1 right-0 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl min-w-[160px]">
             <div class="p-1">
-              <button type="button" @click="formData.platform = 'container'; open = false; if (volumeFormModal.isEdit) showPlatformWarning = true" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200">Local Container</button>
-              <button type="button" @click="formData.platform = 'docker'; open = false; if (volumeFormModal.isEdit) showPlatformWarning = true" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200">Docker</button>
-              <button type="button" @click="formData.platform = 'podman'; open = false; if (volumeFormModal.isEdit) showPlatformWarning = true" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200">Podman</button>
-              <button type="button" @click="formData.platform = 'apple'; open = false; if (volumeFormModal.isEdit) showPlatformWarning = true" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200">Apple</button>
+              <button type="button" @click="formData.platform = 'container'; open = false; if (volumeFormModal.isEdit) showPlatformWarning = true; onPlatformChange()" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200">Local Container</button>
+              <button type="button" @click="formData.platform = 'docker'; open = false; if (volumeFormModal.isEdit) showPlatformWarning = true; onPlatformChange()" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200">Docker</button>
+              <button type="button" @click="formData.platform = 'podman'; open = false; if (volumeFormModal.isEdit) showPlatformWarning = true; onPlatformChange()" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200">Podman</button>
+              <button type="button" @click="formData.platform = 'apple'; open = false; if (volumeFormModal.isEdit) showPlatformWarning = true; onPlatformChange()" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200">Apple</button>
             </div>
           </div>
         </div>
       </div>
+    </div>
+    <div x-show="availableNodes.length > 0 && formData.platform !== 'nomad'" x-cloak>
+      <label for="vol_node" class="form-label">Server</label>
+      <div x-show="loadingNodes" class="text-sm text-gray-500 dark:text-gray-400">Loading servers...</div>
+      <select x-show="!loadingNodes" class="form-field" name="vol_node" id="vol_node"
+        :value="formData.node_id"
+        @change="formData.node_id = $event.target.value"
+        :disabled="isEdit && formData.active">
+        <option value="">Auto-select</option>
+        <template x-for="node in availableNodes" :key="node.node_id">
+          <option :value="node.node_id" :selected="node.node_id === formData.node_id" x-text="node.hostname"></option>
+        </template>
+      </select>
+      <div class="description">The server where this volume will run.</div>
     </div>
     <div>
       <label for="vol" class="form-label">Volume Definition (YAML)</label>

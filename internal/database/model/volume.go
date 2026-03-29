@@ -13,6 +13,7 @@ type Volume struct {
 	Id            string        `json:"volume_id" db:"volume_id,pk"`
 	Name          string        `json:"name" db:"name"`
 	Zone          string        `json:"zone" db:"zone"`
+	NodeId        string        `json:"node_id" db:"node_id"`
 	Platform      string        `json:"platform" db:"platform"`
 	Definition    string        `json:"definition" db:"definition"`
 	Active        bool          `json:"active" db:"active"`
@@ -35,6 +36,7 @@ func NewVolume(name string, definition string, userId string, platform string) *
 		Definition:    definition,
 		Active:        false,
 		Platform:      platform,
+		NodeId:        "",
 		CreatedUserId: userId,
 		CreatedAt:     time.Now().UTC(),
 		UpdatedUserId: userId,

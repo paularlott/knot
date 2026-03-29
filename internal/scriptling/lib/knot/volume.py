@@ -21,6 +21,8 @@ def list():
         - name: Volume name
         - active: Boolean indicating if volume is active
         - zone: Zone name where volume is running
+        - node_id: ID of the node the volume is assigned to
+        - node_hostname: Hostname of the node the volume is assigned to
         - platform: Platform type
 
     Raises:
@@ -35,6 +37,8 @@ def list():
             "name": vol.get("name"),
             "active": vol.get("active", False),
             "zone": vol.get("zone", ""),
+            "node_id": vol.get("node_id", ""),
+            "node_hostname": vol.get("node_hostname", ""),
             "platform": vol.get("platform", "")
         })
 
@@ -54,6 +58,8 @@ def get(volume_id):
         - definition: Volume definition YAML
         - active: Boolean indicating if volume is active
         - zone: Zone name
+        - node_id: ID of the node the volume is assigned to
+        - node_hostname: Hostname of the node the volume is assigned to
         - platform: Platform type
 
     Raises:
@@ -67,17 +73,42 @@ def get(volume_id):
         "definition": response.get("definition", ""),
         "active": response.get("active", False),
         "zone": response.get("zone", ""),
+        "node_id": response.get("node_id", ""),
+        "node_hostname": response.get("node_hostname", ""),
         "platform": response.get("platform", "")
     }
 
 
-def create(name, definition, platform=""):
+def nodes(platform):
+    """List available nodes for a given platform.
+
+    Args:
+        platform: Platform type (e.g., "docker", "podman", "apple", "container")
+
+    Returns:
+        A list of node dicts, each containing:
+        - node_id: Node ID
+        - hostname: Node hostname
+
+    Raises:
+        Exception if not configured or on API error
+    """
+    response = api.get(f"/api/volumes/nodes?platform={platform}")
+
+    return [{
+        "node_id": n.get("node_id"),
+        "hostname": n.get("hostname", "")
+    } for n in response]
+
+
+def create(name, definition, platform="", node_id=""):
     """Create a new volume.
 
     Args:
         name: Volume name
         definition: Volume definition YAML
         platform: Platform type (e.g., "docker", "podman", "nomad")
+        node_id: Node ID to assign the volume to (optional, auto-selects if omitted)
 
     Returns:
         The new volume ID
@@ -88,14 +119,15 @@ def create(name, definition, platform=""):
     body = {
         "name": name,
         "definition": definition,
-        "platform": platform
+        "platform": platform,
+        "node_id": node_id
     }
 
     response = api.post("/api/volumes", body)
     return response.get("volume_id")
 
 
-def update(volume_id, name=None, definition=None, platform=None):
+def update(volume_id, name=None, definition=None, platform=None, node_id=None):
     """Update volume properties.
 
     Args:
@@ -103,6 +135,7 @@ def update(volume_id, name=None, definition=None, platform=None):
         name: New name (optional)
         definition: New definition YAML (optional)
         platform: New platform type (optional)
+        node_id: New node ID (optional, only changeable when volume is stopped)
 
     Returns:
         True if successful
@@ -115,7 +148,8 @@ def update(volume_id, name=None, definition=None, platform=None):
     body = {
         "name": name if name is not None else current.get("name"),
         "definition": definition if definition is not None else current.get("definition", ""),
-        "platform": platform if platform is not None else current.get("platform", "")
+        "platform": platform if platform is not None else current.get("platform", ""),
+        "node_id": node_id if node_id is not None else current.get("node_id", "")
     }
 
     api.put(f"/api/volumes/{volume_id}", body)

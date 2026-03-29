@@ -16,12 +16,16 @@ window.volumeForm = function (isEdit, volumeId) {
       name: "",
       definition: "",
       platform: "nomad",
+      node_id: "",
+      active: false,
     },
     loading: true,
     nameValid: true,
     volValid: true,
     isEdit,
     showPlatformWarning: false,
+    availableNodes: [],
+    loadingNodes: false,
 
     async initData() {
       focus.Element('input[name="name"]');
@@ -41,8 +45,12 @@ window.volumeForm = function (isEdit, volumeId) {
           this.formData.name = volume.name;
           this.formData.definition = volume.definition;
           this.formData.platform = volume.platform;
+          this.formData.node_id = volume.node_id || "";
+          this.formData.active = volume.active || false;
         }
       }
+
+      await this.fetchNodes();
 
       let darkMode = JSON.parse(localStorage.getItem("_x_darkMode"));
       if (darkMode == null) darkMode = true;
@@ -78,6 +86,40 @@ window.volumeForm = function (isEdit, volumeId) {
 
       this.loading = false;
     },
+    async fetchNodes(clearIfNotFound = false) {
+      const platform = this.formData.platform;
+      if (platform === 'nomad') {
+        this.availableNodes = [];
+        return;
+      }
+      this.loadingNodes = true;
+      try {
+        const response = await fetch(`/api/volumes/nodes?platform=${platform}`, {
+          headers: { "Content-Type": "application/json" },
+        });
+        if (response.status === 200) {
+          const nodes = await response.json();
+          this.availableNodes = nodes || [];
+          // Auto-select if only one node and no node already chosen
+          if (this.availableNodes.length === 1 && !this.formData.node_id) {
+            this.formData.node_id = this.availableNodes[0].node_id;
+          }
+          // Only clear node_id if explicitly requested (i.e. platform changed)
+          if (clearIfNotFound && this.formData.node_id && !this.availableNodes.find(n => n.node_id === this.formData.node_id)) {
+            this.formData.node_id = this.availableNodes.length === 1 ? this.availableNodes[0].node_id : "";
+          }
+        } else {
+          this.availableNodes = [];
+        }
+      } catch {
+        this.availableNodes = [];
+      }
+      this.loadingNodes = false;
+    },
+    async onPlatformChange() {
+      this.formData.node_id = "";
+      await this.fetchNodes(true);
+    },
     checkName() {
       this.nameValid = validate.name(this.formData.name);
       return this.nameValid;
@@ -112,6 +154,7 @@ window.volumeForm = function (isEdit, volumeId) {
         name: this.formData.name,
         definition: this.formData.definition,
         platform: this.formData.platform,
+        node_id: this.formData.node_id,
       };
 
       await fetch(isEdit ? `/api/volumes/${volumeId}` : "/api/volumes", {

@@ -83,6 +83,7 @@ func ApiRoutes(router *http.ServeMux) {
 	// Volumes
 	router.HandleFunc("GET /api/volumes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolumes)))
 	router.HandleFunc("POST /api/volumes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleCreateVolume)))
+	router.HandleFunc("GET /api/volumes/nodes", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolumeNodes)))
 	router.HandleFunc("PUT /api/volumes/{volume_id}", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleUpdateVolume)))
 	router.HandleFunc("DELETE /api/volumes/{volume_id}", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleDeleteVolume)))
 	router.HandleFunc("GET /api/volumes/{volume_id}", middleware.ApiAuth(middleware.ApiPermissionManageVolumes(HandleGetVolume)))
