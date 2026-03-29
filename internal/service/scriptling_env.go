@@ -67,18 +67,10 @@ func registerKnotLibraries(env *scriptling.Scriptling, client *apiclient.ApiClie
 	// knot.ai is always registered - Client() will return error if aiClient is nil
 	env.RegisterLibrary(knotscriptling.GetAILibrary(aiClient))
 
-	if client != nil && userId != "" {
-		env.RegisterLibrary(knotscriptling.GetSpacesLibrary(client, userId))
-		env.RegisterLibrary(knotscriptling.GetUsersLibrary(client, userId))
-		env.RegisterLibrary(knotscriptling.GetGroupsLibrary(client, userId))
-		env.RegisterLibrary(knotscriptling.GetRolesLibrary(client, userId))
-		env.RegisterLibrary(knotscriptling.GetTemplatesLibrary(client, userId))
-		env.RegisterLibrary(knotscriptling.GetVarsLibrary(client, userId))
-		env.RegisterLibrary(knotscriptling.GetVolumesLibrary(client, userId))
-		env.RegisterLibrary(knotscriptling.GetSkillsLibrary(client, userId))
-		env.RegisterLibrary(knotscriptling.GetPermissionLibrary(client))
-	}
 	if client != nil {
+		// Go transport layer - Python libs (knot.space, knot.user, etc.) resolve via import
+		env.RegisterLibrary(knotscriptling.GetApiClientLibrary(client.GetRESTClient(), userId))
+
 		if mcpLib != nil {
 			env.RegisterLibrary(mcpLib.GetLibrary())
 		} else {
@@ -145,9 +137,35 @@ func newFetcherLoader() libloader.LibraryLoader {
 	}, "fetcher")
 }
 
+// newKnotLibsLoader returns a loader for the embedded knot Python libs,
+// with optional disk override via KnotLibPath config for development.
+// KnotLibPath should point to the directory containing the knot/ subfolder
+// e.g. internal/scriptling/lib/
+func newKnotLibsLoader() libloader.LibraryLoader {
+	cfg := config.GetServerConfig()
+	if cfg != nil && cfg.KnotLibPath != "" {
+		return libloader.NewFilesystem(cfg.KnotLibPath)
+	}
+	// Load from embedded FS: map "knot.space" -> "lib/knot/space.py"
+	return libloader.NewFuncLoader(func(name string) (string, bool, error) {
+		if !strings.HasPrefix(name, "knot.") {
+			return "", false, nil
+		}
+		fileName := "lib/knot/" + strings.TrimPrefix(name, "knot.") + ".py"
+		data, err := knotscriptling.EmbeddedLibs.ReadFile(fileName)
+		if err != nil {
+			return "", false, nil
+		}
+		return string(data), true, nil
+	}, "knot-embedded-libs")
+}
+
 // setupLibraryLoader sets up library loading from configured libdir and/or server
 func setupLibraryLoader(env *scriptling.Scriptling, client *apiclient.ApiClient) {
 	var loaders []libloader.LibraryLoader
+
+	// Knot Python libs first (embedded or disk override)
+	loaders = append(loaders, newKnotLibsLoader())
 
 	// Add filesystem loader if libdir is configured
 	cfg := config.GetServerConfig()
@@ -162,9 +180,7 @@ func setupLibraryLoader(env *scriptling.Scriptling, client *apiclient.ApiClient)
 		loaders = append(loaders, newFetcherLoader())
 	}
 
-	if len(loaders) > 0 {
-		env.SetLibraryLoader(libloader.NewChain(loaders...))
-	}
+	env.SetLibraryLoader(libloader.NewChain(loaders...))
 }
 
 // muxHTTPPool wraps an *http.Client to implement pool.HTTPPool
@@ -267,8 +283,11 @@ func NewLocalScriptlingEnv(argv []string, client *apiclient.ApiClient, userId st
 
 	registerKnotLibraries(env, client, userId, nil, nil, aiClient)
 
-	// Set up library loader chain: script dir → extra paths → libdir → server API → fetcher
+	// Set up library loader chain: knot libs → script dir → extra paths → libdir → server API → fetcher
 	var loaders []libloader.LibraryLoader
+
+	// Knot Python libs first
+	loaders = append(loaders, newKnotLibsLoader())
 
 	for _, dir := range buildLocalLibDirs(scriptFile, extraLibPaths) {
 		loaders = append(loaders, libloader.NewFilesystem(dir))
@@ -315,8 +334,11 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]objec
 		mcpLib = knotscriptling.GetMCPLibraryInstance(client, mcpParams)
 		registerKnotLibraries(env, client, user.Id, mcpParams, mcpLib, aiClient)
 
-		// Set up library loader with user context for MuxClient
-		env.SetLibraryLoader(newServerLibraryLoaderWithContext(client, user))
+		// Set up library loader with knot libs + user context for MuxClient
+		env.SetLibraryLoader(libloader.NewChain(
+			newKnotLibsLoader(),
+			newServerLibraryLoaderWithContext(client, user),
+		))
 	}
 
 	return env, mcpLib, nil

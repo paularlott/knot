@@ -1,17 +1,17 @@
 # knot.space - Space management library for Knot server
 #
 # This library provides functions for managing spaces in Knot.
-# Requires knot.api to be configured first.
+# Requires knot.apiclient to be configured first.
 #
 # Usage:
-#   import knot.api
+#   import knot.apiclient
 #   import knot.space
 #
-#   knot.api.configure("https://knot.example.com", "your-token")
+#   knot.apiclient.configure("https://knot.example.com", "your-token")
 #   spaces = knot.space.list()
 #   knot.space.start("my-space")
 
-from . import api
+import knot.apiclient as api
 
 def list():
     """List all spaces for the current user.

@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
 	"github.com/paularlott/scriptling/object"
 )
 
@@ -96,66 +96,15 @@ func ExecuteScriptWithMCP(script *model.Script, mcpParams map[string]object.Obje
 		return "", fmt.Errorf("failed to create scriptling environment: %v", err)
 	}
 
-	// Set up __mcp_params environment variable for scriptling.mcp.tool helpers
-	// Convert mcpParams map to scriptling Dict
-	paramsDict := &object.Dict{
-		Pairs: make(map[string]object.DictPair),
-	}
-	for key, value := range mcpParams {
-		paramsDict.Pairs[key] = object.DictPair{
-			Key:   &object.String{Value: key},
-			Value: value,
-		}
-	}
-	env.SetObjectVar("__mcp_params", paramsDict)
-
-	result, err := env.EvalWithContext(ctx, script.Content)
-
-	// Check for response in __mcp_response
-	responseObj, getErr := env.GetVarAsObject("__mcp_response")
-	var response string
-	if getErr == nil {
-		if strObj, ok := responseObj.(*object.String); ok {
-			response = strObj.Value
-		}
-	}
-
-	// Check for SystemExit
-	if ex, ok := object.AsException(result); ok && ex.IsSystemExit() {
-		exitCode := ex.GetExitCode()
-		if exitCode != 0 {
-			if err != nil {
-				return "", err
-			}
-			if response != "" {
-				return "", fmt.Errorf("%s", response)
-			}
-			return "", fmt.Errorf("script exited with code %d", exitCode)
-		}
-		// Success exit
-		if response != "" {
-			return response, nil
-		}
-		return "", nil
-	}
-
+	response, exitCode, err := scriptlingmcp.RunToolScript(ctx, env, script.Content, mcpParams)
 	if err != nil {
 		return "", err
 	}
-
-	// Success - return the response if set
-	if response != "" {
-		return response, nil
-	}
-
-	// Fallback to output if no response was set
-	output := env.GetOutput()
-	if result != nil && result.Inspect() != "None" {
-		if output != "" {
-			output += "\n"
+	if exitCode != 0 {
+		if response != "" {
+			return "", fmt.Errorf("%s", response)
 		}
-		output += result.Inspect()
+		return "", fmt.Errorf("script exited with code %d", exitCode)
 	}
-
-	return strings.TrimRight(output, "\n"), nil
+	return response, nil
 }

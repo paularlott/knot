@@ -1,6 +1,6 @@
 # knot.user - User management library for Knot server
 
-from . import api
+import knot.apiclient as api
 
 def get_me():
     """Get current user details."""

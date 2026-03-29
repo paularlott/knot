@@ -75,6 +75,10 @@ func (c *ApiClient) GetAuthToken() string {
 	return c.httpClient.GetAuthToken()
 }
 
+func (c *ApiClient) GetRESTClient() rest.RESTClient {
+	return c.httpClient
+}
+
 // Do makes an arbitrary API request
 func (c *ApiClient) Do(ctx context.Context, method string, path string, requestBody interface{}, responseBody interface{}) (int, error) {
 	switch method {

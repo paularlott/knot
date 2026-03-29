@@ -1,6 +1,6 @@
 # knot.role - Role management library for Knot server
 
-from . import api
+import knot.apiclient as api
 
 def list():
     """List all roles."""

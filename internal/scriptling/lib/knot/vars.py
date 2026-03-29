@@ -1,16 +1,16 @@
 # knot.vars - Variable management library for Knot server
 #
 # This library provides functions for managing template variables in Knot.
-# Requires knot.api to be configured first.
+# Requires knot.apiclient to be configured first.
 #
 # Usage:
-#   import knot.api
+#   import knot.apiclient
 #   import knot.vars
 #
-#   knot.api.configure("https://knot.example.com", "your-token")
+#   knot.apiclient.configure("https://knot.example.com", "your-token")
 #   variables = knot.vars.list()
 
-from . import api
+import knot.apiclient as api
 
 def list():
     """List all template variables.
@@ -107,13 +107,12 @@ def create(name, value, zones=None, local=False, protected=False, restricted=Fal
     return response.get("templatevar_id")
 
 
-def set(var_id, value=None, description=None):
-    """Set variable value (alias for update).
+def set_value(var_id, value=None):
+    """Set variable value.
 
     Args:
         var_id: Variable name or ID
-        value: New value (optional)
-        description: Not used, kept for compatibility
+        value: New value
 
     Returns:
         True if successful

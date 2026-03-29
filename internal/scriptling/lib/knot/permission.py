@@ -1,20 +1,20 @@
 # knot.permission - Permission constants library for Knot server
 #
 # This library provides permission constants and functions for checking permissions.
-# Requires knot.api to be configured first.
+# Requires knot.apiclient to be configured first.
 #
 # Usage:
-#   import knot.api
+#   import knot.apiclient
 #   import knot.permission
 #
-#   knot.api.configure("https://knot.example.com", "your-token")
+#   knot.apiclient.configure("https://knot.example.com", "your-token")
 #   perms = knot.permission.list()
 #
 #   # Use constants
 #   if user_has_permission(knot.permission.MANAGE_SPACES):
 #       print("User can manage spaces")
 
-from . import api
+import knot.apiclient as api
 
 # User Management
 MANAGE_USERS = 0

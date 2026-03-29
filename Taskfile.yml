@@ -199,13 +199,13 @@ tasks:
     cmds:
       - mkdir -p web/packages
       - |
-        echo 'name = "knot"' > script-apiclient/manifest.toml
-        echo 'version = "{{.VERSION}}"' >> script-apiclient/manifest.toml
-        echo 'description = "Knot API client library for scriptling"' >> script-apiclient/manifest.toml
-      - cd script-apiclient && zip -r ../web/packages/knot.zip manifest.toml lib/
+        echo 'name = "knot"' > internal/scriptling/manifest.toml
+        echo 'version = "{{.VERSION}}"' >> internal/scriptling/manifest.toml
+        echo 'description = "Knot API client library for scriptling"' >> internal/scriptling/manifest.toml
+        cd internal/scriptling && zip -r ../../web/packages/knot.zip manifest.toml lib/
       - shasum -a 256 web/packages/knot.zip | cut -d' ' -f1 > web/packages/knot.zip.sha256
     sources:
-      - ./script-apiclient/lib/**/*.py
+      - ./internal/scriptling/lib/knot/*.py
     generates:
       - web/packages/knot.zip
       - web/packages/knot.zip.sha256

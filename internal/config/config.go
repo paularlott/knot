@@ -49,6 +49,7 @@ type ServerConfig struct {
 	MCPToolsPath              string
 	MCPToolsDisabled          []string
 	LibDir                    string
+	KnotLibPath               string
 }
 
 type OriginConfig struct {

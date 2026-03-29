@@ -33,9 +33,15 @@ func (c *ApiClient) GetScriptDetailsByName(ctx context.Context, name string) (*S
 
 func (c *ApiClient) GetScriptByName(ctx context.Context, name string) (string, error) {
 	var content string
-	_, err := c.httpClient.Get(ctx, "/api/scripts/name/"+name+"/script", &content)
+	statusCode, err := c.httpClient.Get(ctx, "/api/scripts/name/"+name+"/script", &content)
 	if err != nil {
 		return "", err
+	}
+	if statusCode == 404 {
+		return "", fmt.Errorf("script not found: %s", name)
+	}
+	if statusCode >= 400 {
+		return "", fmt.Errorf("unexpected status code: %d", statusCode)
 	}
 	return content, nil
 }
@@ -74,9 +80,15 @@ func (c *ApiClient) ExecuteScript(ctx context.Context, spaceId, scriptId string,
 
 func (c *ApiClient) GetScriptLibrary(ctx context.Context, name string) (string, error) {
 	var content string
-	_, err := c.httpClient.Get(ctx, "/api/scripts/name/"+name+"/lib", &content)
+	statusCode, err := c.httpClient.Get(ctx, "/api/scripts/name/"+name+"/lib", &content)
 	if err != nil {
 		return "", err
+	}
+	if statusCode == 404 {
+		return "", fmt.Errorf("library not found: %s", name)
+	}
+	if statusCode >= 400 {
+		return "", fmt.Errorf("unexpected status code: %d", statusCode)
 	}
 	return content, nil
 }

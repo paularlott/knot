@@ -10,24 +10,11 @@ import (
 	"github.com/paularlott/scriptling/object"
 )
 
-var defaultModel string
-
-// SetDefaultModel sets the default model name for the AI library.
-// Called from server startup with the configured chat model.
-func SetDefaultModel(model string) {
-	defaultModel = model
-}
-
 // GetAILibrary returns the knot.ai library for scriptling environments.
 // It exposes:
 //   - Client() - returns the pre-configured AI client
-//   - get_default_model() - returns the server-configured default model name
-//
-// In all environments (MCP, local, remote, streaming), the aiClient connects
-// to the server's OpenAI-compatible endpoint with the X-Knot-Passthrough header.
-// The MCPServerContext middleware handles per-user tool discovery and execution.
-// Scripts can pass model="" to use the server's default model, or specify any
-// model explicitly.
+//   - get_default_model() - always returns "" in embedded contexts; the server
+//     injects the configured default when model is empty. Override for standalone use.
 //
 // When aiClient is nil, Client() will return an error.
 func GetAILibrary(aiClient ai.Client) *object.Library {
@@ -60,17 +47,12 @@ Example:
   response = bot.trigger("Hello!", max_iterations=5)
   print(response.content)`))
 
-	// get_default_model() returns the server-configured default model name
+	// get_default_model() always returns "" in embedded contexts.
+	// The server injects the configured default model when "" is passed.
+	// For standalone use, override this by providing your own apiclient.py.
 	builder.FunctionWithHelp("get_default_model", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return &object.String{Value: defaultModel}
-	}, `get_default_model() - Get the server-configured default model name.
-
-Returns:
-  str: The model name configured on the server (e.g. "gpt-4o"), or empty string if not configured.
-
-Example:
-  model = knot.ai.get_default_model()
-  print(f"Using model: {model}")`)
+		return &object.String{Value: ""}
+	}, `get_default_model() - Returns "" in embedded contexts; the server uses its configured default model when "" is passed to completion().`)
 
 	return builder.Build()
 }

@@ -30,4 +30,4 @@
 /web/public_html/terminal.js.map
 /web/public_html/assets/*
 /knot
-/script-apiclient/manifest.toml
+/internal/scriptling/manifest.toml

@@ -1,16 +1,16 @@
 # knot.skill - Skill management library for Knot server
 #
 # This library provides functions for managing skills in Knot.
-# Requires knot.api to be configured first.
+# Requires knot.apiclient to be configured first.
 #
 # Usage:
-#   import knot.api
+#   import knot.apiclient
 #   import knot.skill
 #
-#   knot.api.configure("https://knot.example.com", "your-token")
+#   knot.apiclient.configure("https://knot.example.com", "your-token")
 #   skills = knot.skill.list()
 
-from . import api
+import knot.apiclient as api
 
 def list(owner=None):
     """List all skills the user has access to.
@@ -71,8 +71,7 @@ def get(name_or_id):
     # Try as UUID first
     try:
         response = api.get(f"/api/skill/{name_or_id}")
-    except:
-        # Try as name
+    except Exception:
         response = api.get(f"/api/skill/name/{name_or_id}")
 
     return {
@@ -87,7 +86,7 @@ def get(name_or_id):
     }
 
 
-def create(content, global=False, groups=None, zones=None):
+def create(content, is_global=False, groups=None, zones=None):
     """Create a new skill.
 
     Args:
@@ -109,7 +108,7 @@ def create(content, global=False, groups=None, zones=None):
         "active": True
     }
 
-    if global:
+    if is_global:
         body["user_id"] = ""
 
     response = api.post("/api/skill", body)
@@ -134,7 +133,7 @@ def update(name_or_id, content=None, groups=None, zones=None):
     # Get current skill
     try:
         current = api.get(f"/api/skill/{name_or_id}")
-    except:
+    except Exception:
         current = api.get(f"/api/skill/name/{name_or_id}")
 
     body = {
@@ -162,7 +161,7 @@ def delete(name_or_id):
     # Get skill to find UUID
     try:
         skill = api.get(f"/api/skill/{name_or_id}")
-    except:
+    except Exception:
         skill = api.get(f"/api/skill/name/{name_or_id}")
 
     api.delete(f"/api/skill/{skill.get('id')}")
@@ -181,7 +180,7 @@ def search(query):
     Raises:
         Exception if not configured or on API error
     """
-    response = api.get(f"/api/skill/search?q={query}&all_zones=true")
+    response = api.get("/api/skill/search", {"q": query, "all_zones": "true"})
 
     result = []
     for skill in response.get("skills", []):

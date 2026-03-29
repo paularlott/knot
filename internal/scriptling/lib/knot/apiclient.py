@@ -1,17 +1,18 @@
-# knot.api - Core API client library for Knot server
+# knot.apiclient - Core API transport library for Knot server
 #
-# This library provides the base client for connecting to a Knot server.
-# All other knot.* libraries depend on this library being configured first.
+# In embedded contexts (MCP, remote, local), this module is shadowed by the
+# Go-registered knot.apiclient library. configure() is a no-op and tokens
+# are never exposed to scripts.
+#
+# For standalone use (outside knot), this module uses the requests library.
+# Call configure(url, token) before using any knot.* library.
 #
 # Usage:
-#   import knot.api
-#   knot.api.configure("https://knot.example.com", "your-access-token")
-#
-#   # Or with insecure SSL (for development):
-#   knot.api.configure("https://localhost:8443", "your-token", insecure=True)
+#   import knot.apiclient
+#   knot.apiclient.configure("https://knot.example.com", "your-access-token")
 
-# Global client state
 _client = None
+
 
 def configure(url, token, insecure=False):
     """Configure the Knot API client with server URL and access token.
@@ -23,9 +24,6 @@ def configure(url, token, insecure=False):
 
     Returns:
         True if configuration was successful
-
-    Example:
-        knot.api.configure("https://knot.example.com", "my-token")
     """
     global _client
 
@@ -53,58 +51,6 @@ def is_configured():
     return _client is not None
 
 
-def get_url():
-    """Get the configured server URL.
-
-    Returns:
-        The server URL string
-
-    Raises:
-        Exception if not configured
-    """
-    if not _client:
-        raise Exception("Knot client not configured. Call knot.api.configure() first.")
-    return _client["url"]
-
-
-def get_token():
-    """Get the configured access token.
-
-    Returns:
-        The access token string
-
-    Raises:
-        Exception if not configured
-    """
-    if not _client:
-        raise Exception("Knot client not configured. Call knot.api.configure() first.")
-    return _client["token"]
-
-
-def _get_headers():
-    """Get the HTTP headers for API requests."""
-    if not _client:
-        raise Exception("Knot client not configured. Call knot.api.configure() first.")
-
-    return {
-        "Authorization": "Bearer " + _client["token"],
-        "Content-Type": "application/msgpack",
-        "Accept": "application/msgpack"
-    }
-
-
-def _get_headers_json():
-    """Get the HTTP headers for JSON API requests."""
-    if not _client:
-        raise Exception("Knot client not configured. Call knot.api.configure() first.")
-
-    return {
-        "Authorization": "Bearer " + _client["token"],
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
-
-
 def get(path, params=None):
     """Make a GET request to the Knot API.
 
@@ -114,14 +60,11 @@ def get(path, params=None):
 
     Returns:
         The response data as a dict or list
-
-    Raises:
-        Exception on HTTP error
     """
     import requests as req
 
     if not _client:
-        raise Exception("Knot client not configured. Call knot.api.configure() first.")
+        raise Exception("Knot client not configured. Call knot.apiclient.configure() first.")
 
     url = _client["url"] + path
 
@@ -135,7 +78,7 @@ def get(path, params=None):
 
     resp = req.get(
         url,
-        headers=_get_headers_json(),
+        headers={"Authorization": "Bearer " + _client["token"], "Content-Type": "application/json", "Accept": "application/json"},
         verify=not _client["insecure"]
     )
 
@@ -154,21 +97,19 @@ def post(path, body=None):
 
     Returns:
         The response data as a dict or list
-
-    Raises:
-        Exception on HTTP error
     """
     import requests as req
     import json
 
     if not _client:
-        raise Exception("Knot client not configured. Call knot.api.configure() first.")
+        raise Exception("Knot client not configured. Call knot.apiclient.configure() first.")
 
     url = _client["url"] + path
+    headers = {"Authorization": "Bearer " + _client["token"], "Content-Type": "application/json", "Accept": "application/json"}
 
     resp = req.post(
         url,
-        headers=_get_headers_json(),
+        headers=headers,
         data=json.dumps(body) if body else None,
         verify=not _client["insecure"]
     )
@@ -176,7 +117,6 @@ def post(path, body=None):
     if resp.status_code >= 400:
         raise Exception(f"API error (HTTP {resp.status_code}): {resp.text}")
 
-    # Some endpoints return empty response
     if resp.text:
         return resp.json()
     return None
@@ -191,21 +131,19 @@ def put(path, body=None):
 
     Returns:
         The response data as a dict or list
-
-    Raises:
-        Exception on HTTP error
     """
     import requests as req
     import json
 
     if not _client:
-        raise Exception("Knot client not configured. Call knot.api.configure() first.")
+        raise Exception("Knot client not configured. Call knot.apiclient.configure() first.")
 
     url = _client["url"] + path
+    headers = {"Authorization": "Bearer " + _client["token"], "Content-Type": "application/json", "Accept": "application/json"}
 
     resp = req.put(
         url,
-        headers=_get_headers_json(),
+        headers=headers,
         data=json.dumps(body) if body else None,
         verify=not _client["insecure"]
     )
@@ -213,7 +151,6 @@ def put(path, body=None):
     if resp.status_code >= 400:
         raise Exception(f"API error (HTTP {resp.status_code}): {resp.text}")
 
-    # Some endpoints return empty response
     if resp.text:
         return resp.json()
     return None
@@ -227,27 +164,24 @@ def delete(path):
 
     Returns:
         The response data as a dict or list
-
-    Raises:
-        Exception on HTTP error
     """
     import requests as req
 
     if not _client:
-        raise Exception("Knot client not configured. Call knot.api.configure() first.")
+        raise Exception("Knot client not configured. Call knot.apiclient.configure() first.")
 
     url = _client["url"] + path
+    headers = {"Authorization": "Bearer " + _client["token"], "Content-Type": "application/json", "Accept": "application/json"}
 
     resp = req.delete(
         url,
-        headers=_get_headers_json(),
+        headers=headers,
         verify=not _client["insecure"]
     )
 
     if resp.status_code >= 400:
         raise Exception(f"API error (HTTP {resp.status_code}): {resp.text}")
 
-    # Some endpoints return empty response
     if resp.text:
         return resp.json()
     return None
