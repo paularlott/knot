@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/paularlott/knot/internal/database/model"
+	internalmcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/knot/internal/util/rest"
 	mcpopenai "github.com/paularlott/mcp/ai/openai"
 
@@ -60,7 +62,9 @@ func (s *Service) HandleChatCompletions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Inject system prompt only if no system message is present
-	req.Messages = s.replaceSystemPrompt(req.Messages)
+	user, _ := ctx.Value("user").(*model.User)
+	skillsPrompt := internalmcp.BuildSkillsPrompt(ctx, user)
+	req.Messages = s.replaceSystemPrompt(req.Messages, skillsPrompt)
 
 	if req.Stream {
 		s.handleStreamingChatCompletion(ctx, w, r, req)
@@ -108,13 +112,13 @@ func (s *Service) handleStreamingChatCompletion(ctx context.Context, w http.Resp
 }
 
 // replaceSystemPrompt checks for existing system messages and injects system prompt only if none present
-func (s *Service) replaceSystemPrompt(messages []Message) []Message {
+func (s *Service) replaceSystemPrompt(messages []Message, skillsPrompt string) []Message {
 	if s.systemPrompt == "" || (len(messages) > 0 && messages[0].Role == "system") {
 		return messages
 	}
 
 	systemMessage := Message{Role: "system"}
-	systemMessage.SetContentAsString(s.systemPrompt)
+	systemMessage.SetContentAsString(s.systemPrompt + skillsPrompt)
 
 	result := make([]Message, 0, len(messages)+1)
 	result = append(result, systemMessage)

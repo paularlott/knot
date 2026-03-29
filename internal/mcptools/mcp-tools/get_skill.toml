@@ -1,0 +1,15 @@
+description = "Retrieve skill content by exact name or search by keyword/topic. Use 'name' when you know the exact skill name (e.g., from the skills list in the system prompt). Use 'query' to search by topic or description when you don't know the exact name."
+keywords = ["skill", "guide", "workflow", "instructions", "procedure", "howto", "knowledge"]
+discoverable = false
+
+[[parameters]]
+name = "name"
+type = "string"
+description = "Exact skill name for direct retrieval (use when name is known)"
+required = false
+
+[[parameters]]
+name = "query"
+type = "string"
+description = "Search term to find skills by topic or description (used when exact name is unknown)"
+required = false

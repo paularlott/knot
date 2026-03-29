@@ -8,6 +8,7 @@ import (
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
+	internalmcp "github.com/paularlott/knot/internal/mcp"
 	"github.com/paularlott/mcp"
 	ai "github.com/paularlott/mcp/ai"
 	mcpopenai "github.com/paularlott/mcp/ai/openai"
@@ -56,8 +57,9 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 		}, nil
 	}
 
-	// Convert messages to OpenAI format
-	openAIMessages := s.convertMessagesToOpenAI(messages)
+	// Convert messages to OpenAI format, appending skills to system prompt
+	skillsPrompt := internalmcp.BuildSkillsPrompt(ctx, user)
+	openAIMessages := s.convertMessagesToOpenAI(messages, skillsPrompt)
 
 	// Create request
 	req := mcpopenai.ChatCompletionRequest{
@@ -95,7 +97,7 @@ func (s *Service) ChatCompletion(ctx context.Context, messages []ChatMessage, us
 	}, nil
 }
 
-func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []mcpopenai.Message {
+func (s *Service) convertMessagesToOpenAI(messages []ChatMessage, skillsPrompt string) []mcpopenai.Message {
 	openAIMessages := make([]mcpopenai.Message, 0, len(messages)+1)
 
 	// Check if first message is a system message
@@ -106,7 +108,7 @@ func (s *Service) convertMessagesToOpenAI(messages []ChatMessage) []mcpopenai.Me
 		systemMessage := mcpopenai.Message{
 			Role: "system",
 		}
-		systemMessage.SetContentAsString(s.config.SystemPrompt)
+		systemMessage.SetContentAsString(s.config.SystemPrompt + skillsPrompt)
 		openAIMessages = append(openAIMessages, systemMessage)
 	}
 
