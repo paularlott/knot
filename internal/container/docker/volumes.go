@@ -3,84 +3,90 @@ package docker
 import (
 	"context"
 	"fmt"
-	"strings"
+	"net/http"
+	"net/url"
 
 	"github.com/paularlott/knot/internal/database/model"
-
-	"github.com/docker/docker/api/types/volume"
-	"github.com/docker/docker/client"
 	"gopkg.in/yaml.v3"
 )
+
+type volumeCreateRequest struct {
+	Name string `json:"Name"`
+}
+
+type volumeCreateResponse struct {
+	Name string `json:"Name"`
+}
+
+func (c *DockerClient) volumeCreate(ctx context.Context, name string) (string, error) {
+	var resp volumeCreateResponse
+	code, err := c.httpClient.PostJSON(ctx, "/v1.41/volumes/create", volumeCreateRequest{Name: name}, &resp, http.StatusCreated)
+	if err != nil {
+		return "", fmt.Errorf("volume create failed (HTTP %d): %w", code, err)
+	}
+	return resp.Name, nil
+}
+
+func (c *DockerClient) volumeRemove(ctx context.Context, name string) error {
+	// ?force=true matches original SDK behaviour (VolumeRemove called with force=true throughout).
+	code, err := c.httpClient.Delete(ctx, "/v1.41/volumes/"+url.PathEscape(name)+"?force=true", nil, nil, http.StatusNoContent)
+	if err != nil {
+		if code == http.StatusNotFound {
+			return nil
+		}
+		return fmt.Errorf("volume remove failed (HTTP %d): %w", code, err)
+	}
+	return nil
+}
 
 func (c *DockerClient) CreateVolume(vol *model.Volume, variables map[string]interface{}) error {
 	c.Logger.Debug("creating volume")
 
-	// Parse the volume definition to fill out the knot variables
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
 		return err
 	}
 
-	var volInfo volInfo
-	err = yaml.Unmarshal([]byte(volumes), &volInfo)
-	if err != nil {
+	var vi volInfo
+	if err = yaml.Unmarshal([]byte(volumes), &vi); err != nil {
 		return err
 	}
 
-	// If not exactly 1 volume then fail
-	if len(volInfo.Volumes) != 1 {
+	if len(vi.Volumes) != 1 {
 		return fmt.Errorf("volume definition must contain exactly 1 volume")
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(c.Host))
-	if err != nil {
-		return err
-	}
-
-	for volName, _ := range volInfo.Volumes {
-		c.Logger.Debug("creating volume:", "volname", volName)
-
-		_, err := cli.VolumeCreate(context.Background(), volume.CreateOptions{Name: volName})
-		if err != nil {
+	for volName := range vi.Volumes {
+		c.Logger.Debug("creating volume", "name", volName)
+		if _, err := c.volumeCreate(context.Background(), volName); err != nil {
 			return err
 		}
 	}
 
 	c.Logger.Debug("volume created")
-
 	return nil
 }
 
 func (c *DockerClient) DeleteVolume(vol *model.Volume, variables map[string]interface{}) error {
 	c.Logger.Debug("deleting volume")
 
-	// Parse the volume definition to fill out the knot variables
 	volumes, err := model.ResolveVariables(vol.Definition, nil, nil, nil, variables)
 	if err != nil {
 		return err
 	}
 
-	var volInfo volInfo
-	err = yaml.Unmarshal([]byte(volumes), &volInfo)
-	if err != nil {
+	var vi volInfo
+	if err = yaml.Unmarshal([]byte(volumes), &vi); err != nil {
 		return err
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(c.Host))
-	if err != nil {
-		return err
-	}
-
-	for volName, _ := range volInfo.Volumes {
-		c.Logger.Debug("deleting volume:", "volname", volName)
-
-		err := cli.VolumeRemove(context.Background(), volName, true)
-		if err != nil && !strings.Contains(err.Error(), "No such volume") {
+	for volName := range vi.Volumes {
+		c.Logger.Debug("deleting volume", "name", volName)
+		if err := c.volumeRemove(context.Background(), volName); err != nil {
 			return err
 		}
 	}
 
 	c.Logger.Debug("volume deleted")
-
 	return nil
 }

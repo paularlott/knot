@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -100,6 +101,78 @@ func NewClient(baseURL string, token string, insecureSkipVerify bool) (*HTTPClie
 
 func (c *HTTPClient) Close() {
 	c.HTTPClient.CloseIdleConnections()
+}
+
+// parseDockerHost splits a Docker-style host string into (socketPath, isTCP, tcpBaseURL).
+// Supported formats:
+//
+//	""                          → unix:///var/run/docker.sock
+//	"unix:///path/to/sock"      → Unix socket at /path/to/sock
+//	"tcp://host:port"           → TCP, base URL = http://host:port
+//	"http://host:port"          → TCP, base URL = http://host:port
+//	"https://host:port"         → TCP, base URL = https://host:port
+func parseDockerHost(host string) (socketPath string, isTCP bool, tcpBaseURL string) {
+	if host == "" {
+		return "/var/run/docker.sock", false, ""
+	}
+	if strings.HasPrefix(host, "unix://") {
+		return strings.TrimPrefix(host, "unix://"), false, ""
+	}
+	if strings.HasPrefix(host, "tcp://") {
+		return "", true, "http://" + strings.TrimPrefix(host, "tcp://")
+	}
+	// http:// or https://
+	return "", true, host
+}
+
+// NewUnixSocketClient creates an HTTPClient that communicates over a Unix socket
+// or plain TCP, depending on the host string format (same formats Docker accepts).
+// No TLS, no HTTP/2 — Docker/Podman sockets don't use them.
+func NewUnixSocketClient(host string) (*HTTPClient, error) {
+	socketPath, isTCP, tcpBaseURL := parseDockerHost(host)
+
+	var baseURL string
+	var transport *http.Transport
+
+	if isTCP {
+		baseURL = tcpBaseURL
+		transport = &http.Transport{
+			MaxConnsPerHost:     32,
+			MaxIdleConns:        32,
+			MaxIdleConnsPerHost: 32,
+			IdleConnTimeout:     30 * time.Second,
+		}
+	} else {
+		baseURL = "http://localhost"
+		transport = &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, "unix", socketPath)
+			},
+			MaxConnsPerHost:     32,
+			MaxIdleConns:        32,
+			MaxIdleConnsPerHost: 32,
+			IdleConnTimeout:     30 * time.Second,
+		}
+	}
+
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base URL: %s, error: %v", baseURL, err)
+	}
+
+	return &HTTPClient{
+		baseURL:     parsed,
+		tokenKey:    "Authorization",
+		tokenFormat: "Bearer %s",
+		userAgent:   "knot v" + build.Version,
+		contentType: ContentTypeJSON,
+		HTTPClient: &http.Client{
+			Timeout:   10 * time.Second,
+			Transport: transport,
+		},
+		headers: make(map[string]string),
+		accept:  []string{ContentTypeJSON},
+	}, nil
 }
 
 func (c *HTTPClient) SetTimeout(timeout time.Duration) RESTClient {
