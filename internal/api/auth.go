@@ -157,6 +157,7 @@ func HandleAuthorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg := config.GetServerConfig()
+
 	if cfg.AuthIPRateLimiting {
 		// Apply rate limiting by IP
 		ipLimiter := getIPLimiter(clientIP)

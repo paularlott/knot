@@ -7,20 +7,29 @@ import (
 	"github.com/google/uuid"
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/log"
+	"github.com/paularlott/knot/internal/util/crypt"
 	"golang.org/x/crypto/bcrypt"
 )
 
+// ExternalProvider holds the identity and token for a linked OAuth provider.
+type ExternalProvider struct {
+	ProviderUID string `json:"provider_uid"` // provider's own stable user ID (e.g. GitHub integer ID)
+	Username    string `json:"username"`     // human-readable handle, may change
+	Token       string `json:"token"`        // encrypted access token
+}
+
 // User object
 type User struct {
-	Id              string        `json:"user_id" db:"user_id,pk" msgpack:"user_id"`
-	Username        string        `json:"username" db:"username" msgpack:"username"`
-	Email           string        `json:"email" db:"email" msgpack:"email"`
-	Password        string        `json:"password" db:"password" msgpack:"password"`
-	TOTPSecret      string        `json:"totp_secret" db:"totp_secret" msgpack:"totp_secret"`
-	ServicePassword string        `json:"service_password" db:"service_password" msgpack:"service_password"`
-	SSHPublicKey    string        `json:"ssh_public_key" db:"ssh_public_key" msgpack:"ssh_public_key"`
-	GitHubUsername  string        `json:"github_username" db:"github_username" msgpack:"github_username"`
-	Roles           []string      `json:"roles" db:"roles,json" msgpack:"roles"`
+	Id              string                      `json:"user_id" db:"user_id,pk" msgpack:"user_id"`
+	Username        string                      `json:"username" db:"username" msgpack:"username"`
+	Email           string                      `json:"email" db:"email" msgpack:"email"`
+	Password        string                      `json:"password" db:"password" msgpack:"password"`
+	TOTPSecret      string                      `json:"totp_secret" db:"totp_secret" msgpack:"totp_secret"`
+	ServicePassword string                      `json:"service_password" db:"service_password" msgpack:"service_password"`
+	SSHPublicKey    string                      `json:"ssh_public_key" db:"ssh_public_key" msgpack:"ssh_public_key"`
+	GitHubUsername  string                      `json:"github_username" db:"github_username" msgpack:"github_username"`
+	ExternalAuthProviders  map[string]ExternalProvider `json:"external_auth_providers" db:"external_auth_providers,json" msgpack:"external_auth_providers"`
+	Roles           []string                    `json:"roles" db:"roles,json" msgpack:"roles"`
 	Groups          []string      `json:"groups" db:"groups,json" msgpack:"groups"`
 	Active          bool          `json:"active" db:"active" msgpack:"active"`
 	IsDeleted       bool          `json:"is_deleted" db:"is_deleted" msgpack:"is_deleted"`
@@ -140,6 +149,37 @@ func (u *User) IsAdmin() bool {
 	}
 
 	return false
+}
+
+// SetOAuthToken stores an encrypted OAuth access token for the given provider.
+func (u *User) SetOAuthToken(providerID, token, encryptionKey string) {
+	if u.ExternalAuthProviders == nil {
+		return
+	}
+	if ep, ok := u.ExternalAuthProviders[providerID]; ok {
+		ep.Token = crypt.EncryptB64(encryptionKey, token)
+		u.ExternalAuthProviders[providerID] = ep
+	}
+}
+
+// GetOAuthToken returns the decrypted OAuth access token for the given provider, or empty string.
+func (u *User) GetOAuthToken(providerID, encryptionKey string) string {
+	if u.ExternalAuthProviders == nil {
+		return ""
+	}
+	ep, ok := u.ExternalAuthProviders[providerID]
+	if !ok || ep.Token == "" {
+		return ""
+	}
+	return crypt.DecryptB64(encryptionKey, ep.Token)
+}
+
+// ClearOAuthToken removes the stored token for the given provider.
+func (u *User) ClearOAuthToken(providerID string) {
+	if ep, ok := u.ExternalAuthProviders[providerID]; ok {
+		ep.Token = ""
+		u.ExternalAuthProviders[providerID] = ep
+	}
 }
 
 func generateRandomString(length int) string {

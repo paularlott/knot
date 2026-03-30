@@ -28,6 +28,11 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 		}
 	}
 
+	var oldProviders map[string]model.ExternalProvider
+	if existingUser != nil {
+		oldProviders = existingUser.ExternalAuthProviders
+	}
+
 	// If email address changed, check if the new email address is unique
 	if newUser || (user.Email != existingUser.Email && (len(updateFields) == 0 || util.InArray(updateFields, "Email"))) {
 		exists, err := db.keyExists(fmt.Sprintf("%sUsersByEmail:%s", db.prefix, user.Email))
@@ -101,11 +106,28 @@ func (db *RedisDbDriver) SaveUser(user *model.User, updateFields []string) error
 		return err
 	}
 
+	// Maintain provider index
+	if len(updateFields) == 0 || util.InArray(updateFields, "ExternalAuthProviders") {
+		for providerID, ep := range oldProviders {
+			if newEp, ok := user.ExternalAuthProviders[providerID]; !ok || newEp.ProviderUID != ep.ProviderUID {
+				db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, ep.ProviderUID))
+			}
+		}
+		for providerID, ep := range user.ExternalAuthProviders {
+			if ep.ProviderUID == "" {
+				continue
+			}
+			err = db.connection.Set(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, ep.ProviderUID), user.Id, 0).Err()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
 func (db *RedisDbDriver) DeleteUser(user *model.User) error {
-	// Cascade delete user scripts
 	scripts, err := db.GetScripts()
 	if err == nil {
 		for _, script := range scripts {
@@ -116,22 +138,17 @@ func (db *RedisDbDriver) DeleteUser(user *model.User) error {
 		}
 	}
 
-	err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsers:%s", db.prefix, user.Id)).Err()
-	if err != nil {
-		return err
+	for providerID, ep := range user.ExternalAuthProviders {
+		db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, ep.ProviderUID))
 	}
 
-	err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, user.Email)).Err()
-	if err != nil {
+	if err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsers:%s", db.prefix, user.Id)).Err(); err != nil {
 		return err
 	}
-
-	err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(user.Username))).Err()
-	if err != nil {
+	if err = db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByEmail:%s", db.prefix, user.Email)).Err(); err != nil {
 		return err
 	}
-
-	return err
+	return db.connection.Del(context.Background(), fmt.Sprintf("%sUsersByUsername:%s", db.prefix, strings.ToLower(user.Username))).Err()
 }
 
 func (db *RedisDbDriver) GetUser(id string) (*model.User, error) {
@@ -181,6 +198,14 @@ func (db *RedisDbDriver) GetUserByUsername(name string) (*model.User, error) {
 
 	user, err = db.GetUser(v)
 	return user, err
+}
+
+func (db *RedisDbDriver) GetUserByProviderUID(providerID, providerUID string) (*model.User, error) {
+	v, err := db.connection.Get(context.Background(), fmt.Sprintf("%sUsersByProvider:%s:%s", db.prefix, providerID, providerUID)).Result()
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	return db.GetUser(v)
 }
 
 func (db *RedisDbDriver) GetUsers() ([]*model.User, error) {

@@ -55,11 +55,12 @@ func HandleLoginPage(w http.ResponseWriter, r *http.Request) {
 		}
 
 		data := map[string]interface{}{
-			"redirect":    redirect,
-			"version":     build.Version,
-			"totpEnabled": cfg.TOTP.Enabled,
-			"logoURL":     cfg.UI.LogoURL,
-			"logoInvert":  cfg.UI.LogoInvert,
+			"redirect":            redirect,
+			"version":             build.Version,
+			"totpEnabled":         cfg.TOTP.Enabled,
+			"logoURL":             cfg.UI.LogoURL,
+			"logoInvert":          cfg.UI.LogoInvert,
+			"passwordAuthEnabled": true,
 		}
 
 		err = tmpl.Execute(w, data)

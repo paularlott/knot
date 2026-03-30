@@ -1,7 +1,7 @@
 import { validate } from "../validators.js";
 import { focus } from "../focus.js";
 
-window.userForm = function (isEdit, userId, isProfile) {
+window.userForm = function (isEdit, userId, isProfile, allProviders) {
   const entity = isProfile ? "Profile" : "User";
 
   return {
@@ -25,10 +25,13 @@ window.userForm = function (isEdit, userId, isProfile) {
       roles: [],
       groups: [],
       totp_secret: "",
+      external_auth_providers: {},
+      has_password: true,
     },
     last_login_at: "",
     loading: true,
     isEdit,
+    linkableProviders: [],
     usernameValid: true,
     emailValid: true,
     passwordValid: true,
@@ -43,6 +46,7 @@ window.userForm = function (isEdit, userId, isProfile) {
     maxTunnelsValid: true,
     showTOTP: false,
     resetConfirmShow: false,
+    unlinkConfirm: { show: false, providerID: '', providerName: '' },
 
     async initUsers() {
       focus.Element('input[name="username"]');
@@ -89,6 +93,9 @@ window.userForm = function (isEdit, userId, isProfile) {
           this.formData.timezone = user.timezone;
           this.formData.service_password = user.service_password;
           this.formData.totp_secret = user.totp_secret;
+          this.formData.external_auth_providers = user.external_auth_providers || {};
+          this.formData.has_password = user.has_password !== undefined ? user.has_password : (user.password !== "");
+          this._syncLinkableProviders();
 
           // Make last_login_at human readable data time in the browser's timezone
           if (user.last_login_at) {
@@ -281,6 +288,29 @@ window.userForm = function (isEdit, userId, isProfile) {
       this.formData.totp_secret = "";
       this.resetConfirmShow = false;
       this.submitData();
+    },
+    confirmUnlinkProvider(providerID, providerName) {
+      this.unlinkConfirm = { show: true, providerID, providerName };
+    },
+    async unlinkProvider() {
+      const { providerID } = this.unlinkConfirm;
+      this.unlinkConfirm.show = false;
+      const resp = await fetch(`/api/users/${userId}/auth-provider/${providerID}`, { method: 'DELETE' });
+      if (resp.ok) {
+        delete this.formData.external_auth_providers[providerID];
+        this.formData.external_auth_providers = { ...this.formData.external_auth_providers };
+        this._syncLinkableProviders();
+        this.$dispatch('show-alert', { msg: 'Provider unlinked', type: 'success' });
+      } else {
+        const d = await resp.json();
+        this.$dispatch('show-alert', { msg: d.error || 'Failed to unlink', type: 'error' });
+      }
+    },
+    _syncLinkableProviders() {
+      if (!isProfile || !allProviders) return;
+      this.linkableProviders = allProviders
+        .filter(p => !(p.id in (this.formData.external_auth_providers || {})))
+        .map(p => ({ ...p, linking: false }));
     },
   };
 };

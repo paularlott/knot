@@ -29,6 +29,11 @@ func (db *BadgerDbDriver) SaveUser(user *model.User, updateFields []string) erro
 			}
 		}
 
+		var oldProviders map[string]model.ExternalProvider
+		if existingUser != nil {
+			oldProviders = existingUser.ExternalAuthProviders
+		}
+
 		// If email address changed, check if the new email address is unique
 		if newUser || (user.Email != existingUser.Email && (len(updateFields) == 0 || util.InArray(updateFields, "Email"))) {
 			exists, err := db.keyExists(fmt.Sprintf("UsersByEmail:%s", user.Email))
@@ -101,6 +106,26 @@ func (db *BadgerDbDriver) SaveUser(user *model.User, updateFields []string) erro
 			return err
 		}
 
+		// Maintain provider index
+		if len(updateFields) == 0 || util.InArray(updateFields, "ExternalAuthProviders") {
+			// Remove stale index keys
+			for providerID, ep := range oldProviders {
+				if newEp, ok := user.ExternalAuthProviders[providerID]; !ok || newEp.ProviderUID != ep.ProviderUID {
+					_ = txn.Delete([]byte(fmt.Sprintf("UsersByProvider:%s:%s", providerID, ep.ProviderUID)))
+				}
+			}
+			// Write current index keys
+			for providerID, ep := range user.ExternalAuthProviders {
+				if ep.ProviderUID == "" {
+					continue
+				}
+				err = txn.Set([]byte(fmt.Sprintf("UsersByProvider:%s:%s", providerID, ep.ProviderUID)), []byte(user.Id))
+				if err != nil {
+					return err
+				}
+			}
+		}
+
 		return nil
 	})
 
@@ -139,6 +164,10 @@ func (db *BadgerDbDriver) DeleteUser(user *model.User) error {
 		err = txn.Delete([]byte(fmt.Sprintf("UsersByUsername:%s", strings.ToLower(user.Username))))
 		if err != nil {
 			return err
+		}
+
+		for providerID, ep := range user.ExternalAuthProviders {
+			_ = txn.Delete([]byte(fmt.Sprintf("UsersByProvider:%s:%s", providerID, ep.ProviderUID)))
 		}
 
 		return nil
@@ -208,6 +237,26 @@ func (db *BadgerDbDriver) GetUserByUsername(name string) (*model.User, error) {
 	})
 
 	return user, err
+}
+
+func (db *BadgerDbDriver) GetUserByProviderUID(providerID, providerUID string) (*model.User, error) {
+	var user *model.User
+
+	err := db.connection.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(fmt.Sprintf("UsersByProvider:%s:%s", providerID, providerUID)))
+		if err != nil {
+			return err
+		}
+		return item.Value(func(val []byte) error {
+			user, err = db.GetUser(string(val))
+			return err
+		})
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	return user, nil
 }
 
 func (db *BadgerDbDriver) GetUsers() ([]*model.User, error) {

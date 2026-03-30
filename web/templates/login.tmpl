@@ -12,6 +12,7 @@
     {{ end }}
   </div>
 
+  {{ if .passwordAuthEnabled }}
   <form class="mt-8 mb-0 space-y-6" action="#" action="" method="POST" @submit.prevent="submitData">
     <div>
       <label for="email" class="form-label">Email</label>
@@ -29,8 +30,40 @@
       <input type="text" name="totp" id="totp" placeholder="123456" class="form-field" x-model="formData.totp_code">
     </div>
     {{ end }}
-    <button type="submit" class="btn-primary" :value="buttonLabel" x-text="buttonLabel" :disabled="loading"></button>
+    <button type="submit" class="btn-primary flex items-center justify-center gap-2" :disabled="loading">
+      <svg x-show="loading" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+      <span x-text="buttonLabel"></span>
+    </button>
   </form>
+  {{ end }}
+
+  {{ if .authProviders }}
+  <div class="mt-4">
+    {{ if .passwordAuthEnabled }}
+    <div class="relative flex items-center">
+      <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+      <span class="mx-3 text-sm text-gray-500 dark:text-gray-400">or continue with</span>
+      <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+    </div>
+    {{ end }}
+    <div class="mt-4 flex flex-col gap-2" x-data="{ linking: null }">
+      {{ range .authProviders }}
+      <a href="/auth/{{ .ID }}/start?redirect={{ $.redirect }}"
+         @click="linking = '{{ .ID }}'"
+         class="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors">
+        <svg x-show="linking === '{{ .ID }}'" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span x-text="linking === '{{ .ID }}' ? 'Signing in…' : 'Sign in with {{ .DisplayName }}'"></span>
+      </a>
+      {{ end }}
+    </div>
+  </div>
+  {{ end }}
 
   <!-- Modal -->
   <div x-cloak x-show="showTOTP" x-transition.opacity.duration.200ms x-trap.inert.noscroll="showTOTP" @keydown.esc.window="showTOTP = false" @click.self="showTOTP = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="totpModalTitle">

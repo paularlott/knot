@@ -394,6 +394,24 @@ func ApiPermissionManageScripts(next http.HandlerFunc) http.HandlerFunc {
 	})
 }
 
+// OptionalWebAuth injects the authenticated user into the context if a valid
+// session cookie is present, but never redirects — unauthenticated requests
+// pass through with no user in context.
+func OptionalWebAuth(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session := GetSessionFromCookie(r)
+		if session != nil && !session.IsDeleted && session.ExpiresAfter.After(time.Now().UTC()) {
+			db := database.GetInstance()
+			user, err := db.GetUser(session.UserId)
+			if err == nil && user.Active && !user.IsDeleted {
+				ctx := context.WithValue(r.Context(), "user", user)
+				r = r.WithContext(ctx)
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func WebAuth(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := log.WithGroup("auth")

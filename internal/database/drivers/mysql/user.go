@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/util"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -13,47 +14,73 @@ func (db *MySQLDriver) SaveUser(user *model.User, updateFields []string) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
-	// Test if the PK exists in the database
 	var doUpdate bool
 	err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id=?)", user.Id).Scan(&doUpdate)
 	if err != nil {
-		tx.Rollback()
 		return err
 	}
 
-	// Update
+	// Determine whether ExternalAuthProviders is changing
+	updatingProviders := len(updateFields) == 0 || util.InArray(updateFields, "ExternalAuthProviders")
+
+	var oldProviders map[string]model.ExternalProvider
+	if doUpdate && updatingProviders {
+		// Load old providers so we can diff the index
+		var rows []model.User
+		if e := db.read("users", &rows, []string{"ExternalAuthProviders"}, "user_id=?", user.Id); e == nil && len(rows) > 0 {
+			oldProviders = rows[0].ExternalAuthProviders
+		}
+	}
+
 	if doUpdate {
 		err = db.update("users", user, updateFields)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
 	} else {
 		err = db.create("users", user)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
 	}
 	if err != nil {
-		tx.Rollback()
 		return err
 	}
 
-	tx.Commit()
+	// Maintain provider index
+	if updatingProviders {
+		// Remove stale index rows
+		for providerID, ep := range oldProviders {
+			if newEp, ok := user.ExternalAuthProviders[providerID]; !ok || newEp.ProviderUID != ep.ProviderUID {
+				_, err = tx.Exec("DELETE FROM user_providers WHERE provider_id=? AND provider_uid=?", providerID, ep.ProviderUID)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		// Upsert current index rows
+		for providerID, ep := range user.ExternalAuthProviders {
+			_, err = tx.Exec(
+				"INSERT INTO user_providers (provider_id, provider_uid, user_id) VALUES (?,?,?) ON DUPLICATE KEY UPDATE user_id=VALUES(user_id)",
+				providerID, ep.ProviderUID, user.Id,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
 
-	return nil
+	return tx.Commit()
 }
 
 func (db *MySQLDriver) DeleteUser(user *model.User) error {
-	// Cascade delete user scripts
-	_, err := db.connection.Exec("DELETE FROM scripts WHERE user_id = ?", user.Id)
-	if err != nil {
+	if _, err := db.connection.Exec("DELETE FROM scripts WHERE user_id = ?", user.Id); err != nil {
 		return err
 	}
-
-	_, err = db.connection.Exec("DELETE FROM users WHERE user_id = ?", user.Id)
+	if _, err := db.connection.Exec("DELETE FROM user_providers WHERE user_id = ?", user.Id); err != nil {
+		return err
+	}
+	_, err := db.connection.Exec("DELETE FROM users WHERE user_id = ?", user.Id)
 	return err
 }
 
@@ -97,6 +124,18 @@ func (db *MySQLDriver) GetUserByUsername(name string) (*model.User, error) {
 	}
 
 	return &users[0], nil
+}
+
+func (db *MySQLDriver) GetUserByProviderUID(providerID, providerUID string) (*model.User, error) {
+	var userId string
+	err := db.connection.QueryRow(
+		"SELECT user_id FROM user_providers WHERE provider_id=? AND provider_uid=?",
+		providerID, providerUID,
+	).Scan(&userId)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	return db.GetUser(userId)
 }
 
 func (db *MySQLDriver) GetUsers() ([]*model.User, error) {

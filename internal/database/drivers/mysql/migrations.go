@@ -6,6 +6,8 @@ package driver_mysql
 var migrations = []string{
 	// 1: add node_id to volumes
 	`ALTER TABLE volumes ADD COLUMN IF NOT EXISTS node_id VARCHAR(36) NOT NULL DEFAULT ''`,
+	// 2: add external_auth_providers to users
+	`ALTER TABLE users ADD COLUMN IF NOT EXISTS external_auth_providers JSON DEFAULT NULL`,
 }
 
 func (db *MySQLDriver) runMigrations() error {
@@ -17,15 +19,12 @@ version INT UNSIGNED NOT NULL PRIMARY KEY
 		return err
 	}
 
+	var current int
+	db.connection.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").Scan(&current)
+
 	for i, sql := range migrations {
 		version := i + 1
-
-		var exists bool
-		err := db.connection.QueryRow("SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = ?)", version).Scan(&exists)
-		if err != nil {
-			return err
-		}
-		if exists {
+		if version <= current {
 			continue
 		}
 
@@ -33,7 +32,6 @@ version INT UNSIGNED NOT NULL PRIMARY KEY
 		if _, err := db.connection.Exec(sql); err != nil {
 			return err
 		}
-
 		if _, err := db.connection.Exec("INSERT INTO schema_migrations (version) VALUES (?)", version); err != nil {
 			return err
 		}

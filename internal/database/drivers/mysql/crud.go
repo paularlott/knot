@@ -199,7 +199,7 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 			field := obj.FieldByName(fieldNames[i])
 			if field.IsValid() {
 				if _, ok := jsonFields[i]; ok {
-					tempValues[i] = new(string)
+					tempValues[i] = new(*string)
 					columnPointers[i] = tempValues[i]
 				} else if field.Type() == reflect.TypeOf(time.Time{}) || field.Type() == reflect.PointerTo(reflect.TypeOf(time.Time{})) {
 					tempValues[i] = new([]uint8)
@@ -221,9 +221,11 @@ func (db *MySQLDriver) read(tableName string, results interface{}, fieldsToLoad 
 		for idx, fieldName := range jsonFields {
 			field := obj.FieldByName(fieldName)
 			if field.IsValid() {
-				jsonStr := *(tempValues[idx].(*string))
-				if err := json.Unmarshal([]byte(jsonStr), field.Addr().Interface()); err != nil {
-					return err
+				strPtr := *(tempValues[idx].(**string))
+				if strPtr != nil && len(*strPtr) > 0 {
+					if err := json.Unmarshal([]byte(*strPtr), field.Addr().Interface()); err != nil {
+						return err
+					}
 				}
 			}
 		}

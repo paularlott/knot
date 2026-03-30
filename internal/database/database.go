@@ -32,6 +32,7 @@ type DbDriver interface {
 	GetUser(id string) (*model.User, error)
 	GetUserByEmail(email string) (*model.User, error)
 	GetUserByUsername(email string) (*model.User, error)
+	GetUserByProviderUID(providerID, providerUID string) (*model.User, error)
 	GetUsers() ([]*model.User, error)
 	HasUsers() (bool, error)
 
