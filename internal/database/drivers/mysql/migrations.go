@@ -22,6 +22,12 @@ version INT UNSIGNED NOT NULL PRIMARY KEY
 	var current int
 	db.connection.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").Scan(&current)
 
+	// Fresh install: schema is already up to date, seed the max version to skip all migrations
+	if current == 0 && len(migrations) > 0 {
+		_, err = db.connection.Exec("INSERT INTO schema_migrations (version) VALUES (?)", len(migrations))
+		return err
+	}
+
 	for i, sql := range migrations {
 		version := i + 1
 		if version <= current {
