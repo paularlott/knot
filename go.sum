@@ -80,6 +80,8 @@ github.com/paularlott/mcp v0.15.1 h1:sW97ENHf0iGHyDq9ghRh3ZSe22CeTKOCxB3+uet70bo
 github.com/paularlott/mcp v0.15.1/go.mod h1:RHtwyZchcdC4oiz0fEaTBDEWNP0YHL7qMFhbmm/l7WI=
 github.com/paularlott/scriptling v0.5.1 h1:tPmvhZ7g8MkQWwAlx0gu38uj9+CgdD2fAAJBPOQOX5s=
 github.com/paularlott/scriptling v0.5.1/go.mod h1:hYpt0eBHZgLr8SWpscHBWznQ2uUvqrnOyO9Fl8TNG7s=
+github.com/paularlott/scriptling v0.5.3 h1:zGBJtZSzKvGLriMXPMFQ1YxgiP9w9c46OUhSKm4Ylsk=
+github.com/paularlott/scriptling v0.5.3/go.mod h1:hYpt0eBHZgLr8SWpscHBWznQ2uUvqrnOyO9Fl8TNG7s=
 github.com/paularlott/snapshotkv v0.3.0 h1:FUxebbnUJJtnJwjd+W8obyD78WX/opvZkSvY6Cc+5xg=
 github.com/paularlott/snapshotkv v0.3.0/go.mod h1:X2ONJRnGTRUV2j8tIdO187y0QLm4n7bnCbdnV/mTWUQ=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=

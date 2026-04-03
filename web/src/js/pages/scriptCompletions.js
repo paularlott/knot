@@ -1340,8 +1340,8 @@ const scriptLibraries = [
     ],
   },
   {
-    module: "scriptling.fuzzy",
-    description: "Fuzzy string matching and search utilities",
+    module: "scriptling.similarity",
+    description: "Text similarity utilities including fuzzy search and MinHash",
     functions: [
       {
         name: "search",
@@ -1360,6 +1360,24 @@ const scriptLibraries = [
         signature: "score(s1, s2)",
         description: "Calculate similarity score between two strings (0.0 to 1.0)",
         returns: "float - Similarity score",
+      },
+      {
+        name: "tokenize",
+        signature: "tokenize(text)",
+        description: "Split text into lowercase alphanumeric tokens",
+        returns: "list - Token list",
+      },
+      {
+        name: "minhash",
+        signature: "minhash(text, num_hashes=64)",
+        description: "Compute a MinHash signature for text",
+        returns: "list - List of 32-bit hash values",
+      },
+      {
+        name: "minhash_similarity",
+        signature: "minhash_similarity(a, b)",
+        description: "Compare two MinHash signatures",
+        returns: "float - Estimated Jaccard similarity",
       },
     ],
   },

@@ -23,8 +23,8 @@ import (
 	scriptlingai "github.com/paularlott/scriptling/extlibs/ai"
 	scriptlingaitools "github.com/paularlott/scriptling/extlibs/ai/tools"
 	scriptlingconsole "github.com/paularlott/scriptling/extlibs/console"
-	scriptlingfuzzy "github.com/paularlott/scriptling/extlibs/fuzzy"
 	scriptlingmcp "github.com/paularlott/scriptling/extlibs/mcp"
+	scriptlingsimilarity "github.com/paularlott/scriptling/extlibs/similarity"
 	"github.com/paularlott/scriptling/libloader"
 	"github.com/paularlott/scriptling/object"
 	"github.com/paularlott/scriptling/stdlib"
@@ -52,7 +52,7 @@ func registerBaseLibraries(env *scriptling.Scriptling, customLogger logger.Logge
 	scriptlingai.Register(env)
 	agent.Register(env)
 	scriptlingaitools.Register(env)
-	scriptlingfuzzy.Register(env)
+	scriptlingsimilarity.Register(env)
 	scriptlingmcp.Register(env)
 	scriptlingmcp.RegisterToon(env)
 	scriptlingmcp.RegisterToolHelpers(env)
@@ -86,8 +86,8 @@ func registerFullSystemLibraries(env *scriptling.Scriptling) {
 
 	// Register only the core runtime library (background function)
 	extlibs.RegisterRuntimeLibrary(env)
-	extlibs.RegisterRuntimeKVLibrary(env)     // Key-value store
-	extlibs.RegisterRuntimeSyncLibrary(env)   // Concurrency primitives
+	extlibs.RegisterRuntimeKVLibrary(env)           // Key-value store
+	extlibs.RegisterRuntimeSyncLibrary(env)         // Concurrency primitives
 	extlibs.RegisterRuntimeSandboxLibrary(env, nil) // Sandbox execution (nil = no path restrictions)
 
 	scriptlingconsole.Register(env) // scriptling.console
