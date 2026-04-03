@@ -2,6 +2,9 @@ const autocompleterBase = () => ({
   search: '',
   showList: false,
   selectedIndex: -1,
+  get activeDescendant() {
+    return this.selectedIndex >= 0 ? `${this._listboxId}-opt-${this.selectedIndex}` : '';
+  },
   handleKeydown(e) {
     if (!this.showList) return;
     const filtered = this.filteredOptions;
@@ -32,7 +35,8 @@ const autocompleterBase = () => ({
   handleFocus() {
     this.showList = true;
     this.selectedIndex = -1;
-  }
+  },
+  _listboxId: Math.random().toString(36).slice(2)
 });
 
 window.autocompleter = function() {

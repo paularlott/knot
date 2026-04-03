@@ -29,11 +29,11 @@
       <div class="flex items-center">
         <img x-show="formData.icon_url.length" :src="formData.icon_url" alt="Icon" class="size-10 mr-2">
         <div class="relative w-full max-w-sm">
-          <input id="icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+          <input id="icon_url" x-model="search" class="form-field" type="search" placeholder="Search icons..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
           <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
-            <ul class="list-none">
+            <ul class="list-none" role="listbox" :id="_listboxId">
               <template x-for="(option, index) in filteredOptions" :key="index">
-                <li @click="selectOption(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
+                <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm">
                   <img x-show="option.url.length" :src="option.url" alt="Icon" class="size-10 mr-2">
                   <div x-text="option.description + ' (' + option.source + ')'"></div>
                 </li>
@@ -87,11 +87,11 @@
         <label for="startup_script_id" class="form-label">User Startup Script</label>
         <div class="flex items-center">
           <div class="relative w-full">
-            <input id="startup_script_id" x-model="search" class="form-field" type="search" placeholder="Search your scripts..." @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
+            <input id="startup_script_id" x-model="search" class="form-field" type="search" placeholder="Search your scripts..." role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" spellcheck="false" autocomplete="off">
             <div x-show="showList && filteredOptions.length" x-ref="dropdown" :style="dropdownStyle" x-cloak :class="{'hidden': !dropdownVisible}" class="fixed z-[70] max-h-40 overflow-auto text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 whitespace-nowrap">
-              <ul class="list-none">
+              <ul class="list-none" role="listbox" :id="_listboxId">
                 <template x-for="(option, index) in filteredOptions" :key="index">
-                  <li @click="selectOption(option)" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
+                  <li @click="selectOption(option)" :id="`${_listboxId}-opt-${index}`" role="option" :aria-selected="selectedIndex === index" :class="{'bg-blue-100 dark:bg-blue-900': selectedIndex === index}" class="my-1 cursor-pointer nav-item text-sm px-2 py-1">
                     <div x-text="option.name"></div>
                   </li>
                 </template>
