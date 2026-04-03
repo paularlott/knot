@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/paularlott/knot/internal/agentlink"
+	"github.com/paularlott/knot/internal/portforward"
 
 	"github.com/paularlott/cli"
 )
@@ -28,7 +29,11 @@ var ListPortForwardsCmd = &cli.Command{
 
 		fmt.Println("Active port forwards:")
 		for _, fwd := range response.Forwards {
-			fmt.Printf("  %d -> %s:%d\n", fwd.LocalPort, fwd.Space, fwd.RemotePort)
+			line := fmt.Sprintf("  %d -> %s:%d", fwd.LocalPort, fwd.Space, fwd.RemotePort)
+			if portforward.IsPersistent(fwd.LocalPort) {
+				line += " (persistent)"
+			}
+			fmt.Println(line)
 		}
 		return nil
 	},

@@ -36,6 +36,18 @@ var ForwardCmd = &cli.Command{
 			Required: true,
 		},
 	},
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "persistent",
+			Aliases: []string{"p"},
+			Usage:   "Persist the port forward across agent restarts",
+		},
+		&cli.BoolFlag{
+			Name:    "force",
+			Aliases: []string{"f"},
+			Usage:   "Create the forward even if the target space is not currently running",
+		},
+	},
 	MaxArgs: cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		fromSpace := cmd.GetStringArg("from-space")
@@ -74,11 +86,15 @@ var ForwardCmd = &cli.Command{
 			return fmt.Errorf("space '%s' not found", fromSpace)
 		}
 
+		force := cmd.GetBool("force")
+
 		// Create the request
 		request := &apiclient.PortForwardRequest{
 			LocalPort:  uint16(fromPort),
 			Space:      toSpace,
 			RemotePort: uint16(toPort),
+			Persistent: cmd.GetBool("persistent"),
+			Force:      force,
 		}
 
 		// Send the port forward request

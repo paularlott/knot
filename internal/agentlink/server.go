@@ -21,7 +21,7 @@ var (
 	agentClient   *agent_client.AgentClient
 )
 
-func StartCommandSocket(agentClientObj *agent_client.AgentClient) {
+func StartCommandSocket(agentClientObj *agent_client.AgentClient) chan struct{} {
 	agentClient = agentClientObj
 
 	log.Info("Starting command socket")
@@ -37,6 +37,7 @@ func StartCommandSocket(agentClientObj *agent_client.AgentClient) {
 		log.Fatal("Failed to create socket directory", "error", err)
 	}
 
+	ready := make(chan struct{})
 	cancelContext, cancelFunc = context.WithCancel(context.Background())
 	go func() {
 		// Listen on the socket
@@ -47,6 +48,7 @@ func StartCommandSocket(agentClientObj *agent_client.AgentClient) {
 			log.Fatal("Failed to listen on socket", "error", err)
 		}
 		os.Chmod(socketPath, 0700)
+		close(ready) // signal that the socket is ready to accept connections
 		defer func() {
 			listener.Close()
 			os.Remove(socketPath)
@@ -72,6 +74,8 @@ func StartCommandSocket(agentClientObj *agent_client.AgentClient) {
 			}
 		}
 	}()
+
+	return ready
 }
 
 func StopCommandSocket() {

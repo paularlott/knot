@@ -66,6 +66,8 @@ func HandlePortForward(w http.ResponseWriter, r *http.Request) {
 		LocalPort:  uint16(request.LocalPort),
 		Space:      request.Space,
 		RemotePort: uint16(request.RemotePort),
+		Persistent: request.Persistent,
+		Force:      request.Force,
 	}
 
 	// Send the command to the agent and get the response

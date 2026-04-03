@@ -67,6 +67,12 @@ func handlePortForwardExecution(stream net.Conn, portCmd msg.PortForwardRequest,
 	forwardCtx, cancel := context.WithCancel(context.Background())
 	portforward.StartForward(portCmd.LocalPort, portCmd.RemotePort, portCmd.Space, cancel)
 
+	if portCmd.Persistent {
+		if err := portforward.SaveForward(portCmd.LocalPort, portCmd.RemotePort, portCmd.Space); err != nil {
+			log.WithError(err).Warn("Failed to persist port forward")
+		}
+	}
+
 	// Send success response immediately
 	msg.WriteMessage(stream, &msg.PortForwardResponse{
 		Success: true,
@@ -129,6 +135,9 @@ func handlePortStopExecution(stream net.Conn, portCmd msg.PortStopRequest, agent
 	}
 
 	portforward.StopForward(portCmd.LocalPort)
+	if err := portforward.RemoveForward(portCmd.LocalPort); err != nil {
+		log.WithError(err).Error("Failed to remove persistent port forward entry")
+	}
 	msg.WriteMessage(stream, &msg.PortStopResponse{
 		Success: true,
 	})

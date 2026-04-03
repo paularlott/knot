@@ -29,61 +29,65 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 		return
 	}
 
-	// Create API client
 	cfg := config.GetAgentConfig()
-	client, err := apiclient.NewClient(server, token, cfg.TLS.SkipVerify)
-	if err != nil {
-		log.WithError(err).Error("Failed to create API client")
-		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "failed to create API client"})
-		return
-	}
 
-	// Get current space info
-	ctx := context.Background()
-	currentSpace, _, err := client.GetSpace(ctx, agentClient.GetSpaceId())
-	if err != nil {
-		log.WithError(err).Error("Failed to get current space")
-		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "failed to get current space"})
-		return
-	}
-
-	// Get target space info
-	spaces, _, err := client.GetSpaces(ctx, currentSpace.UserId)
-	if err != nil {
-		log.WithError(err).Error("Failed to get spaces")
-		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "failed to get spaces"})
-		return
-	}
-
-	var targetSpace *apiclient.SpaceInfo
-	for _, s := range spaces.Spaces {
-		if s.Name == request.Space {
-			targetSpace = &s
-			break
+	// When Force is not set, validate the target space
+	if !request.Force {
+		// Create API client
+		client, err := apiclient.NewClient(server, token, cfg.TLS.SkipVerify)
+		if err != nil {
+			log.WithError(err).Error("Failed to create API client")
+			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "failed to create API client"})
+			return
 		}
-	}
 
-	if targetSpace == nil {
-		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "target space not found"})
-		return
-	}
+		// Get current space info
+		ctx := context.Background()
+		currentSpace, _, err := client.GetSpace(ctx, agentClient.GetSpaceId())
+		if err != nil {
+			log.WithError(err).Error("Failed to get current space")
+			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "failed to get current space"})
+			return
+		}
 
-	// Verify target space is deployed and has an active agent
-	if !targetSpace.IsDeployed || !targetSpace.HasState {
-		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "target space is not running"})
-		return
-	}
+		// Get target space info
+		spaces, _, err := client.GetSpaces(ctx, currentSpace.UserId)
+		if err != nil {
+			log.WithError(err).Error("Failed to get spaces")
+			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "failed to get spaces"})
+			return
+		}
 
-	// Verify both spaces are in the same zone
-	if currentSpace.Zone != targetSpace.Zone {
-		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "spaces must be in the same zone"})
-		return
-	}
+		var targetSpace *apiclient.SpaceInfo
+		for _, s := range spaces.Spaces {
+			if s.Name == request.Space {
+				targetSpace = &s
+				break
+			}
+		}
 
-	// Verify both spaces are owned by the same user
-	if currentSpace.UserId != targetSpace.UserId {
-		sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "spaces must be owned by the same user"})
-		return
+		if targetSpace == nil {
+			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "target space not found"})
+			return
+		}
+
+		// Verify target space is deployed and has an active agent
+		if !targetSpace.IsDeployed || !targetSpace.HasState {
+			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "target space is not running"})
+			return
+		}
+
+		// Verify both spaces are in the same zone
+		if currentSpace.Zone != targetSpace.Zone {
+			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "spaces must be in the same zone"})
+			return
+		}
+
+		// Verify both spaces are owned by the same user
+		if currentSpace.UserId != targetSpace.UserId {
+			sendMsg(conn, CommandNil, RunCommandResponse{Success: false, Error: "spaces must be owned by the same user"})
+			return
+		}
 	}
 
 	// Check if port is already forwarded
@@ -95,6 +99,12 @@ func handleForwardPort(conn net.Conn, msg *CommandMsg) {
 	// Create context for this forward
 	forwardCtx, cancel := context.WithCancel(context.Background())
 	portforward.StartForward(request.LocalPort, request.RemotePort, request.Space, cancel)
+
+	if request.Persistent {
+		if err := portforward.SaveForward(request.LocalPort, request.RemotePort, request.Space); err != nil {
+			log.WithError(err).Warn("Failed to persist port forward")
+		}
+	}
 
 	// Send success response immediately
 	sendMsg(conn, CommandNil, RunCommandResponse{Success: true})

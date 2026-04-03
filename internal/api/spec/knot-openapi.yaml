@@ -5060,6 +5060,14 @@ components:
           maximum: 65535
           example: 3000
           description: The port in the target space to forward to.
+        persistent:
+          type: boolean
+          example: true
+          description: Persist the port forward across agent restarts.
+        force:
+          type: boolean
+          example: false
+          description: Create the forward even if the target space is not currently running. Does not persist unless persistent is also true.
 
     PortForwardSuccess:
       type: object

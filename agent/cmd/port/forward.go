@@ -30,6 +30,18 @@ var ForwardPortCmd = &cli.Command{
 			Required: true,
 		},
 	},
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "persistent",
+			Aliases: []string{"p"},
+			Usage:   "Persist the port forward across agent restarts",
+		},
+		&cli.BoolFlag{
+			Name:    "force",
+			Aliases: []string{"f"},
+			Usage:   "Create the forward even if the target space is not currently running",
+		},
+	},
 	MaxArgs: cli.NoArgs,
 	Run: func(ctx context.Context, cmd *cli.Command) error {
 		localPort := cmd.GetIntArg("local-port")
@@ -42,10 +54,13 @@ var ForwardPortCmd = &cli.Command{
 			return fmt.Errorf("invalid remote port number, must be between 1 and 65535")
 		}
 
+		force := cmd.GetBool("force")
 		request := agentlink.ForwardPortRequest{
 			LocalPort:  uint16(localPort),
 			Space:      cmd.GetStringArg("space"),
 			RemotePort: uint16(remotePort),
+			Persistent: cmd.GetBool("persistent"),
+			Force:      force,
 		}
 
 		var response agentlink.RunCommandResponse

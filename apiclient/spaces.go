@@ -9,16 +9,16 @@ import (
 )
 
 type SpaceRequest struct {
-	Name             string             `json:"name"`
-	Description      string             `json:"description"`
-	TemplateId       string             `json:"template_id"`
-	Shell            string             `json:"shell"`
-	UserId           string             `json:"user_id"`
-	AltNames         []string           `json:"alt_names"`
-	IconURL          string             `json:"icon_url"`
-	CustomFields     []CustomFieldValue `json:"custom_fields"`
-	SelectedNodeId   string             `json:"selected_node_id,omitempty"`
-	StartupScriptId  string             `json:"startup_script_id,omitempty"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description"`
+	TemplateId      string             `json:"template_id"`
+	Shell           string             `json:"shell"`
+	UserId          string             `json:"user_id"`
+	AltNames        []string           `json:"alt_names"`
+	IconURL         string             `json:"icon_url"`
+	CustomFields    []CustomFieldValue `json:"custom_fields"`
+	SelectedNodeId  string             `json:"selected_node_id,omitempty"`
+	StartupScriptId string             `json:"startup_script_id,omitempty"`
 }
 
 type CreateSpaceResponse struct {
@@ -140,6 +140,8 @@ type PortForwardRequest struct {
 	LocalPort  uint16 `json:"local_port"`
 	Space      string `json:"space"`
 	RemotePort uint16 `json:"remote_port"`
+	Persistent bool   `json:"persistent"`
+	Force      bool   `json:"force"`
 }
 
 type PortListResponse struct {
