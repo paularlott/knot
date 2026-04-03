@@ -67,7 +67,11 @@ var ListCmd = &cli.Command{
 
 		fmt.Printf("Active port forwards in space '%s':\n", spaceName)
 		for _, fwd := range response.Forwards {
-			fmt.Printf("  %d -> %s:%d\n", fwd.LocalPort, fwd.Space, fwd.RemotePort)
+			mode := "temporary"
+			if fwd.Persistent {
+				mode = "persistent"
+			}
+			fmt.Printf("  %d -> %s:%d (%s)\n", fwd.LocalPort, fwd.Space, fwd.RemotePort, mode)
 		}
 
 		return nil

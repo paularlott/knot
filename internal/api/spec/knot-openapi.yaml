@@ -5069,6 +5069,27 @@ components:
           example: false
           description: Create the forward even if the target space is not currently running. Does not persist unless persistent is also true.
 
+    PortForwardInfo:
+      type: object
+      properties:
+        local_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 8080
+        space:
+          type: string
+          example: backend-api
+        remote_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 3000
+        persistent:
+          type: boolean
+          example: true
+          description: True when the forward is persisted for restore after agent restart.
+
     PortForwardSuccess:
       type: object
       properties:
@@ -5088,22 +5109,6 @@ components:
           type: string
           example: "target space not found"
           description: The error message if the operation failed.
-
-    PortForwardInfo:
-      type: object
-      properties:
-        local_port:
-          type: integer
-          example: 8080
-          description: The local port being forwarded.
-        space:
-          type: string
-          example: backend-api
-          description: The name of the target space.
-        remote_port:
-          type: integer
-          example: 3000
-          description: The port in the target space.
 
     PortListSuccess:
       type: object

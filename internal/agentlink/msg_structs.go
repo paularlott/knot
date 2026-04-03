@@ -47,6 +47,7 @@ type PortForwardInfo struct {
 	LocalPort  uint16 `json:"local_port" msgpack:"local_port"`
 	Space      string `json:"space" msgpack:"space"`
 	RemotePort uint16 `json:"remote_port" msgpack:"remote_port"`
+	Persistent bool   `json:"persistent" msgpack:"persistent"`
 }
 
 type ListPortForwardsResponse struct {

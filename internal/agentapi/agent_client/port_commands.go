@@ -114,6 +114,7 @@ func handlePortListExecution(stream net.Conn, agentClient *AgentClient) {
 			LocalPort:  fwd.LocalPort,
 			Space:      fwd.Space,
 			RemotePort: fwd.RemotePort,
+			Persistent: portforward.IsPersistent(fwd.LocalPort),
 		}
 	}
 

@@ -123,6 +123,7 @@ func HandlePortList(w http.ResponseWriter, r *http.Request) {
 			LocalPort:  fwd.LocalPort,
 			Space:      fwd.Space,
 			RemotePort: fwd.RemotePort,
+			Persistent: fwd.Persistent,
 		})
 	}
 

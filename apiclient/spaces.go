@@ -152,6 +152,7 @@ type PortForwardInfo struct {
 	LocalPort  uint16 `json:"local_port"`
 	Space      string `json:"space"`
 	RemotePort uint16 `json:"remote_port"`
+	Persistent bool   `json:"persistent"`
 }
 
 type PortStopRequest struct {
