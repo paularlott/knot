@@ -609,30 +609,30 @@
       </div>
 
       <!-- Modal choose user -->
-      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="chooseUserTitle">
+      <div x-cloak x-show="chooseUser.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="chooseUser.show" @keydown.esc.window="chooseUser.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="chooseUserTitle">
         <!-- Modal Dialog -->
-        <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-visible rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <div x-show="chooseUser.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel overflow-visible">
           <!-- Dialog Header -->
-          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <div x-cloak x-show="!chooseUser.isShare" class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+          <div class="ui-modal-header">
+            <div x-cloak x-show="!chooseUser.isShare" class="ui-modal-icon-danger">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"></path>
               </svg>
             </div>
-            <div x-cloak x-show="chooseUser.isShare" class="flex items-center justify-center rounded-full bg-blue-500/20 text-blue-500 p-1">
+            <div x-cloak x-show="chooseUser.isShare" class="ui-modal-icon-info">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
               </svg>
             </div>
-            <h3 id="chooseUserTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white" x-text="chooseUser.isShare ? 'Share Space With' : 'Transfer Space To'"></h3>
-            <button @click="chooseUser.show = false;" aria-label="close modal" class="cursor-pointer rounded-md p-0.5 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+            <h3 id="chooseUserTitle" class="ui-modal-title" x-text="chooseUser.isShare ? 'Share Space With' : 'Transfer Space To'"></h3>
+            <button @click="chooseUser.show = false;" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
           <!-- Dialog Body -->
-          <div class="px-4 py-4">
+          <div class="ui-modal-body">
             <p x-cloak x-show="!chooseUser.isShare">Select the user to transfer the space to.</p>
             <p x-cloak x-show="chooseUser.isShare">Select the user to share the space with.</p>
             <div x-data="autocompleterUser()" x-init="setDataSource('shareUsers')" data-parent-var-group="chooseUser" data-parent-variable="toUserId" data-parent-variable-username="toUserUsername" @refresh-autocompleter.window="refresh()" class="relative mt-2">
@@ -654,14 +654,14 @@
 
           </div>
           <!-- Dialog Footer -->
-          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
-              <button @click="chooseUser.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
-              <button x-show="!chooseUser.isShare && chooseUser.toUserId != ''" x-cloak @click="transferSpaceTo" type="button" class="group flex items-center cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">
+          <div class="ui-modal-footer">
+              <button @click="chooseUser.show = false" type="button" class="ui-button-secondary">Cancel</button>
+              <button x-show="!chooseUser.isShare && chooseUser.toUserId != ''" x-cloak @click="transferSpaceTo" type="button" class="ui-button-danger">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                   <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"></path>
                 </svg> <span x-text="'Transfer Space to ' + chooseUser.toUserUsername"></span>
               </button>
-              <button x-show="chooseUser.isShare && chooseUser.toUserId != ''" x-cloak @click="transferSpaceTo" type="button" class="group flex items-center cursor-pointer whitespace-nowrap rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus-visible:outline-white">
+              <button x-show="chooseUser.isShare && chooseUser.toUserId != ''" x-cloak @click="transferSpaceTo" type="button" class="ui-button-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                   <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                 </svg> <span x-text="'Share Space with ' + chooseUser.toUserUsername"></span>
@@ -671,32 +671,32 @@
       </div>
 
       <!-- Modal -->
-      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false; deleteConfirm.space.deleting = false" @click.self="deleteConfirm.show = false; deleteConfirm.space.deleting = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+      <div x-cloak x-show="deleteConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="deleteConfirm.show" @keydown.esc.window="deleteConfirm.show = false; deleteConfirm.space.deleting = false" @click.self="deleteConfirm.show = false; deleteConfirm.space.deleting = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
         <!-- Modal Dialog -->
-        <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <div x-show="deleteConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
-          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-danger">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
               </svg>
             </div>
-            <h3 id="deleteConfirmTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Confirm Delete</h3>
-            <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false" aria-label="close modal" class="cursor-pointer rounded-md p-0.5 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+            <h3 id="deleteConfirmTitle" class="ui-modal-title">Confirm Delete</h3>
+            <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
           <!-- Dialog Body -->
-          <div class="px-4 py-4 text-center">
+          <div class="ui-modal-body text-center">
             <p>Are you sure you want to delete the space <strong x-text="deleteConfirm.space.name"></strong>?</p>
             <p>Deleting the space will also delete any template volumes and the data they contain.</p>
           </div>
           <!-- Dialog Footer -->
-          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
-              <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Keep Space</button>
-              <button @click="deleteSpace(deleteConfirm.space.space_id); deleteConfirm.space.is_deleting=true; deleteConfirm.show = false" type="button" class="group flex items-center cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">
+          <div class="ui-modal-footer">
+              <button @click="deleteConfirm.show = false; deleteConfirm.space.deleting = false" type="button" class="ui-button-secondary">Keep Space</button>
+              <button @click="deleteSpace(deleteConfirm.space.space_id); deleteConfirm.space.is_deleting=true; deleteConfirm.show = false" type="button" class="ui-button-danger">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                   <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                 </svg> Delete Space
@@ -707,54 +707,54 @@
 
       <div x-cloak x-show="ceaseShareConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="ceaseShareConfirm.show" @keydown.esc.window="ceaseShareConfirm.show = false" @click.self="ceaseShareConfirm.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="ceaseShareTitle" :aria-label="'Stop sharing ' + ceaseShareConfirm.space.name">
         <!-- Modal Dialog -->
-        <div x-show="ceaseShareConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <div x-show="ceaseShareConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
-          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-danger">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true" >
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 id="ceaseShareTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Stop Sharing</h3>
-            <button @click="ceaseShareConfirm.show = false" aria-label="close modal" class="cursor-pointer rounded-md p-0.5 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+            <h3 id="ceaseShareTitle" class="ui-modal-title">Stop Sharing</h3>
+            <button @click="ceaseShareConfirm.show = false" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
           <!-- Dialog Body -->
-          <div class="px-4 py-4 text-center">
+          <div class="ui-modal-body text-center">
             <p>Are you sure you want to stop sharing the space <strong x-text="ceaseShareConfirm.space.name"></strong>?</p>
             <p x-cloak x-show="ceaseShareConfirm.space.shared_user_id != forUserId">Stopping sharing the space will revoke access for the user the space is currently shared with.</p>
             <p x-cloak x-show="ceaseShareConfirm.space.shared_user_id == forUserId">You will no longer be able to access the space without requesting access from the owner of the space.</p>
           </div>
           <!-- Dialog Footer -->
-          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
-              <button @click="ceaseShareConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-600 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-neutral-300 dark:focus-visible:outline-white hover:bg-gray-100 dark:hover:bg-gray-700">Keep Share</button>
-              <button @click="ceaseSharing(ceaseShareConfirm.space.space_id); ceaseShareConfirm.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Stop Sharing</button>
+          <div class="ui-modal-footer">
+              <button @click="ceaseShareConfirm.show = false" type="button" class="ui-button-secondary">Keep Share</button>
+              <button @click="ceaseSharing(ceaseShareConfirm.space.space_id); ceaseShareConfirm.show = false" type="button" class="ui-button-danger">Stop Sharing</button>
           </div>
         </div>
       </div>
 
       <div x-cloak x-show="quotaComputeLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaComputeLimit.show" @keydown.esc.window="quotaComputeLimit.show = false" @click.self="quotaComputeLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="quotaComputeTitle">
         <!-- Modal Dialog -->
-        <div x-show="quotaComputeLimit.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <div x-show="quotaComputeLimit.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
-          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-danger">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true" >
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 id="quotaComputeTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Compute Quota Exceeded</h3>
-            <button @click="quotaComputeLimit.show = false" aria-label="close modal" class="cursor-pointer rounded-md p-0.5 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+            <h3 id="quotaComputeTitle" class="ui-modal-title">Compute Quota Exceeded</h3>
+            <button @click="quotaComputeLimit.show = false" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
           <!-- Dialog Body -->
-          <div class="px-4 py-4 text-center">
+          <div class="ui-modal-body text-center">
             <template x-if="!quotaComputeLimit.isShared">
               <div>
                 <p>Starting this space would exceed your compute quota.</p>
@@ -769,31 +769,31 @@
             </template>
           </div>
           <!-- Dialog Footer -->
-          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
-              <button @click="quotaComputeLimit.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Dismiss</button>
+          <div class="ui-modal-footer">
+              <button @click="quotaComputeLimit.show = false" type="button" class="ui-button-danger">Dismiss</button>
           </div>
         </div>
       </div>
 
       <div x-cloak x-show="quotaStorageLimit.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="quotaStorageLimit.show" @keydown.esc.window="quotaStorageLimit.show = false" @click.self="quotaStorageLimit.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="quotaStorageTitle">
         <!-- Modal Dialog -->
-        <div x-show="quotaStorageLimit.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <div x-show="quotaStorageLimit.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
-          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-danger">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true" >
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 id="quotaStorageTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Storage Quota Exceeded</h3>
-            <button @click="quotaStorageLimit.show = false" aria-label="close modal" class="cursor-pointer rounded-md p-0.5 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+            <h3 id="quotaStorageTitle" class="ui-modal-title">Storage Quota Exceeded</h3>
+            <button @click="quotaStorageLimit.show = false" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
           <!-- Dialog Body -->
-          <div class="px-4 py-4 text-center">
+          <div class="ui-modal-body text-center">
             <template x-if="!quotaStorageLimit.isShared">
               <div>
                 <p>Starting this space would exceed your storage quota.</p>
@@ -808,8 +808,8 @@
             </template>
           </div>
           <!-- Dialog Footer -->
-          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
-              <button @click="quotaStorageLimit.show = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Dismiss</button>
+          <div class="ui-modal-footer">
+              <button @click="quotaStorageLimit.show = false" type="button" class="ui-button-danger">Dismiss</button>
           </div>
         </div>
       </div>
@@ -817,43 +817,50 @@
 
       <div x-cloak x-show="badScheduleShow" x-transition.opacity.duration.200ms x-trap.inert.noscroll="badScheduleShow" @keydown.esc.window="badScheduleShow = false" @click.self="badScheduleShow = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="badScheduleTitle">
         <!-- Modal Dialog -->
-        <div x-show="badScheduleShow" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <div x-show="badScheduleShow" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
-          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-danger">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true" >
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 id="badScheduleTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Outside of Schedule</h3>
-            <button @click="badScheduleShow = false" aria-label="close modal" class="cursor-pointer rounded-md p-0.5 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+            <h3 id="badScheduleTitle" class="ui-modal-title">Outside of Schedule</h3>
+            <button @click="badScheduleShow = false" aria-label="close modal" class="ui-modal-close">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
           <!-- Dialog Footer -->
-          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
-              <button @click="badScheduleShow = false" type="button" class="cursor-pointer whitespace-nowrap rounded-lg bg-red-700 hover:bg-red-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-red-600 dark:hover:bg-red-700 dark:focus-visible:outline-white">Dismiss</button>
+          <div class="ui-modal-body text-center">
+            <p>This space is outside its allowed schedule and cannot be started right now.</p>
+          </div>
+          <div class="ui-modal-footer">
+              <button @click="badScheduleShow = false" type="button" class="ui-button-danger">Dismiss</button>
           </div>
         </div>
       </div>
 
-      <div x-cloak x-show="spaceDesc.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceDesc.show" @keydown.esc.window="spaceDesc.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="spaceDescTitle">
+      <div x-cloak x-show="spaceDesc.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceDesc.show" @keydown.esc.window="spaceDesc.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceDescTitle">
         <!-- Modal Dialog -->
-        <div x-show="spaceDesc.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <div x-show="spaceDesc.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
           <!-- Dialog Header -->
-          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <div class="flex items-center justify-center rounded-full bg-blue-500/20 text-blue-500 p-1 mr-4">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-info mr-1">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
               </svg>
             </div>
-            <h3 id="spaceDescTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Description for <span x-text="spaceDesc.space.name"></span></h3>
-            <button @click="spaceDesc.show = false" aria-label="close modal" class="cursor-pointer outline-0 ml-4 rounded-md p-0.5 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+            <h3 id="spaceDescTitle" class="ui-modal-title">Description for <span x-text="spaceDesc.space.name"></span></h3>
+            <button @click="spaceDesc.show = false" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
           <!-- Dialog Body -->
-          <div class="px-4 py-4 text-left text-sm text-neutral-600 dark:text-neutral-300 overflow-y-auto max-h-[60vh] pr-4">
+          <div class="ui-modal-body-scroll max-h-[60vh] pr-4 text-left">
             <template x-if="spaceDesc.space.description">
               <div x-text="spaceDesc.space.description" style="white-space:pre-line"></div>
             </template>
@@ -865,24 +872,29 @@
             </template>
           </div>
           <!-- Dialog Footer -->
-          <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
-              <button @click="spaceDesc.show = false" type="button" class="btn-primary">Close</button>
+          <div class="ui-modal-footer">
+              <button @click="spaceDesc.show = false" type="button" class="ui-button-primary">Close</button>
           </div>
         </div>
       </div>
 
       <!-- Modal: Space Form -->
-      <div x-cloak x-show="spaceFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceFormModal.show" @keydown.esc.window="spaceFormModal.show = false" @close-space-form.window="spaceFormModal.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="spaceFormTitle">
-        <div x-show="spaceFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-2xl w-full flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
-          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <h3 id="spaceFormTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white" x-text="spaceFormModal.isEdit ? 'Edit Space' : 'Create Space'"></h3>
-            <button @click="spaceFormModal.show = false" aria-label="close modal" class="cursor-pointer outline-0 rounded-md p-0.5 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+      <div x-cloak x-show="spaceFormModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="spaceFormModal.show" @keydown.esc.window="spaceFormModal.show = false" @close-space-form.window="spaceFormModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="spaceFormTitle">
+        <div x-show="spaceFormModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-wide">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-3.758-3.848 5.25 5.25 0 0 0-10.233 2.33A4.502 4.502 0 0 0 2.25 15Z" />
+              </svg>
+            </div>
+            <h3 id="spaceFormTitle" class="ui-modal-title" x-text="spaceFormModal.isEdit ? 'Edit Space' : 'Create Space'"></h3>
+            <button @click="spaceFormModal.show = false" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5" aria-hidden="true" >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
-          <div class="px-4 py-4 overflow-y-auto max-h-[70vh] relative">
+          <div class="ui-modal-body-scroll max-h-[70vh] relative">
             <template x-if="spaceFormModal.show">
               {{ template "space-form-content" . }}
             </template>
@@ -891,20 +903,25 @@
       </div>
 
       <!-- Modal: Template Selector -->
-      <div x-cloak x-show="templateSelector.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="templateSelector.show" @keydown.esc.window="templateSelector.show = false" class="fixed top-0 left-0 right-0 bottom-0 inset-0 z-[60] flex items-end justify-center bg-black/20 p-4 pb-8 backdrop-blur-xs sm:items-center lg:p-8" role="dialog" aria-modal="true" aria-labelledby="templateSelectorTitle">
+      <div x-cloak x-show="templateSelector.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="templateSelector.show" @keydown.esc.window="templateSelector.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="templateSelectorTitle">
         <!-- Modal Dialog -->
-        <div x-show="templateSelector.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-0" x-transition:enter-end="scale-100" class="flex max-w-4xl w-full flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+        <div x-show="templateSelector.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel-xl">
           <!-- Dialog Header -->
-          <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-            <h3 id="templateSelectorTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">Select a Template</h3>
-            <button @click="templateSelector.show = false" aria-label="close modal" class="cursor-pointer outline-0 rounded-md p-0.5 transition hover:bg-gray-100 dark:hover:bg-gray-700">
+          <div class="ui-modal-header">
+            <div class="ui-modal-icon-info">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75 16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z" />
+              </svg>
+            </div>
+            <h3 id="templateSelectorTitle" class="ui-modal-title">Select a Template</h3>
+            <button @click="templateSelector.show = false" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
           <!-- Dialog Body -->
-          <div class="px-4 py-4 overflow-y-auto max-h-[70vh]">
+          <div class="ui-modal-body-scroll max-h-[70vh]">
             <!-- Search and Filter -->
             <div class="mb-4">
               <input type="search" class="form-field bg-white w-full" placeholder="Search templates..." aria-label="Search templates" x-model="templateSelector.searchTerm" x-on:input="templateSearchChanged" x-ref="templateSearchInput">
@@ -973,4 +990,3 @@
   </div>
 </main>
 {{ end }}
-

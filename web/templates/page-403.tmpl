@@ -5,28 +5,28 @@
 {{ define "mainContent" }}
 <div role="dialog" aria-modal="true" aria-labelledby="noAccessTitle">
   <!-- Modal Dialog -->
-  <div class="flex max-w-lg flex-col gap-4 overflow-hidden rounded-lg border border-grey-200 bg-white text-neutral-600 dark:bg-gray-800 dark:border-gray-700 dark:text-neutral-300 shadow-xl">
+  <div class="ui-modal-panel">
     <!-- Dialog Header -->
-    <div class="flex items-center justify-between border-b border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20">
-      <div class="flex items-center justify-center rounded-full bg-red-500/20 text-red-500 p-1">
+    <div class="ui-modal-header">
+      <div class="ui-modal-icon-danger">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="size-6" aria-hidden="true" >
           <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
         </svg>
       </div>
-      <h3 id="noAccessTitle" class="font-semibold tracking-wide text-neutral-900 dark:text-white">No Access</h3>
-      <button @click="window.location.href='{{ if .permissionUseSpaces }}/spaces{{ else }}/clients{{ end }}'" class="cursor-pointer" aria-label="close modal">
+      <h3 id="noAccessTitle" class="ui-modal-title">No Access</h3>
+      <button @click="window.location.href='{{ if .permissionUseSpaces }}/spaces{{ else }}/clients{{ end }}'" class="ui-modal-close" aria-label="close modal">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
     </div>
     <!-- Dialog Body -->
-    <div class="px-4 py-4 text-center">
+    <div class="ui-modal-body text-center">
       <p>You do not have permission to access this page.</p>
     </div>
     <!-- Dialog Footer -->
-    <div class="flex flex-col-reverse justify-between gap-2 border-t border-neutral-300 bg-neutral-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/20 sm:flex-row sm:items-center md:justify-end">
-        <a href="{{ if .permissionUseSpaces }}/spaces{{ else }}/clients{{ end }}" class="cursor-pointer whitespace-nowrap rounded-lg bg-blue-700 hover:bg-blue-800 px-4 py-2 text-center text-sm font-medium tracking-wide text-neutral-100 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black active:opacity-100 active:outline-offset-0 dark:text-white dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus-visible:outline-white">Return to Dashboard</a>
+    <div class="ui-modal-footer">
+        <a href="{{ if .permissionUseSpaces }}/spaces{{ else }}/clients{{ end }}" class="ui-button-primary">Return to Dashboard</a>
     </div>
   </div>
 </div>

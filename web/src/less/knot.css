@@ -43,11 +43,11 @@
 }
 
 @utility form-label {
-  @apply block mb-2 text-sm font-medium text-gray-900 dark:text-white;
+  @apply block mb-2 text-sm font-medium text-gray-900 dark:text-gray-100;
 }
 
 @utility form-field {
-  @apply bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500;
+  @apply block w-full rounded-xl border border-gray-200 bg-white/85 px-4 py-3 text-sm text-gray-900 shadow-sm transition-[border-color,box-shadow,background-color,color] placeholder:text-gray-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-gray-500 dark:bg-gray-800/95 dark:text-gray-100 dark:placeholder-gray-500 dark:hover:border-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-900/40;
 }
 
 @utility form-field-error {
@@ -59,7 +59,7 @@
 }
 
 @utility description {
-  @apply text-sm text-gray-600 dark:text-gray-400;
+  @apply text-sm text-gray-600 dark:text-gray-300;
 }
 
 @utility btn-primary {
@@ -87,15 +87,83 @@
 }
 
 @utility auth-form-field-icon {
-  @apply pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500;
+  @apply pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-400;
 }
 
 @utility auth-form-field {
-  @apply block w-full rounded-xl border border-gray-200 bg-white/85 py-3 pr-4 pl-10 text-sm text-gray-900 shadow-sm transition-colors focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-gray-600 dark:bg-gray-800/80 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-900/40;
+  @apply block w-full rounded-xl border border-gray-200 bg-white/85 py-3 pr-4 pl-10 text-sm text-gray-900 shadow-sm transition-[border-color,box-shadow,background-color,color] placeholder:text-gray-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-gray-500 dark:bg-gray-800/95 dark:text-gray-100 dark:placeholder-gray-500 dark:hover:border-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-900/40;
 }
 
 @utility auth-form-submit {
   @apply w-full rounded-xl bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition-all duration-200 hover:brightness-105 focus:outline-hidden focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-70 dark:focus:ring-blue-800;
+}
+
+@utility ui-modal-backdrop {
+  @apply fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/45 p-4 pb-8 backdrop-blur-sm sm:items-center lg:p-8;
+}
+
+@utility ui-modal-panel {
+  @apply flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/70 bg-white text-gray-700 shadow-2xl ring-1 ring-black/10 dark:border-white/10 dark:bg-gray-900 dark:text-gray-200 dark:ring-white/10;
+}
+
+@utility ui-modal-panel-wide {
+  @apply ui-modal-panel max-w-2xl;
+}
+
+@utility ui-modal-panel-xl {
+  @apply ui-modal-panel max-w-4xl;
+}
+
+@utility ui-modal-panel-2xl {
+  @apply ui-modal-panel max-w-6xl;
+}
+
+@utility ui-modal-header {
+  @apply flex items-center gap-3 border-b border-gray-200 bg-slate-50/90 px-5 py-4 dark:border-gray-800 dark:bg-gray-900;
+}
+
+@utility ui-modal-icon {
+  @apply flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300;
+}
+
+@utility ui-modal-icon-danger {
+  @apply ui-modal-icon bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300;
+}
+
+@utility ui-modal-icon-info {
+  @apply ui-modal-icon bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300;
+}
+
+@utility ui-modal-title {
+  @apply text-base font-semibold tracking-tight text-gray-900 dark:text-white;
+}
+
+@utility ui-modal-body {
+  @apply px-5 py-5 text-sm leading-6 text-gray-700 dark:text-gray-300;
+}
+
+@utility ui-modal-body-scroll {
+  @apply ui-modal-body overflow-y-auto;
+}
+
+@utility ui-modal-footer {
+  @apply flex flex-col-reverse gap-3 border-t border-gray-200 bg-slate-50/80 px-5 py-4 dark:border-gray-800 dark:bg-gray-900/80 sm:flex-row sm:justify-end;
+}
+
+@utility ui-button-primary {
+  @apply inline-flex items-center justify-center rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus:outline-hidden focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800;
+}
+
+@utility ui-button-secondary {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 focus:outline-hidden focus:ring-4 focus:ring-gray-200 dark:text-gray-200 dark:hover:bg-gray-800 dark:focus:ring-gray-700;
+}
+
+@utility ui-button-danger {
+  @apply inline-flex items-center justify-center rounded-xl bg-red-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-800 focus:outline-hidden focus:ring-4 focus:ring-red-200 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900/40;
+}
+
+@utility ui-modal-close {
+  @apply ml-auto shrink-0 rounded-lg border border-transparent p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 focus:outline-hidden focus:ring-2 focus:ring-blue-200 focus:border-blue-300 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200 dark:focus:ring-blue-900/40 dark:focus:border-blue-700;
 }
 
 @utility nav-item {
