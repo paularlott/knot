@@ -70,6 +70,34 @@
   @apply px-5 py-3 text-base font-medium text-center text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 sm:text-sm dark:text-white dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 focus:outline-hidden disabled:cursor-not-allowed focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 cursor-pointer;
 }
 
+@utility auth-form-panel {
+  @apply rounded-2xl border border-white/70 bg-white/75 p-5 shadow-lg ring-1 ring-black/5 backdrop-blur-sm dark:border-white/10 dark:bg-gray-900/35 dark:ring-white/10 sm:p-6;
+}
+
+@utility auth-form-heading {
+  @apply text-lg font-semibold tracking-tight text-gray-900 dark:text-white;
+}
+
+@utility auth-form-caption {
+  @apply mt-1 text-sm text-gray-600 dark:text-gray-400;
+}
+
+@utility auth-form-field-shell {
+  @apply relative;
+}
+
+@utility auth-form-field-icon {
+  @apply pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 dark:text-gray-500;
+}
+
+@utility auth-form-field {
+  @apply block w-full rounded-xl border border-gray-200 bg-white/85 py-3 pr-4 pl-10 text-sm text-gray-900 shadow-sm transition-colors focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-gray-600 dark:bg-gray-800/80 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-900/40;
+}
+
+@utility auth-form-submit {
+  @apply w-full rounded-xl bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition-all duration-200 hover:brightness-105 focus:outline-hidden focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-70 dark:focus:ring-blue-800;
+}
+
 @utility nav-item {
   @apply flex items-center p-2 text-base text-gray-900 rounded-lg hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 border-none my-1 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500;
 }
