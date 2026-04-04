@@ -258,7 +258,7 @@
               </div>
               <div class="col-span-1">
                 <label :for="'schedule-from-' + (index % 7)" class="sr-only" x-text="'From time for ' + formData.schedule[index % 7].day"></label>
-                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" :id="'schedule-from-' + (index % 7)" x-model="formData.schedule[index % 7].from">
+                <select class="form-field" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" :id="'schedule-from-' + (index % 7)" x-model="formData.schedule[index % 7].from">
                   <template x-for="hour in fromHours" :key="hour">
                     <option x-text="hour" :value="hour" x-bind:selected="hour == formData.schedule[index % 7].from"></option>
                   </template>
@@ -266,7 +266,7 @@
               </div>
               <div class="col-span-1">
                 <label :for="'schedule-to-' + (index % 7)" class="sr-only" x-text="'To time for ' + formData.schedule[index % 7].day"></label>
-                <select class="form-field bg-white" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" :id="'schedule-to-' + (index % 7)" x-model="formData.schedule[index % 7].to">
+                <select class="form-field" :class="{'opacity-40 hidden sm:block': !formData.schedule[index % 7].enabled}" :id="'schedule-to-' + (index % 7)" x-model="formData.schedule[index % 7].to">
                   <template x-for="hour in toHours" :key="hour">
                     <option x-text="hour" :value="hour" x-bind:selected="hour == formData.schedule[index % 7].to"></option>
                   </template>

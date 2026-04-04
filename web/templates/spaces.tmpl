@@ -21,7 +21,7 @@
         <div class="w-full sm:w-auto">
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
-            <input type="search" name="search" id="search" class="form-field bg-white grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
+            <input type="search" name="search" id="search" class="form-field grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
             <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
           </div>
         </div>
@@ -924,7 +924,7 @@
           <div class="ui-modal-body-scroll max-h-[70vh]">
             <!-- Search and Filter -->
             <div class="mb-4">
-              <input type="search" class="form-field bg-white w-full" placeholder="Search templates..." aria-label="Search templates" x-model="templateSelector.searchTerm" x-on:input="templateSearchChanged" x-ref="templateSearchInput">
+              <input type="search" class="form-field w-full" placeholder="Search templates..." aria-label="Search templates" x-model="templateSelector.searchTerm" x-on:input="templateSearchChanged" x-ref="templateSearchInput">
             </div>
 
             <!-- Template List -->
