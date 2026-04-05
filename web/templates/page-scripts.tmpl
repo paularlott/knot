@@ -10,13 +10,13 @@
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Scripts</h1>
     </div>
 
-    <form class="col-span-full sm:flex justify-between">
+    <form class="app-toolbar col-span-full">
       <div class="flex" x-data>
         <div class="w-full sm:w-auto">
           <label for="search" class="sr-only">Search</label>
           <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
             <input type="search" name="search" id="search" class="form-field grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-            <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
+            <div class="app-search-shortcut">⌘ K</div>
           </div>
         </div>
         <button @click.prevent="$refs.panel.toggle" aria-label="Filter" class="relative text-gray-500 dark:text-gray-400 text-sm px-2.5 py-3 cursor-pointer ml-2 hover:text-gray-700 dark:hover:text-gray-200">

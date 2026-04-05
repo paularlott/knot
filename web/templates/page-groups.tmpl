@@ -10,12 +10,12 @@
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Groups</h1>
     </div>
 
-    <form class="col-span-full sm:flex justify-between">
+    <form class="app-toolbar col-span-full">
       <div>
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
           <input type="search" name="search" id="search" class="form-field grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-          <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
+          <div class="app-search-shortcut">⌘ K</div>
         </div>
       </div>
       <div>
@@ -28,10 +28,10 @@
       </div>
     </form>
 
-    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+    <div class="app-card mb-4 col-span-full">
 
       {{ template "loading" . }}
-      <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
+      <div x-show="!loading" x-cloak class="table-shell relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Groups" class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 border-b dark:border-gray-700">
             <tr>

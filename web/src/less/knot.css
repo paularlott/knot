@@ -43,11 +43,11 @@
 }
 
 @utility form-label {
-  @apply block mb-2 text-sm font-medium text-gray-900 dark:text-gray-100;
+  @apply mb-2 block text-sm font-semibold tracking-[0.01em] text-gray-900 dark:text-gray-100;
 }
 
 @utility form-field {
-  @apply block w-full rounded-xl border border-gray-200 bg-white/85 px-4 py-3 text-sm text-gray-900 shadow-sm transition-[border-color,box-shadow,background-color,color] placeholder:text-gray-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-gray-500 dark:bg-gray-800/95 dark:text-gray-100 dark:placeholder-gray-500 dark:hover:border-gray-400 dark:focus:border-blue-400 dark:focus:ring-blue-900/40;
+  @apply block w-full rounded-2xl border border-slate-300 bg-white/92 px-4 py-3 text-sm text-slate-900 shadow-sm shadow-slate-900/5 transition-[border-color,box-shadow,background-color,color,transform] placeholder:text-slate-500 hover:border-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-800/95 dark:text-slate-100 dark:placeholder:text-slate-400 dark:hover:border-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-900/40;
 }
 
 @utility form-field-error {
@@ -55,19 +55,111 @@
 }
 
 @utility error-message {
-  @apply pl-0.5 text-red-700 dark:text-red-400 text-sm;
+  @apply pl-0.5 text-sm font-medium text-red-700 dark:text-red-400;
 }
 
 @utility description {
-  @apply text-sm text-gray-600 dark:text-gray-300;
+  @apply text-sm leading-6 text-slate-600 dark:text-slate-300;
 }
 
 @utility btn-primary {
-  @apply w-full px-5 py-3 text-base font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 sm:text-sm sm:w-auto dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-hidden disabled:cursor-not-allowed focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 cursor-pointer;
+  @apply inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-800 px-5 py-3 text-base font-semibold text-center text-white shadow-lg shadow-blue-900/20 transition-colors duration-200 hover:bg-blue-900 focus:outline-hidden focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto sm:text-sm dark:bg-blue-700 dark:hover:bg-blue-600 dark:focus:ring-blue-800 cursor-pointer;
 }
 
 @utility btn-secondary {
-  @apply px-5 py-3 text-base font-medium text-center text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 sm:text-sm dark:text-white dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 focus:outline-hidden disabled:cursor-not-allowed focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 cursor-pointer;
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white/90 px-5 py-3 text-base font-semibold text-center text-slate-800 shadow-sm transition-colors hover:bg-slate-100 sm:text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 focus:outline-hidden disabled:cursor-not-allowed focus:ring-4 focus:ring-slate-200 dark:focus:ring-slate-700 cursor-pointer;
+}
+
+@utility app-surface {
+  @apply rounded-3xl border border-white/70 bg-white/88 shadow-xl shadow-slate-900/6 ring-1 ring-slate-900/6 backdrop-blur-sm dark:border-white/10 dark:bg-slate-900/82 dark:ring-white/10;
+}
+
+@utility app-card {
+  @apply app-surface p-4 sm:p-6;
+}
+
+@utility app-toolbar {
+  @apply flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between;
+}
+
+@utility app-search-shortcut {
+  @apply absolute right-3 rounded-lg border border-slate-200 bg-white/85 px-2 py-1 text-xs font-semibold tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400;
+}
+
+@utility form-section {
+  @apply rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white to-slate-50/70 p-4 shadow-sm shadow-slate-900/4 dark:border-slate-700 dark:from-slate-900 dark:to-slate-800/70;
+}
+
+@utility form-section-title {
+  @apply text-base font-semibold tracking-tight text-slate-900 dark:text-white;
+}
+
+@utility form-section-copy {
+  @apply mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300;
+}
+
+@utility form-grid {
+  @apply grid gap-4 md:grid-cols-2;
+}
+
+@utility form-actions {
+  @apply flex flex-col-reverse justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center;
+}
+
+@utility form-cancel {
+  @apply inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold tracking-wide text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800;
+}
+
+@utility toggle-shell {
+  @apply rounded-2xl border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-700 dark:bg-slate-800/80;
+}
+
+@utility toggle-row {
+  @apply inline-flex items-center gap-3;
+}
+
+@utility table-shell {
+  @apply overflow-hidden rounded-3xl border border-slate-200/90 bg-white/92 shadow-xl shadow-slate-900/5 ring-1 ring-slate-900/5 dark:border-slate-700 dark:bg-slate-900/82 dark:ring-white/10;
+}
+
+@utility app-table {
+  @apply w-full text-left text-sm text-slate-600 dark:text-slate-300;
+}
+
+@utility app-table-head {
+  @apply bg-slate-100/90 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600 dark:bg-slate-800 dark:text-slate-300;
+}
+
+@utility app-table-row {
+  @apply border-b border-slate-200/90 bg-white/70 transition-colors hover:bg-sky-50/70 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:bg-slate-800/80;
+}
+
+@utility app-table-cell {
+  @apply px-4 py-3 align-top;
+}
+
+@utility app-badge {
+  @apply inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold tracking-wide;
+}
+
+@utility app-badge-success {
+  @apply app-badge border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300;
+}
+
+@utility app-badge-danger {
+  @apply app-badge border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300;
+}
+
+@utility app-badge-info {
+  @apply app-badge border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-300;
+}
+
+@utility app-badge-neutral {
+  @apply app-badge border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200;
+}
+
+@utility app-badge-warning {
+  @apply app-badge border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300;
 }
 
 @utility auth-form-panel {
@@ -95,7 +187,7 @@
 }
 
 @utility auth-form-submit {
-  @apply w-full rounded-xl bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition-all duration-200 hover:brightness-105 focus:outline-hidden focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-70 dark:focus:ring-blue-800;
+  @apply w-full rounded-xl bg-gradient-to-r from-blue-700 via-blue-800 to-cyan-700 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-900/20 transition-all duration-200 hover:brightness-105 focus:outline-hidden focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-70 dark:focus:ring-blue-800;
 }
 
 @utility ui-modal-backdrop {
@@ -189,6 +281,32 @@
     font-weight: 400;
     font-display: swap;
     src: url(fonts/jetbrainsmono.woff2) format("woff2");
+  }
+}
+
+@layer base {
+  input[readonly],
+  textarea[readonly],
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    @apply cursor-not-allowed bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400;
+  }
+
+  table[aria-label] thead th {
+    @apply border-b border-slate-200/90 bg-slate-100/95 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300;
+  }
+
+  table[aria-label] tbody tr {
+    @apply border-b border-slate-200/90 bg-white/70 transition-colors dark:border-slate-800 dark:bg-slate-900/60;
+  }
+
+  table[aria-label] tbody tr:hover {
+    @apply bg-sky-50/70 dark:bg-slate-800/80;
+  }
+
+  table[aria-label] tbody td {
+    @apply px-4 py-3 align-top text-slate-600 dark:text-slate-300;
   }
 }
 

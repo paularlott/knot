@@ -10,12 +10,12 @@
       <h1 class="text-xl font-semibold text-gray-900 sm:text-2xl dark:text-white">Users</h1>
     </div>
 
-    <form class="col-span-full sm:flex justify-between">
+    <form class="app-toolbar col-span-full">
       <div>
         <label for="search" class="sr-only">Search</label>
         <div class="relative mt-1 sm:w-48 lg:w-64 xl:w-96 flex items-center">
           <input type="search" name="search" id="search" class="form-field grow pr-10" placeholder="Search" x-model="searchTerm" x-on:input="searchChanged">
-          <div class="absolute right-2 text-sm text-gray-500 dark:text-gray-400 font-sans ml-2 text-nowrap">⌘ K</div>
+          <div class="app-search-shortcut">⌘ K</div>
         </div>
       </div>
       <div>
@@ -28,10 +28,10 @@
       </div>
     </form>
 
-    <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
+    <div class="app-card mb-4 col-span-full">
 
       {{ template "loading" . }}
-      <div x-show="!loading" x-cloak class="mb-4 col-span-full overflow-x-auto">
+      <div x-show="!loading" x-cloak class="mb-4 col-span-full table-shell overflow-x-auto">
         <table aria-label="Users" class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
             <tr>
@@ -61,8 +61,8 @@
                       <div>
                         <div class="flex items-center">
                           <span class="font-medium text-gray-900 dark:text-white" x-text="u.username"></span>
-                          <span x-show="u.active" class="2xl:hidden inline-block ml-2 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
-                          <span x-show="!u.active" class="2xl:hidden inline-block ml-2 bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
+                          <span x-show="u.active" class="2xl:hidden ml-2 app-badge-success">Active</span>
+                          <span x-show="!u.active" class="2xl:hidden ml-2 app-badge-danger">Inactive</span>
                         </div>
                         <div class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[180px]" x-text="u.email"></div>
                       </div>
@@ -93,8 +93,8 @@
 
                 <!-- Status Column - Hidden on Mobile -->
                 <td class="px-4 py-3 hidden 2xl:table-cell">
-                  <span x-show="u.active" class="inline-block bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-green-400 border border-green-400">Active</span>
-                  <span x-show="!u.active" class="inline-block bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-sm dark:bg-gray-700 dark:text-red-400 border border-red-400">Inactive</span>
+                  <span x-show="u.active" class="app-badge-success">Active</span>
+                  <span x-show="!u.active" class="app-badge-danger">Inactive</span>
                 </td>
 
                 <!-- Spaces Column - Hidden on Mobile -->
