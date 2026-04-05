@@ -6,6 +6,7 @@ type Register struct {
 }
 
 type RegisterResponse struct {
-	Success bool   `json:"success" msgpack:"success"`
-	Error   string `json:"error" msgpack:"error"`
+	Success  bool   `json:"success" msgpack:"success"`
+	Error    string `json:"error" msgpack:"error"`
+	Features uint16 `json:"features" msgpack:"features"`
 }

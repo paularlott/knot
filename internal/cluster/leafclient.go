@@ -194,6 +194,10 @@ func (c *Cluster) runLeafClient(originServer, originToken string) {
 				c.logger.Fatal("error while registering with origin server", "error", registerResponse.Error)
 			}
 
+			if registerResponse.Features != 0 {
+				c.logger.Info("registered with pro origin server")
+			}
+
 			// Request a full sync
 			if !fullSyncDone {
 				err = leafmsg.WriteMessage(ws, leafmsg.MessageFullSync, nil)
@@ -385,4 +389,3 @@ func (c *Cluster) handleLeafGossipSkill(msg *leafmsg.Message) {
 		return
 	}
 }
-

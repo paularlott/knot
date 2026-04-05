@@ -52,8 +52,9 @@ func (c *Cluster) HandleLeafServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := &leafmsg.RegisterResponse{
-		Success: true,
-		Error:   "",
+		Success:  true,
+		Error:    "",
+		Features: 0,
 	}
 
 	// Check the version
@@ -150,7 +151,7 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 				}
 			}
 		}
-		nextTemplate:
+	nextTemplate:
 	}
 	session.SendMessage(leafmsg.MessageGossipTemplate, &filteredTemplates)
 
@@ -233,7 +234,7 @@ func (c *Cluster) handleLeafFullSync(session *leafSession) {
 				}
 			}
 		}
-		nextSkill:
+	nextSkill:
 	}
 	session.SendMessage(leafmsg.MessageGossipSkill, &filteredSkills)
 
