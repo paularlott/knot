@@ -34,6 +34,7 @@ func (db *RedisDbDriver) mutexUnlock() error {
 }
 
 func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) error {
+	space.NormalizeShares()
 
 	// Grab a mutex lock on the redis database, automatically release on function exit
 	err := db.mutexLock()
@@ -45,6 +46,8 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 	// Load the existing space
 	existingSpace, _ := db.GetSpace(space.Id)
 	if existingSpace != nil {
+		existingSpace.NormalizeShares()
+
 		// If user changed then delete the space and add back in with new user
 		if existingSpace.UserId != space.UserId {
 			db.DeleteSpace(existingSpace)
@@ -110,10 +113,12 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 			}
 		}
 
-		if existingSpace.SharedWithUserId != "" && existingSpace.SharedWithUserId != space.SharedWithUserId {
-			err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, existingSpace.SharedWithUserId, space.Id)).Err()
-			if err != nil {
-				return err
+		for _, sharedUserId := range existingSpace.SharedUserIds() {
+			if !space.IsSharedWith(sharedUserId) {
+				err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, sharedUserId, space.Id)).Err()
+				if err != nil {
+					return err
+				}
 			}
 		}
 
@@ -129,6 +134,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 	if existingSpace != nil && len(updateFields) > 0 {
 		util.CopyFields(space, existingSpace, updateFields)
 		space = existingSpace
+		space.NormalizeShares()
 	}
 
 	data, err := json.Marshal(space)
@@ -147,8 +153,8 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 	}
 
 	// If shared with then add space under shared user
-	if space.SharedWithUserId != "" {
-		err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.SharedWithUserId, space.Id), space.Id, 0).Err()
+	for _, sharedUserId := range space.SharedUserIds() {
+		err = db.connection.Set(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, sharedUserId, space.Id), space.Id, 0).Err()
 		if err != nil {
 			return err
 		}
@@ -220,8 +226,8 @@ func (db *RedisDbDriver) DeleteSpace(space *model.Space) error {
 	}
 
 	// If shared with a user then delete space under shared user
-	if space.SharedWithUserId != "" {
-		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, space.SharedWithUserId, space.Id)).Err()
+	for _, sharedUserId := range space.SharedUserIds() {
+		err = db.connection.Del(context.Background(), fmt.Sprintf("%sSpacesByUserId:%s:%s", db.prefix, sharedUserId, space.Id)).Err()
 		if err != nil {
 			return err
 		}
@@ -263,6 +269,7 @@ func (db *RedisDbDriver) GetSpace(id string) (*model.Space, error) {
 	if err != nil {
 		return nil, err
 	}
+	space.NormalizeShares()
 
 	return space, nil
 }
@@ -301,7 +308,7 @@ func (db *RedisDbDriver) GetSpaceByName(userId string, spaceName string) (*model
 		}
 
 		for _, s := range spaces {
-			if s.Name == spaceName && s.SharedWithUserId == userId {
+			if s.Name == spaceName && s.IsSharedWith(userId) {
 				return s, nil
 			}
 		}

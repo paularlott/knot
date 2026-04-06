@@ -25,6 +25,8 @@ func (db *MySQLDriver) getAltNames(id string) ([]string, error) {
 }
 
 func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) error {
+	space.NormalizeShares()
+
 	tx, err := db.connection.Begin()
 	if err != nil {
 		return err
@@ -183,6 +185,7 @@ func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
 	if len(spaces) == 0 {
 		return nil, fmt.Errorf("space not found")
 	}
+	spaces[0].NormalizeShares()
 
 	// Load the alt names
 	spaces[0].AltNames, err = db.getAltNames(spaces[0].Id)
@@ -195,9 +198,12 @@ func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
 
 func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
 	var spaces []*model.Space
-	err := db.read("spaces", &spaces, nil, "(user_id = ? || shared_with_user_id = ?) AND parent_space_id = '' ORDER BY name ASC", userId, userId)
+	err := db.read("spaces", &spaces, nil, "(user_id = ? OR JSON_SEARCH(shares, 'one', ?, NULL, '$[*].user_id') IS NOT NULL) AND parent_space_id = '' ORDER BY name ASC", userId, userId)
 	if err != nil {
 		return nil, err
+	}
+	for _, space := range spaces {
+		space.NormalizeShares()
 	}
 
 	return spaces, nil
@@ -205,7 +211,7 @@ func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
 
 func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.Space, error) {
 	var spaces []model.Space
-	err := db.read("spaces", &spaces, nil, "(user_id = ? || shared_with_user_id = ?) AND name = ? ORDER BY shared_with_user_id ASC LIMIT 1", userId, userId, spaceName)
+	err := db.read("spaces", &spaces, nil, "(user_id = ? OR JSON_SEARCH(shares, 'one', ?, NULL, '$[*].user_id') IS NOT NULL) AND name = ? ORDER BY CASE WHEN user_id = ? THEN 0 ELSE 1 END ASC LIMIT 1", userId, userId, spaceName, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -213,6 +219,7 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
 	if len(spaces) == 0 {
 		return nil, fmt.Errorf("space not found")
 	}
+	spaces[0].NormalizeShares()
 
 	// If has a parent ID then load the parent space
 	if spaces[0].ParentSpaceId != "" {
@@ -228,6 +235,9 @@ func (db *MySQLDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space,
 	if err != nil {
 		return nil, err
 	}
+	for _, space := range spaces {
+		space.NormalizeShares()
+	}
 
 	return spaces, nil
 }
@@ -237,6 +247,9 @@ func (db *MySQLDriver) GetSpaces() ([]*model.Space, error) {
 	err := db.read("spaces", &spaces, nil, "parent_space_id = '' ORDER BY name ASC")
 	if err != nil {
 		return nil, err
+	}
+	for _, space := range spaces {
+		space.NormalizeShares()
 	}
 
 	return spaces, nil

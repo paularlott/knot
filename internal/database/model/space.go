@@ -24,6 +24,11 @@ type SpaceVolume struct {
 	Type      string `json:"type,omitempty"`
 }
 
+type SpaceShare struct {
+	UserId     string `json:"user_id" msgpack:"user_id"`
+	Permission string `json:"permission" msgpack:"permission"`
+}
+
 // Value implements the driver.Valuer interface.
 func (sv SpaceVolume) Value() (driver.Value, error) {
 	return json.Marshal(sv)
@@ -68,7 +73,8 @@ type Space struct {
 	ParentSpaceId    string             `json:"parent_space_id" db:"parent_space_id" msgpack:"parent_space_id"`
 	UserId           string             `json:"user_id" db:"user_id" msgpack:"user_id"`
 	TemplateId       string             `json:"template_id" db:"template_id" msgpack:"template_id"`
-	SharedWithUserId string             `json:"shared_with_user_id" db:"shared_with_user_id" msgpack:"shared_with_user_id"`
+	Shares           []SpaceShare       `json:"shares" db:"shares,json" msgpack:"shares"`
+	SharedWithUserId string             `json:"-" msgpack:"-"`
 	Name             string             `json:"name" db:"name" msgpack:"name"`
 	Description      string             `json:"description" db:"description" msgpack:"description"`
 	Note             string             `json:"note" db:"note" msgpack:"note"`
@@ -126,6 +132,7 @@ func NewSpace(name string, description string, userId string, templateId string,
 		UpdatedAt:        hlc.Now(),
 		Zone:             zone,
 		SSHHostSigner:    ed25519,
+		Shares:           []SpaceShare{},
 		SharedWithUserId: "",
 		IconURL:          iconURL,
 		CustomFields:     customFields,
@@ -160,4 +167,73 @@ func (s *Space) MaxUptimeReached(template *Template) bool {
 	}
 
 	return false
+}
+
+func (s *Space) NormalizeShares() {
+	seen := map[string]bool{}
+	normalized := make([]SpaceShare, 0, len(s.Shares))
+
+	for _, share := range s.Shares {
+		if share.UserId == "" || seen[share.UserId] {
+			continue
+		}
+		if share.Permission == "" {
+			share.Permission = "full"
+		}
+		seen[share.UserId] = true
+		normalized = append(normalized, share)
+	}
+
+	if len(normalized) == 0 && s.SharedWithUserId != "" {
+		normalized = append(normalized, SpaceShare{
+			UserId:     s.SharedWithUserId,
+			Permission: "full",
+		})
+	}
+
+	s.Shares = normalized
+	if len(s.Shares) > 0 {
+		s.SharedWithUserId = s.Shares[0].UserId
+	} else {
+		s.SharedWithUserId = ""
+	}
+}
+
+func (s *Space) SharedUserIds() []string {
+	s.NormalizeShares()
+
+	userIds := make([]string, 0, len(s.Shares))
+	for _, share := range s.Shares {
+		userIds = append(userIds, share.UserId)
+	}
+
+	return userIds
+}
+
+func (s *Space) IsSharedWith(userId string) bool {
+	if userId == "" {
+		return false
+	}
+
+	for _, sharedUserId := range s.SharedUserIds() {
+		if sharedUserId == userId {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *Space) SetSingleShare(userId string) {
+	if userId == "" {
+		s.Shares = []SpaceShare{}
+		s.SharedWithUserId = ""
+		return
+	}
+
+	s.Shares = []SpaceShare{{
+		UserId:     userId,
+		Permission: "full",
+	}}
+	s.SharedWithUserId = userId
 }

@@ -109,12 +109,18 @@ func (c *Cluster) mergeSpaces(spaces []*model.Space) error {
 
 				//  If share user update the SSH keys
 				if space.SharedWithUserId != localSpace.SharedWithUserId {
-					user, err := db.GetUser(space.SharedWithUserId)
-					if err != nil {
-						c.logger.Error("Failed to get user", "error", err, "name", space.Name)
-						continue
+					userId := space.SharedWithUserId
+					if userId == "" && len(space.SharedUserIds()) > 0 {
+						userId = space.SharedUserIds()[0]
 					}
-					service.GetUserService().UpdateSpaceSSHKeys(space, user)
+					if userId != "" {
+						user, err := db.GetUser(userId)
+						if err != nil {
+							c.logger.Error("Failed to get user", "error", err, "name", space.Name)
+							continue
+						}
+						service.GetUserService().UpdateSpaceSSHKeys(space, user)
+					}
 				}
 
 				// Only publish SSE events when stateful fields that the UI cares about change

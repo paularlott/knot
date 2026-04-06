@@ -22,6 +22,11 @@ type BadgerDbDriver struct {
 	logger     logger.Logger
 }
 
+type legacySpaceRecord struct {
+	model.Space
+	SharedWithUserId string `json:"shared_with_user_id"`
+}
+
 func (db *BadgerDbDriver) keyExists(key string) (bool, error) {
 	var exists = false
 
@@ -53,6 +58,9 @@ func (db *BadgerDbDriver) Connect() error {
 
 	db.connection, err = badger.Open(options)
 	if err == nil {
+		if err := db.migrateSpaceShares(); err != nil {
+			return err
+		}
 
 		// Start the garbage collector
 		go func() {
@@ -176,6 +184,65 @@ func (db *BadgerDbDriver) Connect() error {
 	}()
 
 	return err
+}
+
+func (db *BadgerDbDriver) migrateSpaceShares() error {
+	db.logger.Debug("migrating badger space shares")
+
+	var spaces []*model.Space
+
+	err := db.connection.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+
+		prefix := []byte("Spaces:")
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+
+			err := item.Value(func(val []byte) error {
+				var legacy legacySpaceRecord
+				if err := json.Unmarshal(val, &legacy); err != nil {
+					return err
+				}
+
+				space := legacy.Space
+				space.SharedWithUserId = legacy.SharedWithUserId
+				needsMigration := legacy.SharedWithUserId != ""
+				if !needsMigration {
+					space.NormalizeShares()
+					normalized, err := json.Marshal(space)
+					if err != nil {
+						return err
+					}
+					needsMigration = string(val) != string(normalized)
+				} else {
+					space.NormalizeShares()
+				}
+
+				if needsMigration {
+					spaces = append(spaces, &space)
+				}
+
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, space := range spaces {
+		if err := db.SaveSpace(space, []string{}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // cleanupObjectType iterates through keys of a given object type and deletes old soft-deleted entries

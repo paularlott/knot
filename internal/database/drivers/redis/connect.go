@@ -44,6 +44,11 @@ type RedisDbDriver struct {
 	redisLogger *redisLogger
 }
 
+type legacySpaceRecord struct {
+	model.Space
+	SharedWithUserId string `json:"shared_with_user_id"`
+}
+
 func convertRedisError(err error) error {
 	if err == redis.Nil {
 		return nil
@@ -113,6 +118,10 @@ func (db *RedisDbDriver) Connect() error {
 	}
 
 	db.realConnect()
+
+	if err := db.migrateSpaceShares(); err != nil {
+		return err
+	}
 
 	// Monitor the connection and reconnect if the connection is lost
 	go func() {
@@ -233,6 +242,57 @@ func (db *RedisDbDriver) Connect() error {
 			})
 		}
 	}()
+
+	return nil
+}
+
+func (db *RedisDbDriver) migrateSpaceShares() error {
+	db.logger.Debug("migrating redis space shares")
+
+	var spaces []*model.Space
+
+	iter := db.connection.Scan(context.Background(), 0, fmt.Sprintf("%sSpaces:*", db.prefix), 0).Iterator()
+	for iter.Next(context.Background()) {
+		key := iter.Val()
+
+		data, err := db.connection.Get(context.Background(), key).Bytes()
+		if err != nil {
+			return err
+		}
+
+		var legacy legacySpaceRecord
+		if err := json.Unmarshal(data, &legacy); err != nil {
+			return err
+		}
+
+		space := legacy.Space
+		space.SharedWithUserId = legacy.SharedWithUserId
+		needsMigration := legacy.SharedWithUserId != ""
+		if !needsMigration {
+			space.NormalizeShares()
+			normalized, err := json.Marshal(space)
+			if err != nil {
+				return err
+			}
+			needsMigration = string(data) != string(normalized)
+		} else {
+			space.NormalizeShares()
+		}
+
+		if needsMigration {
+			spaces = append(spaces, &space)
+		}
+	}
+
+	if err := iter.Err(); err != nil {
+		return err
+	}
+
+	for _, space := range spaces {
+		if err := db.SaveSpace(space, []string{}); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

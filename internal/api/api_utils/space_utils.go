@@ -13,6 +13,27 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 )
 
+func BuildAPIShares(space *model.Space) []apiclient.SpaceShare {
+	db := database.GetInstance()
+	space.NormalizeShares()
+
+	shares := make([]apiclient.SpaceShare, 0, len(space.Shares))
+	for _, share := range space.Shares {
+		apiShare := apiclient.SpaceShare{
+			UserId:     share.UserId,
+			Permission: share.Permission,
+		}
+
+		if user, err := db.GetUser(share.UserId); err == nil && user != nil {
+			apiShare.Username = user.Username
+		}
+
+		shares = append(shares, apiShare)
+	}
+
+	return shares
+}
+
 // GetSpaceDetails returns detailed space information with permission checks
 func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefinition, error) {
 	if spaceId == "" {
@@ -34,7 +55,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 	}
 
 	// Check ownership or management permissions
-	if space.UserId != user.Id && !user.HasPermission(model.PermissionManageSpaces) {
+	if space.UserId != user.Id && !space.IsSharedWith(user.Id) && !user.HasPermission(model.PermissionManageSpaces) {
 		return nil, fmt.Errorf("No permission to access this space")
 	}
 
@@ -62,15 +83,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		createdAtFormatted = space.CreatedAt.UTC().Format("2 / Jan / 2006 3:04:05pm")
 	}
 
-	// Get shared user info
-	var sharedUserId, sharedUsername string
-	if space.SharedWithUserId != "" {
-		sharedUser, err := db.GetUser(space.SharedWithUserId)
-		if err == nil {
-			sharedUserId = sharedUser.Id
-			sharedUsername = sharedUser.Username
-		}
-	}
+	shares := BuildAPIShares(space)
 
 	// Get agent state
 	cfg := config.GetServerConfig()
@@ -135,8 +148,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		SpaceId:            space.Id,
 		UserId:             space.UserId,
 		TemplateId:         space.TemplateId,
-		SharedUserId:       sharedUserId,
-		SharedUsername:     sharedUsername,
+		Shares:             shares,
 		Name:               space.Name,
 		Description:        space.Description,
 		Note:               space.Note,

@@ -124,6 +124,38 @@ window.spacesListComponent = function (
       forUserId: "",
       forUserUsername: "",
     },
+    firstShare(space) {
+      return Array.isArray(space?.shares) && space.shares.length
+        ? space.shares[0]
+        : null;
+    },
+    firstShareUserId(space) {
+      return this.firstShare(space)?.user_id || "";
+    },
+    firstShareUsername(space) {
+      return this.firstShare(space)?.username || "";
+    },
+    isSharedWithViewer(space) {
+      return this.firstShareUserId(space) === this.forUserId;
+    },
+    hasShare(space) {
+      return this.firstShare(space) !== null;
+    },
+    hasSpaceAccessForCurrentUser(space) {
+      return (
+        space.user_id === userId ||
+        this.firstShareUserId(space) === userId
+      );
+    },
+    shareBadgeText(space) {
+      const sharedUsername = this.firstShareUsername(space);
+      if (!sharedUsername) {
+        return "";
+      }
+      return this.isSharedWithViewer(space)
+        ? `Shared By: ${space.username}`
+        : `Shared With: ${sharedUsername}`;
+    },
 
     async init() {
       if (
@@ -262,6 +294,7 @@ window.spacesListComponent = function (
                 );
                 if (!existing) {
                   space.is_local = space.zone === "" || zone === space.zone;
+                  space.shares = space.shares || [];
                   space.uptime = this.formatTimeDiff(space.started_at);
                   space.icon_url_exists = this.imageExists(space.icon_url);
 
@@ -279,8 +312,7 @@ window.spacesListComponent = function (
                     return;
                   }
 
-                  existing.shared_user_id = space.shared_user_id;
-                  existing.shared_username = space.shared_username;
+                  existing.shares = space.shares || [];
                   // Don't update name if space is deleting (backend changes name to ID during deletion)
                   if (!space.is_deleting) {
                     existing.name = space.name;
@@ -387,15 +419,13 @@ window.spacesListComponent = function (
                 const space = self.spaces.find((s) => s.space_id === spaceId);
 
                 self.quotaComputeLimit.isShared =
-                  space.shared_user_id !== "" &&
-                  space.shared_user_id === this.forUserId;
+                  self.isSharedWithViewer(space);
                 self.quotaComputeLimit.show = true;
               } else if (data.error === "storage unit quota exceeded") {
                 const space = self.spaces.find((s) => s.space_id === spaceId);
 
                 self.quotaStorageLimit.isShared =
-                  space.shared_user_id !== "" &&
-                  space.shared_user_id === this.forUserId;
+                  self.isSharedWithViewer(space);
                 self.quotaStorageLimit.show = true;
               } else {
                 self.$dispatch("show-alert", {
@@ -598,11 +628,9 @@ window.spacesListComponent = function (
             (this.showLocalOnly && !space.is_local) ||
             (this.showRunningOnly && !space.is_deployed) ||
             (this.showSharedOnly &&
-              (space.shared_user_id === "" ||
-                space.shared_user_id === this.forUserId)) ||
+              (!this.hasShare(space) || this.isSharedWithViewer(space))) ||
             (this.showSharedWithMeOnly &&
-              (space.shared_user_id === "" ||
-                space.shared_user_id !== this.forUserId));
+              (!this.hasShare(space) || !this.isSharedWithViewer(space)));
         } else {
           space.searchHide =
             !(
@@ -613,11 +641,9 @@ window.spacesListComponent = function (
             (this.showLocalOnly && !space.is_local) ||
             (this.showRunningOnly && !space.is_deployed) ||
             (this.showSharedOnly &&
-              (space.shared_user_id === "" ||
-                space.shared_user_id === this.forUserId)) ||
+              (!this.hasShare(space) || this.isSharedWithViewer(space))) ||
             (this.showSharedWithMeOnly &&
-              (space.shared_user_id === "" ||
-                space.shared_user_id !== this.forUserId));
+              (!this.hasShare(space) || !this.isSharedWithViewer(space)));
         }
 
         if (!space.searchHide) {
@@ -653,6 +679,9 @@ window.spacesListComponent = function (
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            shares: self.chooseUser.isShare
+              ? [{ user_id: this.chooseUser.toUserId, permission: "full" }]
+              : undefined,
             user_id: this.chooseUser.toUserId,
           }),
         },

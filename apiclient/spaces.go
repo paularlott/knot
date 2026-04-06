@@ -30,6 +30,22 @@ type SpaceTransferRequest struct {
 	UserId string `json:"user_id"`
 }
 
+type SpaceShare struct {
+	UserId     string `json:"user_id"`
+	Username   string `json:"username,omitempty"`
+	Permission string `json:"permission"`
+}
+
+type SpaceShareRequest struct {
+	UserId     string `json:"user_id"`
+	Permission string `json:"permission,omitempty"`
+}
+
+type SpaceShareUpdateRequest struct {
+	UserId string              `json:"user_id,omitempty"`
+	Shares []SpaceShareRequest `json:"shares,omitempty"`
+}
+
 type SpaceInfo struct {
 	Id              string            `json:"space_id"`
 	Name            string            `json:"name"`
@@ -41,8 +57,7 @@ type SpaceInfo struct {
 	Username        string            `json:"username"`
 	UserId          string            `json:"user_id"`
 	Platform        string            `json:"platform"`
-	SharedUserId    string            `json:"shared_user_id"`
-	SharedUsername  string            `json:"shared_username"`
+	Shares          []SpaceShare      `json:"shares"`
 	HasCodeServer   bool              `json:"has_code_server"`
 	HasSSH          bool              `json:"has_ssh"`
 	HasHttpVNC      bool              `json:"has_http_vnc"`
@@ -86,8 +101,7 @@ type SpaceDefinition struct {
 	SpaceId            string                       `json:"space_id"`
 	UserId             string                       `json:"user_id"`
 	TemplateId         string                       `json:"template_id"`
-	SharedUserId       string                       `json:"shared_user_id"`
-	SharedUsername     string                       `json:"shared_username"`
+	Shares             []SpaceShare                 `json:"shares"`
 	Name               string                       `json:"name"`
 	Description        string                       `json:"description"`
 	Note               string                       `json:"note"`
@@ -251,8 +265,20 @@ func (c *ApiClient) TransferSpace(ctx context.Context, spaceId string, userId st
 }
 
 func (c *ApiClient) AddShare(ctx context.Context, spaceId string, userId string) (int, error) {
-	request := &SpaceTransferRequest{
+	request := &SpaceShareUpdateRequest{
 		UserId: userId,
+		Shares: []SpaceShareRequest{{
+			UserId:     userId,
+			Permission: "full",
+		}},
+	}
+
+	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/share", request, nil, 200)
+}
+
+func (c *ApiClient) AddShares(ctx context.Context, spaceId string, shares []SpaceShareRequest) (int, error) {
+	request := &SpaceShareUpdateRequest{
+		Shares: shares,
 	}
 
 	return c.httpClient.Post(ctx, "/api/spaces/"+spaceId+"/share", request, nil, 200)

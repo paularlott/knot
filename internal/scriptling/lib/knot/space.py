@@ -55,8 +55,7 @@ def get(name):
         - template_name: Template name
         - user_id: Owner user ID
         - username: Owner username
-        - shared_user_id: Shared user ID (if shared)
-        - shared_username: Shared username (if shared)
+        - shares: List of share dicts with user_id, username, permission
         - shell: Default shell
         - platform: Platform (e.g., "linux/amd64")
         - zone: Zone name
@@ -79,8 +78,7 @@ def get(name):
         "template_name": response.get("template_name"),
         "user_id": response.get("user_id"),
         "username": response.get("username"),
-        "shared_user_id": response.get("shared_user_id"),
-        "shared_username": response.get("shared_username"),
+        "shares": response.get("shares", []),
         "shell": response.get("shell"),
         "platform": response.get("platform"),
         "zone": response.get("zone"),

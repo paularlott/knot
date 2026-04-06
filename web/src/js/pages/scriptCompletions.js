@@ -120,7 +120,7 @@ const scriptLibraries = [
         signature: "get(name)",
         description: "Get space details as a dict",
         returns:
-          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shared_user_id, shared_username, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, created_at",
+          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shares, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, created_at",
       },
       {
         name: "update",

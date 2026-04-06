@@ -131,9 +131,9 @@ func handleAgentConnection(conn net.Conn) {
 		response.GitHubUsernames = append(response.GitHubUsernames, user.GitHubUsername)
 	}
 
-	// If space shared then get the keys from the shared user
-	if space.SharedWithUserId != "" {
-		sharedUser, err := db.GetUser(space.SharedWithUserId)
+	// If space shared then get the keys from shared users
+	for _, sharedUserId := range space.SharedUserIds() {
+		sharedUser, err := db.GetUser(sharedUserId)
 		if err == nil {
 			if sharedUser.SSHPublicKey != "" {
 				response.SSHKeys = append(response.SSHKeys, sharedUser.SSHPublicKey)

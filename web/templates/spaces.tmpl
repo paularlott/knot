@@ -181,8 +181,8 @@
                       </div>
 
                       <div class="2xl:hidden">
-                        <template x-if="s.shared_username != ''">
-                          <span class="mt-2 text-xs inline-block bg-blue-100 text-blue-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-300 border border-blue-300 whitespace-nowrap" x-text="(s.shared_user_id == forUserId ? 'Shared By: ' : 'Shared With: ') + (s.shared_user_id == forUserId ? s.username : s.shared_username)"></span>
+                        <template x-if="firstShareUsername(s) != ''">
+                          <span class="mt-2 text-xs inline-block bg-blue-100 text-blue-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-300 border border-blue-300 whitespace-nowrap" x-text="shareBadgeText(s)"></span>
                         </template>
                       </div>
 
@@ -216,7 +216,7 @@
                       <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 lg:hidden">Uptime: <span class="text-gray-700 dark:text-gray-300" x-text="s.is_deployed ? s.uptime : '-'"></span></div>
 
                       <!-- Services (mobile only) -->
-                      <div x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}')" class="flex flex-wrap items-center gap-1 md:hidden" x-data>
+                      <div x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s)" class="flex flex-wrap items-center gap-1 md:hidden" x-data>
                         {{ if .permissionUseVNC }}
                         <!-- VNC -->
                         <div x-data x-show="s.has_http_vnc" x-cloak>
@@ -301,7 +301,7 @@
 
                         <!-- Logs -->
                         {{ if .permissionUseLogs }}
-                        <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}') && s.has_state">
+                        <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_state">
                           <button @click="openLogWindow(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.046.83-1.867 1.866-2.013A24.204 24.204 0 0 1 12 12.75Zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 0 1-1.152 6.06M12 12.75c-2.883 0-5.647.508-8.208 1.44.125 2.104.52 4.136 1.153 6.06M12 12.75a2.25 2.25 0 0 0 2.248-2.354M12 12.75a2.25 2.25 0 0 1-2.248-2.354M12 8.25c.995 0 1.971-.08 2.922-.236.403-.066.74-.358.795-.762a3.778 3.778 0 0 0-.399-2.25M12 8.25c-.995 0-1.97-.08-2.922-.236-.402-.066-.74-.358-.795-.762a3.734 3.734 0 0 1 .4-2.253M12 8.25a2.25 2.25 0 0 0-2.248 2.146M12 8.25a2.25 2.25 0 0 1 2.248 2.146M8.683 5a6.032 6.032 0 0 1-1.155-1.002c.07-.63.27-1.222.574-1.747m.581 2.749A3.75 3.75 0 0 1 15.318 5m0 0c.427-.283.815-.62 1.155-.999a4.471 4.471 0 0 0-.575-1.752M4.921 6a24.048 24.048 0 0 0-.392 3.314c1.668.546 3.416.914 5.223 1.082M19.08 6c.205 1.08.337 2.187.392 3.314a23.882 23.882 0 0 1-5.223 1.082" /></svg>
                             <span class="sr-only">Logs</span>
@@ -316,10 +316,10 @@
 
                 <!-- Services (desktop only) -->
                 <td class="px-4 py-3 hidden md:table-cell">
-                  <div x-show="s.user_id != '{{ .user_id }}' && s.shared_user_id != '{{ .user_id }}'">
+                  <div x-show="!hasSpaceAccessForCurrentUser(s)">
                     -
                   </div>
-                  <div x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}')" class="flex flex-nowrap items-center gap-1" x-data>
+                  <div x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s)" class="flex flex-nowrap items-center gap-1" x-data>
                     <!-- VNC -->
                     {{ if .permissionUseVNC }}
                     <div x-data x-show="s.has_http_vnc" x-cloak>
@@ -404,7 +404,7 @@
 
                     <!-- Logs -->
                     {{ if .permissionUseLogs }}
-                    <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}') && s.has_state">
+                    <div x-data x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_state">
                       <button @click="openLogWindow(s.space_id)" @mouseenter="$refs.tooltip.open" @mouseleave="$refs.tooltip.close" class="cursor-pointer text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6" aria-hidden="true" ><path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75c1.148 0 2.278.08 3.383.237 1.037.146 1.866.966 1.866 2.013 0 3.728-2.35 6.75-5.25 6.75S6.75 18.728 6.75 15c0-1.046.83-1.867 1.866-2.013A24.204 24.204 0 0 1 12 12.75Zm0 0c2.883 0 5.647.508 8.207 1.44a23.91 23.91 0 0 1-1.152 6.06M12 12.75c-2.883 0-5.647.508-8.208 1.44.125 2.104.52 4.136 1.153 6.06M12 12.75a2.25 2.25 0 0 0 2.248-2.354M12 12.75a2.25 2.25 0 0 1-2.248-2.354M12 8.25c.995 0 1.971-.08 2.922-.236.403-.066.74-.358.795-.762a3.778 3.778 0 0 0-.399-2.25M12 8.25c-.995 0-1.97-.08-2.922-.236-.402-.066-.74-.358-.795-.762a3.734 3.734 0 0 1 .4-2.253M12 8.25a2.25 2.25 0 0 0-2.248 2.146M12 8.25a2.25 2.25 0 0 1 2.248 2.146M8.683 5a6.032 6.032 0 0 1-1.155-1.002c.07-.63.27-1.222.574-1.747m.581 2.749A3.75 3.75 0 0 1 15.318 5m0 0c.427-.283.815-.62 1.155-.999a4.471 4.471 0 0 0-.575-1.752M4.921 6a24.048 24.048 0 0 0-.392 3.314c1.668.546 3.416.914 5.223 1.082M19.08 6c.205 1.08.337 2.187.392 3.314a23.882 23.882 0 0 1-5.223 1.082" /></svg>
                         <span class="sr-only">Logs</span>
@@ -430,10 +430,10 @@
 
                 <!-- Share (desktop only) -->
                 <td class="px-4 py-3 hidden 2xl:table-cell text-xs">
-                  <template x-if="s.shared_username != ''">
-                    <span class="inline-block bg-blue-100 text-blue-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-300 border border-blue-300 whitespace-nowrap" x-text="(s.shared_user_id == forUserId ? 'Shared By: ' : 'Shared With: ') + (s.shared_user_id == forUserId ? s.username : s.shared_username)"></span>
+                  <template x-if="firstShareUsername(s) != ''">
+                    <span class="inline-block bg-blue-100 text-blue-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-300 border border-blue-300 whitespace-nowrap" x-text="shareBadgeText(s)"></span>
                   </template>
-                  <template x-if="s.shared_username == ''">
+                  <template x-if="firstShareUsername(s) == ''">
                     <div class="text-gray-500 dark:text-gray-400">-</div>
                   </template>
                 </td>
@@ -500,7 +500,7 @@
                       </button>
 
                       {{ if .permissionUseSSH }}
-                      <button x-show="s.is_local && s.is_deployed && !s.is_pending && (s.user_id == '{{ .user_id }}' || s.shared_user_id == '{{ .user_id }}') && s.has_ssh" @click="$refs.panel2.toggle" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <button x-show="s.is_local && s.is_deployed && !s.is_pending && hasSpaceAccessForCurrentUser(s) && s.has_ssh" @click="$refs.panel2.toggle" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path fill-rule="evenodd" d="M2.25 6a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V6Zm3.97.97a.75.75 0 0 1 1.06 0l2.25 2.25a.75.75 0 0 1 0 1.06l-2.25 2.25a.75.75 0 0 1-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 0 1 0-1.06Zm4.28 4.28a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clip-rule="evenodd" />
                         </svg> SSH Info
@@ -508,13 +508,13 @@
                       {{ end }}
 
                       {{ if and .permissionShareSpaces (not .isLeafNode) }}
-                      <button x-cloak x-show="s.shared_user_id == '' && s.is_local" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <button x-cloak x-show="!hasShare(s) && s.is_local" @click="$refs.panel.close; chooseUser.show = true; chooseUser.isShare = true; chooseUser.invalidUser = false; chooseUser.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                         </svg> Share
                       </button>
                       {{ end }}
-                      <button x-show="s.shared_user_id != '' && s.is_local" @click="$refs.panel.close; ceaseShareConfirm.show = true; ceaseShareConfirm.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <button x-show="hasShare(s) && s.is_local" @click="$refs.panel.close; ceaseShareConfirm.show = true; ceaseShareConfirm.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
                         </svg> Stop Sharing
@@ -725,8 +725,8 @@
           <!-- Dialog Body -->
           <div class="ui-modal-body text-center">
             <p>Are you sure you want to stop sharing the space <strong x-text="ceaseShareConfirm.space.name"></strong>?</p>
-            <p x-cloak x-show="ceaseShareConfirm.space.shared_user_id != forUserId">Stopping sharing the space will revoke access for the user the space is currently shared with.</p>
-            <p x-cloak x-show="ceaseShareConfirm.space.shared_user_id == forUserId">You will no longer be able to access the space without requesting access from the owner of the space.</p>
+            <p x-cloak x-show="firstShareUserId(ceaseShareConfirm.space) != forUserId">Stopping sharing the space will revoke access for the user the space is currently shared with.</p>
+            <p x-cloak x-show="firstShareUserId(ceaseShareConfirm.space) == forUserId">You will no longer be able to access the space without requesting access from the owner of the space.</p>
           </div>
           <!-- Dialog Footer -->
           <div class="ui-modal-footer">
