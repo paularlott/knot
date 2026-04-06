@@ -15,6 +15,7 @@ const formulaTemplate = `class Knot < Formula
 	homepage "https://getknot.dev"
 	license "Apache-2.0"
 	version "{{ .Version }}"
+  conflicts_with "knot-pro", because: "knot-pro is a commercial version of knot and cannot be installed alongside the open-source version"
 	if OS.mac?
 		if Hardware::CPU.arm?
 			url "https://github.com/paularlott/knot/releases/download/v#{version}/knot_darwin_arm64.zip"
