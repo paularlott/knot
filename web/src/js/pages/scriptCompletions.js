@@ -832,8 +832,8 @@ const scriptLibraries = [
           'Client(base_url, provider="openai", api_key="", max_tokens=0, temperature=0, top_p=0, remote_servers=[])',
         description:
           "Create a new AI client instance for making API calls to supported services",
-        returns: "AIClient - A client instance",
-        returnType: "AIClient",
+        returns: "OpenAIClient - A client instance",
+        returnType: "OpenAIClient",
       },
       {
         name: "extract_thinking",
@@ -855,10 +855,50 @@ const scriptLibraries = [
         description: "Get thinking blocks from completion response",
         returns: "list - List of thinking block strings",
       },
+      {
+        name: "tool_calls",
+        signature: "tool_calls(response_or_message)",
+        description:
+          "Extract normalized tool calls from a completion response, message dict, or tool call list",
+        returns:
+          "list[dict] - List of tool call dicts with id, name, arguments",
+      },
+      {
+        name: "execute_tool_calls",
+        signature: "execute_tool_calls(registry, tool_calls)",
+        description:
+          "Execute normalized tool calls using handlers from a ToolRegistry",
+        returns: "list - List of tool results",
+      },
+      {
+        name: "collect_stream",
+        signature:
+          "collect_stream(stream, *, chunk_timeout_ms=None, first_chunk_timeout_ms=None, on_event=None)",
+        description:
+          "Consume a ChatStream and aggregate content, reasoning, tool calls, and finish status",
+        returns:
+          "dict - Aggregated result with content, reasoning, tool_calls, finished",
+      },
+      {
+        name: "tool_round",
+        signature:
+          "tool_round(client, model, messages, registry, *, stream=False, chunk_timeout_ms=None, on_event=None, system_prompt=None, temperature=None, top_p=None, max_tokens=None, timeout_ms=None)",
+        description:
+          "Run one tool-enabled completion round and return the assistant message, tool calls, and tool results",
+        returns:
+          "dict - Result with message, tool_calls, tool_results",
+      },
+      {
+        name: "estimate_tokens",
+        signature: "estimate_tokens(request, response)",
+        description:
+          "Estimate token counts for request messages and response using character-based heuristic",
+        returns: "tuple - (request_tokens, response_tokens)",
+      },
     ],
     classes: [
       {
-        name: "AIClient",
+        name: "OpenAIClient",
         description: "AI client for multiple provider APIs",
         methods: [
           {
@@ -987,6 +1027,14 @@ const scriptLibraries = [
             description: "Get any error that caused the stream to stop",
             returns: "str or None - Error message, or None if no error",
           },
+          {
+            name: "next_timeout",
+            signature: "next_timeout(timeout_ms)",
+            description:
+              "Get next chunk from stream with timeout. Returns chunk, {timed_out: True}, or None",
+            returns:
+              "dict or null - Next chunk, timed_out dict, or null if complete",
+          },
         ],
       },
     ],
@@ -1002,8 +1050,8 @@ const scriptLibraries = [
         returns: "object - Decoded response",
       },
       {
-        name: "new_client",
-        signature: 'new_client(base_url, namespace="", bearer_token="")',
+        name: "Client",
+        signature: 'Client(base_url, *, namespace="", bearer_token="")',
         description:
           "Create a new MCP client for connecting to a remote MCP server",
         returns: "MCPClient - A client instance",
@@ -1264,14 +1312,16 @@ const scriptLibraries = [
           },
           {
             name: "add_message",
-            signature: "add_message(*args, label='')",
-            description: "Add a message to the panel",
+            signature: 'add_message(*args, label="", role="")',
+            description:
+              "Add a message to the panel. Role can be user, assistant, system, thinking, or tool",
             returns: "None",
           },
           {
             name: "stream_start",
-            signature: "stream_start(label='')",
-            description: "Begin a streaming message in this panel",
+            signature: 'stream_start(label="", role="")',
+            description:
+              "Begin a streaming message in this panel. Role can be user, assistant, system, thinking, or tool",
             returns: "None",
           },
           {
@@ -1807,74 +1857,99 @@ const scriptLibraries = [
       "Agentic AI loop with automatic tool execution (all environments)",
     classes: [
       {
+        name: "Message",
+        description: "Conversation message with content, role, and tool calls",
+        properties: [
+          {
+            name: "content",
+            description: "Message text content",
+          },
+          {
+            name: "role",
+            description: "Message role (user, assistant, system, tool)",
+          },
+          {
+            name: "tool_calls",
+            description: "List of tool call dicts if present",
+          },
+        ],
+      },
+      {
         name: "Agent",
         description: "Agentic AI loop that automatically executes tools",
         methods: [
           {
             name: "trigger",
-            signature: "trigger(message, max_iterations=10)",
-            description: "Start agentic loop with a user message",
-            returns: "AgentResponse - Response with content and tool calls",
+            signature: "trigger(message, *, max_iterations=1)",
+            description:
+              "Start agentic loop with a user message (str or dict). Returns final Message",
+            returns: "Message - Response message with content and tool_calls",
           },
           {
-            name: "add_message",
-            signature: "add_message(role, content)",
-            description: "Add a message to the conversation history",
-            returns: "None",
+            name: "get_messages",
+            signature: "get_messages()",
+            description: "Get the current conversation messages",
+            returns: "list[dict] - Conversation history",
           },
           {
-            name: "reset",
-            signature: "reset()",
-            description: "Reset conversation history",
+            name: "set_messages",
+            signature: "set_messages(messages)",
+            description: "Set the conversation messages",
             returns: "None",
           },
-        ],
-      },
-    ],
-    functions: [
-      {
-        name: "Agent",
-        signature:
-          "Agent(client, model, tools=None, system_prompt='', history=[])",
-        description: "Create an agentic AI loop with automatic tool execution",
-        returns: "Agent - Agent instance",
-        returnType: "Agent",
-      },
-    ],
-  },
-  {
-    module: "scriptling.ai.agent.interact",
-    description:
-      "Interactive CLI agent with colored output (Local environment only)",
-    functions: [
-      {
-        name: "Agent",
-        signature:
-          "Agent(client, model, tools=None, system_prompt='', history=[])",
-        description:
-          "Create an interactive CLI agent with colored terminal output",
-        returns: "InteractAgent - Interactive agent instance",
-        returnType: "InteractAgent",
-      },
-    ],
-    classes: [
-      {
-        name: "InteractAgent",
-        description: "Interactive CLI agent with colored output",
-        methods: [
           {
             name: "interact",
-            signature: "interact()",
-            description: "Start interactive CLI session",
+            signature: "interact(max_iterations=25)",
+            description:
+              "Start an interactive terminal session using the TUI console",
             returns: "None",
           },
+        ],
+        properties: [
           {
-            name: "trigger",
-            signature: "trigger(message, max_iterations=10)",
-            description: "Trigger a single agentic loop",
-            returns: "AgentResponse - Response with content and tool calls",
+            name: "client",
+            description: "OpenAIClient instance",
+          },
+          {
+            name: "tools",
+            description: "Optional ToolRegistry",
+          },
+          {
+            name: "system_prompt",
+            description: "System prompt string",
+          },
+          {
+            name: "model",
+            description: "Model name string",
+          },
+          {
+            name: "messages",
+            description: "Conversation history list",
+          },
+          {
+            name: "memory",
+            description: "Optional MemoryStore for persistent memory",
+          },
+          {
+            name: "max_tokens",
+            description: "Maximum token budget (default 32000)",
+          },
+          {
+            name: "compaction_threshold",
+            description: "Percentage of max_tokens for auto-compaction (default 80)",
           },
         ],
+      },
+    ],
+    functions: [
+      {
+        name: "Agent",
+        signature:
+          "Agent(client, *, tools=None, system_prompt='', model='', memory=None, max_tokens=32000, compaction_threshold=80)",
+        description:
+          "Create an agentic AI loop with automatic tool execution and optional memory",
+        returns: "Agent - Agent instance",
+        returnType: "Agent",
       },
     ],
   },
@@ -1963,11 +2038,11 @@ const scriptLibraries = [
     description: "AI tools registry for building tool schemas (all environments)",
     functions: [
       {
-        name: "ToolRegistry",
-        signature: "ToolRegistry()",
+        name: "Registry",
+        signature: "Registry()",
         description: "Create a new tool registry for building AI tool schemas",
-        returns: "ToolRegistry - Tool registry instance",
-        returnType: "ToolRegistry",
+        returns: "Registry - Tool registry instance",
+        returnType: "Registry",
       },
     ],
   },
@@ -1978,9 +2053,31 @@ const scriptLibraries = [
     functions: [
       {
         name: "background",
-        signature: "background(func, *args, **kwargs)",
-        description: "Run a function in the background",
-        returns: "None",
+        signature: "background(name, handler, *args, **kwargs)",
+        description:
+          "Run a named handler function in the background. Handler is a 'library.function' string",
+        returns: "Promise or None - Promise for tracking completion, or None on error",
+        returnType: "Promise",
+      },
+    ],
+    classes: [
+      {
+        name: "Promise",
+        description: "Result from background task execution",
+        methods: [
+          {
+            name: "get",
+            signature: "get()",
+            description: "Wait for and return result",
+            returns: "any - Function return value",
+          },
+          {
+            name: "wait",
+            signature: "wait()",
+            description: "Wait for completion",
+            returns: "None",
+          },
+        ],
       },
     ],
   },
@@ -4535,17 +4632,17 @@ const variableTypes = new Map();
 
 /**
  * Patterns to detect variable assignments with known types
- * e.g., "client = sl.ai.new_client(...)" -> client is OpenAIClient
+ * e.g., "client = sl.ai.Client(...)" -> client is OpenAIClient
  */
 const typePatterns = [
-  // scriptling.ai.new_client returns OpenAIClient
+  // scriptling.ai.Client returns OpenAIClient
   {
-    regex: /(\w+)\s*=\s*scriptling\.ai\.new_client\s*\(/,
+    regex: /(\w+)\s*=\s*scriptling\.ai\.Client\s*\(/,
     type: "OpenAIClient",
   },
-  // scriptling.mcp.new_client returns MCPClient
+  // scriptling.mcp.Client returns MCPClient
   {
-    regex: /(\w+)\s*=\s*scriptling\.mcp\.new_client\s*\(/,
+    regex: /(\w+)\s*=\s*scriptling\.mcp\.Client\s*\(/,
     type: "MCPClient",
   },
   // sl.ai.completion_stream returns ChatStream
@@ -4567,6 +4664,16 @@ const typePatterns = [
   {
     regex: /(\w+)\s*=\s*scriptling\.runtime\.sandbox\.create\s*\(/,
     type: "Sandbox",
+  },
+  // scriptling.ai.agent.Agent returns Agent
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?ai\.agent\.Agent\s*\(/,
+    type: "Agent",
+  },
+  // scriptling.runtime.background returns Promise
+  {
+    regex: /(\w+)\s*=\s*(scriptling\.)?runtime\.background\s*\(/,
+    type: "Promise",
   },
   // requests.get/post/put/delete/patch returns Response
   {
