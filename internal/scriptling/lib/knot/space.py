@@ -55,7 +55,7 @@ def get(name):
         - template_name: Template name
         - user_id: Owner user ID
         - username: Owner username
-        - shares: List of share dicts with user_id, username, permission
+        - shares: List of shared user IDs
         - shell: Default shell
         - platform: Platform (e.g., "linux/amd64")
         - zone: Zone name
@@ -303,7 +303,7 @@ def transfer(name, user_id):
     Raises:
         Exception if not configured or on API error
     """
-    body = {"user_id": user_id}
+    body = {"shares": [user_id]}
     api.post(f"/api/spaces/{name}/transfer", body)
     return True
 

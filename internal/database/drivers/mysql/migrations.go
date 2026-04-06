@@ -11,7 +11,7 @@ var migrations = []string{
 	// 3: add multi-share storage to spaces
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS shares JSON NOT NULL DEFAULT '[]'`,
 	// 4: migrate legacy single-share values into shares json
-	`UPDATE spaces SET shares = JSON_ARRAY(JSON_OBJECT('user_id', shared_with_user_id, 'permission', 'full')) WHERE shared_with_user_id <> '' AND JSON_LENGTH(shares) = 0`,
+	`UPDATE spaces SET shares = JSON_ARRAY(shared_with_user_id) WHERE shared_with_user_id <> '' AND JSON_LENGTH(shares) = 0`,
 	// 5: drop legacy single-share index
 	`ALTER TABLE spaces DROP INDEX shared_with_user_id`,
 	// 6: drop legacy single-share column

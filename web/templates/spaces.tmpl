@@ -37,7 +37,7 @@
 
           <div x-show="canManageSpaces && !showingSpecificUser" x-cloak class="mb-4">
             <div x-data="autocompleterUser()" x-init="setDataSource('forUsersList')" data-parent-group="" data-parent-variable="forUserId" data-on-change="userChagned" @refresh-user-autocompleter.window="refresh()" class="relative" @user-selected="userChanged">
-              <input x-model="search" class="form-field" type="search" placeholder="Search..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" />
+              <input x-model="search" class="form-field" type="search" placeholder="Search for user..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" />
               <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                 <ul class="list-none" role="listbox" :id="_listboxId">
                   <template x-for="(option, index) in filteredOptions" :key="index">
@@ -181,7 +181,7 @@
                       </div>
 
                       <div class="2xl:hidden">
-                        <template x-if="firstShareUsername(s) != ''">
+                        <template x-if="hasShare(s)">
                           <span class="mt-2 text-xs inline-block bg-blue-100 text-blue-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-300 border border-blue-300 whitespace-nowrap" x-text="shareBadgeText(s)"></span>
                         </template>
                       </div>
@@ -430,10 +430,10 @@
 
                 <!-- Share (desktop only) -->
                 <td class="px-4 py-3 hidden 2xl:table-cell text-xs">
-                  <template x-if="firstShareUsername(s) != ''">
+                  <template x-if="hasShare(s)">
                     <span class="inline-block bg-blue-100 text-blue-800 font-medium px-2 py-0.5 rounded-sm dark:bg-gray-700 dark:text-blue-300 border border-blue-300 whitespace-nowrap" x-text="shareBadgeText(s)"></span>
                   </template>
-                  <template x-if="firstShareUsername(s) == ''">
+                  <template x-if="!hasShare(s)">
                     <div class="text-gray-500 dark:text-gray-400">-</div>
                   </template>
                 </td>
@@ -514,10 +514,10 @@
                         </svg> Share
                       </button>
                       {{ end }}
-                      <button x-show="hasShare(s) && s.is_local" @click="$refs.panel.close; ceaseShareConfirm.show = true; ceaseShareConfirm.space = s" class="group nav-item text-sm px-4 w-full" role="menuitem">
+                      <button x-show="hasShare(s) && s.is_local" @click="$refs.panel.close; openCeaseShareConfirm(s)" class="group nav-item text-sm px-4 w-full" role="menuitem">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true" >
                           <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
-                        </svg> Stop Sharing
+                        </svg><span x-text="s.user_id === '{{ .user_id }}' ? 'Stop Sharing' : 'Leave Share'"></span>
                       </button>
 
                       <hr x-show="(s.is_deployed || s.is_pending) && s.platform != 'manual'" class="my-2" role="separator" />
@@ -636,7 +636,7 @@
             <p x-cloak x-show="!chooseUser.isShare">Select the user to transfer the space to.</p>
             <p x-cloak x-show="chooseUser.isShare">Select the user to share the space with.</p>
             <div x-data="autocompleterUser()" x-init="setDataSource('shareUsers')" data-parent-var-group="chooseUser" data-parent-variable="toUserId" data-parent-variable-username="toUserUsername" @refresh-autocompleter.window="refresh()" class="relative mt-2">
-              <input x-model="search" class="form-field" type="search" placeholder="Search..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
+              <input x-model="search" class="form-field" type="search" placeholder="Search for user..." aria-label="Search users" role="combobox" :aria-expanded="showList && filteredOptions.length > 0" :aria-activedescendant="activeDescendant" :aria-controls="_listboxId" @focus="handleFocus()" @blur.debounce.200ms="showList = false" @keydown="handleKeydown($event)" x-ref="searchInput" x-init="$nextTick(() => $refs.searchInput.focus())" autofocus>
               <div x-show="showList && filteredOptions.length" x-cloak class="w-full max-h-40 overflow-auto absolute z-50 my-1 text-base p-2 list-none bg-white divide-y divide-gray-100 rounded-lg shadow-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:divide-gray-600 block whitespace-nowrap">
                 <ul class="list-none" role="listbox" :id="_listboxId">
                   <template x-for="(option, index) in filteredOptions" :key="index">
@@ -715,7 +715,7 @@
                 <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8.28 7.22a.75.75 0 0 0-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L10 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L11.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L10 8.94 8.28 7.22Z" clip-rule="evenodd" />
               </svg>
             </div>
-            <h3 id="ceaseShareTitle" class="ui-modal-title">Stop Sharing</h3>
+            <h3 id="ceaseShareTitle" class="ui-modal-title" x-text="ceaseShareConfirm.space.user_id == '{{ .user_id }}' ? 'Stop Sharing' : 'Leave Share'"></h3>
             <button @click="ceaseShareConfirm.show = false" aria-label="close modal" class="ui-modal-close">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -724,14 +724,15 @@
           </div>
           <!-- Dialog Body -->
           <div class="ui-modal-body text-center">
-            <p>Are you sure you want to stop sharing the space <strong x-text="ceaseShareConfirm.space.name"></strong>?</p>
-            <p x-cloak x-show="firstShareUserId(ceaseShareConfirm.space) != forUserId">Stopping sharing the space will revoke access for the user the space is currently shared with.</p>
-            <p x-cloak x-show="firstShareUserId(ceaseShareConfirm.space) == forUserId">You will no longer be able to access the space without requesting access from the owner of the space.</p>
+            <p x-show="ceaseShareConfirm.space.user_id == '{{ .user_id }}'">Are you sure you want to stop sharing the space <strong x-text="ceaseShareConfirm.space.name"></strong>?</p>
+            <p x-show="ceaseShareConfirm.space.user_id != '{{ .user_id }}'">Are you sure you want to leave the shared space <strong x-text="ceaseShareConfirm.space.name"></strong>?</p>
+            <p x-cloak x-show="ceaseShareConfirm.space.user_id != '{{ .user_id }}'">You will no longer be able to access the space without requesting access from the owner of the space.</p>
+            <p x-cloak x-show="ceaseShareConfirm.space.user_id == '{{ .user_id }}'">Stopping sharing the space will revoke access for everyone the space is currently shared with.</p>
           </div>
           <!-- Dialog Footer -->
           <div class="ui-modal-footer">
-              <button @click="ceaseShareConfirm.show = false" type="button" class="ui-button-secondary">Keep Share</button>
-              <button @click="ceaseSharing(ceaseShareConfirm.space.space_id); ceaseShareConfirm.show = false" type="button" class="ui-button-danger">Stop Sharing</button>
+              <button @click="ceaseShareConfirm.show = false" type="button" class="ui-button-secondary" x-text="ceaseShareConfirm.space.user_id == '{{ .user_id }}' ? 'Keep Share' : 'Keep Access'"></button>
+              <button @click="ceaseSharing(ceaseShareConfirm.space.space_id, ceaseShareConfirm.targetUserId); ceaseShareConfirm.show = false" type="button" class="ui-button-danger" x-text="ceaseShareConfirm.space.user_id == '{{ .user_id }}' ? 'Stop Sharing' : 'Leave Share'"></button>
           </div>
         </div>
       </div>

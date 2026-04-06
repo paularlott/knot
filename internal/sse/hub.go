@@ -50,10 +50,10 @@ type Event struct {
 
 // ResourcePayload contains data for resource-specific events
 type ResourcePayload struct {
-	Id               string `json:"id"`
-	UserId           string `json:"user_id,omitempty"`
-	SharedWithUserId string `json:"shared_with_user_id,omitempty"`
-	PreviousUserId   string `json:"previous_user_id,omitempty"`
+	Id                string   `json:"id"`
+	UserId            string   `json:"user_id,omitempty"`
+	SharedWithUserIds []string `json:"shared_with_user_ids,omitempty"`
+	PreviousUserIds   []string `json:"previous_user_ids,omitempty"`
 }
 
 // Client represents a connected SSE client

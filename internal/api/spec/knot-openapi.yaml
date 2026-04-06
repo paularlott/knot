@@ -1617,7 +1617,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SpaceTransferRequest"
+              $ref: "#/components/schemas/SpaceShareUpdateRequest"
       responses:
         "200":
           description: Successful operation
@@ -1650,6 +1650,12 @@ paths:
           schema:
             type: string
             description: The ID or name of the space to cease sharing.
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: string
+            description: Optional shared user ID, username, or email to remove. If omitted, owners stop all sharing and recipients leave their own share.
       responses:
         "200":
           description: Successful operation
@@ -3787,7 +3793,8 @@ components:
           type: array
           description: The users the space is shared with.
           items:
-            $ref: "#/components/schemas/SpaceShare"
+            type: string
+            description: The UUID of a shared user.
         has_code_server:
           type: boolean
           description: If the space has a running code server.
@@ -3866,30 +3873,6 @@ components:
           maxLength: 256
           description: The value for the field.
 
-    SpaceShare:
-      type: object
-      properties:
-        user_id:
-          type: string
-          format: uuid
-          description: The UUID of the shared user.
-        username:
-          type: string
-          description: The resolved username of the shared user when available.
-        permission:
-          type: string
-          description: The share permission level.
-
-    SpaceShareRequest:
-      type: object
-      properties:
-        user_id:
-          type: string
-          description: The username, email address, or UUID of the shared user.
-        permission:
-          type: string
-          description: The share permission level.
-
     SpaceRequest:
       type: object
       properties:
@@ -3966,7 +3949,8 @@ components:
           type: array
           description: The users the space is shared with.
           items:
-            $ref: "#/components/schemas/SpaceShare"
+            type: string
+            description: The UUID of a shared user.
         name:
           type: string
           description: The name of the space.
@@ -5025,14 +5009,12 @@ components:
     SpaceShareUpdateRequest:
       type: object
       properties:
-        user_id:
-          type: string
-          description: Legacy single-share field. Prefer shares for new clients.
         shares:
           type: array
           description: The users to share the space with. Core currently allows one share entry.
           items:
-            $ref: "#/components/schemas/SpaceShareRequest"
+            type: string
+            description: The username, email address, or UUID of the shared user.
 
     SetCustomFieldRequest:
       type: object

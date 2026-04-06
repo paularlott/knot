@@ -198,7 +198,7 @@ func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
 
 func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
 	var spaces []*model.Space
-	err := db.read("spaces", &spaces, nil, "(user_id = ? OR JSON_SEARCH(shares, 'one', ?, NULL, '$[*].user_id') IS NOT NULL) AND parent_space_id = '' ORDER BY name ASC", userId, userId)
+	err := db.read("spaces", &spaces, nil, "(user_id = ? OR JSON_SEARCH(shares, 'one', ?, NULL, '$[*]') IS NOT NULL) AND parent_space_id = '' ORDER BY name ASC", userId, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
 
 func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.Space, error) {
 	var spaces []model.Space
-	err := db.read("spaces", &spaces, nil, "(user_id = ? OR JSON_SEARCH(shares, 'one', ?, NULL, '$[*].user_id') IS NOT NULL) AND name = ? ORDER BY CASE WHEN user_id = ? THEN 0 ELSE 1 END ASC LIMIT 1", userId, userId, spaceName, userId)
+	err := db.read("spaces", &spaces, nil, "(user_id = ? OR JSON_SEARCH(shares, 'one', ?, NULL, '$[*]') IS NOT NULL) AND name = ? ORDER BY CASE WHEN user_id = ? THEN 0 ELSE 1 END ASC LIMIT 1", userId, userId, spaceName, userId)
 	if err != nil {
 		return nil, err
 	}

@@ -49,6 +49,7 @@ window.spacesListComponent = function (
     },
     ceaseShareConfirm: {
       show: false,
+      targetUserId: "",
       space: {
         space_id: "",
         name: "",
@@ -124,37 +125,42 @@ window.spacesListComponent = function (
       forUserId: "",
       forUserUsername: "",
     },
-    firstShare(space) {
-      return Array.isArray(space?.shares) && space.shares.length
-        ? space.shares[0]
-        : null;
-    },
-    firstShareUserId(space) {
-      return this.firstShare(space)?.user_id || "";
-    },
-    firstShareUsername(space) {
-      return this.firstShare(space)?.username || "";
-    },
-    isSharedWithViewer(space) {
-      return this.firstShareUserId(space) === this.forUserId;
-    },
-    hasShare(space) {
-      return this.firstShare(space) !== null;
-    },
-    hasSpaceAccessForCurrentUser(space) {
-      return (
-        space.user_id === userId ||
-        this.firstShareUserId(space) === userId
+    shareUserIds(space) {
+      if (!Array.isArray(space?.shares)) {
+        return [];
+      }
+
+      return space.shares.filter(
+        (shareUserId) => typeof shareUserId === "string" && shareUserId.length,
       );
     },
+    firstShareUserId(space) {
+      return this.shareUserIds(space)[0] || "";
+    },
+    isSharedWithViewer(space) {
+      return this.shareUserIds(space).includes(this.forUserId);
+    },
+    isSharedWithCurrentUser(space) {
+      return this.shareUserIds(space).includes(userId);
+    },
+    hasShare(space) {
+      return this.shareUserIds(space).length > 0;
+    },
+    hasSpaceAccessForCurrentUser(space) {
+      return space.user_id === userId || this.isSharedWithCurrentUser(space);
+    },
     shareBadgeText(space) {
-      const sharedUsername = this.firstShareUsername(space);
-      if (!sharedUsername) {
+      const shareCount = this.shareUserIds(space).length;
+      if (!shareCount) {
         return "";
       }
-      return this.isSharedWithViewer(space)
-        ? `Shared By: ${space.username}`
-        : `Shared With: ${sharedUsername}`;
+      if (this.isSharedWithCurrentUser(space)) {
+        return `Shared By: ${space.username}`;
+      }
+      if (shareCount === 1) {
+        return "Shared";
+      }
+      return `Shared (${shareCount})`;
     },
 
     async init() {
@@ -202,21 +208,28 @@ window.spacesListComponent = function (
       // Subscribe to SSE for real-time updates
       if (window.sseClient) {
         window.sseClient.subscribe("space:changed", (payload) => {
-          // Check if space was unshared or transferred away from the user we're viewing
-          if (
+          const sharedWithUserIds = payload?.shared_with_user_ids || [];
+          const previousUserIds = payload?.previous_user_ids || [];
+          const removedFromCurrentView =
             this.forUserId !== "" &&
-            this.forUserId === payload?.previous_user_id
-          ) {
+            previousUserIds.includes(this.forUserId) &&
+            !sharedWithUserIds.includes(this.forUserId) &&
+            payload?.user_id !== this.forUserId;
+
+          // Check if space was unshared or transferred away from the user we're viewing
+          if (removedFromCurrentView) {
             // Remove the space from the list
             this.spaces = this.spaces.filter((s) => s.space_id !== payload?.id);
             this.searchChanged();
+            return;
           }
           // Check if we should fetch/update the space
           if (
             this.forUserId === "" ||
             this.forUserId === payload?.user_id ||
             payload?.user_id === userId ||
-            this.forUserId === payload?.shared_with_user_id
+            sharedWithUserIds.includes(this.forUserId) ||
+            previousUserIds.includes(this.forUserId)
           ) {
             this.debouncedGetSpaces(payload?.id);
           }
@@ -548,9 +561,21 @@ window.spacesListComponent = function (
           });
         });
     },
-    async ceaseSharing(spaceId) {
+    openCeaseShareConfirm(space, targetUserId = "") {
+      if (!targetUserId && space?.user_id !== userId) {
+        targetUserId = userId;
+      }
+      this.ceaseShareConfirm.show = true;
+      this.ceaseShareConfirm.space = space;
+      this.ceaseShareConfirm.targetUserId = targetUserId;
+    },
+    async ceaseSharing(spaceId, shareUserId = "") {
       const self = this;
-      await fetch(`/api/spaces/${spaceId}/share`, {
+      const query = shareUserId
+        ? `?user_id=${encodeURIComponent(shareUserId)}`
+        : "";
+
+      await fetch(`/api/spaces/${spaceId}/share${query}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -558,15 +583,36 @@ window.spacesListComponent = function (
       })
         .then((response) => {
           if (response.status === 200) {
+            const leavingOwnShare =
+              self.ceaseShareConfirm.space?.user_id !== userId &&
+              (!shareUserId || shareUserId === userId);
+
+            if (leavingOwnShare) {
+              self.spaces = self.spaces.filter((s) => s.space_id !== spaceId);
+              self.searchChanged();
+            } else {
+              self.getSpaces(spaceId);
+            }
+
             self.$dispatch("show-alert", {
               msg: "Sharing of Space Stopped",
               type: "success",
             });
           } else {
-            self.$dispatch("show-alert", {
-              msg: "Could not stop sharing of space",
-              type: "error",
-            });
+            response
+              .json()
+              .then((data) => {
+                self.$dispatch("show-alert", {
+                  msg: `Could not stop sharing of space: ${data.error}`,
+                  type: "error",
+                });
+              })
+              .catch(() => {
+                self.$dispatch("show-alert", {
+                  msg: "Could not stop sharing of space",
+                  type: "error",
+                });
+              });
           }
         })
         .catch((error) => {
@@ -679,9 +725,7 @@ window.spacesListComponent = function (
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            shares: self.chooseUser.isShare
-              ? [{ user_id: this.chooseUser.toUserId, permission: "full" }]
-              : undefined,
+            shares: self.chooseUser.isShare ? [this.chooseUser.toUserId] : undefined,
             user_id: this.chooseUser.toUserId,
           }),
         },

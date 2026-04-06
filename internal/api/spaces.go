@@ -240,6 +240,27 @@ func removeBlankAndDuplicates(names []string, primary string) []string {
 	return newNames
 }
 
+func resolveSpaceShareUserID(db database.DbDriver, requestedUserId string) (string, error) {
+	if validate.UUID(requestedUserId) {
+		return requestedUserId, nil
+	}
+
+	if strings.Contains(requestedUserId, "@") {
+		targetUser, err := db.GetUserByEmail(requestedUserId)
+		if err != nil || targetUser == nil {
+			return "", fmt.Errorf("user '%s' not found", requestedUserId)
+		}
+		return targetUser.Id, nil
+	}
+
+	targetUser, err := db.GetUserByUsername(requestedUserId)
+	if err != nil || targetUser == nil {
+		return "", fmt.Errorf("user '%s' not found", requestedUserId)
+	}
+
+	return targetUser.Id, nil
+}
+
 func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	request := apiclient.SpaceRequest{}
 	user := r.Context().Value("user").(*model.User)
@@ -856,7 +877,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
 
-	request := apiclient.SpaceShareUpdateRequest{}
+	request := apiclient.SpaceTransferRequest{}
 	err = rest.DecodeRequestBody(w, r, &request)
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceTransfer:")
@@ -864,48 +885,18 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestedShares := request.Shares
-	if len(requestedShares) == 0 && request.UserId != "" {
-		requestedShares = []apiclient.SpaceShareRequest{{
-			UserId:     request.UserId,
-			Permission: "full",
-		}}
-	}
-	if len(requestedShares) == 0 {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "at least one share is required"})
+	if request.UserId == "" {
+		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "user_id is required"})
 		return
-	}
-	if len(requestedShares) > 1 {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "multiple shares require pro"})
-		return
-	}
-	if requestedShares[0].Permission == "" {
-		requestedShares[0].Permission = "full"
 	}
 
 	db := database.GetInstance()
 
 	// Resolve user_id to UUID (supports UUID, username, or email)
-	var targetUserId string
-	requestedUserId := requestedShares[0].UserId
-	if validate.UUID(requestedUserId) {
-		targetUserId = requestedUserId
-	} else if strings.Contains(requestedUserId, "@") {
-		// Lookup by email
-		targetUser, err := db.GetUserByEmail(requestedUserId)
-		if err != nil || targetUser == nil {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", requestedUserId)})
-			return
-		}
-		targetUserId = targetUser.Id
-	} else {
-		// Lookup by username
-		targetUser, err := db.GetUserByUsername(requestedUserId)
-		if err != nil || targetUser == nil {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", requestedUserId)})
-			return
-		}
-		targetUserId = targetUser.Id
+	targetUserId, err := resolveSpaceShareUserID(db, request.UserId)
+	if err != nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	// Support lookup by both ID and name
@@ -1040,7 +1031,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		service.GetTransport().GossipSpace(space)
 
 		// Publish SSE event with both old and new user IDs
-		sse.PublishSpaceChanged(space.Id, space.UserId, "", user.Id)
+		sse.PublishSpaceChangedWithShares(space.Id, space.UserId, nil, []string{user.Id})
 
 		audit.Log(
 			user.Username,
@@ -1078,48 +1069,23 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestedShares := request.Shares
-	if len(requestedShares) == 0 && request.UserId != "" {
-		requestedShares = []apiclient.SpaceShareRequest{{
-			UserId:     request.UserId,
-			Permission: "full",
-		}}
-	}
-	if len(requestedShares) == 0 {
+	if len(request.Shares) == 0 {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "at least one share is required"})
 		return
 	}
-	if len(requestedShares) > 1 {
+	if len(request.Shares) > 1 {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "multiple shares require pro"})
 		return
-	}
-	if requestedShares[0].Permission == "" {
-		requestedShares[0].Permission = "full"
 	}
 
 	db := database.GetInstance()
 
 	// Resolve user_id to UUID (supports UUID, username, or email)
-	var targetUserId string
-	requestedUserId := requestedShares[0].UserId
-	if validate.UUID(requestedUserId) {
-		targetUserId = requestedUserId
-	} else if strings.Contains(requestedUserId, "@") {
-		// Lookup by email
-		targetUser, err := db.GetUserByEmail(requestedUserId)
-		if err != nil || targetUser == nil {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", requestedUserId)})
-			return
-		}
-		targetUserId = targetUser.Id
-	} else {
-		// Lookup by username
-		targetUser, err := db.GetUserByUsername(requestedUserId)
-		if err != nil || targetUser == nil {
-			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: fmt.Sprintf("user '%s' not found", requestedUserId)})
-			return
-		}
-		targetUserId = targetUser.Id
+	requestedUserId := request.Shares[0]
+	targetUserId, err := resolveSpaceShareUserID(db, requestedUserId)
+	if err != nil {
+		rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+		return
 	}
 
 	// Support lookup by both ID and name
@@ -1177,7 +1143,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	// Share the space
 	space.SetSingleShare(newUser.Id)
 	space.UpdatedAt = hlc.Now()
-	err = db.SaveSpace(space, []string{"Shares", "UpdatedAt"})
+	err = db.SaveSpace(space, []string{"Shares", "SharedWithUserId", "UpdatedAt"})
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceAddShare:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -1188,7 +1154,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	service.GetUserService().UpdateSpaceSSHKeys(space, user)
 
 	// Publish SSE event for both owner and shared user
-	sse.PublishSpaceChanged(space.Id, space.UserId, space.SharedWithUserId)
+	sse.PublishSpaceChangedWithShares(space.Id, space.UserId, space.SharedUserIds(), nil)
 
 	audit.Log(
 		user.Username,
@@ -1214,6 +1180,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 
 	user := r.Context().Value("user").(*model.User)
 	spaceId := r.PathValue("space_id")
+	targetUserId := r.URL.Query().Get("user_id")
 
 	db := database.GetInstance()
 
@@ -1248,13 +1215,43 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store the previously shared user ID before clearing
-	previousSharedUserId := space.SharedWithUserId
+	previousSharedUserIds := space.SharedUserIds()
+	if targetUserId == "" {
+		if space.UserId == user.Id {
+			space.SetSingleShare("")
+		} else {
+			targetUserId = user.Id
+		}
+	}
+	if targetUserId != "" {
+		if space.UserId != user.Id && targetUserId != user.Id {
+			rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "cannot remove another user's share"})
+			return
+		}
+		if targetUserId != user.Id {
+			targetUserId, err = resolveSpaceShareUserID(db, targetUserId)
+			if err != nil {
+				rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: err.Error()})
+				return
+			}
+		}
+		if !space.IsSharedWith(targetUserId) {
+			rest.WriteResponse(http.StatusNotFound, w, r, ErrorResponse{Error: "share not found"})
+			return
+		}
+		remainingShares := make([]string, 0, len(space.Shares))
+		for _, shareUserId := range space.SharedUserIds() {
+			if shareUserId != targetUserId {
+				remainingShares = append(remainingShares, shareUserId)
+			}
+		}
+		space.Shares = remainingShares
+		space.SharedWithUserId = ""
+		space.NormalizeShares()
+	}
 
-	// Unshare the space
-	space.SetSingleShare("")
 	space.UpdatedAt = hlc.Now()
-	err = db.SaveSpace(space, []string{"Shares", "UpdatedAt"})
+	err = db.SaveSpace(space, []string{"Shares", "SharedWithUserId", "UpdatedAt"})
 	if err != nil {
 		log.WithError(err).Error("HandleSpaceRemoveShare:")
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
@@ -1264,8 +1261,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipSpace(space)
 	service.GetUserService().UpdateSpaceSSHKeys(space, user)
 
-	// Publish SSE event with previous shared user ID so they can remove it from their list
-	sse.PublishSpaceChanged(space.Id, space.UserId, "", previousSharedUserId)
+	sse.PublishSpaceChangedWithShares(space.Id, space.UserId, space.SharedUserIds(), previousSharedUserIds)
 
 	audit.Log(
 		user.Username,

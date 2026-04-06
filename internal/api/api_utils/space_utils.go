@@ -13,24 +13,11 @@ import (
 	"github.com/paularlott/knot/internal/util/validate"
 )
 
-func BuildAPIShares(space *model.Space) []apiclient.SpaceShare {
-	db := database.GetInstance()
+func BuildAPIShares(space *model.Space) []string {
 	space.NormalizeShares()
 
-	shares := make([]apiclient.SpaceShare, 0, len(space.Shares))
-	for _, share := range space.Shares {
-		apiShare := apiclient.SpaceShare{
-			UserId:     share.UserId,
-			Permission: share.Permission,
-		}
-
-		if user, err := db.GetUser(share.UserId); err == nil && user != nil {
-			apiShare.Username = user.Username
-		}
-
-		shares = append(shares, apiShare)
-	}
-
+	shares := make([]string, len(space.Shares))
+	copy(shares, space.Shares)
 	return shares
 }
 
