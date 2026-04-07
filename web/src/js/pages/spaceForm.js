@@ -14,6 +14,7 @@ window.spaceForm = function (
   forUserId,
   forUserUsername,
   templateId,
+  canSetSpaceDependencies,
 ) {
   return {
     iconList: [],
@@ -32,6 +33,7 @@ window.spaceForm = function (
       name: "",
     },
     dependencyTargetZone: "",
+    canSetSpaceDependencies,
     formData: {
       name: "",
       description: "",
@@ -70,6 +72,12 @@ window.spaceForm = function (
     loadingNodes: false,
 
     async loadDependencyOptions(ownerId) {
+      if (!this.canSetSpaceDependencies) {
+        this.dependencyCatalog = [];
+        this.dependencyOptions = [];
+        return;
+      }
+
       if (!ownerId) {
         this.dependencyCatalog = [];
         this.dependencyOptions = [];
@@ -148,6 +156,9 @@ window.spaceForm = function (
     },
 
     openDependencyModal() {
+      if (!this.canSetSpaceDependencies) {
+        return;
+      }
       this.dependencyModal.show = true;
       this.dependencyModal.selectedId = "";
       this.dependencyModal.selectedName = "";
@@ -184,6 +195,9 @@ window.spaceForm = function (
     },
 
     openRemoveDependencyConfirm(dependency) {
+      if (!this.canSetSpaceDependencies) {
+        return;
+      }
       this.dependencyRemoveConfirm.show = true;
       this.dependencyRemoveConfirm.id = dependency.id;
       this.dependencyRemoveConfirm.name = dependency.name;

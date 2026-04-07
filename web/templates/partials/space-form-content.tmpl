@@ -1,5 +1,5 @@
 {{ define "space-form-content" }}
-<div x-data="spaceForm(spaceFormModal.isEdit, spaceFormModal.spaceId, '{{ .user_id }}', '{{ .preferredShell }}', spaceFormModal.forUserId, spaceFormModal.forUserUsername, spaceFormModal.templateId)" x-init="initData">
+<div x-data="spaceForm(spaceFormModal.isEdit, spaceFormModal.spaceId, '{{ .user_id }}', '{{ .preferredShell }}', spaceFormModal.forUserId, spaceFormModal.forUserUsername, spaceFormModal.templateId, {{ .permissionSetSpaceDependencies }})" x-init="initData">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
     <div>
@@ -109,11 +109,11 @@
         <div class="description">Optional user script to run after system startup script</div>
       </div>
     </div>
-    <div>
+    <div x-show="canSetSpaceDependencies" x-cloak>
       <fieldset class="rounded-lg p-3 border border-gray-200 dark:border-gray-700">
         <legend class="text-md font-medium text-gray-900 dark:text-white">Space Dependencies</legend>
         <div class="flex items-center justify-between gap-4 mb-3">
-          <div class="description">Selected spaces must already be running before this space can start. Knot will not auto-start them.</div>
+          <div class="description">Selected spaces must already be running before this space can start.</div>
           <button type="button" @click="openDependencyModal()" class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg text-sm p-2.5 shrink-0" :disabled="!dependencyOptions.length" aria-label="Add dependency">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true" >
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -170,7 +170,7 @@
       <button type="submit" class="btn-primary" :disabled="loading || saving" x-text="saving ? buttonLabelWorking : (isEdit ? 'Save' : 'Create')"></button>
     </div>
   </form>
-  <div x-cloak x-show="dependencyModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="dependencyModal.show" @keydown.esc.window="closeDependencyModal()" @click.self="closeDependencyModal()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dependencyModalTitle">
+  <div x-cloak x-show="canSetSpaceDependencies && dependencyModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="dependencyModal.show" @keydown.esc.window="closeDependencyModal()" @click.self="closeDependencyModal()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dependencyModalTitle">
     <div x-show="dependencyModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
       <div class="ui-modal-header">
         <div class="ui-modal-icon-info">
@@ -213,7 +213,7 @@
       </div>
     </div>
   </div>
-  <div x-cloak x-show="dependencyRemoveConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="dependencyRemoveConfirm.show" @keydown.esc.window="closeRemoveDependencyConfirm()" @click.self="closeRemoveDependencyConfirm()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dependencyRemoveConfirmTitle">
+  <div x-cloak x-show="canSetSpaceDependencies && dependencyRemoveConfirm.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="dependencyRemoveConfirm.show" @keydown.esc.window="closeRemoveDependencyConfirm()" @click.self="closeRemoveDependencyConfirm()" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dependencyRemoveConfirmTitle">
     <div x-show="dependencyRemoveConfirm.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
       <div class="ui-modal-header">
         <div class="ui-modal-icon-danger">
