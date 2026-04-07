@@ -303,7 +303,7 @@ def transfer(name, user_id):
     Raises:
         Exception if not configured or on API error
     """
-    body = {"shares": [user_id]}
+    body = {"user_id": user_id}
     api.post(f"/api/spaces/{name}/transfer", body)
     return True
 
@@ -321,16 +321,18 @@ def share(name, user_id):
     Raises:
         Exception if not configured or on API error
     """
-    body = {"user_id": user_id}
+    body = {"shares": [user_id]}
     api.post(f"/api/spaces/{name}/share", body)
     return True
 
 
-def unshare(name):
+def unshare(name, user_id=None):
     """Remove a space share.
 
     Args:
         name: Space name or ID
+        user_id: Optional user ID, username, or email to remove sharing for.
+                 If omitted, owners stop all sharing and recipients leave.
 
     Returns:
         True if successful
@@ -338,7 +340,10 @@ def unshare(name):
     Raises:
         Exception if not configured or on API error
     """
-    api.delete(f"/api/spaces/{name}/share")
+    path = f"/api/spaces/{name}/share"
+    if user_id:
+        path += f"?user_id={user_id}"
+    api.delete(path)
     return True
 
 
