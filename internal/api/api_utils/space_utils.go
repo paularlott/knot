@@ -21,6 +21,14 @@ func BuildAPIShares(space *model.Space) []string {
 	return shares
 }
 
+func BuildAPIDependsOn(space *model.Space) []string {
+	space.NormalizeDependsOn()
+
+	dependsOn := make([]string, len(space.DependsOn))
+	copy(dependsOn, space.DependsOn)
+	return dependsOn
+}
+
 // GetSpaceDetails returns detailed space information with permission checks
 func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefinition, error) {
 	if spaceId == "" {
@@ -71,6 +79,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 	}
 
 	shares := BuildAPIShares(space)
+	dependsOn := BuildAPIDependsOn(space)
 
 	// Get agent state
 	cfg := config.GetServerConfig()
@@ -136,6 +145,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		UserId:             space.UserId,
 		TemplateId:         space.TemplateId,
 		Shares:             shares,
+		DependsOn:          dependsOn,
 		Name:               space.Name,
 		Description:        space.Description,
 		Note:               space.Note,

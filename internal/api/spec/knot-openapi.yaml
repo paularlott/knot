@@ -3795,6 +3795,12 @@ components:
           items:
             type: string
             description: The UUID of a shared user.
+        depends_on:
+          type: array
+          description: The IDs of spaces that must already be running before this space can start.
+          items:
+            type: string
+            format: uuid
         has_code_server:
           type: boolean
           description: If the space has a running code server.
@@ -3917,6 +3923,12 @@ components:
           type: string
           format: uuid
           description: The ID of a user script to run after the system startup script.
+        depends_on:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: The IDs of spaces that must already be running before this space can start.
 
     SpaceVolume:
       type: object
@@ -3951,6 +3963,12 @@ components:
           items:
             type: string
             description: The UUID of a shared user.
+        depends_on:
+          type: array
+          description: The IDs of spaces that must already be running before this space can start.
+          items:
+            type: string
+            format: uuid
         name:
           type: string
           description: The name of the space.

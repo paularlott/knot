@@ -35,6 +35,7 @@ func (db *RedisDbDriver) mutexUnlock() error {
 
 func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) error {
 	space.NormalizeShares()
+	space.NormalizeDependsOn()
 
 	// Grab a mutex lock on the redis database, automatically release on function exit
 	err := db.mutexLock()
@@ -135,6 +136,7 @@ func (db *RedisDbDriver) SaveSpace(space *model.Space, updateFields []string) er
 		util.CopyFields(space, existingSpace, updateFields)
 		space = existingSpace
 		space.NormalizeShares()
+		space.NormalizeDependsOn()
 	}
 
 	data, err := json.Marshal(space)
@@ -270,6 +272,7 @@ func (db *RedisDbDriver) GetSpace(id string) (*model.Space, error) {
 		return nil, err
 	}
 	space.NormalizeShares()
+	space.NormalizeDependsOn()
 
 	return space, nil
 }

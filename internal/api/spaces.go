@@ -104,6 +104,7 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		s.UserId = u.Id
 
 		s.Shares = api_utils.BuildAPIShares(space)
+		s.DependsOn = api_utils.BuildAPIDependsOn(space)
 
 		// Get the space state
 		s.IsDeployed = space.IsDeployed
@@ -320,6 +321,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	space := model.NewSpace(request.Name, request.Description, user.Id, request.TemplateId, request.Shell, &request.AltNames, "", request.IconURL, customFields)
 	space.NodeId = nodeId
 	space.StartupScriptId = request.StartupScriptId
+	space.DependsOn = request.DependsOn
 
 	spaceService := service.GetSpaceService()
 	err = spaceService.CreateSpace(space, user)
@@ -461,6 +463,12 @@ func HandleSpaceStart(w http.ResponseWriter, r *http.Request) {
 	// Test if the schedule allows the space to be started
 	if !template.AllowedBySchedule() {
 		rest.WriteResponse(http.StatusServiceUnavailable, w, r, ErrorResponse{Error: "outside of schedule"})
+		return
+	}
+
+	spaceService := service.GetSpaceService()
+	if err := spaceService.ValidateDependenciesRunning(space); err != nil {
+		rest.WriteResponse(http.StatusLocked, w, r, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -647,6 +655,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.IconURL = request.IconURL
 	space.CustomFields = customFields
 	space.StartupScriptId = request.StartupScriptId
+	space.DependsOn = request.DependsOn
 
 	err = spaceService.UpdateSpace(space, user)
 	if err != nil {
@@ -1018,12 +1027,20 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Move the space
+		oldUserId := space.UserId
 		space.Name = name
 		space.UserId = targetUserId
+		space.DependsOn = []string{}
 		space.UpdatedAt = hlc.Now()
-		err = db.SaveSpace(space, []string{"Name", "UserId", "UpdatedAt"})
+		err = db.SaveSpace(space, []string{"Name", "UserId", "DependsOn", "UpdatedAt"})
 		if err != nil {
 			log.WithError(err).Error("HandleSpaceTransfer:")
+			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		if err := service.GetSpaceService().RemoveDependencyReferences(space.Id, oldUserId); err != nil {
+			log.WithError(err).Error("HandleSpaceTransfer: remove dependency references")
 			rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 			return
 		}

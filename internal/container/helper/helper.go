@@ -386,10 +386,16 @@ func (h *Helper) DeleteSpace(space *model.Space) {
 		// Delete the space
 		space.IsDeleted = true
 		space.Name = space.Id
+		space.DependsOn = []string{}
 		space.UpdatedAt = hlc.Now()
-		err = db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt", "Name"})
+		err = db.SaveSpace(space, []string{"IsDeleted", "UpdatedAt", "Name", "DependsOn"})
 		if err != nil {
 			logger.WithError(err).Error("delete space")
+			return
+		}
+
+		if err := service.GetSpaceService().RemoveDependencyReferences(space.Id, space.UserId); err != nil {
+			logger.WithError(err).Error("delete space dependencies")
 			return
 		}
 

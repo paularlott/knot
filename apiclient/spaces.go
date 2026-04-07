@@ -19,6 +19,7 @@ type SpaceRequest struct {
 	CustomFields    []CustomFieldValue `json:"custom_fields"`
 	SelectedNodeId  string             `json:"selected_node_id,omitempty"`
 	StartupScriptId string             `json:"startup_script_id,omitempty"`
+	DependsOn       []string           `json:"depends_on"`
 }
 
 type CreateSpaceResponse struct {
@@ -46,6 +47,7 @@ type SpaceInfo struct {
 	UserId          string            `json:"user_id"`
 	Platform        string            `json:"platform"`
 	Shares          []string          `json:"shares"`
+	DependsOn       []string          `json:"depends_on"`
 	HasCodeServer   bool              `json:"has_code_server"`
 	HasSSH          bool              `json:"has_ssh"`
 	HasHttpVNC      bool              `json:"has_http_vnc"`
@@ -90,6 +92,7 @@ type SpaceDefinition struct {
 	UserId             string                       `json:"user_id"`
 	TemplateId         string                       `json:"template_id"`
 	Shares             []string                     `json:"shares"`
+	DependsOn          []string                     `json:"depends_on"`
 	Name               string                       `json:"name"`
 	Description        string                       `json:"description"`
 	Note               string                       `json:"note"`

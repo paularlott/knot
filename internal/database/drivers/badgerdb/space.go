@@ -14,6 +14,7 @@ import (
 
 func (db *BadgerDbDriver) SaveSpace(space *model.Space, updateFields []string) error {
 	space.NormalizeShares()
+	space.NormalizeDependsOn()
 
 	err := db.connection.Update(func(txn *badger.Txn) error {
 
@@ -88,6 +89,7 @@ func (db *BadgerDbDriver) SaveSpace(space *model.Space, updateFields []string) e
 			util.CopyFields(space, existingSpace, updateFields)
 			space = existingSpace
 			space.NormalizeShares()
+			space.NormalizeDependsOn()
 		}
 
 		data, err := json.Marshal(space)
@@ -240,6 +242,7 @@ func (db *BadgerDbDriver) GetSpace(id string) (*model.Space, error) {
 		return nil, err
 	}
 	space.NormalizeShares()
+	space.NormalizeDependsOn()
 
 	return space, err
 }
@@ -385,6 +388,8 @@ func (db *BadgerDbDriver) GetSpaces() ([]*model.Space, error) {
 			if err != nil {
 				return err
 			}
+			space.NormalizeShares()
+			space.NormalizeDependsOn()
 
 			spaces = append(spaces, space)
 		}

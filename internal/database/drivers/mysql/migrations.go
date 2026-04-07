@@ -16,6 +16,8 @@ var migrations = []string{
 	`ALTER TABLE spaces DROP INDEX shared_with_user_id`,
 	// 6: drop legacy single-share column
 	`ALTER TABLE spaces DROP COLUMN shared_with_user_id`,
+	// 7: add space dependency storage
+	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS depends_on JSON NOT NULL DEFAULT '[]'`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

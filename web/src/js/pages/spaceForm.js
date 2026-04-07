@@ -1,5 +1,10 @@
 import { validate } from "../validators.js";
 import { focus } from "../focus.js";
+import ace from "ace-builds/src-noconflict/ace";
+import "ace-builds/src-noconflict/mode-text";
+import "ace-builds/src-noconflict/theme-github";
+import "ace-builds/src-noconflict/theme-github_dark";
+import "ace-builds/src-noconflict/ext-searchbox";
 
 window.spaceForm = function (
   isEdit,
@@ -13,6 +18,20 @@ window.spaceForm = function (
   return {
     iconList: [],
     scriptList: [],
+    dependencyCatalog: [],
+    dependencyOptions: [],
+    dependencyModal: {
+      show: false,
+      selectedId: "",
+      selectedName: "",
+      invalid: false,
+    },
+    dependencyRemoveConfirm: {
+      show: false,
+      id: "",
+      name: "",
+    },
+    dependencyTargetZone: "",
     formData: {
       name: "",
       description: "",
@@ -26,6 +45,7 @@ window.spaceForm = function (
       created_at_formatted: "",
       selected_node_id: "",
       startup_script_id: "",
+      depends_on: [],
     },
     template_id: templateId,
     template: {
@@ -48,6 +68,139 @@ window.spaceForm = function (
     quotaStorageLimitShow: false,
     availableNodes: [],
     loadingNodes: false,
+
+    async loadDependencyOptions(ownerId) {
+      if (!ownerId) {
+        this.dependencyCatalog = [];
+        this.dependencyOptions = [];
+        return;
+      }
+
+      const response = await fetch(
+        `/api/spaces?user_id=${encodeURIComponent(ownerId)}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (response.status !== 200) {
+        this.dependencyCatalog = [];
+        this.dependencyOptions = [];
+        return;
+      }
+
+      const data = await response.json();
+      this.dependencyCatalog = (data.spaces || [])
+        .filter((space) => space.user_id === ownerId && space.space_id !== spaceId)
+        .map((space) => ({
+          id: space.space_id,
+          name: space.name,
+          description: space.description || "",
+          is_deployed: space.is_deployed,
+          zone: space.zone || "",
+          is_remote: space.is_remote,
+        }));
+      this.refreshDependencyOptions();
+    },
+
+    dependencyDescription(option) {
+      return option.description
+        ? `${option.description} (${option.is_deployed ? "running" : "stopped"})`
+        : option.is_deployed
+          ? "Running"
+          : "Stopped";
+    },
+
+    isDependencyInZone(option) {
+      if (this.isEdit && this.dependencyTargetZone !== "") {
+        return option.zone === this.dependencyTargetZone;
+      }
+      return !option.is_remote;
+    },
+
+    refreshDependencyOptions() {
+      this.dependencyOptions = this.dependencyCatalog.filter(
+        (option) =>
+          this.isDependencyInZone(option) &&
+          !this.formData.depends_on.includes(option.id),
+      );
+      this.$nextTick(() => {
+        this.$dispatch("refresh-space-autocompleter");
+      });
+    },
+
+    dependencyById(id) {
+      return this.dependencyCatalog.find((option) => option.id === id) || null;
+    },
+
+    selectedDependencies() {
+      return this.formData.depends_on.map((id) => {
+        const option = this.dependencyById(id);
+        return option || {
+          id,
+          name: id,
+          description: "",
+          is_deployed: false,
+        };
+      });
+    },
+
+    openDependencyModal() {
+      this.dependencyModal.show = true;
+      this.dependencyModal.selectedId = "";
+      this.dependencyModal.selectedName = "";
+      this.dependencyModal.invalid = false;
+      this.refreshDependencyOptions();
+    },
+
+    closeDependencyModal() {
+      this.dependencyModal.show = false;
+      this.dependencyModal.selectedId = "";
+      this.dependencyModal.selectedName = "";
+      this.dependencyModal.invalid = false;
+    },
+
+    addDependency() {
+      if (!this.dependencyModal.selectedId) {
+        this.dependencyModal.invalid = true;
+        return;
+      }
+
+      if (!this.formData.depends_on.includes(this.dependencyModal.selectedId)) {
+        this.formData.depends_on.push(this.dependencyModal.selectedId);
+      }
+
+      this.closeDependencyModal();
+      this.refreshDependencyOptions();
+    },
+
+    removeDependency(id) {
+      this.formData.depends_on = this.formData.depends_on.filter(
+        (dependencyId) => dependencyId !== id,
+      );
+      this.refreshDependencyOptions();
+    },
+
+    openRemoveDependencyConfirm(dependency) {
+      this.dependencyRemoveConfirm.show = true;
+      this.dependencyRemoveConfirm.id = dependency.id;
+      this.dependencyRemoveConfirm.name = dependency.name;
+    },
+
+    closeRemoveDependencyConfirm() {
+      this.dependencyRemoveConfirm.show = false;
+      this.dependencyRemoveConfirm.id = "";
+      this.dependencyRemoveConfirm.name = "";
+    },
+
+    confirmRemoveDependency() {
+      if (this.dependencyRemoveConfirm.id) {
+        this.removeDependency(this.dependencyRemoveConfirm.id);
+      }
+      this.closeRemoveDependencyConfirm();
+    },
 
     formatCreatedAt() {
       return this.formData.created_at_formatted || "";
@@ -107,6 +260,8 @@ window.spaceForm = function (
           this.formData.created_at = space.created_at;
           this.formData.created_at_formatted = space.created_at_formatted;
           this.formData.startup_script_id = space.startup_script_id || "";
+          this.formData.depends_on = space.depends_on || [];
+          this.dependencyTargetZone = space.zone || "";
 
           // Refresh the autocompleter to show the selected script
           this.$nextTick(() => {
@@ -121,6 +276,8 @@ window.spaceForm = function (
             this.forUsername = "";
           }
 
+          await this.loadDependencyOptions(space.user_id);
+
           // Set the alt names and mark all as valid
           this.formData.alt_names = space.alt_names ? space.alt_names : [];
           this.altNameValid = [];
@@ -128,6 +285,9 @@ window.spaceForm = function (
             this.altNameValid.push(true);
           }
         }
+      } else {
+        this.dependencyTargetZone = "";
+        await this.loadDependencyOptions(this.formData.user_id || userId);
       }
 
       const templatesResponse = await fetch(
@@ -203,6 +363,28 @@ window.spaceForm = function (
         }
         this.loadingNodes = false;
       }
+
+      let darkMode = this.darkMode;
+      if (darkMode == null) darkMode = true;
+
+      const editorDesc = ace.edit("description");
+      editorDesc.session.setValue(this.formData.description);
+      editorDesc.session.on("change", () => {
+        this.formData.description = editorDesc.getValue();
+      });
+      editorDesc.setTheme(
+        darkMode ? "ace/theme/github_dark" : "ace/theme/github",
+      );
+      editorDesc.session.setMode("ace/mode/text");
+      editorDesc.setOptions({
+        printMargin: false,
+        newLineMode: "unix",
+        tabSize: 2,
+        wrap: false,
+        vScrollBarAlwaysVisible: true,
+        customScrollbar: true,
+        useWorker: false,
+      });
 
       this.loading = false;
     },

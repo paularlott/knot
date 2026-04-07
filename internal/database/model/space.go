@@ -69,6 +69,7 @@ type Space struct {
 	UserId           string             `json:"user_id" db:"user_id" msgpack:"user_id"`
 	TemplateId       string             `json:"template_id" db:"template_id" msgpack:"template_id"`
 	Shares           []string           `json:"shares" db:"shares,json" msgpack:"shares"`
+	DependsOn        []string           `json:"depends_on" db:"depends_on,json" msgpack:"depends_on"`
 	SharedWithUserId string             `json:"-" msgpack:"-"`
 	Name             string             `json:"name" db:"name" msgpack:"name"`
 	Description      string             `json:"description" db:"description" msgpack:"description"`
@@ -128,6 +129,7 @@ func NewSpace(name string, description string, userId string, templateId string,
 		Zone:             zone,
 		SSHHostSigner:    ed25519,
 		Shares:           []string{},
+		DependsOn:        []string{},
 		SharedWithUserId: "",
 		IconURL:          iconURL,
 		CustomFields:     customFields,
@@ -186,6 +188,21 @@ func (s *Space) NormalizeShares() {
 	} else {
 		s.SharedWithUserId = ""
 	}
+}
+
+func (s *Space) NormalizeDependsOn() {
+	seen := map[string]bool{}
+	normalized := make([]string, 0, len(s.DependsOn))
+
+	for _, dependencyId := range s.DependsOn {
+		if dependencyId == "" || seen[dependencyId] {
+			continue
+		}
+		seen[dependencyId] = true
+		normalized = append(normalized, dependencyId)
+	}
+
+	s.DependsOn = normalized
 }
 
 func (s *Space) SharedUserIds() []string {

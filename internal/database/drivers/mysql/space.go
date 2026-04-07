@@ -26,6 +26,7 @@ func (db *MySQLDriver) getAltNames(id string) ([]string, error) {
 
 func (db *MySQLDriver) SaveSpace(space *model.Space, updateFields []string) error {
 	space.NormalizeShares()
+	space.NormalizeDependsOn()
 
 	tx, err := db.connection.Begin()
 	if err != nil {
@@ -186,6 +187,7 @@ func (db *MySQLDriver) GetSpace(id string) (*model.Space, error) {
 		return nil, fmt.Errorf("space not found")
 	}
 	spaces[0].NormalizeShares()
+	spaces[0].NormalizeDependsOn()
 
 	// Load the alt names
 	spaces[0].AltNames, err = db.getAltNames(spaces[0].Id)
@@ -204,6 +206,7 @@ func (db *MySQLDriver) GetSpacesForUser(userId string) ([]*model.Space, error) {
 	}
 	for _, space := range spaces {
 		space.NormalizeShares()
+		space.NormalizeDependsOn()
 	}
 
 	return spaces, nil
@@ -220,6 +223,7 @@ func (db *MySQLDriver) GetSpaceByName(userId string, spaceName string) (*model.S
 		return nil, fmt.Errorf("space not found")
 	}
 	spaces[0].NormalizeShares()
+	spaces[0].NormalizeDependsOn()
 
 	// If has a parent ID then load the parent space
 	if spaces[0].ParentSpaceId != "" {
@@ -237,6 +241,7 @@ func (db *MySQLDriver) GetSpacesByTemplateId(templateId string) ([]*model.Space,
 	}
 	for _, space := range spaces {
 		space.NormalizeShares()
+		space.NormalizeDependsOn()
 	}
 
 	return spaces, nil
@@ -250,6 +255,7 @@ func (db *MySQLDriver) GetSpaces() ([]*model.Space, error) {
 	}
 	for _, space := range spaces {
 		space.NormalizeShares()
+		space.NormalizeDependsOn()
 	}
 
 	return spaces, nil

@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/paularlott/gossip/hlc"
 	"github.com/paularlott/knot/internal/config"
@@ -127,6 +128,11 @@ func (s *SpaceService) CreateSpace(space *model.Space, user *model.User) error {
 	// Set user ID and zone
 	space.UserId = user.Id
 	space.Zone = cfg.Zone
+	space.NormalizeDependsOn()
+
+	if err := s.ValidateDependencies(space); err != nil {
+		return err
+	}
 
 	// Save to database
 	if err := db.SaveSpace(space, nil); err != nil {
@@ -175,11 +181,16 @@ func (s *SpaceService) UpdateSpace(space *model.Space, user *model.User) error {
 	}
 
 	// Update metadata
+	space.NormalizeDependsOn()
 	space.UpdatedAt = hlc.Now()
+
+	if err := s.ValidateDependencies(space); err != nil {
+		return err
+	}
 
 	// Save to database
 	db := database.GetInstance()
-	if err := db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "Shell", "IconURL", "AltNames", "CustomFields", "StartupScriptId", "UpdatedAt"}); err != nil {
+	if err := db.SaveSpace(space, []string{"Name", "Description", "TemplateId", "Shell", "IconURL", "AltNames", "CustomFields", "StartupScriptId", "DependsOn", "UpdatedAt"}); err != nil {
 		return fmt.Errorf("failed to save space: %v", err)
 	}
 
@@ -334,12 +345,17 @@ func (s *SpaceService) DeleteSpace(spaceId string, user *model.User) error {
 	// Mark as deleted
 	space.IsDeleted = true
 	space.Name = space.Id
+	space.DependsOn = []string{}
 	space.UpdatedAt = hlc.Now()
 
 	// Save to database
 	db := database.GetInstance()
-	if err := db.SaveSpace(space, []string{"IsDeleted", "Name", "UpdatedAt"}); err != nil {
+	if err := db.SaveSpace(space, []string{"IsDeleted", "Name", "DependsOn", "UpdatedAt"}); err != nil {
 		return fmt.Errorf("failed to delete space: %v", err)
+	}
+
+	if err := s.RemoveDependencyReferences(space.Id, space.UserId); err != nil {
+		return fmt.Errorf("failed to clean dependency references: %v", err)
 	}
 
 	// Gossip the space and notify SSE clients
@@ -369,6 +385,150 @@ func (s *SpaceService) validateSpaceInput(name, description, shell string, altNa
 		if !validate.Name(altName) {
 			return fmt.Errorf("invalid alt name given for space")
 		}
+	}
+
+	return nil
+}
+
+func (s *SpaceService) ValidateDependencies(space *model.Space) error {
+	if space == nil {
+		return fmt.Errorf("space is required")
+	}
+
+	space.NormalizeDependsOn()
+
+	db := database.GetInstance()
+	spaces, err := db.GetSpaces()
+	if err != nil {
+		return fmt.Errorf("failed to load spaces: %v", err)
+	}
+
+	ownedSpaces := map[string]*model.Space{}
+	for _, otherSpace := range spaces {
+		if otherSpace.UserId != space.UserId || otherSpace.IsDeleted {
+			continue
+		}
+		ownedSpaces[otherSpace.Id] = otherSpace
+	}
+	ownedSpaces[space.Id] = space
+
+	for _, dependencyId := range space.DependsOn {
+		if dependencyId == space.Id {
+			return fmt.Errorf("space cannot depend on itself")
+		}
+
+		dependency, ok := ownedSpaces[dependencyId]
+		if !ok {
+			return fmt.Errorf("dependency %s not found", dependencyId)
+		}
+		if dependency.UserId != space.UserId {
+			return fmt.Errorf("dependency %s must be owned by the same user", dependencyId)
+		}
+	}
+
+	visited := map[string]bool{}
+	inStack := map[string]bool{}
+	var walk func(string) error
+	walk = func(spaceId string) error {
+		if inStack[spaceId] {
+			return fmt.Errorf("dependency cycle detected")
+		}
+		if visited[spaceId] {
+			return nil
+		}
+
+		current, ok := ownedSpaces[spaceId]
+		if !ok {
+			return nil
+		}
+
+		visited[spaceId] = true
+		inStack[spaceId] = true
+		current.NormalizeDependsOn()
+
+		for _, dependencyId := range current.DependsOn {
+			if dependencyId == space.Id {
+				return fmt.Errorf("dependency cycle detected")
+			}
+			if _, ok := ownedSpaces[dependencyId]; !ok {
+				continue
+			}
+			if err := walk(dependencyId); err != nil {
+				return err
+			}
+		}
+
+		inStack[spaceId] = false
+		return nil
+	}
+
+	if err := walk(space.Id); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SpaceService) ValidateDependenciesRunning(space *model.Space) error {
+	if space == nil {
+		return fmt.Errorf("space is required")
+	}
+
+	space.NormalizeDependsOn()
+	if len(space.DependsOn) == 0 {
+		return nil
+	}
+
+	db := database.GetInstance()
+	for _, dependencyId := range space.DependsOn {
+		dependency, err := db.GetSpace(dependencyId)
+		if err != nil {
+			return fmt.Errorf("dependency %s not found", dependencyId)
+		}
+
+		if dependency.IsDeleted || dependency.IsDeleting || dependency.IsPending || !dependency.IsDeployed {
+			return fmt.Errorf("dependency %s must be started first", dependency.Name)
+		}
+	}
+
+	return nil
+}
+
+func (s *SpaceService) RemoveDependencyReferences(spaceId string, ownerUserId string) error {
+	db := database.GetInstance()
+	spaces, err := db.GetSpaces()
+	if err != nil {
+		return err
+	}
+
+	for _, space := range spaces {
+		if space.UserId != ownerUserId || space.IsDeleted || space.Id == spaceId {
+			continue
+		}
+
+		if !slices.Contains(space.DependsOn, spaceId) {
+			continue
+		}
+
+		filtered := make([]string, 0, len(space.DependsOn))
+		for _, dependencyId := range space.DependsOn {
+			if dependencyId != spaceId {
+				filtered = append(filtered, dependencyId)
+			}
+		}
+
+		space.DependsOn = filtered
+		space.NormalizeDependsOn()
+		space.UpdatedAt = hlc.Now()
+
+		if err := db.SaveSpace(space, []string{"DependsOn", "UpdatedAt"}); err != nil {
+			return err
+		}
+
+		if transport := GetTransport(); transport != nil {
+			transport.GossipSpace(space)
+		}
+		sse.PublishSpaceChanged(space.Id, space.UserId)
 	}
 
 	return nil

@@ -13,6 +13,35 @@
 
 import knot.apiclient as api
 
+
+def _resolve_dependency_ids(depends_on):
+    """Resolve dependency names or IDs to space IDs."""
+    resolved = []
+    for dependency in depends_on or []:
+        space = get(dependency)
+        dependency_id = space.get("id")
+        if not dependency_id:
+            raise Exception(f"Space not found: {dependency}")
+        resolved.append(dependency_id)
+    return resolved
+
+
+def _build_space_update_body(space, **overrides):
+    """Build a full update body preserving existing mutable fields."""
+    body = {
+        "name": space.get("name"),
+        "description": space.get("description", ""),
+        "template_id": space.get("template_id"),
+        "shell": space.get("shell"),
+        "alt_names": space.get("alt_names", []),
+        "icon_url": space.get("icon_url", ""),
+        "custom_fields": space.get("custom_fields", []),
+        "startup_script_id": space.get("startup_script_id", ""),
+        "depends_on": space.get("depends_on", []),
+    }
+    body.update(overrides)
+    return body
+
 def list():
     """List all spaces for the current user.
 
@@ -34,7 +63,8 @@ def list():
             "id": space.get("space_id"),
             "name": space.get("name"),
             "description": space.get("description", ""),
-            "is_running": space.get("is_deployed", False)
+            "is_running": space.get("is_deployed", False),
+            "depends_on": space.get("depends_on", []),
         })
 
     return result
@@ -79,6 +109,7 @@ def get(name):
         "user_id": response.get("user_id"),
         "username": response.get("username"),
         "shares": response.get("shares", []),
+        "depends_on": response.get("depends_on", []),
         "shell": response.get("shell"),
         "platform": response.get("platform"),
         "zone": response.get("zone"),
@@ -86,11 +117,15 @@ def get(name):
         "is_pending": response.get("is_pending", False),
         "is_deleting": response.get("is_deleting", False),
         "node_hostname": response.get("node_hostname", ""),
-        "created_at": response.get("created_at", "")
+        "created_at": response.get("created_at", ""),
+        "alt_names": response.get("alt_names", []),
+        "icon_url": response.get("icon_url", ""),
+        "custom_fields": response.get("custom_fields", []),
+        "startup_script_id": response.get("startup_script_id", ""),
     }
 
 
-def create(name, template_name, description="", shell="bash"):
+def create(name, template_name, description="", shell="bash", depends_on=None):
     """Create a new space.
 
     Args:
@@ -98,6 +133,7 @@ def create(name, template_name, description="", shell="bash"):
         template_name: Name of the template to use
         description: Optional description
         shell: Shell to use (default: "bash")
+        depends_on: Optional list of dependency space names or IDs
 
     Returns:
         The new space ID
@@ -121,7 +157,8 @@ def create(name, template_name, description="", shell="bash"):
         "name": name,
         "template_id": template_id,
         "description": description,
-        "shell": shell
+        "shell": shell,
+        "depends_on": _resolve_dependency_ids(depends_on),
     }
 
     response = api.post("/api/spaces", body)
@@ -224,12 +261,7 @@ def set_description(name, description):
     # Get current space data
     space = get(name)
 
-    body = {
-        "name": space.get("name"),
-        "description": description,
-        "template_id": space.get("template_id"),
-        "shell": space.get("shell")
-    }
+    body = _build_space_update_body(space, description=description)
 
     api.put(f"/api/spaces/{name}", body)
     return True
@@ -249,6 +281,28 @@ def get_description(name):
     """
     space = get(name)
     return space.get("description", "")
+
+
+def get_dependencies(name):
+    """Get the dependency space IDs for a space."""
+    space = get(name)
+    return space.get("depends_on", [])
+
+
+def set_dependencies(name, depends_on):
+    """Set the dependency spaces for a space.
+
+    Args:
+        name: Space name or ID
+        depends_on: List of dependency space names or IDs
+    """
+    space = get(name)
+    body = _build_space_update_body(
+        space,
+        depends_on=_resolve_dependency_ids(depends_on),
+    )
+    api.put(f"/api/spaces/{name}", body)
+    return True
 
 
 def get_field(name, field):
