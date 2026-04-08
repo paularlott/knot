@@ -6,8 +6,8 @@
       <form class="space-y-6" action="" method="POST" @submit.prevent="submitData" x-show="!loading" x-cloak>
         <div>
           <label for="username" class="form-label">Username</label>
-          <input type="text" id="username" class="form-field" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" placeholder="Username (a - Z, 0 - 9 and -)" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
-          <div x-show="!usernameValid" class="error-message" x-cloak>Username can only contain the letters a - Z, 0 - 9 and -, max 64 characters.</div>
+          <input type="text" id="username" class="form-field" name="username" x-on:keyup.debounce.500ms="checkUsername()" :class="{'form-field-error': !usernameValid}" placeholder="Username (a - Z, 0 - 9, - and .)" x-model="formData.username" {{ if .isEdit }}readonly{{ end }}>
+          <div x-show="!usernameValid" class="error-message" x-cloak>Username can only contain the letters a - Z, 0 - 9, - and ., max 64 characters.</div>
         </div>
         <div>
           <label for="email" class="form-label">Email</label>

@@ -132,7 +132,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
       }
     },
     checkUsername() {
-      this.usernameValid = validate.name(this.formData.username);
+      this.usernameValid = validate.username(this.formData.username);
       return this.usernameValid;
     },
     checkEmail() {

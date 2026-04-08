@@ -81,6 +81,36 @@ func TestName(t *testing.T) {
 	}
 }
 
+func TestUsername(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected bool
+	}{
+		{"validName", true},
+		{"valid-name", true},
+		{"valid.name", true},
+		{"valid.name.here", true},
+		{"valid123", true},
+		{"a1", true},
+		{"-invalid", false},
+		{"1invalid", false},
+		{".invalid", false},
+		{"invalid..name", false},
+		{"invalid--name", false},
+		{"", false},
+		{"a", false}, // too short
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Username(tt.name)
+			if result != tt.expected {
+				t.Errorf("Username(%q) = %v, expected %v", tt.name, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestVarName(t *testing.T) {
 	tests := []struct {
 		name     string

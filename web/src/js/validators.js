@@ -9,6 +9,11 @@ export const validate = {
     return re.test(name) && !/--/.test(name);
   },
 
+  username(name) {
+    const re = /^[a-zA-Z][a-zA-Z0-9.-]{1,63}$/;
+    return re.test(name) && !/--/.test(name) && !/\.\./.test(name);
+  },
+
   templateName(name) {
     return name.length <= 64 && name.length >= 2;
   },
