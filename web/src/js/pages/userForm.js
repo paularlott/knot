@@ -242,6 +242,7 @@ window.userForm = function (isEdit, userId, isProfile, allProviders) {
         roles: this.formData.roles,
         groups: this.formData.groups,
         timezone: this.formData.timezone,
+        totp_secret: this.formData.totp_secret,
       };
 
       fetch(isEdit ? `/api/users/${userId}` : "/api/users", {
