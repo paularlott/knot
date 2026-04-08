@@ -22,10 +22,10 @@ type httpWriter struct {
 	headers map[string]string
 	client  *http.Client
 
-	mu       sync.Mutex
-	buf      [][]byte
-	stopCh   chan struct{}
-	flushCh  chan struct{}
+	mu      sync.Mutex
+	buf     [][]byte
+	stopCh  chan struct{}
+	flushCh chan struct{}
 }
 
 const (
@@ -146,6 +146,15 @@ func (w *httpWriter) encode(lines [][]byte) ([]byte, string) {
 	}
 }
 
+// streamFor returns the stream value for a record: uses the record's own
+// "stream" field if present, otherwise falls back to the writer default.
+func (w *httpWriter) streamFor(rec map[string]any) string {
+	if s, ok := rec["stream"].(string); ok && s != "" {
+		return s
+	}
+	return w.stream
+}
+
 // encodeNDJSON produces newline-delimited JSON for VictoriaLogs / Vector.
 func (w *httpWriter) encodeNDJSON(lines [][]byte) ([]byte, string) {
 	var buf bytes.Buffer
@@ -163,10 +172,9 @@ func (w *httpWriter) encodeNDJSON(lines [][]byte) ([]byte, string) {
 			rec["_time"] = t
 			delete(rec, "time")
 		}
-		// "stream" is declared as a _stream_field via query param
-		if w.stream != "" {
-			rec["stream"] = w.stream
-		}
+		// "stream" is declared as a _stream_field via query param;
+		// honour a per-record value, otherwise apply the writer default.
+		rec["stream"] = w.streamFor(rec)
 		b, _ := json.Marshal(rec)
 		buf.Write(b)
 		buf.WriteByte('\n')
@@ -184,8 +192,12 @@ func (w *httpWriter) encodeLoki(lines [][]byte) ([]byte, string) {
 		Streams []lokiStream `json:"streams"`
 	}
 
-	stream := map[string]string{"job": w.stream}
-	values := make([][2]string, 0, len(lines))
+	// Group lines by stream label so each gets its own Loki stream entry.
+	type group struct {
+		stream map[string]string
+		values [][2]string
+	}
+	groups := map[string]*group{}
 	now := fmt.Sprintf("%d", time.Now().UnixNano())
 
 	for _, line := range lines {
@@ -204,23 +216,27 @@ func (w *httpWriter) encodeLoki(lines [][]byte) ([]byte, string) {
 			rec["_msg"] = msg
 			delete(rec, "msg")
 		}
+		streamLabel := w.streamFor(rec)
+		delete(rec, "stream")
+
+		if _, ok := groups[streamLabel]; !ok {
+			groups[streamLabel] = &group{stream: map[string]string{"job": streamLabel}}
+		}
 		b, _ := json.Marshal(rec)
-		values = append(values, [2]string{ts, string(b)})
+		groups[streamLabel].values = append(groups[streamLabel].values, [2]string{ts, string(b)})
 	}
 
-	payload := lokiPayload{Streams: []lokiStream{{Stream: stream, Values: values}}}
+	streams := make([]lokiStream, 0, len(groups))
+	for _, g := range groups {
+		streams = append(streams, lokiStream{Stream: g.stream, Values: g.values})
+	}
+	payload := lokiPayload{Streams: streams}
 	b, _ := json.Marshal(payload)
 	return b, "application/json"
 }
 
 // encodeElasticsearch produces an ES bulk payload.
 func (w *httpWriter) encodeElasticsearch(lines [][]byte) ([]byte, string) {
-	index := w.stream
-	if index == "" {
-		index = "knot"
-	}
-	meta, _ := json.Marshal(map[string]any{"index": map[string]string{"_index": index}})
-
 	var buf bytes.Buffer
 	for _, line := range lines {
 		var rec map[string]any
@@ -235,9 +251,12 @@ func (w *httpWriter) encodeElasticsearch(lines [][]byte) ([]byte, string) {
 			rec["_time"] = t
 			delete(rec, "time")
 		}
-		if w.stream != "" {
-			rec["stream"] = w.stream
+		index := w.streamFor(rec)
+		if index == "" {
+			index = "knot"
 		}
+		rec["stream"] = index
+		meta, _ := json.Marshal(map[string]any{"index": map[string]string{"_index": index}})
 		b, _ := json.Marshal(rec)
 		buf.Write(meta)
 		buf.WriteByte('\n')
@@ -246,5 +265,3 @@ func (w *httpWriter) encodeElasticsearch(lines [][]byte) ([]byte, string) {
 	}
 	return buf.Bytes(), "application/x-ndjson"
 }
-
-

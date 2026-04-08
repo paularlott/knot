@@ -119,7 +119,9 @@ type RedisConfig struct {
 }
 
 type AuditConfig struct {
-	Retention int
+	Retention   int
+	Routing     string // "internal" | "external" | "both"
+	AuditStream string // stream label for external log driver, defaults to "audit"
 }
 
 type LogOutputConfig struct {

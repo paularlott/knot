@@ -22,6 +22,19 @@ url = "https://knot.internal"
 # Optional server zone, defaults to the hostname
 #zone = "myservers"
 
+# Audit log settings
+# audit_retention = 90  # Days to retain audit logs in the internal store
+#
+# Audit log routing: where audit events are sent
+#   internal - store in the internal database only (default)
+#   external - send to the configured log output driver only (hides the audit log UI)
+#   both     - send to both the internal store and the log output driver
+# audit_routing = "internal"
+#
+# Stream label used to identify audit log entries in the external log driver
+# Defaults to "audit" to distinguish from the main application log stream
+# audit_stream = "audit"
+
 [server.terminal]
 webgl = true
 

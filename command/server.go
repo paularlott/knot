@@ -184,6 +184,20 @@ var ServerCmd = &cli.Command{
 			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_RETENTION"},
 			DefaultValue: 90,
 		},
+		&cli.StringFlag{
+			Name:         "audit-routing",
+			Usage:        "Audit log routing: internal, external, or both.",
+			ConfigPath:   []string{"server.audit_routing"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_ROUTING"},
+			DefaultValue: "internal",
+		},
+		&cli.StringFlag{
+			Name:         "audit-stream",
+			Usage:        "Stream label used when routing audit logs to the external log driver.",
+			ConfigPath:   []string{"server.audit_stream"},
+			EnvVars:      []string{config.CONFIG_ENV_PREFIX + "_AUDIT_STREAM"},
+			DefaultValue: "audit",
+		},
 		&cli.IntFlag{
 			Name:         "mcp-tool-timeout",
 			Usage:        "The maximum execution time in seconds for MCP tool calls (allows for LLM operations with tool calling).",
@@ -1258,7 +1272,9 @@ func buildServerConfig(cmd *cli.Command) *config.ServerConfig {
 			KeyPrefix:  cmd.GetString("redis-key-prefix"),
 		},
 		Audit: config.AuditConfig{
-			Retention: cmd.GetInt("audit-retention"),
+			Retention:   cmd.GetInt("audit-retention"),
+			Routing:     cmd.GetString("audit-routing"),
+			AuditStream: cmd.GetString("audit-stream"),
 		},
 		Docker: config.DockerConfig{
 			Host: cmd.GetString("docker-host"),

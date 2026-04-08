@@ -298,7 +298,7 @@ func Routes(router *http.ServeMux, cfg *config.ServerConfig) {
 		router.HandleFunc("GET /tunnels", middleware.WebAuth(checkPermissionUseTunnels(HandleSimplePage)))
 	}
 
-	if database.GetInstance().HasAuditLog() {
+	if database.GetInstance().HasAuditLog() && cfg.Audit.Routing != "external" {
 		router.HandleFunc("GET /audit-logs", middleware.WebAuth(checkPermissionViewAuditLogs(HandleSimplePage)))
 	}
 
@@ -525,7 +525,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionUseSpaces":            user.HasPermission(model.PermissionUseSpaces) || user.HasPermission(model.PermissionManageSpaces),
 		"permissionSetSpaceDependencies": user.HasPermission(model.PermissionSetSpaceDependencies),
 		"permissionUseTunnels":           user.HasPermission(model.PermissionUseTunnels) && cfg.ListenTunnel != "",
-		"permissionViewAuditLogs":        user.HasPermission(model.PermissionViewAuditLogs) && database.GetInstance().HasAuditLog(),
+		"permissionViewAuditLogs":        user.HasPermission(model.PermissionViewAuditLogs) && database.GetInstance().HasAuditLog() && cfg.Audit.Routing != "external",
 		"permissionTransferSpaces":       user.HasPermission(model.PermissionTransferSpaces),
 		"permissionShareSpaces":          user.HasPermission(model.PermissionShareSpaces),
 		"permissionViewClusterInfo":      user.HasPermission(model.PermissionClusterInfo) && cfg.Cluster.AdvertiseAddr != "",
