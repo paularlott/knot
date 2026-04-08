@@ -93,3 +93,12 @@ enabled = false
 
 [log]
 level = "info"
+
+# HTTP log driver (unset = stderr only)
+# [log.output]
+#   format = "ndjson"                                          # ndjson | loki | elasticsearch
+#   stream = "knot"                                            # stream name / identifier
+#   # VictoriaLogs endpoints:
+#   # url = "http://localhost:9428/insert/jsonline"            # ndjson
+#   # url = "http://localhost:9428/loki/api/v1/push"           # loki
+#   # url = "http://localhost:9428/insert/elasticsearch/_bulk" # elasticsearch
