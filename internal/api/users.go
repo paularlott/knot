@@ -107,7 +107,7 @@ func HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	// Don't log the initial setup
 	if middleware.HasUsers {
 		user := r.Context().Value("user").(*model.User)
-		audit.Log(
+		audit.LogWithRequest(r,
 			user.Username,
 			model.AuditActorTypeUser,
 			model.AuditEventUserCreate,
@@ -462,7 +462,7 @@ func HandleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		activeUser.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventUserUpdate,
@@ -526,7 +526,7 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if toDelete != nil {
-		audit.Log(
+		audit.LogWithRequest(r,
 			user.Username,
 			model.AuditActorTypeUser,
 			model.AuditEventUserDelete,

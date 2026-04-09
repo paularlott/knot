@@ -3,7 +3,6 @@ package database
 import (
 	"errors"
 	"sync"
-	"time"
 
 	"github.com/paularlott/knot/internal/config"
 	driver_badgerdb "github.com/paularlott/knot/internal/database/drivers/badgerdb"
@@ -115,9 +114,8 @@ type DbDriver interface {
 	// Audit Logs
 	HasAuditLog() bool
 	SaveAuditLog(auditLog *model.AuditLogEntry) error
-	GetNumberOfAuditLogs() (int, error)
-	GetAuditLogs(offset int, limit int) ([]*model.AuditLogEntry, error)
-	GetAuditLogsForExport(from, to *time.Time) ([]*model.AuditLogEntry, error)
+	GetAuditLogs(filter *model.AuditLogFilter, offset int, limit int) ([]*model.AuditLogEntry, int, error)
+	GetAuditLogsForExport(filter *model.AuditLogFilter) ([]*model.AuditLogEntry, error)
 
 	// Config Values
 	GetCfgValues() ([]*model.CfgValue, error)

@@ -781,6 +781,25 @@ const scriptLibraries = [
     ],
   },
 
+  {
+    module: "knot.audit",
+    description: "Knot audit log search and filtering functions",
+    functions: [
+      {
+        name: "list",
+        signature: "list(start=0, max_items=10, q='', actor='', actor_type='', event='', from_time='', to_time='')",
+        description: "List audit log entries with optional filtering",
+        returns: "dict - Dict with count (int) and items (list of audit log entry dicts)",
+      },
+      {
+        name: "search",
+        signature: "search(q, start=0, max_items=10, actor='', actor_type='', event='', from_time='', to_time='')",
+        description: "Search audit logs with a text query across actor, event, and details",
+        returns: "dict - Dict with count (int) and items (list of audit log entry dicts)",
+      },
+    ],
+  },
+
   // ============================================================================
   // SCRIPTLING LIBRARIES (scriptling.*) - Standalone scriptling libraries
   // ============================================================================

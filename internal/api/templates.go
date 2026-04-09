@@ -198,7 +198,7 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Audit log
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventTemplateUpdate,
@@ -292,7 +292,7 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Audit log
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventTemplateCreate,
@@ -352,7 +352,7 @@ func HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Audit log
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventTemplateDelete,

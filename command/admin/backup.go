@@ -219,7 +219,7 @@ var BackupCmd = &cli.Command{
 
 		if backupAuditLogs {
 			fmt.Println("Backing up audit logs...")
-			auditLogs, err := db.GetAuditLogs(0, 0)
+			auditLogs, _, err := db.GetAuditLogs(nil, 0, 0)
 			if err != nil {
 				return fmt.Errorf("Error getting audit logs: %w", err)
 			}

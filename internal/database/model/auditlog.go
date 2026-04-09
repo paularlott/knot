@@ -1,6 +1,10 @@
 package model
 
 import (
+	"encoding/json"
+	"net"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
@@ -73,6 +77,15 @@ const (
 	AuditEventSkillDelete = "Skill Delete"
 )
 
+type AuditLogFilter struct {
+	Query     string
+	Actor     string
+	ActorType string
+	Event     string
+	From      *time.Time
+	To        *time.Time
+}
+
 type AuditLogEntry struct {
 	Id         int64                  `json:"audit_log_id" db:"audit_log_id,pk"`
 	Zone       string                 `json:"zone" db:"zone"`
@@ -101,4 +114,72 @@ func NewAuditLogEntry(actor, actorType, event, details string, properties *map[s
 	}
 
 	return entry
+}
+
+// RequestProperties extracts source_ip and user_agent from an HTTP request
+// and merges them into an existing properties map, or creates a new one.
+func RequestProperties(r *http.Request, properties *map[string]interface{}) *map[string]interface{} {
+	if r == nil {
+		return properties
+	}
+
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+	if strings.Contains(ip, ",") {
+		ip = strings.TrimSpace(strings.Split(ip, ",")[0])
+	}
+	if ipOnly, _, err := net.SplitHostPort(ip); err == nil {
+		ip = ipOnly
+	}
+
+	ua := r.UserAgent()
+
+	if properties == nil {
+		p := map[string]interface{}{}
+		properties = &p
+	}
+
+	(*properties)["source_ip"] = ip
+	(*properties)["user_agent"] = ua
+
+	return properties
+}
+
+// MatchesFilter returns true if the entry matches the given filter criteria.
+func (e *AuditLogEntry) MatchesFilter(filter *AuditLogFilter) bool {
+	if filter == nil {
+		return true
+	}
+	if filter.Actor != "" && !strings.EqualFold(e.Actor, filter.Actor) {
+		return false
+	}
+	if filter.ActorType != "" && !strings.EqualFold(e.ActorType, filter.ActorType) {
+		return false
+	}
+	if filter.Event != "" && !strings.Contains(strings.ToLower(e.Event), strings.ToLower(filter.Event)) {
+		return false
+	}
+	if filter.From != nil && e.When.Before(*filter.From) {
+		return false
+	}
+	if filter.To != nil && e.When.After(*filter.To) {
+		return false
+	}
+	if filter.Query != "" {
+		q := strings.ToLower(filter.Query)
+		matched := strings.Contains(strings.ToLower(e.Actor), q) ||
+			strings.Contains(strings.ToLower(e.Event), q) ||
+			strings.Contains(strings.ToLower(e.Details), q)
+		if !matched && e.Properties != nil {
+			if propJSON, err := json.Marshal(e.Properties); err == nil {
+				matched = strings.Contains(strings.ToLower(string(propJSON)), q)
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
 }

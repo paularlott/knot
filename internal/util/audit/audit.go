@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/paularlott/knot/internal/config"
@@ -10,6 +11,11 @@ import (
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 )
+
+// LogWithRequest logs an audit event enriched with source IP and user-agent from the HTTP request.
+func LogWithRequest(r *http.Request, actor, actorType, event, details string, properties *map[string]interface{}) error {
+	return Log(actor, actorType, event, details, model.RequestProperties(r, properties))
+}
 
 func Log(actor, actorType, event, details string, properties *map[string]interface{}) error {
 	entry := model.NewAuditLogEntry(actor, actorType, event, details, properties)

@@ -110,7 +110,7 @@ func HandleUpdateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipTemplateVar(templateVar)
 	sse.PublishTemplateVarsChanged(templateVar.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventVarUpdate,
@@ -189,7 +189,7 @@ func HandleCreateTemplateVar(w http.ResponseWriter, r *http.Request) {
 	id = templateVar.Id
 	sse.PublishTemplateVarsChanged(id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventVarCreate,
@@ -244,7 +244,7 @@ func HandleDeleteTemplateVar(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipTemplateVar(templateVar)
 	sse.PublishTemplateVarsDeleted(templateVar.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventVarDelete,

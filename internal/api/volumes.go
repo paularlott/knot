@@ -131,7 +131,7 @@ func HandleUpdateVolume(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipVolume(volume)
 	sse.PublishVolumesChanged(volume.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventVolumeUpdate,
@@ -184,7 +184,7 @@ func HandleCreateVolume(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipVolume(volume)
 	sse.PublishVolumesChanged(volume.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventVolumeCreate,
@@ -245,7 +245,7 @@ func HandleDeleteVolume(w http.ResponseWriter, r *http.Request) {
 	sse.PublishVolumesDeleted(volume.Id)
 
 	user := r.Context().Value("user").(*model.User)
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventVolumeDelete,

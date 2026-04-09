@@ -115,7 +115,7 @@ func HandleExecuteScriptStream(w http.ResponseWriter, r *http.Request) {
 	}
 	defer agentConn.Close()
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventScriptExecute,

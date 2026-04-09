@@ -86,7 +86,7 @@ func HandleUpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventRoleUpdate,
@@ -134,7 +134,7 @@ func HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 	service.GetTransport().GossipRole(role)
 	sse.PublishRolesChanged(role.Id)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventRoleCreate,
@@ -191,7 +191,7 @@ func HandleDeleteRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventRoleDelete,

@@ -162,7 +162,7 @@ paths:
       tags:
         - Audit Logs
       summary: Get Audit Logs
-      description: Retrieve the audit logs.
+      description: Retrieve the audit logs with optional filtering.
       operationId: getAuditLogs
       parameters:
         - name: start
@@ -180,6 +180,44 @@ paths:
             type: integer
             format: int32
             default: 10
+        - name: q
+          in: query
+          description: Full-text search across actor, event, and details.
+          required: false
+          schema:
+            type: string
+        - name: actor
+          in: query
+          description: Filter by actor name (exact match).
+          required: false
+          schema:
+            type: string
+        - name: actor_type
+          in: query
+          description: Filter by actor type (User, System, MCP).
+          required: false
+          schema:
+            type: string
+        - name: event
+          in: query
+          description: Filter by event type (exact match).
+          required: false
+          schema:
+            type: string
+        - name: from
+          in: query
+          description: Start of date range (RFC3339).
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: End of date range (RFC3339).
+          required: false
+          schema:
+            type: string
+            format: date-time
       responses:
         "200":
           description: A list of audited operations.

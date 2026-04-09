@@ -203,7 +203,7 @@ func HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceDelete,
@@ -330,7 +330,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceCreate,
@@ -663,7 +663,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceUpdate,
@@ -732,7 +732,7 @@ func HandleSetSpaceCustomField(w http.ResponseWriter, r *http.Request) {
 	// Use the space we already looked up for audit logging
 	spaceName := space.Name
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceUpdate,
@@ -1050,7 +1050,7 @@ func HandleSpaceTransfer(w http.ResponseWriter, r *http.Request) {
 		// Publish SSE event with both old and new user IDs
 		sse.PublishSpaceChangedWithShares(space.Id, space.UserId, nil, []string{user.Id})
 
-		audit.Log(
+		audit.LogWithRequest(r,
 			user.Username,
 			model.AuditActorTypeUser,
 			model.AuditEventSpaceTransfer,
@@ -1169,7 +1169,7 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 	// Publish SSE event for both owner and shared user
 	sse.PublishSpaceChangedWithShares(space.Id, space.UserId, space.SharedUserIds(), nil)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceShare,
@@ -1276,7 +1276,7 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 
 	sse.PublishSpaceChangedWithShares(space.Id, space.UserId, space.SharedUserIds(), previousSharedUserIds)
 
-	audit.Log(
+	audit.LogWithRequest(r,
 		user.Username,
 		model.AuditActorTypeUser,
 		model.AuditEventSpaceStopShare,

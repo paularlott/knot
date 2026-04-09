@@ -16,26 +16,7 @@ func (db *BadgerDbDriver) HasAuditLog() bool {
 	return true
 }
 
-func (db *BadgerDbDriver) GetNumberOfAuditLogs() (int, error) {
-	var count int
-
-	err := db.connection.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
-		defer it.Close()
-
-		prefix := []byte("AuditLogs:")
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
-			count++
-		}
-
-		return nil
-	})
-
-	return count, err
-}
-
 func (db *BadgerDbDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
-	// Don't save if no retention is configured
 	cfg := config.GetServerConfig()
 	if cfg.Audit.Retention < 1 {
 		return nil
@@ -76,7 +57,59 @@ func (db *BadgerDbDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
 	return err
 }
 
-func (db *BadgerDbDriver) GetAuditLogsForExport(from, to *time.Time) ([]*model.AuditLogEntry, error) {
+func (db *BadgerDbDriver) GetAuditLogs(filter *model.AuditLogFilter, offset, limit int) ([]*model.AuditLogEntry, int, error) {
+	var auditLogs []*model.AuditLogEntry
+	totalCount := 0
+
+	err := db.connection.View(func(txn *badger.Txn) error {
+		prefix := []byte("AuditLogs:")
+
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = true
+		opts.PrefetchSize = 10
+		opts.Reverse = true
+		opts.Prefix = prefix
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		collected := 0
+		for it.Seek(append(prefix, 0xFF)); it.Valid(); it.Next() {
+			var entry model.AuditLogEntry
+			err := it.Item().Value(func(val []byte) error {
+				return json.Unmarshal(val, &entry)
+			})
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal audit log entry: %w", err)
+			}
+
+			if !entry.MatchesFilter(filter) {
+				continue
+			}
+
+			totalCount++
+
+			if totalCount <= offset {
+				continue
+			}
+
+			if limit > 0 && collected >= limit {
+				continue
+			}
+
+			auditLogs = append(auditLogs, &entry)
+			collected++
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return auditLogs, totalCount, nil
+}
+
+func (db *BadgerDbDriver) GetAuditLogsForExport(filter *model.AuditLogFilter) ([]*model.AuditLogEntry, error) {
 	var auditLogs []*model.AuditLogEntry
 
 	err := db.connection.View(func(txn *badger.Txn) error {
@@ -94,13 +127,9 @@ func (db *BadgerDbDriver) GetAuditLogsForExport(from, to *time.Time) ([]*model.A
 			if err != nil {
 				return fmt.Errorf("failed to unmarshal audit log entry: %w", err)
 			}
-			if from != nil && entry.When.Before(*from) {
-				continue
+			if entry.MatchesFilter(filter) {
+				auditLogs = append(auditLogs, &entry)
 			}
-			if to != nil && entry.When.After(*to) {
-				continue
-			}
-			auditLogs = append(auditLogs, &entry)
 		}
 		return nil
 	})
@@ -108,66 +137,16 @@ func (db *BadgerDbDriver) GetAuditLogsForExport(from, to *time.Time) ([]*model.A
 	return auditLogs, err
 }
 
-func (db *BadgerDbDriver) GetAuditLogs(offset, limit int) ([]*model.AuditLogEntry, error) {
-	var auditLogs []*model.AuditLogEntry
-
-	err := db.connection.View(func(txn *badger.Txn) error {
-		prefix := []byte("AuditLogs:")
-
-		opts := badger.DefaultIteratorOptions
-		opts.PrefetchValues = false
-		opts.PrefetchSize = 10
-		opts.Reverse = true // Set to true to iterate from newest to oldest
-		opts.Prefix = prefix
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		count := 0
-		for it.Seek(append(prefix, 0xFF)); it.Valid(); it.Next() {
-			item := it.Item()
-			if count < offset {
-				count++
-				continue
-			}
-
-			if limit > 0 && count >= offset+limit {
-				break
-			}
-			count++
-
-			var entry model.AuditLogEntry
-			err := item.Value(func(val []byte) error {
-				return json.Unmarshal(val, &entry)
-			})
-			if err != nil {
-				return fmt.Errorf("failed to unmarshal audit log entry: %w", err)
-			}
-
-			auditLogs = append(auditLogs, &entry)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return auditLogs, nil
-}
-
 func (db *BadgerDbDriver) deleteAuditLogs() error {
-	// Don't save if no retention is configured
 	cfg := config.GetServerConfig()
 	if cfg.Audit.Retention < 1 {
 		return nil
 	}
 
-	// Calculate the cutoff time
 	before := time.Now()
 	before = before.Add(-time.Duration(cfg.Audit.Retention) * 24 * time.Hour)
 	beforeUnixMicro := before.UTC().UnixMicro()
 
-	// Iterate through the audit logs and delete those older than the cutoff time
 	return db.connection.Update(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()

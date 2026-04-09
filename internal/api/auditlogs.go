@@ -8,31 +8,47 @@ import (
 
 	"github.com/paularlott/knot/apiclient"
 	"github.com/paularlott/knot/internal/database"
+	"github.com/paularlott/knot/internal/database/model"
 	"github.com/paularlott/knot/internal/util/rest"
 )
 
-func HandleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
-	startParam := r.URL.Query().Get("start")
-	maxItemsParam := r.URL.Query().Get("max-items")
+func parseAuditLogFilter(r *http.Request) *model.AuditLogFilter {
+	filter := &model.AuditLogFilter{
+		Query:     r.URL.Query().Get("q"),
+		Actor:     r.URL.Query().Get("actor"),
+		ActorType: r.URL.Query().Get("actor_type"),
+		Event:     r.URL.Query().Get("event"),
+	}
 
-	start, err := strconv.Atoi(startParam)
+	if v := r.URL.Query().Get("from"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			filter.From = &t
+		}
+	}
+	if v := r.URL.Query().Get("to"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			filter.To = &t
+		}
+	}
+
+	return filter
+}
+
+func HandleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
+	start, err := strconv.Atoi(r.URL.Query().Get("start"))
 	if err != nil {
 		start = 0
 	}
 
-	maxItems, err := strconv.Atoi(maxItemsParam)
+	maxItems, err := strconv.Atoi(r.URL.Query().Get("max-items"))
 	if err != nil {
 		maxItems = 10
 	}
 
-	db := database.GetInstance()
-	logs, err := db.GetAuditLogs(start, maxItems)
-	if err != nil {
-		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
-		return
-	}
+	filter := parseAuditLogFilter(r)
 
-	totalLogs, err := db.GetNumberOfAuditLogs()
+	db := database.GetInstance()
+	logs, totalLogs, err := db.GetAuditLogs(filter, start, maxItems)
 	if err != nil {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
@@ -63,21 +79,10 @@ func HandleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleExportAuditLogs(w http.ResponseWriter, r *http.Request) {
-	var from, to *time.Time
-
-	if v := r.URL.Query().Get("from"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			from = &t
-		}
-	}
-	if v := r.URL.Query().Get("to"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			to = &t
-		}
-	}
+	filter := parseAuditLogFilter(r)
 
 	db := database.GetInstance()
-	logs, err := db.GetAuditLogsForExport(from, to)
+	logs, err := db.GetAuditLogsForExport(filter)
 	if err != nil {
 		rest.WriteResponse(http.StatusInternalServerError, w, r, ErrorResponse{Error: err.Error()})
 		return
