@@ -1090,10 +1090,6 @@ func HandleSpaceAddShare(w http.ResponseWriter, r *http.Request) {
 		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "at least one share is required"})
 		return
 	}
-	if len(request.Shares) > 1 {
-		rest.WriteResponse(http.StatusBadRequest, w, r, ErrorResponse{Error: "multiple shares require pro"})
-		return
-	}
 
 	db := database.GetInstance()
 

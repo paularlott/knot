@@ -362,12 +362,12 @@ def transfer(name, user_id):
     return True
 
 
-def share(name, user_id):
-    """Share a space with another user.
+def share(name, user_ids):
+    """Share a space with one or more users.
 
     Args:
         name: Space name or ID
-        user_id: User ID, username, or email to share with
+        user_ids: User ID, username, email, or a list of those values
 
     Returns:
         True if successful
@@ -375,8 +375,9 @@ def share(name, user_id):
     Raises:
         Exception if not configured or on API error
     """
-    body = {"shares": [user_id]}
-    api.post(f"/api/spaces/{name}/share", body)
+    if not isinstance(user_ids, list):
+        user_ids = [user_ids]
+    api.post(f"/api/spaces/{name}/share", {"shares": user_ids})
     return True
 
 
