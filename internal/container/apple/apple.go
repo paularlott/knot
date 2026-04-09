@@ -50,10 +50,8 @@ type volInfo struct {
 }
 
 type containerInspect struct {
-	ID    string `json:"ID"`
-	State struct {
-		Running bool `json:"Running"`
-	} `json:"State"`
+	ID     string `json:"ID"`
+	Status string `json:"status"`
 }
 
 func NewClient() *AppleClient {
@@ -252,9 +250,13 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 		cmd := exec.CommandContext(ctx, "container", "stop", space.ContainerId)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			if !strings.Contains(string(output), "not found") {
-				c.logger.Error("stopping container error, output:", "space_containerid", space.ContainerId, "output", string(output))
+			outputStr := string(output)
+			if !strings.Contains(outputStr, "not found") && !strings.Contains(outputStr, "internalError") {
+				c.logger.Error("stopping container error, output:", "space_containerid", space.ContainerId, "output", outputStr)
 				return
+			}
+			if strings.Contains(outputStr, "internalError") {
+				c.logger.Warn("stop returned XPC error, will wait for container to stop", "space_containerid", space.ContainerId)
 			}
 		}
 
@@ -284,7 +286,7 @@ func (c *AppleClient) DeleteSpaceJob(space *model.Space, onStopped func()) error
 				return
 			}
 
-			if len(inspectData) > 0 && !inspectData[0].State.Running {
+			if len(inspectData) == 0 || inspectData[0].Status != "running" {
 				break
 			}
 
