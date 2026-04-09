@@ -124,6 +124,7 @@ func ApiRoutes(router *http.ServeMux) {
 
 	// Audit Logs
 	router.HandleFunc("GET /api/audit-logs", middleware.ApiAuth(middleware.ApiPermissionViewAuditLogs(HandleGetAuditLogs)))
+	router.HandleFunc("GET /api/audit-logs/export", middleware.ApiAuth(middleware.ApiPermissionDownloadAuditLogs(HandleExportAuditLogs)))
 
 	// Cluster Information
 	router.HandleFunc("GET /api/cluster-info", middleware.ApiAuth(middleware.ApiPermissionViewClusterInfo(HandleGetClusterInfo)))

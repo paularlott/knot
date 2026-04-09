@@ -4,6 +4,12 @@ window.auditLogComponent = function() {
     logs: [],
     currentPage: 0,
     totalPages: 0,
+    exportModal: {
+      show: false,
+      format: 'csv',
+      from: '',
+      to: '',
+    },
 
     async init() {
       await this.getAuditLogs();
@@ -47,6 +53,26 @@ window.auditLogComponent = function() {
       }).catch(() => {
         // Don't logout on network errors - Safari closes connections aggressively
       });
-    }
+    },
+
+    downloadExport() {
+      const params = new URLSearchParams({ format: this.exportModal.format });
+      if (this.exportModal.from) {
+        params.set('from', new Date(this.exportModal.from).toISOString());
+      }
+      if (this.exportModal.to) {
+        // Include the full end day by moving to end-of-day
+        const to = new Date(this.exportModal.to);
+        to.setHours(23, 59, 59, 999);
+        params.set('to', to.toISOString());
+      }
+
+      const a = document.createElement('a');
+      a.href = `/api/audit-logs/export?${params.toString()}`;
+      a.download = `audit-logs.${this.exportModal.format}`;
+      a.click();
+
+      this.exportModal.show = false;
+    },
   };
 }

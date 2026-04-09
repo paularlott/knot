@@ -76,6 +76,38 @@ func (db *BadgerDbDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
 	return err
 }
 
+func (db *BadgerDbDriver) GetAuditLogsForExport(from, to *time.Time) ([]*model.AuditLogEntry, error) {
+	var auditLogs []*model.AuditLogEntry
+
+	err := db.connection.View(func(txn *badger.Txn) error {
+		prefix := []byte("AuditLogs:")
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = prefix
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			var entry model.AuditLogEntry
+			err := it.Item().Value(func(val []byte) error {
+				return json.Unmarshal(val, &entry)
+			})
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal audit log entry: %w", err)
+			}
+			if from != nil && entry.When.Before(*from) {
+				continue
+			}
+			if to != nil && entry.When.After(*to) {
+				continue
+			}
+			auditLogs = append(auditLogs, &entry)
+		}
+		return nil
+	})
+
+	return auditLogs, err
+}
+
 func (db *BadgerDbDriver) GetAuditLogs(offset, limit int) ([]*model.AuditLogEntry, error) {
 	var auditLogs []*model.AuditLogEntry
 

@@ -526,6 +526,7 @@ func getCommonTemplateData(r *http.Request) (*model.User, map[string]interface{}
 		"permissionSetSpaceDependencies": user.HasPermission(model.PermissionSetSpaceDependencies),
 		"permissionUseTunnels":           user.HasPermission(model.PermissionUseTunnels) && cfg.ListenTunnel != "",
 		"permissionViewAuditLogs":        user.HasPermission(model.PermissionViewAuditLogs) && database.GetInstance().HasAuditLog() && cfg.Audit.Routing != "external",
+		"permissionDownloadAuditLogs":    user.HasPermission(model.PermissionDownloadAuditLogs) && database.GetInstance().HasAuditLog() && cfg.Audit.Routing != "external",
 		"permissionTransferSpaces":       user.HasPermission(model.PermissionTransferSpaces),
 		"permissionShareSpaces":          user.HasPermission(model.PermissionShareSpaces),
 		"permissionViewClusterInfo":      user.HasPermission(model.PermissionClusterInfo) && cfg.Cluster.AdvertiseAddr != "",

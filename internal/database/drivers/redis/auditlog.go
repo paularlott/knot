@@ -1,6 +1,8 @@
 package driver_redis
 
 import (
+	"time"
+
 	"github.com/paularlott/knot/internal/database/model"
 )
 
@@ -17,5 +19,9 @@ func (db *RedisDbDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
 }
 
 func (db *RedisDbDriver) GetAuditLogs(offset int, limit int) ([]*model.AuditLogEntry, error) {
+	return []*model.AuditLogEntry{}, nil
+}
+
+func (db *RedisDbDriver) GetAuditLogsForExport(from, to *time.Time) ([]*model.AuditLogEntry, error) {
 	return []*model.AuditLogEntry{}, nil
 }

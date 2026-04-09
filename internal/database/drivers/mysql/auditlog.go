@@ -2,6 +2,7 @@ package driver_mysql
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database/model"
@@ -44,6 +45,24 @@ func (db *MySQLDriver) SaveAuditLog(auditLog *model.AuditLogEntry) error {
 	tx.Commit()
 
 	return nil
+}
+
+func (db *MySQLDriver) GetAuditLogsForExport(from, to *time.Time) ([]*model.AuditLogEntry, error) {
+	var auditLogs []*model.AuditLogEntry
+	where := "1"
+	if from != nil {
+		where += fmt.Sprintf(" AND created_at >= '%s'", from.UTC().Format("2006-01-02 15:04:05"))
+	}
+	if to != nil {
+		where += fmt.Sprintf(" AND created_at <= '%s'", to.UTC().Format("2006-01-02 15:04:05"))
+	}
+	where += " ORDER BY created_at ASC"
+
+	err := db.read("audit_logs", &auditLogs, nil, where)
+	if err != nil {
+		return nil, err
+	}
+	return auditLogs, nil
 }
 
 func (db *MySQLDriver) GetAuditLogs(offset int, limit int) ([]*model.AuditLogEntry, error) {

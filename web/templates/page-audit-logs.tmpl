@@ -12,6 +12,17 @@
 
     <div class="p-4 mb-4 bg-white border border-gray-200 rounded-lg shadow-xs col-span-full dark:border-gray-700 sm:p-6 dark:bg-gray-800">
 
+      {{ if .permissionDownloadAuditLogs }}
+      <div class="mb-4 flex justify-end">
+        <button @click="exportModal.show = true" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Download
+        </button>
+      </div>
+      {{ end }}
+
       {{ template "loading" . }}
       <div x-show="!loading" x-cloak class="relative overflow-x-auto sm:rounded-lg">
         <table aria-label="Audit logs" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
@@ -90,5 +101,55 @@
 
     </div>
   </div>
+
+  {{ if .permissionDownloadAuditLogs }}
+  <!-- Export modal -->
+  <div x-cloak x-show="exportModal.show" x-transition.opacity.duration.200ms x-trap.inert.noscroll="exportModal.show" @keydown.esc.window="exportModal.show = false" @click.self="exportModal.show = false" class="ui-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+    <div x-show="exportModal.show" x-transition:enter="transition ease-out duration-200 delay-100 motion-reduce:transition-opacity" x-transition:enter-start="scale-95 opacity-0" x-transition:enter-end="scale-100 opacity-100" class="ui-modal-panel">
+      <div class="ui-modal-header">
+        <div class="ui-modal-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+        </div>
+        <h3 id="exportModalTitle" class="ui-modal-title">Download Audit Logs</h3>
+        <button @click="exportModal.show = false" aria-label="close modal" class="ui-modal-close">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="1.4" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="ui-modal-body space-y-4">
+        <div>
+          <label for="exportFormat" class="form-label">Format</label>
+          <select id="exportFormat" class="form-field" x-model="exportModal.format">
+            <option value="csv">CSV</option>
+            <option value="json">JSON</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="exportFrom" class="form-label">From (optional)</label>
+            <input type="date" id="exportFrom" class="form-field dark:[color-scheme:dark]" x-model="exportModal.from">
+          </div>
+          <div>
+            <label for="exportTo" class="form-label">To (optional)</label>
+            <input type="date" id="exportTo" class="form-field dark:[color-scheme:dark]" x-model="exportModal.to">
+          </div>
+        </div>
+      </div>
+      <div class="ui-modal-footer">
+        <button @click="exportModal.show = false" type="button" class="ui-button-secondary">Cancel</button>
+        <button @click="downloadExport()" type="button" class="ui-button-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Download
+        </button>
+      </div>
+    </div>
+  </div>
+  {{ end }}
+
 </main>
 {{ end }}

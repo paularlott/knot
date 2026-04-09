@@ -41,6 +41,7 @@ const (
 	PermissionManageGlobalSkills          // Can Manage Global Skills
 	PermissionManageOwnSkills             // Can Manage Own Skills
 	PermissionSetSpaceDependencies        // Can configure space dependencies in the UI
+	PermissionDownloadAuditLogs           // Can Download Audit Logs
 )
 
 type PermissionName struct {
@@ -51,6 +52,7 @@ type PermissionName struct {
 
 var PermissionNames = []PermissionName{
 	{PermissionViewAuditLogs, "Audit", "View Audit Logs"},
+	{PermissionDownloadAuditLogs, "Audit", "Download Audit Logs"},
 
 	{PermissionClusterInfo, "System", "View Cluster Info"},
 
@@ -132,6 +134,7 @@ func SetRoleCache(roles []*Role) {
 			PermissionSetSpaceDependencies,
 			PermissionUseTunnels,
 			PermissionViewAuditLogs,
+			PermissionDownloadAuditLogs,
 			PermissionTransferSpaces,
 			PermissionShareSpaces,
 			PermissionClusterInfo,
