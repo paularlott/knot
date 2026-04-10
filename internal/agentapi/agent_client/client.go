@@ -40,6 +40,21 @@ type AgentClient struct {
 	httpsPortMap           map[string]string
 	tcpPortMap             map[string]string
 	logChannel             chan *msg.LogMessage
+
+	// Health check config — received from server at registration
+	healthCheckMu            sync.RWMutex
+	healthCheckType          string
+	healthCheckConfig        string
+	healthCheckSkipSSLVerify bool
+	healthCheckTimeout       uint32
+	healthCheckInterval      uint32
+	healthCheckMaxFailures   uint32
+	healthCheckAutoRestart   bool
+
+	// Current health status — set by health check runner, read by reportState
+	healthMu     sync.RWMutex
+	healthy      bool
+	healthReason string
 }
 
 func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
@@ -61,6 +76,7 @@ func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {
 		httpsPortMap:         make(map[string]string),
 		tcpPortMap:           make(map[string]string),
 		logChannel:           make(chan *msg.LogMessage, logChannelBufferSize),
+		healthy:              true,
 	}
 }
 
@@ -129,6 +145,9 @@ func (c *AgentClient) ConnectAndServe() {
 
 	// Start periodic status reporting
 	go c.reportState()
+
+	// Start health check runner
+	go c.RunHealthChecks()
 }
 
 func (c *AgentClient) Shutdown() {

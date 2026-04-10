@@ -374,6 +374,83 @@
           {{ end }}
         </div>
 
+        <fieldset x-show="formData.platform != 'manual'" x-cloak class="border border-gray-300 dark:border-gray-600 rounded-lg p-4">
+          <legend class="text-sm font-medium text-gray-700 dark:text-gray-300 px-2">Health Check</legend>
+          <div class="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg w-fit mb-3">
+            <template x-for="hcType in ['None', 'TCP', 'HTTP', 'Program', 'Custom']" :key="hcType">
+              <label class="relative">
+                <input
+                  type="radio"
+                  name="health_check_type"
+                  :value="hcType.toLowerCase()"
+                  x-model="formData.health_check_type"
+                  @change="formData.health_check_config = ''; formData.health_check_skip_ssl_verify = false"
+                  class="sr-only peer"
+                >
+                <div class="select-none cursor-pointer px-2 sm:px-4 py-2 rounded-lg text-sm font-medium
+                  peer-checked:bg-blue-600 peer-checked:text-white
+                  peer-focus:ring-2 peer-focus:ring-blue-300
+                  transition-colors duration-200 ease-in-out
+                  text-gray-700 dark:text-gray-200 peer-checked:dark:text-white
+                  hover:bg-gray-200 hover:text-gray-700 hover:peer-checked:bg-blue-600 hover:peer-checked:text-white hover:dark:bg-gray-600 hover:dark:text-white hover:dark:peer-checked:bg-blue-600"
+                  x-text="hcType"></div>
+              </label>
+            </template>
+          </div>
+
+          <div x-show="formData.health_check_type === 'tcp'" x-cloak>
+            <label class="form-label">Port Number</label>
+            <input type="number" class="form-field" x-model="formData.health_check_config" min="1" max="65535" placeholder="e.g. 5432">
+          </div>
+
+          <div x-show="formData.health_check_type === 'http'" x-cloak>
+            <label class="form-label">URL</label>
+            <input type="text" class="form-field" x-model="formData.health_check_config" placeholder="e.g. http://localhost:8080/health">
+            <label class="flex items-center cursor-pointer mt-2">
+              <input type="checkbox" class="sr-only peer" x-model="formData.health_check_skip_ssl_verify">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Skip SSL Verify</span>
+            </label>
+          </div>
+
+          <div x-show="formData.health_check_type === 'program'" x-cloak>
+            <label class="form-label">Command</label>
+            <input type="text" class="form-field" x-model="formData.health_check_config" placeholder="e.g. pg_isready">
+          </div>
+
+          <div x-show="formData.health_check_type === 'custom'" x-cloak>
+            <label class="form-label">Script</label>
+            <div class="mid-editor">
+              <div class="editor-wrap">
+                <textarea id="health_check_script" x-ref="healthCheckScriptEl"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div x-show="formData.health_check_type !== 'none'" x-cloak class="mt-3 grid grid-cols-3 gap-3">
+            <div x-show="formData.health_check_type !== 'custom'">
+              <label class="form-label">Timeout (seconds)</label>
+              <input type="number" class="form-field" x-model="formData.health_check_timeout" min="1" placeholder="10">
+            </div>
+            <div>
+              <label class="form-label">Check Interval (seconds)</label>
+              <input type="number" class="form-field" x-model="formData.health_check_interval" min="5" placeholder="30">
+            </div>
+            <div>
+              <label class="form-label">Max Failures</label>
+              <input type="number" class="form-field" x-model="formData.health_check_max_failures" min="1" placeholder="3">
+            </div>
+          </div>
+
+          <div x-show="formData.health_check_type !== 'none'" x-cloak class="mt-2">
+            <label class="flex items-center cursor-pointer">
+              <input type="checkbox" class="sr-only peer" x-model="formData.health_check_auto_restart">
+              <div class="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:rtl:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-checked:dark:bg-blue-600"></div>
+              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Auto-restart on failure</span>
+            </label>
+          </div>
+        </fieldset>
+
         <div x-show="formData.platform != 'manual'" x-cloak>
           <label class="flex items-center cursor-pointer mb-2">
             <input type="checkbox" class="sr-only peer" value="1" :checked="formData.active" x-model="formData.active">

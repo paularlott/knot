@@ -8,18 +8,25 @@ type Register struct {
 
 // message sent from the server to the agent in response to a register message
 type RegisterResponse struct {
-	Version          string
-	Success          bool
-	SSHKeys          []string
-	GitHubUsernames  []string
-	Shell            string
-	SSHHostSigner    string
-	WithTerminal     bool
-	WithVSCodeTunnel bool
-	WithCodeServer   bool
-	WithSSH          bool
-	WithRunCommand   bool
-	Freeze           bool
-	AgentToken       string // Deterministic authentication token for the agent
-	ServerURL        string // Public URL of the server for API calls
+	Version                  string
+	Success                  bool
+	SSHKeys                  []string
+	GitHubUsernames          []string
+	Shell                    string
+	SSHHostSigner            string
+	WithTerminal             bool
+	WithVSCodeTunnel         bool
+	WithCodeServer           bool
+	WithSSH                  bool
+	WithRunCommand           bool
+	Freeze                   bool
+	AgentToken               string
+	ServerURL                string
+	HealthCheckType          string
+	HealthCheckConfig        string
+	HealthCheckSkipSSLVerify bool
+	HealthCheckTimeout       uint32
+	HealthCheckInterval      uint32
+	HealthCheckMaxFailures   uint32
+	HealthCheckAutoRestart   bool
 }

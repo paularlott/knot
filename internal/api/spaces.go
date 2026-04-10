@@ -12,6 +12,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/util/audit"
@@ -152,6 +153,14 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			s.UpdateAvailable = false
 		} else {
 			s.UpdateAvailable = space.IsDeployed && space.TemplateHash != template.Hash
+		}
+
+		// Health status from in-memory store
+		if hs := health.Get(space.Id); hs != nil {
+			s.Healthy = hs.Healthy
+			s.HealthReason = hs.Reason
+		} else {
+			s.Healthy = true
 		}
 
 		spaceData.Spaces = append(spaceData.Spaces, s)

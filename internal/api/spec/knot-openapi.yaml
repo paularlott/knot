@@ -3892,6 +3892,12 @@ components:
         icon_url:
           type: string
           description: The icon URL for the space or an empty string if there's no icon.
+        healthy:
+          type: boolean
+          description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
+        health_reason:
+          type: string
+          description: Reason for unhealthy status, if any.
 
     SpaceInfoList:
       type: object
@@ -4110,6 +4116,12 @@ components:
         is_remote:
           type: boolean
           description: Whether the space is on a remote zone.
+        healthy:
+          type: boolean
+          description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
+        health_reason:
+          type: string
+          description: Reason for unhealthy status, if any.
 
     TemplateInfo:
       type: object
@@ -4315,6 +4327,35 @@ components:
           items:
             $ref: "#/components/schemas/CustomFieldDef"
           description: The custom fields for the template.
+        health_check_type:
+          type: string
+          enum: [none, tcp, http, program, custom]
+          default: none
+          description: The type of health check to run.
+        health_check_config:
+          type: string
+          description: URL (http), port number (tcp), command (program), or script content (custom).
+        health_check_skip_ssl_verify:
+          type: boolean
+          description: Skip SSL certificate verification (http only).
+        health_check_timeout:
+          type: integer
+          format: uint32
+          default: 10
+          description: Timeout in seconds per check attempt.
+        health_check_interval:
+          type: integer
+          format: uint32
+          default: 30
+          description: Seconds between checks.
+        health_check_max_failures:
+          type: integer
+          format: uint32
+          default: 3
+          description: Max consecutive failures before action.
+        health_check_auto_restart:
+          type: boolean
+          description: Auto-restart the space on failure (false = flag only).
 
     TemplateUpdateRequest:
       type: object
@@ -4418,6 +4459,35 @@ components:
           items:
             $ref: "#/components/schemas/CustomFieldDef"
           description: The custom fields for the template.
+        health_check_type:
+          type: string
+          enum: [none, tcp, http, program, custom]
+          default: none
+          description: The type of health check to run.
+        health_check_config:
+          type: string
+          description: URL (http), port number (tcp), command (program), or script content (custom).
+        health_check_skip_ssl_verify:
+          type: boolean
+          description: Skip SSL certificate verification (http only).
+        health_check_timeout:
+          type: integer
+          format: uint32
+          default: 10
+          description: Timeout in seconds per check attempt.
+        health_check_interval:
+          type: integer
+          format: uint32
+          default: 30
+          description: Seconds between checks.
+        health_check_max_failures:
+          type: integer
+          format: uint32
+          default: 3
+          description: Max consecutive failures before action.
+        health_check_auto_restart:
+          type: boolean
+          description: Auto-restart the space on failure (false = flag only).
 
     TemplateDetails:
       type: object
@@ -4535,6 +4605,35 @@ components:
           items:
             $ref: "#/components/schemas/CustomFieldDef"
           description: The custom fields for the template.
+        health_check_type:
+          type: string
+          enum: [none, tcp, http, program, custom]
+          default: none
+          description: The type of health check to run.
+        health_check_config:
+          type: string
+          description: URL (http), port number (tcp), command (program), or script content (custom).
+        health_check_skip_ssl_verify:
+          type: boolean
+          description: Skip SSL certificate verification (http only).
+        health_check_timeout:
+          type: integer
+          format: uint32
+          default: 10
+          description: Timeout in seconds per check attempt.
+        health_check_interval:
+          type: integer
+          format: uint32
+          default: 30
+          description: Seconds between checks.
+        health_check_max_failures:
+          type: integer
+          format: uint32
+          default: 3
+          description: Max consecutive failures before action.
+        health_check_auto_restart:
+          type: boolean
+          description: Auto-restart the space on failure (false = flag only).
 
     TemplateDetailsDay:
       type: object

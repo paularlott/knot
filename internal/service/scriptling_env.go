@@ -344,6 +344,17 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]objec
 	return env, mcpLib, nil
 }
 
+// NewHealthCheckScriptlingEnv creates a minimal scriptling environment for health check scripts.
+// Registers the _knot_healthcheck built-in library only — no system access, no API client.
+func NewHealthCheckScriptlingEnv() (*scriptling.Scriptling, error) {
+	env := scriptling.New()
+	env.EnableOutputCapture()
+	stdlib.RegisterAll(env)
+	env.RegisterLibrary(knotscriptling.GetHealthCheckLibrary())
+	env.SetLibraryLoader(libloader.NewChain(newKnotLibsLoader()))
+	return env, nil
+}
+
 // NewRemoteScriptlingEnv creates a scriptling environment for remote execution in spaces
 // Libraries: stdlib, requests, secrets, subprocess, htmlparser, threads, os, pathlib, sys, knot.space, knot.ai, knot.mcp
 // On-demand loading: Enabled - fetches from server only

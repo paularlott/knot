@@ -799,6 +799,42 @@ const scriptLibraries = [
       },
     ],
   },
+  {
+    module: "knot.healthcheck",
+    description: "Health check functions for space monitoring (agent-side only)",
+    functions: [
+      {
+        name: "http_head",
+        signature: "http_head(url, skip_ssl_verify=False, timeout=10)",
+        description: "HTTP HEAD check, 200 = healthy, anything else = unhealthy. Set skip_ssl_verify=True for self-signed certs",
+        returns: "None - Exits immediately with health result",
+      },
+      {
+        name: "tcp_port",
+        signature: "tcp_port(port, timeout=10)",
+        description: "TCP port check, open = healthy, closed = unhealthy",
+        returns: "None - Exits immediately with health result",
+      },
+      {
+        name: "program",
+        signature: "program(command, timeout=10)",
+        description: "Run command, exit code 0 = healthy, non-zero = unhealthy",
+        returns: "None - Exits immediately with health result",
+      },
+      {
+        name: "pass_check",
+        signature: "pass_check()",
+        description: "Report healthy (for custom checks)",
+        returns: "None - Exits immediately with healthy status",
+      },
+      {
+        name: "fail",
+        signature: 'fail(reason="")',
+        description: "Report unhealthy with optional reason (for custom checks)",
+        returns: "None - Exits immediately with unhealthy status",
+      },
+    ],
+  },
 
   // ============================================================================
   // SCRIPTLING LIBRARIES (scriptling.*) - Standalone scriptling libraries

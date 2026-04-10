@@ -11,6 +11,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/sse"
 	"github.com/paularlott/knot/internal/tunnel_server"
@@ -154,6 +155,13 @@ func handleAgentConnection(conn net.Conn) {
 	}
 	response.AgentToken = agentToken
 	response.ServerURL = cfg.URL
+	response.HealthCheckType = template.HealthCheckType
+	response.HealthCheckConfig = template.HealthCheckConfig
+	response.HealthCheckSkipSSLVerify = template.HealthCheckSkipSSLVerify
+	response.HealthCheckTimeout = template.HealthCheckTimeout
+	response.HealthCheckInterval = template.HealthCheckInterval
+	response.HealthCheckMaxFailures = template.HealthCheckMaxFailures
+	response.HealthCheckAutoRestart = template.HealthCheckAutoRestart
 
 	// Write the response
 	if err := msg.WriteMessage(conn, &response); err != nil {
@@ -253,6 +261,13 @@ func handleAgentSession(stream net.Conn, session *Session) {
 				session.HttpPorts = state.HttpPorts
 				session.HasVSCodeTunnel = state.HasVSCodeTunnel
 				session.VSCodeTunnelName = state.VSCodeTunnelName
+
+				// Update health status if changed
+				prev := health.Get(session.Id)
+				if prev == nil || prev.Healthy != state.Healthy || prev.Reason != state.HealthReason {
+					health.Set(session.Id, state.Healthy, state.HealthReason, 0)
+					stateChanged = true
+				}
 
 				// Only send SSE event if state actually changed
 				if stateChanged {

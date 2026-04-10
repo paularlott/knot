@@ -18,6 +18,20 @@ var migrations = []string{
 	`ALTER TABLE spaces DROP COLUMN shared_with_user_id`,
 	// 7: add space dependency storage
 	`ALTER TABLE spaces ADD COLUMN IF NOT EXISTS depends_on JSON NOT NULL DEFAULT '[]'`,
+	// 8: add health check fields to templates
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_type VARCHAR(16) NOT NULL DEFAULT 'none'`,
+	// 9
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_config TEXT NOT NULL DEFAULT ''`,
+	// 10
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_skip_ssl_verify TINYINT(1) NOT NULL DEFAULT 0`,
+	// 11
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_timeout INT UNSIGNED NOT NULL DEFAULT 10`,
+	// 12
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_interval INT UNSIGNED NOT NULL DEFAULT 30`,
+	// 13
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_max_failures INT UNSIGNED NOT NULL DEFAULT 3`,
+	// 14
+	`ALTER TABLE templates ADD COLUMN IF NOT EXISTS health_check_auto_restart TINYINT(1) NOT NULL DEFAULT 0`,
 }
 
 func (db *MySQLDriver) runMigrations() error {

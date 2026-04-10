@@ -171,6 +171,13 @@ func HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
 	template.MaxUptimeUnit = request.MaxUptimeUnit
 	template.IconURL = request.IconURL
 	template.Zones = request.Zones
+	template.HealthCheckType = request.HealthCheckType
+	template.HealthCheckConfig = request.HealthCheckConfig
+	template.HealthCheckSkipSSLVerify = request.HealthCheckSkipSSLVerify
+	template.HealthCheckTimeout = request.HealthCheckTimeout
+	template.HealthCheckInterval = request.HealthCheckInterval
+	template.HealthCheckMaxFailures = request.HealthCheckMaxFailures
+	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 
 	// Convert schedule
 	template.Schedule = make([]model.TemplateScheduleDays, 7)
@@ -283,6 +290,13 @@ func HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 		request.IconURL,
 		customFields,
 	)
+	template.HealthCheckType = request.HealthCheckType
+	template.HealthCheckConfig = request.HealthCheckConfig
+	template.HealthCheckSkipSSLVerify = request.HealthCheckSkipSSLVerify
+	template.HealthCheckTimeout = request.HealthCheckTimeout
+	template.HealthCheckInterval = request.HealthCheckInterval
+	template.HealthCheckMaxFailures = request.HealthCheckMaxFailures
+	template.HealthCheckAutoRestart = request.HealthCheckAutoRestart
 
 	templateService := service.GetTemplateService()
 	err = templateService.CreateTemplate(template, user)

@@ -216,6 +216,17 @@ func (s *agentServer) ConnectAndServe() {
 			}
 			s.agentClient.firstRegistrationMutex.Unlock()
 
+			// Update health check config on every registration (template may have changed)
+			s.agentClient.healthCheckMu.Lock()
+			s.agentClient.healthCheckType = response.HealthCheckType
+			s.agentClient.healthCheckConfig = response.HealthCheckConfig
+			s.agentClient.healthCheckSkipSSLVerify = response.HealthCheckSkipSSLVerify
+			s.agentClient.healthCheckTimeout = response.HealthCheckTimeout
+			s.agentClient.healthCheckInterval = response.HealthCheckInterval
+			s.agentClient.healthCheckMaxFailures = response.HealthCheckMaxFailures
+			s.agentClient.healthCheckAutoRestart = response.HealthCheckAutoRestart
+			s.agentClient.healthCheckMu.Unlock()
+
 			// Save the keys and github usernames
 			s.agentClient.lastPublicSSHKeys = response.SSHKeys
 			s.agentClient.lastGitHubUsernames = response.GitHubUsernames

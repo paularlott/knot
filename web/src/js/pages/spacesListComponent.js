@@ -254,6 +254,13 @@ window.spacesListComponent = function (
           this.getSpaces();
         });
       }
+
+      // Refresh uptime displays every 5s
+      setInterval(() => {
+        this.spaces.forEach((space) => {
+          space.uptime = this.formatTimeDiff(space.started_at);
+        });
+      }, 5000);
     },
     userSearchReset() {
       this.forUserId = userId;
@@ -342,6 +349,8 @@ window.spacesListComponent = function (
                   existing.is_pending = space.is_pending;
                   existing.is_deleting = space.is_deleting;
                   existing.update_available = space.update_available;
+                  existing.healthy = space.healthy;
+                  existing.health_reason = space.health_reason || "";
                   existing.tcp_ports = space.tcp_ports;
                   existing.http_ports = space.http_ports;
                   existing.has_http_vnc = space.has_http_vnc;
@@ -819,13 +828,12 @@ window.spacesListComponent = function (
 
       // Format based on magnitude
       if (diffSeconds < 60) {
-        // Less than a minute: show seconds
-        return `${diffSeconds}s`;
+        // Less than a minute: show "<1m"
+        return "<1m";
       } else if (diffSeconds < 3600) {
-        // Less than an hour: show minutes and seconds
+        // Less than an hour: show minutes
         const minutes = Math.floor(diffSeconds / 60);
-        const seconds = diffSeconds % 60;
-        return `${minutes}m ${seconds}s`;
+        return `${minutes}m`;
       } else if (diffSeconds < 86400) {
         // Less than a day: show hours
         const hours = Math.floor(diffSeconds / 3600);

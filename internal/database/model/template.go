@@ -23,6 +23,12 @@ const (
 	PlatformContainer = "container"
 
 	LeafNodeZone = "<leaf-node>"
+
+	HealthCheckNone    = "none"
+	HealthCheckTCP     = "tcp"
+	HealthCheckHTTP    = "http"
+	HealthCheckProgram = "program"
+	HealthCheckCustom  = "custom"
 )
 
 // Template object
@@ -54,8 +60,15 @@ type Template struct {
 	Zones            []string               `json:"zones" db:"zones,json"`
 	CustomFields     []TemplateCustomField  `json:"custom_fields" db:"custom_fields,json"`
 	MaxUptime        uint32                 `json:"max_uptime" db:"max_uptime"`
-	MaxUptimeUnit    string                 `json:"max_uptime_unit" db:"max_uptime_unit"`
-	CreatedUserId    string                 `json:"created_user_id" db:"created_user_id"`
+	MaxUptimeUnit            string                 `json:"max_uptime_unit" db:"max_uptime_unit"`
+	HealthCheckType          string                 `json:"health_check_type" db:"health_check_type"`
+	HealthCheckConfig        string                 `json:"health_check_config" db:"health_check_config"`
+	HealthCheckSkipSSLVerify bool                   `json:"health_check_skip_ssl_verify" db:"health_check_skip_ssl_verify"`
+	HealthCheckTimeout       uint32                 `json:"health_check_timeout" db:"health_check_timeout"`
+	HealthCheckInterval      uint32                 `json:"health_check_interval" db:"health_check_interval"`
+	HealthCheckMaxFailures   uint32                 `json:"health_check_max_failures" db:"health_check_max_failures"`
+	HealthCheckAutoRestart   bool                   `json:"health_check_auto_restart" db:"health_check_auto_restart"`
+	CreatedUserId            string                 `json:"created_user_id" db:"created_user_id"`
 	CreatedAt        time.Time              `json:"created_at" db:"created_at"`
 	UpdatedUserId    string                 `json:"updated_user_id" db:"updated_user_id"`
 	UpdatedAt        hlc.Timestamp          `json:"updated_at" db:"updated_at"`

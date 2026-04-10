@@ -9,6 +9,7 @@ import (
 	"github.com/paularlott/knot/internal/config"
 	"github.com/paularlott/knot/internal/database"
 	"github.com/paularlott/knot/internal/database/model"
+	"github.com/paularlott/knot/internal/health"
 	"github.com/paularlott/knot/internal/service"
 	"github.com/paularlott/knot/internal/util/validate"
 )
@@ -127,6 +128,14 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 	// Check if remote
 	isRemote := space.Zone != "" && space.Zone != cfg.Zone
 
+	// Health status from in-memory store
+	healthy := true
+	healthReason := ""
+	if hs := health.Get(space.Id); hs != nil {
+		healthy = hs.Healthy
+		healthReason = hs.Reason
+	}
+
 	// Get node hostname if node_id is set
 	var nodeHostname string
 	if space.NodeId != "" {
@@ -177,6 +186,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		VSCodeTunnel:       vscodeTunnel,
 		IsRemote:           isRemote,
 		NodeHostname:       nodeHostname,
+		Healthy:            healthy,
+		HealthReason:       healthReason,
 	}
 
 	for i, field := range space.CustomFields {
