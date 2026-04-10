@@ -158,10 +158,9 @@ func (c *AgentClient) reportState() {
 
 				c.healthMu.RLock()
 				healthy := c.healthy
-				healthReason := c.healthReason
 				c.healthMu.RUnlock()
 
-				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, healthy, healthReason)
+				reply, err := msg.SendState(server.reportingConn, codeServerAlive, sshAlivePort, vncAliveHttpPort, c.withTerminal, &c.tcpPortMap, &webPorts, hasVSCodeTunnel, vscodeTunnelName, healthy)
 				if err != nil {
 					log.Error("failed to send state to server", "server", server.address)
 				} else {

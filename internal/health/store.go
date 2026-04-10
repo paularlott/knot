@@ -8,7 +8,6 @@ import (
 // Status holds the in-memory health status for a space.
 type Status struct {
 	Healthy             bool      `json:"healthy"`
-	Reason              string    `json:"reason"`
 	LastCheckedAt       time.Time `json:"last_checked_at"`
 	ConsecutiveFailures uint32    `json:"consecutive_failures"`
 }
@@ -26,11 +25,10 @@ func Get(spaceId string) *Status {
 }
 
 // Set updates the health status for a space.
-func Set(spaceId string, healthy bool, reason string, consecutiveFailures uint32) {
+func Set(spaceId string, healthy bool, consecutiveFailures uint32) {
 	mu.Lock()
 	store[spaceId] = &Status{
 		Healthy:             healthy,
-		Reason:              reason,
 		LastCheckedAt:       time.Now().UTC(),
 		ConsecutiveFailures: consecutiveFailures,
 	}

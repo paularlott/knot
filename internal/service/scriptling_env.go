@@ -345,13 +345,12 @@ func NewMCPScriptlingEnv(client *apiclient.ApiClient, mcpParams map[string]objec
 }
 
 // NewHealthCheckScriptlingEnv creates a minimal scriptling environment for health check scripts.
-// Registers the _knot_healthcheck built-in library only — no system access, no API client.
+// Registers the knot.healthcheck built-in library only — no system access, no API client.
 func NewHealthCheckScriptlingEnv() (*scriptling.Scriptling, error) {
 	env := scriptling.New()
 	env.EnableOutputCapture()
 	stdlib.RegisterAll(env)
 	env.RegisterLibrary(knotscriptling.GetHealthCheckLibrary())
-	env.SetLibraryLoader(libloader.NewChain(newKnotLibsLoader()))
 	return env, nil
 }
 

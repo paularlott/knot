@@ -130,10 +130,8 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 
 	// Health status from in-memory store
 	healthy := true
-	healthReason := ""
 	if hs := health.Get(space.Id); hs != nil {
 		healthy = hs.Healthy
-		healthReason = hs.Reason
 	}
 
 	// Get node hostname if node_id is set
@@ -187,7 +185,6 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		IsRemote:           isRemote,
 		NodeHostname:       nodeHostname,
 		Healthy:            healthy,
-		HealthReason:       healthReason,
 	}
 
 	for i, field := range space.CustomFields {

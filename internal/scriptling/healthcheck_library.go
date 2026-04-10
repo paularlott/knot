@@ -17,8 +17,7 @@ import (
 
 // HealthCheckResult holds the result of a health check execution.
 type HealthCheckResult struct {
-	Healthy bool   `json:"healthy"`
-	Reason  string `json:"reason"`
+	Healthy bool `json:"healthy"`
 }
 
 // ParseHealthCheckResult extracts a HealthCheckResult from a script exception message.
@@ -33,8 +32,8 @@ func ParseHealthCheckResult(msg string) (*HealthCheckResult, bool) {
 	return &result, true
 }
 
-func healthCheckExit(healthy bool, reason string) object.Object {
-	data, _ := json.Marshal(HealthCheckResult{Healthy: healthy, Reason: reason})
+func healthCheckExit(healthy bool) object.Object {
+	data, _ := json.Marshal(HealthCheckResult{Healthy: healthy})
 	return &object.Exception{
 		Message:       string(data),
 		ExceptionType: object.ExceptionTypeSystemExit,
@@ -42,9 +41,9 @@ func healthCheckExit(healthy bool, reason string) object.Object {
 	}
 }
 
-// GetHealthCheckLibrary returns the _knot_healthcheck built-in library.
+// GetHealthCheckLibrary returns the knot.healthcheck built-in library.
 func GetHealthCheckLibrary() *object.Library {
-	builder := object.NewLibraryBuilder("_knot_healthcheck", "Internal health check functions")
+	builder := object.NewLibraryBuilder("knot.healthcheck", "Health check functions for space monitoring")
 
 	builder.FunctionWithHelp("http_head", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		if len(args) < 1 {
@@ -80,14 +79,11 @@ func GetHealthCheckLibrary() *object.Library {
 		}
 		resp, httpErr := client.Head(url)
 		if httpErr != nil {
-			return healthCheckExit(false, httpErr.Error())
+			return &object.Boolean{Value: false}
 		}
 		resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			return healthCheckExit(true, "")
-		}
-		return healthCheckExit(false, fmt.Sprintf("HTTP %d", resp.StatusCode))
-	}, "http_head(url, skip_ssl_verify=False, timeout=10) - HTTP HEAD check")
+		return &object.Boolean{Value: resp.StatusCode == http.StatusOK}
+	}, "http_head(url, skip_ssl_verify=False, timeout=10) - HTTP HEAD check, returns True if status 200")
 
 	builder.FunctionWithHelp("tcp_port", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		if len(args) < 1 {
@@ -106,13 +102,13 @@ func GetHealthCheckLibrary() *object.Library {
 			timeout = int(t)
 		}
 
-		conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), time.Duration(timeout)*time.Second)
+		conn, dialErr := net.DialTimeout("tcp", strings.Join([]string{"127.0.0.1:", fmt.Sprint(port)}, ""), time.Duration(timeout)*time.Second)
 		if dialErr != nil {
-			return healthCheckExit(false, dialErr.Error())
+			return &object.Boolean{Value: false}
 		}
 		conn.Close()
-		return healthCheckExit(true, "")
-	}, "tcp_port(port, timeout=10) - TCP port check")
+		return &object.Boolean{Value: true}
+	}, "tcp_port(port, timeout=10) - TCP port check, returns True if port is open")
 
 	builder.FunctionWithHelp("program", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
 		if len(args) < 1 {
@@ -133,32 +129,25 @@ func GetHealthCheckLibrary() *object.Library {
 
 		parts := strings.Fields(command)
 		if len(parts) == 0 {
-			return healthCheckExit(false, "empty command")
+			return &object.Boolean{Value: false}
 		}
 		cmdCtx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 		defer cancel()
 		cmd := exec.CommandContext(cmdCtx, parts[0], parts[1:]...)
 		runErr := cmd.Run()
-		if runErr != nil {
-			return healthCheckExit(false, runErr.Error())
-		}
-		return healthCheckExit(true, "")
-	}, "program(command, timeout=10) - Run command check")
+		return &object.Boolean{Value: runErr == nil}
+	}, "program(command, timeout=10) - Run command, returns True if exit code 0")
 
-	builder.FunctionWithHelp("pass_check", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		return healthCheckExit(true, "")
-	}, "pass_check() - Report healthy")
-
-	builder.FunctionWithHelp("fail", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
-		reason := ""
-		if len(args) >= 1 {
-			r, e := args[0].AsString()
-			if e == nil {
-				reason = r
-			}
+	builder.FunctionWithHelp("check_result", func(ctx context.Context, kwargs object.Kwargs, args ...object.Object) object.Object {
+		if len(args) < 1 {
+			return errors.NewError("check_result: healthy argument required")
 		}
-		return healthCheckExit(false, reason)
-	}, "fail(reason='') - Report unhealthy")
+		healthy, err := args[0].AsBool()
+		if err != nil {
+			return errors.NewError("check_result: argument must be a bool")
+		}
+		return healthCheckExit(healthy)
+	}, "check_result(healthy) - Report health check result and exit")
 
 	return builder.Build()
 }

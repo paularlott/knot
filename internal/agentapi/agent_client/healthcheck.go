@@ -83,17 +83,14 @@ func (c *AgentClient) runHealthCheckTick(logger logger.Logger) {
 	result := runHealthCheckScript(script)
 
 	healthStateMu.Lock()
-	status := "healthy"
-	reason := ""
-	if result != nil && !result.Healthy {
-		status = "unhealthy"
-		reason = result.Reason
+	unhealthy := result != nil && !result.Healthy
+	if unhealthy {
 		state.consecutiveFailures++
 	}
 	failures := state.consecutiveFailures
 	wasUnhealthy := state.wasUnhealthy
 
-	if status == "unhealthy" {
+	if unhealthy {
 		state.wasUnhealthy = true
 	} else if wasUnhealthy {
 		state.wasUnhealthy = false
@@ -107,11 +104,11 @@ func (c *AgentClient) runHealthCheckTick(logger logger.Logger) {
 		hcMaxFailures = 3
 	}
 
-	if status == "unhealthy" {
+	if unhealthy {
 		if failures >= hcMaxFailures {
-			logger.Error("health check failing", "space_id", c.spaceId, "failures", failures, "reason", reason)
+			logger.Error("health check failing", "space_id", c.spaceId, "failures", failures)
 		} else {
-			logger.Warn("health check failed", "space_id", c.spaceId, "failures", failures, "reason", reason)
+			logger.Warn("health check failed", "space_id", c.spaceId, "failures", failures)
 		}
 	} else if wasUnhealthy {
 		logger.Info("health check recovered", "space_id", c.spaceId)
@@ -121,11 +118,10 @@ func (c *AgentClient) runHealthCheckTick(logger logger.Logger) {
 
 	// Store result — reportState picks it up on the next tick
 	c.healthMu.Lock()
-	c.healthy = status != "unhealthy"
-	c.healthReason = reason
+	c.healthy = !unhealthy
 	c.healthMu.Unlock()
 
-	if hcAutoRestart && status == "unhealthy" && failures >= hcMaxFailures {
+	if hcAutoRestart && unhealthy && failures >= hcMaxFailures {
 		logger.Error("health check threshold reached, requesting restart", "space_id", c.spaceId, "failures", failures)
 		healthStateMu.Lock()
 		state.consecutiveFailures = 0
@@ -147,11 +143,11 @@ func buildHealthCheckScript(hcType, hcConfig string, skipSSL bool, timeout uint3
 		if skipSSL {
 			ssl = "True"
 		}
-		return fmt.Sprintf("import knot.healthcheck as hc\nhc.http_head(%q, skip_ssl_verify=%s, timeout=%d)", hcConfig, ssl, timeout)
+		return fmt.Sprintf("import knot.healthcheck as hc\nhc.check_result(hc.http_head(%q, skip_ssl_verify=%s, timeout=%d))", hcConfig, ssl, timeout)
 	case model.HealthCheckTCP:
-		return fmt.Sprintf("import knot.healthcheck as hc\nhc.tcp_port(%s, timeout=%d)", hcConfig, timeout)
+		return fmt.Sprintf("import knot.healthcheck as hc\nhc.check_result(hc.tcp_port(%s, timeout=%d))", hcConfig, timeout)
 	case model.HealthCheckProgram:
-		return fmt.Sprintf("import knot.healthcheck as hc\nhc.program(%q, timeout=%d)", hcConfig, timeout)
+		return fmt.Sprintf("import knot.healthcheck as hc\nhc.check_result(hc.program(%q, timeout=%d))", hcConfig, timeout)
 	case model.HealthCheckCustom:
 		return hcConfig
 	}
@@ -161,7 +157,7 @@ func buildHealthCheckScript(hcType, hcConfig string, skipSSL bool, timeout uint3
 func runHealthCheckScript(script string) *knotscriptling.HealthCheckResult {
 	env, err := service.NewHealthCheckScriptlingEnv()
 	if err != nil {
-		return &knotscriptling.HealthCheckResult{Healthy: false, Reason: err.Error()}
+		return &knotscriptling.HealthCheckResult{Healthy: false}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -179,7 +175,7 @@ func runHealthCheckScript(script string) *knotscriptling.HealthCheckResult {
 		if hcResult, ok := knotscriptling.ParseHealthCheckResult(evalErr.Error()); ok {
 			return hcResult
 		}
-		return &knotscriptling.HealthCheckResult{Healthy: false, Reason: evalErr.Error()}
+		return &knotscriptling.HealthCheckResult{Healthy: false}
 	}
 
 	return &knotscriptling.HealthCheckResult{Healthy: true}

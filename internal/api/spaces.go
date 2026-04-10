@@ -158,7 +158,6 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 		// Health status from in-memory store
 		if hs := health.Get(space.Id); hs != nil {
 			s.Healthy = hs.Healthy
-			s.HealthReason = hs.Reason
 		} else {
 			s.Healthy = true
 		}

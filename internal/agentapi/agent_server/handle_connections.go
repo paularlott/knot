@@ -264,8 +264,8 @@ func handleAgentSession(stream net.Conn, session *Session) {
 
 				// Update health status if changed
 				prev := health.Get(session.Id)
-				if prev == nil || prev.Healthy != state.Healthy || prev.Reason != state.HealthReason {
-					health.Set(session.Id, state.Healthy, state.HealthReason, 0)
+				if prev == nil || prev.Healthy != state.Healthy || true {
+					health.Set(session.Id, state.Healthy, 0)
 					stateChanged = true
 				}
 

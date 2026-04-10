@@ -16,14 +16,13 @@ type AgentState struct {
 	HasVSCodeTunnel  bool
 	VSCodeTunnelName string
 	Healthy          bool
-	HealthReason     string
 }
 
 type AgentStateReply struct {
 	Endpoints []string
 }
 
-func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string, hasVSCodeTunnel bool, vscodeTunnelName string, healthy bool, healthReason string) (AgentStateReply, error) {
+func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, hasTerminal bool, tcpPorts *map[string]string, httpPorts *map[string]string, hasVSCodeTunnel bool, vscodeTunnelName string, healthy bool) (AgentStateReply, error) {
 	logger := log.WithGroup("agent")
 	err := WriteCommand(conn, CmdUpdateState)
 	if err != nil {
@@ -41,7 +40,6 @@ func SendState(conn net.Conn, hasCodeServer bool, sshPort int, vncHttpPort int, 
 		HasVSCodeTunnel:  hasVSCodeTunnel,
 		VSCodeTunnelName: vscodeTunnelName,
 		Healthy:          healthy,
-		HealthReason:     healthReason,
 	})
 	if err != nil {
 		logger.WithError(err).Error("writing state message")

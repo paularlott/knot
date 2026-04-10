@@ -52,9 +52,8 @@ type AgentClient struct {
 	healthCheckAutoRestart   bool
 
 	// Current health status — set by health check runner, read by reportState
-	healthMu     sync.RWMutex
-	healthy      bool
-	healthReason string
+	healthMu sync.RWMutex
+	healthy  bool
 }
 
 func NewAgentClient(defaultServerAddress, spaceId string) *AgentClient {

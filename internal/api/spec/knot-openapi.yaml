@@ -3895,9 +3895,6 @@ components:
         healthy:
           type: boolean
           description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
-        health_reason:
-          type: string
-          description: Reason for unhealthy status, if any.
 
     SpaceInfoList:
       type: object
@@ -4119,9 +4116,6 @@ components:
         healthy:
           type: boolean
           description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
-        health_reason:
-          type: string
-          description: Reason for unhealthy status, if any.
 
     TemplateInfo:
       type: object

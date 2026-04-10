@@ -350,7 +350,6 @@ window.spacesListComponent = function (
                   existing.is_deleting = space.is_deleting;
                   existing.update_available = space.update_available;
                   existing.healthy = space.healthy;
-                  existing.health_reason = space.health_reason || "";
                   existing.tcp_ports = space.tcp_ports;
                   existing.http_ports = space.http_ports;
                   existing.has_http_vnc = space.has_http_vnc;
