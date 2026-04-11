@@ -1800,6 +1800,102 @@ paths:
           $ref: "#/components/responses/internal-server-error"
       security: [BearerAuth: []]
 
+  /api/spaces/stacks/{stack_name}/start:
+    post:
+      summary: Start a Stack
+      description: Start all spaces in a stack. Spaces are started in dependency order.
+      operationId: startStack
+      tags:
+        - Spaces
+      parameters:
+        - name: stack_name
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The name of the stack to start.
+        - name: user_id
+          in: query
+          description: Optional user ID to operate on behalf of (admin only).
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Stack start operation accepted and processing.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spaces/stacks/{stack_name}/stop:
+    post:
+      summary: Stop a Stack
+      description: Stop all spaces in a stack. Spaces are stopped in reverse dependency order.
+      operationId: stopStack
+      tags:
+        - Spaces
+      parameters:
+        - name: stack_name
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The name of the stack to stop.
+        - name: user_id
+          in: query
+          description: Optional user ID to operate on behalf of (admin only).
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Stack stop operation accepted and processing.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
+  /api/spaces/stacks/{stack_name}/restart:
+    post:
+      summary: Restart a Stack
+      description: Restart all spaces in a stack. Spaces are restarted in dependency order.
+      operationId: restartStack
+      tags:
+        - Spaces
+      parameters:
+        - name: stack_name
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The name of the stack to restart.
+        - name: user_id
+          in: query
+          description: Optional user ID to operate on behalf of (admin only).
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Stack restart operation accepted and processing.
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "404":
+          $ref: "#/components/responses/not-found"
+        "500":
+          $ref: "#/components/responses/internal-server-error"
+      security: [BearerAuth: []]
+
   /api/spaces/{space_id}/files/read:
     post:
       summary: Read File from Space
