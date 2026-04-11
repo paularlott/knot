@@ -1,5 +1,5 @@
 {{ define "space-form-content" }}
-<div x-data="spaceForm(spaceFormModal.isEdit, spaceFormModal.spaceId, '{{ .user_id }}', '{{ .preferredShell }}', spaceFormModal.forUserId, spaceFormModal.forUserUsername, spaceFormModal.templateId, {{ .permissionSetSpaceDependencies }})" x-init="initData">
+<div x-data="spaceForm(spaceFormModal.isEdit, spaceFormModal.spaceId, '{{ .user_id }}', '{{ .preferredShell }}', spaceFormModal.forUserId, spaceFormModal.forUserUsername, spaceFormModal.templateId, {{ .permissionSetSpaceDependencies }}, {{ .permissionUseSpaceStartupScript }})" x-init="initData">
   {{ template "loading" . }}
   <form class="space-y-6" x-show="!loading" x-cloak @submit.prevent="submitData">
     <div>
@@ -91,7 +91,7 @@
       </select>
       <div class="description">The shell that will be used when you open a web terminal in this space.</div>
     </div>
-    <div x-show="!isManual" x-cloak>
+    <div x-show="!isManual && canSetSpaceStartupScript" x-cloak>
       <div x-data="autocompleterScript()" data-parent-var-group="formData" data-parent-variable="startup_script_id" @refresh-autocompleter.window="refresh()" x-id="['dropdown']">
         <label for="startup_script_id" class="form-label">User Startup Script</label>
         <div class="relative w-full">

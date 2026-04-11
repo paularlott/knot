@@ -15,6 +15,7 @@ window.spaceForm = function (
   forUserUsername,
   templateId,
   canSetSpaceDependencies,
+  canSetSpaceStartupScript,
 ) {
   return {
     iconList: [],
@@ -34,6 +35,7 @@ window.spaceForm = function (
     },
     dependencyTargetZone: "",
     canSetSpaceDependencies,
+    canSetSpaceStartupScript,
     formData: {
       name: "",
       description: "",
