@@ -20,6 +20,7 @@ type SpaceRequest struct {
 	SelectedNodeId  string             `json:"selected_node_id,omitempty"`
 	StartupScriptId string             `json:"startup_script_id,omitempty"`
 	DependsOn       []string           `json:"depends_on"`
+	Stack           string             `json:"stack"`
 }
 
 type CreateSpaceResponse struct {
@@ -66,6 +67,7 @@ type SpaceInfo struct {
 	IconURL         string            `json:"icon_url"`
 	Healthy         bool              `json:"healthy"`
 	NodeHostname    string            `json:"node_hostname"`
+	Stack           string            `json:"stack"`
 }
 
 type SpaceInfoList struct {
@@ -126,6 +128,7 @@ type SpaceDefinition struct {
 	Healthy            bool                         `json:"healthy"`
 	IsRemote           bool                         `json:"is_remote"`
 	NodeHostname       string                       `json:"node_hostname"`
+	Stack              string                       `json:"stack"`
 }
 
 type RunCommandRequest struct {

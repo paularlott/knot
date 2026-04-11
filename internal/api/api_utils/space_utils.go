@@ -185,6 +185,7 @@ func GetSpaceDetails(spaceId string, user *model.User) (*apiclient.SpaceDefiniti
 		IsRemote:           isRemote,
 		NodeHostname:       nodeHostname,
 		Healthy:            healthy,
+		Stack:              space.Stack,
 	}
 
 	for i, field := range space.CustomFields {

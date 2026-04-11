@@ -80,7 +80,7 @@ const scriptLibraries = [
       },
       {
         name: "create",
-        signature: "create(name, template_name, description='', shell='bash')",
+        signature: "create(name, template_name, description='', shell='bash', depends_on=None, stack='')",
         description: "Create a new space",
         returns: "str - New space ID",
       },
@@ -120,7 +120,7 @@ const scriptLibraries = [
         signature: "get(name)",
         description: "Get space details as a dict",
         returns:
-          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shares, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, created_at",
+          "dict - Space details with id, name, description, template_id, template_name, user_id, username, shares, shell, platform, zone, is_running, is_pending, is_deleting, node_hostname, created_at, stack",
       },
       {
         name: "update",
@@ -146,6 +146,36 @@ const scriptLibraries = [
         name: "unshare",
         signature: "unshare(name)",
         description: "Remove space share",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "get_stack",
+        signature: "get_stack(name)",
+        description: "Get the stack name for a space",
+        returns: "str - Stack name (empty string if unstacked)",
+      },
+      {
+        name: "set_stack",
+        signature: "set_stack(name, stack)",
+        description: "Set the stack name for a space (empty string to unstack)",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "start_stack",
+        signature: "start_stack(stack_name)",
+        description: "Start all spaces in a stack (requires Pro license)",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "stop_stack",
+        signature: "stop_stack(stack_name)",
+        description: "Stop all spaces in a stack (requires Pro license)",
+        returns: "bool - True if successful",
+      },
+      {
+        name: "restart_stack",
+        signature: "restart_stack(stack_name)",
+        description: "Restart all spaces in a stack (requires Pro license)",
         returns: "bool - True if successful",
       },
       {

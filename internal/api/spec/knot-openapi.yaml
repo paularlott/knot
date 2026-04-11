@@ -3895,6 +3895,9 @@ components:
         healthy:
           type: boolean
           description: Whether the space is currently healthy. Defaults to true when no health checks are configured.
+        stack:
+          type: string
+          description: The stack name this space belongs to, or empty if unstacked.
 
     SpaceInfoList:
       type: object
@@ -3970,6 +3973,9 @@ components:
             type: string
             format: uuid
           description: The IDs of spaces that must already be running before this space can start.
+        stack:
+          type: string
+          description: The stack name to group this space under, or empty for unstacked.
 
     SpaceVolume:
       type: object
@@ -4035,6 +4041,9 @@ components:
         zone:
           type: string
           description: The zone of the space.
+        stack:
+          type: string
+          description: The stack name this space belongs to, or empty if unstacked.
         is_deployed:
           type: boolean
           description: Flags if the space is deployed.

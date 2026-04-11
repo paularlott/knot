@@ -111,6 +111,7 @@ window.spacesListComponent = function (
       .as("spaceFilterSharedWithMeOnly")
       .using(sessionStorage),
     action: "stop", // 'stop' or 'restart'
+    collapsedStacks: {}, // tracks which stacks are collapsed
     templateSelector: {
       show: false,
       templates: [],
@@ -360,6 +361,7 @@ window.spacesListComponent = function (
                   existing.has_state = space.has_state;
                   existing.started_at = space.started_at;
                   existing.template_name = space.template_name;
+                  existing.stack = space.stack || "";
                   existing.uptime = this.formatTimeDiff(space.started_at);
 
                   if (existing.icon_url !== space.icon_url) {
@@ -815,6 +817,33 @@ window.spacesListComponent = function (
         });
     },
 
+    toggleStack(stackName) {
+      this.collapsedStacks[stackName] = !this.collapsedStacks[stackName];
+    },
+    hasStacks() {
+      return this.spaces.some((s) => s.stack && !s.searchHide);
+    },
+    unstackedVisibleSpaces() {
+      return this.spaces.filter((s) => !s.stack && !s.searchHide);
+    },
+    stackedGroups() {
+      const groups = new Map();
+      for (const space of this.spaces) {
+        if (!space.stack || space.searchHide) continue;
+        if (!groups.has(space.stack)) {
+          groups.set(space.stack, []);
+        }
+        groups.get(space.stack).push(space);
+      }
+
+      return [...groups.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([name, spaces]) => ({
+          name,
+          spaces,
+          count: spaces.length,
+        }));
+    },
     formatTimeDiff(utcTime) {
       // Convert input to Date if not already
       const givenTime = utcTime instanceof Date ? utcTime : new Date(utcTime);

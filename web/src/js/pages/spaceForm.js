@@ -48,7 +48,9 @@ window.spaceForm = function (
       selected_node_id: "",
       startup_script_id: "",
       depends_on: [],
+      stack: "",
     },
+    stackSuggestions: [],
     template_id: templateId,
     template: {
       custom_fields: [],
@@ -111,6 +113,16 @@ window.spaceForm = function (
           is_remote: space.is_remote,
         }));
       this.refreshDependencyOptions();
+
+      // Derive stack name suggestions from the user's spaces
+      const stackSet = new Set();
+      for (const space of data.spaces || []) {
+        if (space.stack && space.stack.trim()) {
+          stackSet.add(space.stack.trim());
+        }
+      }
+      this.stackSuggestions = [...stackSet].sort();
+      this.$dispatch("refresh-stack-autocompleter");
     },
 
     dependencyDescription(option) {
@@ -276,6 +288,7 @@ window.spaceForm = function (
           this.formData.startup_script_id = space.startup_script_id || "";
           this.formData.depends_on = space.depends_on || [];
           this.dependencyTargetZone = space.zone || "";
+          this.formData.stack = space.stack || "";
 
           // Refresh the autocompleter to show the selected script
           this.$nextTick(() => {

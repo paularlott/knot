@@ -38,6 +38,7 @@ def _build_space_update_body(space, **overrides):
         "custom_fields": space.get("custom_fields", []),
         "startup_script_id": space.get("startup_script_id", ""),
         "depends_on": space.get("depends_on", []),
+        "stack": space.get("stack", ""),
     }
     body.update(overrides)
     return body
@@ -65,6 +66,7 @@ def list():
             "description": space.get("description", ""),
             "is_running": space.get("is_deployed", False),
             "depends_on": space.get("depends_on", []),
+            "stack": space.get("stack", ""),
         })
 
     return result
@@ -122,10 +124,11 @@ def get(name):
         "icon_url": response.get("icon_url", ""),
         "custom_fields": response.get("custom_fields", []),
         "startup_script_id": response.get("startup_script_id", ""),
+        "stack": response.get("stack", ""),
     }
 
 
-def create(name, template_name, description="", shell="bash", depends_on=None):
+def create(name, template_name, description="", shell="bash", depends_on=None, stack=""):
     """Create a new space.
 
     Args:
@@ -134,6 +137,7 @@ def create(name, template_name, description="", shell="bash", depends_on=None):
         description: Optional description
         shell: Shell to use (default: "bash")
         depends_on: Optional list of dependency space names or IDs
+        stack: Optional stack name to group this space under
 
     Returns:
         The new space ID
@@ -159,6 +163,7 @@ def create(name, template_name, description="", shell="bash", depends_on=None):
         "description": description,
         "shell": shell,
         "depends_on": _resolve_dependency_ids(depends_on),
+        "stack": stack,
     }
 
     response = api.post("/api/spaces", body)
@@ -302,6 +307,86 @@ def set_dependencies(name, depends_on):
         depends_on=_resolve_dependency_ids(depends_on),
     )
     api.put(f"/api/spaces/{name}", body)
+    return True
+
+
+def get_stack(name):
+    """Get the stack name for a space.
+
+    Args:
+        name: Space name or ID
+
+    Returns:
+        The stack name string (empty string if unstacked)
+    """
+    space = get(name)
+    return space.get("stack", "")
+
+
+def set_stack(name, stack):
+    """Set the stack name for a space.
+
+    Args:
+        name: Space name or ID
+        stack: Stack name (empty string to unstack)
+
+    Returns:
+        True if successful
+    """
+    space = get(name)
+    body = _build_space_update_body(space, stack=stack)
+    api.put(f"/api/spaces/{name}", body)
+    return True
+
+
+def start_stack(stack_name):
+    """Start all spaces in a stack.
+
+    Args:
+        stack_name: Stack name
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if not configured, on API error, or if not licensed for
+        stack lifecycle operations
+    """
+    api.post(f"/api/spaces/stacks/{stack_name}/start")
+    return True
+
+
+def stop_stack(stack_name):
+    """Stop all spaces in a stack.
+
+    Args:
+        stack_name: Stack name
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if not configured, on API error, or if not licensed for
+        stack lifecycle operations
+    """
+    api.post(f"/api/spaces/stacks/{stack_name}/stop")
+    return True
+
+
+def restart_stack(stack_name):
+    """Restart all spaces in a stack.
+
+    Args:
+        stack_name: Stack name
+
+    Returns:
+        True if successful
+
+    Raises:
+        Exception if not configured, on API error, or if not licensed for
+        stack lifecycle operations
+    """
+    api.post(f"/api/spaces/stacks/{stack_name}/restart")
     return True
 
 

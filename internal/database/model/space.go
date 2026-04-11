@@ -74,6 +74,7 @@ type Space struct {
 	Name             string             `json:"name" db:"name" msgpack:"name"`
 	Description      string             `json:"description" db:"description" msgpack:"description"`
 	Note             string             `json:"note" db:"note" msgpack:"note"`
+	Stack            string             `json:"stack" db:"stack" msgpack:"stack"`
 	Zone             string             `json:"zone" db:"zone" msgpack:"zone"`
 	NodeId           string             `json:"node_id,omitempty" db:"node_id" msgpack:"node_id,omitempty"`
 	Shell            string             `json:"shell" db:"shell" msgpack:"shell"`

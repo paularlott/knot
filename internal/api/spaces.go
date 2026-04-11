@@ -94,6 +94,8 @@ func HandleGetSpaces(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		s.Stack = space.Stack
+
 		// Get the user
 		u, err := db.GetUser(space.UserId)
 		if err != nil {
@@ -330,6 +332,7 @@ func HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
 	space.NodeId = nodeId
 	space.StartupScriptId = request.StartupScriptId
 	space.DependsOn = request.DependsOn
+	space.Stack = request.Stack
 
 	spaceService := service.GetSpaceService()
 	err = spaceService.CreateSpace(space, user)
@@ -664,6 +667,7 @@ func HandleUpdateSpace(w http.ResponseWriter, r *http.Request) {
 	space.CustomFields = customFields
 	space.StartupScriptId = request.StartupScriptId
 	space.DependsOn = request.DependsOn
+	space.Stack = request.Stack
 
 	err = spaceService.UpdateSpace(space, user)
 	if err != nil {
@@ -1299,4 +1303,16 @@ func HandleSpaceRemoveShare(w http.ResponseWriter, r *http.Request) {
 	)
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func HandleStackStart(w http.ResponseWriter, r *http.Request) {
+	rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "stack lifecycle operations require a pro license"})
+}
+
+func HandleStackStop(w http.ResponseWriter, r *http.Request) {
+	rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "stack lifecycle operations require a pro license"})
+}
+
+func HandleStackRestart(w http.ResponseWriter, r *http.Request) {
+	rest.WriteResponse(http.StatusForbidden, w, r, ErrorResponse{Error: "stack lifecycle operations require a pro license"})
 }
