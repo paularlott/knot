@@ -677,31 +677,31 @@ window.spacesListComponent = function (
     searchChanged() {
       const term = this.searchTerm.toLowerCase();
 
-      // For all spaces if name or template name contains the term show; else hide
+      // Collect stack names that match the search term
+      const matchingStacks = term.length
+        ? new Set(this.spaces.filter((s) => s.stack && s.stack.toLowerCase().includes(term)).map((s) => s.stack))
+        : new Set();
+
       this.visibleSpaces = 0;
       this.spaces.forEach((space) => {
-        if (term.length === 0) {
-          space.searchHide =
-            (this.showLocalOnly && !space.is_local) ||
-            (this.showRunningOnly && !space.is_deployed) ||
-            (this.showSharedOnly &&
-              (!this.hasShare(space) || this.isSharedWithViewer(space))) ||
-            (this.showSharedWithMeOnly &&
-              (!this.hasShare(space) || !this.isSharedWithViewer(space)));
-        } else {
-          space.searchHide =
-            !(
+        const filterHide =
+          (this.showLocalOnly && !space.is_local) ||
+          (this.showRunningOnly && !space.is_deployed) ||
+          (this.showSharedOnly &&
+            (!this.hasShare(space) || this.isSharedWithViewer(space))) ||
+          (this.showSharedWithMeOnly &&
+            (!this.hasShare(space) || !this.isSharedWithViewer(space)));
+
+        const termHide = term.length
+          ? !(
               space.name.toLowerCase().includes(term) ||
               space.template_name.toLowerCase().includes(term) ||
-              space.zone.toLowerCase().includes(term)
-            ) ||
-            (this.showLocalOnly && !space.is_local) ||
-            (this.showRunningOnly && !space.is_deployed) ||
-            (this.showSharedOnly &&
-              (!this.hasShare(space) || this.isSharedWithViewer(space))) ||
-            (this.showSharedWithMeOnly &&
-              (!this.hasShare(space) || !this.isSharedWithViewer(space)));
-        }
+              space.zone.toLowerCase().includes(term) ||
+              (space.stack && matchingStacks.has(space.stack))
+            )
+          : false;
+
+        space.searchHide = filterHide || termHide;
 
         if (!space.searchHide) {
           this.visibleSpaces++;
